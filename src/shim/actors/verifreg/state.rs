@@ -2,8 +2,47 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::{list_all_inner, list_all_inner_pre_v12};
 use anyhow::Context as _;
+macro_rules! list_all_inner_pre_v12 {
+    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
+        let mut entities = $state.$method($store)?;
+        let mut actors = vec![];
+        entities.for_each_outer(|k, _| {
+            let actor_id = fil_actors_shared::$version::parse_uint_key(k)?;
+            actors.push(actor_id);
+            Ok(())
+        })?;
+
+        for actor_id in actors {
+            entities.for_each(actor_id, |k, v| {
+                let claim_id = fil_actors_shared::$version::parse_uint_key(k)?;
+                $map.insert(claim_id, v.into());
+                Ok(())
+            })?;
+        }
+    }};
+}
+
+macro_rules! list_all_inner {
+    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
+        let mut entities = $state.$method($store)?;
+        let mut actors = vec![];
+        entities.for_each(|k, _| {
+            let actor_id = fil_actors_shared::$version::parse_uint_key(k)?;
+            actors.push(actor_id);
+            Ok(())
+        })?;
+
+        for actor_id in actors {
+            entities.for_each_in(actor_id, |k, v| {
+                let claim_id = fil_actors_shared::$version::parse_uint_key(k)?;
+                $map.insert(claim_id, v.into());
+                Ok(())
+            })?;
+        }
+    }};
+}
+
 impl VerifiedRegistryStateExt for State {
     fn get_allocations<BS: Blockstore>(
         &self,
@@ -162,46 +201,4 @@ impl VerifiedRegistryStateExt for State {
         };
         Ok(result)
     }
-}
-
-#[macro_export]
-macro_rules! list_all_inner_pre_v12 {
-    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
-        let mut entities = $state.$method($store)?;
-        let mut actors = vec![];
-        entities.for_each_outer(|k, _| {
-            let actor_id = fil_actors_shared::$version::parse_uint_key(k)?;
-            actors.push(actor_id);
-            Ok(())
-        })?;
-
-        for actor_id in actors {
-            entities.for_each(actor_id, |k, v| {
-                let claim_id = fil_actors_shared::$version::parse_uint_key(k)?;
-                $map.insert(claim_id, v.into());
-                Ok(())
-            })?;
-        }
-    }};
-}
-
-#[macro_export]
-macro_rules! list_all_inner {
-    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
-        let mut entities = $state.$method($store)?;
-        let mut actors = vec![];
-        entities.for_each(|k, _| {
-            let actor_id = fil_actors_shared::$version::parse_uint_key(k)?;
-            actors.push(actor_id);
-            Ok(())
-        })?;
-
-        for actor_id in actors {
-            entities.for_each_in(actor_id, |k, v| {
-                let claim_id = fil_actors_shared::$version::parse_uint_key(k)?;
-                $map.insert(claim_id, v.into());
-                Ok(())
-            })?;
-        }
-    }};
 }
