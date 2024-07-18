@@ -82,9 +82,6 @@ impl RpcMethod<1> for NetFindPeer {
     type Params = (String,);
     type Ok = AddrInfo;
 
-    // This is a no-op due to the fact that `rust-libp2p` implementation is very different to that
-    // in go. However it would be nice to investigate connection limiting options in Rust.
-    // See: <https://github.com/ChainSafe/forest/issues/4355>.
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
