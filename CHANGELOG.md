@@ -57,6 +57,9 @@
 - [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
   `Filecoin.StateLookupRobustAddress` RPC method.
 
+- [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
+  `Filecoin.StateVerifiedRegistryRootKey` RPC method.
+
 - [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
   `forest-cli healthcheck ready`.
 

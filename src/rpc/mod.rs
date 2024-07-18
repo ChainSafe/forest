@@ -174,6 +174,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateFetchRoot);
         $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateVerifiedRegistryRootKey);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetClaims);

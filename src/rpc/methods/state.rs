@@ -200,6 +200,28 @@ impl RpcMethod<2> for StateLookupID {
     }
 }
 
+/// `StateVerifiedRegistryRootKey` returns the address of the Verified Registry's root key
+pub enum StateVerifiedRegistryRootKey {}
+
+impl RpcMethod<1> for StateVerifiedRegistryRootKey {
+    const NAME: &'static str = "Filecoin.StateVerifiedRegistryRootKey";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = Address;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
+        Ok(state.root_key())
+    }
+}
+
 // StateVerifiedClientStatus returns the data cap for the given address.
 // Returns zero if there is no entry in the data cap table for the address.
 pub enum StateVerifierStatus {}
@@ -396,10 +418,7 @@ impl RpcMethod<1> for StateMarketDeals {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
 
         let da = market_state.proposals(ctx.store())?;
         let sa = market_state.states(ctx.store())?;
@@ -464,10 +483,9 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         // Collect active sectors from each partition in each deadline.
         let mut active_sectors = vec![];
         miner_state.for_each_deadline(policy, ctx.store(), |_dlidx, deadline| {
