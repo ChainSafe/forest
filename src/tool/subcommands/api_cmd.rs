@@ -143,7 +143,12 @@ pub enum ApiCommands {
         #[command(flatten)]
         create_tests_args: CreateTestsArgs,
     },
-    DumpTests(CreateTestsArgs),
+    DumpTests {
+        #[command(flatten)]
+        create_tests_args: CreateTestsArgs,
+        #[arg(short, long, default_value = "v1")]
+        path: rpc::ApiPath,
+    },
 }
 
 impl ApiCommands {
@@ -185,17 +190,24 @@ impl ApiCommands {
                 )
                 .await?
             }
-            Self::DumpTests(args) => {
+            Self::DumpTests {
+                create_tests_args,
+                path,
+            } => {
                 for RpcTest {
                     request:
                         rpc::Request {
                             method_name,
                             params,
+                            api_paths,
                             ..
                         },
                     ..
-                } in create_tests(args)?
+                } in create_tests(create_tests_args)?
                 {
+                    if !api_paths.contains(path) {
+                        continue;
+                    }
                     let dialogue = Dialogue {
                         method: method_name.into(),
                         params: match params {
