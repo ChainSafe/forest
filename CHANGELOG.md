@@ -29,6 +29,12 @@
 
 ### Added
 
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllClaims` RPC method.
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllAllocations` RPC method.
+
 - [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
   `Filecoin.StateMinerAllocated` RPC method.
 
@@ -50,6 +56,12 @@
 
 - [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
   `Filecoin.StateLookupRobustAddress` RPC method.
+
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck ready`.
+
+- [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
+  `Filecoin.MpoolPushUntrusted` RPC method.
 
 ### Changed
 

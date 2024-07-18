@@ -30,7 +30,6 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::state_manager::MarketBalance;
 use crate::utils::db::{
@@ -87,14 +86,10 @@ impl RpcMethod<2> for StateCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let state_manager = &ctx.state_manager;
-        let tipset = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         // Handle expensive fork error?
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
-        Ok(state_manager.call(&message, Some(tipset))?)
+        Ok(ctx.state_manager.call(&message, Some(tipset))?)
     }
 }
 
@@ -114,12 +109,8 @@ impl RpcMethod<2> for StateReplay {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk), message_cid): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let state_manager = &ctx.state_manager;
-        let tipset = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
-        Ok(state_manager.replay(tipset, message_cid).await?)
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.replay(tipset, message_cid).await?)
     }
 }
 
@@ -134,10 +125,10 @@ impl RpcMethod<0> for StateNetworkName {
     type Ok = String;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let state_manager = &ctx.state_manager;
-        let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
-
-        Ok(state_manager.get_network_name(heaviest_tipset.parent_state())?)
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
+        Ok(ctx
+            .state_manager
+            .get_network_name(heaviest_tipset.parent_state())?)
     }
 }
 
@@ -155,7 +146,7 @@ impl RpcMethod<1> for StateNetworkVersion {
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_network_version(ts.epoch()))
     }
 }
@@ -177,7 +168,7 @@ impl RpcMethod<2> for StateAccountKey {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
             .resolve_to_deterministic_address(address, ts)
@@ -202,7 +193,7 @@ impl RpcMethod<2> for StateLookupID {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
             .lookup_required_id(&address, ts.as_ref())?)
@@ -226,7 +217,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let aid = ctx
             .state_manager
             .lookup_required_id(&address, ts.as_ref())?;
@@ -254,7 +245,7 @@ impl RpcMethod<2> for StateGetActor {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state = ctx.state_manager.get_actor(&address, *ts.parent_state())?;
         Ok(state)
     }
@@ -384,7 +375,7 @@ impl RpcMethod<2> for StateMarketBalance {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
             .market_balance(&address, &ts)
             .map_err(From::from)
@@ -406,7 +397,7 @@ impl RpcMethod<1> for StateMarketDeals {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
@@ -453,7 +444,7 @@ impl RpcMethod<2> for StateMinerInfo {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.miner_info(&address, &ts)?)
     }
 }
@@ -473,8 +464,8 @@ impl RpcMethod<2> for StateMinerActiveSectors {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -509,7 +500,7 @@ impl RpcMethod<2> for StateMinerAllocated {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -534,8 +525,8 @@ impl RpcMethod<3> for StateMinerPartitions {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, dl_idx, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -571,7 +562,7 @@ impl RpcMethod<3> for StateMinerSectors {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, sectors, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -597,8 +588,8 @@ impl RpcMethod<2> for StateMinerSectorCount {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -635,7 +626,7 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -662,7 +653,7 @@ impl RpcMethod<2> for StateMinerPower {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
             .miner_power(&address, &ts)
             .map_err(From::from)
@@ -684,8 +675,8 @@ impl RpcMethod<2> for StateMinerDeadlines {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -718,8 +709,8 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -744,7 +735,7 @@ impl RpcMethod<2> for StateMinerFaults {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
             .miner_faults(&address, &ts)
             .map_err(From::from)
@@ -766,7 +757,7 @@ impl RpcMethod<2> for StateMinerRecoveries {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
             .miner_recoveries(&address, &ts)
             .map_err(From::from)
@@ -788,7 +779,7 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -844,7 +835,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, pci, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let state = *ts.parent_state();
 
@@ -878,7 +869,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_required_actor(&Address::REWARD_ACTOR, state)?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &Arc::new(ctx.store()),
@@ -913,7 +904,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, pci, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let state = *ts.parent_state();
 
@@ -975,10 +966,7 @@ impl RpcMethod<2> for StateGetReceipt {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (cid, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
             .get_receipt(tipset, cid)
             .map_err(From::from)
@@ -1163,7 +1151,7 @@ impl RpcMethod<2> for StateFetchRoot {
         (root_cid, save_to_file): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let network_send = ctx.network_send.clone();
-        let db = ctx.chain_store.db.clone();
+        let db = ctx.store_owned();
 
         let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
             let (car_tx, car_rx) = flume::bounded(100);
@@ -1326,9 +1314,9 @@ impl RpcMethod<1> for StateCompute {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (epoch,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_store.chain_index.tipset_by_height(
+        let tipset = ctx.chain_index().tipset_by_height(
             epoch,
-            ctx.chain_store.heaviest_tipset(),
+            ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
         let (state_root, _) = ctx
@@ -1367,14 +1355,8 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
         ctx: Ctx<impl Blockstore>,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
-        let chain_config = ctx.state_manager.chain_config();
-        let chain_index = &ctx.chain_store.chain_index;
-        let beacon = ctx.state_manager.beacon_schedule();
-        let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
         let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
@@ -1403,14 +1385,8 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
         ctx: Ctx<impl Blockstore>,
         (personalization, rand_epoch, entropy, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
-        let chain_config = ctx.state_manager.chain_config();
-        let chain_index = &ctx.chain_store.chain_index;
-        let beacon = ctx.state_manager.beacon_schedule();
-        let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
         let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
@@ -1438,7 +1414,7 @@ impl RpcMethod<2> for StateReadState {
         ctx: Ctx<impl Blockstore>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -1469,10 +1445,10 @@ impl RpcMethod<1> for StateCirculatingSupply {
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let height = ts.epoch();
         let root = ts.parent_state();
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         let supply = genesis_info.get_state_circulating_supply(height, &ctx.store_owned(), root)?;
         Ok(supply)
     }
@@ -1493,7 +1469,7 @@ impl RpcMethod<2> for StateVerifiedClientStatus {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let status = ctx.state_manager.verified_client_status(&address, &ts)?;
         Ok(status)
     }
@@ -1514,8 +1490,8 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &ctx.store_owned(),
@@ -1539,7 +1515,7 @@ impl RpcMethod<1> for StateListMiners {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
@@ -1569,7 +1545,7 @@ impl RpcMethod<1> for StateListActors {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut actors = vec![];
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
         state_tree.for_each(|addr, _state| {
             actors.push(addr);
@@ -1594,7 +1570,7 @@ impl RpcMethod<2> for StateMarketStorageDeal {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let store = ctx.store();
         let actor = ctx
             .state_manager
@@ -1625,7 +1601,7 @@ impl RpcMethod<1> for StateMarketParticipants {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let market_state = ctx.state_manager.market_state(&ts)?;
         let escrow_table = market_state.escrow_table(ctx.store())?;
         let locked_table = market_state.locked_table(ctx.store())?;
@@ -1667,9 +1643,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let _: bool = verified;
 
         let state_manager = &ctx.state_manager;
-        let ts = state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let power_actor =
             state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
@@ -1682,17 +1656,17 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
         let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
 
-        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config().clone());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
 
         let supply = genesis_info.get_vm_circulating_supply(
             ts.epoch(),
-            &state_manager.blockstore_owned(),
+            &ctx.store_owned(),
             ts.parent_state(),
         )?;
 
         let power_claim = power_state.total_power();
 
-        let policy = &state_manager.chain_config().policy;
+        let policy = &ctx.chain_config().policy;
 
         let baseline_power = reward_state.this_epoch_baseline_power();
 
@@ -1732,8 +1706,8 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         (epoch,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         {
-            let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp as i64;
-            let block_delay = ctx.state_manager.chain_config().block_delay_secs as i64;
+            let genesis_timestamp = ctx.chain_store().genesis_block_header().timestamp as i64;
+            let block_delay = ctx.chain_config().block_delay_secs as i64;
             // Give it a 1s clock drift buffer
             let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
             let now_timestamp = chrono::Utc::now().timestamp();
@@ -1745,7 +1719,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
             };
         }
 
-        let (_, beacon) = ctx.beacon.beacon_for_epoch(epoch)?;
+        let (_, beacon) = ctx.beacon().beacon_for_epoch(epoch)?;
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
         let entry = beacon.entry(round).await?;
@@ -1770,10 +1744,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -1799,10 +1770,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -2030,10 +1998,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
             .get_all_sectors(&miner_address, &ts)?
@@ -2075,11 +2040,8 @@ impl RpcMethod<3> for StateSectorExpiration {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
-        let policy = &ctx.state_manager.chain_config().policy;
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.chain_config().policy;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -2137,19 +2099,13 @@ impl RpcMethod<3> for StateSectorPartition {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(store, actor.code, actor.state)?;
-        let (deadline, partition) = state.find_sector(
-            store,
-            sector_number,
-            &ctx.state_manager.chain_config().policy,
-        )?;
+        let (deadline, partition) =
+            state.find_sector(store, sector_number, &ctx.chain_config().policy)?;
         Ok(SectorLocation {
             deadline,
             partition,
@@ -2173,10 +2129,7 @@ impl RpcMethod<3> for StateListMessages {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (from_to, ApiTipsetKey(tsk), max_height): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         if from_to.is_empty() {
             return Err(ErrorObject::owned(
                 1,
@@ -2200,7 +2153,7 @@ impl RpcMethod<3> for StateListMessages {
         let mut cur_ts = ts.clone();
 
         while cur_ts.epoch() >= max_height {
-            let msgs = ctx.chain_store.messages_for_tipset(&cur_ts)?;
+            let msgs = ctx.chain_store().messages_for_tipset(&cur_ts)?;
 
             for msg in msgs {
                 if from_to.matches(msg.message()) {
@@ -2212,10 +2165,7 @@ impl RpcMethod<3> for StateListMessages {
                 break;
             }
 
-            let next = ctx
-                .chain_store
-                .chain_index
-                .load_required_tipset(cur_ts.parents())?;
+            let next = ctx.chain_index().load_required_tipset(cur_ts.parents())?;
             cur_ts = next;
         }
 
@@ -2238,7 +2188,7 @@ impl RpcMethod<3> for StateGetClaim {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, claim_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
     }
 }
@@ -2258,7 +2208,7 @@ impl RpcMethod<2> for StateGetClaims {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(Self::get_claims(&ctx.store_owned(), &address, &ts)?)
     }
 }
@@ -2278,6 +2228,26 @@ impl StateGetClaims {
     }
 }
 
+pub enum StateGetAllClaims {}
+
+impl RpcMethod<1> for StateGetAllClaims {
+    const NAME: &'static str = "Filecoin.StateGetAllClaims";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<ClaimID, Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_all_claims(&ts)?)
+    }
+}
+
 pub enum StateGetAllocation {}
 
 impl RpcMethod<3> for StateGetAllocation {
@@ -2293,7 +2263,7 @@ impl RpcMethod<3> for StateGetAllocation {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, allocation_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
             .get_allocation(&address, &ts, allocation_id)?)
@@ -2315,7 +2285,7 @@ impl RpcMethod<2> for StateGetAllocations {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(Self::get_allocations(&ctx.store_owned(), &address, &ts)?)
     }
 }
@@ -2448,6 +2418,26 @@ impl StateGetAllocations {
     }
 }
 
+pub enum StateGetAllAllocations {}
+
+impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
+    const NAME: &'static str = "Filecoin.StateGetAllAllocations";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<AllocationID, Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_all_allocations(&ts)?)
+    }
+}
+
 pub enum StateGetAllocationIdForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
@@ -2463,7 +2453,7 @@ impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let market_actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(ctx.store(), market_actor.code, market_actor.state)?;
@@ -2523,7 +2513,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let config = ctx.state_manager.chain_config().as_ref();
+        let config = ctx.chain_config().as_ref();
         let policy = &config.policy;
 
         // This is the correct implementation, but for conformance with Lotus,
@@ -2614,8 +2604,7 @@ pub struct ForkUpgradeParams {
     upgrade_watermelon_height: ChainEpoch,
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
-    // To be added in the next Lotus release
-    // upgrade_waffle_height: ChainEpoch,
+    upgrade_waffle_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2659,7 +2648,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_waffle_height: get_height(Waffle)?,
+            upgrade_waffle_height: get_height(Waffle)?,
         })
     }
 }

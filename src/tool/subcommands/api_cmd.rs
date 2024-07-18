@@ -18,6 +18,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
@@ -905,6 +906,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateGetAllClaims::request((tipset.key().into(),))?),
+            RpcTest::identity(StateGetAllAllocations::request((tipset.key().into(),))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
                 u16::MAX as _, // invalid sector number
@@ -1293,20 +1296,16 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
-            match new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id) {
-                Ok(tx) => tests.push(RpcTest::identity(
-                    EthGetMessageCidByTransactionHash::request((tx.hash,))?,
-                )),
-                Err(e) => tracing::warn!(?e, "new_eth_tx_from_signed_message failed"),
-            }
+            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
+            tests.push(RpcTest::identity(
+                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+            ));
         }
     }
     tests.push(RpcTest::identity(
         EthGetMessageCidByTransactionHash::request((Hash::from_str(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
-        )
-        .unwrap(),))
-        .unwrap(),
+        )?,))?,
     ));
 
     Ok(tests)
@@ -1534,11 +1533,6 @@ async fn start_offline_server(
 
     populate_eth_mappings(&state_manager, &head_ts)?;
 
-    let beacon = Arc::new(
-        state_manager
-            .chain_config()
-            .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-    );
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
@@ -1573,8 +1567,6 @@ async fn start_offline_server(
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
-        chain_store,
-        beacon,
         shutdown,
         tipset_send,
     };

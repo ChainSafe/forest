@@ -9,10 +9,9 @@ use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
 
-use crate::{rpc::eth::types::EthAddress, shim::crypto::Signature};
+use super::*;
 
-use super::EthChainId;
-pub(super) const EIP_1559_SIG_LEN: usize = 65;
+pub const EIP_1559_SIG_LEN: usize = 65;
 
 #[derive(PartialEq, Debug, Clone, Default, Builder)]
 #[builder(setter(into))]
@@ -32,6 +31,7 @@ pub struct EthEip1559TxArgs {
     #[builder(setter(skip))]
     pub s: BigInt,
 }
+
 impl EthEip1559TxArgs {
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
@@ -60,6 +60,43 @@ impl EthEip1559TxArgs {
         );
 
         Ok(self)
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
+        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
+        let access_list: &[u8] = &[];
+        let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.chain_id))
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.max_priority_fee_per_gas)?)
+            .append(&format_bigint(&self.max_fee_per_gas)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_address(&self.to))
+            .append(&format_bigint(&self.value)?)
+            .append(&self.input)
+            .append_list(access_list)
+            .append(&format_bigint(&self.v)?)
+            .append(&format_bigint(&self.r)?)
+            .append(&format_bigint(&self.s)?)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+}
+
+impl EthEip1559TxArgsBuilder {
+    pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
+        let (params, to) = get_eth_params_and_recipient(message)?;
+        Ok(self
+            .nonce(message.sequence)
+            .value(message.value.clone())
+            .max_fee_per_gas(message.gas_fee_cap.clone())
+            .max_priority_fee_per_gas(message.gas_premium.clone())
+            .gas_limit(message.gas_limit)
+            .to(to)
+            .input(params))
     }
 }
 

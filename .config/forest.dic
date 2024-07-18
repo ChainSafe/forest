@@ -39,6 +39,7 @@ deserialize/D
 destructuring
 DNS
 durations
+EIP
 enum
 Enum
 EOF
@@ -47,6 +48,7 @@ exa
 FIL
 Filecoin/M
 Filops
+FIP
 FVM
 GC
 GiB
