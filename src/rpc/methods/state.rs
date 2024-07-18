@@ -1436,6 +1436,28 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     }
 }
 
+pub enum StateGetRandomnessDigestFromBeacon {}
+
+impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
+    const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromBeacon";
+    const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, ApiTipsetKey);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
+        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+        Ok(digest.to_vec())
+    }
+}
+
 /// Get read state
 pub enum StateReadState {}
 
