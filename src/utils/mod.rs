@@ -8,6 +8,7 @@ pub mod io;
 pub mod misc;
 pub mod monitoring;
 pub mod net;
+pub mod p2p;
 pub mod proofs_api;
 pub mod reqwest_resume;
 pub mod stats;

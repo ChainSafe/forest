@@ -146,6 +146,7 @@ pub enum NetworkMessage {
 #[derive(Debug)]
 pub enum NetRPCMethods {
     AddrsListen(oneshot::Sender<(PeerId, HashSet<Multiaddr>)>),
+    Peer(oneshot::Sender<Option<HashSet<Multiaddr>>>, PeerId),
     Peers(oneshot::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
     Info(oneshot::Sender<NetInfoResult>),
     Connect(oneshot::Sender<bool>, PeerId, HashSet<Multiaddr>),
@@ -482,6 +483,12 @@ async fn handle_network_message(
 
                     if response_channel.send((*peer_id, listeners)).is_err() {
                         warn!("Failed to get Libp2p listeners");
+                    }
+                }
+                NetRPCMethods::Peer(response_channel, peer) => {
+                    let addresses = swarm.behaviour().peer_addresses().get(&peer).cloned();
+                    if response_channel.send(addresses).is_err() {
+                        warn!(%peer, "Failed to get Libp2p peer addresses");
                     }
                 }
                 NetRPCMethods::Peers(response_channel) => {
