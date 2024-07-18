@@ -847,6 +847,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateLookupRobustAddress::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
             RpcTest::identity(StateMinerSectors::request((
                 block.miner_address,
                 None,

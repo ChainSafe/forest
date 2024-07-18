@@ -21,10 +21,11 @@ use crate::shim::actors::{
     market::{BalanceTableExt as _, MarketStateExt as _},
     miner::{MinerStateExt as _, PartitionExt as _},
 };
+use crate::shim::address::Payload;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::SectorNumber;
-use crate::shim::state_tree::StateTree;
+use crate::shim::state_tree::{ActorID, StateTree};
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
@@ -247,6 +248,111 @@ impl RpcMethod<2> for StateGetActor {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let state = ctx.state_manager.get_actor(&address, *ts.parent_state())?;
         Ok(state)
+    }
+}
+
+pub enum StateLookupRobustAddress {}
+
+macro_rules! get_robust_address {
+    ($store:expr, $id_addr_decoded:expr, $state:expr, $make_map_with_root:path, $robust_addr:expr) => {{
+        let map = $make_map_with_root(&$state.address_map, &$store)?;
+        map.for_each(|addr, v| {
+            if *v == $id_addr_decoded {
+                $robust_addr = Address::from_bytes(addr)?;
+                return Ok(());
+            }
+            Ok(())
+        })?;
+        Ok($robust_addr)
+    }};
+}
+
+impl RpcMethod<2> for StateLookupRobustAddress {
+    const NAME: &'static str = "Filecoin.StateLookupRobustAddress";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = Address;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (addr, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let store = ctx.store();
+        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        if let &Payload::ID(id_addr_decoded) = addr.payload() {
+            let init_actor = state_tree.get_required_actor(&Address::INIT_ACTOR)?;
+            let init_state = init::State::load(&store, init_actor.code, init_actor.state)?;
+            let mut robust_addr = Address::default();
+            match init_state {
+                init::State::V0(_) => unimplemented!(),
+                init::State::V8(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v8::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V9(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v9::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V10(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v10::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V11(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v11::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V12(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v12::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V13(state) => get_robust_address!(
+                    store,
+                    id_addr_decoded,
+                    state,
+                    fil_actors_shared::v13::make_map_with_root::<_, ActorID>,
+                    robust_addr
+                ),
+                init::State::V14(state) => {
+                    let map = fil_actor_init_state::v14::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
+            }
+        } else {
+            Ok(Address::default())
+        }
     }
 }
 
