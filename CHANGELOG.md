@@ -66,6 +66,9 @@
 - [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
   `Filecoin.MpoolPushUntrusted` RPC method.
 
+- [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
+
 ### Changed
 
 ### Removed
