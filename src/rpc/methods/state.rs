@@ -1419,7 +1419,7 @@ pub enum StateGetRandomnessDigestFromBeacon {}
 impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromBeacon";
     const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch, ApiTipsetKey);
