@@ -148,6 +148,8 @@ pub enum ApiCommands {
         create_tests_args: CreateTestsArgs,
         #[arg(short, long, default_value = "v1")]
         path: rpc::ApiPath,
+        #[arg(long)]
+        include_ignored: bool,
     },
 }
 
@@ -193,6 +195,7 @@ impl ApiCommands {
             Self::DumpTests {
                 create_tests_args,
                 path,
+                include_ignored,
             } => {
                 for RpcTest {
                     request:
@@ -202,12 +205,17 @@ impl ApiCommands {
                             api_paths,
                             ..
                         },
+                    ignore,
                     ..
                 } in create_tests(create_tests_args)?
                 {
                     if !api_paths.contains(path) {
                         continue;
                     }
+                    if ignore.is_some() && !include_ignored {
+                        continue;
+                    }
+
                     let dialogue = Dialogue {
                         method: method_name.into(),
                         params: match params {
