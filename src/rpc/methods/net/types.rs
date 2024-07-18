@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::lotus_json_with_self;
-use libp2p::Multiaddr;
+use crate::utils::p2p::MultiaddrExt as _;
+use libp2p::{Multiaddr, PeerId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,15 @@ pub struct AddrInfo {
     pub addrs: ahash::HashSet<Multiaddr>,
 }
 lotus_json_with_self!(AddrInfo);
+
+impl AddrInfo {
+    pub fn new(peer: PeerId, addrs: ahash::HashSet<Multiaddr>) -> Self {
+        Self {
+            id: peer.to_string(),
+            addrs: addrs.into_iter().map(|addr| addr.without_p2p()).collect(),
+        }
+    }
+}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct NetInfoResult {

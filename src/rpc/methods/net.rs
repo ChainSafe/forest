@@ -9,7 +9,6 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
-use crate::utils::p2p::MultiaddrExt as _;
 use anyhow::{Context as _, Result};
 use cid::multibase;
 use futures::channel::oneshot;
@@ -34,10 +33,7 @@ impl RpcMethod<0> for NetAddrsListen {
         ctx.network_send.send_async(req).await?;
         let (id, addrs) = rx.await?;
 
-        Ok(AddrInfo {
-            id: id.to_string(),
-            addrs,
-        })
+        Ok(AddrInfo::new(id, addrs))
     }
 }
 
@@ -62,10 +58,7 @@ impl RpcMethod<0> for NetPeers {
 
         let connections = peer_addresses
             .into_iter()
-            .map(|(id, addrs)| AddrInfo {
-                id: id.to_string(),
-                addrs: addrs.into_iter().map(|addr| addr.without_p2p()).collect(),
-            })
+            .map(|(id, addrs)| AddrInfo::new(id, addrs))
             .collect();
 
         Ok(connections)
@@ -94,14 +87,8 @@ impl RpcMethod<1> for NetFindPeer {
         ctx.network_send.send_async(req).await?;
         let addrs = rx
             .await?
-            .with_context(|| format!("peer {peer_id} not found"))?
-            .into_iter()
-            .map(|addr| addr.without_p2p())
-            .collect();
-        Ok(AddrInfo {
-            id: peer_id.to_string(),
-            addrs,
-        })
+            .with_context(|| format!("peer {peer_id} not found"))?;
+        Ok(AddrInfo::new(peer_id, addrs))
     }
 }
 
