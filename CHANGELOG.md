@@ -57,6 +57,9 @@
 - [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
   `forest-cli healthcheck ready`.
 
+- [#4496](https://github.com/ChainSafe/forest/pull/4496) Add support for the
+  `Filecoin.EthEstimateGas` RPC method.
+
 - [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
   `Filecoin.MpoolPushUntrusted` RPC method.
 
