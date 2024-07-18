@@ -129,10 +129,7 @@ impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -152,10 +149,7 @@ impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
     const PARAM_NAMES: [&'static str; 1] = ["msgs"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (Vec<SignedMessage>,);
     type Ok = Vec<Cid>;
@@ -178,10 +172,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -203,10 +194,7 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["msgs"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (Vec<SignedMessage>,);
     type Ok = Vec<Cid>;
