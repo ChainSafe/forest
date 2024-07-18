@@ -21,7 +21,7 @@ use crate::shim::actors::{
     market::{BalanceTableExt as _, MarketStateExt as _},
     miner::{MinerStateExt as _, PartitionExt as _},
 };
-use crate::shim::address::Protocol;
+use crate::shim::address::Payload;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::SectorNumber;
@@ -280,12 +280,10 @@ impl RpcMethod<2> for StateLookupRobustAddress {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (addr, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let store = Arc::new(ctx.store());
-        let state_tree = StateTree::new_from_root(store.clone(), ts.parent_state())?;
-        if addr.protocol() == Protocol::ID {
-            let (id_addr_decoded, _) = unsigned_varint::decode::u64(&addr.payload_bytes())
-                .context("Failed to decode varint from payload bytes")?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let store = ctx.store();
+        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        if let &Payload::ID(id_addr_decoded) = addr.payload() {
             let init_actor = state_tree.get_required_actor(&Address::INIT_ACTOR)?;
             let init_state = init::State::load(&store, init_actor.code, init_actor.state)?;
             let mut robust_addr = Address::default();
