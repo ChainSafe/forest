@@ -1638,6 +1638,7 @@ where
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
     forest: impl Into<Arc<rpc::Client>>,
