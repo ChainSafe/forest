@@ -1199,13 +1199,6 @@ impl RpcMethod<2> for EthEstimateGas {
         } else {
             None
         };
-        tracing::warn!(
-            "tsk: {}, msg: {}",
-            tsk.as_ref().map(|v| v.to_string()).unwrap_or_default(),
-            msg.clone()
-                .into_lotus_json_string_pretty()
-                .unwrap_or_default()
-        );
         match gas::estimate_message_gas(&ctx, msg, None, tsk.clone().into()).await {
             Err(e) => {
                 // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
@@ -1214,16 +1207,10 @@ impl RpcMethod<2> for EthEstimateGas {
                 // So we re-execute the message with EthCall (well, applyMessage which contains the
                 // guts of EthCall). This will give us an ethereum specific error with revert
                 // information.
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4554
                 Err(anyhow::anyhow!("failed to estimate gas: {e}").into())
             }
             Ok(gassed_msg) => {
-                tracing::warn!(
-                    "gassed_msg: {}",
-                    gassed_msg
-                        .clone()
-                        .into_lotus_json_string_pretty()
-                        .unwrap_or_default()
-                );
                 let expected_gas = Self::eth_gas_search(&ctx, gassed_msg, &tsk.into()).await?;
                 Ok(expected_gas.into())
             }
@@ -1240,7 +1227,7 @@ impl EthEstimateGas {
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let (invoc_res, apply_ret, prior_messages, ts) =
+        let (_invoc_res, apply_ret, prior_messages, ts) =
             gas::GasEstimateGasLimit::estimate_call_with_gas(
                 data,
                 msg.clone(),
@@ -1249,18 +1236,6 @@ impl EthEstimateGas {
             )
             .await?;
         if apply_ret.msg_receipt().exit_code().is_success() {
-            tracing::warn!(
-                "eth_gas_search msg_receipt: {}, invoc_res.msg: {}",
-                apply_ret
-                    .msg_receipt()
-                    .into_lotus_json_string_pretty()
-                    .unwrap_or_default(),
-                invoc_res
-                    .msg
-                    .clone()
-                    .into_lotus_json_string_pretty()
-                    .unwrap_or_default(),
-            );
             return Ok(msg.gas_limit());
         }
 
@@ -1299,19 +1274,8 @@ impl EthEstimateGas {
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        tracing::warn!(
-            "gas_search_msg: {}",
-            msg.clone()
-                .into_lotus_json_string_pretty()
-                .unwrap_or_default()
-        );
-
         let mut high = msg.gas_limit;
         let mut low = msg.gas_limit;
-
-        // let apply_ts_messages = std::env::var("FOREST_SKIP_APPLY_TS_MESSAGE_CALL_WITH_GAS")
-        //     .map(|s| s.as_str())
-        //     != Ok("1");
 
         async fn can_succeed<DB>(
             data: &Ctx<DB>,
@@ -1342,7 +1306,6 @@ impl EthEstimateGas {
             }
             low = high;
             high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
-            tracing::warn!(%high, %low, epoch=%ts.epoch(), "loop 1");
         }
 
         let mut check_threshold = high / 100;
@@ -1354,7 +1317,6 @@ impl EthEstimateGas {
                 low = median;
             }
             check_threshold = median / 100;
-            tracing::warn!(%high, %low, %median, %check_threshold, "loop 2");
         }
 
         Ok(high)

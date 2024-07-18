@@ -1347,7 +1347,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ..Default::default()
     };
 
-    // The tipset is only used for resolving the 'from' addrepss and not when
+    // The tipset is only used for resolving the 'from' address and not when
     // computing the gas cost. This means that the `GasEstimateGasLimit` method
     // is inherently non-deterministic but I'm fairly sure we're compensated for
     // everything. If not, this test will be flaky. Instead of disabling it, we
