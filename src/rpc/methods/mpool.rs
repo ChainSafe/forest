@@ -49,10 +49,7 @@ impl RpcMethod<1> for MpoolPending {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let mut ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let (mut pending, mpts) = ctx.mpool.pending()?;
 
@@ -100,11 +97,7 @@ impl RpcMethod<1> for MpoolPending {
                 break;
             }
 
-            ts = ctx
-                .state_manager
-                .chain_store()
-                .chain_index
-                .load_required_tipset(ts.parents())?;
+            ts = ctx.chain_index().load_required_tipset(ts.parents())?;
         }
         Ok(NotNullVec(pending.into_iter().collect()))
     }
@@ -125,10 +118,7 @@ impl RpcMethod<2> for MpoolSelect {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk), ticket_quality): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.mpool.select_messages(&ts, ticket_quality)?)
     }
 }
@@ -156,6 +146,32 @@ impl RpcMethod<1> for MpoolPush {
     }
 }
 
+/// Add `SignedMessage` from untrusted source to `mpool`, return message CID
+pub enum MpoolPushUntrusted {}
+impl RpcMethod<1> for MpoolPushUntrusted {
+    const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
+    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    /// Lotus limits this method to [`Permission::Write`].
+    /// However, since messages can always be pushed over the p2p protocol,
+    /// limiting the RPC doesn't improve security.
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (SignedMessage,);
+    type Ok = Cid;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msg,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus implements a few extra sanity checks that we skip. We skip them
+        // because those checks aren't used for messages received from peers and
+        // therefore aren't safety critical.
+        let cid = ctx.mpool.as_ref().push(msg).await?;
+        Ok(cid)
+    }
+}
+
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
@@ -174,7 +190,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let from = umsg.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;
-        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
             .resolve_to_key_addr(&from, &heaviest_tipset)

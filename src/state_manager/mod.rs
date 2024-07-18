@@ -29,6 +29,7 @@ use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
 use crate::shim::actors::miner::MinerStateExt as _;
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt;
+use crate::shim::actors::LoadActorStateFromBlockstore;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -246,8 +247,8 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
-        Arc::clone(&self.beacon)
+    pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
+        &self.beacon
     }
 
     /// Returns network version for the given epoch.
@@ -274,6 +275,31 @@ where
         state.get_actor(addr)
     }
 
+    /// Gets actor state from implicit actor address
+    pub fn get_actor_state<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<S> {
+        let address = S::ACTOR.with_context(|| {
+            format!(
+                "No accociated actor address for {}, use `get_actor_state_from_address` instead.",
+                std::any::type_name::<S>()
+            )
+        })?;
+        let actor = self.get_required_actor(&address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
+    }
+
+    /// Gets actor state from explicit actor address
+    pub fn get_actor_state_from_address<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+        actor_address: &Address,
+    ) -> anyhow::Result<S> {
+        let actor = self.get_required_actor(actor_address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
+    }
+
     /// Gets required actor from given [`Cid`].
     pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
         let state = self.get_state_tree(&state_cid)?;
@@ -294,6 +320,15 @@ where
     /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            tipset,
+            self.cs.chain_index.clone(),
+            self.beacon.clone(),
+        )
     }
 
     /// Returns the internal, protocol-level network name.
@@ -713,7 +748,7 @@ where
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipset,
             callback,
@@ -1168,7 +1203,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: Arc<BeaconSchedule>,
+        beacon_schedule: &BeaconSchedule,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
@@ -1316,7 +1351,7 @@ where
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
             self.chain_config().clone(),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
         )
@@ -1420,15 +1455,6 @@ where
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
-    }
-
-    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            tipset,
-            self.cs.chain_index.clone(),
-            self.beacon.clone(),
-        )
     }
 }
 

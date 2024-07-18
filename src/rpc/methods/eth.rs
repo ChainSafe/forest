@@ -503,14 +503,14 @@ impl RpcMethod<0> for EthBlockNumber {
         // This is the parent of the head tipset. The head tipset is speculative, has not been
         // recognized by the network, and its messages are only included, not executed.
         // See https://github.com/filecoin-project/ref-fvm/issues/1135.
-        let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest = ctx.chain_store().heaviest_tipset();
         if heaviest.epoch() == 0 {
             // We're at genesis.
             return Ok("0x0".to_string());
         }
         // First non-null parent.
         let effective_parent = heaviest.parents();
-        if let Ok(Some(parent)) = ctx.chain_store.chain_index.load_tipset(effective_parent) {
+        if let Ok(Some(parent)) = ctx.chain_index().load_tipset(effective_parent) {
             Ok(format!("{:#x}", parent.epoch()))
         } else {
             Ok("0x0".to_string())
@@ -532,10 +532,7 @@ impl RpcMethod<0> for EthChainId {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(format!(
-            "{:#x}",
-            ctx.state_manager.chain_config().eth_chain_id
-        ))
+        Ok(format!("{:#x}", ctx.chain_config().eth_chain_id))
     }
 }
 
@@ -553,7 +550,7 @@ impl RpcMethod<0> for EthGasPrice {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.state_manager.chain_store().heaviest_tipset();
+        let ts = ctx.chain_store().heaviest_tipset();
         let block0 = ts.block_headers().first();
         let base_fee = &block0.parent_base_fee;
         if let Ok(premium) = gas::estimate_gas_premium(&ctx, 10000).await {
@@ -580,9 +577,8 @@ impl RpcMethod<2> for EthGetBalance {
         (address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let fil_addr = address.to_filecoin_address()?;
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
-        let state =
-            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&fil_addr)?;
         Ok(EthBigInt(actor.balance.atto().clone()))
     }
@@ -654,11 +650,11 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: &Ctx<DB>,
     tipset: &Arc<Tipset>,
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
-    let msgs = data.chain_store.messages_for_tipset(tipset)?;
+    let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
 
-    let receipts = Receipt::get_receipts(data.state_manager.blockstore(), receipt_root)?;
+    let receipts = Receipt::get_receipts(data.store(), receipt_root)?;
 
     if msgs.len() != receipts.len() {
         bail!(
@@ -931,7 +927,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
 
     let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
 
-    let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
+    let state_tree = StateTree::new_from_root(data.store_owned(), &state_root)?;
 
     let mut full_transactions = vec![];
     let mut hash_transactions = vec![];
@@ -947,11 +943,8 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
             }
         };
 
-        let mut tx = new_eth_tx_from_signed_message(
-            &smsg,
-            &state_tree,
-            data.state_manager.chain_config().eth_chain_id,
-        )?;
+        let mut tx =
+            new_eth_tx_from_signed_message(&smsg, &state_tree, data.chain_config().eth_chain_id)?;
         tx.block_hash = block_hash.clone();
         tx.block_number = block_number.clone();
         tx.transaction_index = ti;
@@ -998,7 +991,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1018,7 +1011,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1038,9 +1031,9 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = get_tipset_from_hash(&ctx.chain_store, &block_hash)?;
+        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
 
-        let head = ctx.chain_store.heaviest_tipset();
+        let head = ctx.chain_store().heaviest_tipset();
         if ts.epoch() > head.epoch() {
             return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
         }
@@ -1064,15 +1057,13 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
         (block_number,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let height = block_number.0;
-        let head = ctx.chain_store.heaviest_tipset();
+        let head = ctx.chain_store().heaviest_tipset();
         if height > head.epoch() {
             return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
         }
-        let ts = ctx.chain_store.chain_index.tipset_by_height(
-            height,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = ctx
+            .chain_index()
+            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(Uint64(count as _))
     }
@@ -1092,7 +1083,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let result = ctx.chain_store.get_mapping(&tx_hash);
+        let result = ctx.chain_store().get_mapping(&tx_hash);
         match result {
             Ok(Some(cid)) => return Ok(Some(cid)),
             Ok(None) => tracing::debug!("Undefined key {tx_hash}"),
@@ -1105,14 +1096,14 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
         let cid = tx_hash.to_cid();
 
         let result: Result<Vec<SignedMessage>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+            crate::chain::messages_from_cids(ctx.store(), &[cid]);
         if result.is_ok() {
             // This is an Eth Tx, Secp message, Or BLS message in the mpool
             return Ok(Some(cid));
         }
 
         let result: Result<Vec<Message>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+            crate::chain::messages_from_cids(ctx.store(), &[cid]);
         if result.is_ok() {
             // This is a BLS message
             return Ok(Some(cid));
@@ -1199,7 +1190,7 @@ impl RpcMethod<3> for EthFeeHistory {
         let reward_percentiles = reward_percentiles.unwrap_or_default();
         Self::validate_reward_precentiles(&reward_percentiles)?;
 
-        let tipset = tipset_by_block_number_or_hash(&ctx.chain_store, newest_block_number.into())?;
+        let tipset = tipset_by_block_number_or_hash(ctx.chain_store(), newest_block_number.into())?;
         let mut oldest_block_height = 1;
         // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
         //  because the next base fee can be inferred from the messages in the newest block.
@@ -1319,7 +1310,7 @@ impl RpcMethod<2> for EthGetCode {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, block_number_or_hash): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_number_or_hash)?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
         let actor = ctx
             .state_manager
@@ -1382,7 +1373,7 @@ impl RpcMethod<3> for EthGetStorageAt {
     ) -> Result<Self::Ok, ServerError> {
         let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
 
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_number_or_hash)?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
         let Some(actor) = ctx
             .state_manager
@@ -1454,9 +1445,8 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
-        let state =
-            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
         if fil_actor_interface::is_evm_actor(&actor.code) {
             let evm_state =
@@ -1507,7 +1497,7 @@ impl RpcMethod<0> for EthProtocolVersion {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let epoch = ctx.chain_store.heaviest_tipset().epoch();
+        let epoch = ctx.chain_store().heaviest_tipset().epoch();
         let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
         Ok(Uint64(version.into()))
     }
@@ -1528,11 +1518,11 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+            crate::chain::messages_from_cids(ctx.store(), &[cid]);
         if let Ok(smsgs) = smsgs_result {
             if let Some(smsg) = smsgs.first() {
                 let hash = if smsg.is_delegated() {
-                    let chain_id = ctx.state_manager.chain_config().eth_chain_id;
+                    let chain_id = ctx.chain_config().eth_chain_id;
                     let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
                     tx.eth_hash()?.into()
                 } else if smsg.is_secp256k1() {
@@ -1544,7 +1534,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
             }
         }
 
-        let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
+        let msg_result = crate::chain::get_chain_message(ctx.store(), &cid);
         if let Ok(msg) = msg_result {
             return Ok(Some(msg.cid().into()));
         }

@@ -100,6 +100,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::mpool::MpoolPending);
         $callback!(crate::rpc::mpool::MpoolSelect);
         $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushUntrusted);
         $callback!(crate::rpc::mpool::MpoolPushMessage);
 
         // msig vertical
@@ -172,6 +173,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateFetchRoot);
         $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateVerifiedRegistryRootKey);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetClaims);
@@ -183,6 +185,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
         $callback!(crate::rpc::state::StateSectorExpiration);
         $callback!(crate::rpc::state::StateSectorPartition);
+        $callback!(crate::rpc::state::StateLookupRobustAddress);
 
         // sync vertical
         $callback!(crate::rpc::sync::SyncCheckBad);
@@ -325,7 +328,6 @@ const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 /// data.
 pub struct RPCState<DB> {
     pub keystore: Arc<RwLock<KeyStore>>,
-    pub chain_store: Arc<crate::chain::ChainStore<DB>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
@@ -334,13 +336,28 @@ pub struct RPCState<DB> {
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
-    pub beacon: Arc<crate::beacon::BeaconSchedule>,
     pub shutdown: mpsc::Sender<()>,
 }
 
 impl<DB: Blockstore> RPCState<DB> {
+    pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
+        self.state_manager.beacon_schedule()
+    }
+
+    pub fn chain_store(&self) -> &Arc<crate::chain::ChainStore<DB>> {
+        self.state_manager.chain_store()
+    }
+
+    pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
+        &self.chain_store().chain_index
+    }
+
+    pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {
+        self.state_manager.chain_config()
+    }
+
     pub fn store(&self) -> &DB {
-        self.chain_store.blockstore()
+        self.chain_store().blockstore()
     }
 
     pub fn store_owned(&self) -> Arc<DB> {

@@ -11,31 +11,39 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::blocks::{FullTipset, Tipset, TipsetKey};
-use crate::libp2p::{
-    chain_exchange::{
-        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-        MESSAGES,
+use crate::{
+    blocks::{FullTipset, Tipset, TipsetKey},
+    libp2p::{
+        chain_exchange::{
+            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
+            MESSAGES,
+        },
+        hello::{HelloRequest, HelloResponse},
+        rpc::RequestResponseError,
+        NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
     },
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-    NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+    utils::{
+        misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
+        stats::Stats,
+    },
 };
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing::{debug, trace, warn};
 
-/// Timeout for response from an RPC request
-// This value could be tweaked, this is just set pretty low to avoid peers
-// timing out requests from slowing the node down. If increase, should create a
-// countermeasure for this.
-const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Timeout milliseconds for response from an RPC request
+// This value is automatically adapted in the range of [5, 60] for different network conditions,
+// being decreased on success and increased on failure
+static CHAIN_EXCHANGE_TIMEOUT_MILLIS: Lazy<ExponentialAdaptiveValueProvider<u64>> =
+    Lazy::new(|| ExponentialAdaptiveValueProvider::new(5000, 2000, 60000, false));
 
 /// Maximum number of concurrent chain exchange request being sent to the
 /// network.
@@ -303,13 +311,16 @@ where
                 }
                 let n_peers = peers.len();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
+                let success_time_cost_millis_stats = Arc::new(Mutex::new(Stats::new()));
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
+                    let success_time_cost_millis_stats = success_time_cost_millis_stats.clone();
                     batch.add(async move {
+                        let start = chrono::Utc::now();
                         match Self::chain_exchange_request(
                             peer_manager,
                             network_send,
@@ -320,7 +331,12 @@ where
                         {
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
-                                    Ok(r) => Ok(r),
+                                    Ok(r) => {
+                                        success_time_cost_millis_stats.lock().update(
+                                            (chrono::Utc::now() - start).num_milliseconds(),
+                                        );
+                                        Ok(r)
+                                    }
                                     Err(error) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
                                         debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange response");
@@ -338,6 +354,11 @@ where
                 }
 
                 let make_failure_message = || {
+                    CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_failure();
+                    tracing::info!(
+                        "Increased chain exchange timeout to {}ms",
+                        CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()
+                    );
                     let mut message = String::new();
                     message.push_str("ChainExchange request failed for all top peers. ");
                     message.push_str(&format!(
@@ -356,6 +377,15 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
+                if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
+                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
+                        tracing::info!(
+                            "Decreased chain exchange timeout to {}ms. Current average: {}ms",
+                            CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
+                            mean,
+                        );
+                    }
+                }
                 trace!("Succeed: handle_chain_exchange_request");
                 v
             }
@@ -399,8 +429,10 @@ where
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures
         // this.
-        let res =
-            tokio::task::spawn_blocking(move || rx.recv_timeout(CHAIN_EXCHANGE_TIMEOUT)).await;
+        let res = tokio::task::spawn_blocking(move || {
+            rx.recv_timeout(Duration::from_millis(CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()))
+        })
+        .await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();

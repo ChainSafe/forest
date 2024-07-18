@@ -43,7 +43,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     max_queue_blks: i64,
     _: ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
-    let ts = data.state_manager.chain_store().heaviest_tipset();
+    let ts = data.chain_store().heaviest_tipset();
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
     let increase_factor =
@@ -94,19 +94,15 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data.state_manager.chain_store().heaviest_tipset();
+    let mut ts = data.chain_store().heaviest_tipset();
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
             break;
         }
-        let pts = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(ts.parents())?;
+        let pts = data.chain_index().load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
-        let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
+        let msgs = crate::chain::messages_for_tipset(data.store_owned(), &pts)?;
 
         prices.append(
             &mut msgs
@@ -210,10 +206,7 @@ where
     msg.set_gas_fee_cap(TokenAmount::from_atto(0));
     msg.set_gas_premium(TokenAmount::from_atto(0));
 
-    let curr_ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(tsk)?;
+    let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
