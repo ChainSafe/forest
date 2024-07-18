@@ -200,6 +200,31 @@ impl RpcMethod<2> for StateLookupID {
     }
 }
 
+/// `StateVerifiedRegistryRootKey` returns the address of the Verified Registry's root key
+pub enum StateVerifiedRegistryRootKey {}
+
+impl RpcMethod<1> for StateVerifiedRegistryRootKey {
+    const NAME: &'static str = "Filecoin.StateVerifiedRegistryRootKey";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = Address;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
+        let state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(state.root_key())
+    }
+}
+
 // StateVerifiedClientStatus returns the data cap for the given address.
 // Returns zero if there is no entry in the data cap table for the address.
 pub enum StateVerifierStatus {}
