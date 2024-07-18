@@ -217,10 +217,7 @@ impl RpcMethod<1> for StateVerifiedRegistryRootKey {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
-        let state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
+        let state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
         Ok(state.root_key())
     }
 }
@@ -421,10 +418,7 @@ impl RpcMethod<1> for StateMarketDeals {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
 
         let da = market_state.proposals(ctx.store())?;
         let sa = market_state.states(ctx.store())?;
@@ -489,10 +483,9 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         // Collect active sectors from each partition in each deadline.
         let mut active_sectors = vec![];
         miner_state.for_each_deadline(policy, ctx.store(), |_dlidx, deadline| {
@@ -1391,6 +1384,28 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     }
 }
 
+pub enum StateGetRandomnessDigestFromTickets {}
+
+impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
+    const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromTickets";
+    const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, ApiTipsetKey);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
+        let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+        Ok(digest.to_vec())
+    }
+}
+
 /// Get randomness from beacon
 pub enum StateGetRandomnessFromBeacon {}
 
@@ -1418,6 +1433,28 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
             &entropy,
         )?;
         Ok(value.to_vec())
+    }
+}
+
+pub enum StateGetRandomnessDigestFromBeacon {}
+
+impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
+    const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromBeacon";
+    const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, ApiTipsetKey);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
+        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+        Ok(digest.to_vec())
     }
 }
 

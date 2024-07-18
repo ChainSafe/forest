@@ -29,6 +29,7 @@ use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
 use crate::shim::actors::miner::MinerStateExt as _;
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt;
+use crate::shim::actors::LoadActorStateFromBlockstore;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -272,6 +273,31 @@ where
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
         let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)
+    }
+
+    /// Gets actor state from implicit actor address
+    pub fn get_actor_state<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<S> {
+        let address = S::ACTOR.with_context(|| {
+            format!(
+                "No accociated actor address for {}, use `get_actor_state_from_address` instead.",
+                std::any::type_name::<S>()
+            )
+        })?;
+        let actor = self.get_required_actor(&address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
+    }
+
+    /// Gets actor state from explicit actor address
+    pub fn get_actor_state_from_address<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+        actor_address: &Address,
+    ) -> anyhow::Result<S> {
+        let actor = self.get_required_actor(actor_address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
     }
 
     /// Gets required actor from given [`Cid`].
