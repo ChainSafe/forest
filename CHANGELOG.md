@@ -63,6 +63,9 @@
 - [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
   `forest-cli healthcheck ready`.
 
+- [#4569](https://github.com/ChainSafe/forest/pull/4569) Add support for the
+  `Filecoin.NetFindPeer` RPC method.
+
 - [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
   `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
 
