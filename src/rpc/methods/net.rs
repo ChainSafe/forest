@@ -11,7 +11,6 @@ use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, Result};
 use cid::multibase;
-use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
 
 pub enum NetAddrsListen {}
@@ -25,13 +24,13 @@ impl RpcMethod<0> for NetAddrsListen {
     type Ok = AddrInfo;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AddrsListen(tx),
         };
 
         ctx.network_send.send_async(req).await?;
-        let (id, addrs) = rx.await?;
+        let (id, addrs) = rx.recv_async().await?;
 
         Ok(AddrInfo::new(id, addrs))
     }
@@ -48,13 +47,13 @@ impl RpcMethod<0> for NetPeers {
     type Ok = Vec<AddrInfo>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Peers(tx),
         };
 
         ctx.network_send.send_async(req).await?;
-        let peer_addresses = rx.await?;
+        let peer_addresses = rx.recv_async().await?;
 
         let connections = peer_addresses
             .into_iter()
@@ -80,12 +79,13 @@ impl RpcMethod<1> for NetFindPeer {
         (peer_id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Peer(tx, peer_id),
         };
         ctx.network_send.send_async(req).await?;
         let addrs = rx
+            .recv_async()
             .await?
             .with_context(|| format!("peer {peer_id} not found"))?;
         Ok(AddrInfo::new(peer_id, addrs))
@@ -118,13 +118,13 @@ impl RpcMethod<0> for NetInfo {
     type Ok = NetInfoResult;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Info(tx),
         };
 
         ctx.network_send.send_async(req).await?;
-        Ok(rx.await?)
+        Ok(rx.recv_async().await?)
     }
 }
 
@@ -145,13 +145,13 @@ impl RpcMethod<1> for NetConnect {
         let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
         let peer_id = PeerId::from_bytes(&id)?;
 
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Connect(tx, peer_id, addrs),
         };
 
         ctx.network_send.send_async(req).await?;
-        let success = rx.await?;
+        let success = rx.recv_async().await?;
 
         if success {
             Ok(())
@@ -177,13 +177,13 @@ impl RpcMethod<1> for NetDisconnect {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&id)?;
 
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::Disconnect(tx, peer_id),
         };
 
         ctx.network_send.send_async(req).await?;
-        rx.await?;
+        rx.recv_async().await?;
 
         Ok(())
     }
@@ -205,13 +205,13 @@ impl RpcMethod<1> for NetAgentVersion {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&id)?;
 
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AgentVersion(tx, peer_id),
         };
 
         ctx.network_send.send_async(req).await?;
-        if let Some(agent_version) = rx.await? {
+        if let Some(agent_version) = rx.recv_async().await? {
             Ok(agent_version)
         } else {
             Err(anyhow::anyhow!("item not found").into())
@@ -230,12 +230,12 @@ impl RpcMethod<0> for NetAutoNatStatus {
     type Ok = NatStatusResult;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AutoNATStatus(tx),
         };
         ctx.network_send.send_async(req).await?;
-        let nat_status = rx.await?;
+        let nat_status = rx.recv_async().await?;
         Ok(nat_status.into())
     }
 }

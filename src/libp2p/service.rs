@@ -6,17 +6,20 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::libp2p_bitswap::{
-    request_manager::{BitswapRequestManager, ValidatePeerCallback},
-    BitswapStoreRead, BitswapStoreReadWrite,
-};
 use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
+use crate::{
+    libp2p_bitswap::{
+        request_manager::{BitswapRequestManager, ValidatePeerCallback},
+        BitswapStoreRead, BitswapStoreReadWrite,
+    },
+    utils::flume::FlumeSenderExt as _,
+};
 use ahash::{HashMap, HashSet};
 use cid::Cid;
 use flume::Sender;
-use futures::{channel::oneshot, select, stream::StreamExt as _};
+use futures::{select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
@@ -145,14 +148,14 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    AddrsListen(oneshot::Sender<(PeerId, HashSet<Multiaddr>)>),
-    Peer(oneshot::Sender<Option<HashSet<Multiaddr>>>, PeerId),
-    Peers(oneshot::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
-    Info(oneshot::Sender<NetInfoResult>),
-    Connect(oneshot::Sender<bool>, PeerId, HashSet<Multiaddr>),
-    Disconnect(oneshot::Sender<()>, PeerId),
-    AgentVersion(oneshot::Sender<Option<String>>, PeerId),
-    AutoNATStatus(oneshot::Sender<NatStatus>),
+    AddrsListen(flume::Sender<(PeerId, HashSet<Multiaddr>)>),
+    Peer(flume::Sender<Option<HashSet<Multiaddr>>>, PeerId),
+    Peers(flume::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(flume::Sender<NetInfoResult>),
+    Connect(flume::Sender<bool>, PeerId, HashSet<Multiaddr>),
+    Disconnect(flume::Sender<()>, PeerId),
+    AgentVersion(flume::Sender<Option<String>>, PeerId),
+    AutoNATStatus(flume::Sender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -480,31 +483,21 @@ async fn handle_network_message(
                 NetRPCMethods::AddrsListen(response_channel) => {
                     let listeners = Swarm::listeners(swarm).cloned().collect();
                     let peer_id = Swarm::local_peer_id(swarm);
-
-                    if response_channel.send((*peer_id, listeners)).is_err() {
-                        warn!("Failed to get Libp2p listeners");
-                    }
+                    response_channel.send_or_warn((*peer_id, listeners));
                 }
                 NetRPCMethods::Peer(response_channel, peer) => {
                     let addresses = swarm.behaviour().peer_addresses().get(&peer).cloned();
-                    if response_channel.send(addresses).is_err() {
-                        warn!(%peer, "Failed to get Libp2p peer addresses");
-                    }
+                    response_channel.send_or_warn(addresses);
                 }
                 NetRPCMethods::Peers(response_channel) => {
                     let peer_addresses = swarm.behaviour().peer_addresses();
-                    if response_channel.send(peer_addresses).is_err() {
-                        warn!("Failed to get Libp2p peers");
-                    }
+                    response_channel.send_or_warn(peer_addresses);
                 }
                 NetRPCMethods::Info(response_channel) => {
-                    if response_channel.send(swarm.network_info().into()).is_err() {
-                        warn!("Failed to get Libp2p peers");
-                    }
+                    response_channel.send_or_warn(swarm.network_info().into());
                 }
                 NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
                     let mut success = false;
-
                     for mut multiaddr in addresses {
                         multiaddr.push(Protocol::P2p(peer_id));
 
@@ -532,15 +525,11 @@ async fn handle_network_message(
                         };
                     }
 
-                    if response_channel.send(success).is_err() {
-                        warn!("Failed to connect to a peer");
-                    }
+                    response_channel.send_or_warn(success);
                 }
                 NetRPCMethods::Disconnect(response_channel, peer_id) => {
                     let _ = Swarm::disconnect_peer_id(swarm, peer_id);
-                    if response_channel.send(()).is_err() {
-                        warn!("Failed to disconnect from a peer");
-                    }
+                    response_channel.send_or_warn(());
                 }
                 NetRPCMethods::AgentVersion(response_channel, peer_id) => {
                     let agent_version = swarm.behaviour().peer_info(&peer_id).and_then(|info| {
@@ -548,15 +537,11 @@ async fn handle_network_message(
                             .as_ref()
                             .map(|id| id.agent_version.clone())
                     });
-                    if response_channel.send(agent_version).is_err() {
-                        warn!("Failed to get agent version");
-                    }
+                    response_channel.send_or_warn(agent_version);
                 }
                 NetRPCMethods::AutoNATStatus(response_channel) => {
                     let nat_status = swarm.behaviour().discovery.nat_status();
-                    if response_channel.send(nat_status).is_err() {
-                        warn!("Failed to get nat status");
-                    }
+                    response_channel.send_or_warn(nat_status);
                 }
             }
         }
