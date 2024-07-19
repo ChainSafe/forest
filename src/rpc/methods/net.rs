@@ -80,10 +80,11 @@ impl RpcMethod<1> for NetFindPeer {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
-        let req = NetworkMessage::JSONRPCRequest {
-            method: NetRPCMethods::Peer(tx, peer_id),
-        };
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::Peer(tx, peer_id),
+            })
+            .await?;
         let addrs = rx
             .recv_async()
             .await?
@@ -204,18 +205,13 @@ impl RpcMethod<1> for NetAgentVersion {
         (id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&id)?;
-
         let (tx, rx) = flume::bounded(1);
-        let req = NetworkMessage::JSONRPCRequest {
-            method: NetRPCMethods::AgentVersion(tx, peer_id),
-        };
-
-        ctx.network_send.send_async(req).await?;
-        if let Some(agent_version) = rx.recv_async().await? {
-            Ok(agent_version)
-        } else {
-            Err(anyhow::anyhow!("item not found").into())
-        }
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::AgentVersion(tx, peer_id),
+            })
+            .await?;
+        Ok(rx.recv_async().await?.context("item not found")?)
     }
 }
 
