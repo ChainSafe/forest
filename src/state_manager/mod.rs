@@ -27,10 +27,13 @@ use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
-use crate::shim::actors::miner::MinerStateExt as _;
-use crate::shim::actors::state_load::*;
-use crate::shim::actors::verifreg::VerifiedRegistryStateExt;
-use crate::shim::actors::LoadActorStateFromBlockstore;
+use crate::shim::{
+    actors::{
+        miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
+        LoadActorStateFromBlockstore,
+    },
+    executor::ApplyRet,
+};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -542,7 +545,8 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> Result<InvocResult, Error> {
+        trace_config: VMTrace,
+    ) -> Result<(InvocResult, ApplyRet), Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
@@ -574,7 +578,7 @@ where
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
-                VMTrace::NotTraced,
+                trace_config,
             )?;
 
             for msg in prior_messages {
@@ -589,11 +593,7 @@ where
             vm.apply_message(message)
         })?;
 
-        Ok(InvocResult {
-            msg: message.message().clone(),
-            msg_rct: Some(ret.msg_receipt()),
-            error: ret.failure_info(),
-        })
+        Ok((InvocResult::new(message.message().clone(), &ret), ret))
     }
 
     /// Replays the given message and returns the result of executing the

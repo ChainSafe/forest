@@ -57,6 +57,9 @@
 - [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
   `Filecoin.StateLookupRobustAddress` RPC method.
 
+- [#4496](https://github.com/ChainSafe/forest/pull/4496) Add support for the
+  `Filecoin.EthEstimateGas` RPC method.
+
 - [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
   `Filecoin.StateVerifiedRegistryRootKey` RPC method.
 
