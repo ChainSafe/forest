@@ -20,7 +20,7 @@ pub use fil_actors_shared::v11::runtime::builtins::Type as BuiltinActor;
 // Theoretically, this struct could just have fields for all the actors,
 // acting as a kind of perfect hash map, but performance will be fine as-is
 // #[derive(Serialize, Deserialize, Debug)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct BuiltinActorManifest {
     builtin2cid: BTreeMap<BuiltinActor, Cid>,
     /// The CID that this manifest was built from

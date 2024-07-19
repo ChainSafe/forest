@@ -61,7 +61,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Hyperdrive, 420),
         make_height!(Chocolate, 450),
         make_height!(OhSnap, 480),
-        make_height!(Skyr, 510),
+        make_height!(Skyr, 510, get_bundle_cid("8.0.0-rc.1")),
         make_height!(Shark, 16_800, get_bundle_cid("v9.0.3")),
         make_height!(Hygge, 322_354, get_bundle_cid("v10.0.0-rc.1")),
         make_height!(Lightning, LIGHTNING_EPOCH, get_bundle_cid("v11.0.0-rc2")),
