@@ -9,6 +9,7 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ChainIndex, store::ChainStore};
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
+use crate::shim::actors::MinerActorStateLoad as _;
 use crate::shim::{
     gas::{price_list_by_network_version, Gas, GasTracker},
     state_tree::StateTree,

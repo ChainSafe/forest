@@ -11,6 +11,7 @@ use crate::chain::{
 };
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
+use crate::shim::actors::MinerActorStateLoad as _;
 use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,

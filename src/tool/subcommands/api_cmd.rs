@@ -25,6 +25,7 @@ use crate::rpc::{
     eth::{types::*, *},
 };
 use crate::rpc::{prelude::*, start_rpc, RPCState};
+use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},

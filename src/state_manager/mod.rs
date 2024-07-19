@@ -29,7 +29,7 @@ use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
 use crate::shim::{
     actors::{
-        miner::MinerStateExt as _, verifreg::VerifiedRegistryStateExt as _,
+        miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
         LoadActorStateFromBlockstore,
     },
     executor::ApplyRet,
@@ -291,7 +291,7 @@ where
             )
         })?;
         let actor = self.get_required_actor(&address, *ts.parent_state())?;
-        S::load(self.blockstore(), &actor)
+        S::load_from_blockstore(self.blockstore(), &actor)
     }
 
     /// Gets actor state from explicit actor address
@@ -301,7 +301,7 @@ where
         actor_address: &Address,
     ) -> anyhow::Result<S> {
         let actor = self.get_required_actor(actor_address, *ts.parent_state())?;
-        S::load(self.blockstore(), &actor)
+        S::load_from_blockstore(self.blockstore(), &actor)
     }
 
     /// Gets required actor from given [`Cid`].
