@@ -163,9 +163,8 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
     pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
-            match self.gc_workflow(interval).await {
-                Err(err) => error!("GC run error: {}", err),
-                _ => (),
+            if let Err(err) = self.gc_workflow(interval).await {
+                error!("GC run error: {}", err)
             }
         }
     }
