@@ -192,7 +192,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
 
-        let current_epoch = tipset.epoch();
+        let mut current_epoch = tipset.epoch();
         let last_gc_run = self.fetch_last_gc_run()?;
         // Don't run the GC if there aren't enough state-roots yet or if we're too close to the last
         // GC run. Sleep and yield to the main loop in order to refresh the heaviest tipset value.
