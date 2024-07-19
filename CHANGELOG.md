@@ -63,8 +63,14 @@
 - [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
   `forest-cli healthcheck ready`.
 
+- [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
+
 - [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
   `Filecoin.MpoolPushUntrusted` RPC method.
+
+- [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
 
 ### Changed
 

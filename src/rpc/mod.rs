@@ -153,7 +153,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
         $callback!(crate::rpc::state::StateGetReceipt);
         $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromTickets);
         $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromBeacon);
         $callback!(crate::rpc::state::StateReadState);
         $callback!(crate::rpc::state::StateCirculatingSupply);
         $callback!(crate::rpc::state::StateVerifiedClientStatus);

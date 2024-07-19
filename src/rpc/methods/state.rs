@@ -16,9 +16,11 @@ use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::market::MarketStateExt as _;
+use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
-    market::{BalanceTableExt as _, MarketStateExt as _},
+    market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
 };
 use crate::shim::address::Payload;
@@ -1384,6 +1386,28 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     }
 }
 
+pub enum StateGetRandomnessDigestFromTickets {}
+
+impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
+    const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromTickets";
+    const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, ApiTipsetKey);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
+        let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+        Ok(digest.to_vec())
+    }
+}
+
 /// Get randomness from beacon
 pub enum StateGetRandomnessFromBeacon {}
 
@@ -1411,6 +1435,28 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
             &entropy,
         )?;
         Ok(value.to_vec())
+    }
+}
+
+pub enum StateGetRandomnessDigestFromBeacon {}
+
+impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
+    const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromBeacon";
+    const PARAM_NAMES: [&'static str; 2] = ["rand_epoch", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, ApiTipsetKey);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (rand_epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let chain_rand = ctx.state_manager.chain_rand(tipset);
+        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+        Ok(digest.to_vec())
     }
 }
 

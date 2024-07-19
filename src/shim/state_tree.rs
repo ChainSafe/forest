@@ -25,7 +25,7 @@ use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 pub use super::fvm_shared_latest::{state::StateRoot, ActorID};
-use crate::shim::{address::Address, econ::TokenAmount};
+use crate::shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount};
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -510,6 +510,7 @@ mod tests {
     use crate::blocks::CachingBlockHeader;
     use crate::db::car::AnyCar;
     use crate::networks::{calibnet, mainnet};
+    use crate::shim::actors::InitActorStateLoad as _;
     use cid::Cid;
     use fil_actor_interface::init::{self, State};
     use std::sync::Arc;

@@ -9,6 +9,7 @@ use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
+use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::crypto::{
     cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
 };

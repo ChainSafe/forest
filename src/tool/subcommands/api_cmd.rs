@@ -22,6 +22,7 @@ use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
+use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -771,10 +772,18 @@ fn state_tests_with_tipset<DB: Blockstore>(
             "dead beef".as_bytes().to_vec(),
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateGetRandomnessDigestFromTickets::request((
+            tipset.epoch(),
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateGetRandomnessFromBeacon::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateGetRandomnessDigestFromBeacon::request((
+            tipset.epoch(),
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
