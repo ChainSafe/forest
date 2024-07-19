@@ -10,7 +10,8 @@ use axum::{
 use parking_lot::RwLock;
 
 use crate::{
-    chain_sync::SyncState, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig, Config,
+    chain_sync::SyncState, cli_shared::cli::FEvmConfig, db::SettingsStore, libp2p::PeerManager,
+    networks::ChainConfig, Config,
 };
 
 mod endpoints;
@@ -22,6 +23,7 @@ pub const DEFAULT_HEALTHCHECK_PORT: u16 = 2346;
 pub(crate) struct ForestState {
     pub config: Config,
     pub chain_config: Arc<ChainConfig>,
+    pub fevm_config: Arc<FEvmConfig>,
     pub genesis_timestamp: u64,
     pub sync_state: Arc<RwLock<SyncState>>,
     pub peer_manager: Arc<PeerManager>,
@@ -93,6 +95,7 @@ mod test {
                 ..Default::default()
             },
             chain_config: Arc::new(ChainConfig::default()),
+            fevm_config: Arc::new(FEvmConfig::default()),
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: Arc::new(PeerManager::default()),
@@ -172,6 +175,7 @@ mod test {
                 ..Default::default()
             },
             chain_config: Arc::new(ChainConfig::default()),
+            fevm_config: Arc::new(FEvmConfig::default()),
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: peer_manager.clone(),
@@ -253,6 +257,7 @@ mod test {
                 ..Default::default()
             },
             chain_config: Arc::new(ChainConfig::default()),
+            fevm_config: Arc::new(FEvmConfig::default()),
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: peer_manager.clone(),
@@ -334,6 +339,7 @@ mod test {
                 ..Default::default()
             },
             chain_config: Arc::default(),
+            fevm_config: Arc::default(),
             genesis_timestamp: 0,
             sync_state: Arc::default(),
             peer_manager: Arc::default(),

@@ -75,8 +75,6 @@ pub struct Client {
     pub token_exp: Duration,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
     pub load_actors: bool,
-    /// `TTL` to set for Ethereum `Hash` to `Cid` entries or `None` to never reclaim them.
-    pub eth_mapping_ttl: Option<u32>,
 }
 
 impl Default for Client {
@@ -105,7 +103,6 @@ impl Default for Client {
             ),
             token_exp: Duration::try_seconds(5184000).expect("Infallible"), // 60 Days = 5184000 Seconds
             load_actors: true,
-            eth_mapping_ttl: None,
         }
     }
 }

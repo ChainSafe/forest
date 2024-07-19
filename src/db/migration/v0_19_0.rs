@@ -171,11 +171,8 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
         genesis_header.clone(),
     )?);
 
-    let state_manager = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&chain_config),
-        Arc::new(config.sync.clone()),
-    )?;
+    let state_manager =
+        StateManager::new(Arc::clone(&chain_store), Arc::clone(&chain_config), &config)?;
 
     populate_eth_mappings(&state_manager, &chain_store.heaviest_tipset())?;
 

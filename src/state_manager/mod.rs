@@ -16,6 +16,7 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::chain_sync::SyncConfig;
+use crate::cli_shared::cli::FEvmConfig;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
@@ -42,6 +43,7 @@ use crate::shim::{
 };
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
+use crate::Config;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -219,6 +221,7 @@ pub struct StateManager<DB> {
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
     sync_config: Arc<SyncConfig>,
+    fevm_config: Arc<FEvmConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
@@ -232,7 +235,7 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
-        sync_config: Arc<SyncConfig>,
+        config: &Config,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
@@ -242,7 +245,8 @@ where
             cache: TipsetStateCache::new(),
             beacon,
             chain_config,
-            sync_config,
+            sync_config: Arc::new(config.sync.clone()),
+            fevm_config: Arc::new(config.fevm.clone()),
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -262,6 +266,10 @@ where
 
     pub fn sync_config(&self) -> &Arc<SyncConfig> {
         &self.sync_config
+    }
+
+    pub fn fevm_config(&self) -> &Arc<FEvmConfig> {
+        &self.fevm_config
     }
 
     /// Gets the state tree
