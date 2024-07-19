@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -76,7 +76,7 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::Hygge as usize)
+        .get(&Height::Hygge)
         .ok_or_else(|| anyhow!("no height info for network version NV18"))?
         .bundle
         .as_ref()

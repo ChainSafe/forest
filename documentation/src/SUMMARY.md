@@ -5,13 +5,17 @@
 - [Introduction](./introduction.md)
   - [Basic Usage](./basic_usage.md)
   - [Command-line interface](./cli.md)
+  - [Wallet handling](./wallet.md)
   - [Configuration](./configuration.md)
   - [Environment Variables](./environment_variables.md)
   - [Docker](./docker.md)
+  - [Healthcheck](./healthcheck.md)
   - [Snapshot exporting](./snapshot_export.md)
-  - [JavaScript Console](./js_console.md)
+  - [JSON-RPC API](./jsonrpc.md)
+  - [Backups](./backups.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)
+  - [Bootstrap node](./bootstrap_node.md)
 
 # Developer documentation
 
@@ -28,7 +32,6 @@
   - [State migration spike NV17-NV18](./developer_documentation/state_migration_spike.md)
   - [Test plan](./developer_documentation/test_plan.md)
   - [Devnet Notes](./developer_documentation/devnet_notes.md)
-  - [Filecoin Archive](./developer_documentation/filecoin_archive.md)
   - [Archie and Fuzzy](./developer_documentation/archie_and_fuzzy.md)
   - [RPC API Compatibility](./developer_documentation/rpc_api_compatibility.md)
   - [Notes and sketches](./developer_documentation/notes_and_sketches.md)

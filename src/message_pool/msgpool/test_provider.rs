@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Contains mock implementations for testing internal `MessagePool` APIs
@@ -186,19 +186,6 @@ impl Provider for TestApi {
                 Ok((v, temp))
             }
         }
-    }
-
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let (us, s) = self.messages_for_block(h.block_headers().first())?;
-        let mut msgs = Vec::new();
-
-        for msg in us {
-            msgs.push(ChainMessage::Unsigned(msg));
-        }
-        for smsg in s {
-            msgs.push(ChainMessage::Signed(smsg));
-        }
-        Ok(msgs)
     }
 
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {

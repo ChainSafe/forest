@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -8,27 +8,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainStoreError};
-use crate::libp2p::{
-    hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
-};
-use crate::message::SignedMessage;
-use crate::message_pool::{MessagePool, Provider};
-use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
-use crate::state_manager::StateManager;
-use cid::Cid;
-use futures::{
-    future::{try_join_all, Future},
-    stream::FuturesUnordered,
-    try_join, StreamExt,
-};
-use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use tracing::{debug, error, info, trace, warn};
-
 use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
     metrics,
@@ -39,11 +19,34 @@ use crate::chain_sync::{
     },
     validation::{TipsetValidationError, TipsetValidator},
 };
+use crate::libp2p::{
+    hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
+};
+use crate::message::SignedMessage;
+use crate::message_pool::{MessagePool, Provider};
+use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
+use crate::state_manager::StateManager;
+use crate::{
+    blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey},
+    networks::calculate_expected_epoch,
+};
+use cid::Cid;
+use futures::{
+    future::{try_join_all, Future},
+    stream::FuturesUnordered,
+    try_join, StreamExt,
+};
+use fvm_ipld_blockstore::Blockstore;
+use itertools::{Either, Itertools};
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tracing::{debug, error, info, trace, warn};
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
 const DEFAULT_REQUEST_WINDOW: usize = 8;
-const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 5;
+const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 1;
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
@@ -230,20 +233,22 @@ where
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
-        let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKey
-        let ts = chain_store.load_required_tipset(&tipset_keys)?;
-        for header in ts.block_headers() {
-            // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) =
-                crate::chain::block_messages(chain_store.blockstore(), header)?;
-            // Construct a full block
-            blocks.push(Block {
-                header: header.clone(),
-                bls_messages: bls_msgs,
-                secp_messages: secp_msgs,
-            });
-        }
+        let ts = chain_store.chain_index.load_required_tipset(&tipset_keys)?;
+
+        let blocks: Vec<_> = ts
+            .block_headers()
+            .iter()
+            .map(|header| -> Result<Block, ChainMuxerError> {
+                let (bls_msgs, secp_msgs) =
+                    crate::chain::block_messages(chain_store.blockstore(), header)?;
+                Ok(Block {
+                    header: header.clone(),
+                    bls_messages: bls_msgs,
+                    secp_messages: secp_msgs,
+                })
+            })
+            .try_collect()?;
 
         // Construct FullTipset
         let fts = FullTipset::new(blocks)?;
@@ -282,10 +287,10 @@ where
             // Update the peer metadata based on the response
             match response {
                 Some(_) => {
-                    network.peer_manager().log_success(peer_id, dur);
+                    network.peer_manager().log_success(&peer_id, dur);
                 }
                 None => {
-                    network.peer_manager().log_failure(peer_id, dur);
+                    network.peer_manager().log_failure(&peer_id, dur);
                 }
             }
         }
@@ -293,6 +298,7 @@ where
 
     async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
         network.peer_manager().remove_peer(&peer_id);
+        network.peer_manager().unmark_peer_bad(&peer_id);
     }
 
     async fn gossipsub_block_to_full_tipset(
@@ -359,23 +365,29 @@ where
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
-        block_delay: u64,
+        block_delay: u32,
+        stateless_mode: bool,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
-            NetworkEvent::HelloRequestInbound { source, request } => {
+            NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
                     .inc();
-                metrics::PEER_TIPSET_EPOCH
-                    .get_or_create(&metrics::PeerLabel::new(source))
-                    .set(request.heaviest_tipset_height);
                 return Ok(None);
             }
             NetworkEvent::HelloResponseOutbound { request, source } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
                     .inc();
-                let tipset_keys = TipsetKey::from_iter(request.heaviest_tip_set);
+                let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
+                network.peer_manager().update_peer_head(
+                    source,
+                    if let Ok(Some(ts)) = Tipset::load(chain_store.blockstore(), &tipset_keys) {
+                        Either::Right(Arc::new(ts))
+                    } else {
+                        Either::Left(tipset_keys.clone())
+                    },
+                );
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
@@ -392,13 +404,13 @@ where
                 };
                 (tipset, source)
             }
-            NetworkEvent::HelloRequestOutbound { .. } => {
+            NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::HelloResponseInbound { .. } => {
+            NetworkEvent::HelloResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_RESPONSE_INBOUND)
                     .inc();
@@ -421,8 +433,6 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
-                // Remove peer id labels for disconnected peers
-                metrics::PEER_TIPSET_EPOCH.remove(&metrics::PeerLabel::new(peer_id));
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -435,7 +445,10 @@ where
                     metrics::LIBP2P_MESSAGE_TOTAL
                         .get_or_create(&metrics::values::PUBSUB_BLOCK)
                         .inc();
-                    // Assemble full tipset from block
+                    if stateless_mode {
+                        return Ok(None);
+                    }
+                    // Assemble full tipset from block only in stateful mode
                     let tipset =
                         Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
                     (tipset, source)
@@ -450,31 +463,37 @@ where
                     return Ok(None);
                 }
             },
-            NetworkEvent::ChainExchangeRequestOutbound { .. } => {
+            NetworkEvent::ChainExchangeRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseInbound { .. } => {
+            NetworkEvent::ChainExchangeResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeRequestInbound { .. } => {
+            NetworkEvent::ChainExchangeRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseOutbound { .. } => {
+            NetworkEvent::ChainExchangeResponseOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
         };
+
+        // Update the peer head
+        network.peer_manager().update_peer_head(
+            source,
+            Either::Right(Arc::new(tipset.clone().into_tipset())),
+        );
 
         if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
             < chain_store.heaviest_tipset().epoch()
@@ -506,13 +525,8 @@ where
             block.persist(&chain_store.db)?;
         }
 
-        // Update the peer head
-        network
-            .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
-        metrics::PEER_TIPSET_EPOCH
-            .get_or_create(&metrics::PeerLabel::new(source))
-            .set(tipset.epoch());
+        // This is needed for the Ethereum mapping
+        chain_store.put_tipset_key(tipset.key())?;
 
         Ok(Some((tipset, source)))
     }
@@ -524,7 +538,8 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
 
         let future = async move {
             loop {
@@ -545,6 +560,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -564,14 +580,35 @@ where
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
+        let genesis_timestamp = self.genesis.block_headers().first().timestamp;
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
 
         let evaluator = async move {
-            let mut tipsets = vec![];
-            loop {
+            // If `local_epoch >= now_epoch`, return `NetworkHeadEvaluation::InSync`
+            // and enter FOLLOW mode directly instead of waiting to collect `tipset_sample_size` tipsets.
+            // Otherwise in some conditions, `forest-cli sync wait` takes very long to exit (only when the node enters FOLLOW mode)
+            match (
+                chain_store.heaviest_tipset().epoch(),
+                calculate_expected_epoch(
+                    chrono::Utc::now().timestamp() as u64,
+                    genesis_timestamp,
+                    block_delay,
+                ) as i64,
+            ) {
+                (local_epoch, now_epoch) if local_epoch >= now_epoch => {
+                    return Ok(NetworkHeadEvaluation::InSync)
+                }
+                (local_epoch, now_epoch) => {
+                    info!("local head is behind the network, local_epoch: {local_epoch}, now_epoch: {now_epoch}");
+                }
+            };
+
+            let mut tipsets = Vec::with_capacity(tipset_sample_size);
+            while tipsets.len() < tipset_sample_size {
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
@@ -589,6 +626,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::Process,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -600,30 +638,33 @@ where
                     }
                 };
 
-                let header = tipset.blocks().first().header();
-                let now_epoch = chrono::Utc::now()
-                    .timestamp()
-                    .saturating_add(block_delay as i64 - 1)
-                    .saturating_sub(genesis.block_headers().first().timestamp as i64)
-                    / block_delay as i64;
-                if !header.is_within_clock_drift() {
-                    warn!(
-                        "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
-                        header.epoch, header.timestamp
-                    );
-                    continue;
-                } else if tipset.epoch() > now_epoch {
-                    warn!(
-                            "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                let now_epoch = calculate_expected_epoch(
+                    chrono::Utc::now().timestamp() as u64,
+                    genesis_timestamp,
+                    block_delay,
+                ) as i64;
+                let is_block_valid = |block: &Block| -> bool {
+                    let header = &block.header;
+                    if !header.is_within_clock_drift() {
+                        warn!(
+                            "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
                             header.epoch, header.timestamp
                         );
-                    continue;
-                }
+                        false
+                    } else if tipset.epoch() > now_epoch {
+                        warn!(
+                                "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                                header.epoch, header.timestamp
+                            );
+                        false
+                    } else {
+                        true
+                    }
+                };
 
-                // Add to tipset sample
-                tipsets.push(tipset);
-                if tipsets.len() >= tipset_sample_size {
-                    break;
+                if tipset.blocks().iter().all(is_block_valid) {
+                    // Add to tipset sample
+                    tipsets.push(tipset);
                 }
             }
 
@@ -635,7 +676,6 @@ where
                 .unwrap();
 
             // Query the heaviest tipset in the store
-            // Unwrapping is fine because the store always has at least one tipset
             let local_head = chain_store.heaviest_tipset();
 
             // We are in sync if the local head weight is heavier or
@@ -704,7 +744,8 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv_async().await {
@@ -724,6 +765,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -795,7 +837,8 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -826,6 +869,7 @@ where
                         genesis.clone(),
                         PubsubMessageProcessingStrategy::Process,
                         block_delay,
+                        stateless_mode,
                     )
                     .await
                     {

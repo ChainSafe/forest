@@ -1,7 +1,7 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::networks::generate_actor_bundle;
+use crate::networks::{generate_actor_bundle, get_actor_bundles_metadata};
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Subcommand)]
@@ -11,6 +11,8 @@ pub enum StateMigrationCommands {
         #[arg(default_value = "actor_bundles.car.zst")]
         output: PathBuf,
     },
+    /// Generate actors metadata from required bundles list
+    GenerateActorsMetadata,
 }
 
 impl StateMigrationCommands {
@@ -19,6 +21,13 @@ impl StateMigrationCommands {
             Self::ActorBundle { output } => {
                 generate_actor_bundle(&output).await?;
                 println!("Wrote the actors bundle to {}", output.display());
+                Ok(())
+            }
+            Self::GenerateActorsMetadata => {
+                let metadata = get_actor_bundles_metadata().await?;
+                let metadata_json = serde_json::to_string_pretty(&metadata)?;
+                println!("{}", metadata_json);
+
                 Ok(())
             }
         }

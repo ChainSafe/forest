@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{convert::TryFrom, str::FromStr};
@@ -217,13 +217,16 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
         Ok(k) => Ok(k),
         Err(_) => {
             let mut new_addr = addr.to_string();
-
+            if new_addr.len() < 2 {
+                return Err(Error::Other(format!("Invalid addr {new_addr}")));
+            }
             // Try to replace prefix with testnet, for backwards compatibility
             // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
             let key_string = format!("wallet-{new_addr}");
             let key_info = match keystore.get(&key_string) {
                 Ok(k) => k,
+                #[allow(clippy::indexing_slicing)]
                 Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
             };
             Ok(key_info)

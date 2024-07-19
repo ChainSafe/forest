@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{collections::BTreeMap, sync::Arc};
@@ -9,7 +9,7 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::nonempty;
+use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
 

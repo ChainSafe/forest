@@ -1,21 +1,27 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::io::{self, Cursor};
 use std::path::Path;
 
-use anyhow::{ensure, Context as _};
+use ahash::HashMap;
+use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use tokio::fs::File;
 use tracing::warn;
 
+use crate::daemon::bundle::load_actor_bundles_from_server;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::http_get;
 
@@ -32,6 +38,7 @@ pub struct ActorBundleInfo {
     /// ourselves when a new bundle is released.
     pub alt_url: Url,
     pub network: NetworkChain,
+    pub version: String,
 }
 
 macro_rules! actor_bundle_info {
@@ -48,13 +55,14 @@ macro_rules! actor_bundle_info {
                             ".car"
                         ).parse().unwrap(),
                     alt_url: concat!(
-                          "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/actors/",
+                          "https://filecoin-actors.chainsafe.dev/",
                           $version,
                             "/builtin-actors-",
                             $network,
                             ".car"
                         ).parse().unwrap(),
                     network: NetworkChain::from_str($network).unwrap(),
+                    version: $version.to_string(),
                 },
             )*
         ]
@@ -69,18 +77,75 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs" @ "v12.0.0-rc.1" for "calibrationnet",
         "bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru" @ "v12.0.0-rc.2" for "calibrationnet",
         "bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca" @ "v12.0.0" for "calibrationnet",
-        "bafy2bzaceaiy4dsxxus5xp5n5i4tjzkb7sc54mjz7qnk2efhgmsrobjesxnza" @ "v11.0.0" for "butterflynet",
-        "bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq" @ "v12.0.0" for "butterflynet",
+        "bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi" @ "v13.0.0-rc.3" for "calibrationnet",
+        "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs" @ "v13.0.0" for "calibrationnet",
+        "bafy2bzacebq3hncszqpojglh2dkwekybq4zn6qpc4gceqbx36wndps5qehtau" @ "v14.0.0-rc.1" for "calibrationnet",
+        "bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu" @ "v13.0.0" for "butterflynet",
+        "bafy2bzacecmkqezl3a5klkzz7z4ou4jwqk4zzd3nvz727l4qh44ngsxtxdblu" @ "v14.0.0-rc.1" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
         "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
         "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
         "bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o" @ "v12.0.0" for "devnet",
+        "bafy2bzacecn7uxgehrqbcs462ktl2h23u23cmduy2etqj6xrd6tkkja56fna4" @ "v13.0.0" for "devnet",
+        "bafy2bzacebwn7ymtozv5yz3x5hnxl4bds2grlgsk5kncyxjak3hqyhslb534m" @ "v14.0.0-rc.1" for "devnet",
         "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
         "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
         "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
         "bafy2bzaceapkgfggvxyllnmuogtwasmsv5qi2qzhc2aybockd6kag2g5lzaio" @ "v12.0.0" for "mainnet",
+        "bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e" @ "v13.0.0" for "mainnet",
     ])
 });
+
+#[serde_as]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ActorBundleMetadata {
+    pub network: NetworkChain,
+    pub version: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub bundle_cid: Cid,
+    pub manifest: BuiltinActorManifest,
+}
+
+type ActorBundleMetadataMap = HashMap<(NetworkChain, String), ActorBundleMetadata>;
+
+pub static ACTOR_BUNDLES_METADATA: Lazy<ActorBundleMetadataMap> = Lazy::new(|| {
+    let json: &str = include_str!("../../build/manifest.json");
+    let metadata_vec: Vec<ActorBundleMetadata> =
+        serde_json::from_str(json).expect("invalid manifest");
+    metadata_vec
+        .into_iter()
+        .map(|metadata| {
+            (
+                (metadata.network.clone(), metadata.version.clone()),
+                metadata,
+            )
+        })
+        .collect()
+});
+
+pub async fn get_actor_bundles_metadata() -> anyhow::Result<Vec<ActorBundleMetadata>> {
+    let store = MemoryBlockstore::new();
+    for network in [
+        NetworkChain::Mainnet,
+        NetworkChain::Calibnet,
+        NetworkChain::Butterflynet,
+        NetworkChain::Devnet(Default::default()),
+    ] {
+        load_actor_bundles_from_server(&store, &network, &ACTOR_BUNDLES).await?;
+    }
+
+    ACTOR_BUNDLES
+        .iter()
+        .map(|bundle| -> anyhow::Result<_> {
+            Ok(ActorBundleMetadata {
+                network: bundle.network.clone(),
+                version: bundle.version.clone(),
+                bundle_cid: bundle.manifest,
+                manifest: BuiltinActorManifest::load_manifest(&store, &bundle.manifest)?,
+            })
+        })
+        .collect()
+}
 
 pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     let (mut roots, blocks) = FuturesUnordered::from_iter(ACTOR_BUNDLES.iter().map(
@@ -89,6 +154,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              url,
              alt_url,
              network: _,
+             version: _,
          }| async move {
             let response = if let Ok(response) = http_get(url).await {
                 response
@@ -128,7 +194,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     stream::iter(blocks)
         .map(io::Result::Ok)
         .forward(CarWriter::new_carv1(
-            NonEmpty::from_vec(roots).context("car roots cannot be empty")?,
+            NonEmpty::new(roots).map_err(|_| anyhow::Error::msg("car roots cannot be empty"))?,
             ZstdEncoder::with_quality(
                 File::create(&output).await?,
                 async_compression::Level::Precise(17),
@@ -141,7 +207,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use http0::StatusCode;
+    use http::StatusCode;
     use reqwest::Response;
     use std::time::Duration;
 
@@ -163,6 +229,7 @@ mod tests {
                  url,
                  alt_url,
                  network: _,
+                 version: _,
              }| async move {
                 let (primary, alt) = match (http_get(url).await, http_get(alt_url).await) {
                     (Ok(primary), Ok(alt)) => (primary, alt),

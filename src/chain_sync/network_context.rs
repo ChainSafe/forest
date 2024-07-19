@@ -1,8 +1,9 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
     convert::TryFrom,
+    num::NonZeroU64,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -10,32 +11,39 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::blocks::{FullTipset, Tipset, TipsetKey};
-use crate::libp2p::{
-    chain_exchange::{
-        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-        MESSAGES,
+use crate::{
+    blocks::{FullTipset, Tipset, TipsetKey},
+    libp2p::{
+        chain_exchange::{
+            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
+            MESSAGES,
+        },
+        hello::{HelloRequest, HelloResponse},
+        rpc::RequestResponseError,
+        NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
     },
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-    NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+    utils::{
+        misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
+        stats::Stats,
+    },
 };
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use nonempty::NonEmpty;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing::{debug, trace, warn};
 
-/// Timeout for response from an RPC request
-// This value could be tweaked, this is just set pretty low to avoid peers
-// timing out requests from slowing the node down. If increase, should create a
-// countermeasure for this.
-const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Timeout milliseconds for response from an RPC request
+// This value is automatically adapted in the range of [5, 60] for different network conditions,
+// being decreased on success and increased on failure
+static CHAIN_EXCHANGE_TIMEOUT_MILLIS: Lazy<ExponentialAdaptiveValueProvider<u64>> =
+    Lazy::new(|| ExponentialAdaptiveValueProvider::new(5000, 2000, 60000, false));
 
 /// Maximum number of concurrent chain exchange request being sent to the
 /// network.
@@ -95,11 +103,16 @@ where
         });
     }
 
-    /// Return first finishing `Ok` future else return `None` if all jobs failed
-    pub async fn get_ok(mut self) -> Option<T> {
+    /// Return first finishing `Ok` future that passes validation else return `None` if all jobs failed
+    pub async fn get_ok_validated<F>(mut self, validate: F) -> Option<T>
+    where
+        F: Fn(&T) -> bool,
+    {
         while let Some(result) = self.tasks.join_next().await {
             if let Ok(Ok(value)) = result {
-                return Some(value);
+                if validate(&value) {
+                    return Some(value);
+                }
             }
         }
         // So far every task have failed
@@ -135,10 +148,16 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        count: u64,
+        count: NonZeroU64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
-            .await
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            count,
+            HEADERS,
+            |tipsets: &Vec<Arc<Tipset>>| validate_network_tipsets(tipsets, tsk),
+        )
+        .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
     /// headers). If `peer_id` is `None`, requests will be sent to a set of
@@ -146,11 +165,40 @@ where
     pub async fn chain_exchange_messages(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKey,
-        count: u64,
+        tipsets: &[Arc<Tipset>],
     ) -> Result<Vec<CompactedMessages>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, MESSAGES)
-            .await
+        let head = tipsets
+            .last()
+            .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
+        let tsk = head.key();
+        tracing::trace!(
+            "ChainExchange message sync tipsets: epoch: {}, len: {}",
+            head.epoch(),
+            tipsets.len()
+        );
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            NonZeroU64::new(tipsets.len() as _).expect("Infallible"),
+            MESSAGES,
+            |compacted_messages_vec: &Vec<CompactedMessages>| {
+                for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
+                    let header_len = ts.block_headers().len();
+                    if header_len != msg.bls_msg_includes.len()
+                        || header_len != msg.secp_msg_includes.len()
+                    {
+                        tracing::warn!(
+                            "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
+                            msg.bls_msg_includes.len(),
+                            msg.secp_msg_includes.len()
+                        );
+                        return false;
+                    }
+                }
+                true
+            },
+        )
+        .await
     }
 
     /// Send a `chain_exchange` request for a single full tipset (includes
@@ -162,7 +210,13 @@ where
         tsk: &TipsetKey,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
+            .handle_chain_exchange_request(
+                peer_id,
+                tsk,
+                NonZeroU64::new(1).expect("Infallible"),
+                HEADERS | MESSAGES,
+                |_| true,
+            )
             .await?;
 
         if fts.len() != 1 {
@@ -217,20 +271,21 @@ where
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
     /// as the logging and updating of the peer info in the `PeerManager`.
-    async fn handle_chain_exchange_request<T>(
+    async fn handle_chain_exchange_request<T, F>(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        request_len: u64,
+        request_len: NonZeroU64,
         options: u64,
+        validate: F,
     ) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
+        F: Fn(&Vec<T>) -> bool,
     {
         let request = ChainExchangeRequest {
-            start: NonEmpty::from_vec(tsk.cids.clone().into_iter().collect())
-                .ok_or_else(|| "tipset keys cannot be empty".to_owned())?,
-            request_len,
+            start: tsk.to_cids(),
+            request_len: request_len.get(),
             options,
         };
 
@@ -251,15 +306,21 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
-
+                if peers.is_empty() {
+                    return Err("chain exchange failed: no peers are available".into());
+                }
+                let n_peers = peers.len();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
+                let success_time_cost_millis_stats = Arc::new(Mutex::new(Stats::new()));
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
+                    let success_time_cost_millis_stats = success_time_cost_millis_stats.clone();
                     batch.add(async move {
+                        let start = chrono::Utc::now();
                         match Self::chain_exchange_request(
                             peer_manager,
                             network_send,
@@ -270,24 +331,34 @@ where
                         {
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
-                                    Ok(r) => Ok(r),
-                                    Err(e) => {
+                                    Ok(r) => {
+                                        success_time_cost_millis_stats.lock().update(
+                                            (chrono::Utc::now() - start).num_milliseconds(),
+                                        );
+                                        Ok(r)
+                                    }
+                                    Err(error) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                        debug!("Failed chain_exchange response: {e}");
-                                        Err(e)
+                                        debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange response");
+                                        Err(error)
                                     }
                                 }
                             }
-                            Err(e) => {
+                            Err(error) => {
                                 network_failures.fetch_add(1, Ordering::Relaxed);
-                                debug!("Failed chain_exchange request to peer {peer_id:?}: {e}");
-                                Err(e)
+                                debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange request to peer");
+                                Err(error)
                             }
                         }
                     });
                 }
 
                 let make_failure_message = || {
+                    CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_failure();
+                    tracing::info!(
+                        "Increased chain exchange timeout to {}ms",
+                        CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()
+                    );
                     let mut message = String::new();
                     message.push_str("ChainExchange request failed for all top peers. ");
                     message.push_str(&format!(
@@ -302,8 +373,20 @@ where
                     message
                 };
 
-                let v = batch.get_ok().await.ok_or_else(make_failure_message)?;
-                debug!("Succeed: handle_chain_exchange_request");
+                let v = batch
+                    .get_ok_validated(validate)
+                    .await
+                    .ok_or_else(make_failure_message)?;
+                if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
+                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
+                        tracing::info!(
+                            "Decreased chain exchange timeout to {}ms. Current average: {}ms",
+                            CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
+                            mean,
+                        );
+                    }
+                }
+                trace!("Succeed: handle_chain_exchange_request");
                 v
             }
         };
@@ -326,7 +409,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        debug!("Sending ChainExchange Request to {peer_id}");
+        trace!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = SystemTime::now();
 
@@ -346,30 +429,38 @@ where
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures
         // this.
-        let res =
-            tokio::task::spawn_blocking(move || rx.recv_timeout(CHAIN_EXCHANGE_TIMEOUT)).await;
+        let res = tokio::task::spawn_blocking(move || {
+            rx.recv_timeout(Duration::from_millis(CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()))
+        })
+        .await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                peer_manager.log_success(peer_id, res_duration);
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                peer_manager.log_success(&peer_id, res_duration);
+                trace!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
-                    RequestResponseError::ConnectionClosed
-                    | RequestResponseError::DialFailure
-                    | RequestResponseError::UnsupportedProtocols => {
-                        peer_manager.mark_peer_bad(peer_id);
+                    RequestResponseError::UnsupportedProtocols => {
+                        peer_manager
+                            .ban_peer_with_default_duration(
+                                peer_id,
+                                "ChainExchange protocol unsupported",
+                            )
+                            .await;
+                    }
+                    RequestResponseError::ConnectionClosed | RequestResponseError::DialFailure => {
+                        peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e:?}"));
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout | RequestResponseError::Io(_) => {
-                        peer_manager.log_failure(peer_id, res_duration);
+                        peer_manager.log_failure(&peer_id, res_duration);
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
@@ -378,7 +469,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
-                peer_manager.log_failure(peer_id, res_duration);
+                peer_manager.log_failure(&peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }
@@ -416,11 +507,42 @@ where
     }
 }
 
+/// Validates network tipsets that are sorted by epoch in descending order with the below checks
+/// 1. The latest(first) tipset has the desired tipset key
+/// 2. The sorted tipsets are chained by their tipset keys
+fn validate_network_tipsets(tipsets: &[Arc<Tipset>], start_tipset_key: &TipsetKey) -> bool {
+    if let Some(start) = tipsets.first() {
+        if start.key() != start_tipset_key {
+            tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
+            return false;
+        }
+        for (ts, pts) in tipsets.iter().zip(tipsets.iter().skip(1)) {
+            if ts.parents() != pts.key() {
+                tracing::warn!(epoch=%ts.epoch(), expected_parent=%pts.key(), actual_parent=%ts.parents(), "invalid chain");
+                return false;
+            }
+        }
+        true
+    } else {
+        tracing::warn!("invalid empty chain_exchange_headers response");
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+    impl<T> RaceBatch<T>
+    where
+        T: Send + 'static,
+    {
+        pub async fn get_ok(self) -> Option<T> {
+            self.get_ok_validated(|_| true).await
+        }
+    }
 
     #[tokio::test]
     async fn race_batch_ok() {
@@ -506,5 +628,38 @@ mod tests {
 
         assert_eq!(batch.get_ok().await, None);
         assert!(exceeded.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    #[allow(unused_variables)]
+    fn validate_network_tipsets_tests() {
+        use crate::blocks::{chain4u, Chain4U};
+
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            t0 @ [genesis_header]
+            -> t1 @ [first_header]
+            -> t2 @ [second_left, second_right]
+            -> t3 @ [third]
+            -> t4 @ [fourth]
+        };
+        let t0 = Arc::new(t0.clone());
+        let t1 = Arc::new(t1.clone());
+        let t2 = Arc::new(t2.clone());
+        let t3 = Arc::new(t3.clone());
+        let t4 = Arc::new(t4.clone());
+        assert!(validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t3.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
     }
 }

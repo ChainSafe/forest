@@ -1,8 +1,8 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::trace::ExecutionEvent;
-use crate::shim::econ::TokenAmount;
+use crate::shim::{econ::TokenAmount, fvm_shared_latest::error::ExitCode};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
@@ -11,7 +11,6 @@ use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
-use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -122,16 +121,16 @@ impl Receipt {
     pub fn exit_code(&self) -> ExitCode {
         match self {
             Receipt::V2(v2) => ExitCode::new(v2.exit_code.value()),
-            Receipt::V3(v3) => v3.exit_code,
-            Receipt::V4(v4) => ExitCode::new(v4.exit_code.value()),
+            Receipt::V3(v3) => ExitCode::new(v3.exit_code.value()),
+            Receipt::V4(v4) => v4.exit_code,
         }
     }
 
     pub fn return_data(&self) -> RawBytes {
         match self {
-            Receipt::V2(v2) => RawBytes::from(v2.return_data.to_vec()),
+            Receipt::V2(v2) => v2.return_data.clone(),
             Receipt::V3(v3) => v3.return_data.clone(),
-            Receipt::V4(v4) => RawBytes::from(v4.return_data.to_vec()),
+            Receipt::V4(v4) => v4.return_data.clone(),
         }
     }
 
@@ -166,6 +165,27 @@ impl Receipt {
         let amt = Amtv0::load(receipts, db)?;
         let receipts = amt.get(i)?;
         Ok(receipts.cloned().map(Receipt::V2))
+    }
+
+    pub fn get_receipts(db: &impl Blockstore, receipts_cid: Cid) -> anyhow::Result<Vec<Receipt>> {
+        let mut receipts = Vec::new();
+
+        // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
+        if let Ok(amt) = Amtv0::<fvm_shared4::receipt::Receipt, _>::load(&receipts_cid, db) {
+            amt.for_each(|_, receipt| {
+                receipts.push(Receipt::V4(receipt.clone()));
+                Ok(())
+            })?;
+        } else {
+            // Fallback to Receipt_v2.
+            let amt = Amtv0::<fvm_shared2::receipt::Receipt, _>::load(&receipts_cid, db)?;
+            amt.for_each(|_, receipt| {
+                receipts.push(Receipt::V2(receipt.clone()));
+                Ok(())
+            })?;
+        }
+
+        Ok(receipts)
     }
 }
 

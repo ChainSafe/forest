@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
@@ -72,10 +72,10 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
-use crate::db::{truncated_hash, GarbageCollectable};
-use crate::ipld::unordered_stream_graph;
+use crate::cid_collections::CidHashSet;
+use crate::db::{GarbageCollectable, SettingsStore};
+use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
-use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use std::mem;
@@ -84,8 +84,10 @@ use std::time::Duration;
 use tokio::time;
 use tracing::{error, info};
 
+const SETTINGS_KEY: &str = "LAST_GC_RUN";
+
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
-/// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
+/// keys writing them to a [`CidHashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
@@ -93,13 +95,15 @@ use tracing::{error, info};
 pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
     get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
-    marked: HashSet<u32>,
+    marked: CidHashSet,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
+impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Send + 'static>
+    MarkAndSweep<DB>
+{
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -118,7 +122,7 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
             db,
             get_heaviest_tipset,
             depth,
-            marked: HashSet::new(),
+            marked: CidHashSet::new(),
             epoch_marked: 0,
             block_time,
         }
@@ -133,22 +137,18 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = unordered_stream_graph(
-            self.db.clone(),
-            (*tipset).clone().chain(self.db.clone()),
-            depth,
-        );
+        let mut stream = stream_graph(self.db.clone(), (*tipset).clone().chain(&self.db), depth);
 
         while let Some(block) = stream.next().await {
             let block = block?;
-            self.marked.remove(&truncated_hash(block.cid.hash()));
+            self.marked.remove(&block.cid);
         }
 
         anyhow::Ok(())
     }
 
     // Remove marked keys from the database.
-    fn sweep(&mut self) -> anyhow::Result<()> {
+    fn sweep(&mut self) -> anyhow::Result<u32> {
         let marked = mem::take(&mut self.marked);
         self.db.remove_keys(marked)
     }
@@ -170,15 +170,33 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
         }
     }
 
+    fn update_last_gc_run(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        self.db
+            .write_bin(SETTINGS_KEY, epoch.to_string().as_bytes())
+    }
+
+    // Unfortunately there seems to be no good way of decoding a slice into i64 without array init
+    // and manipulation, therefore a string representation is used.
+    fn fetch_last_gc_run(&self) -> anyhow::Result<ChainEpoch> {
+        let bytes = self.db.read_bin(SETTINGS_KEY)?;
+        let epoch = match bytes {
+            Some(bytes) => ChainEpoch::from_str_radix(&String::from_utf8(bytes)?, 10)?,
+            None => 0,
+        };
+        Ok(epoch)
+    }
+
     // This function yields to the main GC loop if the conditions are not met for execution of the
     // next step.
     async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
-        let mut current_epoch = tipset.epoch();
-        // Don't run the GC if there aren't enough state-roots yet. Sleep and yield to the main loop
-        // in order to refresh the heaviest tipset value.
-        if depth > current_epoch {
+
+        let current_epoch = tipset.epoch();
+        let last_gc_run = self.fetch_last_gc_run()?;
+        // Don't run the GC if there aren't enough state-roots yet or if we're too close to the last
+        // GC run. Sleep and yield to the main loop in order to refresh the heaviest tipset value.
+        if depth > current_epoch - last_gc_run {
             time::sleep(interval).await;
             return anyhow::Ok(());
         }
@@ -208,7 +226,10 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
         self.filter(tipset, depth).await?;
 
         info!("GC sweep");
-        self.sweep()?;
+        let deleted = self.sweep()?;
+        info!("GC finished sweep: {} deleted records", deleted);
+
+        self.update_last_gc_run(current_epoch)?;
 
         anyhow::Ok(())
     }
@@ -232,14 +253,14 @@ mod test {
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
 
-    fn insert_unreachable(db: impl Blockstore, quantity: u64) {
+    fn insert_unreachable(db: &impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: CachingBlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
         }
     }
 
-    fn run_to_epoch(db: impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
+    fn run_to_epoch(db: &impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
         for _ in heaviest_tipset.epoch()..epoch {
@@ -264,7 +285,14 @@ mod test {
             let gen_block: CachingBlockHeader = mock_block(1, 1);
             db.put_cbor_default(&gen_block).unwrap();
             let store = Arc::new(
-                ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block).unwrap(),
+                ChainStore::new(
+                    db.clone(),
+                    db.clone(),
+                    db.clone(),
+                    Arc::new(config),
+                    gen_block,
+                )
+                .unwrap(),
             );
 
             GCTester { db, store }

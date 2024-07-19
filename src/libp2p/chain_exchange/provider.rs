@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{Tipset, TipsetKey};
@@ -30,7 +30,10 @@ where
     }
 
     let inner = move || {
-        let root = match cs.load_tipset(&TipsetKey::from_iter(request.start.clone()))? {
+        let root = match cs
+            .chain_index
+            .load_tipset(&TipsetKey::from(request.start.clone()))?
+        {
             Some(tipset) => tipset,
             None => {
                 return Ok(ChainExchangeResponse {
@@ -152,7 +155,7 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::utils::db::car_util::load_car;
-    use nonempty::NonEmpty;
+    use nunny::Vec as NonEmpty;
     use std::sync::Arc;
 
     async fn populate_db() -> (NonEmpty<Cid>, Arc<MemoryDB>) {
@@ -172,7 +175,14 @@ mod tests {
         });
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db.clone(), db, Arc::new(ChainConfig::default()), gen_block).unwrap(),
+            &ChainStore::new(
+                db.clone(),
+                db.clone(),
+                db,
+                Arc::new(ChainConfig::default()),
+                gen_block,
+            )
+            .unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

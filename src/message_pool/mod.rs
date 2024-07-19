@@ -1,6 +1,5 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#[cfg(test)]
 mod block_prob;
 mod config;
 mod errors;
@@ -17,5 +16,4 @@ pub use self::{
     },
 };
 
-#[cfg(test)]
 pub use block_prob::block_probabilities;

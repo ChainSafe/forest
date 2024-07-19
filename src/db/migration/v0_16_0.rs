@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Migration logic for 0.15.2 to 0.16.0 version.
@@ -8,6 +8,8 @@
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_16_0::paritydb_0_15_1::{DbColumn, ParityDb};
+use crate::db::CAR_DB_DIR_NAME;
+use crate::Config;
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
@@ -40,7 +42,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         Ok(())
     }
 
-    fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+    fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join(self.from.to_string());
 
         let db_paths: Vec<PathBuf> = source_db
@@ -48,7 +50,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
             .filter_map(|entry| Some(entry.ok()?.path()))
             .filter(|entry| {
                 let entry_str = entry.to_str().unwrap();
-                entry.is_dir() && !entry_str.contains("car_db")
+                entry.is_dir() && !entry_str.contains(CAR_DB_DIR_NAME)
             })
             .collect();
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
@@ -60,8 +62,8 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
             std::fs::remove_dir_all(&temp_db_path)?;
         }
 
-        let old_car_db_path = source_db.join("car_db");
-        let new_car_db_path = temp_db_path.join("car_db");
+        let old_car_db_path = source_db.join(CAR_DB_DIR_NAME);
+        let new_car_db_path = temp_db_path.join(CAR_DB_DIR_NAME);
 
         // Make sure `car_db` dir exists as it might not be the case when migrating
         // from older versions.
@@ -74,7 +76,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
 
             fs_extra::copy_items(
                 &[old_car_db_path.as_path()],
-                new_car_db_path.clone(),
+                new_car_db_path,
                 &CopyOptions::default().copy_inside(true),
             )?;
         }

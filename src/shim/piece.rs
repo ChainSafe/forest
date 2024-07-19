@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::fvm_shared_latest::piece as piece_latest;
@@ -74,6 +74,12 @@ impl From<piece_v3::PieceInfo> for PieceInfo {
 #[derive(PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PaddedPieceSize(piece_latest::PaddedPieceSize);
+
+impl From<u64> for PaddedPieceSize {
+    fn from(i: u64) -> Self {
+        Self(piece_latest::PaddedPieceSize(i))
+    }
+}
 
 impl From<PaddedPieceSize> for piece_v4::PaddedPieceSize {
     fn from(value: PaddedPieceSize) -> Self {

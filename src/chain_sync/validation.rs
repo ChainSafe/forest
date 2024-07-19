@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -61,7 +61,7 @@ impl<'a> TipsetValidator<'a> {
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
         genesis_tipset: Arc<Tipset>,
-        block_delay: u64,
+        block_delay: u32,
     ) -> Result<(), Box<TipsetValidationError>> {
         // No empty blocks
         if self.0.blocks().is_empty() {
@@ -91,13 +91,14 @@ impl<'a> TipsetValidator<'a> {
     pub fn validate_epoch(
         &self,
         genesis_tipset: Arc<Tipset>,
-        block_delay: u64,
+        block_delay: u32,
     ) -> Result<(), Box<TipsetValidationError>> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let max_epoch = ((now - genesis_tipset.min_timestamp()) / block_delay) + MAX_HEIGHT_DRIFT;
+        let max_epoch =
+            ((now - genesis_tipset.min_timestamp()) / block_delay as u64) + MAX_HEIGHT_DRIFT;
         let too_far_ahead_in_time = self.0.epoch() as u64 > max_epoch;
         if too_far_ahead_in_time {
             Err(Box::new(TipsetValidationError::EpochTooLarge))

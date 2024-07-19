@@ -1,10 +1,9 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p::{Multiaddr, Protocol};
-use crate::rpc_api::data_types::AddrInfo;
-use crate::rpc_client::ApiInfo;
-use ahash::HashSet;
+use crate::rpc::{self, net::AddrInfo, prelude::*};
+use ahash::{HashMap, HashSet};
 use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
@@ -18,7 +17,11 @@ pub enum NetCommands {
     /// Lists `libp2p` swarm network info
     Info,
     /// Lists `libp2p` swarm peers
-    Peers,
+    Peers {
+        /// Print agent name
+        #[arg(short, long)]
+        agent: bool,
+    },
     /// Connects to a peer by its peer ID and multi-addresses
     Connect {
         /// Multi-address (with `/p2p/` protocol)
@@ -29,13 +32,15 @@ pub enum NetCommands {
         /// Peer ID to disconnect from
         id: String,
     },
+    /// Print information about reachability from the internet
+    Reachability,
 }
 
 impl NetCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = api.net_addrs_listen().await?;
+                let info = NetAddrsListen::call(&client, ()).await?;
                 let addresses: Vec<String> = info
                     .addrs
                     .iter()
@@ -45,7 +50,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Info => {
-                let info = api.net_info().await?;
+                let info = NetInfo::call(&client, ()).await?;
                 println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
@@ -55,8 +60,28 @@ impl NetCommands {
                 println!("num established: {}", info.num_established);
                 Ok(())
             }
-            Self::Peers => {
-                let addrs = api.net_peers().await?;
+            Self::Peers { agent } => {
+                let addrs = NetPeers::call(&client, ()).await?;
+                let peer_to_agents: HashMap<String, String> = if agent {
+                    let agents = futures::future::join_all(
+                        addrs
+                            .iter()
+                            .map(|info| NetAgentVersion::call(&client, (info.id.clone(),))),
+                    )
+                    .await
+                    .into_iter()
+                    .map(|res| res.unwrap_or_else(|_| "<agent unknown>".to_owned()));
+
+                    HashMap::from_iter(
+                        addrs
+                            .iter()
+                            .map(|info| info.id.to_owned())
+                            .zip(agents.into_iter()),
+                    )
+                } else {
+                    HashMap::default()
+                };
+
                 let output: Vec<String> = addrs
                     .into_iter()
                     .filter_map(|info| {
@@ -74,7 +99,23 @@ impl NetCommands {
                         if addresses.is_empty() {
                             return None;
                         }
-                        Some(format!("{}, [{}]", info.id, addresses.join(", ")))
+
+                        let result = format!("{}, [{}]", info.id, addresses.join(", "));
+
+                        if agent {
+                            Some(
+                                [
+                                    result,
+                                    peer_to_agents
+                                        .get(&info.id)
+                                        .cloned()
+                                        .unwrap_or_else(|| "<agent unknown>".to_owned()),
+                                ]
+                                .join(", "),
+                            )
+                        } else {
+                            Some(result)
+                        }
                     })
                     .collect();
                 println!("{}", output.join("\n"));
@@ -107,13 +148,25 @@ impl NetCommands {
                     addrs,
                 };
 
-                api.net_connect(addr_info).await?;
+                NetConnect::call(&client, (addr_info,)).await?;
                 println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
-                api.net_disconnect(id.to_owned()).await?;
+                NetDisconnect::call(&client, (id.clone(),)).await?;
                 println!("disconnect {id}: success");
+                Ok(())
+            }
+            Self::Reachability => {
+                let nat_status = NetAutoNatStatus::call(&client, ()).await?;
+                println!("AutoNAT status:  {}", nat_status.reachability_as_str());
+                if let Some(public_addrs) = nat_status.public_addrs {
+                    if !public_addrs.is_empty() {
+                        // Format is compatible with Go code:
+                        // `fmt.Println("Public address:", []string{"foo", "bar"})`
+                        println!("Public address: [{}]", public_addrs.join(" "));
+                    }
+                }
                 Ok(())
             }
         }

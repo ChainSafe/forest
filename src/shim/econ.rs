@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -121,6 +121,12 @@ impl TokenAmount {
     #[inline]
     pub fn div_floor(&self, other: impl Into<BigInt>) -> TokenAmount {
         self.0.div_floor(other).into()
+    }
+}
+
+impl From<TokenAmount> for BigInt {
+    fn from(value: TokenAmount) -> Self {
+        value.atto().to_owned()
     }
 }
 

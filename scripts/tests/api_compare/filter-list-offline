@@ -1,0 +1,18 @@
+# This list contains potentially broken methods (or tests) that are ignored.
+# They should be considered bugged, and not used until the root cause is resolved.
+!Filecoin.MinerGetBaseInfo
+# Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619314467/job/23624081698
+!Filecoin.MpoolGetNonce
+!Filecoin.EthSyncing
+!Filecoin.NetAddrsListen
+!Filecoin.NetAgentVersion
+!Filecoin.NetAutoNatStatus
+!Filecoin.NetPeers
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
+!Filecoin.StateReplay
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
+!Filecoin.StateCall
+# These methods don't make sense in the context of an offline node
+!Filecoin.MinerCreateBlock
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4446
+!Filecoin.StateCirculatingSupply

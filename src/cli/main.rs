@@ -1,16 +1,15 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ffi::OsString;
-
+use super::subcommands::Subcommand;
 use crate::cli::subcommands::Cli;
 use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
+use anyhow::bail;
 use clap::Parser;
-
-use super::subcommands::Subcommand;
+use std::ffi::OsString;
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
@@ -19,7 +18,7 @@ where
     // Capture Cli inputs
     let Cli { token, cmd } = Cli::parse_from(args);
 
-    let api = ApiInfo::from_env()?.set_token(token);
+    let client = rpc::Client::default_or_from_env(token.as_deref())?;
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -27,25 +26,28 @@ where
         .unwrap()
         .block_on(async {
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
-            if let Ok(name) = api.state_network_name().await {
+
+            if let Ok(name) = StateNetworkName::call(&client, ()).await {
                 if get_actual_chain_name(&name) != "mainnet" {
                     CurrentNetwork::set_global(Network::Testnet);
                 }
             }
+
             // Run command
             match cmd {
-                Subcommand::Chain(cmd) => cmd.run(api).await,
-                Subcommand::Auth(cmd) => cmd.run(api).await,
-                Subcommand::Net(cmd) => cmd.run(api).await,
-                Subcommand::Sync(cmd) => cmd.run(api).await,
-                Subcommand::Mpool(cmd) => cmd.run(api).await,
-                Subcommand::State(cmd) => cmd.run(api).await,
+                Subcommand::Chain(cmd) => cmd.run(client).await,
+                Subcommand::Auth(cmd) => cmd.run(client).await,
+                Subcommand::Net(cmd) => cmd.run(client).await,
+                Subcommand::Sync(cmd) => cmd.run(client).await,
+                Subcommand::Mpool(cmd) => cmd.run(client).await,
+                Subcommand::State(cmd) => cmd.run(client).await,
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
-                Subcommand::Send(cmd) => cmd.run(api).await,
-                Subcommand::Info(cmd) => cmd.run(api).await,
-                Subcommand::Snapshot(cmd) => cmd.run(api).await,
-                Subcommand::Attach(cmd) => cmd.run(api),
-                Subcommand::Shutdown(cmd) => cmd.run(api).await,
+                Subcommand::Send(cmd) => cmd.run(client).await,
+                Subcommand::Info(cmd) => cmd.run(client).await,
+                Subcommand::Snapshot(cmd) => cmd.run(client).await,
+                Subcommand::Attach { .. } => bail!("the `attach` subcommand has been removed. Please raise an issue if this breaks a workflow for you"),
+                Subcommand::Shutdown(cmd) => cmd.run(client).await,
+                Subcommand::Healthcheck(cmd) => cmd.run(client).await,
             }
         })
 }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{vec_u8::VecU8LotusJson, *};
@@ -19,6 +19,7 @@ quickcheck! {
 impl HasLotusJson for RawBytes {
     type LotusJson = VecU8LotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!("aGVsbG8gd29ybGQh"),

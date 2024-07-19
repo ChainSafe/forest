@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -32,11 +32,24 @@ impl CidHashSet {
         self.inner.insert(cid, ()).is_none()
     }
 
-    /// Returns the number of elements in the set.
-    ///
-    /// See also [`HashSet::len`].
+    /// Returns the number of elements.
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Returns `true` if the set contains a `Cid`.
+    pub fn contains(&self, cid: &Cid) -> bool {
+        self.inner.contains_key(cid)
+    }
+
+    /// Removes a `Cid` from the set. Returns whether the value was present in the set.
+    pub fn remove(&mut self, cid: &Cid) -> bool {
+        self.inner.remove(cid).is_some()
+    }
+
+    /// Returns `true` if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 }
 

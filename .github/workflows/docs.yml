@@ -36,17 +36,11 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Apt Dependencies
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: sudo make install-deps
       - name: Link Checker (Repo Readme)
-        uses: lycheeverse/lychee-action@v1.9.3
+        uses: lycheeverse/lychee-action@v1.10.0
         with:
           args: 'README.md'
           # Fail action on broken links
@@ -64,7 +58,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Library Documentation)
-        uses: lycheeverse/lychee-action@v1.9.3
+        uses: lycheeverse/lychee-action@v1.10.0
         with:
           args: './target/doc/forest_filecoin/**/index.html'
           # Fail action on broken links
@@ -74,14 +68,14 @@ jobs:
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.5.0
+        uses: JamesIves/github-pages-deploy-action@v4.6.3
         if: ${{ github.event_name == 'pull_request' }}
         with:
           branch: gh-pages
           folder: ./documentation/book/html/
           dry-run: true
       - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.5.0
+        uses: JamesIves/github-pages-deploy-action@v4.6.3
         if: ${{ github.event_name == 'push' }}
         with:
           branch: gh-pages

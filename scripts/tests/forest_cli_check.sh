@@ -30,10 +30,6 @@ pushd "$(mktemp --directory)"
     : : fetch a compressed calibnet snapshot
     "$FOREST_TOOL_PATH" snapshot fetch --chain calibnet
     test "$(num-files-here)" -eq 1
-    uncompress_me=$(find . -type f | head -1)
-
-    : : decompress it, as validate does not support compressed snapshots
-    zstd --decompress --rm "$uncompress_me"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
@@ -49,4 +45,3 @@ pushd "$(mktemp --directory)"
     "$FOREST_TOOL_PATH" archive checkpoints "$validate_me" | grep bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 rm -- *
 popd
-

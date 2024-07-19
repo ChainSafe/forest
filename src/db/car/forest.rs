@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! # Forest CAR format
@@ -59,7 +59,7 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};
@@ -82,9 +82,6 @@ pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
 const ZSTD_SKIP_FRAME_LEN: u64 = 8;
-
-pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
-impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
 pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
@@ -145,7 +142,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKey::from_iter(self.roots().clone()))
+        Tipset::load_required(self, &TipsetKey::from(self.roots().clone()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
@@ -242,12 +239,10 @@ where
 
 fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<BytesMut> {
     let mut zstd_frame = vec![];
-
     zstd::Decoder::new(reader)?
         .single_frame()
         .read_to_end(&mut zstd_frame)?;
-    // This unnecessarily copies the zstd frame. :(
-    Ok(BytesMut::from(zstd_frame.as_slice()))
+    Ok(zstd_frame.into_iter().collect())
 }
 
 pub struct Encoder {}
@@ -423,7 +418,7 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use crate::block_on;
-    use nonempty::nonempty;
+    use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(
@@ -447,9 +442,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: CarBlock, tail: Vec<CarBlock>) {
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+    fn forest_car_create_basic(blocks: nunny::Vec<CarBlock>) {
+        let roots = nonempty!(blocks.first().cid);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
         assert_eq!(forest_car.roots(), &roots);
@@ -460,15 +454,12 @@ mod tests {
 
     #[quickcheck]
     fn forest_car_create_options(
-        head: CarBlock,
-        tail: Vec<CarBlock>,
+        blocks: nunny::Vec<CarBlock>,
         frame_size: usize,
         mut compression_level: u16,
     ) {
         compression_level %= 15;
-
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+        let roots = nonempty!(blocks.first().cid);
 
         let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,

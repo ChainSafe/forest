@@ -1,14 +1,18 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  Remove this - users should use `Option<LotusJson<T>>` instead
+//                  of LotusJson<Option<T>>
 impl<T> HasLotusJson for Option<T>
 where
     T: HasLotusJson,
 {
     type LotusJson = Option<T::LotusJson>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only Option<Cid> is tested, below")
     }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod car;
@@ -7,23 +7,29 @@ pub mod parity_db;
 pub mod parity_db_config;
 
 mod gc;
+pub mod ttl;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
+use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
-use ahash::HashSet;
+use crate::rpc::eth;
 use anyhow::Context as _;
-use cid::multihash;
+use cid::Cid;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
+
+pub const CAR_DB_DIR_NAME: &str = "car_db";
 
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s
     pub const HEAD_KEY: &str = "head";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
+    /// Key used to store the state of the Ethereum mapping. This is expected to be a [`bool`].
+    pub const ETH_MAPPING_UP_TO_DATE_KEY: &str = "eth_mapping_up_to_date";
 }
 
 /// Interface used to store and retrieve settings from the database.
@@ -92,6 +98,87 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
     }
 }
 
+/// Extension trait for the [`SettingsStoreExt`] trait. It is implemented for all types that implement
+/// [`SettingsStoreExt`].
+/// It provides methods to store and retrieve settings from the database.
+pub trait SettingsExt {
+    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()>;
+    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>>;
+}
+
+impl<T: ?Sized + SettingsStoreExt> SettingsExt for T {
+    /// Sets the Ethereum mapping status to "up-to-date".
+    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
+        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
+    }
+
+    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
+    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
+        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
+    }
+}
+
+/// Interface used to store and retrieve Ethereum mappings from the database.
+/// To store IPLD blocks, use the `BlockStore` trait.
+pub trait EthMappingsStore {
+    /// Reads binary field from the `EthMappings` store. This should be used for
+    /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>>;
+
+    /// Writes binary field to the `EthMappings` store. This should be used for
+    /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::write_obj`].
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()>;
+
+    /// Returns `Ok(true)` if key exists in store.
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+
+    /// Returns all message CIDs with their timestamp.
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
+
+    /// Deletes `keys` if keys exist in store.
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
+}
+
+impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        EthMappingsStore::read_bin(self.as_ref(), key)
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        EthMappingsStore::write_bin(self.as_ref(), key, value)
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        EthMappingsStore::exists(self.as_ref(), key)
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.as_ref())
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.as_ref(), keys)
+    }
+}
+
+pub trait EthMappingsStoreExt {
+    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()>;
+}
+
+impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
+    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>> {
+        match self.read_bin(key)? {
+            Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()> {
+        self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
+    }
+}
+
 /// Traits for collecting DB stats
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {
@@ -109,26 +196,19 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 ///
 /// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
 /// avoid wrapping it.
-pub trait GarbageCollectable {
+pub trait GarbageCollectable<T> {
     /// Gets all the keys currently in the database.
     ///
     /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
     /// much time and memory.
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>>;
+    fn get_keys(&self) -> anyhow::Result<T>;
 
     /// Removes all the keys marked for deletion.
     ///
     /// # Arguments
     ///
     /// * `keys` - A set of keys to be removed from the database.
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()>;
-}
-
-/// A function that converts a [`multihash::MultihashGeneric`] digest into a `u32` representation.
-/// We don't care about collisions here as main use-case is garbage collection.
-pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
-    let digest = hash.digest();
-    u32::from_le_bytes(digest[0..4].try_into().expect("shouldn't fail"))
+    fn remove_keys(&self, keys: T) -> anyhow::Result<u32>;
 }
 
 pub mod db_engine {

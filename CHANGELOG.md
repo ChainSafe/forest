@@ -29,8 +29,48 @@
 
 ### Added
 
-- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
-  API.
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllClaims` RPC method.
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllAllocations` RPC method.
+
+- [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
+  `Filecoin.StateMinerAllocated` RPC method.
+
+- [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
+  `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
+
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
+- [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
+  `Filecoin.StateGetAllocationForPendingDeal` RPC method.
+
+- [#4526](https://github.com/ChainSafe/forest/pull/4526) Added
+  `forest-cli state compute` method, and a corresponding RPC method
+  `Forest.StateCompute`.
+
+- [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
+  `Filecoin.EthMaxPriorityFeePerGas` RPC method.
+
+- [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
+  `Filecoin.StateLookupRobustAddress` RPC method.
+
+- [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
+  `Filecoin.StateVerifiedRegistryRootKey` RPC method.
+
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck ready`.
+
+- [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
+
+- [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
+  `Filecoin.MpoolPushUntrusted` RPC method.
+
+- [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
 
 ### Changed
 
@@ -38,10 +78,312 @@
 
 ### Fixed
 
+## Forest 0.19.0 "Pastel de nata"
+
+This is a mandatory release for all calibration network node operators. It
+includes migration logic for the NV23 _Waffle_ network upgrade. It also includes
+a number of new RPC methods, fixes to existing ones, and other improvements,
+most notably, garbage collection fix.
+
+### Added
+
+- [#4473](https://github.com/ChainSafe/forest/pull/4473) Add support for NV23
+  _Waffle_ network upgrade (FIP-0085, FIP-0091, v14 actors).
+
+- [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
+  `Filecoin.StateGetClaim` RPC method.
+
+- [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
+  `Filecoin.NetProtectAdd` RPC method.
+
+- [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
+  `Filecoin.StateGetAllocation` RPC method.
+
+- [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
+  `Filecoin.StateSectorPartition` RPC method.
+
+- [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
+  `Filecoin.EthGetMessageCidByTransactionHash` RPC method.
+
+- [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
+  `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
+- [#4475](https://github.com/ChainSafe/forest/pull/4475) Add support for the
+  `Filecoin.EthFeeHistory` RPC method.
+
+- [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
+  `EIP-1898` object scheme.
+
+- [#4443](https://github.com/ChainSafe/forest/issues/4443) Update
+  `Filecoin.StateSectorPreCommitInfo` RPC method to be API-V1-compatible
+
+- [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
+  `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
+
+### Removed
+
+- [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
+  `forest-cli attach` command.
+
+### Fixed
+
+- [#4425](https://github.com/ChainSafe/forest/pull/4425) Fix GC collision
+  issues.
+
+- [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
+  `Filecoin.ChainNotify` RPC method.
+
+- [#4371](https://github.com/ChainSafe/forest/pull/4371) Fix extra `Apply`
+  change in the `Filecoin.ChainNotify` RPC method.
+
+- [#4002](https://github.com/ChainSafe/forest/issues/4002) Add support for
+  multiple WebSocket clients for `Filecoin.ChainNotify` RPC method.
+
+- [#4390](https://github.com/ChainSafe/forest/issues/4390) Fix `SignedMessage`
+  JSON formatting to match Lotus.
+
+## Forest 0.18.0 "Big Bang"
+
+This is a non-mandatory release including a fair number of new RPC methods and
+improvements to the Forest RPC API. The release also includes a number of bug
+fixes, as outlined below. Please note the breaking changes in this release.
+
+### Breaking
+
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
+  variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Removed short form
+  flags from `forest` binary.
+
+- [#4215](https://github.com/ChainSafe/forest/pull/4215) Changed the prefix for
+  Forest-specific RPC methods to `Forest`; `Filecoin.NetInfo` and
+  `Filecoin.StateFetchRoot` to `Forest.NetInfo` and `Forest.StateFetchRoot`.
+
+- [#4262](https://github.com/ChainSafe/forest/pull/4262) Added `Bearer` prefix
+  to the `Authorization` header in the Forest RPC API. This is a
+  partially-breaking change - new Forest RPC clients will not work with old
+  Forest nodes. This change is necessary to align with the Lotus RPC API.
+
+### Added
+
+- [#4246](https://github.com/ChainSafe/forest/pull/4246) Add support for the
+  `Filecoin.SyncSubmitBlock` RPC method.
+
+- [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
+  `Filecoin.StateDealProviderCollateralBounds` RPC method.
+
+- [#3949](https://github.com/ChainSafe/forest/issues/3949) Added healthcheck
+  endpoints `/healthz`, `/readyz`, and `/livez`. By default, the healthcheck
+  endpoint is enabled on port 2346.
+
+- [#4166](https://github.com/ChainSafe/forest/issues/4166) Add support for the
+  `Filecoin.Web3ClientVersion` RPC method.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
+  `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
+
+- [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
+  `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4253](https://github.com/ChainSafe/forest/pull/4253) RPC client default
+  timeout is now configurable via the `FOREST_RPC_DEFAULT_TIMEOUT` environment
+  variable.
+
+- [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
+  and `--exact-balance` flags to `forest-wallet balance` similarly to
+  `forest-wallet list` subcommand.
+
+- [#4213](https://github.com/ChainSafe/forest/issues/4213) Add support for the
+  `Filecoin.StateMinerInitialPledgeCollateral` RPC method.
+
+- [#4214](https://github.com/ChainSafe/forest/issues/4214) Add support for the
+  `Filecoin.StateMinerPreCommitDepositForPower` RPC method.
+
+- [#4255](https://github.com/ChainSafe/forest/pull/4255) Add support for the
+  `Filecoin.MinerCreateBlock` RPC method.
+
+- [#4315](https://github.com/ChainSafe/forest/pull/4315) Add support for the
+  `Filecoin.StateGetNetworkParams` RPC method.
+
+- [#4326](https://github.com/ChainSafe/forest/pull/4326) Added
+  `expected_network_height` metric to the Prometheus metrics.
+
+### Changed
+
+- [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
+  Filecoin proof parameters source to ChainSafe's hosted Cloudflare R2 bucket.
+  IPFS gateway can still be enforced via `FOREST_PROOFS_ONLY_IPFS_GATEWAY=1`.
+
+### Removed
+
+### Fixed
+
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Fixed a bug where the
+  environment variable `IPFS_GATEWAY` was not used to change the IPFS gateway.
+
+- [#4267](https://github.com/ChainSafe/forest/pull/4267) Fixed potential panics
+  in `forest-tool api compare`.
+
+- [#4297](https://github.com/ChainSafe/forest/pull/4297) Fixed double decoding
+  of message in the `Filecoin.WalletSign` RPC method.
+
+- [#4314](https://github.com/ChainSafe/forest/issues/4314) Fixed incorrect
+  allowed proof types for all networks.
+
+- [#4328](https://github.com/ChainSafe/forest/pull/4328) Fix issues when
+  connecting to a network with fewer than 5 peers.
+
+## Forest 0.17.2 "Dovakhin"
+
+This is a **mandatory** release for all mainnet node operators. It changes the
+NV22 _dragon_ network upgrade epoch to 3855360 (Wed Apr 24 02:00:00 PM UTC
+2024)). All mainnet node **must** be updated to this version before the network
+upgrade epoch to avoid being stuck on a fork.
+
+### Changed
+
+- [#4151](https://github.com/ChainSafe/forest/pull/4151) Changed the Dragon NV22
+  network upgrade epoch to 3855360 (April 24th 2024).
+
+### Fixed
+
+- [#4145](https://github.com/ChainSafe/forest/pull/4145) Fix the
+  `forest-cli net peers --agent` command in case the agent is not available.
+
+## Forest 0.17.1 "Villentretenmerth"
+
+This is a mandatory release that includes scheduled migration for the NV22
+_Dragon_ network upgrade for mainnet and fix for the calibration network.
+Various other fixes and improvements are included as well, see below for
+details.
+
+### Added
+
+- [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
+  `forest-tool shed private-key-from-key-pair` and
+  `forest-tool shed key-pair-from-private-key` commands. These facilate moving
+  between Forest and Lotus without losing the peer-to-peer identity.
+
+- [#4052](https://github.com/ChainSafe/forest/pull/4052) Add
+  `forest-cli net reachability` command that prints information about
+  reachability from the internet.
+
+- [#4058](https://github.com/ChainSafe/forest/issues/4058) Add support for
+  multiple snapshot files in the `forest-tool api serve` command.
+
+- [#4056](https://github.com/ChainSafe/forest/pull/4056) Enable libp2p `quic`
+  protocol
+
+- [#4071](https://github.com/ChainSafe/forest/pull/4071) Add
+  `forest-tool net ping` command that pings a peer via its multiaddress.
+
+- [#4119](https://github.com/ChainSafe/forest/pull/4119) Add support for NV22
+  fix for calibration network.
+
+### Removed
+
+- [#4018](https://github.com/ChainSafe/forest/pull/4018) Remove --ws flag from
+  `forest-tool api compare`.
+
+### Fixed
+
+- [#4068](https://github.com/ChainSafe/forest/pull/4068) Fix schema bug in the
+  `ChainNotify` RPC method.
+
+- [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
+  `StateVMCirculatingSupplyInternal` RPC method on calibnet.
+
+- [#4091](https://github.com/ChainSafe/forest/pull/4091) Restore `Breeze`,
+  `Smoke`, and `Ignition` entries for calibnet
+
+- [#4093](https://github.com/ChainSafe/forest/pull/4093) Fix parsing issue in
+  the `Filecoin.StateAccountKey` RPC method.
+
+## Forest 0.17.0 "Smaug"
+
+Mandatory release that includes:
+
+- support for the NV22 _Dragon_ network upgrade, together with the required
+  state migration,
+- important networking improvements that increase Forest resilience to network
+  disruptions,
+- various improvements and support for new RPC methods.
+
+### Added
+
+- [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
+  query optimizations when serving with many car files.
+
+- [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
+  `--p2p-listen-address` option to `forest` to override p2p addresses that
+  forest listens on
+
+- [#4031](https://github.com/ChainSafe/forest/pull/4031) Added RPC method
+  `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
+  subcommand, that will list the agent version of the connected peers.
+
+- [#3955](https://github.com/ChainSafe/forest/pull/3955) Added support for the
+  NV22 _Dragon_ network upgrade, together with the required state migration.
+
+### Changed
+
+- [#3976](https://github.com/ChainSafe/forest/pull/3976) `forest-wallet`
+  defaults to using a local wallet instead of the builtin Forest wallet for
+  greater security.
+
+### Fixed
+
+- [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending
+  stale notifications after channel cancelation.
+
+## Forest 0.16.8 "English Channel"
+
+### Added
+
+- [#3978](https://github.com/ChainSafe/forest/pull/3978) Add support for the
+  `Filecoin.ChainNotify` RPC method.
+
+## Forest 0.16.7 "Etaoin shrdlu"
+
+Mandatory release that includes a fix for a bug in the `libp2p` usage. This is
+necessary after the PL-managed bootstrap nodes were decommissioned. Failure to
+upgrade will result in difficulty connecting to the mainnet network.
+
+### Added
+
+- [#3849](https://github.com/ChainSafe/forest/pull/3849/) Implement the
+  `Filecoin.ChainGetPath` lotus-compatible RPC API.
+- [#3849](https://github.com/ChainSafe/forest/pull/3849/) Add
+  `forest-tool shed summarize-tipsets`.
+- [#3893](https://github.com/ChainSafe/forest/pull/3983) Add
+  `forest-tool shed peer-id-from-key-pair`.
+- [#3981](https://github.com/ChainSafe/forest/issues/3981) Add
+  `forest-tool backup create|restore`.
+
+### Fixed
+
+- [#3996](https://github.com/ChainSafe/forest/pull/3996) Fixed a bug in the
+  `libp2p` usage that caused the connections to not get upgraded to secure ones.
+
+## Forest 0.16.6 "Pinecone Reactivation"
+
+### Added
+
+- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
+  API.
+
+### Fixed
+
 - [#3857](https://github.com/ChainSafe/forest/pull/3907) Timeout parameter fetch
   to 30 minutes to avoid it getting stuck on IPFS gateway issues.
 - [#3901](https://github.com/ChainSafe/forest/pull/3901) Fix timeout issue in
   `forest-cli snapshot export`.
+- [#3919](https://github.com/ChainSafe/forest/pull/3919) Fix misreporting when
+  logging progress.
 
 ## Forest 0.16.5 "Pinecone Deactivation"
 

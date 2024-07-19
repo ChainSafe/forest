@@ -1,24 +1,38 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "ActorState")]
 pub struct ActorStateLotusJson {
-    code: LotusJson<Cid>,
-    head: LotusJson<Cid>,
-    nonce: LotusJson<u64>,
-    balance: LotusJson<TokenAmount>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    delegated_address: LotusJson<Option<Address>>,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    code: Cid,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    head: Cid,
+    nonce: u64,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    balance: TokenAmount,
+    #[schemars(with = "LotusJson<Option<Address>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default,
+        rename = "Address"
+    )]
+    delegated_address: Option<Address>,
 }
 
 impl HasLotusJson for ActorState {
     type LotusJson = ActorStateLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
@@ -50,13 +64,11 @@ impl HasLotusJson for ActorState {
             delegated_address,
         } = From::from(self);
         Self::LotusJson {
-            code: code.into(),
-            head: state.into(),
-            nonce: sequence.into(),
-            balance: crate::shim::econ::TokenAmount::from(balance).into(),
-            delegated_address: delegated_address
-                .map(crate::shim::address::Address::from)
-                .into(),
+            code,
+            head: state,
+            nonce: sequence,
+            balance: crate::shim::econ::TokenAmount::from(balance),
+            delegated_address: delegated_address.map(crate::shim::address::Address::from),
         }
     }
 
@@ -68,12 +80,6 @@ impl HasLotusJson for ActorState {
             balance,
             delegated_address,
         } = lotus_json;
-        Self::new(
-            code.into_inner(),
-            head.into_inner(),
-            balance.into_inner(),
-            nonce.into_inner(),
-            delegated_address.into_inner(),
-        )
+        Self::new(code, head, balance, nonce, delegated_address)
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ops::Deref;
@@ -7,7 +7,7 @@ use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
-    db: Option<ParityDb>,
+    pub db: Option<ParityDb>,
     _dir: tempfile::TempDir, // kept for cleaning up during Drop
 }
 

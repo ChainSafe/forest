@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod client;
@@ -11,11 +11,11 @@ use std::{
 
 use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::io::read_file_to_string;
 use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
+use libp2p::Multiaddr;
 use tracing::error;
 
 pub use self::{client::*, config::*};
@@ -39,20 +39,17 @@ OPTIONS:
 #[derive(Default, Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
-    #[arg(short, long)]
-    pub config: Option<String>,
+    #[arg(long)]
+    pub config: Option<PathBuf>,
     /// The genesis CAR file
-    #[arg(short, long)]
+    #[arg(long)]
     pub genesis: Option<String>,
     /// Allow RPC to be active or not (default: true)
-    #[arg(short, long)]
+    #[arg(long)]
     pub rpc: Option<bool>,
     /// Disable Metrics endpoint
-    #[arg(short, long)]
+    #[arg(long)]
     pub no_metrics: bool,
-    /// Client JWT token to use for JSON-RPC authentication
-    #[arg(short, long)]
-    pub token: Option<String>,
     /// Address used for metrics collection server. By defaults binds on
     /// localhost on port 6116.
     #[arg(long)]
@@ -60,8 +57,17 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
+    /// Disable healthcheck endpoints
+    #[arg(long)]
+    pub no_healthcheck: bool,
+    /// Address used for healthcheck server. By defaults binds on localhost on port 2346.
+    #[arg(long)]
+    pub healthcheck_address: Option<SocketAddr>,
+    /// P2P listen addresses, e.g., `--p2p-listen-address /ip4/0.0.0.0/tcp/12345 --p2p-listen-address /ip4/0.0.0.0/tcp/12346`
+    #[arg(long)]
+    pub p2p_listen_address: Option<Vec<Multiaddr>>,
     /// Allow Kademlia (default: true)
-    #[arg(short, long)]
+    #[arg(long)]
     pub kademlia: Option<bool>,
     /// Allow MDNS (default: false)
     #[arg(long)]
@@ -117,7 +123,8 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
-    /// Turn on tokio-console support for debugging
+    /// Turn on tokio-console support for debugging.
+    /// Memory leak, see <https://github.com/tokio-rs/console/pull/501>.
     #[arg(long)]
     pub tokio_console: bool,
     /// Send telemetry to `grafana loki`
@@ -154,7 +161,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let (path, mut cfg) = read_config(&self.config, &self.chain)?;
+        let (path, mut cfg) = read_config(self.config.as_ref(), self.chain.clone())?;
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -164,12 +171,17 @@ impl CliOpts {
             if let Some(rpc_address) = self.rpc_address {
                 cfg.client.rpc_address = rpc_address;
             }
-
-            if self.token.is_some() {
-                cfg.client.rpc_token = self.token.to_owned();
-            }
         } else {
             cfg.client.enable_rpc = false;
+        }
+
+        if self.no_healthcheck {
+            cfg.client.enable_health_check = false;
+        } else {
+            cfg.client.enable_health_check = true;
+            if let Some(healthcheck_address) = self.healthcheck_address {
+                cfg.client.healthcheck_address = healthcheck_address;
+            }
         }
 
         if self.no_metrics {
@@ -179,6 +191,10 @@ impl CliOpts {
             if let Some(metrics_address) = self.metrics_address {
                 cfg.client.metrics_address = metrics_address;
             }
+        }
+
+        if let Some(addresses) = &self.p2p_listen_address {
+            cfg.network.listening_multiaddrs.clone_from(addresses);
         }
 
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
@@ -257,9 +273,9 @@ impl ConfigPath {
     }
 }
 
-pub fn find_config_path(config: &Option<String>) -> Option<ConfigPath> {
+pub fn find_config_path(config: Option<&PathBuf>) -> Option<ConfigPath> {
     if let Some(s) = config {
-        return Some(ConfigPath::Cli(PathBuf::from(s)));
+        return Some(ConfigPath::Cli(s.to_owned()));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
         return Some(ConfigPath::Env(PathBuf::from(s)));
@@ -304,7 +320,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     // `config` has been loaded successfully from toml file in `path` so we can
     // always serialize it back to a valid TOML value or get the TOML value from
     // `path`
-    let file = read_file_to_string(path).unwrap();
+    let file = std::fs::read_to_string(path).unwrap();
     let value = file.parse::<toml::Value>().unwrap();
 
     let config_file = toml::to_string(config).unwrap();

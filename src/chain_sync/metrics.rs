@@ -1,7 +1,6 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use prometheus_client::{
     encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
@@ -82,15 +81,6 @@ pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     );
     metric
 });
-pub static PEER_TIPSET_EPOCH: Lazy<Family<PeerLabel, Gauge>> = Lazy::new(|| {
-    let metric = Family::default();
-    crate::metrics::default_registry().register(
-        "peer_tipset_epoch",
-        "peer tipset epoch",
-        metric.clone(),
-    );
-    metric
-});
 pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
     crate::metrics::default_registry().register(
@@ -127,26 +117,6 @@ pub static FOLLOW_NETWORK_ERRORS: Lazy<Counter> = Lazy::new(|| {
     );
     metric
 });
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct PeerLabel(PeerId);
-
-impl PeerLabel {
-    pub const fn new(peer: PeerId) -> Self {
-        Self(peer)
-    }
-}
-
-impl EncodeLabelSet for PeerLabel {
-    fn encode(&self, mut encoder: LabelSetEncoder) -> Result<(), std::fmt::Error> {
-        let mut label_encoder = encoder.encode_label();
-        let mut label_key_encoder = label_encoder.encode_label_key()?;
-        EncodeLabelKey::encode(&"PEER", &mut label_key_encoder)?;
-        let mut label_value_encoder = label_key_encoder.encode_label_value()?;
-        EncodeLabelValue::encode(&self.0.to_string(), &mut label_value_encoder)?;
-        label_value_encoder.finish()
-    }
-}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Libp2pMessageKindLabel(&'static str);

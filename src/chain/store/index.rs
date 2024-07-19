@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{num::NonZeroUsize, sync::Arc};
@@ -149,39 +149,24 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// short. Semantically identical to [`Tipset::chain`] but the results are
     /// cached.
     pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
-        itertools::unfold(Some(from), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = self.load_required_tipset(child.parents()).ok();
-                child
-            })
+        let mut tipset = Some(from);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = self.load_required_tipset(child.parents()).ok();
+            Some(child)
         })
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let check_for_beacon_entry = |ts: &Tipset| {
-            let cbe = &ts.min_ticket_block().beacon_entries;
-            if let Some(entry) = cbe.last() {
-                return Ok(Some(entry.clone()));
+    pub fn latest_beacon_entry(&self, tipset: Arc<Tipset>) -> Result<BeaconEntry, Error> {
+        for ts in tipset.chain_arc(&self.db).take(20) {
+            if let Some(entry) = ts.min_ticket_block().beacon_entries.last() {
+                return Ok(entry.clone());
             }
             if ts.epoch() == 0 {
                 return Err(Error::Other(
                     "made it back to genesis block without finding beacon entry".to_owned(),
                 ));
-            }
-            Ok(None)
-        };
-
-        if let Some(entry) = check_for_beacon_entry(ts)? {
-            return Ok(entry);
-        }
-        let mut cur = self.load_required_tipset(ts.parents())?;
-        for i in 1..20 {
-            if i != 1 {
-                cur = self.load_required_tipset(cur.parents())?;
-            }
-            if let Some(entry) = check_for_beacon_entry(&cur)? {
-                return Ok(entry);
             }
         }
 

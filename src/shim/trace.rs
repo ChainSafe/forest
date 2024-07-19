@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use self::ExecutionEvent as EShim;
 use crate::shim::{
@@ -107,7 +107,10 @@ impl From<E3> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E3::CallError(err) => EShim::CallError(err.into()),
-            E3::InvokeActor(cid) => EShim::InvokeActor(Either::Left(cid)),
+            E3::InvokeActor { id, state } => EShim::InvokeActor(Either::Right(InvokeActor {
+                id,
+                state: state.into(),
+            })),
             e => EShim::Unknown(Either::Left(e)),
         }
     }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -9,7 +9,8 @@ use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, Height};
+use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -17,15 +18,17 @@ use crate::shim::{
 };
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
+use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 use super::{
     index::{ChainIndex, ResolveNullTipset},
@@ -33,7 +36,7 @@ use super::{
     Error,
 };
 use crate::db::setting_keys::HEAD_KEY;
-use crate::db::{SettingsStore, SettingsStoreExt};
+use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -72,6 +75,12 @@ pub struct ChainStore<DB> {
 
     /// validated blocks
     validated_blocks: Mutex<HashSet<Cid>>,
+
+    /// Ethereum mappings store
+    eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
+
+    /// Needed by the Ethereum mapping.
+    chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -105,6 +114,7 @@ where
     pub fn new(
         db: Arc<DB>,
         settings: Arc<dyn SettingsStore + Sync + Send>,
+        eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
@@ -115,7 +125,7 @@ where
             .read_obj::<TipsetKey>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKey::from_iter([*genesis_block_header.cid()]);
+            let tipset_keys = TipsetKey::from(nonempty![*genesis_block_header.cid()]);
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
@@ -124,11 +134,13 @@ where
         let cs = Self {
             publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             settings,
             genesis_block_header,
             validated_blocks,
+            eth_mappings,
+            chain_config,
         };
 
         Ok(cs)
@@ -156,8 +168,55 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
+        self.put_tipset_key(expanded.key())?;
+
         self.update_heaviest(Arc::new(expanded))?;
         Ok(())
+    }
+
+    /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
+    pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
+        let hash = tsk.cid()?.into();
+        self.eth_mappings.write_obj(&hash, tsk)?;
+        Ok(())
+    }
+
+    /// Writes the delegated message `Cid`s to the blockstore for `EthAPI` queries.
+    pub fn put_delegated_message_hashes<'a>(
+        &self,
+        headers: impl Iterator<Item = &'a CachingBlockHeader>,
+    ) -> Result<(), Error> {
+        tracing::debug!("persist eth mapping");
+
+        // The messages will be ordered from most recent block to less recent
+        let delegated_messages = self.headers_delegated_messages(headers)?;
+
+        self.process_signed_messages(&delegated_messages)?;
+        Ok(())
+    }
+
+    /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
+    pub fn get_required_tipset_key(&self, hash: &eth::Hash) -> Result<TipsetKey, Error> {
+        let tsk = self
+            .eth_mappings
+            .read_obj::<TipsetKey>(hash)?
+            .with_context(|| format!("cannot find tipset with hash {}", hash))?;
+
+        Ok(tsk)
+    }
+
+    /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
+    pub fn put_mapping(&self, k: eth::Hash, v: Cid, timestamp: u64) -> Result<(), Error> {
+        self.eth_mappings.write_obj(&k, &(v, timestamp))?;
+        Ok(())
+    }
+
+    /// Reads the `Cid` from the blockstore for `EthAPI` queries.
+    pub fn get_mapping(&self, hash: &eth::Hash) -> Result<Option<Cid>, Error> {
+        Ok(self
+            .eth_mappings
+            .read_obj::<(Cid, u64)>(hash)?
+            .map(|(cid, _)| cid))
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using
@@ -172,13 +231,14 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.load_required_tipset(
-            &self
-                .settings
-                .require_obj::<TipsetKey>(HEAD_KEY)
-                .expect("failed to load heaviest tipset"),
-        )
-        .expect("failed to load heaviest tipset")
+        self.chain_index
+            .load_required_tipset(
+                &self
+                    .settings
+                    .require_obj::<TipsetKey>(HEAD_KEY)
+                    .expect("failed to load heaviest tipset"),
+            )
+            .expect("failed to load heaviest tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -191,23 +251,19 @@ where
         &self.db
     }
 
-    /// Returns Tipset from key-value store from provided CIDs
-    #[tracing::instrument(skip_all)]
-    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
-        if tsk.cids.is_empty() {
-            return Ok(Some(self.heaviest_tipset()));
-        }
-        self.chain_index.load_tipset(tsk)
-    }
-
-    /// Returns Tipset from key-value store from provided CIDs.
+    /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
+    /// You may opt-in to that behavior by calling this method with [`None`].
+    ///
     /// This calls fails if the tipset is missing or invalid.
     #[tracing::instrument(skip_all)]
-    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
-        if tsk.cids.is_empty() {
-            return Ok(self.heaviest_tipset());
+    pub fn load_required_tipset_or_heaviest<'a>(
+        &self,
+        maybe_key: impl Into<Option<&'a TipsetKey>>,
+    ) -> Result<Arc<Tipset>, Error> {
+        match maybe_key.into() {
+            Some(key) => self.chain_index.load_required_tipset(key),
+            None => Ok(self.heaviest_tipset()),
         }
-        self.chain_index.load_required_tipset(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
@@ -230,7 +286,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            debug!("Block {cid} was previously validated");
+            trace!("Block {cid} was previously validated");
         }
         validated
     }
@@ -323,6 +379,93 @@ where
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
+
+    pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
+        self.settings.clone()
+    }
+
+    /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
+    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let eth_txs: Vec<(eth::Hash, Cid, u64, usize)> = messages
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (smsg, timestamp))| {
+                if let Ok((_, tx)) =
+                    eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
+                {
+                    if let Ok(hash) = tx.eth_hash() {
+                        // newest messages are the ones with lowest index
+                        Some((hash.into(), smsg.cid(), *timestamp, i))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let filtered = filter_lowest_index(eth_txs);
+        let num_entries = filtered.len();
+
+        // write back
+        for (k, v, timestamp) in filtered.into_iter() {
+            tracing::trace!("Insert mapping {} => {}", k, v);
+            self.put_mapping(k, v, timestamp)?;
+        }
+        tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
+        Ok(())
+    }
+
+    pub fn headers_delegated_messages<'a>(
+        &self,
+        headers: impl Iterator<Item = &'a CachingBlockHeader>,
+    ) -> anyhow::Result<Vec<(SignedMessage, u64)>>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let mut delegated_messages = vec![];
+
+        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+        // Before this height, no notion of an Ethereum-like API existed.
+        let filtered_headers =
+            headers.filter(|bh| bh.epoch >= self.chain_config.epoch(Height::Hygge));
+
+        for bh in filtered_headers {
+            if let Ok((_, secp_cids)) = block_messages(self.blockstore(), bh) {
+                let mut messages: Vec<_> = secp_cids
+                    .into_iter()
+                    .filter(|msg| msg.is_delegated())
+                    .map(|m| (m, bh.timestamp))
+                    .collect();
+                delegated_messages.append(&mut messages);
+            }
+        }
+
+        Ok(delegated_messages)
+    }
+}
+
+fn filter_lowest_index(values: Vec<(eth::Hash, Cid, u64, usize)>) -> Vec<(eth::Hash, Cid, u64)> {
+    let map: HashMap<eth::Hash, (Cid, u64, usize)> = values.into_iter().fold(
+        HashMap::default(),
+        |mut acc, (hash, cid, timestamp, index)| {
+            acc.entry(hash)
+                .and_modify(|&mut (_, _, ref mut min_index)| {
+                    if index < *min_index {
+                        *min_index = index;
+                    }
+                })
+                .or_insert((cid, timestamp, index));
+            acc
+        },
+    );
+
+    map.into_iter()
+        .map(|(hash, (cid, timestamp, _))| (hash, cid, timestamp))
+        .collect()
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
@@ -501,7 +644,6 @@ pub fn get_parent_receipt(
 }
 
 pub mod headchange_json {
-    use crate::lotus_json::LotusJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -510,13 +652,14 @@ pub mod headchange_json {
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
-        Apply(LotusJson<Tipset>),
+        #[serde(with = "crate::lotus_json")]
+        Apply(Tipset),
     }
 
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Apply(arc) => Self::Apply((*arc).clone().into()),
+                HeadChange::Apply(arc) => Self::Apply((*arc).clone()),
             }
         }
     }
@@ -550,7 +693,8 @@ mod tests {
             message_receipts: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             ..Default::default()
         });
-        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block.clone()).unwrap();
+        let cs =
+            ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis_block_header(), &gen_block);
     }
@@ -564,7 +708,7 @@ mod tests {
             ..Default::default()
         });
 
-        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block).unwrap();
+        let cs = ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

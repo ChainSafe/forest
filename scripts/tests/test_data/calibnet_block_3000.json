@@ -1,0 +1,55 @@
+{
+  "Miner": "t01001",
+  "Ticket": {
+    "VRFProof": "tqvA2eKxv41idBKYyfn5s5NILa0ZbDCm0I966PxITW9v41zjaK+WBTlKt01HyJA6C547A1QnNmfl44RmU/ZzC6p7TJJeiB1ZSgbTu6oUmWoHokxN5w4wPJcqslfNCjcy"
+  },
+  "ElectionProof": {
+    "VRFProof": "lgQnCwE/R199jfPpK+/CXQyZwyyldgm9zATRG3KdD765ObLZsYLJEzJP7WspEhVxABhKbWqtR6iWuMqCfFYET+rQjv6q/7/HOnXxGm4NA+Vk/D6Py6B7dFpDJ0ynE1xA",
+    "WinCount": 1
+  },
+  "BeaconEntries": [
+    {
+      "Round": 2399511,
+      "Data": "gnEZiH4il5dkAhPmjF9s5xNYnFuLHnhSD2h+VnAh6j2PmNxZQKYqglWxAjr1TrUBEWvXCHqJX8Mlq0cHTQlGSMsyuvDiWVr7QBS7ianOvs5iZXbkq1MwSdySq6eBTkuo"
+    }
+  ],
+  "WinPoStProof": [
+    {
+      "PoStProof": 3,
+      "ProofBytes": "qZnqYHOeLxuKrw+zsgVq7RBoVZXuuLg/P4k2yRtGcCG5QPA7qq36WfCb8t9if9AkoXMCjRI/mV9GQyqDRyxn4ZCuA6Mco9js5Jh9+ZXgXIpD5aqk/DFzJAdAspI5MYT8Duk9xmKeN9w5j8RhkwqCgMhUruuvPBPbnGxOUKGMDMt6VZYBEj0BcmkHy1Tm7wG4rSv2eGRcCn9xNtgrJaJii8O4BO1GtbXAkvxLBgAJQqHUQ4Ci06bjC28hFa3DUx1Z"
+    }
+  ],
+  "Parents": [
+    {
+      "/": "bafy2bzaceboy6rk5lzoxhk2q2vmzq2yjmgtdzsaax4tret2iymumjcp4ohfjy"
+    },
+    {
+      "/": "bafy2bzaceaq5l57fo35ejowp6lxk3v3klrol35idwwon4ipqavcymf5vuqhyy"
+    },
+    {
+      "/": "bafy2bzacecf6vunv62ofnf2pms4ro7evx5vtzcpmyr5vqs2gixzerc4svtyu2"
+    }
+  ],
+  "ParentWeight": "56159550",
+  "Height": 3000,
+  "ParentStateRoot": {
+    "/": "bafy2bzacebjbt5nwgof7jaqwngr3yxmisdofqkuafsznxbau66wahznafipwm"
+  },
+  "ParentMessageReceipts": {
+    "/": "bafy2bzacedswlcz5ddgqnyo3sak3jmhmkxashisnlpq6ujgyhe4mlobzpnhs6"
+  },
+  "Messages": {
+    "/": "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
+  },
+  "BLSAggregate": {
+    "Type": 2,
+    "Data": "wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "Timestamp": 1667416380,
+  "BlockSig": {
+    "Type": 2,
+    "Data": "uJABIrNb5zlpbDCFpEW4nV0l77pYG/v2mC+XZYlx81JHC+81si+WjTXdSHU4fDRcCCfcBP798MvIfj6Faky2mCS1C6CHgEvpZCHQ1eXVBDxTGFHxu1ZEXiT98bsflEzl"
+  },
+  "ForkSignaling": 0,
+  "ParentBaseFee": "100"
+}

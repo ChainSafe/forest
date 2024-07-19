@@ -8,6 +8,9 @@ concurrency:
   pull_request:
     branches:
       - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -17,12 +20,14 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
+  SCRIPT_TIMEOUT_MINUTES: 30
   AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
   AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: sccache
   CC: sccache clang
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
+  SHELL_IMAGE: busybox
 jobs:
   build-macos:
     name: Build MacOS
@@ -39,7 +44,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Cargo Check
@@ -63,14 +68,14 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
-      - name: Install Apt Dependencies
-        run: |
-          sudo make install-deps
       - name: Cargo Install
-        run: make install
+        env:
+          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+        run: make install-slim-quick
       - uses: actions/upload-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
@@ -83,7 +88,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
@@ -111,23 +116,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
-        timeout-minutes: 15
-  forest-tool-check:
-    needs:
-      - build-ubuntu
-    name: Forest TOOL checks
-    runs-on: ubuntu-latest
-    steps:
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-check:
     needs:
       - build-ubuntu
@@ -153,7 +142,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-stateless-mode-check:
     needs:
       - build-ubuntu
@@ -179,7 +168,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_mode_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   state-migrations-check:
     needs:
       - build-ubuntu
@@ -201,7 +190,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-wallet-check:
     needs:
       - build-ubuntu
@@ -228,7 +217,7 @@ jobs:
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-export-check:
     needs:
       - build-ubuntu
@@ -250,7 +239,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-no-discovery-checks:
     needs:
       - build-ubuntu
@@ -271,7 +260,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_no_discovery_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-kademlia-checks:
     needs:
       - build-ubuntu
@@ -292,7 +281,33 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_kademlia_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+  calibnet-eth-mapping-check:
+    needs:
+      - build-ubuntu
+    name: Calibnet eth mapping check
+    runs-on: ubuntu-latest
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
+          key: proof-params-keys
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_eth_mapping_check.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   db-migration-checks:
     needs:
       - build-ubuntu
@@ -312,7 +327,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   db-migration-checks-car-db:
     needs:
       - build-ubuntu
@@ -332,12 +347,15 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks with car_db folder
         run: ./scripts/tests/calibnet_db_migration_car_db.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-latest
     needs:
       - build-ubuntu
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/cache@v4
         id: cache
@@ -346,57 +364,73 @@ jobs:
           key: proof-params-2k
       - name: Load cache into volume
         if: steps.cache.outputs.cache-hit == 'true'
-        run: >
+        run: |
           docker volume create devnet_filecoin-proofs
-
-          docker run --rm -v devnet_filecoin-proofs:/proofs -v
-          $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /cache/*
-          /proofs"
+          docker run --rm \
+            -v devnet_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            $SHELL_IMAGE \
+            sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
       - name: Devnet setup
-        run: ./scripts/devnet/ci_setup.sh
-        timeout-minutes: 15
+        run: ./scripts/devnet/setup.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Devnet check
-        run: ./scripts/devnet/ci_check.sh
-        timeout-minutes: 15
+        run: ./scripts/devnet/check.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
       - name: Prepare cache folder for uploading
         if: steps.cache.outputs.cache-hit != 'true'
-        run: >
-          docker run --rm -v devnet_filecoin-proofs:/proofs -v
-          $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /proofs/*
-          /cache"
-
+        run: |
+          docker run --rm \
+            -v devnet_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            $SHELL_IMAGE \
+            sh -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  # Temporarily disabling the job as it's flaky
-  # Tracking issue: https://github.com/ChainSafe/forest/issues/3926
-  offline-rpc-check:
+  calibnet-rpc-checks:
     needs:
       - build-ubuntu
-    name: Offline RPC check
+    name: Calibnet RPC checks
     runs-on: ubuntu-latest
-    if: false
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
+      - name: Run api compare tests
+        run: ./scripts/tests/api_compare/setup.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+  snapshot-parity-checks:
+    needs:
+      - build-ubuntu
+    name: Calibnet snapshot parity checks
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    if: github.event.pull_request.draft == false
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: RPC check
-        run: ./scripts/tests/calibnet_offline_rpc_check.sh
-        timeout-minutes: 20
-
+      - name: Run snapshot parity tests
+        run: ./scripts/tests/snapshot_parity/setup.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2

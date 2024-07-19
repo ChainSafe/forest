@@ -1,12 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-mod frozen_vec;
 pub mod hash_map;
 pub mod hash_set;
-pub use frozen_vec::FrozenCidVec;
+mod small_cid_vec;
 pub use hash_map::CidHashMap;
 pub use hash_set::CidHashSet;
 use imp::{CidV1DagCborBlake2b256, Uncompactable};
+pub use small_cid_vec::SmallCidNonEmptyVec;
 
 /// The core primitive for saving space in this module.
 ///

@@ -1,205 +1,574 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod auth_api;
-mod beacon_api;
-mod chain_api;
-mod common_api;
-mod eth_api;
-mod gas_api;
-mod mpool_api;
-mod net_api;
-mod node_api;
-mod rpc_http_handler;
-mod rpc_util;
-mod rpc_ws_handler;
-mod state_api;
-mod sync_api;
-mod wallet_api;
+mod auth_layer;
+mod channel;
+mod client;
+mod request;
 
-use std::sync::Arc;
+pub use client::Client;
+pub use error::ServerError;
+use futures::FutureExt as _;
+use reflect::Ctx;
+pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
+pub use request::Request;
+mod error;
+mod reflect;
+pub mod types;
+pub use methods::*;
+use reflect::Permission;
 
-use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
-    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
-    wallet_api::*,
-};
-use axum::routing::{get, post};
+/// Protocol or transport-specific error
+pub use jsonrpsee::core::ClientError;
+
+/// The macro `callback` will be passed in each type that implements
+/// [`RpcMethod`].
+///
+/// This is a macro because there is no way to abstract the `ARITY` on that
+/// trait.
+///
+/// All methods should be entered here.
+macro_rules! for_each_method {
+    ($callback:path) => {
+        // auth vertical
+        $callback!(crate::rpc::auth::AuthNew);
+        $callback!(crate::rpc::auth::AuthVerify);
+
+        // beacon vertical
+        $callback!(crate::rpc::beacon::BeaconGetEntry);
+
+        // chain vertical
+        $callback!(crate::rpc::chain::ChainGetMessage);
+        $callback!(crate::rpc::chain::ChainGetParentMessages);
+        $callback!(crate::rpc::chain::ChainGetParentReceipts);
+        $callback!(crate::rpc::chain::ChainGetMessagesInTipset);
+        $callback!(crate::rpc::chain::ChainExport);
+        $callback!(crate::rpc::chain::ChainReadObj);
+        $callback!(crate::rpc::chain::ChainHasObj);
+        $callback!(crate::rpc::chain::ChainStatObj);
+        $callback!(crate::rpc::chain::ChainGetBlockMessages);
+        $callback!(crate::rpc::chain::ChainGetPath);
+        $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
+        $callback!(crate::rpc::chain::ChainGetTipSetAfterHeight);
+        $callback!(crate::rpc::chain::ChainGetGenesis);
+        $callback!(crate::rpc::chain::ChainHead);
+        $callback!(crate::rpc::chain::ChainGetBlock);
+        $callback!(crate::rpc::chain::ChainGetTipSet);
+        $callback!(crate::rpc::chain::ChainSetHead);
+        $callback!(crate::rpc::chain::ChainGetMinBaseFee);
+        $callback!(crate::rpc::chain::ChainTipSetWeight);
+
+        // common vertical
+        $callback!(crate::rpc::common::Session);
+        $callback!(crate::rpc::common::Version);
+        $callback!(crate::rpc::common::Shutdown);
+        $callback!(crate::rpc::common::StartTime);
+
+        // eth vertical
+        $callback!(crate::rpc::eth::Web3ClientVersion);
+        $callback!(crate::rpc::eth::EthSyncing);
+        $callback!(crate::rpc::eth::EthAccounts);
+        $callback!(crate::rpc::eth::EthBlockNumber);
+        $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthFeeHistory);
+        $callback!(crate::rpc::eth::EthGetCode);
+        $callback!(crate::rpc::eth::EthGetStorageAt);
+        $callback!(crate::rpc::eth::EthGasPrice);
+        $callback!(crate::rpc::eth::EthGetBalance);
+        $callback!(crate::rpc::eth::EthGetBlockByHash);
+        $callback!(crate::rpc::eth::EthGetBlockByNumber);
+        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByHash);
+        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
+        $callback!(crate::rpc::eth::EthGetTransactionCount);
+        $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
+        $callback!(crate::rpc::eth::EthProtocolVersion);
+        $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+
+        // gas vertical
+        $callback!(crate::rpc::gas::GasEstimateGasLimit);
+        $callback!(crate::rpc::gas::GasEstimateMessageGas);
+        $callback!(crate::rpc::gas::GasEstimateFeeCap);
+        $callback!(crate::rpc::gas::GasEstimateGasPremium);
+
+        // miner vertical
+        $callback!(crate::rpc::miner::MinerCreateBlock);
+        $callback!(crate::rpc::miner::MinerGetBaseInfo);
+
+        // mpool vertical
+        $callback!(crate::rpc::mpool::MpoolGetNonce);
+        $callback!(crate::rpc::mpool::MpoolPending);
+        $callback!(crate::rpc::mpool::MpoolSelect);
+        $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushUntrusted);
+        $callback!(crate::rpc::mpool::MpoolPushMessage);
+
+        // msig vertical
+        $callback!(crate::rpc::msig::MsigGetAvailableBalance);
+        $callback!(crate::rpc::msig::MsigGetPending);
+        $callback!(crate::rpc::msig::MsigGetVested);
+        $callback!(crate::rpc::msig::MsigGetVestingSchedule);
+
+        // net vertical
+        $callback!(crate::rpc::net::NetAddrsListen);
+        $callback!(crate::rpc::net::NetPeers);
+        $callback!(crate::rpc::net::NetListening);
+        $callback!(crate::rpc::net::NetInfo);
+        $callback!(crate::rpc::net::NetConnect);
+        $callback!(crate::rpc::net::NetDisconnect);
+        $callback!(crate::rpc::net::NetAgentVersion);
+        $callback!(crate::rpc::net::NetAutoNatStatus);
+        $callback!(crate::rpc::net::NetVersion);
+        $callback!(crate::rpc::net::NetProtectAdd);
+
+        // node vertical
+        $callback!(crate::rpc::node::NodeStatus);
+
+        // state vertical
+        $callback!(crate::rpc::state::StateCall);
+        $callback!(crate::rpc::state::StateGetBeaconEntry);
+        $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateGetNetworkParams);
+        $callback!(crate::rpc::state::StateNetworkName);
+        $callback!(crate::rpc::state::StateReplay);
+        $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
+        $callback!(crate::rpc::state::StateAccountKey);
+        $callback!(crate::rpc::state::StateLookupID);
+        $callback!(crate::rpc::state::StateGetActor);
+        $callback!(crate::rpc::state::StateMinerInfo);
+        $callback!(crate::rpc::state::StateMinerActiveSectors);
+        $callback!(crate::rpc::state::StateMinerAllocated);
+        $callback!(crate::rpc::state::StateMinerPartitions);
+        $callback!(crate::rpc::state::StateMinerSectors);
+        $callback!(crate::rpc::state::StateMinerSectorCount);
+        $callback!(crate::rpc::state::StateMinerSectorAllocated);
+        $callback!(crate::rpc::state::StateMinerPower);
+        $callback!(crate::rpc::state::StateMinerDeadlines);
+        $callback!(crate::rpc::state::StateMinerProvingDeadline);
+        $callback!(crate::rpc::state::StateMinerFaults);
+        $callback!(crate::rpc::state::StateMinerRecoveries);
+        $callback!(crate::rpc::state::StateMinerAvailableBalance);
+        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
+        $callback!(crate::rpc::state::StateGetReceipt);
+        $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromTickets);
+        $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromBeacon);
+        $callback!(crate::rpc::state::StateReadState);
+        $callback!(crate::rpc::state::StateCirculatingSupply);
+        $callback!(crate::rpc::state::StateVerifiedClientStatus);
+        $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
+        $callback!(crate::rpc::state::StateListMiners);
+        $callback!(crate::rpc::state::StateListActors);
+        $callback!(crate::rpc::state::StateNetworkVersion);
+        $callback!(crate::rpc::state::StateMarketBalance);
+        $callback!(crate::rpc::state::StateMarketParticipants);
+        $callback!(crate::rpc::state::StateMarketDeals);
+        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
+        $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsgV0);
+        $callback!(crate::rpc::state::StateWaitMsg);
+        $callback!(crate::rpc::state::StateSearchMsg);
+        $callback!(crate::rpc::state::StateSearchMsgLimited);
+        $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateCompute);
+        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateVerifiedRegistryRootKey);
+        $callback!(crate::rpc::state::StateVerifierStatus);
+        $callback!(crate::rpc::state::StateGetClaim);
+        $callback!(crate::rpc::state::StateGetClaims);
+        $callback!(crate::rpc::state::StateGetAllClaims);
+        $callback!(crate::rpc::state::StateGetAllocation);
+        $callback!(crate::rpc::state::StateGetAllocations);
+        $callback!(crate::rpc::state::StateGetAllAllocations);
+        $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
+        $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
+        $callback!(crate::rpc::state::StateSectorExpiration);
+        $callback!(crate::rpc::state::StateSectorPartition);
+        $callback!(crate::rpc::state::StateLookupRobustAddress);
+
+        // sync vertical
+        $callback!(crate::rpc::sync::SyncCheckBad);
+        $callback!(crate::rpc::sync::SyncMarkBad);
+        $callback!(crate::rpc::sync::SyncState);
+        $callback!(crate::rpc::sync::SyncSubmitBlock);
+
+        // wallet vertical
+        $callback!(crate::rpc::wallet::WalletBalance);
+        $callback!(crate::rpc::wallet::WalletDefaultAddress);
+        $callback!(crate::rpc::wallet::WalletExport);
+        $callback!(crate::rpc::wallet::WalletHas);
+        $callback!(crate::rpc::wallet::WalletImport);
+        $callback!(crate::rpc::wallet::WalletList);
+        $callback!(crate::rpc::wallet::WalletNew);
+        $callback!(crate::rpc::wallet::WalletSetDefault);
+        $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletSignMessage);
+        $callback!(crate::rpc::wallet::WalletValidateAddress);
+        $callback!(crate::rpc::wallet::WalletVerify);
+        $callback!(crate::rpc::wallet::WalletDelete);
+    };
+}
+pub(crate) use for_each_method;
+
+#[allow(unused)]
+/// All handler definitions.
+///
+/// Usage guide:
+/// ```ignore
+/// use crate::rpc::{self, prelude::*};
+///
+/// let client = rpc::Client::from(..);
+/// ChainHead::call(&client, ()).await?;
+/// fn foo() -> rpc::ClientError {..}
+/// fn bar() -> rpc::ServerError {..}
+/// ```
+pub mod prelude {
+    use super::*;
+
+    pub use reflect::RpcMethodExt as _;
+
+    macro_rules! export {
+        ($ty:ty) => {
+            pub use $ty;
+        };
+    }
+
+    for_each_method!(export);
+}
+
+/// All the methods live in their own folder
+///
+/// # Handling types
+/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
+///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
+///     in either:
+///     - `src/rpc/methods/auth.rs` (if there are only a few).
+///     - `src/rpc/methods/auth/types.rs` (if there are so many that they would cause clutter).
+///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
+///
+/// # Interactions with the [`lotus_json`] APIs
+/// - Types may have fields which must go through [`LotusJson`],
+///   and MUST reflect that in their [`JsonSchema`].
+///   You have two options for this:
+///   - Use `#[attributes]` to control serialization and schema generation:
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         #[serde(with = "crate::lotus_json")] // perform the conversion
+///         #[schemars(with = "LotusJson<Cid>")] // advertise the schema to be converted
+///         cid: Cid, // use the native type in application logic
+///     }
+///     ```
+///   - Use [`LotusJson`] directly. This means that serialization and the [`JsonSchema`]
+///     will never go out of sync.
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
+///     }
+///     ```
+///
+/// [`lotus_json`]: crate::lotus_json
+/// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
+/// [`LotusJson`]: crate::lotus_json::LotusJson
+/// [`JsonSchema`]: schemars::JsonSchema
+mod methods {
+    pub mod auth;
+    pub mod beacon;
+    pub mod chain;
+    pub mod common;
+    pub mod eth;
+    pub mod gas;
+    pub mod miner;
+    pub mod mpool;
+    pub mod msig;
+    pub mod net;
+    pub mod node;
+    pub mod state;
+    pub mod sync;
+    pub mod wallet;
+}
+
+use crate::key_management::KeyStore;
+use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::channel::RpcModule as FilRpcModule;
+pub use crate::rpc::channel::CANCEL_METHOD_NAME;
+
+use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
-use tokio::net::TcpListener;
-use tokio::sync::mpsc::Sender;
-use tracing::info;
-
-use crate::rpc::{
-    beacon_api::beacon_get_entry,
-    common_api::{session, shutdown, start_time, version},
-    rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
-    rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
-    state_api::*,
+use jsonrpsee::{
+    server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
+    Methods,
 };
+use once_cell::sync::Lazy;
+use std::env;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::{mpsc, RwLock};
+use tower::Service;
 
-pub async fn start_rpc<DB>(
-    state: Arc<RPCState<DB>>,
-    rpc_endpoint: TcpListener,
-    forest_version: &'static str,
-    shutdown_send: Sender<()>,
-) -> Result<(), JSONRPCError>
+use openrpc_types::{self, ParamStructure};
+
+pub const DEFAULT_PORT: u16 = 2345;
+
+/// Request timeout read from environment variables
+static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+    env::var("FOREST_RPC_DEFAULT_TIMEOUT")
+        .ok()
+        .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
+        .unwrap_or(Duration::from_secs(60))
+});
+
+const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
+const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
+
+/// This is where you store persistent data, or at least access to stateful
+/// data.
+pub struct RPCState<DB> {
+    pub keystore: Arc<RwLock<KeyStore>>,
+    pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
+    pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
+    pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
+    pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
+    pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
+    pub network_name: String,
+    pub tipset_send: flume::Sender<Arc<Tipset>>,
+    pub start_time: chrono::DateTime<chrono::Utc>,
+    pub shutdown: mpsc::Sender<()>,
+}
+
+impl<DB: Blockstore> RPCState<DB> {
+    pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
+        self.state_manager.beacon_schedule()
+    }
+
+    pub fn chain_store(&self) -> &Arc<crate::chain::ChainStore<DB>> {
+        self.state_manager.chain_store()
+    }
+
+    pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
+        &self.chain_store().chain_index
+    }
+
+    pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {
+        self.state_manager.chain_config()
+    }
+
+    pub fn store(&self) -> &DB {
+        self.chain_store().blockstore()
+    }
+
+    pub fn store_owned(&self) -> Arc<DB> {
+        self.state_manager.blockstore_owned()
+    }
+}
+
+#[derive(Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+    methods: Methods,
+    stop_handle: StopHandle,
+    svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+    keystore: Arc<RwLock<KeyStore>>,
+}
+
+pub async fn start_rpc<DB>(state: RPCState<DB>, rpc_endpoint: SocketAddr) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use auth_api::*;
-    use chain_api::*;
-    use gas_api::*;
-    use mpool_api::*;
-    use sync_api::*;
-    use wallet_api::*;
+    // `Arc` is needed because we will share the state between two modules
+    let state = Arc::new(state);
+    let keystore = state.keystore.clone();
+    let mut module = create_module(state.clone());
 
-    let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
-    let rpc_server = Arc::new(
-        Server::new()
-            .with_data(Data(state))
-            // Auth API
-            .with_method(AUTH_NEW, auth_new::<DB>)
-            .with_method(AUTH_VERIFY, auth_verify::<DB>)
-            // Beacon API
-            .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
-            // Chain API
-            .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
-            .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
-            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
-            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)
-            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)
-            .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
-            .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
-            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
-            .with_method(CHAIN_HEAD, chain_head::<DB>)
-            .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
-            .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
-            .with_method(
-                CHAIN_GET_MIN_BASE_FEE,
-                chain_api::chain_get_min_base_fee::<DB>,
-            )
-            .with_method(
-                CHAIN_GET_MESSAGES_IN_TIPSET,
-                chain_api::chain_get_messages_in_tipset::<DB>,
-            )
-            .with_method(
-                CHAIN_GET_PARENT_MESSAGES,
-                chain_api::chain_get_parent_message::<DB>,
-            )
-            .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
-            .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
-            // Message Pool API
-            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
-            .with_method(MPOOL_PENDING, mpool_pending::<DB>)
-            .with_method(MPOOL_PUSH, mpool_push::<DB>)
-            .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
-            // Sync API
-            .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
-            .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
-            .with_method(SYNC_STATE, sync_state::<DB>)
-            // Wallet API
-            .with_method(WALLET_BALANCE, wallet_balance::<DB>)
-            .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)
-            .with_method(WALLET_EXPORT, wallet_export::<DB>)
-            .with_method(WALLET_HAS, wallet_has::<DB>)
-            .with_method(WALLET_IMPORT, wallet_import::<DB>)
-            .with_method(WALLET_LIST, wallet_list::<DB>)
-            .with_method(WALLET_NEW, wallet_new::<DB>)
-            .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
-            .with_method(WALLET_SIGN, wallet_sign::<DB>)
-            .with_method(WALLET_VALIDATE_ADDRESS, wallet_validate_address)
-            .with_method(WALLET_VERIFY, wallet_verify)
-            .with_method(WALLET_DELETE, wallet_delete::<DB>)
-            // State API
-            .with_method(STATE_CALL, state_call::<DB>)
-            .with_method(STATE_REPLAY, state_replay::<DB>)
-            .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
-            .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
-            .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)
-            .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)
-            .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
-            .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
-            .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
-            .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
-            .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
-            .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
-            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
-            .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
-            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
-            .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
-            .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
-            .with_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)
-            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
-            .with_method(
-                STATE_MINER_PROVING_DEADLINE,
-                state_miner_proving_deadline::<DB>,
-            )
-            .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
-            .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
-            .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
-            .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
-            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
-            .with_method(
-                STATE_GET_RANDOMNESS_FROM_TICKETS,
-                state_get_randomness_from_tickets::<DB>,
-            )
-            .with_method(
-                STATE_GET_RANDOMNESS_FROM_BEACON,
-                state_get_randomness_from_beacon::<DB>,
-            )
-            .with_method(STATE_READ_STATE, state_read_state::<DB>)
-            .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
-            .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
-            .with_method(
-                STATE_VERIFIED_CLIENT_STATUS,
-                state_verified_client_status::<DB>,
-            )
-            .with_method(
-                STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
-                state_vm_circulating_supply_internal::<DB>,
-            )
-            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
-            .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
-            // Gas API
-            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
-            .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
-            .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)
-            .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
-            // Common API
-            .with_method(VERSION, move || version(block_delay, forest_version))
-            .with_method(SESSION, session)
-            .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
-            .with_method(START_TIME, start_time::<DB>)
-            // Net API
-            .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
-            .with_method(NET_PEERS, net_api::net_peers::<DB>)
-            .with_method(NET_INFO, net_api::net_info::<DB>)
-            .with_method(NET_CONNECT, net_api::net_connect::<DB>)
-            .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
-            // Node API
-            .with_method(NODE_STATUS, node_api::node_status::<DB>)
-            // Eth API
-            .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
-            .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
-            .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
-            .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
-            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
-            .finish_unwrapped(),
-    );
+    let mut pubsub_module = FilRpcModule::default();
 
-    let app = axum::Router::new()
-        .route("/rpc/v0", get(rpc_v0_ws_handler))
-        .route("/rpc/v1", get(rpc_ws_handler))
-        .route("/rpc/v0", post(rpc_v0_http_handler))
-        .route("/rpc/v1", post(rpc_http_handler))
-        .with_state(rpc_server);
+    pubsub_module.register_channel("Filecoin.ChainNotify", {
+        let state_clone = state.clone();
+        move |params| chain::chain_notify(params, &state_clone)
+    })?;
+    module.merge(pubsub_module)?;
 
-    info!("Ready for RPC connections");
-    axum::serve(rpc_endpoint, app.into_make_service()).await?;
+    let (stop_handle, _server_handle) = stop_channel();
 
-    info!("Stopped accepting RPC connections");
+    let per_conn = PerConnection {
+        methods: module.into(),
+        stop_handle: stop_handle.clone(),
+        svc_builder: Server::builder()
+            // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+            .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+            .to_service_builder(),
+        keystore,
+    };
+
+    let listener = tokio::net::TcpListener::bind(rpc_endpoint).await.unwrap();
+    tracing::info!("Ready for RPC connections");
+    loop {
+        let sock = tokio::select! {
+        res = listener.accept() => {
+            match res {
+              Ok((stream, _remote_addr)) => stream,
+              Err(e) => {
+                tracing::error!("failed to accept v4 connection: {:?}", e);
+                continue;
+              }
+            }
+          }
+          _ = per_conn.stop_handle.clone().shutdown() => break,
+        };
+
+        let svc = tower::service_fn({
+            let per_conn = per_conn.clone();
+            move |req| {
+                let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
+                let PerConnection {
+                    methods,
+                    stop_handle,
+                    svc_builder,
+                    keystore,
+                } = per_conn.clone();
+                // NOTE, the rpc middleware must be initialized here to be able to created once per connection
+                // with data from the connection such as the headers in this example
+                let headers = req.headers().clone();
+                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer {
+                    headers,
+                    keystore: keystore.clone(),
+                });
+                let mut jsonrpsee_svc = svc_builder
+                    .set_rpc_middleware(rpc_middleware)
+                    .build(methods, stop_handle);
+
+                if is_websocket {
+                    // Utilize the session close future to know when the actual WebSocket
+                    // session was closed.
+                    let session_close = jsonrpsee_svc.on_session_closed();
+
+                    // A little bit weird API but the response to HTTP request must be returned below
+                    // and we spawn a task to register when the session is closed.
+                    tokio::spawn(async move {
+                        session_close.await;
+                        tracing::trace!("Closed WebSocket connection");
+                    });
+
+                    async move {
+                        tracing::trace!("Opened WebSocket connection");
+                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                        // as workaround.
+                        jsonrpsee_svc
+                            .call(req)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("{:?}", e))
+                    }
+                    .boxed()
+                } else {
+                    // HTTP.
+                    async move {
+                        tracing::trace!("Opened HTTP connection");
+                        let rp = jsonrpsee_svc.call(req).await;
+                        tracing::trace!("Closed HTTP connection");
+                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                        // as workaround.
+                        rp.map_err(|e| anyhow::anyhow!("{:?}", e))
+                    }
+                    .boxed()
+                }
+            }
+        });
+
+        tokio::spawn(jsonrpsee::server::serve_with_graceful_shutdown(
+            sock,
+            svc,
+            stop_handle.clone().shutdown(),
+        ));
+    }
 
     Ok(())
+}
+
+fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut module = RpcModule::from_arc(state);
+    macro_rules! register {
+        ($ty:ty) => {
+            <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+        };
+    }
+    for_each_method!(register);
+    module
+}
+
+/// If `include` is not [`None`], only methods that are listed will be returned
+pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
+    use schemars::gen::{SchemaGenerator, SchemaSettings};
+    let mut methods = vec![];
+    // spec says draft07
+    let mut settings = SchemaSettings::draft07();
+    // ..but uses `components`
+    settings.definitions_path = String::from("#/components/schemas/");
+    let mut gen = SchemaGenerator::new(settings);
+    macro_rules! callback {
+        ($ty:ty) => {
+            if <$ty>::API_PATHS.contains(path) {
+                match include {
+                    Some(include) => match include.contains(&<$ty>::NAME) {
+                        true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                            &mut gen,
+                            ParamStructure::ByPosition,
+                        ))),
+                        false => {}
+                    },
+                    None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                        &mut gen,
+                        ParamStructure::ByPosition,
+                    ))),
+                }
+            }
+        };
+    }
+    for_each_method!(callback);
+    openrpc_types::OpenRPC {
+        methods,
+        components: Some(openrpc_types::Components {
+            schemas: Some(gen.take_definitions().into_iter().collect()),
+            ..Default::default()
+        }),
+        openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
+        info: openrpc_types::Info {
+            title: String::from("forest"),
+            version: env!("CARGO_PKG_VERSION").into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::rpc::ApiPath;
+
+    // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
+    // `cargo insta review`
+    #[test]
+    fn openrpc() {
+        for path in [ApiPath::V0, ApiPath::V1] {
+            let _spec = super::openrpc(path, None);
+            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+            //                  this is disabled because it causes lots of merge
+            //                  conflicts.
+            //                  We should consider re-enabling it when our RPC is
+            //                  more stable.
+            //                  (We still run this test to make sure we're not
+            //                  violating other invariants)
+            #[cfg(never)]
+            insta::assert_yaml_snapshot!(_spec);
+        }
+    }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::message::SignedMessage;
@@ -7,18 +7,29 @@ use ::cid::Cid;
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "SignedMessage")]
 pub struct SignedMessageLotusJson {
-    message: LotusJson<Message>,
-    signature: LotusJson<Signature>,
-    #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
-    cid: LotusJson<Option<Cid>>,
+    #[schemars(with = "LotusJson<Message>")]
+    #[serde(with = "crate::lotus_json")]
+    message: Message,
+    #[schemars(with = "LotusJson<Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    signature: Signature,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        rename = "CID",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    cid: Option<Cid>,
 }
 
 impl SignedMessageLotusJson {
     pub fn with_cid(mut self, cid: Cid) -> Self {
-        self.cid = LotusJson(Some(cid));
+        self.cid = Some(cid);
         self
     }
 }
@@ -26,6 +37,7 @@ impl SignedMessageLotusJson {
 impl HasLotusJson for SignedMessage {
     type LotusJson = SignedMessageLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
@@ -40,11 +52,11 @@ impl HasLotusJson for SignedMessage {
                     "To": "f00",
                     "Value": "0",
                     "Version": 0,
-                    "CID": {
-                        "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
-                    },
                 },
-                "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"}
+                "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"},
+                "CID": {
+                    "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
+                },
             }),
             SignedMessage {
                 message: crate::shim::message::Message::default(),
@@ -57,11 +69,12 @@ impl HasLotusJson for SignedMessage {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
+        let cid = Some(self.cid());
         let Self { message, signature } = self;
         Self::LotusJson {
-            message: message.into(),
-            signature: signature.into(),
-            cid: None.into(), // See notes on Message
+            message,
+            signature,
+            cid,
         }
     }
 
@@ -71,9 +84,6 @@ impl HasLotusJson for SignedMessage {
             signature,
             cid: _ignored, // See notes on Message
         } = lotus_json;
-        Self {
-            message: message.into_inner(),
-            signature: signature.into_inner(),
-        }
+        Self { message, signature }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::key_management::KeyInfo;
@@ -12,13 +12,13 @@ use thiserror::Error;
 /// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
 /// Admin permissions
-pub static ADMIN: &[&str] = &["read", "write", "sign", "admin"];
+pub const ADMIN: &[&str] = &["read", "write", "sign", "admin"];
 /// Signing permissions
-pub static SIGN: &[&str] = &["read", "write", "sign"];
+pub const SIGN: &[&str] = &["read", "write", "sign"];
 /// Writing permissions
-pub static WRITE: &[&str] = &["read", "write"];
+pub const WRITE: &[&str] = &["read", "write"];
 /// Reading permissions
-pub static READ: &[&str] = &["read"];
+pub const READ: &[&str] = &["read"];
 
 /// Error enumeration for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]
@@ -85,7 +85,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Duration::hours(1),
+            Duration::try_hours(1).expect("Infallible"),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -95,7 +95,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::hours(1),
+            -Duration::try_hours(1).expect("Infallible"),
         )
         .unwrap();
         assert!(verify_token(&token, key.private_key()).is_err());
@@ -105,7 +105,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::seconds(10),
+            -Duration::try_seconds(10).expect("Infallible"),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();

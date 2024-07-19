@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod db;
@@ -53,7 +53,9 @@ where
         warn!("Failed to register process metrics: {err}");
     }
 
-    // Add the DBCollector to the registry
+    DEFAULT_REGISTRY.write().register_collector(Box::new(
+        crate::utils::version::ForestVersionCollector::new(),
+    ));
     DEFAULT_REGISTRY
         .write()
         .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
@@ -82,7 +84,6 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     )
 }
 
-#[allow(clippy::unused_async)]
 async fn collect_db_metrics<DB>(
     axum::extract::State(db): axum::extract::State<Arc<DB>>,
 ) -> impl IntoResponse

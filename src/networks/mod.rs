@@ -1,10 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
+use ahash::HashMap;
 use cid::Cid;
-use fil_actors_shared::v10::runtime::Policy;
+use fil_actors_shared::v13::runtime::Policy;
+use itertools::Itertools;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -13,13 +15,16 @@ use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
-use crate::make_butterfly_policy;
+use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
+use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
 mod actors_bundle;
-pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
+pub use actors_bundle::{
+    generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
+};
 
 mod drand;
 
@@ -28,19 +33,28 @@ pub mod calibnet;
 pub mod devnet;
 pub mod mainnet;
 
+pub mod metrics;
+
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, displaydoc::Display,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
+    /// mainnet
     #[default]
     Mainnet,
+    /// calibnet
     Calibnet,
+    /// butterflynet
     Butterflynet,
+    /// devnet
+    #[displaydoc("{0}")]
     Devnet(String),
 }
 
@@ -53,17 +67,6 @@ impl FromStr for NetworkChain {
             "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
             "butterflynet" => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
-        }
-    }
-}
-
-impl Display for NetworkChain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NetworkChain::Mainnet => write!(f, "mainnet"),
-            NetworkChain::Calibnet => write!(f, "calibnet"),
-            NetworkChain::Butterflynet => write!(f, "Butterflynet"),
-            NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
 }
@@ -94,6 +97,10 @@ impl NetworkChain {
     pub fn is_testnet(&self) -> bool {
         !matches!(self, NetworkChain::Mainnet)
     }
+
+    pub fn is_devnet(&self) -> bool {
+        matches!(self, NetworkChain::Devnet(..))
+    }
 }
 
 /// Defines the meaningful heights of the protocol.
@@ -103,13 +110,15 @@ pub enum Height {
     Breeze,
     Smoke,
     Ignition,
-    ActorsV2,
+    Refuel,
+    Assembly,
     Tape,
     Liftoff,
     Kumquat,
     Calico,
     Persian,
     Orange,
+    Claus,
     Trust,
     Norwegian,
     Turbo,
@@ -124,6 +133,10 @@ pub enum Height {
     Watermelon,
     WatermelonFix,
     WatermelonFix2,
+    Dragon,
+    DragonFix,
+    Phoenix,
+    Waffle,
 }
 
 impl Default for Height {
@@ -138,13 +151,15 @@ impl From<Height> for NetworkVersion {
             Height::Breeze => NetworkVersion::V1,
             Height::Smoke => NetworkVersion::V2,
             Height::Ignition => NetworkVersion::V3,
-            Height::ActorsV2 => NetworkVersion::V4,
+            Height::Refuel => NetworkVersion::V3,
+            Height::Assembly => NetworkVersion::V4,
             Height::Tape => NetworkVersion::V5,
             Height::Liftoff => NetworkVersion::V5,
             Height::Kumquat => NetworkVersion::V6,
             Height::Calico => NetworkVersion::V7,
             Height::Persian => NetworkVersion::V8,
             Height::Orange => NetworkVersion::V9,
+            Height::Claus => NetworkVersion::V9,
             Height::Trust => NetworkVersion::V10,
             Height::Norwegian => NetworkVersion::V11,
             Height::Turbo => NetworkVersion::V12,
@@ -159,6 +174,10 @@ impl From<Height> for NetworkVersion {
             Height::Watermelon => NetworkVersion::V21,
             Height::WatermelonFix => NetworkVersion::V21,
             Height::WatermelonFix2 => NetworkVersion::V21,
+            Height::Dragon => NetworkVersion::V22,
+            Height::DragonFix => NetworkVersion::V22,
+            Height::Phoenix => NetworkVersion::V22,
+            Height::Waffle => NetworkVersion::V23,
         }
     }
 }
@@ -166,15 +185,8 @@ impl From<Height> for NetworkVersion {
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
-    pub height: Height,
     pub epoch: ChainEpoch,
     pub bundle: Option<Cid>,
-}
-
-pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
-    let mut height_info_vec = height_info_slice.to_vec();
-    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
-    height_info_vec
 }
 
 #[derive(Clone)]
@@ -200,11 +212,12 @@ pub struct ChainConfig {
     pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
-    pub height_infos: Vec<HeightInfo>,
-    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
-    #[serde(default = "default_policy")]
+    pub genesis_network: NetworkVersion,
+    pub height_infos: HashMap<Height, HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::default())))]
     pub policy: Policy,
-    pub eth_chain_id: u32,
+    pub eth_chain_id: EthChainId,
+    pub breeze_gas_tamping_duration: i64,
 }
 
 impl ChainConfig {
@@ -216,9 +229,11 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
-            height_infos: HEIGHT_INFOS.to_vec(),
-            policy: Policy::mainnet(),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            genesis_network: GENESIS_NETWORK_VERSION,
+            height_infos: HEIGHT_INFOS.clone(),
+            policy: make_mainnet_policy!(v13),
+            eth_chain_id: ETH_CHAIN_ID,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -230,41 +245,27 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
-            height_infos: HEIGHT_INFOS.to_vec(),
-            policy: Policy::calibnet(),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            genesis_network: GENESIS_NETWORK_VERSION,
+            height_infos: HEIGHT_INFOS.clone(),
+            policy: make_calibnet_policy!(v13),
+            eth_chain_id: ETH_CHAIN_ID,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
     pub fn devnet() -> Self {
         use devnet::*;
-        let mut policy = Policy::mainnet();
-        policy.minimum_consensus_power = 2048.into();
-        policy.minimum_verified_allocation_size = 256.into();
-        policy.pre_commit_challenge_delay = 10;
-
-        #[allow(clippy::disallowed_types)]
-        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            RegisteredSealProofV3::StackedDRG2KiBV1,
-            RegisteredSealProofV3::StackedDRG8MiBV1,
-        ]);
-        policy.valid_pre_commit_proof_type = allowed_proof_types;
-        #[allow(clippy::disallowed_types)]
-        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
-            RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
-        ]);
-        policy.valid_post_proof_type = allowed_proof_types;
-
         Self {
             network: NetworkChain::Devnet("devnet".to_string()),
             genesis_cid: None,
             bootstrap_peers: Vec::new(),
             block_delay_secs: 4,
             propagation_delay_secs: 1,
-            height_infos: HEIGHT_INFOS.to_vec(),
-            policy,
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            genesis_network: *GENESIS_NETWORK_VERSION,
+            height_infos: HEIGHT_INFOS.clone(),
+            policy: make_devnet_policy!(v13),
+            eth_chain_id: ETH_CHAIN_ID,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -277,9 +278,11 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 6,
-            height_infos: HEIGHT_INFOS.to_vec(),
-            policy: make_butterfly_policy!(v10),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            genesis_network: GENESIS_NETWORK_VERSION,
+            height_infos: HEIGHT_INFOS.clone(),
+            policy: make_butterfly_policy!(v13),
+            eth_chain_id: ETH_CHAIN_ID,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -295,15 +298,17 @@ impl ChainConfig {
         }
     }
 
+    /// Returns the network version at the given epoch.
+    /// If the epoch is before the first upgrade, the genesis network version is returned.
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height = sort_by_epoch(&self.height_infos)
+        self.height_infos
             .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
-            .find(|info| epoch > info.epoch)
-            .map(|info| info.height)
-            .unwrap_or(Height::Breeze);
-
-        From::from(height)
+            .find(|(_, info)| epoch > info.epoch)
+            .map(|(height, _)| NetworkVersion::from(*height))
+            .unwrap_or(self.genesis_network_version())
+            .max(self.genesis_network)
     }
 
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
@@ -329,10 +334,17 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        sort_by_epoch(&self.height_infos)
+        self.height_infos
             .iter()
-            .find(|info| height == info.height)
-            .map(|info| info.epoch)
+            .sorted_by_key(|(_, info)| info.epoch)
+            .rev()
+            .find_map(|(infos_height, info)| {
+                if *infos_height == height {
+                    Some(info.epoch)
+                } else {
+                    None
+                }
+            })
             .unwrap_or(0)
     }
 
@@ -352,18 +364,20 @@ impl ChainConfig {
     pub fn is_testnet(&self) -> bool {
         self.network.is_testnet()
     }
+
+    pub fn is_devnet(&self) -> bool {
+        self.network.is_devnet()
+    }
+
+    pub fn genesis_network_version(&self) -> NetworkVersion {
+        self.genesis_network
+    }
 }
 
 impl Default for ChainConfig {
     fn default() -> Self {
         ChainConfig::mainnet()
     }
-}
-
-/// Dummy default. Will be overwritten later.
-// Wish we could get rid of this
-fn default_policy() -> Policy {
-    Policy::mainnet()
 }
 
 pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
@@ -378,12 +392,12 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
 
 #[allow(dead_code)]
 fn get_upgrade_epoch_by_height<'a>(
-    mut height_infos: impl Iterator<Item = &'a HeightInfo>,
+    mut height_infos: impl Iterator<Item = &'a (Height, HeightInfo)>,
     height: Height,
 ) -> Option<ChainEpoch> {
-    height_infos.find_map(|i| {
-        if i.height == height {
-            Some(i.epoch)
+    height_infos.find_map(|(infos_height, info)| {
+        if *infos_height == height {
+            Some(info.epoch)
         } else {
             None
         }
@@ -401,9 +415,103 @@ fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
     None
 }
 
+#[macro_export]
+macro_rules! make_height {
+    ($id:ident,$epoch:expr) => {
+        (
+            Height::$id,
+            HeightInfo {
+                epoch: $epoch,
+                bundle: None,
+            },
+        )
+    };
+    ($id:ident,$epoch:expr,$bundle:expr) => {
+        (
+            Height::$id,
+            HeightInfo {
+                epoch: $epoch,
+                bundle: Some(Cid::try_from($bundle).unwrap()),
+            },
+        )
+    };
+}
+
+// The formula matches lotus
+// ```go
+// sinceGenesis := build.Clock.Now().Sub(genesisTime)
+// expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
+// ```
+// See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
+pub fn calculate_expected_epoch(
+    now_timestamp: u64,
+    genesis_timestamp: u64,
+    block_delay: u32,
+) -> u64 {
+    now_timestamp.saturating_sub(genesis_timestamp) / block_delay as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
+        /// These are required heights that need to be defined for all networks, for, e.g., conformance
+        /// with `Filecoin.StateGetNetworkParams` RPC method.
+        const REQUIRED_HEIGHTS: [Height; 27] = [
+            Height::Breeze,
+            Height::Smoke,
+            Height::Ignition,
+            Height::Refuel,
+            Height::Assembly,
+            Height::Tape,
+            Height::Liftoff,
+            Height::Kumquat,
+            Height::Calico,
+            Height::Persian,
+            Height::Orange,
+            Height::Claus,
+            Height::Trust,
+            Height::Norwegian,
+            Height::Turbo,
+            Height::Hyperdrive,
+            Height::Chocolate,
+            Height::OhSnap,
+            Height::Skyr,
+            Height::Shark,
+            Height::Hygge,
+            Height::Lightning,
+            Height::Thunder,
+            Height::Watermelon,
+            Height::Dragon,
+            Height::Phoenix,
+            Height::Waffle,
+        ];
+
+        for height in &REQUIRED_HEIGHTS {
+            assert!(height_infos.get(height).is_some());
+        }
+    }
+
+    #[test]
+    fn test_mainnet_heights() {
+        heights_are_present(&mainnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_calibnet_heights() {
+        heights_are_present(&calibnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_devnet_heights() {
+        heights_are_present(&devnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_butterflynet_heights() {
+        heights_are_present(&butterflynet::HEIGHT_INFOS);
+    }
 
     #[test]
     fn test_get_upgrade_height_no_env_var() {
@@ -423,5 +531,49 @@ mod tests {
         std::env::set_var("FOREST_TEST_VAR_3", "foo");
         let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
         assert_eq!(epoch, None);
+    }
+
+    #[test]
+    fn test_calculate_expected_epoch() {
+        // now, genesis, block_delay
+        assert_eq!(0, calculate_expected_epoch(0, 0, 1));
+        assert_eq!(5, calculate_expected_epoch(5, 0, 1));
+
+        let mainnet_genesis = 1598306400;
+        let mainnet_block_delay = 30;
+
+        assert_eq!(
+            0,
+            calculate_expected_epoch(mainnet_genesis, mainnet_genesis, mainnet_block_delay)
+        );
+
+        assert_eq!(
+            0,
+            calculate_expected_epoch(
+                mainnet_genesis + mainnet_block_delay as u64 - 1,
+                mainnet_genesis,
+                mainnet_block_delay
+            )
+        );
+
+        assert_eq!(
+            1,
+            calculate_expected_epoch(
+                mainnet_genesis + mainnet_block_delay as u64,
+                mainnet_genesis,
+                mainnet_block_delay
+            )
+        );
+    }
+
+    #[test]
+    fn network_chain_display() {
+        assert_eq!(NetworkChain::Mainnet.to_string(), "mainnet");
+        assert_eq!(NetworkChain::Calibnet.to_string(), "calibnet");
+        assert_eq!(NetworkChain::Butterflynet.to_string(), "butterflynet");
+        assert_eq!(
+            NetworkChain::Devnet("dummydevnet".into()).to_string(),
+            "dummydevnet"
+        );
     }
 }

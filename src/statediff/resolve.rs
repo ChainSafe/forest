@@ -1,7 +1,7 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Context as _;
+use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -17,12 +17,8 @@ pub fn resolve_cids_recursive<BS>(
 where
     BS: Blockstore,
 {
-    let mut ipld = bs
-        .get_cbor(cid)?
-        .context("Cid does not exist in blockstore")?;
-
+    let mut ipld = bs.get_cbor_required(cid)?;
     resolve_ipld(bs, &mut ipld, depth)?;
-
     Ok(ipld)
 }
 

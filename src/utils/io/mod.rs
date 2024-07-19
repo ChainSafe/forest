@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod mmap;
@@ -47,22 +47,6 @@ pub fn write_to_file(message: &[u8], path: &Path, file_name: &str) -> Result<Fil
     let mut file = File::create(path.join(file_name))?;
     file.write_all(message)?;
     Ok(file)
-}
-
-/// Read file as a `Vec<u8>`
-pub fn read_file_to_vec(path: &Path) -> Result<Vec<u8>> {
-    let mut file = File::open(path)?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
-    Ok(buffer)
-}
-
-/// Read file as a `String`.
-pub fn read_file_to_string(path: &Path) -> Result<String> {
-    let mut file = File::open(path)?;
-    let mut string = String::new();
-    file.read_to_string(&mut string)?;
-    Ok(string)
 }
 
 /// Converts a TOML file represented as a string to `S`

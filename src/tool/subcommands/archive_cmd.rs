@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Archives are key-value pairs encoded as
@@ -44,7 +44,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -52,7 +52,6 @@ use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use nonempty::NonEmpty;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -151,7 +150,7 @@ impl ArchiveCommands {
                 let store = ManyCar::try_from(snapshot_files)?;
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
-                    store,
+                    store.into(),
                     heaviest_tipset,
                     output_path,
                     epoch,
@@ -309,16 +308,16 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
         NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
 
     println!("{}:", chain_name);
-    for (epoch, cid) in list_checkpoints(store, root) {
+    for (epoch, cid) in list_checkpoints(&store, root) {
         println!("  {}: {}", epoch, cid);
     }
     Ok(())
 }
 
 fn list_checkpoints(
-    db: impl Blockstore,
+    db: &impl Blockstore,
     root: Tipset,
-) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> {
+) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> + '_ {
     let interval = EPOCHS_IN_DAY * 30;
     let mut target_epoch = root.epoch() - root.epoch() % interval;
     root.chain(db).filter_map(move |tipset| {
@@ -343,12 +342,10 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            NaiveDateTime::from_timestamp_opt(
-                genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
-                0,
-            )
-            .unwrap_or_default()
-            .into(),
+            DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+                .unwrap_or_default()
+                .naive_utc()
+                .date(),
             epoch,
             true,
         )),
@@ -358,7 +355,7 @@ fn build_output_path(
 
 #[allow(clippy::too_many_arguments)]
 async fn do_export(
-    store: impl Blockstore + Send + Sync + 'static,
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -368,7 +365,6 @@ async fn do_export(
     force: bool,
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
-    let store = Arc::new(store);
 
     let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
@@ -399,7 +395,7 @@ async fn do_export(
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
         let mut stream = unordered_stream_graph(
             store.clone(),
-            diff_ts.clone().chain(store.clone()),
+            diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
         );
         while stream.try_next().await?.is_some() {}
@@ -427,10 +423,12 @@ async fn do_export(
 
     let writer = tokio::fs::File::create(&output_path)
         .await
-        .context(format!(
-            "unable to create a snapshot - is the output path '{}' correct?",
-            output_path.to_str().unwrap_or_default()
-        ))?;
+        .with_context(|| {
+            format!(
+                "unable to create a snapshot - is the output path '{}' correct?",
+                output_path.to_str().unwrap_or_default()
+            )
+        })?;
 
     info!(
         "exporting snapshot at location: {}",
@@ -464,8 +462,7 @@ async fn merge_snapshots(
 
     let store = ManyCar::try_from(snapshot_files)?;
     let heaviest_tipset = store.heaviest_tipset()?;
-    let roots = NonEmpty::from_vec(heaviest_tipset.key().cids.clone().into_iter().collect())
-        .context("tipset key cannot be empty")?;
+    let roots = heaviest_tipset.key().to_cids();
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())
@@ -603,7 +600,7 @@ mod tests {
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            store,
+            store.into(),
             heaviest_tipset,
             output_path.path().into(),
             Some(0),

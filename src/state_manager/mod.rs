@@ -1,11 +1,11 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
+pub mod circulating_supply;
 mod errors;
 mod metrics;
 pub mod utils;
-pub mod vm_circ_supply;
 pub use self::errors::*;
 use self::utils::structured;
 
@@ -21,15 +21,20 @@ use crate::interpreter::{
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
+use crate::shim::actors::miner::MinerStateExt as _;
+use crate::shim::actors::verifreg::VerifiedRegistryStateExt;
+use crate::shim::actors::LoadActorStateFromBlockstore;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
-    executor::{ApplyRet, Receipt},
+    executor::Receipt,
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -42,15 +47,17 @@ use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
+pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
-use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
+use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::Policy;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
+use fil_actors_shared::v13::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -61,13 +68,13 @@ use num::BigInt;
 use num_traits::identities::Zero;
 use parking_lot::Mutex as SyncMutex;
 use rayon::prelude::ParallelBridge;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
-pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -184,27 +191,18 @@ impl TipsetStateCache {
     }
 }
 
-/// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
-}
-
-/// An alias Result that represents an `InvocResult` and an Error.
-type StateCallResult = Result<InvocResult, Error>;
-
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
-    escrow: TokenAmount,
-    locked: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    pub escrow: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    pub locked: TokenAmount,
 }
+lotus_json_with_self!(MarketBalance);
 
 /// State manager handles all interactions with the internal Filecoin actors
 /// state. This encapsulates the [`ChainStore`] functionality, which only
@@ -225,7 +223,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(&MessageCallbackCtx) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(MessageCallbackCtx<'_>) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -249,8 +247,8 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
-        Arc::clone(&self.beacon)
+    pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
+        &self.beacon
     }
 
     /// Returns network version for the given epoch.
@@ -266,10 +264,48 @@ where
         &self.sync_config
     }
 
+    /// Gets the state tree
+    pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DB>> {
+        StateTree::new_from_root(self.blockstore_owned(), state_cid)
+    }
+
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)
+    }
+
+    /// Gets actor state from implicit actor address
+    pub fn get_actor_state<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<S> {
+        let address = S::ACTOR.with_context(|| {
+            format!(
+                "No accociated actor address for {}, use `get_actor_state_from_address` instead.",
+                std::any::type_name::<S>()
+            )
+        })?;
+        let actor = self.get_required_actor(&address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
+    }
+
+    /// Gets actor state from explicit actor address
+    pub fn get_actor_state_from_address<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+        actor_address: &Address,
+    ) -> anyhow::Result<S> {
+        let actor = self.get_required_actor(actor_address, *ts.parent_state())?;
+        S::load(self.blockstore(), &actor)
+    }
+
+    /// Gets required actor from given [`Cid`].
+    pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
+        let state = self.get_state_tree(&state_cid)?;
+        state.get_actor(addr)?.with_context(|| {
+            format!("Failed to load actor with addr={addr}, state_cid={state_cid}")
+        })
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -284,6 +320,15 @@ where
     /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            tipset,
+            self.cs.chain_index.clone(),
+            self.beacon.clone(),
+        )
     }
 
     /// Returns the internal, protocol-level network name.
@@ -313,12 +358,12 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let state =
+            StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
 
         let act = state
             .get_actor(addr)
-            .map_err(|e| Error::State(e.to_string()))?
+            .map_err(Error::state)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
         let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
@@ -366,14 +411,13 @@ where
     pub fn get_all_sectors(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-
-        state.load_sectors(self.blockstore(), None)
+        state.load_sectors_ext(self.blockstore(), None)
     }
 }
 
@@ -392,7 +436,7 @@ where
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
             })
             .await
@@ -416,13 +460,13 @@ where
 
         let prior_messsages = tipset_messages
             .iter()
-            .filter(|msg| msg.message().from() == msg.from());
+            .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         // Handle state forks
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let height = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
@@ -470,7 +514,7 @@ where
         Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            msg_cid: msg.cid(),
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
             gas_cost: MessageGasCost::default(),
@@ -497,7 +541,7 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<InvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
@@ -508,7 +552,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
         let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
@@ -555,49 +599,53 @@ where
     /// indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay(
         self: &Arc<Self>,
-        ts: &Arc<Tipset>,
+        ts: Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(Message, ApplyRet), Error> {
-        const ERROR_MSG: &str = "replay_halt";
+    ) -> Result<ApiInvocResult, Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid))
+            .await
+            .map_err(|e| Error::Other(format!("{e}")))?
+    }
 
-        // This isn't ideal to have, since the execution is synchronous, but this needs
-        // to be the case because the state transition has to be in blocking
-        // thread to avoid starving executor
-        let (m_tx, m_rx) = std::sync::mpsc::channel();
-        let (r_tx, r_rx) = std::sync::mpsc::channel();
-        let callback = move |ctx: &MessageCallbackCtx| {
+    /// Blocking version of `replay`
+    pub fn replay_blocking(
+        self: &Arc<Self>,
+        ts: Arc<Tipset>,
+        mcid: Cid,
+    ) -> Result<ApiInvocResult, Error> {
+        const REPLAY_HALT: &str = "replay_halt";
+
+        let mut api_invoc_result = None;
+        let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
-                CalledAt::Applied | CalledAt::Reward => {
-                    if ctx.cid == mcid {
-                        m_tx.send(ctx.message.message().clone())?;
-                        r_tx.send(ctx.apply_ret.clone())?;
-                        anyhow::bail!(ERROR_MSG);
-                    }
-                    Ok(())
+                CalledAt::Applied | CalledAt::Reward
+                    if api_invoc_result.is_none() && ctx.cid == mcid =>
+                {
+                    api_invoc_result = Some(ApiInvocResult {
+                        msg_cid: ctx.message.cid(),
+                        msg: ctx.message.message().clone(),
+                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                            .unwrap_or_default(),
+                    });
+                    anyhow::bail!(REPLAY_HALT);
                 }
-                CalledAt::Cron => Ok(()), // ignored
+                _ => Ok(()), // ignored
             }
         };
-        let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::NotTraced)
-            .await;
-
+        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
         if let Err(error_message) = result {
-            if error_message.to_string() != ERROR_MSG {
+            if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {error_message:}"
                 )));
             }
         }
-
-        // Use try_recv here assuming callback execution is synchronous
-        let out_mes = m_rx
-            .try_recv()
-            .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;
-        let out_ret = r_rx
-            .try_recv()
-            .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
-        Ok((out_mes, out_ret))
+        api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -678,7 +726,7 @@ where
     pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         let this = Arc::clone(self);
@@ -691,16 +739,16 @@ where
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
-        self: &Arc<Self>,
+        &self,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipset,
             callback,
@@ -724,12 +772,13 @@ where
         // Load parent state.
         let pts = self
             .cs
+            .chain_index
             .load_required_tipset(tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load tipset: {err}")))?;
         let messages = self
             .cs
             .messages_for_tipset(&pts)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load messages for tipset: {err}")))?;
         messages
             .iter()
             .enumerate()
@@ -741,24 +790,25 @@ where
                     && s.equal_call(message)
             })
             .map(|(index, m)| {
-                // A replacing message is a message with a different CID, 
-                // any of Gas values, and different signature, but with all 
+                // A replacing message is a message with a different CID,
+                // any of Gas values, and different signature, but with all
                 // other parameters matching (source/destination, nonce, params, etc.)
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
                         "found message with equal nonce and call params but different CID. wanted {}, found: {}, nonce: {}, from: {}",
-                        message.cid().unwrap_or_default(),
-                        m.cid().unwrap_or_default(),
+                        message.cid(),
+                        m.cid(),
                         message.sequence(),
                         message.from(),
                     )))
                 } else {
+                    let block_header = tipset.block_headers().first();
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        tipset.block_headers().first(),
+                        block_header,
                         index,
                     )
-                    .map_err(|err| Error::Other(err.to_string()))
+                    .map_err(|err| Error::Other(format!("Failed to get parent receipt (message_receipts={}, index={index}, error={err})", block_header.message_receipts)))
                 }
             })
             .next()
@@ -770,21 +820,19 @@ where
         mut current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+        let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
-            .get_actor(&message_from_address, *current.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?
-            .context("Failed to load actor state")
+            .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(|e| Error::State(e.to_string()))?;
-        let message_from_id = self
-            .lookup_id(&message_from_address, current.as_ref())?
-            .context("Failed to lookup id")
-            .map_err(|e| Error::State(e.to_string()))?;
+        let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
                 .cs
+                .chain_index
                 .load_required_tipset(current.parents())
                 .map_err(|err| {
                     Error::Other(format!(
@@ -801,7 +849,7 @@ where
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
             {
                 let receipt = self
-                    .tipset_executed_message(current.as_ref(), message, true)?
+                    .tipset_executed_message(current.as_ref(), message, allow_replaced)?
                     .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
@@ -822,8 +870,9 @@ where
         current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        self.check_search(current, message, look_back_limit)
+        self.check_search(current, message, look_back_limit, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
@@ -835,7 +884,7 @@ where
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &m, None)?;
+        let maybe_tuple = self.search_back_for_message(tipset, &m, None, None)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -852,6 +901,8 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
+        look_back_limit: Option<ChainEpoch>,
+        allow_replaced: Option<bool>,
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -872,8 +923,12 @@ where
         let message_for_task = message.clone();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
-            let back_tuple =
-                sm_cloned.search_back_for_message(current_tipset, &message_for_task, None)?;
+            let back_tuple = sm_cloned.search_back_for_message(
+                current_tipset,
+                &message_for_task,
+                look_back_limit,
+                allow_replaced,
+            )?;
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
@@ -970,16 +1025,18 @@ where
         from: Option<Arc<Tipset>>,
         msg_cid: Cid,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
+            .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
-        let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
+        let maybe_message_reciept =
+            self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_reciept {
             Ok(Some((from, r)))
         } else {
-            self.search_back_for_message(current_tipset, &message, look_back_limit)
+            self.search_back_for_message(current_tipset, &message, look_back_limit, allow_replaced)
         }
     }
 
@@ -1006,31 +1063,30 @@ where
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("{e:?}"))?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
     }
 
-    /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(
-        &self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> anyhow::Result<MarketBalance, Error> {
-        let actor = self
-            .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| {
-                Error::State("Market actor address could not be resolved".to_string())
-            })?;
+    /// Looks up required ID [Address] from the state at the given [Tipset].
+    pub fn lookup_required_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        self.lookup_id(addr, ts)?
+            .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
+    }
 
+    /// Retrieves market state
+    pub fn market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
+        let actor = self.get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
         let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
+        Ok(market_state)
+    }
 
-        let new_addr = self
-            .lookup_id(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Failed to resolve address {addr}")))?;
-
+    /// Retrieves market balance in escrow and locked tables.
+    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+        let market_state = self.market_state(ts)?;
+        let new_addr = self.lookup_required_id(addr, ts)?;
         let out = MarketBalance {
             escrow: {
                 market_state
@@ -1050,11 +1106,7 @@ where
     }
 
     /// Retrieves miner info.
-    pub fn miner_info(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerInfo, Error> {
+    pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1062,27 +1114,21 @@ where
 
         Ok(state.info(self.blockstore())?)
     }
+
     /// Retrieves miner faults.
-    pub fn miner_faults(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
+
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         get_sector: impl Fn(Partition<'_>) -> BitField,
     ) -> Result<BitField, Error> {
         let actor = self
@@ -1108,11 +1154,7 @@ where
     }
 
     /// Retrieves miner power.
-    pub fn miner_power(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerPower, Error> {
+    pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
         if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
             return Ok(MinerPower {
                 miner_power,
@@ -1161,7 +1203,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: Arc<BeaconSchedule>,
+        beacon_schedule: &BeaconSchedule,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
@@ -1169,7 +1211,7 @@ where
         let prev_beacon = self
             .chain_store()
             .chain_index
-            .latest_beacon_entry(&tipset)?;
+            .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(
@@ -1189,9 +1231,7 @@ where
             epoch,
         )?;
 
-        let actor = self
-            .get_actor(&addr, *tipset.parent_state())?
-            .context("miner actor does not exist")?;
+        let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -1222,7 +1262,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), Some(tipset.clone()))
+            .resolve_to_deterministic_address(info.worker.into(), tipset.clone())
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
@@ -1285,19 +1325,19 @@ where
             .cs
             .chain_index
             .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
-            .context(format!(
+            .with_context(|| {
+                format!(
             "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
             *epochs.end(),
-        ))?;
+        )
+            })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = itertools::unfold(Some(end), |tipset| {
-            let child = tipset.take()?;
-            // if this has parents, unfold them in the next iteration
-            *tipset = self.cs.load_required_tipset(child.parents()).ok();
-            Some(child)
-        })
-        .take_while(|tipset| tipset.epoch() >= *epochs.start());
+        let tipsets = self
+            .cs
+            .chain_index
+            .chain(end)
+            .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)
     }
@@ -1311,29 +1351,70 @@ where
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
             self.chain_config().clone(),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
         )
     }
 
-    pub fn verified_client_status(
-        self: &Arc<Self>,
+    pub fn get_verified_registry_actor_state(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<verifreg::State> {
+        let act = self
+            .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("actor not found".to_string()))?;
+        verifreg::State::load(self.blockstore(), act.code, act.state)
+    }
+    pub fn get_claim(
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
+        claim_id: ClaimID,
+    ) -> anyhow::Result<Option<Claim>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_claim(self.blockstore(), id_address.into(), claim_id)
+    }
+
+    pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_claims(self.blockstore())
+    }
+
+    pub fn get_allocation(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+        allocation_id: AllocationID,
+    ) -> anyhow::Result<Option<Allocation>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+    }
+
+    pub fn get_all_allocations(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_allocations(self.blockstore())
+    }
+
+    pub fn verified_client_status(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
     ) -> anyhow::Result<Option<DataCap>> {
-        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
+        let id = self.lookup_required_id(addr, ts)?;
         let network_version = self.get_network_version(ts.epoch());
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9
         // differently. Which maps to network below version 17.
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
-            let act = self
-                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
-                .map_err(|e| Error::State(e.to_string()))?
-                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            let state = self.get_verified_registry_actor_state(ts)?;
             return state.verified_client_data_cap(self.blockstore(), id.into());
         }
 
@@ -1350,14 +1431,13 @@ where
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
-        ts: Option<Arc<Tipset>>,
+        ts: Arc<Tipset>,
     ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),
             Actor => anyhow::bail!("cannot resolve actor address to key address"),
             _ => {
-                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 if let Ok(state) =
                     StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
@@ -1375,15 +1455,6 @@ where
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
-    }
-
-    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            tipset,
-            self.cs.chain_index.clone(),
-            self.beacon.clone(),
-        )
     }
 }
 
@@ -1519,7 +1590,7 @@ pub fn apply_block_messages<DB>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+    mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
 ) -> Result<CidPair, anyhow::Error>
 where
@@ -1551,7 +1622,7 @@ where
         beacon,
     );
 
-    let genesis_info = GenesisInfo::from_chain_config(&chain_config);
+    let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
             genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;

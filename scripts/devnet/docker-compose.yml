@@ -4,8 +4,6 @@
 # - Lotus miner (2k build),
 # - Forest node.
 
-version: "3.8"
-
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
@@ -16,7 +14,15 @@ services:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
+      - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - LOTUS_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - LOTUS_THUNDER_HEIGHT=${THUNDER_HEIGHT}
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - LOTUS_PHOENIX_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c" ]
@@ -55,7 +61,15 @@ services:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
+      - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - LOTUS_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - LOTUS_THUNDER_HEIGHT=${THUNDER_HEIGHT}
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - LOTUS_PHOENIX_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -88,7 +102,15 @@ services:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
+      - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - LOTUS_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - LOTUS_THUNDER_HEIGHT=${THUNDER_HEIGHT}
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - LOTUS_PHOENIX_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -116,7 +138,15 @@ services:
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
+      - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - LOTUS_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - LOTUS_THUNDER_HEIGHT=${THUNDER_HEIGHT}
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - LOTUS_PHOENIX_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     entrypoint: ["/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -150,7 +180,16 @@ services:
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - RUST_LOG=info,forest_filecoin::blocks::header=trace
+      - FOREST_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - FOREST_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - FOREST_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - FOREST_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - FOREST_THUNDER_HEIGHT=${THUNDER_HEIGHT}
       - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - FOREST_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - FOREST_DRAND_QUICKNET_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     networks:
       - devnet
     ports:

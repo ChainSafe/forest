@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -7,8 +7,8 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use crate::blocks::CachingBlockHeader;
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Default)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary, Default))]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: CachingBlockHeader,
     pub bls_messages: Vec<Cid>,

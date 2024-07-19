@@ -1,13 +1,13 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::*;
 use crate::blocks::VRFProof;
 
-use super::*;
-
 impl HasLotusJson for VRFProof {
-    type LotusJson = LotusJson<Vec<u8>>;
+    type LotusJson = <Vec<u8> as HasLotusJson>::LotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!("aGVsbG8gd29ybGQh"),
@@ -17,10 +17,10 @@ impl HasLotusJson for VRFProof {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         let Self(vec) = self;
-        vec.into()
+        vec.into_lotus_json()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self(lotus_json.into_inner())
+        Self(HasLotusJson::from_lotus_json(lotus_json))
     }
 }

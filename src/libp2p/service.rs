@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -11,33 +11,32 @@ use crate::libp2p_bitswap::{
     BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
-use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
+use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
-use futures::stream::StreamExt;
-use futures::{channel::oneshot::Sender as OneShotSender, select};
+use futures::{channel::oneshot, select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
-use libp2p::swarm::DialError;
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
-    gossipsub,
+    autonat::NatStatus,
+    connection_limits::Exceeded,
+    core::Multiaddr,
+    gossipsub, identify,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping, request_response,
-    swarm::{self, SwarmEvent},
-    yamux, PeerId, Swarm, Transport,
+    swarm::{DialError, SwarmEvent},
+    tcp, yamux, PeerId, Swarm, SwarmBuilder,
 };
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
 
 use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
+    discovery::DerivedDiscoveryBehaviourEvent,
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
 };
 use crate::libp2p::{
@@ -83,8 +82,6 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 
-const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
-
 /// Events emitted by this Service.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
@@ -93,32 +90,17 @@ pub enum NetworkEvent {
         source: PeerId,
         message: PubsubMessage,
     },
-    HelloRequestInbound {
-        source: PeerId,
-        request: HelloRequest,
-    },
+    HelloRequestInbound,
     HelloResponseOutbound {
         source: PeerId,
         request: HelloRequest,
     },
-    HelloRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    HelloResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestInbound {
-        request_id: request_response::InboundRequestId,
-    },
-    ChainExchangeResponseOutbound {
-        request_id: request_response::InboundRequestId,
-    },
+    HelloRequestOutbound,
+    HelloResponseInbound,
+    ChainExchangeRequestOutbound,
+    ChainExchangeResponseInbound,
+    ChainExchangeRequestInbound,
+    ChainExchangeResponseOutbound,
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }
@@ -163,16 +145,19 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
-    Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
-    Info(OneShotSender<NetInfoResult>),
-    Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
-    Disconnect(OneShotSender<()>, PeerId),
+    AddrsListen(oneshot::Sender<(PeerId, HashSet<Multiaddr>)>),
+    Peers(oneshot::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(oneshot::Sender<NetInfoResult>),
+    Connect(oneshot::Sender<bool>, PeerId, HashSet<Multiaddr>),
+    Disconnect(oneshot::Sender<()>, PeerId),
+    AgentVersion(oneshot::Sender<Option<String>>, PeerId),
+    AutoNATStatus(oneshot::Sender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
+    bootstrap_peers: HashMap<PeerId, Multiaddr>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -195,20 +180,27 @@ where
         network_name: &str,
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
-        let peer_id = PeerId::from(net_keypair.public());
-
-        let transport =
-            build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
-
-        let mut swarm = Swarm::new(
-            transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name)?,
-            peer_id,
-            swarm::Config::with_tokio_executor()
-                .with_notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
-                .with_per_connection_event_buffer_size(64)
-                .with_idle_connection_timeout(Duration::from_secs(60 * 10)),
-        );
+        let behaviour = ForestBehaviour::new(&net_keypair, &config, network_name)?;
+        let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default().nodelay(true),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_quic()
+            .with_dns()?
+            .with_bandwidth_metrics(&mut crate::metrics::default_registry())
+            .with_behaviour(|_| behaviour)?
+            .with_swarm_config(|config| {
+                config
+                    .with_notify_handler_buffer_size(
+                        std::num::NonZeroUsize::new(20).expect("Not zero"),
+                    )
+                    .with_per_connection_event_buffer_size(64)
+                    .with_idle_connection_timeout(Duration::from_secs(60 * 10))
+            })
+            .build();
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
@@ -247,8 +239,18 @@ where
             anyhow::bail!("p2p peer failed to listen on any network endpoints");
         }
 
+        let bootstrap_peers = config
+            .bootstrap_peers
+            .iter()
+            .filter_map(|ma| match ma.iter().last() {
+                Some(Protocol::P2p(peer)) => Some((peer, ma.clone())),
+                _ => None,
+            })
+            .collect();
+
         Ok(Libp2pService {
             swarm,
+            bootstrap_peers,
             cs,
             peer_manager,
             network_receiver_in,
@@ -285,6 +287,15 @@ where
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let metrics = Metrics::new(&mut crate::metrics::default_registry());
+
+        const BOOTSTRAP_PEER_DIALER_INTERVAL: tokio::time::Duration =
+            tokio::time::Duration::from_secs(60);
+        let mut bootstrap_peer_dialer_interval_stream =
+            IntervalStream::new(tokio::time::interval_at(
+                tokio::time::Instant::now() + BOOTSTRAP_PEER_DIALER_INTERVAL,
+                BOOTSTRAP_PEER_DIALER_INTERVAL,
+            ))
+            .fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -321,13 +332,13 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    trace!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
                 },
                 cs_pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = cs_pair_opt {
                         let behaviour = swarm_stream.get_mut().behaviour_mut();
                         if let Err(e) = behaviour.chain_exchange.send_response(channel, cx_response) {
-                            warn!("Error sending chain exchange response: {e:?}");
+                            debug!("Error sending chain exchange response: {e:?}");
                         }
                     }
                 },
@@ -339,9 +350,12 @@ where
                 }
                 peer_ops_opt = peer_ops_rx_stream.next() => {
                     if let Some(peer_ops) = peer_ops_opt {
-                        handle_peer_ops(swarm_stream.get_mut(), peer_ops);
+                        handle_peer_ops(swarm_stream.get_mut(), peer_ops, &self.bootstrap_peers);
                     }
                 },
+                _ = bootstrap_peer_dialer_interval_stream.next() => {
+                    dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
+                }
             };
         }
         Ok(())
@@ -358,16 +372,37 @@ where
     }
 }
 
-fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) {
+fn dial_to_bootstrap_peers_if_needed(
+    swarm: &mut Swarm<ForestBehaviour>,
+    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+) {
+    for (peer, ma) in bootstrap_peers {
+        if !swarm.behaviour().peers().contains(peer) {
+            info!("Re-dialing to bootstrap peer at {ma}");
+            if let Err(e) = swarm.dial(ma.clone()) {
+                warn!("{e}");
+            }
+        }
+    }
+}
+
+fn handle_peer_ops(
+    swarm: &mut Swarm<ForestBehaviour>,
+    peer_ops: PeerOperation,
+    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+) {
     use PeerOperation::*;
     match peer_ops {
-        Ban(peer_id, reason) => {
-            warn!("Banning {peer_id}, reason: {reason}");
-            swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
+        Ban(peer, reason) => {
+            // Do not ban bootstrap nodes
+            if !bootstrap_peers.contains_key(&peer) {
+                debug!(%peer, %reason, "Banning peer");
+                swarm.behaviour_mut().blocked_peers.block_peer(peer);
+            }
         }
-        Unban(peer_id) => {
-            info!("Unbanning {peer_id}");
-            swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
+        Unban(peer) => {
+            debug!(%peer, "Unbanning peer");
+            swarm.behaviour_mut().blocked_peers.unblock_peer(peer);
         }
     }
 }
@@ -391,30 +426,26 @@ async fn handle_network_message(
             request,
             response_channel,
         } => {
-            let request_id =
+            let _request_id =
                 swarm
                     .behaviour_mut()
                     .hello
                     .send_request(&peer_id, request, response_channel);
-            emit_event(
-                network_sender_out,
-                NetworkEvent::HelloRequestOutbound { request_id },
-            )
-            .await;
+            emit_event(network_sender_out, NetworkEvent::HelloRequestOutbound).await;
         }
         NetworkMessage::ChainExchangeRequest {
             peer_id,
             request,
             response_channel,
         } => {
-            let request_id = swarm.behaviour_mut().chain_exchange.send_request(
+            let _request_id = swarm.behaviour_mut().chain_exchange.send_request(
                 &peer_id,
                 request,
                 response_channel,
             );
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeRequestOutbound { request_id },
+                NetworkEvent::ChainExchangeRequestOutbound,
             )
             .await;
         }
@@ -454,8 +485,8 @@ async fn handle_network_message(
                     }
                 }
                 NetRPCMethods::Peers(response_channel) => {
-                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                    if response_channel.send(peer_addresses.clone()).is_err() {
+                    let peer_addresses = swarm.behaviour().peer_addresses();
+                    if response_channel.send(peer_addresses).is_err() {
                         warn!("Failed to get Libp2p peers");
                     }
                 }
@@ -504,6 +535,22 @@ async fn handle_network_message(
                         warn!("Failed to disconnect from a peer");
                     }
                 }
+                NetRPCMethods::AgentVersion(response_channel, peer_id) => {
+                    let agent_version = swarm.behaviour().peer_info(&peer_id).and_then(|info| {
+                        info.identify_info
+                            .as_ref()
+                            .map(|id| id.agent_version.clone())
+                    });
+                    if response_channel.send(agent_version).is_err() {
+                        warn!("Failed to get agent version");
+                    }
+                }
+                NetRPCMethods::AutoNATStatus(response_channel) => {
+                    let nat_status = swarm.behaviour().discovery.nat_status();
+                    if response_channel.send(nat_status).is_err() {
+                        warn!("Failed to get nat status");
+                    }
+                }
             }
         }
     }
@@ -512,17 +559,41 @@ async fn handle_network_message(
 async fn handle_discovery_event(
     discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
+    peer_manager: &PeerManager,
 ) {
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
-            debug!("Peer connected, {:?}", peer_id);
+            trace!("Peer connected, {peer_id}");
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
-            debug!("Peer disconnected, {:?}", peer_id);
+            trace!("Peer disconnected, {peer_id}");
+            // Remove peer id labels for disconnected peers
+            super::metrics::PEER_TIPSET_EPOCH.remove(&super::metrics::PeerLabel::new(peer_id));
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
-        DiscoveryEvent::Discovery(_) => {}
+        DiscoveryEvent::Discovery(discovery_event) => match &*discovery_event {
+            DerivedDiscoveryBehaviourEvent::Identify(identify::Event::Received {
+                peer_id,
+                info,
+            }) => {
+                let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
+                if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
+                    peer_manager
+                        .ban_peer_with_default_duration(*peer_id, "hello protocol unsupported")
+                        .await;
+                } else if !protocols.contains(super::chain_exchange::CHAIN_EXCHANGE_PROTOCOL_NAME) {
+                    peer_manager
+                        .ban_peer_with_default_duration(
+                            *peer_id,
+                            "chain exchange protocol unsupported",
+                        )
+                        .await;
+                }
+            }
+            DerivedDiscoveryBehaviourEvent::Identify(_) => {}
+            _ => {}
+        },
     }
 }
 
@@ -582,7 +653,7 @@ async fn handle_gossip_event(
 async fn handle_hello_event(
     hello: &mut HelloBehaviour,
     event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
-    peer_manager: &Arc<PeerManager>,
+    peer_manager: &PeerManager,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
@@ -593,14 +664,7 @@ async fn handle_hello_event(
                 channel,
                 request_id: _,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloRequestInbound {
-                        source: peer,
-                        request: request.clone(),
-                    },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloRequestInbound).await;
 
                 let arrival = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -612,13 +676,12 @@ async fn handle_hello_event(
                 trace!("Received hello request: {:?}", request);
                 if &request.genesis_cid != genesis_cid {
                     peer_manager
-                        .ban_peer(
+                        .ban_peer_with_default_duration(
                             peer,
                             format!(
                                 "Genesis hash mismatch: {} received, {genesis_cid} expected",
                                 request.genesis_cid
                             ),
-                            Some(BAN_PEER_DURATION),
                         )
                         .await;
                 } else {
@@ -649,47 +712,46 @@ async fn handle_hello_event(
                 request_id,
                 response,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloResponseInbound { request_id },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloResponseInbound).await;
                 hello.handle_response(&request_id, response).await;
             }
         },
         request_response::Event::OutboundFailure {
             request_id,
             peer,
-            error: _,
+            error,
         } => {
             hello.on_outbound_failure(&request_id);
-            peer_manager.mark_peer_bad(peer);
+            match error {
+                request_response::OutboundFailure::UnsupportedProtocols => {
+                    peer_manager
+                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported")
+                        .await;
+                }
+                _ => {
+                    peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
+                }
+            }
         }
         request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
     }
 }
 
-async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManager>) {
+async fn handle_ping_event(ping_event: ping::Event) {
     match ping_event.result {
         Ok(rtt) => {
             trace!(
                 "PingSuccess::Ping rtt to {} is {} ms",
-                ping_event.peer.to_base58(),
+                ping_event.peer,
                 rtt.as_millis()
             );
         }
         Err(ping::Failure::Unsupported) => {
-            peer_manager
-                .ban_peer(
-                    ping_event.peer,
-                    format!("Ping protocol unsupported: {}", ping_event.peer),
-                    Some(BAN_PEER_DURATION),
-                )
-                .await;
+            debug!(peer=%ping_event.peer, "Ping protocol unsupported");
         }
         Err(ping::Failure::Timeout) => {
-            warn!("Ping timeout: {}", ping_event.peer);
+            debug!("Ping timeout: {}", ping_event.peer);
         }
         Err(ping::Failure::Other { error }) => {
             debug!("Ping failure: {error}");
@@ -722,7 +784,7 @@ async fn handle_chain_exchange_event<DB>(
                 );
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                    NetworkEvent::ChainExchangeRequestInbound,
                 )
                 .await;
 
@@ -743,7 +805,7 @@ async fn handle_chain_exchange_event<DB>(
             } => {
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                    NetworkEvent::ChainExchangeResponseInbound,
                 )
                 .await;
                 chain_exchange
@@ -768,10 +830,10 @@ async fn handle_chain_exchange_event<DB>(
                 peer, error
             );
         }
-        request_response::Event::ResponseSent { request_id, .. } => {
+        request_response::Event::ResponseSent { .. } => {
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeResponseOutbound { request_id },
+                NetworkEvent::ChainExchangeResponseOutbound,
             )
             .await;
         }
@@ -799,7 +861,7 @@ async fn handle_forest_behaviour_event<DB>(
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
-            handle_discovery_event(discovery_out, network_sender_out).await
+            handle_discovery_event(discovery_out, network_sender_out, peer_manager).await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
             handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
@@ -823,7 +885,7 @@ async fn handle_forest_behaviour_event<DB>(
                 warn!("bitswap: {e}");
             }
         }
-        ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
+        ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event).await,
         ForestBehaviourEvent::ConnectionLimits(_) => {}
         ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {
@@ -843,25 +905,4 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
-}
-
-/// Builds the transport stack that libp2p will communicate over. When support
-/// of other protocols like `udp`, `quic`, `http` are added, remember to update
-/// code comment in [`Libp2pConfig`].
-///
-/// As a reference `lotus` uses the default `go-libp2p` transport builder which
-/// has all above protocols enabled.
-pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let build_dns_tcp = || libp2p::dns::tokio::Transport::system(build_tcp());
-    let transport = build_dns_tcp()?;
-
-    let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
-
-    Ok(transport
-        .upgrade(core::upgrade::Version::V1)
-        .authenticate(auth_config)
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed())
 }

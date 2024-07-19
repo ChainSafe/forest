@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
@@ -71,14 +71,14 @@ where
     for b in ts.block_headers() {
         let (msg1, msg2) = crate::chain::block_messages(db, b)?;
         for m in msg1 {
-            let m_cid = m.cid()?;
+            let m_cid = m.cid();
             if !seen.contains(&m_cid) {
                 total_limit += m.gas_limit();
                 seen.insert(m_cid);
             }
         }
         for m in msg2 {
-            let m_cid = m.cid()?;
+            let m_cid = m.cid();
             if !seen.contains(&m_cid) {
                 total_limit += m.gas_limit();
                 seen.insert(m_cid);

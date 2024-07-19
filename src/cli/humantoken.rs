@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module defines a [parser](parse()) and
 //! [pretty-printer](TokenAmountPretty::pretty) for
@@ -219,9 +219,9 @@ mod parse {
     }
 
     /// Take a float from the front of `input`
-    fn bigdecimal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, BigDecimal, E>
+    fn bigdecimal<'a, E>(input: &'a str) -> IResult<&str, BigDecimal, E>
     where
-        E: FromExternalError<&'a str, ParseBigDecimalError>,
+        E: ParseError<&'a str> + FromExternalError<&'a str, ParseBigDecimalError>,
     {
         map_res(recognize_float, str::parse)(input)
     }

@@ -1,8 +1,16 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
-#![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::todo,
+        clippy::dbg_macro,
+        clippy::indexing_slicing,
+        clippy::get_unwrap
+    )
+)]
 #![cfg_attr(
     doc,
     deny(rustdoc::all),
@@ -41,8 +49,10 @@ mod cli_shared;
 mod daemon;
 mod db;
 mod documentation;
+mod eth;
 mod fil_cns;
 mod genesis;
+mod health;
 mod interpreter;
 mod ipld;
 mod key_management;
@@ -54,13 +64,11 @@ mod message_pool;
 mod metrics;
 mod networks;
 mod rpc;
-mod rpc_api;
-mod rpc_client;
 mod shim;
 mod state_manager;
 mod state_migration;
 mod statediff;
-#[cfg(test)]
+#[cfg(any(test, doc))]
 mod test_utils;
 mod tool;
 mod utils;

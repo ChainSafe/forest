@@ -5,11 +5,11 @@ title: ""
 assignees: ""
 ---
 
-**Issue summary**
+## Issue summary
 
 <!-- A clear and concise description of what the issue is. -->
 
-**Task summary**
+## Task summary
 
 <!-- A clear and concise description of what the task(s) are. -->
 
@@ -19,7 +19,7 @@ assignees: ""
 - [x] Task 4
 - [x] Task 5
 
-**Acceptance Criteria**
+## Acceptance Criteria
 
 <!-- Provide the acceptance criteria for the issue. -->
 
@@ -27,7 +27,7 @@ assignees: ""
 - [ ] acceptance criteria #2
 - [x] acceptance criteria #3
 
-**Other information and links**
+## Other information and links
 
 <!-- Add any other context, existing implementation reference or screenshots about the task here. -->
 

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -11,10 +11,10 @@ use crate::shim::{
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::state_migration::common::PostMigrationCheck;
+use crate::utils::db::CborStoreExt as _;
 use anyhow::{bail, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 
 use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
@@ -27,13 +27,9 @@ impl<BS: Blockstore> StateMigration<BS> {
         new_manifest: &BuiltinActorManifest,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor = state_tree
-            .get_actor(&Address::new_id(0))?
-            .context("failed to get system actor")?;
+        let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
 
-        let system_actor_state = store
-            .get_cbor::<SystemStateOld>(&system_actor.state)?
-            .context("system actor state not found")?;
+        let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
 
@@ -61,13 +57,9 @@ struct PostMigrationVerifier {
 impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
     fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<BS>) -> anyhow::Result<()> {
         let actors_in = StateTree::new_from_root(Arc::new(store), &self.state_pre)?;
-        let system_actor = actors_in
-            .get_actor(&Address::new_id(0))?
-            .context("failed to get system actor")?;
+        let system_actor = actors_in.get_required_actor(&Address::new_id(0))?;
 
-        let system_actor_state = store
-            .get_cbor::<SystemStateOld>(&system_actor.state)?
-            .context("system actor state not found")?;
+        let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
 
@@ -75,9 +67,7 @@ impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
             BuiltinActorManifest::load_v1_actor_list(store, &current_manifest_data)?;
 
         actors_in.for_each(|address, actor_in| {
-            let actor_out = actors_out
-                .get_actor(&address)?
-                .context("failed to get actor from state tree")?;
+            let actor_out = actors_out.get_required_actor(&address)?;
 
             if actor_in.sequence != actor_out.sequence {
                 bail!(
@@ -137,13 +127,13 @@ where
 
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::WatermelonFix2 as usize)
+        .get(&Height::WatermelonFix2)
         .context("no height info for network version NV21 (fixed again)")?
         .bundle
         .as_ref()
         .context("no bundle for network version NV21 (fixed again)")?;
 
-    blockstore.get(new_manifest_cid)?.context(format!(
+    blockstore.get(new_manifest_cid)?.with_context(|| format!(
         "manifest for network version NV21 (fixed again) not found in blockstore: {new_manifest_cid}"
     ))?;
 

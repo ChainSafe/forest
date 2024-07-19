@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod bad_block_cache;
@@ -9,6 +9,8 @@ mod network_context;
 mod sync_state;
 mod tipset_syncer;
 mod validation;
+
+pub use validation::TipsetValidator;
 
 pub use self::{
     bad_block_cache::BadBlockCache,

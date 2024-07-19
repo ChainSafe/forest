@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Contains routines for message selection APIs.
@@ -8,7 +8,7 @@
 
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, BLOCK_MESSAGE_LIMIT};
 use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
@@ -71,11 +71,12 @@ where
         if pending.is_empty() {
             return Ok(Vec::new());
         }
+
         // 0b. Select all priority messages that fit in the block
         let (result, gas_limit) = self.select_priority_messages(&mut pending, &base_fee, ts)?;
 
         // check if block has been filled
-        if gas_limit < MIN_GAS {
+        if gas_limit < MIN_GAS || result.len() > BLOCK_MESSAGE_LIMIT {
             return Ok(result);
         }
 
@@ -98,6 +99,7 @@ where
         Ok(msgs)
     }
 
+    #[allow(clippy::indexing_slicing)]
     fn select_messages_optimal(
         &self,
         cur_ts: &Tipset,
@@ -141,7 +143,7 @@ where
         // 2. Sort the chains
         chains.sort(false);
 
-        if !chains.is_empty() && chains[0].gas_perf < 0.0 {
+        if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
             tracing::warn!(
                 "all messages in mpool have non-positive gas performance {}",
                 chains[0].gas_perf
@@ -531,8 +533,8 @@ where
     }
 }
 
-#[cfg(test)]
 /// Returns merged and trimmed messages with the gas limit
+#[allow(clippy::indexing_slicing)]
 fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,
@@ -540,6 +542,10 @@ fn merge_and_trim(
     gas_limit: u64,
     min_gas: u64,
 ) -> (Vec<SignedMessage>, u64) {
+    if chains.is_empty() {
+        return (result, gas_limit);
+    }
+
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
@@ -627,7 +633,6 @@ fn merge_and_trim(
 /// It simulates a head change call.
 // This logic should probably be implemented in the ChainStore. It handles
 // reorgs.
-#[cfg(test)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,

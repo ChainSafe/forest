@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This module contains the migration logic for the `NV19` upgrade for the
@@ -6,8 +6,7 @@
 
 use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
-use crate::utils::db::CborStoreExt;
-use anyhow::Context as _;
+use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
 use fil_actor_power_state::{
     v10::{Claim as ClaimV10, State as StateV10},
@@ -17,7 +16,6 @@ use fil_actors_shared::v11::{
     builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use std::sync::Arc;
 
 pub struct PowerMigrator(Cid);
@@ -35,9 +33,7 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
         store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
-        let in_state: StateV10 = store
-            .get_cbor(&input.head)?
-            .context("Power actor: could not read v10 state")?;
+        let in_state: StateV10 = store.get_cbor_required(&input.head)?;
 
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 

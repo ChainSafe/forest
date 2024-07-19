@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub use fvm_shared3::sector::StoragePower;
@@ -180,7 +180,7 @@ impl Deref for RegisteredPoStProof {
     }
 }
 
-impl TryFrom<RegisteredPoStProof> for filecoin_proofs_api::RegisteredPoStProof {
+impl TryFrom<RegisteredPoStProof> for fil_actors_shared::filecoin_proofs_api::RegisteredPoStProof {
     type Error = anyhow::Error;
 
     fn try_from(value: RegisteredPoStProof) -> Result<Self, Self::Error> {
@@ -203,6 +203,7 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
 
 /// `SectorSize` indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u64)]
 pub enum SectorSize {
     _2KiB = 2 << 10,

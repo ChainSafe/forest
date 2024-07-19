@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This module contains the migration logic for the `NV17` upgrade for the `datacap`
@@ -13,6 +13,7 @@ use crate::shim::{econ::TokenAmount, sector::StoragePower};
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
+use fil_actors_shared::frc46_token::token::state::TokenState;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
@@ -73,8 +74,7 @@ impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
             verifreg_balance.into(),
         )?;
 
-        let mut token =
-            fil_actors_shared::frc46_token::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
+        let mut token = TokenState::new_with_bit_width(store, HAMT_BIT_WIDTH)?;
         token.supply = TokenAmount::from_atto(token_supply).into();
         token.balances = balances_map.flush()?;
         token.allowances = allowances_map.flush()?;

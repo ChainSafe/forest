@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Migration logic from version 0.12.1
@@ -9,6 +9,7 @@
 //! coming from the rolling database and ParityDb.
 
 use crate::db::migration::migration_map::temporary_db_name;
+use crate::Config;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -29,7 +30,7 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
         Ok(())
     }
 
-    fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+    fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join(self.from.to_string());
 
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
@@ -49,7 +50,7 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
         );
         fs_extra::copy_items(
             &[source_db.as_path()],
-            temp_db_path.clone(),
+            &temp_db_path,
             &CopyOptions::default().copy_inside(true),
         )?;
 

@@ -1,8 +1,10 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
+
 use crate::shim::sector::SectorSize;
-use crate::utils::proofs_api::paramfetch::{get_params_default, SectorSizeOpt};
+use crate::utils::proofs_api::{get_params_default, SectorSizeOpt};
 
 use crate::cli::subcommands::cli_error_and_die;
 use crate::cli_shared::read_config;
@@ -23,12 +25,12 @@ pub struct FetchCommands {
     params_size: Option<String>,
     /// Optional TOML file containing forest daemon configuration
     #[arg(short, long)]
-    pub config: Option<String>,
+    pub config: Option<PathBuf>,
 }
 
 impl FetchCommands {
-    pub async fn run(&self) -> anyhow::Result<()> {
-        let (_, config) = read_config(&self.config, &None)?;
+    pub async fn run(self) -> anyhow::Result<()> {
+        let (_, config) = read_config(self.config.as_ref(), None)?;
 
         let sizes = if self.all {
             SectorSizeOpt::All

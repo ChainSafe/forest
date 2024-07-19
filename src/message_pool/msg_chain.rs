@@ -1,6 +1,6 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+#![allow(clippy::indexing_slicing)]
 use std::{
     cmp::Ordering,
     mem,
@@ -44,7 +44,6 @@ pub(in crate::message_pool) struct Chains {
     pub key_vec: Vec<NodeKey>,
 }
 
-#[cfg(test)]
 impl Chains {
     // Sort by effective perf with cmp_effective
     pub(in crate::message_pool) fn sort_effective(&mut self) {
@@ -150,6 +149,7 @@ impl Chains {
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
     pub(in crate::message_pool) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
+        #[allow(clippy::indexing_slicing)]
         self.map.get(vec[i]).unwrap()
     }
 
@@ -159,6 +159,7 @@ impl Chains {
         i: usize,
         vec: &[NodeKey],
     ) -> &mut MsgChainNode {
+        #[allow(clippy::indexing_slicing)]
         self.map.get_mut(vec[i]).unwrap()
     }
 
@@ -167,8 +168,8 @@ impl Chains {
         self.key_vec.get(i).copied()
     }
 
-    /// Retrieves the `msg` chain node at the given index
-    pub(in crate::message_pool) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
+    /// Retrieves the `msg` chain node at the given index. Returns `None` if index is out-of-bounds.
+    pub(in crate::message_pool) fn get_at(&self, i: usize) -> Option<&MsgChainNode> {
         self.map.get(self.get_key_at(i)?)
     }
 
@@ -200,9 +201,11 @@ impl Chains {
         let mut i = chain_node.msgs.len() as i64 - 1;
 
         while i >= 0 && (chain_node.gas_limit > gas_limit || (chain_node.gas_perf < 0.0)) {
-            let gas_reward = get_gas_reward(&chain_node.msgs[i as usize], base_fee);
+            #[allow(clippy::indexing_slicing)]
+            let msg = &chain_node.msgs[i as usize];
+            let gas_reward = get_gas_reward(msg, base_fee);
             chain_node.gas_reward -= gas_reward;
-            chain_node.gas_limit -= chain_node.msgs[i as usize].gas_limit();
+            chain_node.gas_limit -= msg.gas_limit();
             if chain_node.gas_limit > 0 {
                 chain_node.gas_perf = get_gas_perf(&chain_node.gas_reward, chain_node.gas_limit);
                 if chain_node.bp != 0.0 {
@@ -250,7 +253,7 @@ impl Chains {
     pub(in crate::message_pool) fn drop_invalid(&mut self, key_vec: &mut Vec<NodeKey>) {
         let mut valid_keys = vec![];
         for k in key_vec.iter() {
-            if let true = self.map.get(*k).map(|n| n.valid).unwrap() {
+            if self.map.get(*k).map(|n| n.valid).unwrap() {
                 valid_keys.push(*k);
             } else {
                 self.map.remove(*k);
@@ -264,12 +267,13 @@ impl Chains {
 impl Index<usize> for Chains {
     type Output = MsgChainNode;
     fn index(&self, i: usize) -> &Self::Output {
-        self.map.get(self.key_vec[i]).unwrap()
+        self.get_at(i).unwrap()
     }
 }
 
 impl IndexMut<usize> for Chains {
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        #[allow(clippy::indexing_slicing)]
         self.map.get_mut(self.key_vec[i]).unwrap()
     }
 }
@@ -319,7 +323,6 @@ impl MsgChainNode {
     }
 }
 
-#[cfg(test)]
 impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged
@@ -388,7 +391,10 @@ where
     //   limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages
     //   that exceed the balance
-    let actor_state = api.get_actor_after(actor, ts)?;
+    let Ok(actor_state) = api.get_actor_after(actor, ts) else {
+        tracing::warn!("failed to load actor state, not building chain for {actor}");
+        return Ok(());
+    };
     let mut cur_seq = actor_state.sequence;
     let mut balance: TokenAmount = TokenAmount::from(&actor_state.balance);
 
@@ -397,8 +403,7 @@ where
     let mut i = 0;
     let mut rewards = Vec::with_capacity(msgs.len());
 
-    while i < msgs.len() {
-        let m = &msgs[i];
+    while let Some(m) = msgs.get(i) {
         if m.sequence() < cur_seq {
             warn!(
                 "encountered message from actor {} with nonce {} less than the current nonce {}",
@@ -446,6 +451,7 @@ where
 
     // check we have a sane set of messages to construct the chains
     let msgs = if i > skip {
+        #[allow(clippy::indexing_slicing)]
         msgs[skip..i].to_vec()
     } else {
         return Ok(());
@@ -454,13 +460,13 @@ where
     let mut cur_chain = MsgChainNode::default();
     let mut node_vec = vec![];
 
-    let new_chain = |m: SignedMessage, i: usize| -> MsgChainNode {
+    let new_chain = |m: SignedMessage, reward: &TokenAmount| -> MsgChainNode {
         let gl = m.gas_limit();
         MsgChainNode {
             msgs: vec![m],
-            gas_reward: rewards[i].clone(),
+            gas_reward: reward.clone(),
             gas_limit: gl,
-            gas_perf: get_gas_perf(&rewards[i], gl),
+            gas_perf: get_gas_perf(reward, gl),
             eff_perf: 0.0,
             bp: 0.0,
             parent_offset: 0.0,
@@ -473,13 +479,13 @@ where
 
     // creates msg chain nodes in chunks based on gas_perf obtained from the current
     // chain's gas limit.
-    for (i, m) in msgs.into_iter().enumerate() {
+    for (i, (m, reward)) in msgs.into_iter().zip(rewards.iter()).enumerate() {
         if i == 0 {
-            cur_chain = new_chain(m, i);
+            cur_chain = new_chain(m, reward);
             continue;
         }
 
-        let gas_reward = cur_chain.gas_reward.clone() + &rewards[i];
+        let gas_reward = cur_chain.gas_reward.clone() + reward;
         let gas_limit = cur_chain.gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 
@@ -487,7 +493,7 @@ where
         // then make a new chain
         if gas_perf < cur_chain.gas_perf {
             chains.push_with(cur_chain, &mut node_vec);
-            cur_chain = new_chain(m, i);
+            cur_chain = new_chain(m, reward);
         } else {
             cur_chain.msgs.push(m);
             cur_chain.gas_reward = gas_reward;
@@ -538,30 +544,32 @@ where
         chains.drop_invalid(&mut node_vec);
     }
 
-    // link next pointers
-    for i in 0..node_vec.len() - 1 {
-        let k1 = node_vec.get(i).unwrap();
-        let k2 = node_vec.get(i + 1);
-        let n1 = chains.get_mut(*k1).unwrap();
-        n1.next = k2.cloned();
-    }
+    if node_vec.len() > 1 {
+        for (&k1, &k2) in node_vec.iter().zip(node_vec.iter().skip(1)) {
+            // link next pointers
+            let n1 = chains
+                .get_mut(k1)
+                .ok_or_else(|| Error::Other(format!("{k1:?} should present in `chains`")))?;
+            n1.next = Some(k2);
+            // Should we link or clear n1.prev as well?
 
-    // link prev pointers
-    for i in (0..node_vec.len() - 1).rev() {
-        let k1 = node_vec.get(i);
-        let k2 = node_vec.get(i + 1).unwrap();
-        let n2 = chains.get_mut(*k2).unwrap();
-        n2.prev = k1.cloned();
+            // link prev pointers
+            let n2 = chains
+                .get_mut(k2)
+                .ok_or_else(|| Error::Other(format!("{k2:?} should present in `chains`")))?;
+            n2.prev = Some(k1);
+            // Should we link or clear n2.next as well?
+        }
     }
 
     // Update the main chain key_vec with this node_vec
-    chains.key_vec.extend(node_vec.iter());
+    chains.key_vec.extend(node_vec);
 
     Ok(())
 }
 
 fn approx_cmp(a: f64, b: f64) -> Ordering {
-    if (a - b).abs() <= (a * std::f64::EPSILON).abs() {
+    if (a - b).abs() <= (a * f64::EPSILON).abs() {
         Ordering::Equal
     } else {
         a.partial_cmp(&b).unwrap()

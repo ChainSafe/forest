@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain::{
@@ -19,7 +19,6 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use nonempty::NonEmpty;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -181,11 +180,10 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Res
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = unordered_stream_graph(store.clone(), heaviest.chain(store), 0);
+    let mut s = unordered_stream_graph(store.clone(), heaviest.chain_owned(store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
-    s.join_workers().await?;
 
     Ok(())
 }
@@ -199,7 +197,10 @@ async fn benchmark_forest_encoding(
     let file = tokio::io::BufReader::new(File::open(&input).await?);
 
     let mut block_stream = CarStream::new(file).await?;
-    let roots = std::mem::take(&mut block_stream.header.roots);
+    let roots = std::mem::replace(
+        &mut block_stream.header.roots,
+        nunny::vec![Default::default()],
+    );
 
     let mut dest = indicatif_sink("encoded");
 
@@ -239,7 +240,7 @@ async fn benchmark_exporting(
 
     let blocks = stream_chain(
         Arc::clone(&store),
-        ts.deref().clone().chain(Arc::clone(&store)),
+        ts.deref().clone().chain_owned(Arc::clone(&store)),
         stateroot_lookup_limit,
     );
 
@@ -248,13 +249,7 @@ async fn benchmark_exporting(
         compression_level,
         par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
-    crate::db::car::forest::Encoder::write(
-        &mut dest,
-        NonEmpty::from_vec(ts.key().cids.clone().into_iter().collect())
-            .context("car roots cannot be empty")?,
-        frames,
-    )
-    .await?;
+    crate::db::car::forest::Encoder::write(&mut dest, ts.key().to_cids(), frames).await?;
     dest.flush().await?;
     Ok(())
 }

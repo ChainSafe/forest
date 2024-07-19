@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{CidV1DagCborBlake2b256, MaybeCompactedCid, Uncompactable};
@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// the space savings, which are constant per-variant, rather than constant per-item.
 ///
 /// This is dramatic for large maps!
-/// Using, e.g [`frozen_vec::SmallCid`](super::frozen_vec::SmallCid) will cost
+/// Using, e.g [`SmallCidNonEmptyVec`](super::SmallCidNonEmptyVec) will cost
 /// 25% more per-CID in the median case (32 B vs 40 B)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CidHashMap<V> {
@@ -90,6 +90,12 @@ impl<V> CidHashMap<V> {
             MaybeCompactedCid::Compact(c) => self.compact.remove(&c),
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.remove(&u),
         }
+    }
+    /// Returns `true` if the map is empty.
+    ///
+    /// See also [`HashMap::is_empty`].
+    pub fn is_empty(&self) -> bool {
+        self.compact.is_empty() && self.uncompact.is_empty()
     }
 }
 

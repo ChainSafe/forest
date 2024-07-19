@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::time::Duration;
@@ -28,7 +28,7 @@ pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,
@@ -273,7 +273,7 @@ impl Beacon for DrandBeacon {
     fn verify_entries<'a>(
         &self,
         entries: &'a [BeaconEntry],
-        mut prev: &'a BeaconEntry,
+        prev: &'a BeaconEntry,
     ) -> Result<bool, anyhow::Error> {
         let mut validated = vec![];
         let is_valid = if self.network.is_unchained() {
@@ -303,15 +303,17 @@ impl Beacon for DrandBeacon {
 
             let pk = PublicKeyOnG1::from_bytes(&self.public_key)?;
             {
+                let prev_curr_pairs = std::iter::once(prev)
+                    .chain(entries.iter())
+                    .unique_by(|e| e.round())
+                    .tuple_windows::<(_, _)>();
                 let cache = self.verified_beacons.read();
-                for curr in entries.iter() {
+                for (prev, curr) in prev_curr_pairs {
                     if prev.round() > 0 && !cache.contains(&curr.round()) {
                         messages.push(BeaconEntry::message_chained(curr.round(), prev.signature()));
                         signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
                         validated.push(curr);
                     }
-
-                    prev = curr;
                 }
             }
 

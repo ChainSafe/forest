@@ -16,6 +16,10 @@ on:
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
 
+env:
+  FOREST_TEST_IMAGE: forest-image
+  FOREST_TEST_ARCHIVE: forest-image.tar
+
 jobs:
   build-and-push-docker-image:
     # Run the job only if the PR is not a draft.
@@ -72,14 +76,14 @@ jobs:
             type=edge
       
       - name: Build fat image and push to GitHub Container Registry
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           tags: ${{ steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-          # Compile Docker image only for ARM64 for a regular PR to save some CI time.
-          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
+          # Compile Docker image only for AMD64 for a regular PR to save some CI time.
+          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: fat-image
 
       # This step yields the following labels
@@ -98,15 +102,12 @@ jobs:
             type=edge
 
       - name: Build slim image and push to GitHub Container Registry
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-          # Compile Docker image only for ARM64 for a regular PR to save some CI time.
-          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
+          # Compile Docker image only for AMD64 for a regular PR to save some CI time.
+          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: slim-image
-
-      - name: List docker images
-        run: docker image ls

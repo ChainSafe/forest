@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -415,7 +415,9 @@ impl EncryptedKeyStore {
         Ok(ciphertext)
     }
 
+    #[allow(clippy::indexing_slicing)]
     fn decrypt(encryption_key: &[u8], msg: &[u8]) -> anyhow::Result<Vec<u8>> {
+        anyhow::ensure!(msg.len() > NONCE_SIZE);
         let cyphertext_len = msg.len() - NONCE_SIZE;
         let ciphertext = &msg[..cyphertext_len];
         let nonce = GenericArray::from_slice(&msg[cyphertext_len..]);

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Due to https://git.wiki.kernel.org/index.php/GitFaq#Why_does_Git_not_.22track.22_renames.3F
@@ -6,10 +6,10 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
-mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
+mod healthcheck_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
@@ -21,17 +21,16 @@ mod sync_cmd;
 
 use std::io::Write;
 
-use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
+use crate::{blocks::Tipset, lotus_json::HasLotusJson};
 use clap::Parser;
-use serde::Serialize;
 use tracing::error;
 
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
+    healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
     send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
     state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
@@ -91,11 +90,15 @@ pub enum Subcommand {
     #[command(subcommand)]
     Info(InfoCommand),
 
-    /// Attach to daemon via a JavaScript console
-    Attach(AttachCommand),
+    /// `[REMOVED]` Attach to daemon via a JavaScript console
+    Attach { _ignored: Vec<String> },
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
+
+    /// Print healthcheck info
+    #[command(subcommand)]
+    Healthcheck(HealthcheckCommand),
 }
 
 /// Format a vector to a prettified string
@@ -111,8 +114,8 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 }
 
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string_pretty(&obj)?);
+pub(super) fn print_pretty_lotus_json<T: HasLotusJson>(obj: T) -> anyhow::Result<()> {
+    println!("{}", obj.into_lotus_json_string_pretty()?);
     Ok(())
 }
 

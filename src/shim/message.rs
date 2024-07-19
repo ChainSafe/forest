@@ -1,10 +1,10 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 
 use fvm_ipld_encoding::de::Deserializer;
 use fvm_ipld_encoding::ser::Serializer;
-use fvm_ipld_encoding::{Error as EncError, RawBytes};
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
 pub use fvm_shared3::METHOD_SEND;
@@ -179,9 +179,9 @@ impl Message {
         }
     }
 
-    pub fn cid(&self) -> Result<cid::Cid, EncError> {
+    pub fn cid(&self) -> cid::Cid {
         use crate::utils::cid::CidCborExt;
-        cid::Cid::from_cbor_blake2b256(self)
+        cid::Cid::from_cbor_blake2b256(self).expect("message serialization is infallible")
     }
 
     /// Tests if a message is equivalent to another replacing message.

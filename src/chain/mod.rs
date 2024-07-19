@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod store;
 mod weight;
@@ -11,38 +11,35 @@ use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
 use digest::Digest;
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::NonEmpty;
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub use self::{store::*, weight::*};
 
 pub async fn export<D: Digest>(
-    db: impl Blockstore + Send + Sync + 'static,
+    db: Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
     skip_checksum: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
-    let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
-    let roots = NonEmpty::from_vec(tipset.key().cids.clone().into_iter().collect())
-        .context("Tipset key is empty")?;
+    let roots = tipset.key().to_cids();
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
 
-    // Stream stateroots in range stateroot_lookup_limit..=tipset.epoch(). Also
+    // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
     // stream all block headers until genesis.
     let blocks = par_buffer(
-        // Queue 1k blocks. This is enuogh to saturate the compressor and blocks
+        // Queue 1k blocks. This is enough to saturate the compressor and blocks
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.
         1024,
         stream_chain(
             Arc::clone(&db),
-            tipset.clone().chain(Arc::clone(&db)),
+            tipset.clone().chain_owned(Arc::clone(&db)),
             stateroot_lookup_limit,
         )
         .with_seen(seen),

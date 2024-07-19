@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Contains the implementation of Message Pool component.
@@ -12,6 +12,7 @@ use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
+use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -27,9 +28,9 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
-use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
@@ -39,8 +40,8 @@ use crate::message_pool::{
     errors::Error,
     head_change, metrics,
     msgpool::{
-        recover_sig, republish_pending_messages, select_messages_for_block,
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM,
+        recover_sig, republish_pending_messages, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
+        RBF_DENOM, RBF_NUM,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -107,7 +108,7 @@ impl MsgSet {
         }
 
         if let Some(exms) = self.msgs.get(&m.sequence()) {
-            if m.cid()? != exms.cid()? {
+            if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
@@ -138,7 +139,7 @@ impl MsgSet {
         if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
-                while self.msgs.get(&self.next_sequence).is_some() {
+                while self.msgs.contains_key(&self.next_sequence) {
                     self.next_sequence += 1;
                 }
             }
@@ -175,9 +176,6 @@ pub struct MessagePool<T> {
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    /// The minimum gas price needed for executing the transaction based on
-    /// number of included blocks
-    pub min_gas_price: BigInt,
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
@@ -212,7 +210,7 @@ where
     /// checks on the validity of a message.
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg)?;
-        let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
+        let cid = msg.cid();
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
@@ -258,7 +256,7 @@ where
     /// verified and put into cache. If it has not, then manually verify it
     /// then put it into cache for future use.
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let cid = msg.cid()?;
+        let cid = msg.cid();
 
         if let Some(()) = self.sig_val_cache.lock().get(&cid) {
             return Ok(());
@@ -285,6 +283,14 @@ where
 
         // This message can only be included in the next epoch and beyond, hence the +1.
         let nv = self.chain_config.network_version(cur_ts.epoch() + 1);
+        let eth_chain_id = self.chain_config.eth_chain_id;
+        if msg.signature().signature_type() == SignatureType::Delegated
+            && !is_valid_eth_tx_for_sending(eth_chain_id, nv, &msg)
+        {
+            return Err(Error::Other(
+                "Invalid Ethereum message for the current network version".to_owned(),
+            ));
+        }
         if !is_valid_for_sending(nv, &sender_actor) {
             return Err(Error::Other(
                 "Sender actor is not a valid top-level sender".to_owned(),
@@ -381,12 +387,14 @@ where
         if mset.msgs.is_empty() {
             return None;
         }
-        let mut msg_vec = Vec::new();
-        for (_, item) in mset.msgs.iter() {
-            msg_vec.push(item.clone());
-        }
-        msg_vec.sort_by_key(|value| value.message().sequence);
-        Some(msg_vec)
+
+        Some(
+            mset.msgs
+                .values()
+                .cloned()
+                .sorted_by_key(|v| v.message().sequence)
+                .collect(),
+        )
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -439,27 +447,6 @@ where
         self.config = cfg;
         Ok(())
     }
-
-    /// Select messages that can be included in a block built on a given base
-    /// tipset.
-    pub fn select_messages_for_block(&self, base: &Tipset) -> Result<Vec<SignedMessage>, Error> {
-        // Take a snapshot of the pending messages.
-        let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
-            let pending = self.pending.read();
-            pending
-                .iter()
-                .filter_map(|(actor, mset)| {
-                    if mset.msgs.is_empty() {
-                        None
-                    } else {
-                        Some((*actor, mset.msgs.clone()))
-                    }
-                })
-                .collect()
-        };
-
-        select_messages_for_block(self.api.as_ref(), self.chain_config.as_ref(), base, pending)
-    }
 }
 
 impl<T> MessagePool<T>
@@ -493,7 +480,6 @@ where
             pending,
             cur_tipset: tipset,
             api: Arc::new(api),
-            min_gas_price: Default::default(),
             network_name,
             bls_sig_cache,
             sig_val_cache,
@@ -606,9 +592,7 @@ where
     T: Provider,
 {
     if msg.signature().signature_type() == SignatureType::Bls {
-        bls_sig_cache
-            .lock()
-            .put(msg.cid()?, msg.signature().clone());
+        bls_sig_cache.lock().put(msg.cid(), msg.signature().clone());
     }
 
     if msg.message().gas_limit > 100_000_000 {

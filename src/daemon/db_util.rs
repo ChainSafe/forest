@@ -1,10 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
+use crate::networks::Height;
+use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use anyhow::Context as _;
@@ -20,6 +22,15 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
+
+#[cfg(doc)]
+use crate::rpc::eth::Hash;
+
+#[cfg(doc)]
+use crate::blocks::TipsetKey;
+
+#[cfg(doc)]
+use cid::Cid;
 
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
@@ -41,7 +52,7 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
     {
         let car = ForestCar::try_from(file.as_path())
             .with_context(|| format!("Error loading car DB at {}", file.display()))?;
-        store.read_only(car.into());
+        store.read_only(car.into())?;
         debug!("Loaded car DB at {}", file.display());
     }
 
@@ -142,6 +153,51 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
+/// For the need for Ethereum RPC API, a new column in parity-db has been introduced to handle
+/// mapping of:
+/// - [`struct@Hash`] to [`TipsetKey`].
+/// - [`struct@Hash`] to delegated message [`Cid`].
+///
+/// This function traverses the chain store and populates the column.
+pub fn populate_eth_mappings<DB>(
+    state_manager: &StateManager<DB>,
+    head_ts: &Tipset,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore,
+{
+    let mut delegated_messages = vec![];
+
+    let hygge = state_manager.chain_config().epoch(Height::Hygge);
+    tracing::info!(
+        "Populating column EthMappings from range: [{}, {}]",
+        hygge,
+        head_ts.epoch()
+    );
+
+    for ts in head_ts
+        .clone()
+        .chain(&state_manager.chain_store().blockstore())
+    {
+        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+        // Before this height, no notion of an Ethereum-like API existed.
+        if ts.epoch() < hygge {
+            break;
+        }
+        delegated_messages.append(
+            &mut state_manager
+                .chain_store()
+                .headers_delegated_messages(ts.block_headers().iter())?,
+        );
+        state_manager.chain_store().put_tipset_key(ts.key())?;
+    }
+    state_manager
+        .chain_store()
+        .process_signed_messages(&delegated_messages)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -172,7 +228,7 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() {
-        import_snapshot_from_file("https://dummy.com/dummy.car")
+        import_snapshot_from_file("https://forest.chainsafe.io/dummy.car")
             .await
             .unwrap_err();
     }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::time::Duration;
@@ -41,8 +41,9 @@ impl Default for MpoolConfig {
         }
     }
 }
-#[cfg(test)]
+
 impl MpoolConfig {
+    #[cfg(test)]
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: SettingsStore>(&self, store: &DB) -> Result<(), anyhow::Error> {
         store.write_bin(MPOOL_CONFIG_KEY, &fvm_ipld_encoding::to_vec(&self)?)

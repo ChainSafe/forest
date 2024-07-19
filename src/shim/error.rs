@@ -1,8 +1,9 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
@@ -20,15 +21,19 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(shim_from_v2, fvm2_success.into());
 /// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ExitCode(ExitCodeV3);
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV3);
+
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
     pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;
 
     pub fn value(&self) -> u32 {
         self.0.value()
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.0.is_success()
     }
 }
 

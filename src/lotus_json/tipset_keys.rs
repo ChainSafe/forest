@@ -1,28 +1,33 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::blocks::TipsetKey;
-use crate::cid_collections::FrozenCidVec;
 use ::cid::Cid;
 
 impl HasLotusJson for TipsetKey {
-    type LotusJson = LotusJson<Vec<Cid>>;
+    type LotusJson = nunny::Vec<<Cid as HasLotusJson>::LotusJson>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!([{"/": "baeaaaaa"}]),
-            TipsetKey {
-                cids: FrozenCidVec::from_iter([::cid::Cid::default()]),
-            },
+            ::nunny::vec![::cid::Cid::default()].into(),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        LotusJson(self.cids.into_iter().collect::<Vec<Cid>>())
+        self.into_cids()
+            .into_iter_ne()
+            .map(Cid::into_lotus_json)
+            .collect_vec()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self::from_iter(lotus_json.into_inner())
+        lotus_json
+            .into_iter_ne()
+            .map(Cid::from_lotus_json)
+            .collect_vec()
+            .into()
     }
 }

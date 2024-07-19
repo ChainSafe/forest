@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! It can often take time to perform some operations in Forest and we would like to have a way for logging progress.
@@ -147,6 +147,8 @@ impl Progress {
         let message = &self.message;
         let elapsed_secs = (now - self.start).as_secs_f64();
         let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
+        // limit minimum duration to 0.1s to avoid inifinities.
+        let seconds_since_last_msg = (now - self.last_logged).as_secs_f64().max(0.1);
 
         let at = match self.item_type {
             ItemType::Bytes => human_bytes(self.completed_items as f64),
@@ -161,17 +163,17 @@ impl Progress {
                     ItemType::Bytes => human_bytes(total as f64),
                     ItemType::Items => total.to_string(),
                 };
-                output += &format!(", {:0}%", self.completed_items * 100 / total);
+                output += &format!(", {}%", self.completed_items * 100 / total);
             }
             output
         } else {
             String::new()
         };
 
-        let diff = self.completed_items - self.last_logged_items;
+        let diff = (self.completed_items - self.last_logged_items) as f64 / seconds_since_last_msg;
         let speed = match self.item_type {
-            ItemType::Bytes => format!("{}/s", human_bytes(diff as f64)),
-            ItemType::Items => format!("{diff} items/s"),
+            ItemType::Bytes => format!("{}/s", human_bytes(diff)),
+            ItemType::Items => format!("{diff:.0} items/s"),
         };
 
         format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}")
@@ -224,23 +226,26 @@ mod tests {
         progress.total_items = Some(1024 * 1024 * 1024);
         progress.set(1024 * 1024 * 1024);
         progress.last_logged_items = 1024 * 1024 * 1024 / 2;
+        // Going from 0MiB to 512MiB in 1s should show 512MiB/S
         assert_eq!(
-            progress.msg(now),
-            "test 1 GiB / 1 GiB, 100%, 512 MiB/s, elapsed time: 0s"
+            progress.msg(now + Duration::from_secs(1)),
+            "test 1 GiB / 1 GiB, 100%, 512 MiB/s, elapsed time: 1s"
         );
 
         progress.set(1024 * 1024 * 1024 / 2);
-        progress.last_logged_items = 1024 * 1024 * 1024 / 3;
+        progress.last_logged_items = 1024 * 1024 * 128;
+        // Going from 128MiB to 512MiB in 125s should show (512MiB-128MiB)/125s = ~3.1 MiB/s
         assert_eq!(
             progress.msg(now + Duration::from_secs(125)),
-            "test 512 MiB / 1 GiB, 50%, 170.7 MiB/s, elapsed time: 2m 5s"
+            "test 512 MiB / 1 GiB, 50%, 3.1 MiB/s, elapsed time: 2m 5s"
         );
 
         progress.set(1024 * 1024 * 1024 / 10);
-        progress.last_logged_items = 1024 * 1024 * 1024 / 11;
+        progress.last_logged_items = 1024 * 1024;
+        // Going from 1MiB to 102.4MiB in 10s should show (102.4MiB-1MiB)/10s = ~10.1 MiB/s
         assert_eq!(
             progress.msg(now + Duration::from_secs(10)),
-            "test 102.4 MiB / 1 GiB, 9%, 9.3 MiB/s, elapsed time: 10s"
+            "test 102.4 MiB / 1 GiB, 9%, 10.1 MiB/s, elapsed time: 10s"
         );
     }
 
@@ -253,22 +258,22 @@ mod tests {
         progress.set(1024);
         progress.last_logged_items = 1024 / 2;
         assert_eq!(
-            progress.msg(now),
-            "test 1024 / 1024, 100%, 512 items/s, elapsed time: 0s"
+            progress.msg(now + Duration::from_secs(1)),
+            "test 1024 / 1024, 100%, 512 items/s, elapsed time: 1s"
         );
 
         progress.set(1024 / 2);
         progress.last_logged_items = 1024 / 3;
         assert_eq!(
             progress.msg(now + Duration::from_secs(125)),
-            "test 512 / 1024, 50%, 171 items/s, elapsed time: 2m 5s"
+            "test 512 / 1024, 50%, 1 items/s, elapsed time: 2m 5s"
         );
 
         progress.set(1024 / 10);
-        progress.last_logged_items = 1024 / 11;
+        progress.last_logged_items = 0;
         assert_eq!(
             progress.msg(now + Duration::from_secs(10)),
-            "test 102 / 1024, 9%, 9 items/s, elapsed time: 10s"
+            "test 102 / 1024, 9%, 10 items/s, elapsed time: 10s"
         );
     }
 }

@@ -1,11 +1,10 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod provider;
-#[cfg(test)]
-mod selection;
+pub mod selection;
 #[cfg(test)]
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
@@ -61,7 +60,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &Mutex<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
-    chain_config: &Arc<ChainConfig>,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -101,7 +100,7 @@ where
 
     let mut republished_t = HashSet::new();
     for m in msgs.iter() {
-        republished_t.insert(m.cid()?);
+        republished_t.insert(m.cid());
     }
     *republished.write() = republished_t;
 
@@ -151,8 +150,7 @@ where
 
     let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
     let mut i = 0;
-    'l: while i < chains.len() {
-        let chain = &mut chains[i];
+    'l: while let Some(chain) = chains.get_mut_at(i) {
         // we can exceed this if we have picked (some) longer chain already
         if msgs.len() > REPUB_MSG_LIMIT {
             break;
@@ -191,6 +189,7 @@ where
         chains.trim_msgs_at(i, gas_limit, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
+            #[allow(clippy::indexing_slicing)]
             if chains[j].compare(&chains[j + 1]) == Ordering::Less {
                 break;
             }
@@ -251,13 +250,13 @@ where
                     msg.sequence(),
                     rmsgs.borrow_mut(),
                 )?;
-                if !repub && republished.write().insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
-                if !repub && republished.write().insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
@@ -395,7 +394,7 @@ pub mod tests {
             ..Message_v3::default()
         }
         .into();
-        let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
+        let msg_signing_bytes = umsg.cid().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_unchecked(umsg, sig)
     }
@@ -423,7 +422,7 @@ pub mod tests {
         .into();
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
-        let cid = signed.cid().unwrap();
+        let cid = signed.cid();
         pool.sig_val_cache.lock().put(cid, ());
         signed
     }

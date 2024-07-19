@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{fs, io, path::Path};
@@ -20,6 +20,7 @@ impl Mmap {
 }
 
 impl ReadAt for Mmap {
+    #[allow(clippy::indexing_slicing)]
     fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
         let start = pos as usize;
         if start >= self.0.len() {

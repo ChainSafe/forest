@@ -1,11 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use crate::blocks::Tipset;
+use crate::lotus_json::{HasLotusJson as _, NotNullVec};
 use crate::message::SignedMessage;
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -75,10 +76,13 @@ fn filter_messages(
     Ok(filtered)
 }
 
-async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
+async fn get_actor_sequence(
+    message: &Message,
+    tipset: &Tipset,
+    client: &rpc::Client,
+) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = api.state_get_actor(address, tipset.key().to_owned()).await;
-
+    let get_actor_result = StateGetActor::call(client, (address, tipset.key().into())).await;
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
             if let Some(state) = maybe_actor {
@@ -124,13 +128,13 @@ fn compute_stats(
             .insert(msg.sequence, msg.to_owned());
     }
 
-    let mut stats: Vec<MpStat> = Vec::new();
+    let mut stats: Vec<MpStat> = Vec::with_capacity(buckets.len());
 
     for (address, bucket) in buckets {
         let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");
 
         let mut curr_sequence = actor_sequence;
-        while bucket.get(&curr_sequence).is_some() {
+        while bucket.contains_key(&curr_sequence) {
             curr_sequence += 1;
         }
 
@@ -203,7 +207,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 }
 
 impl MpoolCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Pending {
                 local,
@@ -211,10 +215,11 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = api.mpool_pending(vec![]).await?;
+                let NotNullVec(messages) =
+                    MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -224,12 +229,9 @@ impl MpoolCommands {
 
                 for msg in filtered_messages {
                     if cids {
-                        println!("{}", msg.cid().unwrap());
+                        println!("{}", msg.cid());
                     } else {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&crate::lotus_json::LotusJson(msg))?
-                        );
+                        println!("{}", msg.into_lotus_json_string_pretty()?);
                     }
                 }
 
@@ -239,16 +241,17 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = api.chain_head().await?;
+                let tipset = ChainHead::call(&client, ()).await?;
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
-                let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
+                let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = api.mpool_pending(vec![]).await?;
+                let NotNullVec(messages) =
+                    MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -261,7 +264,7 @@ impl MpoolCommands {
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
-                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &api).await {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &client).await {
                         actor_sequences.insert(msg.from, sequence);
                     }
                 }

@@ -1,15 +1,14 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufReader},
@@ -57,7 +56,7 @@ impl CarCommands {
                     .try_collect()
                     .await?;
 
-                let all_roots = NonEmpty::from_vec(
+                let all_roots = NonEmpty::new(
                     car_streams
                         .iter()
                         .flat_map(|it| it.header.roots.iter())
@@ -65,7 +64,7 @@ impl CarCommands {
                         .cloned()
                         .collect_vec(),
                 )
-                .context("car roots cannot be empty")?;
+                .map_err(|_| anyhow::Error::msg("car roots cannot be empty"))?;
 
                 let frames = crate::db::car::forest::Encoder::compress_stream_default(
                     dedup_block_stream(merge_car_streams(car_streams)).map_err(anyhow::Error::from),
@@ -132,7 +131,7 @@ mod tests {
     use cid::multihash::{Code, MultihashDigest};
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
-    use nonempty::{nonempty, NonEmpty};
+    use nunny::{vec as nonempty, Vec as NonEmpty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};
     use tokio::io::AsyncWriteExt;

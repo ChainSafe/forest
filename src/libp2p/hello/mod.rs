@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod message;
@@ -7,3 +7,6 @@ mod behaviour;
 pub use behaviour::*;
 mod codec;
 use codec::*;
+
+/// Libp2p Hello protocol name.
+pub const HELLO_PROTOCOL_NAME: &str = "/fil/hello/1.0.0";

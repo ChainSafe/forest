@@ -13,8 +13,13 @@ forest_init
 echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
 $FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
-echo "Testing js console"
-$FOREST_CLI_PATH attach --exec 'showPeers()'
+echo "Test subcommand: state compute"
+cid=$($FOREST_CLI_PATH state compute --epoch 0)
+# Expected state root CID, same reported as in Lotus. This should break only if the network is reset.
+if [ "$cid" != "bafy2bzacecgqgzh3gxpariy3mzqb37y2vvxoaw5nwbrlzkhso6owus3zqckwe" ]; then
+  echo "Unexpected state root CID: $cid"
+  exit 1
+fi
 
 echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
 

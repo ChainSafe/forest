@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ops::Deref;
@@ -20,7 +20,20 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
-#[derive(Deserialize_tuple, Serialize_tuple, Default, Clone, Hash, Eq, PartialEq, Debug)]
+// See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
+// and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
+#[cfg(test)]
+static FILECOIN_GENESIS_CID: once_cell::sync::Lazy<Cid> = once_cell::sync::Lazy::new(|| {
+    "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
+        .parse()
+        .expect("Infallible")
+});
+
+#[cfg(test)]
+pub static GENESIS_BLOCK_PARENTS: once_cell::sync::Lazy<TipsetKey> =
+    once_cell::sync::Lazy::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
+
+#[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
     /// The address of the miner actor that mined this block
     pub miner_address: Address,
@@ -53,6 +66,30 @@ pub struct RawBlockHeader {
     pub fork_signal: u64,
     /// The base fee of the parent block
     pub parent_base_fee: TokenAmount,
+}
+
+#[cfg(test)]
+impl Default for RawBlockHeader {
+    fn default() -> Self {
+        Self {
+            parents: GENESIS_BLOCK_PARENTS.clone(),
+            miner_address: Default::default(),
+            ticket: Default::default(),
+            election_proof: Default::default(),
+            beacon_entries: Default::default(),
+            winning_post_proof: Default::default(),
+            weight: Default::default(),
+            epoch: Default::default(),
+            state_root: Default::default(),
+            message_receipts: Default::default(),
+            messages: Default::default(),
+            bls_aggregate: Default::default(),
+            timestamp: Default::default(),
+            signature: Default::default(),
+            fork_signal: Default::default(),
+            parent_base_fee: Default::default(),
+        }
+    }
 }
 
 impl RawBlockHeader {
@@ -89,10 +126,14 @@ impl RawBlockHeader {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
+        tracing::trace!(
+            "beacon network at {}: {:?}, is_chained: {}",
+            self.epoch,
+            curr_beacon.network(),
+            curr_beacon.network().is_chained()
+        );
         // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
-        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R53>
-        // for not using `if curr_beacon.network().is_chained()`
-        if network_version <= NetworkVersion::V21 {
+        if curr_beacon.network().is_chained() {
             let (pb_epoch, _) = b_schedule
                 .beacon_for_epoch(parent_epoch)
                 .map_err(|e| Error::Validation(e.to_string()))?;
@@ -105,6 +146,7 @@ impl RawBlockHeader {
                     )));
                 }
 
+                #[allow(clippy::indexing_slicing)]
                 curr_beacon
                     .verify_entries(&self.beacon_entries[1..], &self.beacon_entries[0])
                     .map_err(|e| Error::Validation(e.to_string()))?;
@@ -125,9 +167,8 @@ impl RawBlockHeader {
             return Ok(());
         }
 
-        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R83>
-        // for not using `if curr_beacon.network().is_chained() && prev_entry.round() == 0`
-        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
+        // We skip verifying the genesis entry when randomness is "chained".
+        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());
@@ -162,7 +203,7 @@ impl RawBlockHeader {
 
     /// Serializes the header to bytes for signing purposes i.e. without the
     /// signature field
-    fn signing_bytes(&self) -> Vec<u8> {
+    pub fn signing_bytes(&self) -> Vec<u8> {
         let mut blk = self.clone();
         blk.signature = None;
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
@@ -177,7 +218,8 @@ impl RawBlockHeader {
 }
 
 /// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]
-#[derive(Debug, Default)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug)]
 pub struct CachingBlockHeader {
     uncached: RawBlockHeader,
     cid: OnceCell<Cid>,
@@ -229,7 +271,7 @@ impl CachingBlockHeader {
         self.uncached
     }
     /// Returns [`None`] if the blockstore doesn't contain the CID.
-    pub fn load(store: impl Blockstore, cid: Cid) -> anyhow::Result<Option<Self>> {
+    pub fn load(store: &impl Blockstore, cid: Cid) -> anyhow::Result<Option<Self>> {
         if let Some(uncached) = store.get_cbor::<RawBlockHeader>(&cid)? {
             Ok(Some(Self {
                 uncached,
@@ -259,6 +301,12 @@ impl CachingBlockHeader {
                 Err(e) => Err(e),
             },
         }
+    }
+}
+
+impl From<CachingBlockHeader> for RawBlockHeader {
+    fn from(value: CachingBlockHeader) -> Self {
+        value.into_raw()
     }
 }
 

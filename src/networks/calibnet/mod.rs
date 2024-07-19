@@ -1,12 +1,20 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
+use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
+
+use super::{
+    actors_bundle::ACTOR_BUNDLES_METADATA,
+    drand::{DRAND_MAINNET, DRAND_QUICKNET},
+    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    NetworkChain,
+};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -14,6 +22,7 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
 });
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 /// Default bootstrap peer ids.
 pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
@@ -27,158 +36,78 @@ const LIGHTNING_EPOCH: i64 = 489_094;
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
-pub const ETH_CHAIN_ID: u64 = 314159;
+pub const ETH_CHAIN_ID: EthChainId = 314159;
+
+pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+    HashMap::from_iter([
+        make_height!(Breeze, -1),
+        make_height!(Smoke, -2),
+        make_height!(Ignition, -3),
+        make_height!(Refuel, -4),
+        make_height!(Assembly, 30),
+        make_height!(Tape, 60),
+        make_height!(Liftoff, -5),
+        make_height!(Kumquat, 90),
+        make_height!(Calico, 120),
+        make_height!(Persian, 240),
+        make_height!(Claus, 270),
+        make_height!(Orange, 300),
+        make_height!(Trust, 330),
+        make_height!(Norwegian, 360),
+        make_height!(Turbo, 390),
+        make_height!(Hyperdrive, 420),
+        make_height!(Chocolate, 450),
+        make_height!(OhSnap, 480),
+        make_height!(Skyr, 510),
+        make_height!(Shark, 16_800, get_bundle_cid("v9.0.3")),
+        make_height!(Hygge, 322_354, get_bundle_cid("v10.0.0-rc.1")),
+        make_height!(Lightning, LIGHTNING_EPOCH, get_bundle_cid("v11.0.0-rc2")),
+        make_height!(Thunder, LIGHTNING_EPOCH + LIGHTNING_ROLLOVER_PERIOD),
+        make_height!(Watermelon, 1_013_134, get_bundle_cid("v12.0.0-rc.1")),
+        make_height!(WatermelonFix, 1_070_494, get_bundle_cid("v12.0.0-rc.2")),
+        make_height!(WatermelonFix2, 1_108_174, get_bundle_cid("v12.0.0")),
+        make_height!(Dragon, 1_427_974, get_bundle_cid("v13.0.0-rc.3")),
+        make_height!(DragonFix, 1_493_854, get_bundle_cid("v13.0.0")),
+        make_height!(Phoenix, 1_428_094),
+        // 2024-07-11 12:00:00Z
+        make_height!(Waffle, 1_779_094, get_bundle_cid("v14.0.0-rc.1")),
+    ])
+});
+
+fn get_bundle_cid(version: &str) -> Cid {
+    ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Calibnet, version.into()))
+        .expect("bundle must be defined")
+        .bundle_cid
+}
+
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
     [
-        HeightInfo {
-            height: Height::Breeze,
-            epoch: -1,
-            bundle: None,
+        DrandPoint {
+            height: 0,
+            config: &DRAND_MAINNET,
         },
-        HeightInfo {
-            height: Height::Smoke,
-            epoch: -2,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Ignition,
-            epoch: -3,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::ActorsV2,
-            epoch: 30,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Tape,
-            epoch: 60,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Liftoff,
-            epoch: -5,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Kumquat,
-            epoch: 90,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Calico,
-            epoch: 120,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Persian,
-            epoch: 130,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Orange,
-            epoch: 300,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Trust,
-            epoch: 330,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Norwegian,
-            epoch: 360,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Turbo,
-            epoch: 390,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Hyperdrive,
-            epoch: 420,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Chocolate,
-            epoch: 450,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::OhSnap,
-            epoch: 480,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Skyr,
-            epoch: 510,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Shark,
-            epoch: 16_800,
-            bundle: Some(
-                Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Hygge,
-            epoch: 322_354,
-            bundle: Some(
-                Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Lightning,
-            epoch: LIGHTNING_EPOCH,
-            bundle: Some(
-                Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Thunder,
-            epoch: LIGHTNING_EPOCH + LIGHTNING_ROLLOVER_PERIOD,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Watermelon,
-            epoch: 1013134,
-            bundle: Some(
-                Cid::try_from("bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::WatermelonFix,
-            epoch: 1_070_494,
-            bundle: Some(
-                Cid::try_from("bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::WatermelonFix2,
-            epoch: 1_108_174,
-            bundle: Some(
-                Cid::try_from("bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca")
-                    .unwrap(),
-            ),
+        DrandPoint {
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
+            config: &DRAND_QUICKNET,
         },
     ]
 });
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
-    [DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    }]
-});
+/// Creates a new calibnet policy with the given version.
+#[macro_export]
+macro_rules! make_calibnet_policy {
+    ($version:tt) => {
+        fil_actors_shared::$version::runtime::Policy {
+            minimum_consensus_power: (32i64 << 30).into(),
+            ..Default::default()
+        }
+    };
+}
 
 #[cfg(test)]
 mod tests {

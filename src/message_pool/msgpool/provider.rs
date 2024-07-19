@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -46,8 +46,6 @@ pub trait Provider {
         &self,
         h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
-    /// Return all messages for a tipset
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
@@ -103,11 +101,7 @@ where
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.sm.blockstore_owned(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
-
-        let actor = state
-            .get_actor(addr)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
+        Ok(state.get_required_actor(addr)?)
     }
 
     fn messages_for_block(
@@ -117,12 +111,12 @@ where
         crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        Ok(self.sm.chain_store().messages_for_tipset(h)?)
-    }
-
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
-        Ok(self.sm.chain_store().load_required_tipset(tsk)?)
+        Ok(self
+            .sm
+            .chain_store()
+            .chain_index
+            .load_required_tipset(tsk)?)
     }
 
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {

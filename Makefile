@@ -13,6 +13,22 @@ install-daemon:
 install:
 	cargo install --locked --path . --force
 
+
+install-quick:
+	cargo install --profile quick --locked --path . --force
+
+install-slim:
+	cargo install --no-default-features --features slim --locked --path . --force
+
+install-slim-quick:
+	cargo install --profile quick --no-default-features --features slim --locked --path . --force
+
+install-minimum:
+	cargo install --no-default-features --locked --path . --force
+
+install-minimum-quick:
+	cargo install --profile quick --no-default-features --locked --path . --force
+
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
 	cargo install --locked --path . --force --no-default-features --features rustalloc
@@ -20,10 +36,6 @@ install-with-rustalloc:
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
 	cargo install --locked --path . --force --no-default-features --features mimalloc
-
-install-deps:
-	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang
 
 install-lint-tools:
 	cargo install --locked taplo-cli
@@ -66,8 +78,9 @@ lint: license clean lint-clippy
 # This should be simplified in #2984
 # --quiet: don't show build logs
 lint-clippy:
-	cargo clippy --quiet --no-deps -- --deny=warnings
-	cargo clippy --tests --quiet --no-deps -- --deny=warnings
+	cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
+	cargo clippy --all-targets --no-default-features --features slim --quiet --no-deps -- --deny=warnings
+	cargo clippy --all-targets --no-default-features --quiet --no-deps -- --deny=warnings
 	cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
@@ -103,7 +116,7 @@ test-all: test test-release
 
 go-mod:
 	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor && go build -o /tmp/forest-go-compat-test) || \
-	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
+	(echo "Some tests require Go 1.21.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
 # Checks if all headers are present and adds if not
 license:

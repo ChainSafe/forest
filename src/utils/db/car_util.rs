@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -51,7 +51,7 @@ mod tests {
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
-    use nonempty::{nonempty, NonEmpty};
+    use nunny::{vec as nonempty, Vec as NonEmpty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;

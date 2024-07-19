@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -15,12 +15,24 @@ use crate::shim::crypto::SignatureType;
 #[serde(untagged)] // try an int, then a string
 pub enum SignatureTypeLotusJson {
     Integer(SignatureType),
-    String(Stringify<SignatureType>),
+    String(#[serde(with = "crate::lotus_json::stringify")] SignatureType),
+}
+
+// only advertise the string
+impl JsonSchema for SignatureTypeLotusJson {
+    fn schema_name() -> String {
+        SignatureType::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
+        SignatureType::json_schema(gen)
+    }
 }
 
 impl HasLotusJson for SignatureType {
     type LotusJson = SignatureTypeLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!(2), SignatureType::Bls)]
     }
@@ -31,8 +43,7 @@ impl HasLotusJson for SignatureType {
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         match lotus_json {
-            SignatureTypeLotusJson::Integer(inner)
-            | SignatureTypeLotusJson::String(Stringify(inner)) => inner,
+            SignatureTypeLotusJson::Integer(inner) | SignatureTypeLotusJson::String(inner) => inner,
         }
     }
 }

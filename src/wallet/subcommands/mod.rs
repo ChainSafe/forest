@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod wallet_cmd;
@@ -14,6 +14,16 @@ use clap::Parser;
 pub struct Cli {
     #[clap(flatten)]
     pub opts: CliRpcOpts,
+
+    /// Use remote wallet associated with the Filecoin node.
+    /// Warning! You should ensure that your connection is encrypted and secure,
+    /// as the communication between the wallet and the node is **not** encrypted.
+    #[arg(long)]
+    pub remote_wallet: bool,
+
+    /// Encrypt local wallet
+    #[arg(long)]
+    pub encrypt: bool,
 
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,

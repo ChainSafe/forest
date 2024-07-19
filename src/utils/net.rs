@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::io::WithProgress;
@@ -27,14 +27,11 @@ pub fn global_http_client() -> reqwest::Client {
 /// See <https://github.com/ipfs/specs/blob/main/http-gateways/TRUSTLESS_GATEWAY.md>
 pub async fn download_ipfs_file_trustlessly(
     cid: &Cid,
-    gateway: Option<&str>,
+    gateway: &Url,
     destination: &Path,
 ) -> anyhow::Result<()> {
     let url = {
-        // https://docs.ipfs.tech/concepts/ipfs-gateway/
-        const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
-        let mut url =
-            Url::parse(gateway.unwrap_or(DEFAULT_IPFS_GATEWAY))?.join(&format!("{cid}"))?;
+        let mut url = gateway.join(&cid.to_string())?;
         url.set_query(Some("format=car"));
         Ok::<_, anyhow::Error>(url)
     }?;

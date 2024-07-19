@@ -35,20 +35,12 @@ jobs:
         run: |
           gem install rubocop -v 1.58 --no-document
           rubocop scripts/
-  run-js-linters:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: |
-        yarn install
-        yarn js-lint
-        yarn js-fmt-check
   docker-lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: validate compose file
-      run: docker-compose -f .maintain/monitoring/docker-compose.yml config
+      run: docker-compose -f monitoring/docker-compose.yml config
     - uses: hadolint/hadolint-action@v3.1.0
       with:
         dockerfile: "Dockerfile*"

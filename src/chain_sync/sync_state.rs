@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -138,29 +138,54 @@ mod lotus_json {
     use std::sync::Arc;
 
     use serde::{Deserialize, Serialize};
+    #[cfg(test)]
     use serde_json::json;
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+    #[schemars(rename = "SyncState")]
     #[serde(rename_all = "PascalCase")]
     pub struct SyncStateLotusJson {
-        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-        base: LotusJson<Option<Tipset>>,
-        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-        target: LotusJson<Option<Tipset>>,
+        #[schemars(with = "LotusJson<Option<Tipset>>")]
+        #[serde(
+            with = "crate::lotus_json",
+            skip_serializing_if = "Option::is_none",
+            default
+        )]
+        base: Option<Tipset>,
+        #[schemars(with = "LotusJson<Option<Tipset>>")]
+        #[serde(
+            with = "crate::lotus_json",
+            skip_serializing_if = "Option::is_none",
+            default
+        )]
+        target: Option<Tipset>,
 
-        stage: LotusJson<SyncStage>,
-        epoch: LotusJson<i64>,
+        #[schemars(with = "LotusJson<SyncStage>")]
+        #[serde(with = "crate::lotus_json")]
+        stage: SyncStage,
+        epoch: i64,
 
-        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-        start: LotusJson<Option<DateTime<Utc>>>,
-        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-        end: LotusJson<Option<DateTime<Utc>>>,
-        message: LotusJson<String>,
+        #[schemars(with = "LotusJson<Option<DateTime<Utc>>>")]
+        #[serde(
+            with = "crate::lotus_json",
+            skip_serializing_if = "Option::is_none",
+            default
+        )]
+        start: Option<DateTime<Utc>>,
+        #[schemars(with = "LotusJson<Option<DateTime<Utc>>>")]
+        #[serde(
+            with = "crate::lotus_json",
+            skip_serializing_if = "Option::is_none",
+            default
+        )]
+        end: Option<DateTime<Utc>>,
+        message: String,
     }
 
     impl HasLotusJson for SyncState {
         type LotusJson = SyncStateLotusJson;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             vec![(
                 json!({
@@ -183,13 +208,13 @@ mod lotus_json {
                 message,
             } = self;
             Self::LotusJson {
-                base: base.as_deref().cloned().into(),
-                target: target.as_deref().cloned().into(),
-                stage: stage.into(),
-                epoch: epoch.into(),
-                start: start.into(),
-                end: end.into(),
-                message: message.into(),
+                base: base.as_deref().cloned(),
+                target: target.as_deref().cloned(),
+                stage,
+                epoch,
+                start,
+                end,
+                message,
             }
         }
 
@@ -204,13 +229,13 @@ mod lotus_json {
                 message,
             } = lotus_json;
             Self {
-                base: base.into_inner().map(Arc::new),
-                target: target.into_inner().map(Arc::new),
-                stage: stage.into_inner(),
-                epoch: epoch.into_inner(),
-                start: start.into_inner(),
-                end: end.into_inner(),
-                message: message.into_inner(),
+                base: base.map(Arc::new),
+                target: target.map(Arc::new),
+                stage,
+                epoch,
+                start,
+                end,
+                message,
             }
         }
     }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{
@@ -11,8 +11,8 @@ use crate::shim::{
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use filecoin_proofs_api::post;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
@@ -160,7 +160,11 @@ fn generate_winning_post_sector_challenge(
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    rand.0[31] &= 0x3f;
+    if let Some(b31) = rand.0.get_mut(31) {
+        *b31 &= 0x3f;
+    } else {
+        anyhow::bail!("rand should have at least 32 bytes");
+    }
 
     post::generate_winning_post_sector_challenge(
         proof.try_into()?,
@@ -240,7 +244,10 @@ mod test {
 
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
-    use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
+    use crate::{
+        rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace},
+        shim::kernel::ErrorNumber,
+    };
     use std::collections::VecDeque;
 
     use crate::shim::{
@@ -250,7 +257,6 @@ pub mod structured {
         kernel::SyscallError,
         trace::{Call, CallReturn, ExecutionEvent},
     };
-    use cid::Cid;
     use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
     use itertools::Either;
 
@@ -370,7 +376,7 @@ pub mod structured {
         ) -> Result<ExecutionTrace, BuildExecutionTraceError> {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
-            let mut code_cid = Default::default();
+            let mut actor_trace = None;
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -388,9 +394,12 @@ pub mod structured {
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
                     ExecutionEvent::InvokeActor(cid) => {
-                        code_cid = match cid {
-                            Either::Left(cid) => cid,
-                            Either::Right(actor) => actor.state.code,
+                        actor_trace = match cid {
+                            Either::Left(_cid) => None,
+                            Either::Right(actor) => Some(ActorTrace {
+                                id: actor.id,
+                                state: actor.state,
+                            }),
                         };
                         None
                     }
@@ -405,10 +414,11 @@ pub mod structured {
                 // commonise the return branch
                 if let Some(ret) = found_return {
                     return Ok(ExecutionTrace {
-                        msg: to_message_trace(call, code_cid),
+                        msg: to_message_trace(call),
                         msg_rct: to_return_trace(ret),
                         gas_charges,
                         subcalls,
+                        invoked_actor: actor_trace,
                     });
                 }
             }
@@ -417,7 +427,7 @@ pub mod structured {
         }
     }
 
-    fn to_message_trace(call: Call, code_cid: Cid) -> MessageTrace {
+    fn to_message_trace(call: Call) -> MessageTrace {
         let (bytes, codec) = to_bytes_codec(call.params);
         MessageTrace {
             from: Address::new_id(call.from),
@@ -428,7 +438,6 @@ pub mod structured {
             params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
-            code_cid,
         }
     }
 
@@ -448,10 +457,17 @@ pub mod structured {
                 r#return: RawBytes::default(),
                 return_codec: 0,
             },
-            CallTreeReturn::Error(_syscall_error) => ReturnTrace {
-                exit_code: ExitCode::from(0),
-                r#return: RawBytes::default(),
-                return_codec: 0,
+            CallTreeReturn::Error(syscall_error) => match syscall_error.number {
+                ErrorNumber::InsufficientFunds => ReturnTrace {
+                    exit_code: ExitCode::from(6),
+                    r#return: RawBytes::default(),
+                    return_codec: 0,
+                },
+                _ => ReturnTrace {
+                    exit_code: ExitCode::from(0),
+                    r#return: RawBytes::default(),
+                    return_codec: 0,
+                },
             },
         }
     }

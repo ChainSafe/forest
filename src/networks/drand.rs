@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::beacon::{ChainInfo, DrandConfig, DrandNetwork};
@@ -94,7 +94,7 @@ mod tests {
         let get_remote_chain_info = |server: &'a Url| async move {
             retry(
                 RetryArgs {
-                    timeout: Some(Duration::from_secs(5)),
+                    timeout: Some(Duration::from_secs(15)),
                     ..Default::default()
                 },
                 || async {

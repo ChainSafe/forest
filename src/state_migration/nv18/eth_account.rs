@@ -1,31 +1,26 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::SystemStateNew;
 use crate::shim::{
     address::Address,
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{ActorState, StateTree},
 };
+use crate::state_migration::common::PostMigrator;
+use crate::utils::db::CborStoreExt as _;
 use anyhow::anyhow;
-use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-
-use crate::state_migration::common::PostMigrator;
-
-use super::SystemStateNew;
 
 pub struct EthAccountPostMigrator;
 
 impl<BS: Blockstore> PostMigrator<BS> for EthAccountPostMigrator {
     /// Creates the Ethereum Account actor in the state tree.
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
-        let init_actor = actors_out
-            .get_actor(&Address::INIT_ACTOR)?
-            .context("Couldn't get init actor state")?;
-        let init_state: fil_actor_init_state::v10::State = store
-            .get_cbor(&init_actor.state)?
-            .context("Couldn't get statev10")?;
+        let init_actor = actors_out.get_required_actor(&Address::INIT_ACTOR)?;
+        let init_state: fil_actor_init_state::v10::State =
+            store.get_cbor_required(&init_actor.state)?;
 
         let eth_zero_addr =
             Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;

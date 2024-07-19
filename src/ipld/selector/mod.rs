@@ -1,8 +1,7 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod empty_map;
-mod walk;
 use std::ops::SubAssign;
 
 use indexmap::IndexMap;
@@ -209,7 +208,7 @@ impl Selector {
             ExploreFields { mut fields } => match ipld {
                 Ipld::Map(m) => {
                         m.get(p)?;
-                        fields.remove(p)
+                        fields.swap_remove(p)
                     }
                 ,
                 // Using ExploreFields for list is supported feature in go impl
@@ -218,7 +217,7 @@ impl Selector {
                     if p.parse::<usize>().ok()? >= l.len() {
                         return None;
                     }
-                    fields.remove(p)
+                    fields.swap_remove(p)
                 }
                 _ => None,
             },

@@ -1,9 +1,9 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
 
-use crate::make_butterfly_policy;
+use super::{miner, system, verifier::Verifier, SystemStateOld};
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -12,14 +12,12 @@ use crate::shim::{
     sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
     state_tree::{StateTree, StateTreeVersion},
 };
+use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use crate::utils::db::CborStoreExt as _;
+use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 use anyhow::Context;
 use cid::Cid;
-use fil_actors_shared::v11::runtime::ProofSet;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-
-use super::{miner, system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv21_migrations(
@@ -30,13 +28,8 @@ impl<BS: Blockstore> StateMigration<BS> {
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor = state_tree
-            .get_actor(&Address::new_id(0))?
-            .context("failed to get system actor")?;
-
-        let system_actor_state = store
-            .get_cbor::<SystemStateOld>(&system_actor.state)?
-            .context("system actor state not found")?;
+        let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
+        let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
 
@@ -49,38 +42,12 @@ impl<BS: Blockstore> StateMigration<BS> {
         }
 
         let (policy_old, policy_new) = match &chain_config.network {
-            NetworkChain::Mainnet => (
-                fil_actors_shared::v11::runtime::Policy::mainnet(),
-                fil_actors_shared::v12::runtime::Policy::mainnet(),
-            ),
-            NetworkChain::Calibnet => (
-                fil_actors_shared::v11::runtime::Policy::calibnet(),
-                fil_actors_shared::v12::runtime::Policy::calibnet(),
-            ),
+            NetworkChain::Mainnet => (make_mainnet_policy!(v11), make_mainnet_policy!(v12)),
+            NetworkChain::Calibnet => (make_calibnet_policy!(v11), make_calibnet_policy!(v12)),
             NetworkChain::Butterflynet => {
                 (make_butterfly_policy!(v11), make_butterfly_policy!(v12))
             }
-            NetworkChain::Devnet(_) => {
-                let mut policy_old = fil_actors_shared::v11::runtime::Policy::mainnet();
-                policy_old.minimum_consensus_power = 2048.into();
-                policy_old.minimum_verified_allocation_size = 256.into();
-                policy_old.pre_commit_challenge_delay = 10;
-
-                let mut proofs = ProofSet::default_seal_proofs();
-                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1);
-                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1);
-                policy_old.valid_pre_commit_proof_type = proofs;
-
-                let mut proofs = ProofSet::default_post_proofs();
-                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1);
-                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1);
-                policy_old.valid_post_proof_type = proofs;
-
-                (
-                    policy_old,
-                    fil_actors_shared::v12::runtime::Policy::devnet(),
-                )
-            }
+            NetworkChain::Devnet(_) => (make_devnet_policy!(v11), make_devnet_policy!(v12)),
         };
         let miner_old_code = current_manifest.get(BuiltinActor::Miner)?;
         let miner_new_code = new_manifest.get(BuiltinActor::Miner)?;
@@ -111,15 +78,15 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::Watermelon as usize)
+        .get(&Height::Watermelon)
         .context("no height info for network version NV21")?
         .bundle
         .as_ref()
         .context("no bundle for network version NV21")?;
 
-    blockstore.get(new_manifest_cid)?.context(format!(
-        "manifest for network version NV21 not found in blockstore: {new_manifest_cid}"
-    ))?;
+    blockstore.get(new_manifest_cid)?.with_context(|| {
+        format!("manifest for network version NV21 not found in blockstore: {new_manifest_cid}")
+    })?;
 
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());

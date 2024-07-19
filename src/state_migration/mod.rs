@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::{
@@ -9,7 +9,6 @@ use std::sync::{
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use crate::utils::misc::reveal_three_trees;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -21,6 +20,9 @@ mod nv19;
 mod nv21;
 mod nv21fix;
 mod nv21fix2;
+mod nv22;
+mod nv22fix;
+mod nv23;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -28,7 +30,7 @@ type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::
 /// Run state migrations
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
-    chain_config: &Arc<ChainConfig>,
+    chain_config: &ChainConfig,
     db: &Arc<DB>,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
@@ -42,6 +44,7 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -52,10 +55,16 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::WatermelonFix, nv21fix::run_migration::<DB>),
                 (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
+                (Height::DragonFix, nv22fix::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![(Height::Watermelon, nv21::run_migration::<DB>)]
+            vec![
+                (Height::Dragon, nv22::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
+            ]
         }
         NetworkChain::Devnet(_) => {
             vec![
@@ -63,6 +72,8 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
     };
@@ -71,9 +82,9 @@ where
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for info in &chain_config.height_infos {
+        for (info_height, info) in chain_config.height_infos.iter() {
             for (height, _) in &mappings {
-                if height == &info.height {
+                if height == info_height {
                     assert!(
                         info.bundle.is_some(),
                         "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
@@ -98,7 +109,7 @@ where
                 .map(|sr| format!("{}", sr.actors))
                 .unwrap_or_default();
             if new_state != *parent_state {
-                reveal_three_trees();
+                crate::utils::misc::reveal_upgrade_logo(height.into());
                 tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");

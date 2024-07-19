@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// These tests use the `serialization-vectors` submodule at the root of this repo
@@ -21,7 +21,7 @@ fn header_cbor_vectors() {
         cid: Cid,
     }
 
-    let s = include_str!("../../../serialization-vectors/block_headers.json");
+    let s = include_str!("serialization-vectors/block_headers.json");
 
     let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
@@ -51,7 +51,7 @@ fn signing_test() {
         signature: Signature,
     }
 
-    let s = include_str!("../../../serialization-vectors/message_signing.json");
+    let s = include_str!("serialization-vectors/message_signing.json");
 
     let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
@@ -63,13 +63,13 @@ fn signing_test() {
     } in cases
     {
         let priv_key = PrivateKey::from_bytes(&private_key).unwrap();
-        let msg_sign_bz = unsigned.cid().unwrap().to_bytes();
+        let msg_sign_bz = unsigned.cid().to_bytes();
         let bls_sig = priv_key.sign(&msg_sign_bz);
         let sig = Signature::new_bls(bls_sig.as_bytes());
         assert_eq!(sig, signature);
 
         let smsg = SignedMessage::new_from_parts(unsigned, sig).unwrap();
-        let actual_cid = smsg.cid().unwrap();
+        let actual_cid = smsg.cid();
 
         assert_eq!(actual_cid, expected_cid);
     }
@@ -85,7 +85,7 @@ fn unsigned_message_cbor_vectors() {
         hex_cbor: Vec<u8>,
     }
 
-    let s = include_str!("../../../serialization-vectors/unsigned_messages.json");
+    let s = include_str!("serialization-vectors/unsigned_messages.json");
 
     let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
     for Case {

@@ -1,20 +1,24 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{ElectionProof, VRFProof};
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "ElectionProof")]
 pub struct ElectionProofLotusJson {
-    v_r_f_proof: LotusJson<VRFProof>,
-    win_count: LotusJson<i64>,
+    #[schemars(with = "LotusJson<VRFProof>")]
+    #[serde(with = "crate::lotus_json")]
+    v_r_f_proof: VRFProof,
+    win_count: i64,
 }
 
 impl HasLotusJson for ElectionProof {
     type LotusJson = ElectionProofLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
@@ -31,8 +35,8 @@ impl HasLotusJson for ElectionProof {
             vrfproof,
         } = self;
         Self::LotusJson {
-            v_r_f_proof: vrfproof.into(),
-            win_count: win_count.into(),
+            v_r_f_proof: vrfproof,
+            win_count,
         }
     }
 
@@ -42,8 +46,8 @@ impl HasLotusJson for ElectionProof {
             win_count,
         } = lotus_json;
         Self {
-            win_count: win_count.into_inner(),
-            vrfproof: v_r_f_proof.into_inner(),
+            win_count,
+            vrfproof: v_r_f_proof,
         }
     }
 }

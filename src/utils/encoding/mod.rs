@@ -1,9 +1,9 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::address::Address;
 use blake2b_simd::Params;
-use filecoin_proofs_api::ProverId;
+use fil_actors_shared::filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 use serde::{de, ser, Deserializer, Serializer};
 
@@ -99,6 +99,8 @@ pub fn blake2b_256(ingest: &[u8]) -> [u8; 32] {
 pub fn prover_id_from_u64(id: u64) -> ProverId {
     let mut prover_id = ProverId::default();
     let prover_bytes = Address::new_id(id).payload().to_raw_bytes();
+    assert!(prover_bytes.len() <= prover_id.len());
+    #[allow(clippy::indexing_slicing)]
     prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
     prover_id
 }

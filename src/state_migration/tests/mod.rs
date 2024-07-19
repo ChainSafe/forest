@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::net::global_http_client;
@@ -114,7 +114,7 @@ async fn test_state_migration(
     load_actor_bundles(&store, &network).await.unwrap();
 
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
-    let height_info = &chain_config.height_infos[height as usize];
+    let height_info = &chain_config.height_infos[&height];
 
     let state_root: StateRoot = store.get_cbor(&old_state).unwrap().unwrap();
     println!("Actor root (for Go test): {}", state_root.actors);

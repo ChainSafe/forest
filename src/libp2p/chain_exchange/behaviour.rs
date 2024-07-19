@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
@@ -25,6 +25,16 @@ pub struct ChainExchangeBehaviour {
 }
 
 impl ChainExchangeBehaviour {
+    pub fn new(cfg: request_response::Config) -> Self {
+        Self {
+            inner: InnerBehaviour::new(
+                [(CHAIN_EXCHANGE_PROTOCOL_NAME, ProtocolSupport::Full)],
+                cfg,
+            ),
+            response_channels: Default::default(),
+        }
+    }
+
     pub fn send_request(
         &mut self,
         peer: &PeerId,
@@ -78,18 +88,6 @@ impl ChainExchangeBehaviour {
         metrics::NETWORK_CONTAINER_CAPACITIES
             .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_TABLE)
             .set(self.response_channels.capacity() as _);
-    }
-}
-
-impl Default for ChainExchangeBehaviour {
-    fn default() -> Self {
-        Self {
-            inner: InnerBehaviour::new(
-                [(CHAIN_EXCHANGE_PROTOCOL_NAME, ProtocolSupport::Full)],
-                Default::default(),
-            ),
-            response_channels: Default::default(),
-        }
     }
 }
 

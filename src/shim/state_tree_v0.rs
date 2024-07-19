@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 // ported from commit hash b622af
 
@@ -8,14 +8,14 @@
 // state tree versions.
 
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_hamt::Hamtv0 as Hamt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
+use super::state_tree::StateRoot;
 use super::state_tree::StateTreeVersion;
 use crate::shim::address::Address;
-use fil_actors_shared::fvm_ipld_hamt::Hamtv0 as Hamt;
 pub use fvm2::state_tree::ActorState as ActorStateV2;
-pub use fvm_shared3::state::StateRoot;
 
 const HAMTV0_BIT_WIDTH: u32 = 5;
 

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! # Varint frames
@@ -71,7 +71,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use integer_encoding::VarIntReader;
 
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
 use std::ops::DerefMut;
@@ -157,7 +157,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKey::from_iter(self.roots().clone()))
+        Tipset::load_required(self, &TipsetKey::from(self.roots().clone()))
     }
 
     /// In an arbitrary order

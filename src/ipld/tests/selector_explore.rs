@@ -1,12 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::ipld::{json, selector::Selector, Ipld};
+use crate::ipld::{selector::Selector, Ipld};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct ExploreParams {
-    #[serde(with = "json")]
+    #[serde(with = "crate::lotus_json")]
     ipld: Ipld,
     path_segment: String,
 }
