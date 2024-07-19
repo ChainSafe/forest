@@ -19,6 +19,8 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::actors::is_evm_actor;
+use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -1317,7 +1319,7 @@ impl RpcMethod<2> for EthGetCode {
             .get_required_actor(&to_address, *ts.parent_state())?;
         // Not a contract. We could try to distinguish between accounts and "native" contracts here,
         // but it's not worth it.
-        if !fil_actor_interface::is_evm_actor(&actor.code) {
+        if !is_evm_actor(&actor.code) {
             return Ok(Default::default());
         }
 
@@ -1382,7 +1384,7 @@ impl RpcMethod<3> for EthGetStorageAt {
             return Ok(make_empty_result());
         };
 
-        if !fil_actor_interface::is_evm_actor(&actor.code) {
+        if !is_evm_actor(&actor.code) {
             return Ok(make_empty_result());
         }
 
@@ -1448,7 +1450,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
-        if fil_actor_interface::is_evm_actor(&actor.code) {
+        if is_evm_actor(&actor.code) {
             let evm_state =
                 fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {

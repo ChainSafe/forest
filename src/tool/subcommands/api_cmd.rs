@@ -22,6 +22,7 @@ use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
+use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},

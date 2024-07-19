@@ -7,17 +7,18 @@ use fvm_ipld_blockstore::Blockstore;
 pub trait LoadActorStateFromBlockstore: Sized {
     const ACTOR: Option<Address> = None;
 
-    fn load(store: &impl Blockstore, actor: &ActorState) -> anyhow::Result<Self>;
+    fn load_from_blockstore(store: &impl Blockstore, actor: &ActorState) -> anyhow::Result<Self>;
 }
 
 mod load_actor_state_trait_impl {
     use super::*;
+    use crate::shim::actors::state_load::*;
 
     macro_rules! impl_for {
         ($actor:ident $(, $addr:expr)?) => {
             impl LoadActorStateFromBlockstore for fil_actor_interface::$actor::State {
                 $(const ACTOR: Option<Address> = Some($addr);)?
-                fn load(store: &impl Blockstore, actor: &ActorState) -> anyhow::Result<Self> {
+                fn load_from_blockstore(store: &impl Blockstore, actor: &ActorState) -> anyhow::Result<Self> {
                     Self::load(store, actor.code, actor.state)
                 }
             }
