@@ -707,10 +707,18 @@ fn state_tests_with_tipset<DB: Blockstore>(
             "dead beef".as_bytes().to_vec(),
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateGetRandomnessDigestFromTickets::request((
+            tipset.epoch(),
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateGetRandomnessFromBeacon::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateGetRandomnessDigestFromBeacon::request((
+            tipset.epoch(),
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
