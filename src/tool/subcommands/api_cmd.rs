@@ -13,7 +13,7 @@ use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
@@ -578,15 +578,8 @@ fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
-    let peer_id = bootstrap_peers
-        .last()
-        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
-        .to_string()
-        .rsplit_once('/')
-        .expect("No peer id found - address is not in the expected format")
-        .1
-        .to_string();
+    // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
+    let random_peer_id = libp2p::PeerId::random().to_string();
 
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
@@ -594,7 +587,11 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
-        RpcTest::basic(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic(NetAgentVersion::request((random_peer_id.clone(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::basic(NetFindPeer::request((random_peer_id,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::Pass)
+            .ignore("It times out in lotus when peer not found"),
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
