@@ -565,7 +565,7 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_root(Arc::clone(&db), ts.parent_state())?;
+    let state = StateTree::new_from_tipset(Arc::clone(&db), ts)?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =

@@ -284,14 +284,8 @@ where
         &self,
         ts: &Tipset,
     ) -> anyhow::Result<S> {
-        let address = S::ACTOR.with_context(|| {
-            format!(
-                "No accociated actor address for {}, use `get_actor_state_from_address` instead.",
-                std::any::type_name::<S>()
-            )
-        })?;
-        let actor = self.get_required_actor(&address, *ts.parent_state())?;
-        S::load_from_blockstore(self.blockstore(), &actor)
+        let state_tree = self.get_state_tree(ts.parent_state())?;
+        state_tree.get_actor_state()
     }
 
     /// Gets actor state from explicit actor address
@@ -300,8 +294,8 @@ where
         ts: &Tipset,
         actor_address: &Address,
     ) -> anyhow::Result<S> {
-        let actor = self.get_required_actor(actor_address, *ts.parent_state())?;
-        S::load_from_blockstore(self.blockstore(), &actor)
+        let state_tree = self.get_state_tree(ts.parent_state())?;
+        state_tree.get_actor_state_from_address(actor_address)
     }
 
     /// Gets required actor from given [`Cid`].
@@ -357,23 +351,11 @@ where
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(
-        &self,
-        state_cid: Cid,
-        addr: &Address,
-    ) -> anyhow::Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
         let state =
             StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
-
-        let act = state
-            .get_actor(addr)
-            .map_err(Error::state)?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-
-        let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
-
+        let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
-
         let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker().into())?;
         Ok(addr)
     }

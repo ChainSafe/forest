@@ -10,7 +10,6 @@ use crate::shim::actors::{
     is_account_actor, is_ethaccount_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
     is_paymentchannel_actor, is_placeholder_actor, MarketActorStateLoad as _,
     MinerActorStateLoad as _, MultisigActorStateLoad as _, PowerActorStateLoad as _,
-    RewardActorStateLoad as _,
 };
 use crate::shim::version::NetworkVersion;
 use crate::shim::{
@@ -268,9 +267,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 }
 
 fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
-    let actor = state_tree.get_required_actor(&Address::REWARD_ACTOR)?;
-    let state = reward::State::load(state_tree.store(), actor.code, actor.state)?;
-
+    let state: reward::State = state_tree.get_actor_state()?;
     Ok(state.into_total_storage_power_reward().into())
 }
 

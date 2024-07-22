@@ -56,10 +56,9 @@ impl RpcMethod<2> for MsigGetPending {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let ms: multisig::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         let txns = ms
             .get_pending_txn(ctx.store())?
             .iter()
@@ -104,10 +103,9 @@ impl RpcMethod<3> for MsigGetVested {
             )),
             std::cmp::Ordering::Equal => Ok(BigInt::from(0)),
             std::cmp::Ordering::Less => {
-                let msig_actor = ctx
+                let ms: multisig::State = ctx
                     .state_manager
-                    .get_required_actor(&addr, *end_ts.parent_state())?;
-                let ms = multisig::State::load(ctx.store(), msig_actor.code, msig_actor.state)?;
+                    .get_actor_state_from_address(&end_ts, &addr)?;
                 let start_lb: TokenAmount = ms.locked_balance(start_ts.epoch())?.into();
                 let end_lb: TokenAmount = ms.locked_balance(end_ts.epoch())?.into();
                 Ok(start_lb.atto() - end_lb.atto())
@@ -131,12 +129,7 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
         (addr, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-
-        let msig_actor = ctx
-            .state_manager
-            .get_required_actor(&addr, *ts.parent_state())?;
-        let ms = multisig::State::load(ctx.store(), msig_actor.code, msig_actor.state)?;
-
+        let ms: multisig::State = ctx.state_manager.get_actor_state_from_address(&ts, &addr)?;
         Ok(ms.get_vesting_schedule()?)
     }
 }
