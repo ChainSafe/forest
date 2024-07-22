@@ -82,7 +82,7 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
-use tracing::info;
+use tracing::{error, info};
 
 const SETTINGS_KEY: &str = "LAST_GC_RUN";
 
@@ -163,7 +163,9 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
     pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
-            self.gc_workflow(interval).await?
+            if let Err(err) = self.gc_workflow(interval).await {
+                error!("GC run error: {}", err)
+            }
         }
     }
 
@@ -188,7 +190,8 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
-        let current_epoch = tipset.epoch();
+
+        let mut current_epoch = tipset.epoch();
         let last_gc_run = self.fetch_last_gc_run()?;
         // Don't run the GC if there aren't enough state-roots yet or if we're too close to the last
         // GC run. Sleep and yield to the main loop in order to refresh the heaviest tipset value.
@@ -201,6 +204,9 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
         if self.marked.is_empty() {
             // Make sure we don't run the GC too often.
             time::sleep(interval).await;
+
+            // Refresh `current_epoch` after sleeping.
+            current_epoch = (self.get_heaviest_tipset)().epoch();
 
             info!("populate keys for GC");
             self.populate()?;
