@@ -98,6 +98,7 @@ from2internal! {
     std::time::SystemTimeError,
     tokio::task::JoinError,
     fil_actors_shared::fvm_ipld_hamt::Error,
+    flume::RecvError,
 }
 
 impl From<ServerError> for ClientError {

@@ -149,7 +149,17 @@ pub struct PeerID {
     pub multihash: Multihash,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
 
 /// This wrapper is needed because of a bug in Lotus.

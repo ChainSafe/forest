@@ -13,14 +13,17 @@ use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{self, eth::*};
+use crate::rpc::{
+    self,
+    eth::{types::*, *},
+};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -575,15 +578,8 @@ fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
-    let peer_id = bootstrap_peers
-        .last()
-        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
-        .to_string()
-        .rsplit_once('/')
-        .expect("No peer id found - address is not in the expected format")
-        .1
-        .to_string();
+    // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
+    let random_peer_id = libp2p::PeerId::random().to_string();
 
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
@@ -591,7 +587,11 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
-        RpcTest::basic(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic(NetAgentVersion::request((random_peer_id.clone(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::basic(NetFindPeer::request((random_peer_id,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::Pass)
+            .ignore("It times out in lotus when peer not found"),
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
@@ -1167,11 +1167,11 @@ fn eth_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
     let block_cid = shared_tipset.key().cid().unwrap();
     let block_hash: Hash = block_cid.into();
 
-    vec![
+    let mut tests = vec![
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
@@ -1293,7 +1293,32 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
-    ]
+    ];
+
+    for block in shared_tipset.block_headers() {
+        let (bls_messages, secp_messages) =
+            crate::chain::store::block_messages(store, block).unwrap();
+        for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            if let Ok(eth_to_addr) = msg.to.try_into() {
+                tests.extend([RpcTest::identity(
+                    EthEstimateGas::request((
+                        EthCallMessage {
+                            from: None,
+                            to: Some(eth_to_addr),
+                            value: msg.value.clone().into(),
+                            data: msg.params.clone().into(),
+                            ..Default::default()
+                        },
+                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                    ))
+                    .unwrap(),
+                )
+                .policy_on_rejected(PolicyOnRejected::Pass)]);
+            }
+        }
+    }
+
+    tests
 }
 
 fn eth_state_tests_with_tipset<DB: Blockstore>(
@@ -1366,7 +1391,7 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
             config.miner_address,
         )?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        tests.extend(eth_tests_with_tipset(&tipset));
+        tests.extend(eth_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(
