@@ -236,7 +236,7 @@ where
     pub fn get_actor_state<STATE: LoadActorStateFromBlockstore>(&self) -> anyhow::Result<STATE> {
         let address = STATE::ACTOR.with_context(|| {
             format!(
-                "No accociated actor address for {}, use `get_actor_state_from_address` instead.",
+                "No associated actor address for {}, use `get_actor_state_from_address` instead.",
                 std::any::type_name::<STATE>()
             )
         })?;
