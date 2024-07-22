@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::shim::actors::PowerActorStateLoad as _;
-use crate::shim::{address::Address, state_tree::StateTree};
+use crate::shim::state_tree::StateTree;
 use fil_actor_interface::power;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
@@ -25,18 +24,10 @@ pub(in crate::fil_cns) fn weight<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<BigInt
 where
     DB: Blockstore,
 {
-    let state =
-        StateTree::new_from_root(Arc::clone(db), ts.parent_state()).map_err(|e| e.to_string())?;
-
-    let act = state
-        .get_actor(&Address::POWER_ACTOR)
-        .map_err(|e| e.to_string())?
-        .ok_or("Failed to load power actor for calculating weight")?;
-
-    let state = power::State::load(db, act.code, act.state).map_err(|e| e.to_string())?;
+    let state_tree = StateTree::new_from_tipset(Arc::clone(db), ts).map_err(|e| e.to_string())?;
+    let state: power::State = state_tree.get_actor_state().map_err(|e| e.to_string())?;
 
     let tpow = state.into_total_quality_adj_power();
-
     let log2_p = if tpow > BigInt::zero() {
         BigInt::from(tpow.bits() - 1)
     } else {

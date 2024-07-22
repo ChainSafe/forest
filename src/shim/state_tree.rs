@@ -24,8 +24,12 @@ use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+use super::actors::LoadActorStateFromBlockstore;
 pub use super::fvm_shared_latest::{state::StateRoot, ActorID};
-use crate::shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount};
+use crate::{
+    blocks::Tipset,
+    shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
+};
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -175,6 +179,10 @@ where
         }
     }
 
+    pub fn new_from_tipset(store: Arc<S>, ts: &Tipset) -> anyhow::Result<Self> {
+        Self::new_from_root(store, ts.parent_state())
+    }
+
     /// Get required actor state from an address. Will be resolved to ID address.
     pub fn get_required_actor(&self, addr: &Address) -> anyhow::Result<ActorState> {
         self.get_actor(addr)?
@@ -222,6 +230,27 @@ where
                 }
             }
         }
+    }
+
+    /// Gets actor state from implicit actor address
+    pub fn get_actor_state<STATE: LoadActorStateFromBlockstore>(&self) -> anyhow::Result<STATE> {
+        let address = STATE::ACTOR.with_context(|| {
+            format!(
+                "No associated actor address for {}, use `get_actor_state_from_address` instead.",
+                std::any::type_name::<STATE>()
+            )
+        })?;
+        let actor = self.get_required_actor(&address)?;
+        STATE::load_from_blockstore(self.store(), &actor)
+    }
+
+    /// Gets actor state from explicit actor address
+    pub fn get_actor_state_from_address<STATE: LoadActorStateFromBlockstore>(
+        &self,
+        actor_address: &Address,
+    ) -> anyhow::Result<STATE> {
+        let actor = self.get_required_actor(actor_address)?;
+        STATE::load_from_blockstore(self.store(), &actor)
     }
 
     /// Retrieve store reference to modify db.
@@ -510,9 +539,8 @@ mod tests {
     use crate::blocks::CachingBlockHeader;
     use crate::db::car::AnyCar;
     use crate::networks::{calibnet, mainnet};
-    use crate::shim::actors::InitActorStateLoad as _;
     use cid::Cid;
-    use fil_actor_interface::init::{self, State};
+    use fil_actor_interface::init;
     use std::sync::Arc;
 
     // refactored from `StateManager::get_network_name`
@@ -521,12 +549,9 @@ mod tests {
         let genesis_block = CachingBlockHeader::load(&forest_car, genesis_cid)
             .unwrap()
             .unwrap();
-        let state =
+        let state_tree =
             StateTree::new_from_root(Arc::new(&forest_car), &genesis_block.state_root).unwrap();
-        let init_act = state.get_actor(&init::ADDRESS.into()).unwrap().unwrap();
-
-        let state = State::load(&forest_car, init_act.code, init_act.state).unwrap();
-
+        let state: init::State = state_tree.get_actor_state().unwrap();
         state.into_network_name()
     }
 
