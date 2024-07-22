@@ -53,7 +53,8 @@ pub enum ShedCommands {
     /// Dump the OpenRPC definition for the node.
     Openrpc {
         include: Vec<String>,
-        #[arg(short, long, default_value = "v1")]
+        /// Which API path to dump.
+        #[arg(long)]
         path: ApiPath,
     },
 }

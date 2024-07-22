@@ -2560,6 +2560,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69dc321eb6be977f44674620ca3aa21703cb20ffbe560e1ae97da08401ffbcad"
 
 [[package]]
+name = "ez-jsonrpc-types"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43d67b06e45bbb8cba8cde6abdc6adacd8eafd1ecee6f2310fad60d507b282f0"
+dependencies = [
+ "ryu",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3138,6 +3149,7 @@ dependencies = [
  "directories",
  "displaydoc",
  "ethereum-types",
+ "ez-jsonrpc-types",
  "fil_actor_account_state",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
