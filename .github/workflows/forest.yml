@@ -412,6 +412,25 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
+  bootstrap-checks:
+    needs:
+      - build-ubuntu
+    name: Bootstrap checks
+    runs-on: ubuntu-latest
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+      - name: Run bootstrap tests
+        run: ./scripts/tests/bootstrapper/setup.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
   snapshot-parity-checks:
     needs:
       - build-ubuntu

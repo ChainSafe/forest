@@ -1,0 +1,12 @@
+diff --git a/node/modules/lp2p/host.go b/node/modules/lp2p/host.go
+index 66256df52..3625b9a31 100644
+--- a/node/modules/lp2p/host.go
++++ b/node/modules/lp2p/host.go
+@@ -93,7 +93,6 @@ func DHTRouting(mode dht.ModeOpt) interface{} {
+ 			dht.Validator(validator),
+ 			dht.ProtocolPrefix(build.DhtProtocolName(nn)),
+ 			dht.QueryFilter(dht.PublicQueryFilter),
+-			dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
+ 			dht.DisableProviders(),
+ 			dht.DisableValues()}
+ 		d, err := dht.New(
