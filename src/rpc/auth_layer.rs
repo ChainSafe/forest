@@ -32,6 +32,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
     access.insert(eth::ETH_SUBSCRIBE, Permission::Read);
+    access.insert(eth::ETH_SUBSCRIPTION, Permission::Read);
     access.insert(eth::ETH_UNSUBSCRIBE, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);
 

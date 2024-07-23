@@ -334,8 +334,6 @@ static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
-const ETH_SUBSCRIPTION: &str = "eth_subscription";
-
 /// This is where you store persistent data, or at least access to stateful
 /// data.
 pub struct RPCState<DB> {
@@ -423,7 +421,7 @@ where
 
     module.register_subscription(
         eth::ETH_SUBSCRIBE,
-        ETH_SUBSCRIPTION,
+        eth::ETH_SUBSCRIPTION,
         eth::ETH_UNSUBSCRIBE,
         |params, pending, ctx, _| async move {
             let event_types = match params.parse::<Vec<String>>() {
