@@ -139,7 +139,7 @@ impl<'a> DiscoveryConfig<'a> {
             // `go-libp2p-kad-dht` sends the remote peer id as query key during bootstrap,
             // however, `rust-libp2p` returns empty peer list when the key it receives
             // matches the local one. It's fine to use a random peer id as a workaround
-            // since Kadmelia is not used as value providers in filecoin p2p network.
+            // since Kademlia not used as value providers in filecoin p2p network.
             let kad_random_peer_id = PeerId::random();
             let store = MemoryStore::new(kad_random_peer_id);
             let kad_config = {
