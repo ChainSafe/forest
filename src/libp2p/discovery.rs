@@ -134,18 +134,22 @@ impl<'a> DiscoveryConfig<'a> {
 
         let mut peers = HashSet::new();
 
-        // Kademlia config
-        let store = MemoryStore::new(local_peer_id);
-        let kad_config = {
-            let mut cfg = kad::Config::default();
-            cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
-                "/fil/kad/{network_name}/kad/1.0.0"
-            ))?]);
-            cfg
-        };
-
         let kademlia_opt = if enable_kademlia {
-            let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+            // This is a workaround for <https://github.com/ChainSafe/forest/issues/4576>
+            // `go-libp2p-kad-dht` sends the remote peer id as query key during bootstrap,
+            // however, `rust-libp2p` returns empty peer list when the key it receives
+            // matches the local one. It's fine to use a random peer id as a workaround
+            // since Kadmelia is not used as value providers in filecoin p2p network.
+            let kad_random_peer_id = PeerId::random();
+            let store = MemoryStore::new(kad_random_peer_id);
+            let kad_config = {
+                let mut cfg = kad::Config::default();
+                cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
+                    "/fil/kad/{network_name}/kad/1.0.0"
+                ))?]);
+                cfg
+            };
+            let mut kademlia = kad::Behaviour::with_config(kad_random_peer_id, store, kad_config);
             // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
             // but it should not be required as the behaviour should automatically switch to server mode
             // according to the doc. It might be a bug in `libp2p`.
