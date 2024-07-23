@@ -3,7 +3,7 @@
 
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
-use crate::rpc::{chain, Permission, RpcMethod as _, CANCEL_METHOD_NAME};
+use crate::rpc::{chain, eth, Permission, RpcMethod as _, CANCEL_METHOD_NAME};
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -31,6 +31,8 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
     super::for_each_method!(insert);
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
+    access.insert(eth::ETH_SUBSCRIBE, Permission::Read);
+    access.insert(eth::ETH_UNSUBSCRIBE, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);
 
     access

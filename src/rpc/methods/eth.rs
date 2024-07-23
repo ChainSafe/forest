@@ -46,6 +46,9 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
 
+pub const ETH_SUBSCRIBE: &str = "Filecoin.EthSubscribe";
+pub const ETH_UNSUBSCRIBE: &str = "Filecoin.EthUnsubscribe";
+
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 /// Ethereum Bloom filter size in bits.

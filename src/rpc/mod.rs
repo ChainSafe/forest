@@ -334,8 +334,6 @@ static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
-const ETH_SUBSCRIBE: &str = "Filecoin.EthSubscribe";
-const ETH_UNSUBSCRIBE: &str = "Filecoin.EthUnsubscribe";
 const ETH_SUBSCRIPTION: &str = "eth_subscription";
 
 /// This is where you store persistent data, or at least access to stateful
@@ -423,12 +421,10 @@ where
     })?;
     module.merge(pubsub_module)?;
 
-    let mut sub_module = RpcModule::from_arc(state);
-
-    sub_module.register_subscription(
-        ETH_SUBSCRIBE,
+    module.register_subscription(
+        eth::ETH_SUBSCRIBE,
         ETH_SUBSCRIPTION,
-        ETH_UNSUBSCRIBE,
+        eth::ETH_UNSUBSCRIBE,
         |params, pending, ctx, _| async move {
             let event_types = match params.parse::<Vec<String>>() {
                 Ok(v) => v,
@@ -496,8 +492,6 @@ where
             Ok(())
         },
     ).unwrap();
-
-    module.merge(sub_module)?;
 
     let (stop_handle, _server_handle) = stop_channel();
 
