@@ -669,6 +669,25 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     receiver
 }
 
+pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if sender.send(headers).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
+
 fn load_api_messages_from_tipset(
     store: &impl Blockstore,
     tipset: &Tipset,
@@ -772,6 +791,9 @@ pub struct ApiHeadChange {
     pub tipset: Tipset,
 }
 lotus_json_with_self!(ApiHeadChange);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]

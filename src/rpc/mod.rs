@@ -9,6 +9,7 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use futures::FutureExt as _;
+use methods::chain::new_heads;
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -300,16 +301,21 @@ use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 
 use crate::blocks::Tipset;
+use ethereum_types::H256;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
+    core::traits::IdProvider,
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
+    types::SubscriptionId,
     Methods,
 };
 use once_cell::sync::Lazy;
+use rand::Rng;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 
@@ -327,6 +333,10 @@ static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
+
+const ETH_SUBSCRIBE: &str = "Filecoin.EthSubscribe";
+const ETH_UNSUBSCRIBE: &str = "Filecoin.EthUnsubscribe";
+const ETH_SUBSCRIPTION: &str = "eth_subscription";
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
@@ -377,6 +387,25 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     keystore: Arc<RwLock<KeyStore>>,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct RandomHexStringIdProvider {}
+
+impl RandomHexStringIdProvider {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl IdProvider for RandomHexStringIdProvider {
+    fn next_id(&self) -> SubscriptionId<'static> {
+        let mut bytes = [0u8; 32];
+        let mut rng = rand::thread_rng();
+        rng.fill(&mut bytes);
+
+        SubscriptionId::Str(format!("{:#x}", H256::from(bytes)).into())
+    }
+}
+
 pub async fn start_rpc<DB>(state: RPCState<DB>, rpc_endpoint: SocketAddr) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -403,6 +432,7 @@ where
             // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
             .max_request_body_size(MAX_REQUEST_BODY_SIZE)
             .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+            .set_id_provider(RandomHexStringIdProvider::new())
             .to_service_builder(),
         keystore,
     };
@@ -504,6 +534,79 @@ where
         };
     }
     for_each_method!(register);
+
+    module.register_subscription(
+        ETH_SUBSCRIBE,
+        ETH_SUBSCRIPTION,
+        ETH_UNSUBSCRIBE,
+        |params, pending, ctx, _| async move {
+            let event_types = match params.parse::<Vec<String>>() {
+                Ok(v) => v,
+                Err(e) => {
+                    pending
+                        .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
+                        .await;
+                    // If the subscription has not been "accepted" then
+                    // the return value will be "ignored" as it's not
+                    // allowed to send out any further notifications on
+                    // on the subscription.
+                    return Ok(());
+                }
+            };
+            // `event_types` is one OR more of:
+            //  - "newHeads": notify when new blocks arrive
+            //  - "pendingTransactions": notify when new messages arrive in the message pool
+            //  - "logs": notify new event logs that match a criteria
+
+            tracing::trace!("Subscribing to events: {:?}", event_types);
+
+            let mut receiver = new_heads(&ctx);
+            tokio::spawn(async move {
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
+
+                tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+
+                loop {
+                    tokio::select! {
+                        action = receiver.recv() => {
+                            match action {
+                                Ok(v) => {
+                                    match jsonrpsee::SubscriptionMessage::from_json(&v) {
+                                        Ok(msg) => {
+                                            // This fails only if the connection is closed
+                                            if sink.send(msg).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::error!("Failed to serialize message: {:?}", e);
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(RecvError::Closed) => {
+                                    break;
+                                }
+                                Err(RecvError::Lagged(_)) => {
+                                }
+                            }
+                        }
+                        _ = sink.closed() => {
+                            break;
+                        }
+                    }
+                }
+
+                tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
+            });
+
+            Ok(())
+        },
+    ).unwrap();
+
     module
 }
 
