@@ -29,6 +29,19 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.19.1 "Pathfinder"
+
+Non-mandatory release that adds support for plenty of new RPC methods and fixes
+a networking issue where Forest would not bootstrap a Lotus node.
+
+### Added
+
 - [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
   `Filecoin.StateGetAllClaims` RPC method.
 
@@ -77,12 +90,6 @@
 
 - [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
   `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
-
-### Changed
-
-### Removed
-
-### Fixed
 
 ## Forest 0.19.0 "Pastel de nata"
 
