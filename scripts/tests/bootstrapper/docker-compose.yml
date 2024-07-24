@@ -56,6 +56,9 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      # This is to minimize the resources used by this test.
+      lotus-peers-wait:
+        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -83,7 +86,7 @@ services:
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --config config.toml \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --import-snapshot $(ls /data/*.car.zst | tail -n 1)
+          --consume-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s
