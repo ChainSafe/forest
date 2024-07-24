@@ -9,7 +9,7 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use futures::FutureExt as _;
-use methods::chain::new_heads;
+use methods::chain::{new_heads, pending_txn};
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -18,6 +18,7 @@ mod reflect;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
+use tokio::sync::broadcast::Receiver;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -402,6 +403,45 @@ impl IdProvider for RandomHexStringIdProvider {
     }
 }
 
+enum ReceiverType {
+    Heads(Receiver<chain::ApiHeaders>),
+    Txn(Receiver<Vec<chain::ApiMessage>>),
+}
+
+async fn handle_subscription<T>(mut rx: Receiver<T>, sink: jsonrpsee::SubscriptionSink)
+where
+    T: serde::Serialize + Clone,
+{
+    loop {
+        let action = rx.recv().await;
+
+        tokio::select! {
+            action = async { action } => {
+                match action {
+                    Ok(v) => {
+                        match jsonrpsee::SubscriptionMessage::from_json(&v) {
+                            Ok(msg) => {
+                                // This fails only if the connection is closed
+                                if sink.send(msg).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to serialize message: {:?}", e);
+                                break;
+                            }
+                        }
+                    }
+                    Err(RecvError::Closed) => break,
+                    Err(RecvError::Lagged(_)) => {},
+                }
+            }
+            _ = sink.closed() => break,
+        }
+    }
+    tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
+}
+
 pub async fn start_rpc<DB>(state: RPCState<DB>, rpc_endpoint: SocketAddr) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -419,77 +459,58 @@ where
     })?;
     module.merge(pubsub_module)?;
 
-    module.register_subscription(
-        eth::ETH_SUBSCRIBE,
-        eth::ETH_SUBSCRIPTION,
-        eth::ETH_UNSUBSCRIBE,
-        |params, pending, ctx, _| async move {
-            let event_types = match params.parse::<Vec<String>>() {
-                Ok(v) => v,
-                Err(e) => {
-                    pending
-                        .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
-                        .await;
-                    // If the subscription has not been "accepted" then
-                    // the return value will be "ignored" as it's not
-                    // allowed to send out any further notifications on
-                    // on the subscription.
-                    return Ok(());
-                }
-            };
-            // `event_types` is one OR more of:
-            //  - "newHeads": notify when new blocks arrive
-            //  - "pendingTransactions": notify when new messages arrive in the message pool
-            //  - "logs": notify new event logs that match a criteria
-
-            tracing::trace!("Subscribing to events: {:?}", event_types);
-
-            let mut receiver = new_heads(&ctx);
-            tokio::spawn(async move {
-                // Mark the subscription is accepted after the params has been parsed successful.
-                // This is actually responds the underlying RPC method call and may fail if the
-                // connection is closed.
-                let sink = pending.accept().await.unwrap();
-
-                tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
-
-                loop {
-                    tokio::select! {
-                        action = receiver.recv() => {
-                            match action {
-                                Ok(v) => {
-                                    match jsonrpsee::SubscriptionMessage::from_json(&v) {
-                                        Ok(msg) => {
-                                            // This fails only if the connection is closed
-                                            if sink.send(msg).await.is_err() {
-                                                break;
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::error!("Failed to serialize message: {:?}", e);
-                                            break;
-                                        }
-                                    }
-                                }
-                                Err(RecvError::Closed) => {
-                                    break;
-                                }
-                                Err(RecvError::Lagged(_)) => {
-                                }
-                            }
-                        }
-                        _ = sink.closed() => {
-                            break;
-                        }
+    module
+        .register_subscription(
+            eth::ETH_SUBSCRIBE,
+            eth::ETH_SUBSCRIPTION,
+            eth::ETH_UNSUBSCRIBE,
+            |params, pending, ctx, _| async move {
+                let event_types = match params.parse::<Vec<String>>() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        pending
+                            .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
+                            .await;
+                        // If the subscription has not been "accepted" then
+                        // the return value will be "ignored" as it's not
+                        // allowed to send out any further notifications on
+                        // on the subscription.
+                        return Ok(());
                     }
-                }
+                };
+                // `event_types` is one OR more of:
+                //  - "newHeads": notify when new blocks arrive
+                //  - "pendingTransactions": notify when new messages arrive in the message pool
+                //  - "logs": notify new event logs that match a criteria
 
-                tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
-            });
+                tracing::trace!("Subscribing to events: {:?}", event_types);
 
-            Ok(())
-        },
-    ).unwrap();
+                let receiver = event_types
+                    .iter()
+                    .find_map(|event| match event.as_str() {
+                        "newHeads" => Some(ReceiverType::Heads(new_heads(&ctx))),
+                        "pendingTransactions" => Some(ReceiverType::Txn(pending_txn(ctx.clone()))),
+                        _ => None,
+                    })
+                    .expect("No valid event type found");
+
+                tokio::spawn(async move {
+                    // Mark the subscription is accepted after the params has been parsed successful.
+                    // This is actually responds the underlying RPC method call and may fail if the
+                    // connection is closed.
+                    let sink = pending.accept().await.unwrap();
+                    tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+
+                    match receiver {
+                        ReceiverType::Heads(rx) => handle_subscription(rx, sink).await,
+                        ReceiverType::Txn(rx) => handle_subscription(rx, sink).await,
+                    }
+                });
+
+                Ok(())
+            },
+        )
+        .unwrap();
 
     let (stop_handle, _server_handle) = stop_channel();
 
