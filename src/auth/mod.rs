@@ -42,33 +42,24 @@ struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
     // Expiration time (as UTC timestamp)
-    exp: Option<usize>,
+    exp: usize,
 }
 
 /// Create a new JWT Token
-pub fn create_token(
-    perms: Vec<String>,
-    key: &[u8],
-    token_exp: Option<Duration>,
-) -> JWTResult<String> {
-    let exp = token_exp.map(|exp| (Utc::now() + exp).timestamp() as usize);
-    let payload = Claims { allow: perms, exp };
+pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTResult<String> {
+    let exp_time = Utc::now() + token_exp;
+    let payload = Claims {
+        allow: perms,
+        exp: exp_time.timestamp() as usize,
+    };
     encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
 }
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
-    validation.required_spec_claims = Default::default();
-
-    let decoded = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
-    // Special case for admin permissions so that an SP isn't locked out of admin permissions.
-    if !decoded.claims.allow.contains(&"admin".to_string()) {
-        let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
-        decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
-    }
-
-    Ok(decoded.claims.allow)
+    let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
+    Ok(token.claims.allow)
 }
 
 pub fn generate_priv_key() -> KeyInfo {
@@ -94,7 +85,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Some(Duration::try_hours(1).expect("Infallible")),
+            Duration::try_hours(1).expect("Infallible"),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -104,7 +95,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Some(-Duration::try_hours(1).expect("Infallible")),
+            -Duration::try_hours(1).expect("Infallible"),
         )
         .unwrap();
         assert!(verify_token(&token, key.private_key()).is_err());
@@ -114,7 +105,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Some(-Duration::try_seconds(10).expect("Infallible")),
+            -Duration::try_seconds(10).expect("Infallible"),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
