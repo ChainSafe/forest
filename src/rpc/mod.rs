@@ -405,7 +405,7 @@ impl IdProvider for RandomHexStringIdProvider {
 
 enum ReceiverType {
     Heads(Receiver<chain::ApiHeaders>),
-    Txn(Receiver<Vec<chain::ApiMessage>>),
+    Txn(Receiver<Vec<crate::message::SignedMessage>>),
 }
 
 async fn handle_subscription<T>(mut rx: Receiver<T>, sink: jsonrpsee::SubscriptionSink)
@@ -480,7 +480,7 @@ where
                 };
                 // `event_types` is one OR more of:
                 //  - "newHeads": notify when new blocks arrive
-                //  - "pendingTransactions": notify when new messages arrive in the message pool
+                //  - "newPendingTransactions": notify when new messages arrive in the message pool
                 //  - "logs": notify new event logs that match a criteria
 
                 tracing::trace!("Subscribing to events: {:?}", event_types);
@@ -489,7 +489,9 @@ where
                     .iter()
                     .find_map(|event| match event.as_str() {
                         "newHeads" => Some(ReceiverType::Heads(new_heads(&ctx))),
-                        "pendingTransactions" => Some(ReceiverType::Txn(pending_txn(ctx.clone()))),
+                        "newPendingTransactions" => {
+                            Some(ReceiverType::Txn(pending_txn(ctx.clone())))
+                        }
                         _ => None,
                     })
                     .expect("No valid event type found");

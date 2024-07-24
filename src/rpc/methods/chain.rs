@@ -15,6 +15,7 @@ use crate::ipld::DfsIter;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::message_pool::Provider;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -690,16 +691,17 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
 
 pub(crate) fn pending_txn<DB: Blockstore + Send + Sync + 'static>(
     data: Arc<crate::rpc::RPCState<DB>>,
-) -> Subscriber<Vec<ApiMessage>> {
+) -> Subscriber<Vec<SignedMessage>> {
     let (sender, receiver) = broadcast::channel(100);
 
-    let mut subscriber = data.chain_store().publisher().subscribe();
+    let mut subscriber = data.mpool.api.subscribe_head_changes();
 
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let messages = match v {
-                HeadChange::Apply(ts) => {
-                    load_api_messages_from_tipset(Arc::clone(&data).store(), &ts).unwrap()
+                HeadChange::Apply(_ts) => {
+                    let (pending, _mpts) = data.mpool.pending().unwrap();
+                    pending
                 }
             };
 
