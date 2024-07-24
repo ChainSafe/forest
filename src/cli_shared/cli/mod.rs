@@ -110,6 +110,9 @@ pub struct CliOpts {
     /// Encrypt the key-store (default: true)
     #[arg(long)]
     pub encrypt_keystore: Option<bool>,
+    /// Use P2P configurations for a bootstrap node
+    #[arg(long)]
+    pub bootstrap: Option<bool>,
     /// Choose network chain to sync to
     #[arg(long)]
     pub chain: Option<NetworkChain>,
@@ -224,6 +227,7 @@ impl CliOpts {
             cfg.client.skip_load = skip_load;
         }
 
+        cfg.network.bootstrap = self.bootstrap.unwrap_or(cfg.network.bootstrap);
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         if let Some(target_peer_count) = self.target_peer_count {

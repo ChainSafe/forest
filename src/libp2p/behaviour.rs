@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
+use std::time::Duration;
 
 use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
 use crate::libp2p::{
@@ -81,15 +82,42 @@ impl ForestBehaviour {
         let max_concurrent_request_response_streams = (config.target_peer_count as usize)
             .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
 
-        let mut gs_config_builder = gossipsub::ConfigBuilder::default();
-        gs_config_builder.max_transmit_size(1 << 20);
-        gs_config_builder.validation_mode(ValidationMode::Strict);
-        gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
-            let s = blake2b_256(&msg.data);
-            MessageId::from(s)
-        });
+        let gossipsub_config = {
+            let mut builder = gossipsub::ConfigBuilder::default();
+            builder
+                .max_transmit_size(1 << 20)
+                .validation_mode(ValidationMode::Strict)
+                .message_id_fn(|msg: &gossipsub::Message| blake2b_256(&msg.data).into());
 
-        let gossipsub_config = gs_config_builder.build().unwrap();
+            // https://github.com/filecoin-project/lotus/blob/v1.27.0/node/modules/lp2p/pubsub.go#L27
+            builder
+                .mesh_n(8)
+                .retain_scores(6)
+                .mesh_outbound_min(3)
+                .mesh_n_low(6)
+                .mesh_n_high(12)
+                .gossip_lazy(12)
+                .heartbeat_initial_delay(Duration::from_secs(30))
+                .heartbeat_interval(Duration::from_secs(5))
+                .history_length(10)
+                .gossip_factor(0.1);
+
+            if config.bootstrap {
+                // https://github.com/filecoin-project/lotus/blob/v1.27.0/node/modules/lp2p/pubsub.go#L322
+                builder
+                    .do_px()
+                    .mesh_n(0)
+                    .retain_scores(0)
+                    .mesh_outbound_min(0)
+                    .mesh_n_low(0)
+                    .mesh_n_high(0)
+                    .gossip_lazy(64)
+                    .gossip_factor(0.25)
+                    .prune_backoff(Duration::from_secs(5 * 60));
+            }
+
+            builder.build()?
+        };
         let mut gossipsub = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(local_key.clone()),
             gossipsub_config,
