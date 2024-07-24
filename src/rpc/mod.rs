@@ -9,15 +9,14 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use futures::FutureExt as _;
-pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
-use reflect::{AsTagExt as _, Ctx, Tag};
+use reflect::Ctx;
+pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
-use strum::IntoEnumIterator as _;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -46,6 +45,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::chain::ChainExport);
         $callback!(crate::rpc::chain::ChainReadObj);
         $callback!(crate::rpc::chain::ChainHasObj);
+        $callback!(crate::rpc::chain::ChainStatObj);
         $callback!(crate::rpc::chain::ChainGetBlockMessages);
         $callback!(crate::rpc::chain::ChainGetPath);
         $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
@@ -70,12 +70,21 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthAccounts);
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthEstimateGas);
+        $callback!(crate::rpc::eth::EthFeeHistory);
         $callback!(crate::rpc::eth::EthGetCode);
         $callback!(crate::rpc::eth::EthGetStorageAt);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
+        $callback!(crate::rpc::eth::EthGetBlockByHash);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
+        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
+        $callback!(crate::rpc::eth::EthGetTransactionCount);
+        $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
+        $callback!(crate::rpc::eth::EthProtocolVersion);
+        $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
@@ -92,6 +101,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::mpool::MpoolPending);
         $callback!(crate::rpc::mpool::MpoolSelect);
         $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushUntrusted);
         $callback!(crate::rpc::mpool::MpoolPushMessage);
 
         // msig vertical
@@ -111,6 +121,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::net::NetAutoNatStatus);
         $callback!(crate::rpc::net::NetVersion);
         $callback!(crate::rpc::net::NetProtectAdd);
+        $callback!(crate::rpc::net::NetFindPeer);
 
         // node vertical
         $callback!(crate::rpc::node::NodeStatus);
@@ -123,15 +134,18 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
         $callback!(crate::rpc::state::StateAccountKey);
         $callback!(crate::rpc::state::StateLookupID);
         $callback!(crate::rpc::state::StateGetActor);
         $callback!(crate::rpc::state::StateMinerInfo);
         $callback!(crate::rpc::state::StateMinerActiveSectors);
+        $callback!(crate::rpc::state::StateMinerAllocated);
         $callback!(crate::rpc::state::StateMinerPartitions);
         $callback!(crate::rpc::state::StateMinerSectors);
         $callback!(crate::rpc::state::StateMinerSectorCount);
+        $callback!(crate::rpc::state::StateMinerSectorAllocated);
         $callback!(crate::rpc::state::StateMinerPower);
         $callback!(crate::rpc::state::StateMinerDeadlines);
         $callback!(crate::rpc::state::StateMinerProvingDeadline);
@@ -141,30 +155,41 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
         $callback!(crate::rpc::state::StateGetReceipt);
         $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromTickets);
         $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
+        $callback!(crate::rpc::state::StateGetRandomnessDigestFromBeacon);
         $callback!(crate::rpc::state::StateReadState);
         $callback!(crate::rpc::state::StateCirculatingSupply);
         $callback!(crate::rpc::state::StateVerifiedClientStatus);
         $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!(crate::rpc::state::StateListMiners);
+        $callback!(crate::rpc::state::StateListActors);
         $callback!(crate::rpc::state::StateNetworkVersion);
         $callback!(crate::rpc::state::StateMarketBalance);
         $callback!(crate::rpc::state::StateMarketParticipants);
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsgV0);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateVerifiedRegistryRootKey);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetClaims);
+        $callback!(crate::rpc::state::StateGetAllClaims);
         $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateGetAllocations);
+        $callback!(crate::rpc::state::StateGetAllAllocations);
+        $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
+        $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
         $callback!(crate::rpc::state::StateSectorExpiration);
         $callback!(crate::rpc::state::StateSectorPartition);
+        $callback!(crate::rpc::state::StateLookupRobustAddress);
 
         // sync vertical
         $callback!(crate::rpc::sync::SyncCheckBad);
@@ -182,6 +207,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::wallet::WalletNew);
         $callback!(crate::rpc::wallet::WalletSetDefault);
         $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletSignMessage);
         $callback!(crate::rpc::wallet::WalletValidateAddress);
         $callback!(crate::rpc::wallet::WalletVerify);
         $callback!(crate::rpc::wallet::WalletDelete);
@@ -306,7 +332,6 @@ const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 /// data.
 pub struct RPCState<DB> {
     pub keystore: Arc<RwLock<KeyStore>>,
-    pub chain_store: Arc<crate::chain::ChainStore<DB>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
@@ -315,13 +340,32 @@ pub struct RPCState<DB> {
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
-    pub beacon: Arc<crate::beacon::BeaconSchedule>,
     pub shutdown: mpsc::Sender<()>,
 }
 
 impl<DB: Blockstore> RPCState<DB> {
+    pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
+        self.state_manager.beacon_schedule()
+    }
+
+    pub fn chain_store(&self) -> &Arc<crate::chain::ChainStore<DB>> {
+        self.state_manager.chain_store()
+    }
+
+    pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
+        &self.chain_store().chain_index
+    }
+
+    pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {
+        self.state_manager.chain_config()
+    }
+
     pub fn store(&self) -> &DB {
-        self.chain_store.blockstore()
+        self.chain_store().blockstore()
+    }
+
+    pub fn store_owned(&self) -> Arc<DB> {
+        self.state_manager.blockstore_owned()
     }
 }
 
@@ -463,7 +507,8 @@ where
     module
 }
 
-pub fn openrpc() -> openrpc_types::OpenRPC {
+/// If `include` is not [`None`], only methods that are listed will be returned
+pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
     // spec says draft07
@@ -473,10 +518,21 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                &mut gen,
-                ParamStructure::ByPosition,
-            )));
+            if <$ty>::API_PATHS.contains(path) {
+                match include {
+                    Some(include) => match include.contains(&<$ty>::NAME) {
+                        true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                            &mut gen,
+                            ParamStructure::ByPosition,
+                        ))),
+                        false => {}
+                    },
+                    None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                        &mut gen,
+                        ParamStructure::ByPosition,
+                    ))),
+                }
+            }
         };
     }
     for_each_method!(callback);
@@ -484,13 +540,6 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {
             schemas: Some(gen.take_definitions().into_iter().collect()),
-            tags: Some(
-                ApiVersion::iter()
-                    .map(|it| it.as_tag())
-                    .chain(Tag::iter().map(|it| it.as_tag()))
-                    .map(|it| (it.name.clone(), it))
-                    .collect(),
-            ),
             ..Default::default()
         }),
         openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
@@ -505,19 +554,23 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
 
 #[cfg(test)]
 mod tests {
+    use crate::rpc::ApiPath;
+
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
     fn openrpc() {
-        let _spec = super::openrpc();
-        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-        //                  this is disabled because it causes lots of merge
-        //                  conflicts.
-        //                  We should consider re-enabling it when our RPC is
-        //                  more stable.
-        //                  (We still run this test to make sure we're not
-        //                  violating other invariants)
-        #[cfg(never)]
-        insta::assert_yaml_snapshot!(_spec);
+        for path in [ApiPath::V0, ApiPath::V1] {
+            let _spec = super::openrpc(path, None);
+            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+            //                  this is disabled because it causes lots of merge
+            //                  conflicts.
+            //                  We should consider re-enabling it when our RPC is
+            //                  more stable.
+            //                  (We still run this test to make sure we're not
+            //                  violating other invariants)
+            #[cfg(never)]
+            insta::assert_yaml_snapshot!(_spec);
+        }
     }
 }

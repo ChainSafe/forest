@@ -80,7 +80,7 @@ impl<'a> DiscoveryConfig<'a> {
             local_peer_id: local_public_key.to_peer_id(),
             local_public_key,
             user_defined: Vec::new(),
-            target_peer_count: std::u64::MAX,
+            target_peer_count: u64::MAX,
             enable_mdns: false,
             enable_kademlia: true,
             network_name,
@@ -134,18 +134,22 @@ impl<'a> DiscoveryConfig<'a> {
 
         let mut peers = HashSet::new();
 
-        // Kademlia config
-        let store = MemoryStore::new(local_peer_id);
-        let kad_config = {
-            let mut cfg = kad::Config::default();
-            cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
-                "/fil/kad/{network_name}/kad/1.0.0"
-            ))?]);
-            cfg
-        };
-
         let kademlia_opt = if enable_kademlia {
-            let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+            // This is a workaround for <https://github.com/ChainSafe/forest/issues/4576>
+            // `go-libp2p-kad-dht` sends the remote peer id as query key during bootstrap,
+            // however, `rust-libp2p` returns empty peer list when the key it receives
+            // matches the local one. It's fine to use a random peer id as a workaround
+            // since Kademlia not used as value providers in filecoin p2p network.
+            let kad_random_peer_id = PeerId::random();
+            let store = MemoryStore::new(kad_random_peer_id);
+            let kad_config = {
+                let mut cfg = kad::Config::default();
+                cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
+                    "/fil/kad/{network_name}/kad/1.0.0"
+                ))?]);
+                cfg
+            };
+            let mut kademlia = kad::Behaviour::with_config(kad_random_peer_id, store, kad_config);
             // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
             // but it should not be required as the behaviour should automatically switch to server mode
             // according to the doc. It might be a bug in `libp2p`.
@@ -226,7 +230,7 @@ pub struct DiscoveryBehaviour {
 #[derive(Default)]
 pub struct PeerInfo {
     pub addresses: HashSet<Multiaddr>,
-    pub agent_version: Option<String>,
+    pub identify_info: Option<identify::Info>,
 }
 
 impl DiscoveryBehaviour {
@@ -420,8 +424,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     match &ev {
                         DerivedDiscoveryBehaviourEvent::Identify(ev) => {
                             if let identify::Event::Received { peer_id, info } = ev {
-                                self.peer_info.entry(*peer_id).or_default().agent_version =
-                                    Some(info.agent_version.clone());
+                                self.peer_info.entry(*peer_id).or_default().identify_info =
+                                    Some(info.clone());
                                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
                                     for address in &info.listen_addrs {
                                         kademlia.add_address(peer_id, address.clone());

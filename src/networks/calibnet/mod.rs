@@ -7,7 +7,7 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use crate::{make_height, shim::version::NetworkVersion};
+use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -36,7 +36,7 @@ const LIGHTNING_EPOCH: i64 = 489_094;
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
-pub const ETH_CHAIN_ID: u64 = 314159;
+pub const ETH_CHAIN_ID: EthChainId = 314159;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
@@ -61,7 +61,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Hyperdrive, 420),
         make_height!(Chocolate, 450),
         make_height!(OhSnap, 480),
-        make_height!(Skyr, 510),
+        make_height!(Skyr, 510, get_bundle_cid("8.0.0-rc.1")),
         make_height!(Shark, 16_800, get_bundle_cid("v9.0.3")),
         make_height!(Hygge, 322_354, get_bundle_cid("v10.0.0-rc.1")),
         make_height!(Lightning, LIGHTNING_EPOCH, get_bundle_cid("v11.0.0-rc2")),
@@ -72,7 +72,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Dragon, 1_427_974, get_bundle_cid("v13.0.0-rc.3")),
         make_height!(DragonFix, 1_493_854, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, 1_428_094),
-        make_height!(Aussie, 999999999999999),
+        // 2024-07-11 12:00:00Z
+        make_height!(Waffle, 1_779_094, get_bundle_cid("v14.0.0-rc.1")),
     ])
 });
 

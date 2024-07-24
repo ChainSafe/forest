@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{
+    actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
     address::{Address, Payload},
     randomness::Randomness,
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
@@ -10,13 +11,15 @@ use crate::shim::{
 };
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
-use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use fil_actor_interface::miner;
+use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use filecoin_proofs_api::post;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
 use crate::state_manager::{errors::*, StateManager};
+
+use super::MinerActorStateLoad as _;
 
 impl<DB> StateManager<DB>
 where
@@ -125,7 +128,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
     }
 
     // After nv18, we also support other kinds of senders.
-    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+    if is_account_actor(&actor.code) || is_ethaccount_actor(&actor.code) {
         return true;
     }
 

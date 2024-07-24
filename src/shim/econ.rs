@@ -124,6 +124,18 @@ impl TokenAmount {
     }
 }
 
+impl From<TokenAmount> for BigInt {
+    fn from(value: TokenAmount) -> Self {
+        value.atto().to_owned()
+    }
+}
+
+impl From<BigInt> for TokenAmount {
+    fn from(value: BigInt) -> Self {
+        Self::from_atto(value)
+    }
+}
+
 impl From<TokenAmount_v2> for TokenAmount {
     fn from(other: TokenAmount_v2) -> Self {
         (&other).into()

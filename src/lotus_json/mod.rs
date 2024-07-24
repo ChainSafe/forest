@@ -194,6 +194,7 @@ decl_and_test!(
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,
     block_header for crate::blocks::CachingBlockHeader,
+    cid for ::cid::Cid,
     election_proof for crate::blocks::ElectionProof,
     gossip_block for crate::blocks::GossipBlock,
     key_info for crate::key_management::KeyInfo,
@@ -219,7 +220,6 @@ decl_and_test!(
 mod allocation;
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
-mod cid; // can't make snapshots of generic type
 mod hash_map;
 mod ipld; // NaN != NaN
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
@@ -232,6 +232,8 @@ mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
+
+pub use vec::*;
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
@@ -446,15 +448,11 @@ where
 }
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
-#[derive(Debug, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(bound = "T: HasLotusJson", transparent)]
+#[derive(
+    Debug, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Clone,
+)]
+#[serde(bound = "T: HasLotusJson + Clone", transparent)]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
-
-impl<T: Clone> Clone for LotusJson<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
 
 impl<T> JsonSchema for LotusJson<T>
 where
@@ -463,6 +461,10 @@ where
 {
     fn schema_name() -> String {
         T::LotusJson::schema_name()
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        T::LotusJson::schema_id()
     }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {

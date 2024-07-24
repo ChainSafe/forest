@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
     lotus_json::lotus_json_with_self,
-    rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
@@ -15,7 +15,7 @@ pub enum NodeStatus {}
 impl RpcMethod<0> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -24,7 +24,7 @@ impl RpcMethod<0> for NodeStatus {
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let mut node_status = NodeStatusResult::default();
 
-        let head = ctx.state_manager.chain_store().heaviest_tipset();
+        let head = ctx.chain_store().heaviest_tipset();
         let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
         let ts = head.min_timestamp();
@@ -38,7 +38,7 @@ impl RpcMethod<0> for NodeStatus {
             .into());
         };
 
-        let chain_finality = ctx.state_manager.chain_config().policy.chain_finality;
+        let chain_finality = ctx.chain_config().policy.chain_finality;
 
         node_status.sync_status.epoch = head.epoch() as u64;
         node_status.sync_status.behind = behind;
@@ -50,7 +50,7 @@ impl RpcMethod<0> for NodeStatus {
             for _ in 0..100 {
                 block_count += ts.block_headers().len();
                 let tsk = ts.parents();
-                ts = ctx.chain_store.chain_index.load_required_tipset(tsk)?;
+                ts = ctx.chain_index().load_required_tipset(tsk)?;
             }
 
             node_status.chain_status.blocks_per_tipset_last_100 = block_count as f64 / 100.;
@@ -58,7 +58,7 @@ impl RpcMethod<0> for NodeStatus {
             for _ in 100..chain_finality {
                 block_count += ts.block_headers().len();
                 let tsk = ts.parents();
-                ts = ctx.chain_store.chain_index.load_required_tipset(tsk)?;
+                ts = ctx.chain_index().load_required_tipset(tsk)?;
             }
 
             node_status.chain_status.blocks_per_tipset_last_finality =

@@ -26,7 +26,7 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature
-            .verify(&message.cid()?.to_bytes(), &message.from())
+            .verify(&message.cid().to_bytes(), &message.from())
             .map_err(anyhow::Error::msg)?;
         Ok(SignedMessage { message, signature })
     }
@@ -70,18 +70,18 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.cid().unwrap().to_bytes(), &self.from())
+            .verify(&self.message.cid().to_bytes(), &self.from())
     }
 
     // Important note: `msg.cid()` is different from
     // `Cid::from_cbor_blake2b256(msg)`. The behavior comes from Lotus, and
     // Lotus, by, definition, is correct.
-    pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
+    pub fn cid(&self) -> cid::Cid {
         if self.is_bls() {
             self.message.cid()
         } else {
             use crate::utils::cid::CidCborExt;
-            cid::Cid::from_cbor_blake2b256(self)
+            cid::Cid::from_cbor_blake2b256(self).expect("message serialization is infallible")
         }
     }
 }

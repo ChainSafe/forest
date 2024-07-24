@@ -9,7 +9,6 @@ use std::sync::{
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use crate::utils::misc::reveal_three_trees;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -23,6 +22,7 @@ mod nv21fix;
 mod nv21fix2;
 mod nv22;
 mod nv22fix;
+mod nv23;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -57,10 +57,14 @@ where
                 (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::DragonFix, nv22fix::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![(Height::Dragon, nv22::run_migration::<DB>)]
+            vec![
+                (Height::Dragon, nv22::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
+            ]
         }
         NetworkChain::Devnet(_) => {
             vec![
@@ -69,6 +73,7 @@ where
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
     };
@@ -104,7 +109,7 @@ where
                 .map(|sr| format!("{}", sr.actors))
                 .unwrap_or_default();
             if new_state != *parent_state {
-                reveal_three_trees();
+                crate::utils::misc::reveal_upgrade_logo(height.into());
                 tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");

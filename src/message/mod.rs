@@ -9,6 +9,7 @@ use crate::shim::{address::Address, econ::TokenAmount, message::Message as ShimM
 use crate::shim::{gas::Gas, version::NetworkVersion};
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
+use num::Zero;
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic
@@ -42,6 +43,17 @@ pub trait Message {
     fn set_gas_fee_cap(&mut self, cap: TokenAmount);
     /// sets the gas premium.
     fn set_gas_premium(&mut self, prem: TokenAmount);
+    /// This method returns the effective gas premium claimable by the miner
+    /// given the supplied base fee. This method is not used anywhere except the `Eth` API.
+    ///
+    /// Filecoin clamps the gas premium at `gas_fee_cap` - `base_fee`, if lower than the
+    /// specified premium. Returns 0 if `gas_fee_cap` is less than `base_fee`.
+    fn effective_gas_premium(&self, base_fee: &TokenAmount) -> TokenAmount {
+        let available = self.gas_fee_cap() - base_fee;
+        // It's possible that storage providers may include messages with gasFeeCap less than the baseFee
+        // In such cases, their reward should be viewed as zero
+        available.clamp(TokenAmount::zero(), self.gas_premium())
+    }
 }
 
 impl Message for ShimMessage {
@@ -73,7 +85,7 @@ impl Message for ShimMessage {
         self.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        &self.gas_fee_cap * self.gas_limit + &self.value
+        &self.gas_fee_cap * self.gas_limit
     }
     fn gas_fee_cap(&self) -> TokenAmount {
         self.gas_fee_cap.clone()

@@ -71,14 +71,14 @@ where
     for b in ts.block_headers() {
         let (msg1, msg2) = crate::chain::block_messages(db, b)?;
         for m in msg1 {
-            let m_cid = m.cid()?;
+            let m_cid = m.cid();
             if !seen.contains(&m_cid) {
                 total_limit += m.gas_limit();
                 seen.insert(m_cid);
             }
         }
         for m in msg2 {
-            let m_cid = m.cid()?;
+            let m_cid = m.cid();
             if !seen.contains(&m_cid) {
                 total_limit += m.gas_limit();
                 seen.insert(m_cid);

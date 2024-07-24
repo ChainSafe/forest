@@ -3,7 +3,7 @@
 
 use crate::shim::address::Address;
 use blake2b_simd::Params;
-use filecoin_proofs_api::ProverId;
+use fil_actors_shared::filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 use serde::{de, ser, Deserializer, Serializer};
 

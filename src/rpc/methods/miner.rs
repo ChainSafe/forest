@@ -17,7 +17,7 @@ use crate::networks::Height;
 
 use crate::rpc::reflect::Permission;
 use crate::rpc::types::{ApiTipsetKey, MiningBaseInfo};
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::{Signature, SignatureType};
@@ -100,7 +100,7 @@ pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
     const PARAM_NAMES: [&'static str; 1] = ["block_template"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (BlockTemplate,);
@@ -110,15 +110,14 @@ impl RpcMethod<1> for MinerCreateBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_template,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let parent_tipset = ctx
-            .chain_store
-            .chain_index
+            .chain_index()
             .load_required_tipset(&block_template.parents)?;
 
         let lookback_state = ChainStore::get_lookback_tipset_for_round(
-            ctx.state_manager.chain_store().chain_index.clone(),
-            ctx.state_manager.chain_config().clone(),
+            ctx.chain_index().clone(),
+            ctx.chain_config().clone(),
             parent_tipset.clone(),
             block_template.epoch,
         )
@@ -133,8 +132,7 @@ impl RpcMethod<1> for MinerCreateBlock {
         let parent_base_fee = compute_base_fee(
             store,
             &parent_tipset,
-            ctx.state_manager
-                .chain_config()
+            ctx.chain_config()
                 .height_infos
                 .get(&Height::Smoke)
                 .context("Missing Smoke height")?
@@ -153,17 +151,14 @@ impl RpcMethod<1> for MinerCreateBlock {
         for msg in block_template.messages {
             match msg.signature().signature_type() {
                 SignatureType::Bls => {
-                    let cid = ctx
-                        .chain_store
-                        .blockstore()
-                        .put_cbor_default(&msg.message)?;
+                    let cid = ctx.store().put_cbor_default(&msg.message)?;
                     bls_msg_cids.push(cid);
                     bls_sigs.push(msg.signature);
                     bls_messages.push(msg.message);
                 }
                 SignatureType::Secp256k1 | SignatureType::Delegated => {
                     if msg.signature.is_valid_secpk_sig_type(network_version) {
-                        let cid = ctx.chain_store.blockstore().put_cbor_default(&msg)?;
+                        let cid = ctx.store().put_cbor_default(&msg)?;
                         secpk_msg_cids.push(cid);
                         secpk_messages.push(msg);
                     } else {
@@ -176,7 +171,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             }
         }
 
-        let store = ctx.chain_store.blockstore();
+        let store = ctx.store();
         let mut message_array = Amt::<Cid, _>::new(store);
         for (i, cid) in bls_msg_cids.iter().enumerate() {
             message_array.set(i as u64, *cid)?;
@@ -276,7 +271,7 @@ pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
     const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, i64, ApiTipsetKey);
@@ -286,14 +281,11 @@ impl RpcMethod<3> for MinerGetBaseInfo {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, epoch, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         Ok(ctx
             .state_manager
-            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
+            .miner_get_base_info(ctx.beacon(), ts, address, epoch)
             .await?)
     }
 }

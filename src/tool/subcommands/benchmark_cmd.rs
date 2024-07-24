@@ -180,7 +180,7 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Res
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = unordered_stream_graph(store.clone(), heaviest.chain(store), 0);
+    let mut s = unordered_stream_graph(store.clone(), heaviest.chain_owned(store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
@@ -240,7 +240,7 @@ async fn benchmark_exporting(
 
     let blocks = stream_chain(
         Arc::clone(&store),
-        ts.deref().clone().chain(Arc::clone(&store)),
+        ts.deref().clone().chain_owned(Arc::clone(&store)),
         stateroot_lookup_limit,
     );
 

@@ -1,15 +1,16 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashSet, HashSetExt};
 use std::path::PathBuf;
 
 use super::SettingsStore;
 
-use crate::db::{
-    parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
-};
+use super::EthMappingsStore;
+
+use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+
+use crate::rpc::eth;
 
 use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;
@@ -24,6 +25,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use crate::cid_collections::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
@@ -41,6 +43,8 @@ enum DbColumn {
     GraphFull,
     /// Column for storing Forest-specific settings.
     Settings,
+    /// Column for storing Ethereum mappings.
+    EthMappings,
 }
 
 impl DbColumn {
@@ -66,6 +70,12 @@ impl DbColumn {
                         preimage: false,
                         // This is needed for key retrieval.
                         btree_index: true,
+                        compression,
+                        ..Default::default()
+                    },
+                    DbColumn::EthMappings => parity_db::ColumnOptions {
+                        preimage: false,
+                        btree_index: false,
                         compression,
                         ..Default::default()
                     },
@@ -166,6 +176,44 @@ impl SettingsStore for ParityDb {
     }
 }
 
+impl EthMappingsStore for ParityDb {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.0.as_bytes(), DbColumn::EthMappings)
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(key.0.as_bytes(), value, DbColumn::EthMappings)
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        self.db
+            .get_size(DbColumn::EthMappings as u8, key.0.as_bytes())
+            .map(|size| size.is_some())
+            .context("error checking if key exists")
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        let mut cids = Vec::new();
+
+        self.db
+            .iter_column_while(DbColumn::EthMappings as u8, |val| {
+                if let Ok(value) = fvm_ipld_encoding::from_slice::<(Cid, u64)>(&val.value) {
+                    cids.push(value);
+                }
+                true
+            })?;
+
+        Ok(cids)
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(keys.into_iter().map(|key| {
+            let bytes = key.0.as_bytes().to_vec();
+            (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
+        }))?)
+    }
+}
+
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
@@ -173,7 +221,7 @@ impl Blockstore for ParityDb {
             DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
                 self.read_from_column(k.to_bytes(), column)
             }
-            DbColumn::Settings => panic!("invalid column for IPLD data"),
+            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
         }
     }
 
@@ -185,7 +233,7 @@ impl Blockstore for ParityDb {
             DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
                 self.write_to_column(k.to_bytes(), block, column)
             }
-            DbColumn::Settings => panic!("invalid column for IPLD data"),
+            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
         }
     }
 
@@ -288,61 +336,57 @@ impl ParityDb {
     }
 }
 
-impl GarbageCollectable for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
-        let mut set = HashSet::new();
+impl GarbageCollectable<CidHashSet> for ParityDb {
+    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
+        let mut set = CidHashSet::new();
 
-        // First iterate over all of the indexed entries.
+        // First iterate over all the indexed entries.
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
-            set.insert(truncated_hash(cid.hash()));
+            set.insert(cid);
         }
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                set.insert(truncated_hash(&hash));
+                let cid = Cid::new_v1(DAG_CBOR, hash);
+                set.insert(cid);
                 true
             })?;
 
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<u32> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
+        // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
+        // conversion with allocation.
+        let mut deref_vec = Vec::new();
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
-            if keys.contains(&truncated_hash(cid.hash())) {
-                self.db
-                    .commit_changes([Self::dereference_operation(&cid)])
-                    .context("error remove")?
+            if keys.contains(&cid) {
+                deref_vec.push(Self::dereference_operation(&cid));
             }
         }
-
-        // An unfortunate consequence of having to use `iter_column_while`.
-        let mut result = Ok(());
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                if keys.contains(&truncated_hash(&hash)) {
-                    let cid = Cid::new_v1(DAG_CBOR, hash);
-                    let res = self
-                        .db
-                        .commit_changes([Self::dereference_operation(&cid)])
-                        .context("error remove");
+                let cid = Cid::new_v1(DAG_CBOR, hash);
 
-                    if res.is_err() {
-                        result = res;
-                        return false;
-                    }
+                if keys.contains(&cid) {
+                    deref_vec.push(Self::dereference_operation(&cid));
                 }
                 true
             })?;
 
-        result
+        let deleted: u32 = deref_vec.len().try_into()?;
+
+        self.db.commit_changes(deref_vec).context("error remove")?;
+
+        Ok(deleted)
     }
 }
 
@@ -393,6 +437,7 @@ mod test {
                 DbColumn::GraphDagCborBlake2b256 => DbColumn::GraphFull,
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
+                DbColumn::EthMappings => panic!("invalid column for IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());

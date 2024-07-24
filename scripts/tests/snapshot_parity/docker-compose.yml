@@ -71,6 +71,7 @@ services:
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
       - LOTUS_FEVM_ENABLEETHRPC=1
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
+      - LOTUS_SYNC_BOOTSTRAP_PEERS=1
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
     entrypoint: [ "/bin/bash", "-c" ]
     command:

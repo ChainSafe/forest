@@ -29,16 +29,105 @@
 
 ### Added
 
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllClaims` RPC method.
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllAllocations` RPC method.
+
+- [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
+  `Filecoin.StateMinerAllocated` RPC method.
+
+- [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
+  `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
+
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
+- [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
+  `Filecoin.StateGetAllocationForPendingDeal` RPC method.
+
+- [#4526](https://github.com/ChainSafe/forest/pull/4526) Added
+  `forest-cli state compute` method, and a corresponding RPC method
+  `Forest.StateCompute`.
+
+- [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
+  `Filecoin.EthMaxPriorityFeePerGas` RPC method.
+
+- [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
+  `Filecoin.StateLookupRobustAddress` RPC method.
+
+- [#4496](https://github.com/ChainSafe/forest/pull/4496) Add support for the
+  `Filecoin.EthEstimateGas` RPC method.
+
+- [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
+  `Filecoin.StateVerifiedRegistryRootKey` RPC method.
+
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck ready`.
+
+- [#4569](https://github.com/ChainSafe/forest/pull/4569) Add support for the
+  `Filecoin.NetFindPeer` RPC method.
+
+- [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
+
+- [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
+  `Filecoin.MpoolPushUntrusted` RPC method.
+
+- [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.19.0 "Pastel de nata"
+
+This is a mandatory release for all calibration network node operators. It
+includes migration logic for the NV23 _Waffle_ network upgrade. It also includes
+a number of new RPC methods, fixes to existing ones, and other improvements,
+most notably, garbage collection fix.
+
+### Added
+
+- [#4473](https://github.com/ChainSafe/forest/pull/4473) Add support for NV23
+  _Waffle_ network upgrade (FIP-0085, FIP-0091, v14 actors).
+
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
+
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
+
 - [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
   `Filecoin.StateGetAllocation` RPC method.
+
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 
-### Changed
+- [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
+  `Filecoin.EthGetMessageCidByTransactionHash` RPC method.
+
+- [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
+  `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
+- [#4475](https://github.com/ChainSafe/forest/pull/4475) Add support for the
+  `Filecoin.EthFeeHistory` RPC method.
+
+- [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
+  `EIP-1898` object scheme.
+
+- [#4443](https://github.com/ChainSafe/forest/issues/4443) Update
+  `Filecoin.StateSectorPreCommitInfo` RPC method to be API-V1-compatible
+
+- [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
+  `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
 
 ### Removed
 
@@ -46,6 +135,9 @@
   `forest-cli attach` command.
 
 ### Fixed
+
+- [#4425](https://github.com/ChainSafe/forest/pull/4425) Fix GC collision
+  issues.
 
 - [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
   `Filecoin.ChainNotify` RPC method.

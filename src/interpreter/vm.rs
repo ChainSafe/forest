@@ -90,7 +90,7 @@ pub struct BlockMessages {
 
 impl BlockMessages {
     /// Retrieves block messages to be passed through the VM and removes duplicate messages which appear in multiple blocks.
-    pub fn for_tipset(db: impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+    pub fn for_tipset(db: &impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
@@ -108,7 +108,7 @@ impl BlockMessages {
         ts.block_headers()
             .iter()
             .map(|b| {
-                let (usm, sm) = block_messages(&db, b)?;
+                let (usm, sm) = block_messages(db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
@@ -188,7 +188,7 @@ where
         if network_version >= NetworkVersion::V21 {
             let mut config = NetworkConfig_v4::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
-            config.chain_id((chain_config.eth_chain_id as u64).into());
+            config.chain_id((chain_config.eth_chain_id).into());
             if let NetworkChain::Devnet(_) = chain_config.network {
                 config.enable_actor_debugging();
             }
@@ -216,7 +216,7 @@ where
         } else if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
-            config.chain_id((chain_config.eth_chain_id as u64).into());
+            config.chain_id((chain_config.eth_chain_id).into());
             if let NetworkChain::Devnet(_) = chain_config.network {
                 config.enable_actor_debugging();
             }
@@ -309,7 +309,7 @@ where
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
@@ -333,8 +333,8 @@ where
         }
 
         if let Some(mut callback) = callback {
-            callback(&MessageCallbackCtx {
-                cid: cron_msg.cid()?,
+            callback(MessageCallbackCtx {
+                cid: cron_msg.cid(),
                 message: &ChainMessage::Unsigned(cron_msg),
                 apply_ret: &ret,
                 at: CalledAt::Cron,
@@ -350,9 +350,7 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        // note: we take &MessageCallbackCtx rather than MessageCallbackCtx<'_>
-        //       because I'm not smart enough to make the second one work
-        mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+        mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -362,7 +360,7 @@ where
             let mut gas_reward = TokenAmount::zero();
 
             let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
-                let cid = message.cid()?;
+                let cid = message.cid();
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
                     return Ok(());
@@ -370,7 +368,7 @@ where
                 let (ret, duration) = self.apply_message(message)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&MessageCallbackCtx {
+                    cb(MessageCallbackCtx {
                         cid,
                         message,
                         apply_ret: &ret,
@@ -415,8 +413,8 @@ where
                 }
 
                 if let Some(callback) = &mut callback {
-                    callback(&MessageCallbackCtx {
-                        cid: rew_msg.cid()?,
+                    callback(MessageCallbackCtx {
+                        cid: rew_msg.cid(),
                         message: &ChainMessage::Unsigned(rew_msg),
                         apply_ret: &ret,
                         at: CalledAt::Reward,
@@ -548,7 +546,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MessageCallbackCtx<'a> {
     pub cid: Cid,
     pub message: &'a ChainMessage,

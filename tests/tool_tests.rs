@@ -237,3 +237,15 @@ fn keypair_conversion_roundtrip() {
     let keypair_decoded = BASE64_STANDARD.decode(keypair_encoded).unwrap();
     assert_eq!(keypair, keypair_decoded);
 }
+
+#[test]
+fn shed_openrpc_doesnt_crash() {
+    let stdout = tool()
+        .args(["shed", "openrpc", "--path", "v1"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice::<openrpc_types::OpenRPC>(&stdout).unwrap();
+}

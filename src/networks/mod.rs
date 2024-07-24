@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr};
+use std::str::FromStr;
 
 use ahash::HashMap;
 use cid::Cid;
@@ -15,6 +15,7 @@ use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
+use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
@@ -23,6 +24,7 @@ use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, mak
 mod actors_bundle;
 pub use actors_bundle::{
     generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
+    ACTOR_BUNDLES_METADATA,
 };
 
 mod drand;
@@ -39,14 +41,21 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash, displaydoc::Display,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
+    /// mainnet
     #[default]
     Mainnet,
+    /// calibnet
     Calibnet,
+    /// butterflynet
     Butterflynet,
+    /// devnet
+    #[displaydoc("{0}")]
     Devnet(String),
 }
 
@@ -59,17 +68,6 @@ impl FromStr for NetworkChain {
             "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
             "butterflynet" => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
-        }
-    }
-}
-
-impl Display for NetworkChain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NetworkChain::Mainnet => write!(f, "mainnet"),
-            NetworkChain::Calibnet => write!(f, "calibnet"),
-            NetworkChain::Butterflynet => write!(f, "butterflynet"),
-            NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
 }
@@ -99,6 +97,10 @@ impl NetworkChain {
 
     pub fn is_testnet(&self) -> bool {
         !matches!(self, NetworkChain::Mainnet)
+    }
+
+    pub fn is_devnet(&self) -> bool {
+        matches!(self, NetworkChain::Devnet(..))
     }
 }
 
@@ -135,7 +137,7 @@ pub enum Height {
     Dragon,
     DragonFix,
     Phoenix,
-    Aussie,
+    Waffle,
 }
 
 impl Default for Height {
@@ -176,7 +178,7 @@ impl From<Height> for NetworkVersion {
             Height::Dragon => NetworkVersion::V22,
             Height::DragonFix => NetworkVersion::V22,
             Height::Phoenix => NetworkVersion::V22,
-            Height::Aussie => NetworkVersion::V23,
+            Height::Waffle => NetworkVersion::V23,
         }
     }
 }
@@ -215,7 +217,7 @@ pub struct ChainConfig {
     pub height_infos: HashMap<Height, HeightInfo>,
     #[cfg_attr(test, arbitrary(gen(|_g| Policy::default())))]
     pub policy: Policy,
-    pub eth_chain_id: u32,
+    pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
 }
 
@@ -231,7 +233,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_mainnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -247,7 +249,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_calibnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -263,7 +265,7 @@ impl ChainConfig {
             genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_devnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -280,7 +282,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -362,6 +364,10 @@ impl ChainConfig {
 
     pub fn is_testnet(&self) -> bool {
         self.network.is_testnet()
+    }
+
+    pub fn is_devnet(&self) -> bool {
+        self.network.is_devnet()
     }
 
     pub fn genesis_network_version(&self) -> NetworkVersion {
@@ -480,7 +486,7 @@ mod tests {
             Height::Watermelon,
             Height::Dragon,
             Height::Phoenix,
-            Height::Aussie,
+            Height::Waffle,
         ];
 
         for height in &REQUIRED_HEIGHTS {
@@ -558,6 +564,17 @@ mod tests {
                 mainnet_genesis,
                 mainnet_block_delay
             )
+        );
+    }
+
+    #[test]
+    fn network_chain_display() {
+        assert_eq!(NetworkChain::Mainnet.to_string(), "mainnet");
+        assert_eq!(NetworkChain::Calibnet.to_string(), "calibnet");
+        assert_eq!(NetworkChain::Butterflynet.to_string(), "butterflynet");
+        assert_eq!(
+            NetworkChain::Devnet("dummydevnet".into()).to_string(),
+            "dummydevnet"
         );
     }
 }

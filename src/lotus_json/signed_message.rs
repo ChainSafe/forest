@@ -69,7 +69,7 @@ impl HasLotusJson for SignedMessage {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let cid = self.cid().ok();
+        let cid = Some(self.cid());
         let Self { message, signature } = self;
         Self::LotusJson {
             message,

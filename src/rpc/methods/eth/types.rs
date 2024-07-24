@@ -6,13 +6,29 @@ use super::*;
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthBytes(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
     pub Vec<u8>,
 );
 lotus_json_with_self!(EthBytes);
+
+impl From<RawBytes> for EthBytes {
+    fn from(value: RawBytes) -> Self {
+        Self(value.into())
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetBytecodeReturn(pub Option<Cid>);
@@ -43,7 +59,17 @@ impl GetStorageAtParams {
     }
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthAddress(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
@@ -171,9 +197,110 @@ impl TryFrom<EthAddress> for FilecoinAddress {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrPredefined {
+    #[schemars(with = "String")]
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+}
+lotus_json_with_self!(BlockNumberOrPredefined);
+
+impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
+    fn from(value: BlockNumberOrPredefined) -> Self {
+        match value {
+            BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),
+            BlockNumberOrPredefined::BlockNumber(v) => BlockNumberOrHash::BlockNumber(v),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthFeeHistoryResult {
+    pub oldest_block: Uint64,
+    pub base_fee_per_gas: Vec<EthBigInt>,
+    pub gas_used_ratio: Vec<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reward: Option<Vec<Vec<EthBigInt>>>,
+}
+lotus_json_with_self!(EthFeeHistoryResult);
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct GasReward {
+    pub gas_used: u64,
+    pub premium: TokenAmount,
+}
+
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallMessage {
+    pub from: Option<EthAddress>,
+    pub to: Option<EthAddress>,
+    pub gas: Uint64,
+    pub gas_price: EthBigInt,
+    pub value: EthBigInt,
+    pub data: EthBytes,
+}
+lotus_json_with_self!(EthCallMessage);
+
+impl EthCallMessage {
+    pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
+        if data.0.is_empty() {
+            Ok(RawBytes::new(data.0))
+        } else {
+            Ok(RawBytes::new(fvm_ipld_encoding::to_vec(&RawBytes::new(
+                data.0,
+            ))?))
+        }
+    }
+}
+
+impl TryFrom<EthCallMessage> for Message {
+    type Error = anyhow::Error;
+    fn try_from(tx: EthCallMessage) -> Result<Self, Self::Error> {
+        let from = match &tx.from {
+            Some(addr) if addr != &EthAddress::default() => {
+                // The from address must be translatable to an f4 address.
+                let from = addr.to_filecoin_address()?;
+                if from.protocol() != Protocol::Delegated {
+                    anyhow::bail!("expected a class 4 address, got: {}", from.protocol());
+                }
+                from
+            }
+            _ => {
+                // Send from the filecoin "system" address.
+                EthAddress::default().to_filecoin_address()?
+            }
+        };
+        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
+        let (to, method_num) = if let Some(to) = tx.to {
+            (
+                to.to_filecoin_address()?,
+                EVMMethod::InvokeContract as MethodNum,
+            )
+        } else {
+            (
+                FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
+                EAMMethod::CreateExternal as MethodNum,
+            )
+        };
+        Ok(Message {
+            from,
+            to,
+            value: tx.value.0.into(),
+            method_num,
+            params,
+            gas_limit: BLOCK_GAS_LIMIT,
+            ..Default::default()
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine as _};
 
     #[test]
     fn get_bytecode_return_roundtrip() {
@@ -194,5 +321,19 @@ mod tests {
             &hex::encode(param.serialize_params().unwrap()),
             "815820000000000000000000000000000000000000000000000000000000000000000a"
         );
+    }
+
+    #[test]
+    fn test_convert_data_to_message_params_empty() {
+        let data = EthBytes(vec![]);
+        let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn test_convert_data_to_message_params() {
+        let data = EthBytes(BASE64_STANDARD.decode("RHt4g0E=").unwrap());
+        let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
+        assert_eq!(BASE64_STANDARD.encode(&*params).as_str(), "RUR7eINB");
     }
 }

@@ -301,7 +301,7 @@ where
 // Forest keeps a list of known tipsets for each network. Finding a known tipset
 // short-circuits the search for the genesis block. If no genesis block can be
 // found or if the genesis block is unrecognizable, an error is returned.
-fn query_network(ts: &Tipset, db: impl Blockstore) -> anyhow::Result<NetworkChain> {
+fn query_network(ts: &Tipset, db: &impl Blockstore) -> anyhow::Result<NetworkChain> {
     let pb = validation_spinner("Identifying genesis block:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
     );
@@ -432,15 +432,19 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         beacon,
         &MultiEngine::default(),
         tipset,
-        Some(|ctx: &MessageCallbackCtx| {
-            message_calls.push((
-                ctx.message.clone(),
-                ctx.apply_ret.clone(),
-                ctx.at,
-                ctx.duration,
-            ));
-            anyhow::Ok(())
-        }),
+        if json {
+            Some(|ctx: MessageCallbackCtx<'_>| {
+                message_calls.push((
+                    ctx.message.clone(),
+                    ctx.apply_ret.clone(),
+                    ctx.at,
+                    ctx.duration,
+                ));
+                Ok(())
+            })
+        } else {
+            None
+        },
         match json {
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
@@ -490,8 +494,8 @@ mod structured {
     ) -> anyhow::Result<serde_json::Value> {
         let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
 
-        let chain_message_cid = chain_message.cid()?;
-        let unsigned_message_cid = chain_message.message().cid()?;
+        let chain_message_cid = chain_message.cid();
+        let unsigned_message_cid = chain_message.message().cid();
 
         Ok(json!({
             "MsgCid": chain_message_cid.into_lotus_json(),

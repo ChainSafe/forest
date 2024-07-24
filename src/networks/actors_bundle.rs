@@ -71,6 +71,7 @@ macro_rules! actor_bundle_info {
 
 pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
     Box::new(actor_bundle_info![
+        "bafy2bzacedrdn6z3z7xz7lx4wll3tlgktirhllzqxb766dxpaqp3ukxsjfsba" @ "8.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
         "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo" @ "v10.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco" @ "v11.0.0-rc2" for "calibrationnet",
@@ -79,13 +80,15 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca" @ "v12.0.0" for "calibrationnet",
         "bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi" @ "v13.0.0-rc.3" for "calibrationnet",
         "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs" @ "v13.0.0" for "calibrationnet",
-        "bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq" @ "v12.0.0" for "butterflynet",
+        "bafy2bzacebq3hncszqpojglh2dkwekybq4zn6qpc4gceqbx36wndps5qehtau" @ "v14.0.0-rc.1" for "calibrationnet",
         "bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu" @ "v13.0.0" for "butterflynet",
+        "bafy2bzacecmkqezl3a5klkzz7z4ou4jwqk4zzd3nvz727l4qh44ngsxtxdblu" @ "v14.0.0-rc.1" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
         "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
         "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
         "bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o" @ "v12.0.0" for "devnet",
         "bafy2bzacecn7uxgehrqbcs462ktl2h23u23cmduy2etqj6xrd6tkkja56fna4" @ "v13.0.0" for "devnet",
+        "bafy2bzacebwn7ymtozv5yz3x5hnxl4bds2grlgsk5kncyxjak3hqyhslb534m" @ "v14.0.0-rc.1" for "devnet",
         "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
         "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
         "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
@@ -102,6 +105,17 @@ pub struct ActorBundleMetadata {
     #[serde_as(as = "DisplayFromStr")]
     pub bundle_cid: Cid,
     pub manifest: BuiltinActorManifest,
+}
+
+impl ActorBundleMetadata {
+    pub fn actor_major_version(&self) -> anyhow::Result<u64> {
+        self.version
+            .trim_start_matches('v')
+            .split('.')
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("invalid version"))
+            .and_then(|s| s.parse().map_err(|_| anyhow::anyhow!("invalid version")))
+    }
 }
 
 type ActorBundleMetadataMap = HashMap<(NetworkChain, String), ActorBundleMetadata>;
@@ -294,5 +308,45 @@ mod tests {
             .timeout(Duration::from_secs(120))
             .send()
             .await?)
+    }
+
+    #[test]
+    fn test_actor_major_version_correct() {
+        let cases = [
+            ("8.0.0-rc.1", 8),
+            ("v9.0.3", 9),
+            ("v10.0.0-rc.1", 10),
+            ("v12.0.0", 12),
+            ("v13.0.0-rc.3", 13),
+            ("v13.0.0", 13),
+            ("v14.0.0-rc.1", 14),
+        ];
+
+        for (version, expected) in cases.iter() {
+            let metadata = ActorBundleMetadata {
+                network: NetworkChain::Mainnet,
+                version: version.to_string(),
+                bundle_cid: Default::default(),
+                manifest: Default::default(),
+            };
+
+            assert_eq!(metadata.actor_major_version().unwrap(), *expected);
+        }
+    }
+
+    #[test]
+    fn test_actor_major_version_invalid() {
+        let cases = ["cthulhu", "vscode", ".02", "-42"];
+
+        for version in cases.iter() {
+            let metadata = ActorBundleMetadata {
+                network: NetworkChain::Mainnet,
+                version: version.to_string(),
+                bundle_cid: Default::default(),
+                manifest: Default::default(),
+            };
+
+            assert!(metadata.actor_major_version().is_err());
+        }
     }
 }
