@@ -47,6 +47,8 @@ COPY --from=lotus-builder /lotus/lotus /usr/local/bin/
 
 WORKDIR /lotus
 
+ENV LOTUS_SYNC_BOOTSTRAP_PEERS=1
+
 # Basic verification of dynamically linked dependencies
 RUN lotus -v
 
