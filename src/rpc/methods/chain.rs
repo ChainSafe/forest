@@ -700,7 +700,8 @@ pub(crate) fn pending_txn<DB: Blockstore + Send + Sync + 'static>(
         while let Ok(v) = subscriber.recv().await {
             let messages = match v {
                 HeadChange::Apply(_ts) => {
-                    let (pending, _mpts) = data.mpool.pending().unwrap();
+                    let local_msgs = data.mpool.local_msgs.write();
+                    let pending = local_msgs.iter().cloned().collect::<Vec<SignedMessage>>();
                     pending
                 }
             };
