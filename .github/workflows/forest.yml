@@ -415,7 +415,7 @@ jobs:
   bootstrap-checks-forest:
     needs:
       - build-ubuntu
-    name: Bootstrap checks
+    name: Bootstrap checks - Forest
     runs-on: ubuntu-latest
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
@@ -434,7 +434,7 @@ jobs:
   bootstrap-checks-lotus:
     needs:
       - build-ubuntu
-    name: Bootstrap checks
+    name: Bootstrap checks - Lotus
     runs-on: ubuntu-latest
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
