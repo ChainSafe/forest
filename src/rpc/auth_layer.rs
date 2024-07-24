@@ -196,7 +196,7 @@ mod tests {
         let token = create_token(
             ADMIN.iter().map(ToString::to_string).collect(),
             key_info.private_key(),
-            token_exp,
+            Some(token_exp),
         )
         .unwrap();
 

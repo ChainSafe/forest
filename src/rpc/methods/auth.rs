@@ -26,7 +26,7 @@ impl RpcMethod<1> for AuthNew {
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read().await;
         let ki = ks.get(JWT_IDENTIFIER)?;
-        let token = create_token(params.perms, ki.private_key(), params.token_exp)?;
+        let token = create_token(params.perms, ki.private_key(), Some(params.token_exp))?;
         Ok(token.as_bytes().to_vec())
     }
 }

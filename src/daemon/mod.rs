@@ -166,7 +166,7 @@ pub(super) async fn start(
         keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     }
 
-    handle_admin_token(&opts, &config, &keystore)?;
+    handle_admin_token(&opts, &keystore)?;
 
     let keystore = Arc::new(RwLock::new(keystore));
 
@@ -571,13 +571,12 @@ async fn set_snapshot_path_if_needed(
 
 /// Generates, prints and optionally writes to a file the administrator JWT
 /// token.
-fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
+fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<()> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
-    let token_exp = config.client.token_exp;
     let token = create_token(
         ADMIN.iter().map(ToString::to_string).collect(),
         ki.private_key(),
-        token_exp,
+        None,
     )?;
     info!("Admin token: {token}");
     if let Some(path) = opts.save_token.as_ref() {
