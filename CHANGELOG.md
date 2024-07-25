@@ -35,6 +35,16 @@
 
 ### Fixed
 
+## Forest 0.19.2 "Eagle"
+
+Non-mandatory release that includes a fix for the Prometheus-incompatible
+metric.
+
+### Fixed
+
+- [#4594](https://github.com/ChainSafe/forest/pull/4594) Reverted the Forest
+  version metric with Prometheus-incompatible metric type.
+
 ## Forest 0.19.1 "Pathfinder"
 
 Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
