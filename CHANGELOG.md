@@ -37,8 +37,10 @@
 
 ## Forest 0.19.1 "Pathfinder"
 
-Non-mandatory release that adds support for plenty of new RPC methods and fixes
-a networking issue where Forest would not bootstrap a Lotus node.
+Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
+epoch 4154640 (2024-08-06T12:00:00Z). This release also adds support for new RPC
+methods and fixes a networking issue where Forest would not bootstrap a Lotus
+node.
 
 ### Added
 
