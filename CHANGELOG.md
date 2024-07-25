@@ -29,6 +29,21 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.19.1 "Pathfinder"
+
+Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
+epoch 4154640 (2024-08-06T12:00:00Z). This release also adds support for new RPC
+methods and fixes a networking issue where Forest would not bootstrap a Lotus
+node.
+
+### Added
+
 - [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
   `Filecoin.StateGetAllClaims` RPC method.
 
@@ -77,12 +92,6 @@
 
 - [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
   `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
-
-### Changed
-
-### Removed
-
-### Fixed
 
 ## Forest 0.19.0 "Pastel de nata"
 
