@@ -4,12 +4,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
-use crate::blocks::CachingBlockHeader;
-use crate::blocks::Tipset;
+use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{index::ChainIndex, store::ChainStore};
 use crate::interpreter::errors::Error;
+use crate::interpreter::resolve_to_key_addr;
 use crate::networks::ChainConfig;
 use crate::shim::{
+    actors::MinerActorStateLoad as _,
     gas::{price_list_by_network_version, Gas, GasTracker},
     state_tree::StateTree,
     version::NetworkVersion,
@@ -17,6 +18,7 @@ use crate::shim::{
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::bail;
 use cid::Cid;
+use fil_actor_interface::miner;
 use fvm2::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
@@ -28,8 +30,6 @@ use fvm_shared2::{
     consensus::{ConsensusFault, ConsensusFaultType},
 };
 use tracing::error;
-
-use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
@@ -93,7 +93,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
 
         let tbs = TrackingBlockstore::new(&self.chain_index.db);
 
-        let ms = fil_actor_interface::miner::State::load(&tbs, actor.code, actor.state)?;
+        let ms = miner::State::load(&tbs, actor.code, actor.state)?;
 
         let worker = ms.info(&tbs)?.worker;
 

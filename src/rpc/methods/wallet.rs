@@ -29,15 +29,13 @@ impl RpcMethod<1> for WalletBalance {
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let heaviest_ts = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest_ts = ctx.chain_store().heaviest_tipset();
         let cid = heaviest_ts.parent_state();
 
-        Ok(
-            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), cid)?
-                .get_actor(&address)?
-                .map(|it| it.balance.clone().into())
-                .unwrap_or_default(),
-        )
+        Ok(StateTree::new_from_root(ctx.store_owned(), cid)?
+            .get_actor(&address)?
+            .map(|it| it.balance.clone().into())
+            .unwrap_or_default())
     }
 }
 
@@ -201,9 +199,9 @@ impl RpcMethod<2> for WalletSign {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, message): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let state_manager = &ctx.state_manager;
-        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
-        let key_addr = state_manager
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
+        let key_addr = ctx
+            .state_manager
             .resolve_to_key_addr(&address, &heaviest_tipset)
             .await?;
         let keystore = &mut *ctx.keystore.write().await;
@@ -239,7 +237,7 @@ impl RpcMethod<2> for WalletSignMessage {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, message): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.heaviest_tipset();
+        let ts = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
             .resolve_to_deterministic_address(address, ts)

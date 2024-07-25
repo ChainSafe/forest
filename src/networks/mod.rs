@@ -24,6 +24,7 @@ use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, mak
 mod actors_bundle;
 pub use actors_bundle::{
     generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
+    ACTOR_BUNDLES_METADATA,
 };
 
 mod drand;
@@ -96,6 +97,10 @@ impl NetworkChain {
 
     pub fn is_testnet(&self) -> bool {
         !matches!(self, NetworkChain::Mainnet)
+    }
+
+    pub fn is_devnet(&self) -> bool {
+        matches!(self, NetworkChain::Devnet(..))
     }
 }
 
@@ -359,6 +364,10 @@ impl ChainConfig {
 
     pub fn is_testnet(&self) -> bool {
         self.network.is_testnet()
+    }
+
+    pub fn is_devnet(&self) -> bool {
+        self.network.is_devnet()
     }
 
     pub fn genesis_network_version(&self) -> NetworkVersion {

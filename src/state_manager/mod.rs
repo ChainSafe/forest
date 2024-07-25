@@ -27,7 +27,13 @@ use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
-use crate::shim::actors::miner::MinerStateExt as _;
+use crate::shim::{
+    actors::{
+        miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
+        LoadActorStateFromBlockstore,
+    },
+    executor::ApplyRet,
+};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -245,8 +251,8 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
-        Arc::clone(&self.beacon)
+    pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
+        &self.beacon
     }
 
     /// Returns network version for the given epoch.
@@ -273,6 +279,25 @@ where
         state.get_actor(addr)
     }
 
+    /// Gets actor state from implicit actor address
+    pub fn get_actor_state<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<S> {
+        let state_tree = self.get_state_tree(ts.parent_state())?;
+        state_tree.get_actor_state()
+    }
+
+    /// Gets actor state from explicit actor address
+    pub fn get_actor_state_from_address<S: LoadActorStateFromBlockstore>(
+        &self,
+        ts: &Tipset,
+        actor_address: &Address,
+    ) -> anyhow::Result<S> {
+        let state_tree = self.get_state_tree(ts.parent_state())?;
+        state_tree.get_actor_state_from_address(actor_address)
+    }
+
     /// Gets required actor from given [`Cid`].
     pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
         let state = self.get_state_tree(&state_cid)?;
@@ -293,6 +318,15 @@ where
     /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            tipset,
+            self.cs.chain_index.clone(),
+            self.beacon.clone(),
+        )
     }
 
     /// Returns the internal, protocol-level network name.
@@ -317,23 +351,11 @@ where
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(
-        &self,
-        state_cid: Cid,
-        addr: &Address,
-    ) -> anyhow::Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
         let state =
             StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
-
-        let act = state
-            .get_actor(addr)
-            .map_err(Error::state)?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-
-        let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
-
+        let ms: miner::State = state.get_actor_state_from_address(addr)?;
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
-
         let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker().into())?;
         Ok(addr)
     }
@@ -505,7 +527,8 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> Result<InvocResult, Error> {
+        trace_config: VMTrace,
+    ) -> Result<(InvocResult, ApplyRet), Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
@@ -537,7 +560,7 @@ where
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
-                VMTrace::NotTraced,
+                trace_config,
             )?;
 
             for msg in prior_messages {
@@ -552,11 +575,7 @@ where
             vm.apply_message(message)
         })?;
 
-        Ok(InvocResult {
-            msg: message.message().clone(),
-            msg_rct: Some(ret.msg_receipt()),
-            error: ret.failure_info(),
-        })
+        Ok((InvocResult::new(message.message().clone(), &ret), ret))
     }
 
     /// Replays the given message and returns the result of executing the
@@ -712,7 +731,7 @@ where
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipset,
             callback,
@@ -754,8 +773,8 @@ where
                     && s.equal_call(message)
             })
             .map(|(index, m)| {
-                // A replacing message is a message with a different CID, 
-                // any of Gas values, and different signature, but with all 
+                // A replacing message is a message with a different CID,
+                // any of Gas values, and different signature, but with all
                 // other parameters matching (source/destination, nonce, params, etc.)
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
@@ -1167,7 +1186,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: Arc<BeaconSchedule>,
+        beacon_schedule: &BeaconSchedule,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
@@ -1315,7 +1334,7 @@ where
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
             self.chain_config().clone(),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
         )
@@ -1342,6 +1361,11 @@ where
         state.get_claim(self.blockstore(), id_address.into(), claim_id)
     }
 
+    pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_claims(self.blockstore())
+    }
+
     pub fn get_allocation(
         &self,
         addr: &Address,
@@ -1351,6 +1375,14 @@ where
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
         state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+    }
+
+    pub fn get_all_allocations(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_allocations(self.blockstore())
     }
 
     pub fn verified_client_status(
@@ -1406,15 +1438,6 @@ where
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
-    }
-
-    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            tipset,
-            self.cs.chain_index.clone(),
-            self.beacon.clone(),
-        )
     }
 }
 

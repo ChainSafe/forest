@@ -131,3 +131,15 @@ impl MessageTrait for ChainMessage {
         }
     }
 }
+
+impl From<Message> for ChainMessage {
+    fn from(value: Message) -> Self {
+        Self::Unsigned(value)
+    }
+}
+
+impl From<SignedMessage> for ChainMessage {
+    fn from(value: SignedMessage) -> Self {
+        Self::Signed(value)
+    }
+}

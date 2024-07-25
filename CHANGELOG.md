@@ -29,6 +29,27 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.19.1 "Pathfinder"
+
+Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
+epoch 4154640 (2024-08-06T12:00:00Z). This release also adds support for new RPC
+methods and fixes a networking issue where Forest would not bootstrap a Lotus
+node.
+
+### Added
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllClaims` RPC method.
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllAllocations` RPC method.
+
 - [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
   `Filecoin.StateMinerAllocated` RPC method.
 
@@ -48,11 +69,29 @@
 - [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
   `Filecoin.EthMaxPriorityFeePerGas` RPC method.
 
-### Changed
+- [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
+  `Filecoin.StateLookupRobustAddress` RPC method.
 
-### Removed
+- [#4496](https://github.com/ChainSafe/forest/pull/4496) Add support for the
+  `Filecoin.EthEstimateGas` RPC method.
 
-### Fixed
+- [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
+  `Filecoin.StateVerifiedRegistryRootKey` RPC method.
+
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck ready`.
+
+- [#4569](https://github.com/ChainSafe/forest/pull/4569) Add support for the
+  `Filecoin.NetFindPeer` RPC method.
+
+- [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
+
+- [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
+  `Filecoin.MpoolPushUntrusted` RPC method.
+
+- [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
+  `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
 
 ## Forest 0.19.0 "Pastel de nata"
 

@@ -6,6 +6,11 @@ use std::sync::Arc;
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::types::CirculatingSupply;
+use crate::shim::actors::{
+    is_account_actor, is_ethaccount_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
+    is_paymentchannel_actor, is_placeholder_actor, MarketActorStateLoad as _,
+    MinerActorStateLoad as _, MultisigActorStateLoad as _, PowerActorStateLoad as _,
+};
 use crate::shim::version::NetworkVersion;
 use crate::shim::{
     address::Address,
@@ -15,10 +20,6 @@ use crate::shim::{
 };
 use anyhow::{bail, Context as _};
 use cid::Cid;
-use fil_actor_interface::{
-    is_account_actor, is_eth_account_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
-    is_paych_actor, is_placeholder_actor,
-};
 use fil_actor_interface::{market, miner, multisig, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
@@ -158,8 +159,8 @@ impl GenesisInfo {
                         }
                     }
                     _ if is_account_actor(&actor.code)
-                    || is_paych_actor(&actor.code)
-                    || is_eth_account_actor(&actor.code)
+                    || is_paymentchannel_actor(&actor.code)
+                    || is_ethaccount_actor(&actor.code)
                     || is_evm_actor(&actor.code)
                     || is_placeholder_actor(&actor.code) => {
                         circ += actor_balance;
@@ -266,9 +267,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 }
 
 fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
-    let actor = state_tree.get_required_actor(&Address::REWARD_ACTOR)?;
-    let state = reward::State::load(state_tree.store(), actor.code, actor.state)?;
-
+    let state: reward::State = state_tree.get_actor_state()?;
     Ok(state.into_total_storage_power_reward().into())
 }
 

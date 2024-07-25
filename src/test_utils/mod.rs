@@ -3,14 +3,15 @@
 
 use std::str::FromStr;
 
-use crate::blocks::Ticket;
-use crate::blocks::VRFProof;
-use crate::message::SignedMessage;
-use crate::rpc::eth::EVMMethod;
-use crate::shim::{
-    address::Address,
-    crypto::{Signature, SignatureType, SECP_SIG_LEN},
-    message::{Message, Message_v3},
+use crate::{
+    blocks::{Ticket, VRFProof},
+    eth::EVMMethod,
+    message::SignedMessage,
+    shim::{
+        address::Address,
+        crypto::{Signature, SignatureType, SECP_SIG_LEN},
+        message::{Message, Message_v3},
+    },
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
 

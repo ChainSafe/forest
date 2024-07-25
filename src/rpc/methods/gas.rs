@@ -1,9 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
+use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
+use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::rpc::{error::ServerError, types::*, ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType, SECP_SIG_LEN},
@@ -15,6 +20,8 @@ use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
+
+use super::state::InvocResult;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -43,7 +50,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     max_queue_blks: i64,
     _: ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
-    let ts = data.state_manager.chain_store().heaviest_tipset();
+    let ts = data.chain_store().heaviest_tipset();
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
     let increase_factor =
@@ -94,19 +101,15 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data.state_manager.chain_store().heaviest_tipset();
+    let mut ts = data.chain_store().heaviest_tipset();
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
             break;
         }
-        let pts = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(ts.parents())?;
+        let pts = data.chain_index().load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
-        let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
+        let msgs = crate::chain::messages_for_tipset(data.store_owned(), &pts)?;
 
         prices.append(
             &mut msgs
@@ -174,7 +177,83 @@ impl RpcMethod<2> for GasEstimateGasLimit {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_limit(&ctx, msg, &tsk).await
+        Ok(Self::estimate_gas_limit(&ctx, msg, &tsk).await?)
+    }
+}
+
+impl GasEstimateGasLimit {
+    pub async fn estimate_call_with_gas<DB>(
+        data: &Ctx<DB>,
+        mut msg: Message,
+        ApiTipsetKey(tsk): &ApiTipsetKey,
+        trace_config: VMTrace,
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Vec<ChainMessage>, Arc<Tipset>)>
+    where
+        DB: Blockstore + Send + Sync + 'static,
+    {
+        msg.set_gas_limit(BLOCK_GAS_LIMIT);
+        msg.set_gas_fee_cap(TokenAmount::from_atto(0));
+        msg.set_gas_premium(TokenAmount::from_atto(0));
+
+        let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
+        let from_a = data
+            .state_manager
+            .resolve_to_key_addr(&msg.from, &curr_ts)
+            .await?;
+
+        let pending = data.mpool.pending_for(&from_a);
+        let prior_messages: Vec<ChainMessage> = pending
+            .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
+            .unwrap_or_default();
+
+        let ts = data.mpool.cur_tipset.lock().clone();
+        // Pretend that the message is signed. This has an influence on the gas
+        // cost. We obviously can't generate a valid signature. Instead, we just
+        // fill the signature with zeros. The validity is not checked.
+        let mut chain_msg = match from_a.protocol() {
+            Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
+                msg,
+                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            )),
+            Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+                msg,
+                // In Lotus, delegated signatures have the same length as SECP256k1.
+                // This may or may not change in the future.
+                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
+            )),
+            _ => ChainMessage::Unsigned(msg),
+        };
+
+        let (invoc_res, apply_ret) = data
+            .state_manager
+            .call_with_gas(
+                &mut chain_msg,
+                &prior_messages,
+                Some(ts.clone()),
+                trace_config,
+            )
+            .await?;
+        Ok((invoc_res, apply_ret, prior_messages, ts))
+    }
+
+    pub async fn estimate_gas_limit<DB>(
+        data: &Ctx<DB>,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+    ) -> anyhow::Result<i64>
+    where
+        DB: Blockstore + Send + Sync + 'static,
+    {
+        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced).await?;
+        match res.msg_rct {
+            Some(rct) => {
+                if rct.exit_code().value() != 0 {
+                    return Ok(-1);
+                }
+                Ok(rct.gas_used() as i64)
+            }
+            None => Ok(-1),
+        }
     }
 }
 
@@ -197,78 +276,17 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     }
 }
 
-async fn estimate_gas_limit<DB>(
-    data: &Ctx<DB>,
-    msg: Message,
-    ApiTipsetKey(tsk): &ApiTipsetKey,
-) -> Result<i64, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let mut msg = msg;
-    msg.set_gas_limit(BLOCK_GAS_LIMIT);
-    msg.set_gas_fee_cap(TokenAmount::from_atto(0));
-    msg.set_gas_premium(TokenAmount::from_atto(0));
-
-    let curr_ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(tsk)?;
-    let from_a = data
-        .state_manager
-        .resolve_to_key_addr(&msg.from, &curr_ts)
-        .await?;
-
-    let pending = data.mpool.pending_for(&from_a);
-    let prior_messages: Vec<ChainMessage> = pending
-        .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    let ts = data.mpool.cur_tipset.lock().clone();
-    // Pretend that the message is signed. This has an influence on the gas
-    // cost. We obviously can't generate a valid signature. Instead, we just
-    // fill the signature with zeros. The validity is not checked.
-    let mut chain_msg = match from_a.protocol() {
-        Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
-            msg,
-            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-        )),
-        Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
-            msg,
-            // In Lotus, delegated signatures have the same length as SECP256k1.
-            // This may or may not change in the future.
-            Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-        )),
-        _ => ChainMessage::Unsigned(msg),
-    };
-
-    let res = data
-        .state_manager
-        .call_with_gas(&mut chain_msg, &prior_messages, Some(ts))
-        .await?;
-    match res.msg_rct {
-        Some(rct) => {
-            if rct.exit_code().value() != 0 {
-                return Ok(-1);
-            }
-            Ok(rct.gas_used() as i64)
-        }
-        None => Ok(-1),
-    }
-}
-
 pub async fn estimate_message_gas<DB>(
     data: &Ctx<DB>,
-    msg: Message,
+    mut msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
 ) -> Result<Message, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut msg = msg;
     if msg.gas_limit == 0 {
-        let gl = estimate_gas_limit::<DB>(data, msg.clone(), &tsk).await?;
+        let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
         let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }

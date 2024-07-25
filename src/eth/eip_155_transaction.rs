@@ -1,17 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    rpc::eth::types::EthAddress,
-    shim::crypto::{Signature, SignatureType},
-};
+use super::*;
 use anyhow::{ensure, Context};
 use derive_builder::Builder;
 use num::{BigInt, BigUint};
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
-
-use super::{homestead_transaction::HOMESTEAD_SIG_LEN, EthChainId};
 
 pub const EIP_155_SIG_PREFIX: u8 = 0x02;
 
@@ -25,6 +20,7 @@ pub const EIP_155_SIG_PREFIX: u8 = 0x02;
 #[derive(PartialEq, Debug, Clone, Default, Builder)]
 #[builder(setter(into))]
 pub struct EthLegacyEip155TxArgs {
+    pub chain_id: EthChainId,
     pub nonce: u64,
     pub gas_price: BigInt,
     pub gas_limit: u64,
@@ -40,17 +36,13 @@ pub struct EthLegacyEip155TxArgs {
 }
 
 impl EthLegacyEip155TxArgs {
-    pub(crate) fn with_signature(
-        mut self,
-        signature: &Signature,
-        eth_chain_id: EthChainId,
-    ) -> anyhow::Result<Self> {
+    pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
             signature.signature_type() == SignatureType::Delegated,
             "Signature is not delegated type"
         );
 
-        let valid_sig_len = calc_valid_eip155_sig_len(eth_chain_id);
+        let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
         ensure!(
             signature.bytes().len() == valid_sig_len.0 as usize
                 || signature.bytes().len() == valid_sig_len.1 as usize,
@@ -83,13 +75,43 @@ impl EthLegacyEip155TxArgs {
         );
         let v = BigInt::from_bytes_be(Sign::Plus, signature.bytes().get(65..).expect("infallible"));
 
-        validate_eip155_chain_id(eth_chain_id, &v)?;
+        validate_eip155_chain_id(self.chain_id, &v)?;
 
         self.r = r;
         self.s = s;
         self.v = v;
 
         Ok(self)
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new();
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.gas_price)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_address(&self.to))
+            .append(&format_bigint(&self.value)?)
+            .append(&self.input)
+            .append(&format_bigint(&self.v)?)
+            .append(&format_bigint(&self.r)?)
+            .append(&format_bigint(&self.s)?)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+}
+
+impl EthLegacyEip155TxArgsBuilder {
+    pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
+        let (params, to) = get_eth_params_and_recipient(message)?;
+        Ok(self
+            .nonce(message.sequence)
+            .value(message.value.clone())
+            .gas_price(message.gas_fee_cap.clone())
+            .gas_limit(message.gas_limit)
+            .to(to)
+            .input(params))
     }
 }
 
@@ -132,7 +154,7 @@ pub(super) fn calc_eip155_sig_len(eth_chain_id: EthChainId, v: u64) -> u64 {
 
 /// Returns the valid signature lengths for EIP-155 transactions.
 /// The length is based on the chain ID and the V value in the signature.
-pub(super) fn calc_valid_eip155_sig_len(eth_chain_id: EthChainId) -> (u64, u64) {
+pub fn calc_valid_eip155_sig_len(eth_chain_id: EthChainId) -> (u64, u64) {
     let sig_len1 = calc_eip155_sig_len(eth_chain_id, 35);
     let sig_len2 = calc_eip155_sig_len(eth_chain_id, 36);
     (sig_len1, sig_len2)

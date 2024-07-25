@@ -380,6 +380,10 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
+    pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
+        self.settings.clone()
+    }
+
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
     pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
     where
@@ -389,11 +393,12 @@ where
             .iter()
             .enumerate()
             .filter_map(|(i, (smsg, timestamp))| {
-                if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
+                if let Ok((_, tx)) =
+                    eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
                 {
                     if let Ok(hash) = tx.eth_hash() {
                         // newest messages are the ones with lowest index
-                        Some((hash, smsg.cid(), *timestamp, i))
+                        Some((hash.into(), smsg.cid(), *timestamp, i))
                     } else {
                         None
                     }
@@ -560,7 +565,7 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_root(Arc::clone(&db), ts.parent_state())?;
+    let state = StateTree::new_from_tipset(Arc::clone(&db), ts)?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
