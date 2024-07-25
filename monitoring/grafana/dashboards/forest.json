@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "datasource",
-          "uid": "grafana"
-        },
+        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -35,10 +32,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Latest epoch synchronized to the node.",
       "fieldConfig": {
         "defaults": {
@@ -90,10 +84,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "builder",
           "exemplar": true,
           "expr": "head_epoch{}",
@@ -107,10 +98,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Number of Tipset Validated Per min",
       "fieldConfig": {
         "defaults": {
@@ -172,10 +160,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "The difference between the node's network height and the expected network height.",
       "fieldConfig": {
         "defaults": {
@@ -265,10 +250,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Time since the Forest Node process started",
       "fieldConfig": {
         "defaults": {
@@ -321,10 +303,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "(time() - process_start_time_seconds{}) / 60 / 60",
@@ -338,10 +317,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Number of healthy peers recognized by the Forest node.",
       "fieldConfig": {
         "defaults": {
@@ -420,10 +396,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "full_peers{}",
@@ -437,10 +410,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "The Forest Process Resident memory size",
       "fieldConfig": {
         "defaults": {
@@ -519,10 +489,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": true,
@@ -553,10 +520,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Number of bad peers recognized by the node.",
       "fieldConfig": {
         "defaults": {
@@ -635,10 +599,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "bad_peers{}",
@@ -652,10 +613,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Number of Total count of libp2p PubSub message events  recognized by the Forest Node.",
       "fieldConfig": {
         "defaults": {
@@ -707,10 +665,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "libp2p_messsage_total_total{libp2p_message_kind=\"pubsub_message_message\"}",
@@ -724,10 +679,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Total count of peer disconnection events recognized by the Forest Node.",
       "fieldConfig": {
         "defaults": {
@@ -779,10 +731,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "libp2p_messsage_total_total{libp2p_message_kind=\"peer_disconnected\"}",
@@ -796,10 +745,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Number of Failed Peer Requests recognized by the Forest node.",
       "fieldConfig": {
         "defaults": {
@@ -850,10 +796,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "peer_failure_total_total{}",
@@ -867,10 +810,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Total count of peer connection events recognized by the Forest Node.",
       "fieldConfig": {
         "defaults": {
@@ -921,11 +861,7 @@
       },
       "pluginVersion": "11.2.0-72847",
       "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+        {"datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "libp2p_messsage_total_total{libp2p_message_kind=\"peer_connected\"}",
@@ -952,10 +888,7 @@
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Size of Forest Node database",
       "fieldConfig": {
         "defaults": {
@@ -1008,10 +941,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "exemplar": true,
           "expr": "forest_db_size{} /  1073741824 ",
           "interval": "",
@@ -1023,10 +953,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1077,10 +1004,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": true,
@@ -1097,11 +1021,7 @@
       "title": "Open File Descriptors",
       "type": "stat"
     },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+    {"datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1179,10 +1099,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": true,
@@ -1200,10 +1117,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Total user and system CPU time spent.",
       "fieldConfig": {
         "defaults": {
@@ -1270,10 +1184,7 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
-      },
+      "datasource": null,
       "description": "Total count of tipset range synchronization failures encountered by the Forest node",
       "fieldConfig": {
         "defaults": {
@@ -1325,10 +1236,7 @@
       "pluginVersion": "11.2.0-72847",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
-          },
+          "datasource": null,
           "editorMode": "code",
           "exemplar": true,
           "expr": "tipset_range_sync_failure_total_total{}",
