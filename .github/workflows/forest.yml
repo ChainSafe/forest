@@ -412,6 +412,44 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
+  bootstrap-checks-forest:
+    needs:
+      - build-ubuntu
+    name: Bootstrap checks - Forest
+    runs-on: ubuntu-latest
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+      - name: Run bootstrap tests
+        run: ./scripts/tests/bootstrapper/test_bootstrapper.sh forest
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+  bootstrap-checks-lotus:
+    needs:
+      - build-ubuntu
+    name: Bootstrap checks - Lotus
+    runs-on: ubuntu-latest
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+      - name: Run bootstrap tests
+        run: ./scripts/tests/bootstrapper/test_bootstrapper.sh lotus
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
   snapshot-parity-checks:
     needs:
       - build-ubuntu
