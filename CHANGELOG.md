@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
+  metrics for RPC methods.
+
 ### Changed
 
 ### Removed
