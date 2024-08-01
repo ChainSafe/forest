@@ -35,7 +35,8 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use anyhow::{bail, Result};
-use bytes::Buf;
+use cbor4ii::core::dec::Decode as _;
+use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
@@ -812,10 +813,10 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
         DAG_CBOR | CBOR => {
-            let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
-            match result {
-                Ok(buffer) => Ok(EthBytes(buffer)),
-                Err(err) => bail!("decode_payload: failed to decode cbor payload: {err}"),
+            let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
+            match Value::decode(&mut reader) {
+                Ok(Value::Bytes(bytes)) => Ok(EthBytes(bytes)),
+                _ => bail!("failed to read params byte array"),
             }
         }
         IPLD_RAW => Ok(EthBytes(payload.to_vec())),
