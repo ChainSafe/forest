@@ -59,7 +59,7 @@ pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(
     // let metric = Family::default();
     crate::metrics::default_registry().register(
         "rpc_processing_time",
-        "RPC Method duration",
+        "Duration of RPC method call",
         metric.clone(),
     );
     metric
