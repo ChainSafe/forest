@@ -35,6 +35,10 @@
 
 ### Fixed
 
+- [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
+  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  `Filecoin.EthGetBlockByHash` RPC methods.
+
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible

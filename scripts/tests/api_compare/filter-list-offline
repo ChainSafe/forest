@@ -19,7 +19,3 @@
 !Filecoin.StateCirculatingSupply
 # The estimation is inaccurate only for offline RPC server, to be investigated: https://github.com/ChainSafe/forest/issues/4555
 !Filecoin.EthEstimateGas
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4584
-!Filecoin.EthGetBlockByHash
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4585
-!Filecoin.EthGetBlockByNumber
