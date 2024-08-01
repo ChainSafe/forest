@@ -501,6 +501,8 @@ where
     macro_rules! register {
         ($ty:ty) => {
             <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+            // Optionally register an alias for the method.
+            <$ty>::register_alias(&mut module).unwrap();
         };
     }
     for_each_method!(register);
