@@ -8,6 +8,7 @@ use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::MethodResponse;
 use tower::Layer;
 
+// State-less jsonrpcsee layer for measuring RPC metrics
 #[derive(Clone)]
 pub struct MetricsLayer {}
 
