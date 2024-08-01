@@ -5,7 +5,6 @@ use crate::metrics;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
-use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
 use tower::Layer;
 
@@ -33,13 +32,25 @@ where
 
     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
         let service = self.service.clone();
+        let method = metrics::RpcMethodLabel {
+            method: req.method_name().to_owned(),
+        };
 
-        metrics::RPC_METHOD_HIT
-            .get_or_create(&metrics::RpcMethodLabel {
-                method: req.method.to_string(),
-            })
-            .inc();
+        async move {
+            // Cannot use HistogramTimerExt::start_timer here since it would lock the metric.
+            let start_time = std::time::Instant::now();
+            let req = service.call(req).await;
 
-        async move { service.call(req).await }.boxed()
+            metrics::RPC_METHOD_TIME
+                .get_or_create(&method)
+                .observe(start_time.elapsed().as_secs_f64());
+
+            if req.is_error() {
+                metrics::RPC_METHOD_FAILURE.get_or_create(&method).inc();
+            }
+
+            req
+        }
+        .boxed()
     }
 }

@@ -42,17 +42,19 @@ pub static LRU_CACHE_MISS: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
     metric
 });
 
-pub static RPC_METHOD_HIT: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new(|| {
+pub static RPC_METHOD_FAILURE: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new(|| {
     let metric = Family::default();
-    DEFAULT_REGISTRY
-        .write()
-        .register("rpc_method_counter", "RPC method counter", metric.clone());
+    DEFAULT_REGISTRY.write().register(
+        "rpc_method_failure",
+        "Number of failed RPC calls",
+        metric.clone(),
+    );
     metric
 });
 
 pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(|| {
     let metric = Family::<RpcMethodLabel, Histogram>::new_with_constructor(|| {
-        Histogram::new(exponential_buckets(0.005, 2.0, 10))
+        Histogram::new(exponential_buckets(0.01, 2.0, 10))
     });
     // let metric = Family::default();
     crate::metrics::default_registry().register(
