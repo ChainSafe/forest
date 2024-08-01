@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
+  Ethereum RPC name aliases.
+
 ### Changed
 
 ### Removed
