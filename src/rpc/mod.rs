@@ -4,6 +4,7 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod metrics_layer;
 mod request;
 
 pub use client::Client;
@@ -298,6 +299,7 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
+use crate::rpc::metrics_layer::MetricsLayer;
 
 use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
@@ -436,10 +438,12 @@ where
                 // NOTE, the rpc middleware must be initialized here to be able to created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
-                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer {
-                    headers,
-                    keystore: keystore.clone(),
-                });
+                let rpc_middleware = RpcServiceBuilder::new()
+                    .layer(AuthLayer {
+                        headers,
+                        keystore: keystore.clone(),
+                    })
+                    .layer(MetricsLayer {});
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
