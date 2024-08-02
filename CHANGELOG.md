@@ -34,6 +34,9 @@
 
 ### Changed
 
+- [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
+  date for the master token. The new behavior aligns with Lotus.
+
 ### Removed
 
 ### Fixed
