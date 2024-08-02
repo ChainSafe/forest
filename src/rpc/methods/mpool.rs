@@ -129,10 +129,7 @@ impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -146,16 +143,36 @@ impl RpcMethod<1> for MpoolPush {
     }
 }
 
+/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+pub enum MpoolBatchPush {}
+impl RpcMethod<1> for MpoolBatchPush {
+    const NAME: &'static str = "Filecoin.MpoolBatchPush";
+    const PARAM_NAMES: [&'static str; 1] = ["msgs"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Write;
+
+    type Params = (Vec<SignedMessage>,);
+    type Ok = Vec<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msgs,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut cids = vec![];
+        for msg in msgs {
+            cids.push(ctx.mpool.as_ref().push(msg).await?);
+        }
+        Ok(cids)
+    }
+}
+
 /// Add `SignedMessage` from untrusted source to `mpool`, return message CID
 pub enum MpoolPushUntrusted {}
 impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
-    /// Lotus limits this method to [`Permission::Write`].
-    /// However, since messages can always be pushed over the p2p protocol,
-    /// limiting the RPC doesn't improve security.
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -167,8 +184,27 @@ impl RpcMethod<1> for MpoolPushUntrusted {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
         // therefore aren't safety critical.
-        let cid = ctx.mpool.as_ref().push(msg).await?;
-        Ok(cid)
+        MpoolPush::handle(ctx, (msg,)).await
+    }
+}
+
+/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+pub enum MpoolBatchPushUntrusted {}
+impl RpcMethod<1> for MpoolBatchPushUntrusted {
+    const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
+    const PARAM_NAMES: [&'static str; 1] = ["msgs"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Write;
+
+    type Params = (Vec<SignedMessage>,);
+    type Ok = Vec<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msgs,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Alias of MpoolBatchPush.
+        MpoolBatchPush::handle(ctx, (msgs,)).await
     }
 }
 
