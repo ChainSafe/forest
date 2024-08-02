@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
+  Ethereum RPC name aliases.
+
 - [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
   metrics for RPC methods.
 
@@ -37,6 +40,10 @@
 ### Removed
 
 ### Fixed
+
+- [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
+  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  `Filecoin.EthGetBlockByHash` RPC methods.
 
 ## Forest 0.19.2 "Eagle"
 
