@@ -134,7 +134,7 @@ pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Require user confirmation. Returns `false`` when not connected to a terminal.
+/// Require user confirmation. Returns `false` when not connected to a terminal.
 pub fn prompt_confirm() -> bool {
     let term = dialoguer::console::Term::stderr();
 
