@@ -35,6 +35,10 @@
 - [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
   metrics for RPC methods.
 
+- [#4599](https://github.com/ChainSafe/forest/issues/4599) Block delay and block
+  propagation delays are now configurable via
+  [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
