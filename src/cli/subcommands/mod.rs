@@ -134,11 +134,16 @@ pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Require user confirmation. Returns `false`` when not connected to a terminal.
 pub fn prompt_confirm() -> bool {
-    print!("Do you want to continue? [y/n] ");
-    std::io::stdout().flush().unwrap();
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line).unwrap();
-    let line = line.trim().to_lowercase();
-    line == "y" || line == "yes"
+    let term = dialoguer::console::Term::stderr();
+
+    if !term.is_term() {
+        return false;
+    }
+
+    dialoguer::Confirm::new()
+        .with_prompt("Do you want to continue?")
+        .interact_on(&term)
+        .unwrap_or(false)
 }
