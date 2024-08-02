@@ -7,10 +7,9 @@ use std::{
     str::FromStr,
 };
 
-use chrono::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::serde_as;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
@@ -65,14 +64,6 @@ pub struct Client {
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
     pub healthcheck_address: SocketAddr,
-    /// Period of validity for JWT in seconds. Defaults to 60 days.
-    #[serde_as(as = "DurationSeconds<i64>")]
-    #[cfg_attr(test, arbitrary(gen(
-        // Note: this a workaround for `chrono` not supporting `i64::MIN` as a valid duration.
-        // [[https://github.com/chronotope/chrono/blob/dc196062650c05528cbe259e340210f0340a05d1/src/time_delta.rs#L223-L232]]
-        |g| Duration::try_milliseconds(i64::arbitrary(g).max(-i64::MAX)).expect("Infallible")
-    )))]
-    pub token_exp: Duration,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
     pub load_actors: bool,
     /// `TTL` to set for Ethereum `Hash` to `Cid` entries or `None` to never reclaim them.
@@ -103,7 +94,6 @@ impl Default for Client {
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
                 crate::health::DEFAULT_HEALTHCHECK_PORT,
             ),
-            token_exp: Duration::try_seconds(5184000).expect("Infallible"), // 60 Days = 5184000 Seconds
             load_actors: true,
             eth_mapping_ttl: None,
         }
