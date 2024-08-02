@@ -32,6 +32,9 @@
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
   Ethereum RPC name aliases.
 
+- [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
+  metrics for RPC methods.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
