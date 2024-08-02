@@ -1,0 +1,141 @@
+# Docker compose file to run Forest bootstrap tests.
+
+services:
+  init: 
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - bootstrap-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euxo pipefail
+        # fetch parameter files
+        forest-tool fetch-params --keys
+        # if there are some files in the data directory, then we don't need to fetch the snapshot
+        if [ "$$(ls -A /data/*.car.zst)" ]; then
+          echo "Snapshot already fetched"
+        else
+          forest-tool snapshot fetch --chain ${CHAIN} -d /data
+        fi
+  forest-bootstrapper:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - bootstrap-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euxo pipefail
+        # Import the P2P keypair
+        mkdir -p /root/.local/share/forest/libp2p
+        echo ${FOREST_PEER_KEYPAIR} | base64 --decode  > /root/.local/share/forest/libp2p/keypair
+
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --p2p-listen-address /ip4/0.0.0.0/tcp/$FOREST_P2P_PORT \
+          --stateless 
+  forest-peer:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - bootstrap-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euxo pipefail
+        base64 --decode <<< ${FOREST_PEER_KEYPAIR} > keypair
+        PEER_ID=$(forest-tool shed peer-id-from-key-pair keypair)
+
+        # Make sure to use the Forest bootstrapper as the only bootstrap peer
+        cat > config.toml <<EOF
+        [network]
+        bootstrap_peers = ["/dns/forest-bootstrapper/tcp/$FOREST_P2P_PORT/p2p/$${PEER_ID}"]
+        EOF
+
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --config config.toml \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --consume-snapshot $(ls /data/*.car.zst | tail -n 1)
+    healthcheck:
+      test: [ "CMD", "forest-cli", "sync", "wait" ]
+      interval: 15s
+      timeout: 10m
+      retries: 3
+      start_period: 10m
+  forest-peers-wait:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      forest-peer:
+        condition: service_healthy
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - bootstrap-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - FULLNODE_API_INFO=/dns/forest-peer/tcp/${FOREST_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euxo pipefail
+        forest-cli sync wait
+
+        # at this point, forest node is synced and it should have multiple peers. Assert the latter.
+        if [ $$(forest-cli net peers | wc -l) -lt 2 ]; then
+          echo "Forest node should have at least 2 peers"
+          exit 1
+        fi
+        echo "Forest properly bootstrapped"
+  post-setup:
+    depends_on:
+      forest-peers-wait:
+        condition: service_completed_successfully
+    image: busybox
+    networks:
+      - bootstrap-tests
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        echo "Success"
+
+volumes:
+  filecoin-proofs:
+  node-data:
+
+networks:
+  bootstrap-tests:

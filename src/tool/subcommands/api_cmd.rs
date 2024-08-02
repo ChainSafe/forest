@@ -1207,31 +1207,55 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
 }
 
 fn eth_tests() -> Vec<RpcTest> {
-    vec![
-        RpcTest::identity(EthAccounts::request(()).unwrap()),
-        RpcTest::basic(EthBlockNumber::request(()).unwrap()),
-        RpcTest::identity(EthChainId::request(()).unwrap()),
+    let mut tests = vec![];
+    for use_alias in [false, true] {
+        tests.push(RpcTest::identity(
+            EthAccounts::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthBlockNumber::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthChainId::request_with_alias((), use_alias).unwrap(),
+        ));
         // There is randomness in the result of this API
-        RpcTest::basic(EthGasPrice::request(()).unwrap()),
-        RpcTest::basic(EthSyncing::request(()).unwrap()),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
+        tests.push(RpcTest::basic(
+            EthGasPrice::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthSyncing::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthGetBalance::request_with_alias(
+                (
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
             .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
+        ));
+        tests.push(RpcTest::identity(
+            EthGetBalance::request_with_alias(
+                (
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                    BlockNumberOrHash::from_predefined(Predefined::Pending),
+                ),
+                use_alias,
+            )
             .unwrap(),
-        ),
-        RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
-        RpcTest::basic(EthMaxPriorityFeePerGas::request(()).unwrap()),
-        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
-    ]
+        ));
+        tests.push(RpcTest::basic(
+            Web3ClientVersion::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthMaxPriorityFeePerGas::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
+        ));
+    }
+    tests
 }
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
