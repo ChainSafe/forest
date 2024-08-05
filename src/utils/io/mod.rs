@@ -3,7 +3,6 @@
 
 mod mmap;
 pub mod progress_log;
-mod tempfile;
 mod writer_checksum;
 
 use std::{
