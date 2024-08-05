@@ -6,13 +6,14 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::message::SignedMessage;
 use crate::rpc::eth::EthAddress;
 use crate::shim::clock::ChainEpoch;
+use ahash::AHashMap as HashMap;
 use cid::Cid;
 use keccak_hash::H256;
+use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::*;
 use std::any::Any;
-use std::collections::HashMap;
-use std::sync::{mpsc::Sender, Arc, Mutex};
+use std::sync::{mpsc::Sender, Arc};
 use std::time::SystemTime;
 use thiserror::Error;
 use uuid::Uuid;
@@ -103,7 +104,7 @@ impl MemFilterStore {
 
 impl FilterStore for MemFilterStore {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<(), &'static str> {
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
 
         if filters.len() >= self.max {
             return Err("maximum number of filters registered");
@@ -118,12 +119,12 @@ impl FilterStore for MemFilterStore {
     }
 
     fn get(&self, id: FilterID) -> Result<Arc<dyn Filter>, &'static str> {
-        let filters = self.filters.lock().unwrap();
+        let filters = self.filters.lock();
         filters.get(&id).cloned().ok_or("filter not found")
     }
 
     fn remove(&self, id: FilterID) -> Result<(), &'static str> {
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
 
         if filters.remove(&id).is_none() {
             return Err("filter not found");
@@ -133,7 +134,7 @@ impl FilterStore for MemFilterStore {
     }
 
     fn not_taken_since(&self, when: SystemTime) -> Vec<Arc<dyn Filter>> {
-        let filters = self.filters.lock().unwrap();
+        let filters = self.filters.lock();
 
         filters
             .values()
@@ -197,7 +198,7 @@ impl EthEventHandler {
                     .as_ref()
                     .unwrap()
                     .remove(f.id())
-                    .unwrap_or_else(|_| ());
+                    .unwrap_or(());
                 EthError::RemovalError(e.to_string())
             })?;
 
@@ -329,7 +330,7 @@ impl EventFilterManager {
             sub_channel: Mutex::new(None),
         });
 
-        self.filters.lock().unwrap().insert(id, filter.clone());
+        self.filters.lock().insert(id, filter.clone());
 
         Ok(filter)
     }
@@ -337,7 +338,6 @@ impl EventFilterManager {
     pub fn remove(&self, id: FilterID) -> Result<(), String> {
         self.filters
             .lock()
-            .unwrap()
             .remove(&id)
             .ok_or_else(|| "filter not found".to_string())?;
         Ok(())
@@ -365,17 +365,17 @@ impl Filter for EventFilter {
     }
 
     fn last_taken(&self) -> SystemTime {
-        *self.last_taken.lock().unwrap()
+        *self.last_taken.lock()
     }
 
     fn set_sub_channel(&self, sub_channel: Sender<Box<dyn Any + Send>>) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = Some(sub_channel);
-        self.collected.lock().unwrap().clear();
+        self.collected.lock().clear();
     }
 
     fn clear_sub_channel(&self) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = None;
     }
 
@@ -502,8 +502,11 @@ fn parse_block_range(
     Ok((min_height, max_height))
 }
 
-fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, std::num::ParseIntError> {
-    i64::from_str_radix(&hex_str[2..], 16)
+fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, String> {
+    let hex_substring = hex_str
+        .get(2..)
+        .ok_or_else(|| "invalid hex string: unable to parse epoch".to_string())?;
+    i64::from_str_radix(hex_substring, 16).map_err(|e| e.to_string())
 }
 
 fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, String> {
@@ -514,9 +517,7 @@ fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>
         }
         let key = format!("t{}", idx + 1);
         for v in &vals.0 {
-            keys.entry(key.clone())
-                .or_insert_with(Vec::new)
-                .push(v.0 .0.to_vec());
+            keys.entry(key.clone()).or_default().push(v.0 .0.to_vec());
         }
     }
     Ok(keys)
@@ -539,7 +540,7 @@ fn keys_to_keys_with_codec(
         for vv in v {
             keys_with_codec
                 .entry(k.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(ActorEventBlock {
                     codec: MULTICODEC_RAW,
                     value: vv,
@@ -581,8 +582,8 @@ impl TipSetFilter {
     }
     #[allow(dead_code)]
     pub fn collect_tipset(&self, tipset_key: &TipsetKey) {
-        let mut collected = self.collected.lock().unwrap();
-        let sub_channel = self.sub_channel.lock().unwrap();
+        let mut collected = self.collected.lock();
+        let sub_channel = self.sub_channel.lock();
 
         if let Some(ref ch) = *sub_channel {
             ch.send(Box::new(tipset_key.clone())).ok();
@@ -597,8 +598,8 @@ impl TipSetFilter {
     }
     #[allow(dead_code)]
     pub fn take_collected_tipsets(&self) -> Vec<TipsetKey> {
-        let mut collected = self.collected.lock().unwrap();
-        let mut last_taken = self.last_taken.lock().unwrap();
+        let mut collected = self.collected.lock();
+        let mut last_taken = self.last_taken.lock();
 
         let result = collected.clone();
         collected.clear();
@@ -614,17 +615,17 @@ impl Filter for TipSetFilter {
     }
 
     fn last_taken(&self) -> SystemTime {
-        *self.last_taken.lock().unwrap()
+        *self.last_taken.lock()
     }
 
     fn set_sub_channel(&self, sub_channel: Sender<Box<dyn Any + Send>>) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = Some(sub_channel);
-        self.collected.lock().unwrap().clear();
+        self.collected.lock().clear();
     }
 
     fn clear_sub_channel(&self) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = None;
     }
 
@@ -648,7 +649,7 @@ impl TipSetFilterManager {
     }
     #[allow(dead_code)]
     pub fn apply(&self, tipset_key: &TipsetKey) {
-        let filters = self.filters.lock().unwrap();
+        let filters = self.filters.lock();
         for filter in filters.values() {
             filter.collect_tipset(tipset_key);
         }
@@ -658,14 +659,14 @@ impl TipSetFilterManager {
         let filter = TipSetFilter::new(self.max_filter_results).map_err(|e| e.to_string())?;
         let id = filter.id();
 
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
         filters.insert(id, filter.clone());
 
         Ok(filter)
     }
 
     pub fn remove(&self, id: FilterID) -> Result<(), String> {
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
         filters
             .remove(&id)
             .ok_or_else(|| "filter not found".to_string())?;
@@ -696,8 +697,8 @@ impl MemPoolFilter {
     }
     #[allow(dead_code)]
     pub fn collect_message(&self, message: SignedMessage) {
-        let mut collected = self.collected.lock().unwrap();
-        let sub_channel = self.sub_channel.lock().unwrap();
+        let mut collected = self.collected.lock();
+        let sub_channel = self.sub_channel.lock();
 
         if let Some(ref ch) = *sub_channel {
             ch.send(Box::new(message.clone())).ok();
@@ -712,8 +713,8 @@ impl MemPoolFilter {
     }
     #[allow(dead_code)]
     pub fn take_collected_messages(&self) -> Vec<SignedMessage> {
-        let mut collected = self.collected.lock().unwrap();
-        let mut last_taken = self.last_taken.lock().unwrap();
+        let mut collected = self.collected.lock();
+        let mut last_taken = self.last_taken.lock();
 
         let result = collected.clone();
         collected.clear();
@@ -729,17 +730,17 @@ impl Filter for MemPoolFilter {
     }
 
     fn last_taken(&self) -> SystemTime {
-        *self.last_taken.lock().unwrap()
+        *self.last_taken.lock()
     }
 
     fn set_sub_channel(&self, sub_channel: Sender<Box<dyn Any + Send>>) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = Some(sub_channel);
-        self.collected.lock().unwrap().clear();
+        self.collected.lock().clear();
     }
 
     fn clear_sub_channel(&self) {
-        let mut sc = self.sub_channel.lock().unwrap();
+        let mut sc = self.sub_channel.lock();
         *sc = None;
     }
 
@@ -763,7 +764,7 @@ impl MemPoolFilterManager {
     }
     #[allow(dead_code)]
     pub fn process_update(&self, message: SignedMessage) {
-        let filters = self.filters.lock().unwrap();
+        let filters = self.filters.lock();
         for filter in filters.values() {
             filter.collect_message(message.clone());
         }
@@ -773,14 +774,14 @@ impl MemPoolFilterManager {
         let filter = MemPoolFilter::new(self.max_filter_results).map_err(|e| e.to_string())?;
         let id = filter.id();
 
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
         filters.insert(id, filter.clone());
 
         Ok(filter)
     }
 
     pub fn remove(&self, id: FilterID) -> Result<(), String> {
-        let mut filters = self.filters.lock().unwrap();
+        let mut filters = self.filters.lock();
         filters
             .remove(&id)
             .ok_or_else(|| "filter not found".to_string())?;
