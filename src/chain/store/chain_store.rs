@@ -80,7 +80,7 @@ pub struct ChainStore<DB> {
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
 
     /// Needed by the Ethereum mapping.
-    chain_config: Arc<ChainConfig>,
+    pub chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>

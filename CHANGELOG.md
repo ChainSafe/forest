@@ -39,6 +39,9 @@
   propagation delays are now configurable via
   [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
 
+- [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
+  finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
