@@ -35,22 +35,22 @@ impl FilterID {
 pub struct EthHash(#[schemars(with = "String")] H256);
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
-struct EthHashList(Vec<EthHash>);
+pub struct EthHashList(Vec<EthHash>);
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
-struct EthTopicSpec(Vec<EthHashList>);
+pub struct EthTopicSpec(pub Vec<EthHashList>);
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthFilterSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
-    from_block: Option<String>,
+    pub from_block: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    to_block: Option<String>,
-    address: Vec<EthAddress>,
-    topics: EthTopicSpec,
+    pub to_block: Option<String>,
+    pub address: Vec<EthAddress>,
+    pub topics: EthTopicSpec,
     #[serde(skip_serializing_if = "Option::is_none")]
-    block_hash: Option<EthHash>,
+    pub block_hash: Option<EthHash>,
 }
 
 lotus_json_with_self!(EthFilterSpec);
@@ -70,7 +70,9 @@ pub enum EthError {
 pub trait Filter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> FilterID;
     fn last_taken(&self) -> SystemTime;
+    #[allow(dead_code)]
     fn set_sub_channel(&self, sub_channel: Sender<Box<dyn Any + Send>>);
+    #[allow(dead_code)]
     fn clear_sub_channel(&self);
 
     fn as_any(&self) -> &dyn Any;
@@ -80,6 +82,7 @@ pub trait FilterStore: Send + Sync {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<(), &'static str>;
     fn get(&self, id: FilterID) -> Result<Arc<dyn Filter>, &'static str>;
     fn remove(&self, id: FilterID) -> Result<(), &'static str>;
+    #[allow(dead_code)]
     fn not_taken_since(&self, when: SystemTime) -> Vec<Arc<dyn Filter>>;
 }
 
@@ -341,6 +344,7 @@ impl EventFilterManager {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct EventFilter {
     id: FilterID,
@@ -381,6 +385,7 @@ impl Filter for EventFilter {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CollectedEvent {
     entries: Vec<u8>,
     emitter_addr: String,
@@ -518,7 +523,7 @@ fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ActorEventBlock {
+pub(crate) struct ActorEventBlock {
     codec: u64,
     value: Vec<u8>,
 }
@@ -556,6 +561,7 @@ struct ParsedFilter {
 #[derive(Debug)]
 pub struct TipSetFilter {
     id: FilterID,
+    #[allow(dead_code)]
     max_results: usize,
     sub_channel: Mutex<Option<Sender<Box<dyn Any + Send>>>>,
     collected: Mutex<Vec<TipsetKey>>,
@@ -573,7 +579,7 @@ impl TipSetFilter {
             last_taken: Mutex::new(SystemTime::now()),
         }))
     }
-
+    #[allow(dead_code)]
     pub fn collect_tipset(&self, tipset_key: &TipsetKey) {
         let mut collected = self.collected.lock().unwrap();
         let sub_channel = self.sub_channel.lock().unwrap();
@@ -589,7 +595,7 @@ impl TipSetFilter {
 
         collected.push(tipset_key.clone());
     }
-
+    #[allow(dead_code)]
     pub fn take_collected_tipsets(&self) -> Vec<TipsetKey> {
         let mut collected = self.collected.lock().unwrap();
         let mut last_taken = self.last_taken.lock().unwrap();
@@ -640,7 +646,7 @@ impl TipSetFilterManager {
             filters: Mutex::new(HashMap::new()),
         })
     }
-
+    #[allow(dead_code)]
     pub fn apply(&self, tipset_key: &TipsetKey) {
         let filters = self.filters.lock().unwrap();
         for filter in filters.values() {
@@ -670,6 +676,7 @@ impl TipSetFilterManager {
 #[derive(Debug)]
 pub struct MemPoolFilter {
     id: FilterID,
+    #[allow(dead_code)]
     max_results: usize,
     sub_channel: Mutex<Option<Sender<Box<dyn Any + Send>>>>,
     collected: Mutex<Vec<SignedMessage>>,
@@ -687,7 +694,7 @@ impl MemPoolFilter {
             last_taken: Mutex::new(SystemTime::now()),
         }))
     }
-
+    #[allow(dead_code)]
     pub fn collect_message(&self, message: SignedMessage) {
         let mut collected = self.collected.lock().unwrap();
         let sub_channel = self.sub_channel.lock().unwrap();
@@ -703,7 +710,7 @@ impl MemPoolFilter {
 
         collected.push(message);
     }
-
+    #[allow(dead_code)]
     pub fn take_collected_messages(&self) -> Vec<SignedMessage> {
         let mut collected = self.collected.lock().unwrap();
         let mut last_taken = self.last_taken.lock().unwrap();
@@ -754,7 +761,7 @@ impl MemPoolFilterManager {
             filters: Mutex::new(HashMap::new()),
         })
     }
-
+    #[allow(dead_code)]
     pub fn process_update(&self, message: SignedMessage) {
         let filters = self.filters.lock().unwrap();
         for filter in filters.values() {

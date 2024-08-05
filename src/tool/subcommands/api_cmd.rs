@@ -15,6 +15,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::eth::filters::{EthFilterSpec, EthTopicSpec};
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
@@ -1250,6 +1251,28 @@ fn eth_tests() -> Vec<RpcTest> {
         ));
         tests.push(RpcTest::basic(
             EthMaxPriorityFeePerGas::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewFilter::request_with_alias(
+                (EthFilterSpec {
+                    from_block: None,
+                    to_block: None,
+                    address: vec![EthAddress::from_str(
+                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
+                    )
+                    .unwrap()],
+                    topics: EthTopicSpec(vec![]),
+                    block_hash: None,
+                },),
+                use_alias,
+            )
+            .unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewBlockFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),

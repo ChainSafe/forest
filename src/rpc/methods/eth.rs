@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod eth_tx;
-mod filters;
+pub mod filters;
 pub mod types;
 
 use self::eth_tx::*;
@@ -1729,6 +1729,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
 pub enum EthNewFilter {}
 impl RpcMethod<1> for EthNewFilter {
     const NAME: &'static str = "Filecoin.EthNewFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filter_spec"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1756,6 +1757,7 @@ impl RpcMethod<1> for EthNewFilter {
 pub enum EthNewBlockFilter {}
 impl RpcMethod<0> for EthNewBlockFilter {
     const NAME: &'static str = "Filecoin.EthNewBlockFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newBlockFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1783,6 +1785,7 @@ impl RpcMethod<0> for EthNewBlockFilter {
 pub enum EthNewPendingTransactionFilter {}
 impl RpcMethod<0> for EthNewPendingTransactionFilter {
     const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1810,6 +1813,7 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
 pub enum EthUninstallFilter {}
 impl RpcMethod<1> for EthUninstallFilter {
     const NAME: &'static str = "Filecoin.EthUninstallFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_uninstallFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
