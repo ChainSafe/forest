@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 pub use fvm_shared3::sector::StoragePower;
 pub use fvm_shared3::sector::{
     RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
@@ -149,6 +150,35 @@ impl From<SectorInfo> for SectorInfoV2 {
             proof: RegisteredSealProof(value.0.proof).into(),
             sealed_cid: value.sealed_cid,
             sector_number: value.sector_number,
+        }
+    }
+}
+
+/// Information about a sector necessary for PoSt verification
+#[derive(
+    Eq, PartialEq, Debug, Clone, derive_more::From, derive_more::Into, Serialize, Deserialize,
+)]
+pub struct ExtendedSectorInfo {
+    pub proof: RegisteredSealProof,
+    pub sector_number: SectorNumber,
+    pub sector_key: Option<Cid>,
+    pub sealed_cid: Cid,
+}
+
+impl From<&ExtendedSectorInfo> for SectorInfo {
+    fn from(value: &ExtendedSectorInfo) -> SectorInfo {
+        SectorInfo::new(value.proof.into(), value.sector_number, value.sealed_cid)
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for ExtendedSectorInfo {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Self {
+            proof: RegisteredSealProof::arbitrary(g),
+            sector_number: u64::arbitrary(g),
+            sector_key: Option::<cid::Cid>::arbitrary(g),
+            sealed_cid: cid::Cid::arbitrary(g),
         }
     }
 }
