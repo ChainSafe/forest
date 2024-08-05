@@ -402,15 +402,19 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@v10
-        with:
-          root-reserve-mb: 25600
-          swap-size-mb: 4096
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
+      # Remove some unnecessary software to free up space.
+      # This is required because of the limited space on the runner,
+      # and disk space-hungry snapshots used in the setup.
+      -   name: Remove unnecessary software
+          shell: bash
+          run: |
+              df -h
+              sudo rm -rf /usr/share/dotnet
+              sudo rm -rf /usr/local/lib/android
+              sudo rm -rf /opt/ghc
+              sudo rm -rf /opt/hostedtoolcache/CodeQL
+              df -h
+
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
