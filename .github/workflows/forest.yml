@@ -412,6 +412,12 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
+      - name: Dump Docker usage
+        if: always()
+        run: |
+          docker system df
+          docker system df --verbose
+          df -h
   bootstrap-checks-forest:
     needs:
       - build-ubuntu
