@@ -451,7 +451,7 @@ pub(super) async fn start(
         }
     }
 
-    if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
+    if let Some(validate_from) = config.client.snapshot_height {
         // We've been provided a snapshot and asked to validate it
         ensure_params_downloaded().await?;
         // Use the specified HEAD, otherwise take the current HEAD.
@@ -535,7 +535,6 @@ async fn set_snapshot_path_if_needed(
         (true, false, true) => {
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
             config.client.snapshot_path = Some(url.to_string().into());
-            config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
@@ -562,7 +561,6 @@ async fn set_snapshot_path_if_needed(
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
             config.client.snapshot_path = Some(url.to_string().into());
-            config.client.snapshot = true;
         }
     };
 
