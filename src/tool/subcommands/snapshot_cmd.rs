@@ -44,7 +44,7 @@ pub enum SnapshotCommands {
         vendor: snapshot::TrustedVendor,
     },
 
-    /// Validates the snapshot.
+    /// Validate the provided snapshots as a whole.
     ValidateDiffs {
         /// Number of recent epochs to scan for broken links
         #[arg(long, default_value_t = 2000)]
@@ -61,7 +61,7 @@ pub enum SnapshotCommands {
         snapshot_files: Vec<PathBuf>,
     },
 
-    /// Validates these snapshots separately.
+    /// Validate the snapshots individually.
     Validate {
         /// Number of recent epochs to scan for broken links
         #[arg(long, default_value_t = 2000)]
