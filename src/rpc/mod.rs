@@ -86,6 +86,10 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!(crate::rpc::eth::EthNewFilter);
+        $callback!(crate::rpc::eth::EthNewBlockFilter);
+        $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
+        $callback!(crate::rpc::eth::EthUninstallFilter);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
