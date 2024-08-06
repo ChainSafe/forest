@@ -1313,6 +1313,20 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Safe),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Finalized),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
