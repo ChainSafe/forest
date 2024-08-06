@@ -183,11 +183,11 @@ impl SnapshotCommands {
                         Ok::<(), anyhow::Error>(())
                     }
                     .await;
-                    if result.is_err() {
+                    if let Err(e) = result {
+                        has_fail = true;
+                        eprintln!("Error: {:?}", e);
                         if fail_fast {
-                            bail!("validate failed");
-                        } else {
-                            has_fail = true;
+                            break;
                         }
                     }
                 }
