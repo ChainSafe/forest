@@ -45,6 +45,23 @@ pub enum SnapshotCommands {
     },
 
     /// Validates the snapshot.
+    ValidateDiffs {
+        /// Number of recent epochs to scan for broken links
+        #[arg(long, default_value_t = 2000)]
+        check_links: u32,
+        /// Assert the snapshot belongs to this network. If left blank, the
+        /// network will be inferred before executing messages.
+        #[arg(long)]
+        check_network: Option<crate::networks::NetworkChain>,
+        /// Number of recent epochs to scan for bad messages/transactions
+        #[arg(long, default_value_t = 60)]
+        check_stateroots: u32,
+        /// Path to a snapshot CAR, which may be zstd compressed
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+    },
+
+    /// Validates the snapshot.
     Validate {
         /// Number of recent epochs to scan for broken links
         #[arg(long, default_value_t = 2000)]
@@ -124,7 +141,7 @@ impl SnapshotCommands {
                 }
                 Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
             },
-            Self::Validate {
+            Self::ValidateDiffs {
                 check_links,
                 check_network,
                 check_stateroots,
@@ -139,6 +156,26 @@ impl SnapshotCommands {
                     check_stateroots,
                 )
                 .await
+            }
+            Self::Validate {
+                check_links,
+                check_network,
+                check_stateroots,
+                snapshot_files,
+            } => {
+                for file in snapshot_files {
+                    println!("Validating {}", file.display());
+                    let store = AnyCar::try_from(file.as_path())?;
+                    validate_with_blockstore(
+                        store.heaviest_tipset()?,
+                        Arc::new(store),
+                        check_links,
+                        check_network.clone(),
+                        check_stateroots,
+                    )
+                    .await?
+                }
+                Ok(())
             }
             Self::Compress {
                 source,
