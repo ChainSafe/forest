@@ -71,6 +71,7 @@ pub enum EthError {
 
 pub trait Filter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> FilterID;
+    #[allow(dead_code)]
     fn last_taken(&self) -> SystemTime;
     #[allow(dead_code)]
     fn set_sub_channel(&self, sub_channel: Sender<Box<dyn Any + Send>>);
