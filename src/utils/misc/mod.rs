@@ -7,6 +7,7 @@ mod adaptive_value_provider;
 pub use adaptive_value_provider::*;
 mod logo;
 pub use logo::*;
+pub mod env;
 
 #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
 #[strum(serialize_all = "kebab-case")]

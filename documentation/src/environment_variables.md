@@ -16,6 +16,8 @@ process.
 | IPFS_GATEWAY                                            | URL                              | https://proofs.filecoin.io/ipfs/ | The IPFS gateway to use for downloading proofs parameters                        |
 | FOREST_RPC_DEFAULT_TIMEOUT                              | Duration (in seconds)            | 60                               | The default timeout for RPC calls                                                |
 | FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER | positive integer                 | 10                               | the maximum concurrent streams per peer for request-response-based p2p protocols |
+| FOREST_BLOCK_DELAY_SECS                                 | positive integer                 | Depends on the network           | Duration of each tipset epoch                                                    |
+| FOREST_PROPAGATION_DELAY_SECS                           | positive integer                 | Depends on the network           | How long to wait for a block to propagate through the network                    |
 
 ### FOREST_DB_DEV_MODE
 

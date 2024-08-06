@@ -19,6 +19,7 @@ use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
+use crate::utils::misc::env::env_or_default;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
 mod actors_bundle;
@@ -38,6 +39,9 @@ pub mod metrics;
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
+
+const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
+const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -228,8 +232,11 @@ impl ChainConfig {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
-            propagation_delay_secs: 10,
+            block_delay_secs: env_or_default(
+                ENV_FOREST_BLOCK_DELAY_SECS,
+                EPOCH_DURATION_SECONDS as u32,
+            ),
+            propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 10),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_mainnet_policy!(v13),
@@ -244,8 +251,11 @@ impl ChainConfig {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
-            propagation_delay_secs: 10,
+            block_delay_secs: env_or_default(
+                ENV_FOREST_BLOCK_DELAY_SECS,
+                EPOCH_DURATION_SECONDS as u32,
+            ),
+            propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 10),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_calibnet_policy!(v13),
@@ -260,8 +270,8 @@ impl ChainConfig {
             network: NetworkChain::Devnet("devnet".to_string()),
             genesis_cid: None,
             bootstrap_peers: Vec::new(),
-            block_delay_secs: 4,
-            propagation_delay_secs: 1,
+            block_delay_secs: env_or_default(ENV_FOREST_BLOCK_DELAY_SECS, 4),
+            propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 1),
             genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_devnet_policy!(v13),
@@ -277,8 +287,11 @@ impl ChainConfig {
             network: NetworkChain::Butterflynet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
-            propagation_delay_secs: 6,
+            block_delay_secs: env_or_default(
+                ENV_FOREST_BLOCK_DELAY_SECS,
+                EPOCH_DURATION_SECONDS as u32,
+            ),
+            propagation_delay_secs: env_or_default(ENV_FOREST_PROPAGATION_DELAY_SECS, 6),
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v13),

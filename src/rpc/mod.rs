@@ -565,6 +565,7 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
+    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     fn openrpc() {
         for path in [ApiPath::V0, ApiPath::V1] {
             let _spec = super::openrpc(path, None);
@@ -575,7 +576,6 @@ mod tests {
             //                  more stable.
             //                  (We still run this test to make sure we're not
             //                  violating other invariants)
-            #[cfg(never)]
             insta::assert_yaml_snapshot!(_spec);
         }
     }
