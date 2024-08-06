@@ -47,7 +47,8 @@ services:
         set -euxo pipefail
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --import-snapshot $(ls /data/*.car.zst | tail -n 1) &
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
+          --import-mode=link &
         sleep 15
         forest-cli sync wait
         forest-cli snapshot export -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
