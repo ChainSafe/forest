@@ -61,7 +61,7 @@ pub enum SnapshotCommands {
         snapshot_files: Vec<PathBuf>,
     },
 
-    /// Validates the snapshot.
+    /// Validates these snapshots separately.
     Validate {
         /// Number of recent epochs to scan for broken links
         #[arg(long, default_value_t = 2000)]
@@ -76,6 +76,9 @@ pub enum SnapshotCommands {
         /// Path to a snapshot CAR, which may be zstd compressed
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+        /// Fail at the first invalid snapshot
+        #[arg(long)]
+        fail_fast: bool,
     },
 
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
@@ -162,19 +165,35 @@ impl SnapshotCommands {
                 check_network,
                 check_stateroots,
                 snapshot_files,
+                fail_fast,
             } => {
+                let mut has_fail = false;
                 for file in snapshot_files {
                     println!("Validating {}", file.display());
-                    let store = AnyCar::try_from(file.as_path())?;
-                    validate_with_blockstore(
-                        store.heaviest_tipset()?,
-                        Arc::new(store),
-                        check_links,
-                        check_network.clone(),
-                        check_stateroots,
-                    )
-                    .await?
+                    let result = async {
+                        let store = AnyCar::try_from(file.as_path())?;
+                        validate_with_blockstore(
+                            store.heaviest_tipset()?,
+                            Arc::new(store),
+                            check_links,
+                            check_network.clone(),
+                            check_stateroots,
+                        )
+                        .await?;
+                        Ok::<(), anyhow::Error>(())
+                    }
+                    .await;
+                    if result.is_err() {
+                        if fail_fast {
+                            bail!("validate failed");
+                        } else {
+                            has_fail = true;
+                        }
+                    }
                 }
+                if has_fail {
+                    bail!("validate failed");
+                };
                 Ok(())
             }
             Self::Compress {
