@@ -5,7 +5,7 @@ use crate::shim::{
     actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
     address::{Address, Payload},
     randomness::Randomness,
-    sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
+    sector::{ExtendedSectorInfo, RegisteredPoStProof, RegisteredSealProof},
     state_tree::ActorState,
     version::NetworkVersion,
 };
@@ -33,7 +33,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<SectorInfo>, anyhow::Error> {
+    ) -> Result<Vec<ExtendedSectorInfo>, anyhow::Error> {
         let store = self.blockstore();
 
         let actor = self
@@ -102,7 +102,12 @@ where
 
         let out = sectors
             .into_iter()
-            .map(|s_info| SectorInfo::new(*spt, s_info.sector_number, s_info.sealed_cid))
+            .map(|s_info| ExtendedSectorInfo {
+                proof: s_info.seal_proof.into(),
+                sector_number: s_info.sector_number,
+                sector_key: s_info.sector_key_cid,
+                sealed_cid: s_info.sealed_cid,
+            })
             .collect();
 
         Ok(out)
