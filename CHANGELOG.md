@@ -46,6 +46,10 @@
 
 ### Removed
 
+- [#4624](https://github.com/ChainSafe/forest/pull/4624) Remove the
+  `--chain-import` flag. Its functionality can be accessed through the more
+  flexible `--height` flag.
+
 ### Fixed
 
 - [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect

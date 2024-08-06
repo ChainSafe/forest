@@ -41,9 +41,6 @@ pub struct Client {
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
     pub enable_health_check: bool,
-    /// If this is true, then we do not validate the imported snapshot.
-    /// Otherwise, we validate and compute the states.
-    pub snapshot: bool,
     /// If this is true, delete the snapshot at `snapshot_path` if it's a local file.
     pub consume_snapshot: bool,
     pub snapshot_height: Option<i64>,
@@ -80,7 +77,6 @@ impl Default for Client {
             enable_metrics_endpoint: true,
             enable_health_check: true,
             snapshot_path: None,
-            snapshot: false,
             consume_snapshot: false,
             snapshot_height: None,
             snapshot_head: None,
