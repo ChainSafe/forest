@@ -9,6 +9,7 @@ mod request;
 
 pub use client::Client;
 pub use error::ServerError;
+use eth::filters::EthEventHandler;
 use futures::FutureExt as _;
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
@@ -342,6 +343,7 @@ pub struct RPCState<DB> {
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
     pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
+    pub event_handler: Arc<EthEventHandler>,
     pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,

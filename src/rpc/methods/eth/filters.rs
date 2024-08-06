@@ -6,6 +6,7 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::message::SignedMessage;
 use crate::rpc::eth::EthAddress;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use cid::Cid;
 use keccak_hash::H256;
@@ -146,33 +147,43 @@ impl FilterStore for MemFilterStore {
 
 pub struct EthEventHandler {
     filter_store: Option<Arc<dyn FilterStore>>,
+    max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
     mempool_filter_manager: Option<Arc<MemPoolFilterManager>>,
 }
 
 impl EthEventHandler {
-    pub fn new(
-        filter_store: Option<Arc<dyn FilterStore>>,
-        event_filter_manager: Option<Arc<EventFilterManager>>,
-        tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
-        mempool_filter_manager: Option<Arc<MemPoolFilterManager>>,
-    ) -> Self {
+    pub fn new() -> Self {
+        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
+        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
+        let max_filter_height_range: i64 = env_or_default("MAX_FILTER_HEIGHT_RANGE", 2880);
+        let filter_store: Option<Arc<dyn FilterStore>> =
+            Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
+        let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
+        let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MemPoolFilterManager::new(max_filter_results));
+
         Self {
             filter_store,
+            max_filter_height_range,
             event_filter_manager,
             tipset_filter_manager,
             mempool_filter_manager,
         }
     }
 
-    pub fn eth_new_filter(&self, filter_spec: &EthFilterSpec) -> Result<FilterID, EthError> {
+    pub fn eth_new_filter(
+        &self,
+        filter_spec: &EthFilterSpec,
+        chain_height: i64,
+    ) -> Result<FilterID, EthError> {
         if self.filter_store.is_none() || self.event_filter_manager.is_none() {
             return Err(EthError::NotSupported);
         }
 
         let pf = filter_spec
-            .parse_eth_filter_spec(0, 0)
+            .parse_eth_filter_spec(chain_height, self.max_filter_height_range)
             .map_err(EthError::ParsingError)?;
 
         let f = self
@@ -194,7 +205,7 @@ impl EthEventHandler {
             .unwrap()
             .add(f.clone())
             .map_err(|e| {
-                self.event_filter_manager
+                self.tipset_filter_manager
                     .as_ref()
                     .unwrap()
                     .remove(&f.id())
@@ -400,8 +411,8 @@ struct CollectedEvent {
 impl EthFilterSpec {
     fn parse_eth_filter_spec(
         &self,
-        chain_height: u64,
-        max_filter_height_range: u64,
+        chain_height: i64,
+        max_filter_height_range: i64,
     ) -> Result<ParsedFilter, String> {
         let mut min_height = 0;
         let mut max_height = 0;
@@ -415,10 +426,10 @@ impl EthFilterSpec {
             tipset_cid = Some(Cid::try_from(block_hash.0.as_bytes()).map_err(|e| e.to_string())?);
         } else {
             let (min, max) = parse_block_range(
-                chain_height as i64,
+                chain_height,
                 self.from_block.as_deref(),
                 self.to_block.as_deref(),
-                max_filter_height_range as i64,
+                max_filter_height_range,
             )?;
             min_height = min;
             max_height = max;

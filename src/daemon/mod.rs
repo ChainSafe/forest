@@ -28,6 +28,7 @@ use crate::key_management::{
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig, NetworkChain};
+use crate::rpc::eth::filters::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -399,6 +400,7 @@ pub(super) async fn start(
                     mpool,
                     bad_blocks,
                     sync_state,
+                    event_handler: Arc::new(EthEventHandler::new()),
                     network_send,
                     network_name,
                     start_time,

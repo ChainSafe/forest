@@ -36,7 +36,6 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use crate::utils::misc::env::env_or_default;
 use anyhow::{bail, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
@@ -1738,18 +1737,13 @@ impl RpcMethod<1> for EthNewFilter {
     type Ok = FilterID;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_spec,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
-        let filter_store = MemFilterStore::new(max_filters);
-        let event_filter_manager = EventFilterManager::new(max_filter_results);
-        let eth_event_handler =
-            EthEventHandler::new(Some(filter_store), Some(event_filter_manager), None, None);
-
+        let eth_event_handler = ctx.event_handler.clone();
+        let chain_height = ctx.chain_store().heaviest_tipset().epoch();
         Ok(eth_event_handler
-            .eth_new_filter(&filter_spec)
+            .eth_new_filter(&filter_spec, chain_height)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?)
     }
 }
@@ -1766,15 +1760,10 @@ impl RpcMethod<0> for EthNewBlockFilter {
     type Ok = FilterID;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
-        let filter_store = MemFilterStore::new(max_filters);
-        let tipset_filter_manager = TipSetFilterManager::new(max_filter_results);
-        let eth_event_handler =
-            EthEventHandler::new(Some(filter_store), None, Some(tipset_filter_manager), None);
+        let eth_event_handler = ctx.event_handler.clone();
 
         Ok(eth_event_handler
             .eth_new_block_filter()
@@ -1794,15 +1783,10 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     type Ok = FilterID;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
-        let filter_store = MemFilterStore::new(max_filters);
-        let mempool_filter_manager = MemPoolFilterManager::new(max_filter_results);
-        let eth_event_handler =
-            EthEventHandler::new(Some(filter_store), None, None, Some(mempool_filter_manager));
+        let eth_event_handler = ctx.event_handler.clone();
 
         Ok(eth_event_handler
             .eth_new_pending_transaction_filter()
@@ -1822,22 +1806,10 @@ impl RpcMethod<1> for EthUninstallFilter {
     type Ok = bool;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (filter_id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
-        let filter_store = MemFilterStore::new(max_filters);
-        let event_filter_manager = EventFilterManager::new(max_filter_results);
-        let tipset_filter_manager = TipSetFilterManager::new(max_filter_results);
-        let mempool_filter_manager = MemPoolFilterManager::new(max_filter_results);
-
-        let eth_event_handler = EthEventHandler::new(
-            Some(filter_store.clone()),
-            Some(event_filter_manager),
-            Some(tipset_filter_manager),
-            Some(mempool_filter_manager),
-        );
+        let eth_event_handler = ctx.event_handler.clone();
 
         Ok(eth_event_handler
             .eth_uninstall_filter(filter_id)

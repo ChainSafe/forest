@@ -45,6 +45,7 @@ use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use filters::EthEventHandler;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
@@ -1697,6 +1698,7 @@ async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        event_handler: Arc::new(EthEventHandler::new()),
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
