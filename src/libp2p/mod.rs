@@ -26,4 +26,5 @@ pub use self::{config::*, peer_manager::*, service::*};
 #[cfg(test)]
 mod tests {
     mod decode_test;
+    mod kad_go_compat;
 }
