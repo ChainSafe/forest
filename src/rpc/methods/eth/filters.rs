@@ -18,8 +18,8 @@ use std::time::SystemTime;
 use thiserror::Error;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct FilterID([u8; 16]);
+#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
+pub struct FilterID(EthHash);
 
 lotus_json_with_self!(FilterID);
 
@@ -28,11 +28,11 @@ impl FilterID {
         let raw_id = Uuid::new_v4();
         let mut id = [0u8; 16];
         id.copy_from_slice(raw_id.as_bytes());
-        Ok(FilterID(id))
+        Ok(FilterID(EthHash(H256::from_slice(&id))))
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 pub struct EthHash(#[schemars(with = "String")] H256);
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -81,8 +81,8 @@ pub trait Filter: Send + Sync + std::fmt::Debug {
 
 pub trait FilterStore: Send + Sync {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<(), &'static str>;
-    fn get(&self, id: FilterID) -> Result<Arc<dyn Filter>, &'static str>;
-    fn remove(&self, id: FilterID) -> Result<(), &'static str>;
+    fn get(&self, id: &FilterID) -> Result<Arc<dyn Filter>, &'static str>;
+    fn remove(&self, id: &FilterID) -> Result<(), &'static str>;
     #[allow(dead_code)]
     fn not_taken_since(&self, when: SystemTime) -> Vec<Arc<dyn Filter>>;
 }
@@ -118,15 +118,15 @@ impl FilterStore for MemFilterStore {
         Ok(())
     }
 
-    fn get(&self, id: FilterID) -> Result<Arc<dyn Filter>, &'static str> {
+    fn get(&self, id: &FilterID) -> Result<Arc<dyn Filter>, &'static str> {
         let filters = self.filters.lock();
-        filters.get(&id).cloned().ok_or("filter not found")
+        filters.get(id).cloned().ok_or("filter not found")
     }
 
-    fn remove(&self, id: FilterID) -> Result<(), &'static str> {
+    fn remove(&self, id: &FilterID) -> Result<(), &'static str> {
         let mut filters = self.filters.lock();
 
-        if filters.remove(&id).is_none() {
+        if filters.remove(id).is_none() {
             return Err("filter not found");
         }
 
@@ -197,7 +197,7 @@ impl EthEventHandler {
                 self.event_filter_manager
                     .as_ref()
                     .unwrap()
-                    .remove(f.id())
+                    .remove(&f.id())
                     .unwrap_or(());
                 EthError::RemovalError(e.to_string())
             })?;
@@ -216,7 +216,7 @@ impl EthEventHandler {
             .map_err(|e| EthError::InstallationError(e.to_string()))?;
 
         if let Err(err) = self.filter_store.as_ref().unwrap().add(filter.clone()) {
-            let removal_error = manager.remove(filter.id());
+            let removal_error = manager.remove(&filter.id());
             if let Err(err2) = removal_error {
                 return Err(EthError::RemovalError(format!(
                     "encountered error {:?} while removing new filter due to {:?}",
@@ -240,7 +240,7 @@ impl EthEventHandler {
             .map_err(|e| EthError::InstallationError(e.to_string()))?;
 
         if let Err(err) = self.filter_store.as_ref().unwrap().add(filter.clone()) {
-            let removal_error = manager.remove(filter.id());
+            let removal_error = manager.remove(&filter.id());
             if let Err(err2) = removal_error {
                 return Err(EthError::RemovalError(format!(
                     "encountered error {:?} while removing new filter due to {:?}",
@@ -259,7 +259,7 @@ impl EthEventHandler {
         }
 
         let store = self.filter_store.as_ref().unwrap();
-        let filter = store.get(id);
+        let filter = store.get(&id);
 
         match filter {
             Ok(f) => {
@@ -274,11 +274,11 @@ impl EthEventHandler {
         let id = filter.id();
 
         let result = if filter.as_any().is::<EventFilter>() {
-            self.event_filter_manager.as_ref().unwrap().remove(id)
+            self.event_filter_manager.as_ref().unwrap().remove(&id)
         } else if filter.as_any().is::<TipSetFilter>() {
-            self.tipset_filter_manager.as_ref().unwrap().remove(id)
+            self.tipset_filter_manager.as_ref().unwrap().remove(&id)
         } else if filter.as_any().is::<MemPoolFilter>() {
-            self.mempool_filter_manager.as_ref().unwrap().remove(id)
+            self.mempool_filter_manager.as_ref().unwrap().remove(&id)
         } else {
             Err("unknown filter type".to_string())
         };
@@ -288,7 +288,7 @@ impl EthEventHandler {
         self.filter_store
             .as_ref()
             .unwrap()
-            .remove(id)
+            .remove(&id)
             .map_err(|e| EthError::RemovalError(e.to_string()))
     }
 }
@@ -318,7 +318,7 @@ impl EventFilterManager {
         let id = FilterID::new().map_err(|e| e.to_string())?;
 
         let filter = Arc::new(EventFilter {
-            id,
+            id: id.clone(),
             min_height,
             max_height,
             tipset_cid,
@@ -335,10 +335,10 @@ impl EventFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: FilterID) -> Result<(), String> {
+    pub fn remove(&self, id: &FilterID) -> Result<(), String> {
         self.filters
             .lock()
-            .remove(&id)
+            .remove(id)
             .ok_or_else(|| "filter not found".to_string())?;
         Ok(())
     }
@@ -361,7 +361,7 @@ struct EventFilter {
 
 impl Filter for EventFilter {
     fn id(&self) -> FilterID {
-        self.id
+        self.id.clone()
     }
 
     fn last_taken(&self) -> SystemTime {
@@ -611,7 +611,7 @@ impl TipSetFilter {
 
 impl Filter for TipSetFilter {
     fn id(&self) -> FilterID {
-        self.id
+        self.id.clone()
     }
 
     fn last_taken(&self) -> SystemTime {
@@ -657,7 +657,7 @@ impl TipSetFilterManager {
 
     pub fn install(&self) -> Result<Arc<TipSetFilter>, String> {
         let filter = TipSetFilter::new(self.max_filter_results).map_err(|e| e.to_string())?;
-        let id = filter.id();
+        let id = filter.id.clone();
 
         let mut filters = self.filters.lock();
         filters.insert(id, filter.clone());
@@ -665,10 +665,10 @@ impl TipSetFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: FilterID) -> Result<(), String> {
+    pub fn remove(&self, id: &FilterID) -> Result<(), String> {
         let mut filters = self.filters.lock();
         filters
-            .remove(&id)
+            .remove(id)
             .ok_or_else(|| "filter not found".to_string())?;
         Ok(())
     }
@@ -726,7 +726,7 @@ impl MemPoolFilter {
 
 impl Filter for MemPoolFilter {
     fn id(&self) -> FilterID {
-        self.id
+        self.id.clone()
     }
 
     fn last_taken(&self) -> SystemTime {
@@ -772,7 +772,7 @@ impl MemPoolFilterManager {
 
     pub fn install(&self) -> Result<Arc<MemPoolFilter>, String> {
         let filter = MemPoolFilter::new(self.max_filter_results).map_err(|e| e.to_string())?;
-        let id = filter.id();
+        let id = filter.id.clone();
 
         let mut filters = self.filters.lock();
         filters.insert(id, filter.clone());
@@ -780,10 +780,10 @@ impl MemPoolFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: FilterID) -> Result<(), String> {
+    pub fn remove(&self, id: &FilterID) -> Result<(), String> {
         let mut filters = self.filters.lock();
         filters
-            .remove(&id)
+            .remove(id)
             .ok_or_else(|| "filter not found".to_string())?;
         Ok(())
     }
