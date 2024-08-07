@@ -83,7 +83,8 @@ services:
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --config config.toml \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --consume-snapshot $(ls /data/*.car.zst | tail -n 1)
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
+          --import-mode=move
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s
