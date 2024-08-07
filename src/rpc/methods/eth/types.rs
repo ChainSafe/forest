@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use ethereum_types::H256;
+use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -296,6 +298,44 @@ impl TryFrom<EthCallMessage> for Message {
         })
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+pub struct EthHash(#[schemars(with = "String")] pub H256);
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
+pub struct FilterID(EthHash);
+
+lotus_json_with_self!(FilterID);
+
+impl FilterID {
+    pub fn new() -> Result<Self, uuid::Error> {
+        let raw_id = Uuid::new_v4();
+        let mut id = [0u8; 16];
+        id.copy_from_slice(raw_id.as_bytes());
+        Ok(FilterID(EthHash(H256::from_slice(&id))))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct EthHashList(pub Vec<EthHash>);
+
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct EthTopicSpec(pub Vec<EthHashList>);
+
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthFilterSpec {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_block: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_block: Option<String>,
+    pub address: Vec<EthAddress>,
+    pub topics: EthTopicSpec,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_hash: Option<EthHash>,
+}
+
+lotus_json_with_self!(EthFilterSpec);
 
 #[cfg(test)]
 mod tests {

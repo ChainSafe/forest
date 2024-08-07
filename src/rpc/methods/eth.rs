@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod eth_tx;
-pub mod filters;
+pub mod filter;
 pub mod types;
 
 use self::eth_tx::*;
-use self::filters::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::Tipset;

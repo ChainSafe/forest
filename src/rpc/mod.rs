@@ -9,7 +9,7 @@ mod request;
 
 pub use client::Client;
 pub use error::ServerError;
-use eth::filters::EthEventHandler;
+use eth::filter::EthEventHandler;
 use futures::FutureExt as _;
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
