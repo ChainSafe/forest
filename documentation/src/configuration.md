@@ -21,7 +21,7 @@ use of the following flags:
 | --kademlia           | Boolean      | Determines whether Kademilia is allowed                                                             |
 | --mdns               | Boolean      | Determines whether MDNS is allowed                                                                  |
 | --import-snapshot    | OS File Path | Path to snapshot CAR file                                                                           |
-| --import-mode        | String       | Snapshot import mode: Copy, Move, Link                                                              |
+| --import-mode        | String       | Snapshot import mode: Copy, Move, Symlink                                                           |
 | --skip-load          | Boolean      | Skips loading CAR File and uses header to index chain                                               |
 | --req-window         | Integer      | Sets the number of tipsets requested over chain exchange                                            |
 | --tipset-sample-size | Integer      | Number of tipsets to include in the sample which determines the network head during synchronization |

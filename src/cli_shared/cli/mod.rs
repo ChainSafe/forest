@@ -84,7 +84,7 @@ pub struct CliOpts {
     /// Import a snapshot from a local CAR file or URL
     #[arg(long)]
     pub import_snapshot: Option<String>,
-    /// Snapshot import mode. Available modes are `copy`, `move` and `link`.
+    /// Snapshot import mode. Available modes are `copy`, `move` and `symlink`.
     #[arg(long, default_value = "copy")]
     pub import_mode: ImportMode,
     /// Halt with exit code 0 after successfully importing a snapshot

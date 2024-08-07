@@ -45,7 +45,7 @@
 
 - [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
   snapshots instead of moving or copying them. This can be invoked with
-  `--import-snapshot <path> --import-mode=link`.
+  `--import-snapshot <path> --import-mode=symlink`.
 
 ### Changed
 

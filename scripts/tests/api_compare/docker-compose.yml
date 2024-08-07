@@ -55,7 +55,7 @@ services:
           --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
-          --import-mode=link
+          --import-mode=symlink
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s

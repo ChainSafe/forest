@@ -80,7 +80,7 @@ pub enum ImportMode {
     /// Moves the snapshot to the database directory (or copies and deletes the original).
     Move,
     /// Creates a symbolic link to the snapshot in the database directory.
-    Link,
+    Symlink,
 }
 
 /// This function validates and stores the CAR binary from `from_path`(either local path or URL) into the `{DB_ROOT}/car_db/`
@@ -122,7 +122,7 @@ pub async fn import_chain_as_forest_car(
                 forest_car_db_temp_path.persist(&forest_car_db_path)?;
             }
         }
-        ImportMode::Link => {
+        ImportMode::Symlink => {
             let from_path = std::path::absolute(from_path)?;
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(&from_path)?) {
                 std::os::unix::fs::symlink(from_path, &forest_car_db_path)
@@ -174,8 +174,8 @@ fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow:
             }
         }
         ImportMode::Copy => fs::copy(from, to).map(|_| ()).context("Error copying file"),
-        ImportMode::Link => {
-            bail!("Linking must be handled elsewhere");
+        ImportMode::Symlink => {
+            bail!("Symlinking must be handled elsewhere");
         }
     }
 }
@@ -255,7 +255,7 @@ mod test {
         }
 
         // Linking is not supported for raw CAR files.
-        import_snapshot_from_file("test-snapshots/chain4.car", ImportMode::Link)
+        import_snapshot_from_file("test-snapshots/chain4.car", ImportMode::Symlink)
             .await
             .unwrap_err();
     }
@@ -269,14 +269,14 @@ mod test {
         }
 
         // Linking is supported only for `forest.car.zst` files.
-        import_snapshot_from_file("test-snapshots/chain4.car.zst", ImportMode::Link)
+        import_snapshot_from_file("test-snapshots/chain4.car.zst", ImportMode::Symlink)
             .await
             .unwrap_err();
     }
 
     #[tokio::test]
     async fn import_snapshot_from_forest_car_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Link] {
+        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
             import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", *import_mode)
                 .await
                 .unwrap();
@@ -285,7 +285,7 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_invalid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Link] {
+        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
             import_snapshot_from_file("Cargo.toml", *import_mode)
                 .await
                 .unwrap_err();
@@ -294,7 +294,7 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Link] {
+        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
             import_snapshot_from_file("dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -303,7 +303,7 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Link] {
+        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
             import_snapshot_from_file("https://forest.chainsafe.io/dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -323,7 +323,7 @@ mod test {
         let (path, ts) =
             import_chain_as_forest_car(file_path, temp_db_dir.path(), import_mode).await?;
         match import_mode {
-            ImportMode::Link => {
+            ImportMode::Symlink => {
                 assert_eq!(
                     std::path::absolute(path.read_link()?)?,
                     std::path::absolute(file_path)?
