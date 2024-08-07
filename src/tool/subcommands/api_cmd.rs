@@ -44,6 +44,7 @@ use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use filter::EthEventHandler;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
@@ -1251,6 +1252,28 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::basic(
             EthMaxPriorityFeePerGas::request_with_alias((), use_alias).unwrap(),
         ));
+        tests.push(RpcTest::basic(
+            EthNewFilter::request_with_alias(
+                (EthFilterSpec {
+                    from_block: None,
+                    to_block: None,
+                    address: vec![EthAddress::from_str(
+                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
+                    )
+                    .unwrap()],
+                    topics: EthTopicSpec(vec![]),
+                    block_hash: None,
+                },),
+                use_alias,
+            )
+            .unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewBlockFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
+        ));
         tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
         ));
@@ -1674,6 +1697,7 @@ async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        event_handler: Arc::new(EthEventHandler::new()),
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
