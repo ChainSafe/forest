@@ -196,7 +196,6 @@ decl_and_test!(
     block_header for crate::blocks::CachingBlockHeader,
     cid for ::cid::Cid,
     election_proof for crate::blocks::ElectionProof,
-    extended_sector_info for crate::shim::sector::ExtendedSectorInfo,
     gossip_block for crate::blocks::GossipBlock,
     key_info for crate::key_management::KeyInfo,
     message for crate::shim::message::Message,
