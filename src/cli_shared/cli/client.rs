@@ -11,6 +11,8 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
+use crate::daemon::db_util::ImportMode;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -41,11 +43,10 @@ pub struct Client {
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
     pub enable_health_check: bool,
-    /// If this is true, delete the snapshot at `snapshot_path` if it's a local file.
-    pub consume_snapshot: bool,
     pub snapshot_height: Option<i64>,
     pub snapshot_head: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
+    pub import_mode: ImportMode,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
@@ -77,7 +78,7 @@ impl Default for Client {
             enable_metrics_endpoint: true,
             enable_health_check: true,
             snapshot_path: None,
-            consume_snapshot: false,
+            import_mode: ImportMode::default(),
             snapshot_height: None,
             snapshot_head: None,
             skip_load: false,

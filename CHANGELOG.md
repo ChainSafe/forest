@@ -27,6 +27,10 @@
 
 ### Breaking
 
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Removed the
+  `--consume-snapshot` parameter from the `forest` binary. To consume a
+  snapshot, use `--import-snapshot <path> --import-mode=move`.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
@@ -41,6 +45,10 @@
 
 - [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
   finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
+  snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=symlink`.
 
 ### Changed
 
