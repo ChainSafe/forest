@@ -38,9 +38,13 @@ pub type SectorNumber = fvm_shared4::sector::SectorNumber;
 /// // Create a correspndoning FVM3 RegisteredSealProof
 /// let fvm3_proof = fvm_shared3::sector::RegisteredSealProof::StackedDRG2KiBV1;
 ///
+/// // Create a correspndoning FVM4 RegisteredSealProof
+/// let fvm4_proof = fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1;
+///
 /// // Create a shim out of fvm2 proof, ensure conversions are correct
 /// let proof_shim = RegisteredSealProof::from(fvm2_proof);
-/// assert_eq!(fvm3_proof, *proof_shim);
+/// assert_eq!(fvm4_proof, *proof_shim);
+/// assert_eq!(fvm3_proof, proof_shim.into());
 /// assert_eq!(fvm2_proof, proof_shim.into());
 /// ```
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Eq, PartialEq, Debug)]
@@ -99,40 +103,36 @@ impl Deref for RegisteredSealProof {
     }
 }
 
-impl From<RegisteredSealProofV2> for RegisteredSealProof {
-    fn from(value: RegisteredSealProofV2) -> RegisteredSealProof {
-        let num_id: i64 = value.into();
-        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
+impl From<i64> for RegisteredSealProof {
+    fn from(value: i64) -> Self {
+        RegisteredSealProof(RegisteredSealProofV4::from(value))
     }
 }
 
-impl From<RegisteredSealProof> for RegisteredSealProofV2 {
-    fn from(value: RegisteredSealProof) -> RegisteredSealProofV2 {
-        let num_id: i64 = value.0.into();
-        RegisteredSealProofV2::from(num_id)
-    }
+macro_rules! registered_seal_proof_conversion {
+    ($($internal:ty),+) => {
+        $(
+            impl From<$internal> for RegisteredSealProof {
+                fn from(value: $internal) -> Self {
+                    let num_id: i64 = value.into();
+                    RegisteredSealProof::from(num_id)
+                }
+            }
+            impl From<RegisteredSealProof> for $internal {
+                fn from(value: RegisteredSealProof) -> $internal {
+                    let num_id: i64 = value.0.into();
+                    <$internal>::from(num_id)
+                }
+            }
+        )+
+    };
 }
 
-impl From<RegisteredSealProofV3> for RegisteredSealProof {
-    fn from(value: RegisteredSealProofV3) -> RegisteredSealProof {
-        let num_id: i64 = value.into();
-        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
-    }
-}
-
-impl From<RegisteredSealProofV4> for RegisteredSealProof {
-    fn from(value: RegisteredSealProofV4) -> RegisteredSealProof {
-        let num_id: i64 = value.into();
-        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
-    }
-}
-
-impl From<RegisteredSealProof> for RegisteredSealProofV4 {
-    fn from(value: RegisteredSealProof) -> RegisteredSealProofV4 {
-        let num_id: i64 = value.0.into();
-        RegisteredSealProofV4::from(num_id)
-    }
-}
+registered_seal_proof_conversion!(
+    RegisteredSealProofV2,
+    RegisteredSealProofV3,
+    RegisteredSealProofV4
+);
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for RegisteredSealProof {
