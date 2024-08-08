@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::shim::sector::RegisteredSealProof;
-use fvm_shared3::sector::RegisteredSealProof as RegisteredSealProofV3;
+use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
 
 impl HasLotusJson for RegisteredSealProof {
     type LotusJson = i64;
@@ -12,15 +12,15 @@ impl HasLotusJson for RegisteredSealProof {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!(0),
-            Self::from(RegisteredSealProofV3::StackedDRG2KiBV1),
+            Self::from(RegisteredSealProofV4::StackedDRG2KiBV1),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        i64::from(RegisteredSealProofV3::from(self))
+        i64::from(RegisteredSealProofV4::from(self))
     }
 
     fn from_lotus_json(i: Self::LotusJson) -> Self {
-        Self::from(RegisteredSealProofV3::from(i))
+        Self::from(RegisteredSealProofV4::from(i))
     }
 }

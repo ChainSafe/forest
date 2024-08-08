@@ -77,9 +77,7 @@ where
         let info = mas.info(store)?;
         let spt = RegisteredSealProof::from_sector_size(info.sector_size().into(), nv);
 
-        let wpt = spt
-            .registered_winning_post_proof()
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let wpt = spt.registered_winning_post_proof()?;
 
         let m_id = miner_address.id()?;
 

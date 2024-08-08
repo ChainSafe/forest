@@ -1,20 +1,22 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use fvm_shared3::sector::StoragePower;
-pub use fvm_shared3::sector::{
-    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
-};
-pub use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
-
 use crate::shim::version::NetworkVersion;
+use anyhow::bail;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::sector::{
-    RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
-    SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
+    PoStProof as PoStProofV2, RegisteredPoStProof as RegisteredPoStProofV2,
+    RegisteredSealProof as RegisteredSealProofV2, SectorInfo as SectorInfoV2,
+    SectorSize as SectorSizeV2,
 };
-use fvm_shared3::sector::{
-    PoStProof as PoStProofV3, SectorInfo as SectorInfoV3, SectorSize as SectorSizeV3,
+pub use fvm_shared3::sector::{
+    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
+    SectorSize as SectorSizeV3, StoragePower,
+};
+pub use fvm_shared4::sector::{
+    PoStProof as PoStProofV4, RegisteredPoStProof as RegisteredPoStProofV4,
+    RegisteredSealProof as RegisteredSealProofV4, SectorInfo as SectorInfoV4,
+    SectorSize as SectorSizeV4,
 };
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -40,30 +42,57 @@ pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 /// assert_eq!(fvm3_proof, *proof_shim);
 /// assert_eq!(fvm2_proof, proof_shim.into());
 /// ```
-#[derive(
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Copy,
-    derive_more::From,
-    derive_more::Into,
-    Eq,
-    PartialEq,
-    Debug,
-)]
-pub struct RegisteredSealProof(RegisteredSealProofV3);
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Eq, PartialEq, Debug)]
+pub struct RegisteredSealProof(RegisteredSealProofV4);
 
 impl RegisteredSealProof {
     pub fn from_sector_size(size: SectorSize, network_version: NetworkVersion) -> Self {
-        RegisteredSealProof(RegisteredSealProofV3::from_sector_size(
+        RegisteredSealProof(RegisteredSealProofV4::from_sector_size(
             size.into(),
             network_version.into(),
         ))
     }
+
+    pub fn registered_winning_post_proof(self) -> anyhow::Result<RegisteredPoStProofV4> {
+        use fvm_shared4::sector::RegisteredPoStProof as PoStProof;
+        use fvm_shared4::sector::RegisteredSealProof as SealProof;
+        match self.0 {
+            SealProof::StackedDRG64GiBV1
+            | SealProof::StackedDRG64GiBV1P1
+            | SealProof::StackedDRG64GiBV1P1_Feat_SyntheticPoRep
+            | SealProof::StackedDRG64GiBV1P2_Feat_NiPoRep => {
+                Ok(PoStProof::StackedDRGWinning64GiBV1)
+            }
+            SealProof::StackedDRG32GiBV1
+            | SealProof::StackedDRG32GiBV1P1
+            | SealProof::StackedDRG32GiBV1P1_Feat_SyntheticPoRep
+            | SealProof::StackedDRG32GiBV1P2_Feat_NiPoRep => {
+                Ok(PoStProof::StackedDRGWinning32GiBV1)
+            }
+            SealProof::StackedDRG2KiBV1
+            | SealProof::StackedDRG2KiBV1P1
+            | SealProof::StackedDRG2KiBV1P1_Feat_SyntheticPoRep
+            | SealProof::StackedDRG2KiBV1P2_Feat_NiPoRep => Ok(PoStProof::StackedDRGWinning2KiBV1),
+            SealProof::StackedDRG8MiBV1
+            | SealProof::StackedDRG8MiBV1P1
+            | SealProof::StackedDRG8MiBV1P1_Feat_SyntheticPoRep
+            | SealProof::StackedDRG8MiBV1P2_Feat_NiPoRep => Ok(PoStProof::StackedDRGWinning8MiBV1),
+            SealProof::StackedDRG512MiBV1
+            | SealProof::StackedDRG512MiBV1P1
+            | SealProof::StackedDRG512MiBV1P1_Feat_SyntheticPoRep
+            | SealProof::StackedDRG512MiBV1P2_Feat_NiPoRep => {
+                Ok(PoStProof::StackedDRGWinning512MiBV1)
+            }
+            SealProof::Invalid(_) => bail!(
+                "Unsupported mapping from {:?} to PoSt-winning RegisteredProof",
+                self
+            ),
+        }
+    }
 }
 
 impl Deref for RegisteredSealProof {
-    type Target = RegisteredSealProofV3;
+    type Target = RegisteredSealProofV4;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -72,7 +101,7 @@ impl Deref for RegisteredSealProof {
 impl From<RegisteredSealProofV2> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV2) -> RegisteredSealProof {
         let num_id: i64 = value.into();
-        RegisteredSealProof(RegisteredSealProofV3::from(num_id))
+        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
     }
 }
 
@@ -83,10 +112,17 @@ impl From<RegisteredSealProof> for RegisteredSealProofV2 {
     }
 }
 
+impl From<RegisteredSealProofV3> for RegisteredSealProof {
+    fn from(value: RegisteredSealProofV3) -> RegisteredSealProof {
+        let num_id: i64 = value.into();
+        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
+    }
+}
+
 impl From<RegisteredSealProofV4> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV4) -> RegisteredSealProof {
         let num_id: i64 = value.into();
-        RegisteredSealProof(RegisteredSealProofV3::from(num_id))
+        RegisteredSealProof(RegisteredSealProofV4::from(num_id))
     }
 }
 
@@ -109,12 +145,12 @@ impl quickcheck::Arbitrary for RegisteredSealProof {
 #[derive(
     Eq, PartialEq, Debug, Clone, derive_more::From, derive_more::Into, Serialize, Deserialize,
 )]
-pub struct SectorInfo(SectorInfoV3);
+pub struct SectorInfo(SectorInfoV4);
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for SectorInfo {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Self(SectorInfoV3 {
+        Self(SectorInfoV4 {
             proof: RegisteredSealProof::arbitrary(g).into(),
             sector_number: u64::arbitrary(g),
             sealed_cid: cid::Cid::arbitrary(g),
@@ -124,11 +160,11 @@ impl quickcheck::Arbitrary for SectorInfo {
 
 impl SectorInfo {
     pub fn new(
-        proof: RegisteredSealProofV3,
+        proof: RegisteredSealProofV4,
         sector_number: SectorNumber,
         sealed_cid: cid::Cid,
     ) -> Self {
-        SectorInfo(SectorInfoV3 {
+        SectorInfo(SectorInfoV4 {
             proof,
             sector_number,
             sealed_cid,
@@ -137,7 +173,7 @@ impl SectorInfo {
 }
 
 impl Deref for SectorInfo {
-    type Target = SectorInfoV3;
+    type Target = SectorInfoV4;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -153,28 +189,18 @@ impl From<SectorInfo> for SectorInfoV2 {
     }
 }
 
-#[derive(
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Debug,
-    PartialEq,
-    derive_more::From,
-    derive_more::Into,
-)]
-pub struct RegisteredPoStProof(RegisteredPoStProofV3);
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, derive_more::Into)]
+pub struct RegisteredPoStProof(RegisteredPoStProofV4);
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for RegisteredPoStProof {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        // RegisteredPoStProofV3: ::arbitrary::Arbitrary
-        // RegisteredPoStProofV3: !::quickcheck::Arbitrary
-        Self(RegisteredPoStProofV3::from(i64::arbitrary(g)))
+        Self(RegisteredPoStProofV4::from(i64::arbitrary(g)))
     }
 }
 
 impl Deref for RegisteredPoStProof {
-    type Target = RegisteredPoStProofV3;
+    type Target = RegisteredPoStProofV4;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -190,14 +216,27 @@ impl TryFrom<RegisteredPoStProof> for fil_actors_shared::filecoin_proofs_api::Re
 
 impl From<i64> for RegisteredPoStProof {
     fn from(value: i64) -> Self {
-        RegisteredPoStProof(RegisteredPoStProofV3::from(value))
+        RegisteredPoStProof(RegisteredPoStProofV4::from(value))
     }
 }
 
 impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
     fn from(value: RegisteredPoStProofV2) -> RegisteredPoStProof {
         let num_id: i64 = value.into();
-        RegisteredPoStProof(RegisteredPoStProofV3::from(num_id))
+        RegisteredPoStProof(RegisteredPoStProofV4::from(num_id))
+    }
+}
+
+impl From<RegisteredPoStProofV3> for RegisteredPoStProof {
+    fn from(value: RegisteredPoStProofV3) -> RegisteredPoStProof {
+        let num_id: i64 = value.into();
+        RegisteredPoStProof(RegisteredPoStProofV4::from(num_id))
+    }
+}
+
+impl From<RegisteredPoStProofV4> for RegisteredPoStProof {
+    fn from(value: RegisteredPoStProofV4) -> RegisteredPoStProof {
+        RegisteredPoStProof(value)
     }
 }
 
@@ -213,53 +252,36 @@ pub enum SectorSize {
     _64GiB = 2 * (32 << 30),
 }
 
-impl From<SectorSizeV3> for SectorSize {
-    fn from(value: SectorSizeV3) -> Self {
-        match value {
-            SectorSizeV3::_2KiB => SectorSize::_2KiB,
-            SectorSizeV3::_8MiB => SectorSize::_8MiB,
-            SectorSizeV3::_512MiB => SectorSize::_512MiB,
-            SectorSizeV3::_32GiB => SectorSize::_32GiB,
-            SectorSizeV3::_64GiB => SectorSize::_64GiB,
-        }
-    }
+macro_rules! sector_size_conversion {
+    ($($internal:ty),+) => {
+        $(
+            impl From<$internal> for SectorSize {
+                fn from(value: $internal) -> Self {
+                    match value {
+                        <$internal>::_2KiB => SectorSize::_2KiB,
+                        <$internal>::_8MiB => SectorSize::_8MiB,
+                        <$internal>::_512MiB => SectorSize::_512MiB,
+                        <$internal>::_32GiB => SectorSize::_32GiB,
+                        <$internal>::_64GiB => SectorSize::_64GiB,
+                    }
+                }
+            }
+            impl From<SectorSize> for $internal {
+                fn from(value: SectorSize) -> $internal {
+                    match value {
+                        SectorSize::_2KiB => <$internal>::_2KiB,
+                        SectorSize::_8MiB => <$internal>::_8MiB,
+                        SectorSize::_512MiB => <$internal>::_512MiB,
+                        SectorSize::_32GiB => <$internal>::_32GiB,
+                        SectorSize::_64GiB => <$internal>::_64GiB,
+                    }
+                }
+            }
+        )+
+    };
 }
 
-impl From<SectorSizeV2> for SectorSize {
-    fn from(value: SectorSizeV2) -> SectorSize {
-        match value {
-            SectorSizeV2::_2KiB => SectorSize::_2KiB,
-            SectorSizeV2::_8MiB => SectorSize::_8MiB,
-            SectorSizeV2::_512MiB => SectorSize::_512MiB,
-            SectorSizeV2::_32GiB => SectorSize::_32GiB,
-            SectorSizeV2::_64GiB => SectorSize::_64GiB,
-        }
-    }
-}
-
-impl From<SectorSize> for SectorSizeV2 {
-    fn from(value: SectorSize) -> SectorSizeV2 {
-        match value {
-            SectorSize::_2KiB => SectorSizeV2::_2KiB,
-            SectorSize::_8MiB => SectorSizeV2::_8MiB,
-            SectorSize::_512MiB => SectorSizeV2::_512MiB,
-            SectorSize::_32GiB => SectorSizeV2::_32GiB,
-            SectorSize::_64GiB => SectorSizeV2::_64GiB,
-        }
-    }
-}
-
-impl From<SectorSize> for SectorSizeV3 {
-    fn from(value: SectorSize) -> SectorSizeV3 {
-        match value {
-            SectorSize::_2KiB => SectorSizeV3::_2KiB,
-            SectorSize::_8MiB => SectorSizeV3::_8MiB,
-            SectorSize::_512MiB => SectorSizeV3::_512MiB,
-            SectorSize::_32GiB => SectorSizeV3::_32GiB,
-            SectorSize::_64GiB => SectorSizeV3::_64GiB,
-        }
-    }
-}
+sector_size_conversion!(SectorSizeV2, SectorSizeV3, SectorSizeV4);
 
 #[derive(
     serde::Serialize,
@@ -272,12 +294,11 @@ impl From<SectorSize> for SectorSizeV3 {
     Eq,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct PoStProof(PoStProofV3);
+pub struct PoStProof(PoStProofV4);
 
 impl Hash for PoStProof {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/3852
-        let PoStProofV3 {
+        let PoStProofV4 {
             post_proof,
             proof_bytes,
         } = &self.0;
@@ -288,7 +309,7 @@ impl Hash for PoStProof {
 
 impl PoStProof {
     pub fn new(reg_post_proof: RegisteredPoStProof, proof_bytes: Vec<u8>) -> Self {
-        PoStProof(PoStProofV3 {
+        PoStProof(PoStProofV4 {
             post_proof: *reg_post_proof,
             proof_bytes,
         })
@@ -296,10 +317,19 @@ impl PoStProof {
 }
 
 impl Deref for PoStProof {
-    type Target = PoStProofV3;
+    type Target = PoStProofV4;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl From<PoStProofV2> for PoStProof {
+    fn from(value: PoStProofV2) -> PoStProof {
+        PoStProof(PoStProofV4 {
+            post_proof: *RegisteredPoStProof::from(value.post_proof),
+            proof_bytes: value.proof_bytes,
+        })
     }
 }
 
