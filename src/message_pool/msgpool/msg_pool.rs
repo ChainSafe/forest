@@ -188,7 +188,7 @@ pub struct MessagePool<T> {
     /// Acts as a signal to republish messages from the republished set of
     /// messages
     pub repub_trigger: flume::Sender<()>,
-    local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
+    pub local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
     /// Chain configuration

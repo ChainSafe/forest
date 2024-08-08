@@ -15,6 +15,7 @@ use crate::ipld::DfsIter;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::message_pool::Provider;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -669,6 +670,51 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     receiver
 }
 
+pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if sender.send(headers).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
+
+pub(crate) fn pending_txn<DB: Blockstore + Send + Sync + 'static>(
+    data: Arc<crate::rpc::RPCState<DB>>,
+) -> Subscriber<Vec<SignedMessage>> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.mpool.api.subscribe_head_changes();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let messages = match v {
+                HeadChange::Apply(_ts) => {
+                    let local_msgs = data.mpool.local_msgs.write();
+                    let pending = local_msgs.iter().cloned().collect::<Vec<SignedMessage>>();
+                    pending
+                }
+            };
+
+            if sender.send(messages).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
+
 fn load_api_messages_from_tipset(
     store: &impl Blockstore,
     tipset: &Tipset,
@@ -772,6 +818,9 @@ pub struct ApiHeadChange {
     pub tipset: Tipset,
 }
 lotus_json_with_self!(ApiHeadChange);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
