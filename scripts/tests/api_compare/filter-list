@@ -9,3 +9,5 @@
 !Filecoin.StateCall
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4446
 !Filecoin.StateCirculatingSupply
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4630
+!Filecoin.StateMinerProvingDeadline
