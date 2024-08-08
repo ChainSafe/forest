@@ -43,6 +43,9 @@
   propagation delays are now configurable via
   [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
 
+- [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
+  finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
 - [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
   snapshots instead of moving or copying them. This can be invoked with
   `--import-snapshot <path> --import-mode=symlink`.

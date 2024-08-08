@@ -7,7 +7,7 @@ use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
-use crate::eth::EthChainId as EthChainIdType;
+use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
@@ -1313,6 +1313,20 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Safe),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Finalized),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
@@ -1475,7 +1489,7 @@ fn snapshot_tests(
     let shared_tipset = store
         .heaviest_tipset()?
         .chain(&store)
-        .take(10)
+        .take(SAFE_EPOCH_DELAY as usize)
         .last()
         .expect("Infallible");
 

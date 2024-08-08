@@ -11,6 +11,7 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::eth::SAFE_EPOCH_DELAY;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs,
@@ -227,6 +228,8 @@ pub enum Predefined {
     Pending,
     #[default]
     Latest,
+    Safe,
+    Finalized,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -618,6 +621,26 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
                 Ok(parent)
+            }
+            Predefined::Safe => {
+                let latest_height = head.epoch() - 1;
+                let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                let ts = chain.chain_index.tipset_by_height(
+                    safe_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
+            }
+            Predefined::Finalized => {
+                let latest_height = head.epoch() - 1;
+                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                let ts = chain.chain_index.tipset_by_height(
+                    finality_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
             }
         },
         BlockNumberOrHash::BlockNumber(block_number)
