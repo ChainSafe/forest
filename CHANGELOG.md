@@ -67,9 +67,6 @@
   deserialisation in `Filecoin.EthGetBlockByNumber` and
   `Filecoin.EthGetBlockByHash` RPC methods.
 
-- [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
-  structure in the `Filecoin.MinerGetBaseInfo` RPC method.
-
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible

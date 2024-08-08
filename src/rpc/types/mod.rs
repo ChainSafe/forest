@@ -25,7 +25,7 @@ use crate::shim::{
     executor::Receipt,
     fvm_shared_latest::MethodNum,
     message::Message,
-    sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
+    sector::{RegisteredSealProof, SectorInfo, SectorNumber, StoragePower},
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
@@ -503,8 +503,8 @@ pub struct MiningBaseInfo {
     #[schemars(with = "LotusJson<StoragePower>")]
     pub network_power: StoragePower,
     #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Vec<ExtendedSectorInfo>>")]
-    pub sectors: Vec<ExtendedSectorInfo>,
+    #[schemars(with = "LotusJson<Vec<SectorInfo>>")]
+    pub sectors: Vec<SectorInfo>,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Address>")]
     pub worker_key: Address,
