@@ -70,6 +70,9 @@
 - [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
   structure in the `Filecoin.MinerGetBaseInfo` RPC method.
 
+- [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
+  `StateMinerProvingDeadline`.
+
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible

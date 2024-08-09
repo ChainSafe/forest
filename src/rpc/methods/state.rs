@@ -719,7 +719,11 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
         let state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        Ok(ApiDeadlineInfo(state.deadline_info(policy, ts.epoch())))
+        Ok(ApiDeadlineInfo(
+            state
+                .recorded_deadline_info(policy, ts.epoch())
+                .next_not_elapsed(),
+        ))
     }
 }
 
