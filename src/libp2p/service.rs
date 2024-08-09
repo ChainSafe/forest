@@ -17,6 +17,7 @@ use crate::{
     utils::flume::FlumeSenderExt as _,
 };
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
@@ -209,7 +210,10 @@ where
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{topic}/{network_name}"));
-            swarm.behaviour_mut().subscribe(&t).unwrap();
+            swarm
+                .behaviour_mut()
+                .subscribe(&t)
+                .with_context(|| format!("Failed to subscribe gossipsub topic {t}"))?;
         }
 
         let (network_sender_in, network_receiver_in) = flume::unbounded();
