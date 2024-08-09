@@ -54,12 +54,12 @@ pub static RPC_METHOD_FAILURE: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new
 
 pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(|| {
     let metric = Family::<RpcMethodLabel, Histogram>::new_with_constructor(|| {
-        // Histogram with 10 buckets starting from 0.01s going to 5.12s, each bucket twice as big as the last.
-        Histogram::new(exponential_buckets(0.01, 2.0, 10))
+        // Histogram with 10 buckets starting from 0.1ms going to 26.21s, each bucket four times as big as the last.
+        Histogram::new(exponential_buckets(0.1, 4., 10))
     });
     crate::metrics::default_registry().register(
         "rpc_processing_time",
-        "Duration of RPC method call",
+        "Duration of RPC method call in milliseconds",
         metric.clone(),
     );
     metric
