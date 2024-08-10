@@ -44,7 +44,8 @@ where
 
             metrics::RPC_METHOD_TIME
                 .get_or_create(&method)
-                .observe(start_time.elapsed().as_secs_f64());
+                // Observe the elapsed time in milliseconds
+                .observe(start_time.elapsed().as_secs_f64() * 1000.0);
 
             if req.is_error() {
                 metrics::RPC_METHOD_FAILURE.get_or_create(&method).inc();
