@@ -26,6 +26,10 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
     macro_rules! insert {
         ($ty:ty) => {
             access.insert(<$ty>::NAME, <$ty>::PERMISSION);
+
+            if let Some(alias) = <$ty>::NAME_ALIAS {
+                access.insert(alias, <$ty>::PERMISSION);
+            }
         };
     }
     super::for_each_method!(insert);

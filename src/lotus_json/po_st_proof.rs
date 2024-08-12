@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::sector::{PoStProof, RegisteredPoStProof};
-use fvm_shared3::sector::PoStProof as PoStProofV3;
+use fvm_shared4::sector::PoStProof as PoStProofV4;
 
 use super::*;
 
@@ -30,7 +30,7 @@ impl HasLotusJson for PoStProof {
             }),
             PoStProof::new(
                 crate::shim::sector::RegisteredPoStProof::from(
-                    crate::shim::sector::RegisteredPoStProofV3::StackedDRGWinning2KiBV1,
+                    crate::shim::sector::RegisteredPoStProofV4::StackedDRGWinning2KiBV1,
                 ),
                 Vec::from_iter(*b"hello world!"),
             ),
@@ -38,7 +38,7 @@ impl HasLotusJson for PoStProof {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let PoStProofV3 {
+        let PoStProofV4 {
             post_proof,
             proof_bytes,
         } = self.into();
@@ -53,7 +53,7 @@ impl HasLotusJson for PoStProof {
             po_st_proof,
             proof_bytes,
         } = lotus_json;
-        Self::from(PoStProofV3 {
+        Self::from(PoStProofV4 {
             post_proof: po_st_proof.into(),
             proof_bytes,
         })

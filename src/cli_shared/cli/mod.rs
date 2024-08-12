@@ -9,9 +9,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
 use crate::utils::misc::LoggingColor;
+use crate::{cli_shared::read_config, daemon::db_util::ImportMode};
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
@@ -84,15 +84,12 @@ pub struct CliOpts {
     /// Import a snapshot from a local CAR file or URL
     #[arg(long)]
     pub import_snapshot: Option<String>,
-    /// Import a snapshot from a local CAR file and delete it, or from a URL
-    #[arg(long)]
-    pub consume_snapshot: Option<String>,
+    /// Snapshot import mode. Available modes are `copy`, `move` and `symlink`.
+    #[arg(long, default_value = "copy")]
+    pub import_mode: ImportMode,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[arg(long)]
     pub halt_after_import: bool,
-    /// Import a chain from a local CAR file or URL
-    #[arg(long)]
-    pub import_chain: Option<String>,
     /// Skips loading CAR file and uses header to index chain. Assumes a
     /// pre-loaded database
     #[arg(long)]
@@ -200,27 +197,11 @@ impl CliOpts {
             cfg.network.listening_multiaddrs.clone_from(addresses);
         }
 
-        if self.import_snapshot.is_some() && self.import_chain.is_some() {
-            anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
-        } else if self.import_snapshot.is_some() && self.consume_snapshot.is_some() {
-            anyhow::bail!("Can't set import_snapshot and consume_snapshot at the same time!")
-        } else if self.consume_snapshot.is_some() && self.import_chain.is_some() {
-            anyhow::bail!("Can't set consume_snapshot and import_chain at the same time!")
-        }
-
         if let Some(snapshot_path) = &self.import_snapshot {
             cfg.client.snapshot_path = Some(snapshot_path.into());
-            cfg.client.snapshot = true;
+            cfg.client.import_mode = self.import_mode;
         }
-        if let Some(snapshot_path) = &self.consume_snapshot {
-            cfg.client.snapshot_path = Some(snapshot_path.into());
-            cfg.client.snapshot = true;
-            cfg.client.consume_snapshot = true;
-        }
-        if let Some(snapshot_path) = &self.import_chain {
-            cfg.client.snapshot_path = Some(snapshot_path.into());
-            cfg.client.snapshot = false;
-        }
+
         cfg.client.snapshot_height = self.height;
         cfg.client.snapshot_head = self.head.map(|head| head as i64);
         if let Some(skip_load) = self.skip_load {
@@ -416,24 +397,9 @@ mod tests {
         let options = CliOpts::default();
         assert!(options.to_config().is_ok());
 
-        // Creating a config with both --import_snapshot and --import_chain should fail
-        let options = CliOpts {
-            import_snapshot: Some("snapshot.car".into()),
-            import_chain: Some("snapshot.car".into()),
-            ..Default::default()
-        };
-        assert!(options.to_config().is_err());
-
         // Creating a config with only --import_snapshot should succeed
         let options = CliOpts {
             import_snapshot: Some("snapshot.car".into()),
-            ..Default::default()
-        };
-        assert!(options.to_config().is_ok());
-
-        // Creating a config with only --import_chain should succeed
-        let options = CliOpts {
-            import_chain: Some("snapshot.car".into()),
             ..Default::default()
         };
         assert!(options.to_config().is_ok());

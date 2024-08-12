@@ -27,6 +27,69 @@
 
 ### Breaking
 
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Removed the
+  `--consume-snapshot` parameter from the `forest` binary. To consume a
+  snapshot, use `--import-snapshot <path> --import-mode=move`.
+
+### Added
+
+- [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
+  Ethereum RPC name aliases.
+
+- [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
+  metrics for RPC methods.
+
+- [#4599](https://github.com/ChainSafe/forest/issues/4599) Block delay and block
+  propagation delays are now configurable via
+  [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
+
+- [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
+  finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
+  snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=symlink`.
+
+### Changed
+
+- [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
+  date for the master token. The new behavior aligns with Lotus.
+
+### Removed
+
+- [#4624](https://github.com/ChainSafe/forest/pull/4624) Remove the
+  `--chain-import` flag. Its functionality can be accessed through the more
+  flexible `--height` flag.
+
+### Fixed
+
+- [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
+  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  `Filecoin.EthGetBlockByHash` RPC methods.
+
+- [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
+  structure in the `Filecoin.MinerGetBaseInfo` RPC method.
+
+- [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
+  `StateMinerProvingDeadline`.
+
+## Forest 0.19.2 "Eagle"
+
+Non-mandatory release that includes a fix for the Prometheus-incompatible
+metric.
+
+### Fixed
+
+- [#4594](https://github.com/ChainSafe/forest/pull/4594) Reverted the Forest
+  version metric with Prometheus-incompatible metric type.
+
+## Forest 0.19.1 "Pathfinder"
+
+Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
+epoch 4154640 (2024-08-06T12:00:00Z). This release also adds support for new RPC
+methods and fixes a networking issue where Forest would not bootstrap a Lotus
+node.
+
 ### Added
 
 - [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
@@ -77,12 +140,6 @@
 
 - [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
   `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
-
-### Changed
-
-### Removed
-
-### Fixed
 
 ## Forest 0.19.0 "Pastel de nata"
 

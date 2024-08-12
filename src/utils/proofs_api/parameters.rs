@@ -18,7 +18,7 @@ use cid::Cid;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use super::is_env_truthy;
+use crate::utils::misc::env::is_env_truthy;
 
 const PROOF_DIGEST_LEN: usize = 16;
 
