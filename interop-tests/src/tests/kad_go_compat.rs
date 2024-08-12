@@ -1,8 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod kad_ffi;
-use kad_ffi::*;
+use super::go_ffi::*;
 
 use forest_filecoin::interop_tests_private::libp2p::discovery::new_kademlia;
 use futures::StreamExt as _;
@@ -31,7 +30,7 @@ async fn kad_go_compat_test() -> anyhow::Result<()> {
     tokio::spawn(swarm2.loop_on_next());
 
     GoKadNodeImpl::run();
-    GoKadNodeImpl::connect(addr1.to_string());
+    GoKadNodeImpl::connect(&addr1.to_string());
     // Wait for 10s
     for _ in 0..10 {
         tokio::time::sleep(Duration::from_secs(1)).await;

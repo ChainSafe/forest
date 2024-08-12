@@ -3301,8 +3301,10 @@ name = "forest-interop-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "flume 0.11.0",
  "forest-filecoin",
  "futures",
+ "libipld",
  "libp2p",
  "libp2p-swarm-test",
  "rust2go",
@@ -6023,9 +6025,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4569e456d394deccd22ce1c1913e6ea0e54519f577285001215d33557431afe4"
+checksum = "80e04d1dcff3aae0704555fe5fee3bcfaf3d1fdf8a7e521d5b9d2b42acb52cec"
 dependencies = [
  "hermit-abi 0.3.9",
  "libc",
@@ -10220,9 +10222,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.27"
+version = "0.7.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "643b54592421d5a0ecc08ed23d4e1dfc4baa5042359db8260086e3f02d6ef6d8"
+checksum = "b828f995bf1e9622031f8009f8481a85406ce1f4d4588ff746d872043e855690"
 dependencies = [
  "bytemuck",
  "safe_arch",

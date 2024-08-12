@@ -13,19 +13,25 @@ typedef struct StringRef {
   uintptr_t len;
 } StringRef;
 
+typedef struct EmptyReqRef {
+
+} EmptyReqRef;
+
 typedef struct ListRef {
   const void *ptr;
   uintptr_t len;
 } ListRef;
 
-typedef struct EmptyReqRef {
-
-} EmptyReqRef;
-
 // hack from: https://stackoverflow.com/a/69904977
 __attribute__((weak))
 inline void GoKadNode_get_n_connected_cb(const void *f_ptr, uintptr_t resp, const void *slot) {
 ((void (*)(uintptr_t, const void*))f_ptr)(resp, slot);
+}
+
+// hack from: https://stackoverflow.com/a/69904977
+__attribute__((weak))
+inline void GoBitswapNode_get_block_cb(const void *f_ptr, bool resp, const void *slot) {
+((void (*)(bool, const void*))f_ptr)(resp, slot);
 }
 */
 import "C"
@@ -57,6 +63,33 @@ func CGoKadNode_get_n_connected(req C.EmptyReqRef, slot *C.void, cb *C.void) {
 	resp := GoKadNodeImpl.get_n_connected(newEmptyReq(req))
 	resp_ref, buffer := cvt_ref(cntC_uintptr_t, refC_uintptr_t)(&resp)
 	C.GoKadNode_get_n_connected_cb(unsafe.Pointer(cb), resp_ref, unsafe.Pointer(slot))
+	runtime.KeepAlive(resp)
+	runtime.KeepAlive(buffer)
+}
+
+var GoBitswapNodeImpl GoBitswapNode
+
+type GoBitswapNode interface {
+	run()
+	connect(multiaddr string)
+	get_block(cid string) bool
+}
+
+//export CGoBitswapNode_run
+func CGoBitswapNode_run() {
+	GoBitswapNodeImpl.run()
+}
+
+//export CGoBitswapNode_connect
+func CGoBitswapNode_connect(multiaddr C.StringRef) {
+	GoBitswapNodeImpl.connect(newString(multiaddr))
+}
+
+//export CGoBitswapNode_get_block
+func CGoBitswapNode_get_block(cid C.StringRef, slot *C.void, cb *C.void) {
+	resp := GoBitswapNodeImpl.get_block(newString(cid))
+	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
+	C.GoBitswapNode_get_block_cb(unsafe.Pointer(cb), resp_ref, unsafe.Pointer(slot))
 	runtime.KeepAlive(resp)
 	runtime.KeepAlive(buffer)
 }

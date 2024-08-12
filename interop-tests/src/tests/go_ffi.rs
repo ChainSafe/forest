@@ -13,7 +13,16 @@ pub struct EmptyReq {}
 pub trait GoKadNode {
     fn run();
 
-    fn connect(multiaddr: String);
+    fn connect(multiaddr: &String);
 
     fn get_n_connected(req: &EmptyReq) -> usize;
+}
+
+#[rust2go::r2g]
+pub trait GoBitswapNode {
+    fn run();
+
+    fn connect(multiaddr: &String);
+
+    fn get_block(cid: &String) -> bool;
 }

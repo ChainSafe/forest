@@ -11,27 +11,23 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-const (
-	ListenAddr = "/ip4/127.0.0.1/tcp/0"
-)
-
 func init() {
 	err := logging.SetLogLevel("dht", "debug")
 	checkError(err)
-	GoKadNodeImpl = &Impl{ctx: context.Background()}
+	GoKadNodeImpl = &kadImpl{ctx: context.Background()}
 }
 
-type Impl struct {
+type kadImpl struct {
 	ctx  context.Context
-	node *Node
+	node *kadNode
 }
 
-type Node struct {
+type kadNode struct {
 	host    host.Host
 	hostDHT *dht.IpfsDHT
 }
 
-func (impl *Impl) run() {
+func (impl *kadImpl) run() {
 	host, err := libp2p.New(libp2p.ListenAddrStrings(ListenAddr))
 	checkError(err)
 
@@ -44,10 +40,10 @@ func (impl *Impl) run() {
 	hostDHT, err := dht.New(impl.ctx, host, dthOpts...)
 	checkError(err)
 
-	impl.node = &Node{host, hostDHT}
+	impl.node = &kadNode{host, hostDHT}
 }
 
-func (impl *Impl) connect(multiaddr string) {
+func (impl *kadImpl) connect(multiaddr string) {
 	targetAddr, err := ma.NewMultiaddr(multiaddr)
 	checkError(err)
 
@@ -59,12 +55,6 @@ func (impl *Impl) connect(multiaddr string) {
 	}
 }
 
-func (impl *Impl) get_n_connected(req EmptyReq) uint {
+func (impl *kadImpl) get_n_connected(req EmptyReq) uint {
 	return uint(impl.node.host.Peerstore().Peers().Len())
-}
-
-func checkError(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
