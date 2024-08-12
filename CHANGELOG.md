@@ -50,6 +50,9 @@
   snapshots instead of moving or copying them. This can be invoked with
   `--import-snapshot <path> --import-mode=symlink`.
 
+- [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
+  devnets (2k networks) in the offline Forest.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
