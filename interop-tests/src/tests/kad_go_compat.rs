@@ -4,6 +4,7 @@
 mod kad_ffi;
 use kad_ffi::*;
 
+use forest_filecoin::interop_tests_private::libp2p::discovery::new_kademlia;
 use futures::StreamExt as _;
 use libp2p::{
     identify, identity, kad, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, StreamProtocol,
@@ -11,8 +12,6 @@ use libp2p::{
 };
 use libp2p_swarm_test::SwarmExt as _;
 use std::time::Duration;
-
-use crate::libp2p::discovery::new_kademlia;
 
 const TIMEOUT: Duration = Duration::from_secs(600);
 const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";

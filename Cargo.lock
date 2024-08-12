@@ -818,7 +818,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "log",
@@ -3249,7 +3249,6 @@ dependencies = [
  "rlimit",
  "rlp",
  "rs-car-ipfs",
- "rust2go",
  "schemars",
  "scopeguard",
  "semver",
@@ -3295,6 +3294,19 @@ dependencies = [
  "uuid",
  "walkdir",
  "zstd",
+]
+
+[[package]]
+name = "forest-interop-tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "forest-filecoin",
+ "futures",
+ "libp2p",
+ "libp2p-swarm-test",
+ "rust2go",
+ "tokio",
 ]
 
 [[package]]
@@ -5178,7 +5190,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
