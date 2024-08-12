@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,6 +18,9 @@ const (
 )
 
 func main() {
+	err := logging.SetLogLevel("dht", "debug")
+	checkError(err)
+
 	var targetMultiaddr string
 
 	flag.StringVar(&targetMultiaddr, "addr", "", "peer multiaddr")

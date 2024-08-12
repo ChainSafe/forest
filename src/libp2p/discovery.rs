@@ -136,9 +136,7 @@ impl<'a> DiscoveryConfig<'a> {
         let kademlia_opt = if enable_kademlia {
             let mut kademlia = new_kademlia(
                 local_peer_id,
-                vec![StreamProtocol::try_from_owned(format!(
-                    "/fil/kad/{network_name}/kad/1.0.0"
-                ))?],
+                StreamProtocol::try_from_owned(format!("/fil/kad/{network_name}/kad/1.0.0"))?,
             );
             for (peer_id, addr) in &user_defined {
                 kademlia.add_address(peer_id, addr.clone());
@@ -184,21 +182,12 @@ impl<'a> DiscoveryConfig<'a> {
 }
 
 pub fn new_kademlia(
-    _peer_id: PeerId,
-    protocols: Vec<StreamProtocol>,
+    peer_id: PeerId,
+    protocol: StreamProtocol,
 ) -> kad::Behaviour<kad::store::MemoryStore> {
-    // This is a workaround for <https://github.com/ChainSafe/forest/issues/4576>
-    // `go-libp2p-kad-dht` sends the remote peer id as query key during bootstrap,
-    // however, `rust-libp2p` returns empty peer list when the key it receives
-    // matches the local one. It's fine to use a random peer id as a workaround
-    // since Kademlia not used as value providers in filecoin p2p network.
-    let peer_id = PeerId::random();
     let store = MemoryStore::new(peer_id);
-    let kad_config = {
-        let mut cfg = kad::Config::default();
-        cfg.set_protocol_names(protocols);
-        cfg
-    };
+    let kad_config = kad::Config::new(protocol);
+
     let mut kademlia = kad::Behaviour::with_config(peer_id, store, kad_config);
     // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
     // but it should not be required as the behaviour should automatically switch to server mode
@@ -315,6 +304,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         peer: PeerId,
         addr: &libp2p::Multiaddr,
         role_override: libp2p::core::Endpoint,
+        port_use: PortUse,
     ) -> Result<THandler<Self>, ConnectionDenied> {
         self.peer_info
             .entry(peer)
@@ -326,6 +316,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             peer,
             addr,
             role_override,
+            port_use,
         )
     }
 
@@ -433,7 +424,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::GenerateEvent(ev) => {
                     match &ev {
                         DerivedDiscoveryBehaviourEvent::Identify(ev) => {
-                            if let identify::Event::Received { peer_id, info } = ev {
+                            if let identify::Event::Received { peer_id, info, .. } = ev {
                                 self.peer_info.entry(*peer_id).or_default().identify_info =
                                     Some(info.clone());
                                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
