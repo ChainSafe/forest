@@ -16,7 +16,7 @@ argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
-asynchronous-codec = "0.6"
+asynchronous-codec = "0.7"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
@@ -92,7 +92,7 @@ libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
-libp2p = { version = "0.53", default-features = false, features = [
+libp2p = { version = "0.54", default-features = false, features = [
   'autonat',
   'gossipsub',
   'kad',
@@ -140,7 +140,7 @@ positioned-io = "0.3"
 pretty_assertions = "1"
 prometheus-client = "0.22"
 quick-protobuf = "0.8"
-quick-protobuf-codec = "0.2"
+quick-protobuf-codec = "0.3"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
@@ -216,7 +216,7 @@ derive-quickcheck-arbitrary = "0.1"
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
-libp2p-swarm-test = "0.3"
+libp2p-swarm-test = "0.4"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6"
 predicates = "3"

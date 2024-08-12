@@ -30,7 +30,7 @@ mod tests {
         let mut swarm = SwarmBuilder::with_new_identity()
             .with_tokio()
             .with_tcp(
-                tcp::Config::default().port_reuse(true).nodelay(true),
+                tcp::Config::default().nodelay(true),
                 noise::Config::new,
                 yamux::Config::default,
             )?
