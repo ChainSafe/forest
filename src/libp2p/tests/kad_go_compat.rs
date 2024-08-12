@@ -82,7 +82,7 @@ struct TestBehaviour {
 impl TestBehaviour {
     fn new(local_public_key: identity::PublicKey) -> Self {
         let kad_peer_id = local_public_key.to_peer_id();
-        let kad = new_kademlia(kad_peer_id, vec![StreamProtocol::new("/kadtest/kad/1.0.0")]);
+        let kad = new_kademlia(kad_peer_id, StreamProtocol::new("/kadtest/kad/1.0.0"));
         let identify = identify::Behaviour::new(
             identify::Config::new(Default::default(), local_public_key)
                 .with_push_listen_addr_updates(true),

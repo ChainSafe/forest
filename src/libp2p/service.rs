@@ -572,6 +572,7 @@ async fn handle_discovery_event(
             DerivedDiscoveryBehaviourEvent::Identify(identify::Event::Received {
                 peer_id,
                 info,
+                ..
             }) => {
                 let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
                 if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
