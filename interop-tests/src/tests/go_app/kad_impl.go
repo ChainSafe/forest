@@ -50,9 +50,9 @@ func (impl *kadImpl) connect(multiaddr string) {
 	target, err := peer.AddrInfoFromP2pAddr(targetAddr)
 	checkError(err)
 
-	if err := impl.node.host.Connect(impl.ctx, *target); err != nil {
-		panic(err)
-	}
+	err = impl.node.host.Connect(impl.ctx, *target)
+	checkError(err)
+
 }
 
 func (impl *kadImpl) get_n_connected(req EmptyReq) uint {

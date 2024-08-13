@@ -107,7 +107,7 @@ async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
     GoBitswapNodeImpl::run();
     GoBitswapNodeImpl::connect(&listen_addr.to_string());
     assert!(
-        GoBitswapNodeImpl::get_block(&expected_inbound_request_cid_str.to_string()),
+        GoBitswapNodeImpl::get_block(&expected_inbound_request_cid.to_string()),
         "[Go] get_block failed"
     );
 

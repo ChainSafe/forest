@@ -2,20 +2,21 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/ipfs/boxo/bitswap"
 	bsnet "github.com/ipfs/boxo/bitswap/network"
 	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
-	util "github.com/ipfs/go-ipfs-util"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+var logger = logging.Logger("bitswap/test")
 
 func init() {
 	logging.SetDebugLogging()
@@ -46,8 +47,7 @@ func (impl *bitswapImpl) connect(multiaddr string) {
 	target, err := peer.AddrInfoFromP2pAddr(targetAddr)
 	checkError(err)
 
-	ttl, _ := time.ParseDuration("24h")
-	impl.node.host.Peerstore().AddAddrs(target.ID, target.Addrs, ttl)
+	impl.node.host.Peerstore().AddAddrs(target.ID, target.Addrs, peerstore.PermanentAddrTTL)
 
 	router := NewRouter(*target)
 	network := bsnet.NewFromIpfsHost(impl.node.host, router, bsnet.Prefix("/test"))
@@ -56,10 +56,13 @@ func (impl *bitswapImpl) connect(multiaddr string) {
 	impl.node.exchange = exchange
 }
 
-func (impl *bitswapImpl) get_block(expectedCid string) bool {
-	id := cid.NewCidV0(util.Hash([]byte(expectedCid)))
-	_, err := impl.node.exchange.GetBlock(impl.ctx, id)
+func (impl *bitswapImpl) get_block(cidStr string) bool {
+	id, err := cid.Parse(cidStr)
 	checkError(err)
+	b, err := impl.node.exchange.GetBlock(impl.ctx, id)
+	checkError(err)
+	data := string(b.RawData())
+	logger.Infof("got block, cid=%s, data=%s", id, data)
 	return err == nil
 }
 
