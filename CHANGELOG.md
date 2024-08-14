@@ -50,6 +50,9 @@
   snapshots instead of moving or copying them. This can be invoked with
   `--import-snapshot <path> --import-mode=symlink`.
 
+- [#4533](https://github.com/ChainSafe/forest/pull/4641) Added `build_info`
+  metric to Prometheus metrics, which include the current build's version.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration

@@ -5,8 +5,8 @@ use git_version::git_version;
 use once_cell::sync::Lazy;
 use prometheus_client::{
     collector::Collector,
-    encoding::{DescriptorEncoder, EncodeMetric},
-    metrics::info::Info,
+    encoding::{DescriptorEncoder, EncodeLabelSet, EncodeMetric},
+    metrics::{family::Family, gauge::Gauge},
 };
 
 /// Current git commit hash of the Forest repository.
@@ -21,26 +21,41 @@ pub static FOREST_VERSION_STRING: Lazy<String> =
 pub static FOREST_VERSION: Lazy<semver::Version> =
     Lazy::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct VersionLabel {
+    version: &'static str,
+}
+
+impl VersionLabel {
+    pub const fn new(version: &'static str) -> Self {
+        Self { version }
+    }
+}
+
 #[derive(Debug)]
 pub struct ForestVersionCollector {
-    version: Info<Vec<(&'static str, &'static str)>>,
+    version: Family<VersionLabel, Gauge>,
 }
 
 impl ForestVersionCollector {
     pub fn new() -> Self {
-        let version = Info::new(vec![("version", FOREST_VERSION_STRING.as_str())]);
-        Self { version }
+        Self {
+            version: Family::default(),
+        }
     }
 }
 
 impl Collector for ForestVersionCollector {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         let metric_encoder = encoder.encode_descriptor(
-            "forest_version",
+            "build_info",
             "semantic version of the forest binary",
             None,
             self.version.metric_type(),
         )?;
+        self.version
+            .get_or_create(&VersionLabel::new(FOREST_VERSION_STRING.as_str()))
+            .set(1);
         self.version.encode(metric_encoder)?;
         Ok(())
     }
