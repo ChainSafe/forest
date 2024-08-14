@@ -53,6 +53,9 @@
 - [#4533](https://github.com/ChainSafe/forest/pull/4641) Added `build_info`
   metric to Prometheus metrics, which include the current build's version.
 
+- [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
+  devnets (2k networks) in the offline Forest.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration

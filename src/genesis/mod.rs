@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::Path;
+
 use crate::blocks::CachingBlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
@@ -15,7 +17,7 @@ pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 /// Uses an optional file path or the default genesis to parse the genesis and
 /// determine if chain store has existing data for the given genesis.
 pub async fn read_genesis_header<DB>(
-    genesis_fp: Option<&String>,
+    genesis_fp: Option<&Path>,
     genesis_bytes: Option<&[u8]>,
     db: &DB,
 ) -> Result<CachingBlockHeader, anyhow::Error>

@@ -43,7 +43,7 @@ pub struct CliOpts {
     pub config: Option<PathBuf>,
     /// The genesis CAR file
     #[arg(long)]
-    pub genesis: Option<String>,
+    pub genesis: Option<PathBuf>,
     /// Allow RPC to be active or not (default: true)
     #[arg(long)]
     pub rpc: Option<bool>,

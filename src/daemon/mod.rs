@@ -203,7 +203,7 @@ pub(super) async fn start(
     // * When snapshot command implemented, this genesis does not need to be
     //   initialized
     let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
+        config.client.genesis_file.as_deref(),
         chain_config.genesis_bytes(&db).await?.as_deref(),
         &db,
     )
