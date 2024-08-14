@@ -80,7 +80,9 @@ where
         warn!("Failed to register process metrics: {err}");
     }
 
-    // Add the DBCollector to the registry
+    DEFAULT_REGISTRY.write().register_collector(Box::new(
+        crate::utils::version::ForestVersionCollector::new(),
+    ));
     DEFAULT_REGISTRY
         .write()
         .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
