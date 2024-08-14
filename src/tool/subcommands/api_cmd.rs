@@ -29,7 +29,7 @@ use crate::shim::{
 use crate::tool::offline_server::start_offline_server;
 use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
-use anyhow::bail;
+use anyhow::{bail, ensure};
 use bls_signatures::Serialize as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
@@ -80,6 +80,9 @@ pub enum ApiCommands {
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
         height: i64,
+        /// Genesis file path, only applicable for devnet
+        #[arg(long)]
+        genesis: Option<PathBuf>,
     },
     /// Compare two RPC providers.
     ///
@@ -151,9 +154,25 @@ impl ApiCommands {
                 port,
                 auto_download_snapshot,
                 height,
+                genesis,
             } => {
-                start_offline_server(snapshot_files, chain, port, auto_download_snapshot, height)
-                    .await?;
+                if chain.is_devnet() {
+                    ensure!(
+                        !auto_download_snapshot,
+                        "auto_download_snapshot is not supported for devnet"
+                    );
+                    ensure!(genesis.is_some(), "genesis must be provided for devnet");
+                }
+
+                start_offline_server(
+                    snapshot_files,
+                    chain,
+                    port,
+                    auto_download_snapshot,
+                    height,
+                    genesis,
+                )
+                .await?;
             }
             Self::Compare {
                 forest: UrlFromMultiAddr(forest),

@@ -3,6 +3,7 @@
 # - Lotus node (2k build),
 # - Lotus miner (2k build),
 # - Forest node.
+# - Forest offline node.
 
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
@@ -204,6 +205,53 @@ services:
           echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+
+  forest_offline:
+    user: root
+    depends_on:
+      lotus_config:
+        condition: service_completed_successfully
+    build:
+      context: ../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    container_name: forest-offline
+    healthcheck:
+      test: |
+        export FULLNODE_API_INFO=/ip4/127.0.0.1/tcp/${FOREST_OFFLINE_RPC_PORT}/http
+        forest-cli sync status || exit 1
+      interval: 10s
+      retries: 10
+      timeout: 5s
+      start_period: 15s
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - forest-data:${FOREST_DATA_DIR}
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - RUST_LOG=info,forest_filecoin::blocks::header=trace
+      - FOREST_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
+      - FOREST_SHARK_HEIGHT=${SHARK_HEIGHT}
+      - FOREST_HYGGE_HEIGHT=${HYGGE_HEIGHT}
+      - FOREST_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
+      - FOREST_THUNDER_HEIGHT=${THUNDER_HEIGHT}
+      - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
+      - FOREST_DRAGON_HEIGHT=${DRAGON_HEIGHT}
+      - FOREST_DRAND_QUICKNET_HEIGHT=${DRAND_QUICKNET_HEIGHT}
+      - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+    networks:
+      - devnet
+    ports:
+      - ${FOREST_OFFLINE_RPC_PORT}:${FOREST_OFFLINE_RPC_PORT}
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        if [ ! -f ${FOREST_DATA_DIR}/network_name ]; then
+          grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json | tr -d '"' | tee ${FOREST_DATA_DIR}/network_name
+        fi
+        NETWORK_NAME=$$(cat ${FOREST_DATA_DIR}/network_name)
+        forest-tool api serve --chain $$NETWORK_NAME --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}  
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.

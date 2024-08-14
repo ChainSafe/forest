@@ -36,52 +36,29 @@ pub async fn start_offline_server(
     rpc_port: u16,
     auto_download_snapshot: bool,
     height: i64,
+    genesis: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
+
     let db = Arc::new(ManyCar::new(MemoryDB::default()));
 
-    let snapshot_files = if snapshot_files.is_empty() {
-        let (snapshot_url, num_bytes, path) =
-            crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
-                .await
-                .context("couldn't get snapshot size")?;
-        if !auto_download_snapshot {
-            warn!("Automatic snapshot download is disabled.");
-            let message = format!(
-                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
-                indicatif::HumanBytes(num_bytes)
-            );
-            let have_permission =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt(message)
-                    .default(false)
-                    .interact()
-                    .unwrap_or(false);
-            if !have_permission {
-                anyhow::bail!("No snapshot provided, exiting offline RPC setup.");
-            }
-        }
-        info!(
-            "Downloading latest snapshot for {} size {}",
-            chain,
-            indicatif::HumanBytes(num_bytes)
-        );
-        let downloaded_snapshot_path = std::env::current_dir()?.join(path);
-        download_to(&snapshot_url, &downloaded_snapshot_path).await?;
-        info!("Snapshot downloaded");
-        vec![downloaded_snapshot_path]
-    } else {
-        snapshot_files
-    };
+    let snapshot_files = handle_snapshots(
+        snapshot_files,
+        &chain,
+        auto_download_snapshot,
+        genesis.clone(),
+    )
+    .await?;
+
     db.read_only_files(snapshot_files.iter().cloned())?;
-    info!("Using chain config for {chain}");
-    let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-    if chain_config.is_testnet() {
-        CurrentNetwork::set_global(Network::Testnet);
-    }
+    let chain_config = Arc::new(handle_chain_config(&chain)?);
     let sync_config = Arc::new(SyncConfig::default());
-    let genesis_header =
-        read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
+    let genesis_header = read_genesis_header(
+        genesis.as_deref(),
+        chain_config.genesis_bytes(&db).await?.as_deref(),
+        &db,
+    )
+    .await?;
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db.clone(),
@@ -174,4 +151,58 @@ where
     };
     crate::utils::io::terminal_cleanup();
     result
+}
+
+async fn handle_snapshots(
+    snapshot_files: Vec<PathBuf>,
+    chain: &NetworkChain,
+    auto_download_snapshot: bool,
+    genesis: Option<PathBuf>,
+) -> anyhow::Result<Vec<PathBuf>> {
+    if !snapshot_files.is_empty() {
+        return Ok(snapshot_files);
+    }
+
+    if snapshot_files.is_empty() && chain.is_devnet() {
+        return Ok(vec![genesis.context("missing genesis file")?]);
+    }
+
+    let (snapshot_url, num_bytes, path) =
+        crate::cli_shared::snapshot::peek(TrustedVendor::default(), chain)
+            .await
+            .context("couldn't get snapshot size")?;
+    if !auto_download_snapshot {
+        warn!("Automatic snapshot download is disabled.");
+        let message = format!(
+            "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+            indicatif::HumanBytes(num_bytes)
+        );
+        let have_permission =
+            dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                .with_prompt(message)
+                .default(false)
+                .interact()
+                .unwrap_or(false);
+        if !have_permission {
+            anyhow::bail!("No snapshot provided, exiting offline RPC setup.");
+        }
+    }
+    info!(
+        "Downloading latest snapshot for {} size {}",
+        chain,
+        indicatif::HumanBytes(num_bytes)
+    );
+    let downloaded_snapshot_path = std::env::current_dir()?.join(path);
+    download_to(&snapshot_url, &downloaded_snapshot_path).await?;
+    info!("Snapshot downloaded");
+    Ok(vec![downloaded_snapshot_path])
+}
+
+fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
+    info!("Using chain config for {chain}");
+    let chain_config = ChainConfig::from_chain(chain);
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
+    Ok(chain_config)
 }

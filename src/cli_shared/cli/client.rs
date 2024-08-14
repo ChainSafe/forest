@@ -39,7 +39,7 @@ impl Default for BufferSize {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Client {
     pub data_dir: PathBuf,
-    pub genesis_file: Option<String>,
+    pub genesis_file: Option<PathBuf>,
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
     pub enable_health_check: bool,
