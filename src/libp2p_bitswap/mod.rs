@@ -52,6 +52,5 @@ pub mod task {
 }
 #[cfg(test)]
 mod tests {
-    mod go_compat;
     mod request_manager;
 }

@@ -13,7 +13,7 @@ mod tests {
         Block, Cid,
     };
     use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
-    use libp2p_swarm_test::SwarmExt;
+    use libp2p_swarm_test::SwarmExt as _;
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
     use tokio::{select, task::JoinSet};

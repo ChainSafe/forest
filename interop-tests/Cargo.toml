@@ -1,0 +1,38 @@
+[package]
+name = "forest-interop-tests"
+version = "0.1.0"
+authors = ["ChainSafe Systems <forest@chainsafe.io>"]
+repository = "https://github.com/ChainSafe/forest"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Interop tests for Forest."
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+anyhow = "1"
+flume = "0.11"
+forest-filecoin = { path = "../", default-features = false, features = ["interop-tests-private"] }
+futures = "0.3"
+libipld = { version = "0.16", default-features = false }
+libp2p = { version = "0.54", default-features = false, features = [
+  'kad',
+  'identify',
+  'noise',
+  'yamux',
+  'tcp',
+  'tokio',
+  'macros',
+  'serde',
+  'rsa',
+  'ecdsa',
+  'ed25519',
+  'secp256k1',
+] }
+libp2p-swarm-test = "0.4"
+rust2go = { version = "0.3" }
+tokio = { version = "1", features = ['full'] }
+
+[build-dependencies]
+rust2go = { version = "0.3", features = ["build"] }

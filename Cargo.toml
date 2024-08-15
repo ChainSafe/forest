@@ -6,7 +6,7 @@ repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
-exclude = [".config", ".github", ".maintain", "documentation", "scripts"]
+exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests"]
 
 [dependencies]
 ahash = "0.8"
@@ -254,6 +254,7 @@ default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
 benchmark-private = []                                                    # see lib.rs::benchmark_private
+interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
 # Allocator
 rustalloc = []
@@ -277,3 +278,7 @@ required-features = ["benchmark-private"]
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata
 rustdoc-args = ["--document-private-items"]
+
+[workspace]
+members = ["interop-tests"]
+resolver = "2"

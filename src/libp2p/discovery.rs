@@ -14,7 +14,7 @@ use libp2p::{
     core::Multiaddr,
     identify,
     identity::{PeerId, PublicKey},
-    kad::{self, store::MemoryStore},
+    kad,
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
     swarm::{
@@ -33,7 +33,7 @@ use crate::utils::version::FOREST_VERSION_STRING;
 #[derive(NetworkBehaviour)]
 pub struct DerivedDiscoveryBehaviour {
     /// Kademlia discovery.
-    kademlia: Toggle<kad::Behaviour<MemoryStore>>,
+    kademlia: Toggle<kad::Behaviour<kad::store::MemoryStore>>,
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,
     /// [`identify::Behaviour`] needs to be manually hooked up with [`kad::Behaviour`] to make discovery work. See <https://docs.rs/libp2p/latest/libp2p/kad/index.html#important-discrepancies>
@@ -185,7 +185,7 @@ pub fn new_kademlia(
     peer_id: PeerId,
     protocol: StreamProtocol,
 ) -> kad::Behaviour<kad::store::MemoryStore> {
-    let store = MemoryStore::new(peer_id);
+    let store = kad::store::MemoryStore::new(peer_id);
     let kad_config = kad::Config::new(protocol);
 
     let mut kademlia = kad::Behaviour::with_config(peer_id, store, kad_config);
@@ -530,7 +530,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 #[cfg(test)]
 mod tests {
     use libp2p::{identity::Keypair, swarm::SwarmEvent, Swarm};
-    use libp2p_swarm_test::SwarmExt;
+    use libp2p_swarm_test::SwarmExt as _;
 
     use super::*;
 

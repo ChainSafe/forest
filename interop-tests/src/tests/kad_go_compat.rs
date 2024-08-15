@@ -1,35 +1,24 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Context as _;
+use super::go_ffi::*;
+
+use forest_filecoin::interop_tests_private::libp2p::discovery::new_kademlia;
 use futures::StreamExt as _;
 use libp2p::{
     identify, identity, kad, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, StreamProtocol,
     Swarm, SwarmBuilder,
 };
 use libp2p_swarm_test::SwarmExt as _;
-use std::{process::Command, time::Duration};
-
-use crate::libp2p::discovery::new_kademlia;
+use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_secs(600);
 const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
-const GO_APP_DIR: &str = "src/libp2p/tests/go-kad";
 
 type SwarmType = Swarm<TestBehaviour>;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn kad_go_compat_test() -> anyhow::Result<()> {
-    prepare_go_app()?;
-    let (cancellation_tx, cancellation_rx) = flume::bounded(1);
-    tokio::spawn({
-        let cancellation_tx = cancellation_tx.clone();
-        async move {
-            tokio::time::sleep(TIMEOUT).await;
-            println!("timed out, cancelling");
-            cancellation_tx.send_async(()).await.unwrap();
-        }
-    });
     let (mut swarm1, addr1) = create_node().await?;
     let (swarm2, addr2) = create_node().await?;
     swarm1
@@ -40,41 +29,17 @@ async fn kad_go_compat_test() -> anyhow::Result<()> {
     tokio::spawn(swarm1.loop_on_next());
     tokio::spawn(swarm2.loop_on_next());
 
-    assert!(run_go_app(cancellation_rx, &addr1)?);
-    Ok(())
-}
-
-fn prepare_go_app() -> anyhow::Result<()> {
-    const ERROR_CONTEXT: &str = "Fail to compile `go-kad` test app, make sure you have `Go1.21.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>";
-    Command::new("go")
-        .args(["mod", "vendor"])
-        .current_dir(GO_APP_DIR)
-        .spawn()
-        .context(ERROR_CONTEXT)?
-        .wait()
-        .context(ERROR_CONTEXT)?;
-    Ok(())
-}
-
-fn run_go_app(cancellation_rx: flume::Receiver<()>, addr: &Multiaddr) -> anyhow::Result<bool> {
-    let mut app = Command::new("go")
-        .args(["run", ".", "--addr", addr.to_string().as_str()])
-        .current_dir(GO_APP_DIR)
-        .env("GOLOG_LOG_LEVEL", "info,dht=debug")
-        .spawn()?;
-    loop {
-        if cancellation_rx
-            .recv_timeout(Duration::from_millis(100))
-            .is_ok()
-        {
-            app.kill()?;
-            anyhow::bail!("Cancelled");
-        }
-
-        if let Some(status) = app.try_wait()? {
-            return Ok(status.success());
+    GoKadNodeImpl::run();
+    GoKadNodeImpl::connect(&addr1.to_string());
+    // Wait for 10s
+    for _ in 0..10 {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        if GoKadNodeImpl::get_n_connected(&Default::default()) > 2 {
+            break;
         }
     }
+    assert!(GoKadNodeImpl::get_n_connected(&Default::default()) > 2);
+    Ok(())
 }
 
 async fn create_node() -> anyhow::Result<(SwarmType, Multiaddr)> {
