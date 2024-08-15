@@ -7,10 +7,11 @@ use std::{
     str::FromStr,
 };
 
-use chrono::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::serde_as;
+
+use crate::daemon::db_util::ImportMode;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
@@ -38,18 +39,14 @@ impl Default for BufferSize {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Client {
     pub data_dir: PathBuf,
-    pub genesis_file: Option<String>,
+    pub genesis_file: Option<PathBuf>,
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
     pub enable_health_check: bool,
-    /// If this is true, then we do not validate the imported snapshot.
-    /// Otherwise, we validate and compute the states.
-    pub snapshot: bool,
-    /// If this is true, delete the snapshot at `snapshot_path` if it's a local file.
-    pub consume_snapshot: bool,
     pub snapshot_height: Option<i64>,
     pub snapshot_head: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
+    pub import_mode: ImportMode,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
@@ -65,14 +62,6 @@ pub struct Client {
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
     pub healthcheck_address: SocketAddr,
-    /// Period of validity for JWT in seconds. Defaults to 60 days.
-    #[serde_as(as = "DurationSeconds<i64>")]
-    #[cfg_attr(test, arbitrary(gen(
-        // Note: this a workaround for `chrono` not supporting `i64::MIN` as a valid duration.
-        // [[https://github.com/chronotope/chrono/blob/dc196062650c05528cbe259e340210f0340a05d1/src/time_delta.rs#L223-L232]]
-        |g| Duration::try_milliseconds(i64::arbitrary(g).max(-i64::MAX)).expect("Infallible")
-    )))]
-    pub token_exp: Duration,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
     pub load_actors: bool,
     /// `TTL` to set for Ethereum `Hash` to `Cid` entries or `None` to never reclaim them.
@@ -89,8 +78,7 @@ impl Default for Client {
             enable_metrics_endpoint: true,
             enable_health_check: true,
             snapshot_path: None,
-            snapshot: false,
-            consume_snapshot: false,
+            import_mode: ImportMode::default(),
             snapshot_height: None,
             snapshot_head: None,
             skip_load: false,
@@ -103,7 +91,6 @@ impl Default for Client {
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
                 crate::health::DEFAULT_HEALTHCHECK_PORT,
             ),
-            token_exp: Duration::try_seconds(5184000).expect("Infallible"), // 60 Days = 5184000 Seconds
             load_actors: true,
             eth_mapping_ttl: None,
         }

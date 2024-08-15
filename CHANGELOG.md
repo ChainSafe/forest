@@ -27,13 +27,57 @@
 
 ### Breaking
 
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Removed the
+  `--consume-snapshot` parameter from the `forest` binary. To consume a
+  snapshot, use `--import-snapshot <path> --import-mode=move`.
+
 ### Added
+
+- [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
+  Ethereum RPC name aliases.
+
+- [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
+  metrics for RPC methods.
+
+- [#4599](https://github.com/ChainSafe/forest/issues/4599) Block delay and block
+  propagation delays are now configurable via
+  [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
+
+- [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
+  finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
+  snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=symlink`.
+
+- [#4533](https://github.com/ChainSafe/forest/pull/4641) Added `build_info`
+  metric to Prometheus metrics, which include the current build's version.
+
+- [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
+  devnets (2k networks) in the offline Forest.
 
 ### Changed
 
+- [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
+  date for the master token. The new behavior aligns with Lotus.
+
 ### Removed
 
+- [#4624](https://github.com/ChainSafe/forest/pull/4624) Remove the
+  `--chain-import` flag. Its functionality can be accessed through the more
+  flexible `--height` flag.
+
 ### Fixed
+
+- [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
+  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  `Filecoin.EthGetBlockByHash` RPC methods.
+
+- [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
+  structure in the `Filecoin.MinerGetBaseInfo` RPC method.
+
+- [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
+  `StateMinerProvingDeadline`.
 
 ## Forest 0.19.2 "Eagle"
 

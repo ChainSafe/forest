@@ -28,10 +28,10 @@
 //!
 //! ## GC Workflow
 //! 1. Mark: traverse all the blocks, generating integer hash representations for each identifier
-//! and storing those in a set.
+//!    and storing those in a set.
 //! 2. Wait at least `chain finality` blocks.
 //! 3. Traverse reachable blocks starting at the current heaviest tipset and remove those from the
-//! marked set, leaving only unreachable entries that are older than `chain finality`.
+//!    marked set, leaving only unreachable entries that are older than `chain finality`.
 //! 4. Sweep, removing all the remaining marked entries from the database.
 //!
 //! ## Correctness
@@ -46,9 +46,9 @@
 //! The expected disk usage is slightly greater than the size of live data for three reasons:
 //! 1. Unreachable data is not removed until it is at least 7.5 hours old (see `chain finality`).
 //! 2. The garbage collector is conservative and is expected to leave a small (less than 1%) amount
-//! of unreachable data behind.
+//!    of unreachable data behind.
 //! 3. The blockstore back-end may be fragmented, therefore not relinquishing the disk space back to
-//! the OS.
+//!    the OS.
 //!
 //! ## Memory usage
 //! During the `mark` and up to the `sweep` stage, the algorithm requires `4 bytes` of memory for
@@ -58,9 +58,9 @@
 //!
 //! ## Scheduling
 //! 1. GC is triggered automatically and there have to be at least `chain finality` epochs stored
-//! for the `mark` step.
+//!    for the `mark` step.
 //! 2. The `filter` step is triggered after at least `chain finality` has passed since the `mark`
-//! step.
+//!    step.
 //! 3. Then, the `sweep` step happens.
 //! 4. Finally, the algorithm waits for a configured amount of time to initiate the next run.
 //!
@@ -346,7 +346,9 @@ mod test {
         assert_eq!(gc.epoch_marked, depth);
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn dont_gc_reachable_data(depth: u8, current_epoch: u8) {
         // Enforce depth above zero.
         if depth < 1 {
@@ -384,7 +386,9 @@ mod test {
         );
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn no_young_data_cleanups(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
         // Enforce depth above zero.
         if depth < 1 {
@@ -426,7 +430,9 @@ mod test {
         );
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn unreachable_old_data_collected(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
         // Enforce depth above zero.
         if depth < 1 {

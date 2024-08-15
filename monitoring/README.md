@@ -3,7 +3,7 @@
 ## Requirements
 
 1. `forest` node running locally
-2. `docker` & `docker-compose` must be available in the `$PATH` (alternatively
+2. `docker` & `docker compose` must be available in the `$PATH` (alternatively
    `podman` and `podman-compose` can be used)
 3. Port `3000` for `grafana` has to be free.
 4. Port `3100` for `loki` has to be free.
@@ -14,7 +14,7 @@ To run the metrics stack, use the provided Docker compose file to spawn the
 `prometheus`, `loki` and `grafana` containers.
 
 ```sh
-$ sudo docker-compose up --build --force-recreate -d
+$ sudo docker compose up --build --force-recreate -d
 # or
 $ podman-compose up --build --force-recreate -d
 ```
@@ -37,7 +37,7 @@ refer to its [documentation](https://grafana.com/docs/loki/latest/logql/).
 Assuming your user is in `docker` group.
 
 ```sh
-$ docker-compose up --build --force-recreate -d
+$ docker compose up --build --force-recreate -d
 # or
 $ podman-compose up --build --force-recreate -d
 ```

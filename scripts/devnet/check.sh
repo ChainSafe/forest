@@ -12,9 +12,10 @@ source .env
 # Forest check - assert that we sync past the genesis block.
 # Allow for 300 seconds of sync time.
 function get_sync_height {
+  local port=$1
   curl --silent -X POST -H "Content-Type: application/json" \
        --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
-       "http://127.0.0.1:${FOREST_RPC_PORT}/rpc/v0" | jq '.result.Height'
+       "http://127.0.0.1:${port}/rpc/v0" | jq '.result.Height'
 }
 
 start_time=$(date +%s)
@@ -24,7 +25,7 @@ timeout=$((start_time + 300))  # Set timeout to 10 minutes
 target_height=$TARGET_HEIGHT
 
 while true; do
-  height=$(get_sync_height)
+  height=$(get_sync_height ${FOREST_RPC_PORT})
   if [ "$height" -gt "$target_height" ]; then
     echo "Height is larger than $target_height: $height"
     break
@@ -38,3 +39,10 @@ while true; do
 
   sleep 1
 done
+
+# Check the offline RPC, which should be initialized at that point. It should be at the genesis height, so 0.
+height=$(get_sync_height ${FOREST_OFFLINE_RPC_PORT})
+if [ "$height" -ne 0 ]; then
+  echo "Offline RPC height is not zero: $height"
+  exit 1
+fi

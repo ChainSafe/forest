@@ -106,6 +106,19 @@ pub mod benchmark_private {
     pub use crate::utils::cid;
 }
 
+/// These items are semver-exempt, and exist for forest author use only
+// Allow interop tests of forest internals
+#[cfg(feature = "interop-tests-private")]
+#[doc(hidden)]
+pub mod interop_tests_private {
+    pub mod libp2p {
+        pub use crate::libp2p::*;
+    }
+    pub mod libp2p_bitswap {
+        pub use crate::libp2p_bitswap::*;
+    }
+}
+
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};
 pub use cli::main::main as forest_main;

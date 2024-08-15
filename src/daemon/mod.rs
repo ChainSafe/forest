@@ -166,7 +166,7 @@ pub(super) async fn start(
         keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     }
 
-    handle_admin_token(&opts, &config, &keystore)?;
+    handle_admin_token(&opts, &keystore)?;
 
     let keystore = Arc::new(RwLock::new(keystore));
 
@@ -203,7 +203,7 @@ pub(super) async fn start(
     // * When snapshot command implemented, this genesis does not need to be
     //   initialized
     let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
+        config.client.genesis_file.as_deref(),
         chain_config.genesis_bytes(&db).await?.as_deref(),
         &db,
     )
@@ -437,12 +437,9 @@ pub(super) async fn start(
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, ts) = import_chain_as_forest_car(
-                path,
-                &forest_car_db_dir,
-                config.client.consume_snapshot,
-            )
-            .await?;
+            let (car_db_path, ts) =
+                import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
+                    .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
@@ -451,7 +448,7 @@ pub(super) async fn start(
         }
     }
 
-    if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
+    if let Some(validate_from) = config.client.snapshot_height {
         // We've been provided a snapshot and asked to validate it
         ensure_params_downloaded().await?;
         // Use the specified HEAD, otherwise take the current HEAD.
@@ -535,7 +532,6 @@ async fn set_snapshot_path_if_needed(
         (true, false, true) => {
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
             config.client.snapshot_path = Some(url.to_string().into());
-            config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
@@ -562,7 +558,6 @@ async fn set_snapshot_path_if_needed(
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
             config.client.snapshot_path = Some(url.to_string().into());
-            config.client.snapshot = true;
         }
     };
 
@@ -571,9 +566,12 @@ async fn set_snapshot_path_if_needed(
 
 /// Generates, prints and optionally writes to a file the administrator JWT
 /// token.
-fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
+fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<()> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
-    let token_exp = config.client.token_exp;
+    // Lotus admin tokens do not expire but Forest requires all JWT tokens to
+    // have an expiration date. So we set the expiration date to 100 years in
+    // the future to match user-visible behavior of Lotus.
+    let token_exp = chrono::Duration::days(365 * 100);
     let token = create_token(
         ADMIN.iter().map(ToString::to_string).collect(),
         ki.private_key(),
