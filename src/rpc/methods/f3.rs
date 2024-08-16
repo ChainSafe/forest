@@ -8,9 +8,12 @@
 //!
 
 mod types;
+use std::sync::Arc;
+
 use types::*;
 
 use crate::{
+    chain::index::ResolveNullTipset,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::clock::ChainEpoch,
 };
@@ -30,7 +33,12 @@ impl RpcMethod<1> for GetTipsetByEpoch {
         ctx: Ctx<impl Blockstore>,
         (epoch,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        unimplemented!()
+        let ts = ctx.chain_index().tipset_by_height(
+            epoch,
+            ctx.chain_store().heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        Ok(Arc::unwrap_or_clone(ts).into())
     }
 }
 
@@ -46,7 +54,7 @@ impl RpcMethod<1> for GetTipset {
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (epoch,): Self::Params,
+        (tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         unimplemented!()
     }
