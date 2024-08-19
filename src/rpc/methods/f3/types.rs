@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
-    lotus_json::lotus_json_with_self,
+    lotus_json::{base64_standard, lotus_json_with_self},
 };
 use cid::{multihash::MultihashDigest as _, Cid};
 use fvm_shared4::ActorID;
@@ -16,7 +16,11 @@ use std::cmp::Ordering;
 
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct F3TipSetKey(pub Vec<u8>);
+pub struct F3TipSetKey(
+    #[schemars(with = "String")]
+    #[serde(with = "base64_standard")]
+    pub Vec<u8>,
+);
 lotus_json_with_self!(F3TipSetKey);
 
 impl From<&TipsetKey> for F3TipSetKey {
@@ -61,6 +65,8 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
 pub struct F3TipSet {
     pub key: F3TipSetKey,
     /// The verifiable oracle randomness used to elect this block's author leader
+    #[schemars(with = "String")]
+    #[serde(with = "base64_standard")]
     pub beacon: Vec<u8>,
     /// The period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
@@ -104,6 +110,8 @@ pub struct F3PowerEntry {
     pub id: ActorID,
     #[schemars(with = "String")]
     pub power: num::BigInt,
+    #[schemars(with = "String")]
+    #[serde(with = "base64_standard")]
     pub pub_key: Vec<u8>,
 }
 lotus_json_with_self!(F3PowerEntry);
