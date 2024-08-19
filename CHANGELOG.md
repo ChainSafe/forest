@@ -31,6 +31,11 @@
   `--consume-snapshot` parameter from the `forest` binary. To consume a
   snapshot, use `--import-snapshot <path> --import-mode=move`.
 
+- [#3403](https://github.com/ChainSafe/forest/issues/3403) The snapshot
+  validation command `forest-tool snapshot validate` now checks the snapshots
+  individually. The previous behavior, to validate the sum of the snapshots, can
+  be achieved via `forest-tool snapshot validate-diffs`.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
