@@ -12,10 +12,11 @@ use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct F3TipSetKey(Vec<u8>);
+pub struct F3TipSetKey(pub Vec<u8>);
 lotus_json_with_self!(F3TipSetKey);
 
 impl From<&TipsetKey> for F3TipSetKey {
@@ -58,14 +59,14 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct F3TipSet {
-    key: F3TipSetKey,
+    pub key: F3TipSetKey,
     /// The verifiable oracle randomness used to elect this block's author leader
-    beacon: Vec<u8>,
+    pub beacon: Vec<u8>,
     /// The period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
-    epoch: ChainEpoch,
+    pub epoch: ChainEpoch,
     /// Block creation time, in seconds since the Unix epoch
-    timestamp: u64,
+    pub timestamp: u64,
 }
 lotus_json_with_self!(F3TipSet);
 
@@ -91,12 +92,36 @@ impl From<Tipset> for F3TipSet {
     }
 }
 
+impl From<Arc<Tipset>> for F3TipSet {
+    fn from(ts: Arc<Tipset>) -> Self {
+        Arc::unwrap_or_clone(ts).into()
+    }
+}
+
 /// PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Eq, PartialEq)]
 pub struct F3PowerEntry {
-    id: ActorID,
+    pub id: ActorID,
     #[schemars(with = "String")]
-    power: num::BigInt,
-    pub_key: Vec<u8>,
+    pub power: num::BigInt,
+    pub pub_key: Vec<u8>,
 }
 lotus_json_with_self!(F3PowerEntry);
+
+/// Entries are sorted descending order of their power, where entries with equal power are
+/// sorted by ascending order of their ID.
+/// This ordering is guaranteed to be stable, since a valid PowerTable cannot contain entries with duplicate IDs
+impl Ord for F3PowerEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match other.power.cmp(&self.power) {
+            Ordering::Equal => self.id.cmp(&other.id),
+            ord => ord,
+        }
+    }
+}
+
+impl PartialOrd for F3PowerEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}

@@ -99,6 +99,9 @@ from2internal! {
     tokio::task::JoinError,
     fil_actors_shared::fvm_ipld_hamt::Error,
     flume::RecvError,
+    fil_actors_shared::v12::ActorError,
+    fil_actors_shared::v13::ActorError,
+    fil_actors_shared::v14::ActorError,
 }
 
 impl From<ServerError> for ClientError {
