@@ -1820,6 +1820,20 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         }
 
         // If not found, try to get it from the mempool
+        let (pending, _) = ctx.mpool.pending()?;
+
+        if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
+            // We only return pending eth-account messages because we can't guarantee
+            // that the from/to addresses of other messages are conversable to 0x-style
+            // addresses. So we just ignore them.
+            //
+            // This should be "fine" as anyone using an "Ethereum-centric" block
+            // explorer shouldn't care about seeing pending messages from native
+            // accounts.
+            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, &smsg) {
+                return Ok(Some(eth_tx.into()));
+            }
+        }
 
         // Ethereum clients expect an empty response when the message was not found
         Ok(None)
