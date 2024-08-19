@@ -107,11 +107,13 @@ impl From<Arc<Tipset>> for F3TipSet {
 /// PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Eq, PartialEq)]
 pub struct F3PowerEntry {
+    #[serde(rename = "ID")]
     pub id: ActorID,
     #[schemars(with = "String")]
+    #[serde(rename = "Power", with = "crate::lotus_json::stringify")]
     pub power: num::BigInt,
     #[schemars(with = "String")]
-    #[serde(with = "base64_standard")]
+    #[serde(rename = "PubKey", with = "base64_standard")]
     pub pub_key: Vec<u8>,
 }
 lotus_json_with_self!(F3PowerEntry);
