@@ -996,7 +996,7 @@ pub fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
     let result: Result<Vec<SignedMessage>, crate::chain::Error> =
-        crate::chain::messages_from_cids(ctx.store(), &[message_cid.clone()]);
+        crate::chain::messages_from_cids(ctx.store(), &[message_cid]);
 
     if let Ok(smsg) = result {
         Ok(smsg.first().unwrap().clone())
@@ -1814,9 +1814,8 @@ impl RpcMethod<1> for EthGetTransactionByHash {
             return_dec: ipld,
         };
 
-        match new_eth_tx_from_message_lookup(&ctx, &message_lookup, -1) {
-            Ok(tx) => return Ok(Some(tx)),
-            _ => (),
+        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, -1) {
+            return Ok(Some(tx));
         }
 
         // If not found, try to get it from the mempool
