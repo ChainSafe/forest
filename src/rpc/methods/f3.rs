@@ -13,10 +13,16 @@ use self::types::*;
 use crate::{
     chain::index::ResolveNullTipset,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
-    shim::{address::Protocol, clock::ChainEpoch},
+    shim::{
+        address::{Address, Protocol},
+        clock::ChainEpoch,
+    },
 };
 use fil_actor_interface::{
-    convert::{from_policy_v13_to_v12, from_policy_v13_to_v14},
+    convert::{
+        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
+        from_policy_v13_to_v14, from_policy_v13_to_v9,
+    },
     miner, power,
 };
 use fvm_ipld_blockstore::Blockstore;
@@ -163,6 +169,178 @@ impl RpcMethod<1> for GetPowerTable {
         let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let mut id_power_worker_mappings = vec![];
         match &state {
+            power::State::V8(s) => {
+                fn map_err<E: Display>(e: E) -> fil_actors_shared::v8::ActorError {
+                    fil_actors_shared::v8::ActorError::unspecified(e.to_string())
+                }
+
+                let claims = fil_actors_shared::v8::make_map_with_root::<
+                    _,
+                    fil_actor_power_state::v8::Claim,
+                >(&s.claims, ctx.store())?;
+                claims.for_each(|key, claim| {
+                    let miner = Address::from_bytes(key)?;
+                    if !claim.quality_adj_power.is_positive() {
+                        return Ok(());
+                    }
+
+                    let id = miner.id().map_err(map_err)?;
+                    let ok = s.miner_nominal_power_meets_consensus_minimum(
+                        &from_policy_v13_to_v9(&ctx.chain_config().policy),
+                        ctx.store(),
+                        &miner.into(),
+                    )?;
+                    if !ok {
+                        return Ok(());
+                    }
+                    let power = claim.quality_adj_power.clone();
+                    let miner_state: miner::State = ctx
+                        .state_manager
+                        .get_actor_state_from_address(&ts, &miner)
+                        .map_err(map_err)?;
+                    let debt = miner_state.fee_debt();
+                    if !debt.is_zero() {
+                        // fee debt don't add the miner to power table
+                        return Ok(());
+                    }
+                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    // check consensus faults
+                    if ts.epoch() <= miner_info.consensus_fault_elapsed {
+                        return Ok(());
+                    }
+                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    Ok(())
+                })?;
+            }
+            power::State::V9(s) => {
+                fn map_err<E: Display>(e: E) -> fil_actors_shared::v9::ActorError {
+                    fil_actors_shared::v9::ActorError::unspecified(e.to_string())
+                }
+
+                let claims = fil_actors_shared::v9::make_map_with_root::<
+                    _,
+                    fil_actor_power_state::v9::Claim,
+                >(&s.claims, ctx.store())?;
+                claims.for_each(|key, claim| {
+                    let miner = Address::from_bytes(key)?;
+                    if !claim.quality_adj_power.is_positive() {
+                        return Ok(());
+                    }
+
+                    let id = miner.id().map_err(map_err)?;
+                    let ok = s.miner_nominal_power_meets_consensus_minimum(
+                        &from_policy_v13_to_v9(&ctx.chain_config().policy),
+                        ctx.store(),
+                        &miner.into(),
+                    )?;
+                    if !ok {
+                        return Ok(());
+                    }
+                    let power = claim.quality_adj_power.clone();
+                    let miner_state: miner::State = ctx
+                        .state_manager
+                        .get_actor_state_from_address(&ts, &miner)
+                        .map_err(map_err)?;
+                    let debt = miner_state.fee_debt();
+                    if !debt.is_zero() {
+                        // fee debt don't add the miner to power table
+                        return Ok(());
+                    }
+                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    // check consensus faults
+                    if ts.epoch() <= miner_info.consensus_fault_elapsed {
+                        return Ok(());
+                    }
+                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    Ok(())
+                })?;
+            }
+            power::State::V10(s) => {
+                fn map_err<E: Display>(e: E) -> fil_actors_shared::v10::ActorError {
+                    fil_actors_shared::v10::ActorError::unspecified(e.to_string())
+                }
+
+                let claims = fil_actors_shared::v10::make_map_with_root::<
+                    _,
+                    fil_actor_power_state::v10::Claim,
+                >(&s.claims, ctx.store())?;
+                claims.for_each(|key, claim| {
+                    let miner = Address::from_bytes(key)?;
+                    if !claim.quality_adj_power.is_positive() {
+                        return Ok(());
+                    }
+
+                    let id = miner.id().map_err(map_err)?;
+                    let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
+                        &from_policy_v13_to_v10(&ctx.chain_config().policy),
+                        ctx.store(),
+                        id,
+                    )?;
+                    if !ok {
+                        return Ok(());
+                    }
+                    let power = claim.quality_adj_power.clone();
+                    let miner_state: miner::State = ctx
+                        .state_manager
+                        .get_actor_state_from_address(&ts, &miner)
+                        .map_err(map_err)?;
+                    let debt = miner_state.fee_debt();
+                    if !debt.is_zero() {
+                        // fee debt don't add the miner to power table
+                        return Ok(());
+                    }
+                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    // check consensus faults
+                    if ts.epoch() <= miner_info.consensus_fault_elapsed {
+                        return Ok(());
+                    }
+                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    Ok(())
+                })?;
+            }
+            power::State::V11(s) => {
+                fn map_err<E: Display>(e: E) -> fil_actors_shared::v11::ActorError {
+                    fil_actors_shared::v11::ActorError::unspecified(e.to_string())
+                }
+
+                let claims = fil_actors_shared::v11::make_map_with_root::<
+                    _,
+                    fil_actor_power_state::v11::Claim,
+                >(&s.claims, ctx.store())?;
+                claims.for_each(|key, claim| {
+                    let miner = Address::from_bytes(key)?;
+                    if !claim.quality_adj_power.is_positive() {
+                        return Ok(());
+                    }
+
+                    let id = miner.id().map_err(map_err)?;
+                    let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
+                        &from_policy_v13_to_v11(&ctx.chain_config().policy),
+                        ctx.store(),
+                        id,
+                    )?;
+                    if !ok {
+                        return Ok(());
+                    }
+                    let power = claim.quality_adj_power.clone();
+                    let miner_state: miner::State = ctx
+                        .state_manager
+                        .get_actor_state_from_address(&ts, &miner)
+                        .map_err(map_err)?;
+                    let debt = miner_state.fee_debt();
+                    if !debt.is_zero() {
+                        // fee debt don't add the miner to power table
+                        return Ok(());
+                    }
+                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    // check consensus faults
+                    if ts.epoch() <= miner_info.consensus_fault_elapsed {
+                        return Ok(());
+                    }
+                    id_power_worker_mappings.push((id, power, miner_info.worker.into()));
+                    Ok(())
+                })?;
+            }
             power::State::V12(s) => {
                 handle_miner_state_v12_on!(
                     v12,
@@ -190,7 +368,6 @@ impl RpcMethod<1> for GetPowerTable {
                     &from_policy_v13_to_v14(&ctx.chain_config().policy)
                 );
             }
-            _ => unimplemented!("v8-v11 support is to be implemented."),
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {
