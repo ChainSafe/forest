@@ -35,7 +35,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
@@ -1800,22 +1800,23 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         };
 
         // First, try to get the cid from mined transactions
-        let (tipset, receipt) = ctx
+        if let Ok(Some((tipset, receipt))) = ctx
             .state_manager
             .search_for_message(None, message_cid, None, Some(true))
-            .await?
-            .with_context(|| format!("message {message_cid} not found."))?;
-        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        let message_lookup = MessageLookup {
-            receipt,
-            tipset: tipset.key().clone(),
-            height: tipset.epoch(),
-            message: message_cid,
-            return_dec: ipld,
-        };
+            .await
+        {
+            let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+            let message_lookup = MessageLookup {
+                receipt,
+                tipset: tipset.key().clone(),
+                height: tipset.epoch(),
+                message: message_cid,
+                return_dec: ipld,
+            };
 
-        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, -1) {
-            return Ok(Some(tx));
+            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, -1) {
+                return Ok(Some(tx));
+            }
         }
 
         // If not found, try to get it from the mempool
