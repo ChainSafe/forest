@@ -1830,7 +1830,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
             // This should be "fine" as anyone using an "Ethereum-centric" block
             // explorer shouldn't care about seeing pending messages from native
             // accounts.
-            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, &smsg) {
+            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
                 return Ok(Some(eth_tx.into()));
             }
         }
