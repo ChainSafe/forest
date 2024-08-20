@@ -1786,16 +1786,14 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let message_cid = if let Some(cid) = ctx.chain_store().get_mapping(&tx_hash)? {
-            cid
-        } else {
+        let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
             tracing::debug!(
                 "could not find transaction hash {} in Ethereum mapping",
                 tx_hash
             );
             // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
             tx_hash.to_cid()
-        };
+        });
 
         // First, try to get the cid from mined transactions
         if let Ok(Some((tipset, receipt))) = ctx
