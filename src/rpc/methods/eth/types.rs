@@ -310,8 +310,8 @@ lotus_json_with_self!(FilterID);
 impl FilterID {
     pub fn new() -> Result<Self, uuid::Error> {
         let raw_id = Uuid::new_v4();
-        let mut id = [0u8; 16];
-        id.copy_from_slice(raw_id.as_bytes());
+        let mut id = [0u8; 32];
+        id[..16].copy_from_slice(raw_id.as_bytes());
         Ok(FilterID(EthHash(H256::from_slice(&id))))
     }
 }
@@ -325,13 +325,13 @@ pub struct EthTopicSpec(pub Vec<EthHashList>);
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthFilterSpec {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from_block: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_block: Option<String>,
     pub address: Vec<EthAddress>,
     pub topics: EthTopicSpec,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,
 }
 
