@@ -949,13 +949,13 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     Ok(ApiEthTx { hash, ..tx })
 }
 
-/// Creates an Ethereum transaction from Filecoin message lookup. If a negative `tx_index` is passed
-/// into the function, it looks up the transaction index of the message in the tipset, otherwise
-/// it uses the `tx_index` passed into the function.
+/// Creates an Ethereum transaction from Filecoin message lookup. If `None` is passed for `tx_index`,
+/// it looks up the transaction index of the message in the tipset.
+/// Otherwise, it uses some index passed into the function.
 fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     ctx: &Ctx<DB>,
     message_lookup: &MessageLookup,
-    mut tx_index: i64,
+    tx_index: Option<u64>,
 ) -> Result<ApiEthTx> {
     let ts = ctx
         .chain_store()
@@ -969,18 +969,22 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     let parent_ts_cid = parent_ts.key().cid()?;
 
     // Lookup the transaction index
-    if tx_index < 0 {
-        let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
-        for (i, msg) in msgs.iter().enumerate() {
-            if msg.cid() == message_lookup.message {
-                tx_index = i as i64;
-                break;
+    let tx_index = {
+        if let Some(index) = tx_index {
+            index
+        } else {
+            let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
+            if let Some((i, _)) = msgs
+                .iter()
+                .enumerate()
+                .find(|(_, msg)| msg.cid() == message_lookup.message)
+            {
+                i as u64
+            } else {
+                bail!("cannot find the msg in the tipset")
             }
         }
-        if tx_index < 0 {
-            bail!("cannot find the msg in the tipset")
-        }
-    }
+    };
 
     let smsg = get_signed_message(ctx, message_lookup.message)?;
 
@@ -989,7 +993,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     Ok(ApiEthTx {
         block_hash: parent_ts_cid.into(),
         block_number: (parent_ts.epoch() as u64).into(),
-        transaction_index: (tx_index as u64).into(),
+        transaction_index: tx_index.into(),
         ..new_eth_tx_from_signed_message(&smsg, &state, ctx.chain_config().eth_chain_id)?
     })
 }
@@ -1814,7 +1818,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
                 return_dec: ipld,
             };
 
-            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, -1) {
+            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
                 return Ok(Some(tx));
             }
         }
