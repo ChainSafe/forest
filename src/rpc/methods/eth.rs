@@ -952,7 +952,7 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
 /// Creates an Ethereum transaction from Filecoin message lookup. If a negative `tx_index` is passed
 /// into the function, it looks up the transaction index of the message in the tipset, otherwise
 /// it uses the `tx_index` passed into the function.
-pub fn new_eth_tx_from_message_lookup<DB: Blockstore>(
+fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     ctx: &Ctx<DB>,
     message_lookup: &MessageLookup,
     mut tx_index: i64,
@@ -961,14 +961,14 @@ pub fn new_eth_tx_from_message_lookup<DB: Blockstore>(
         .chain_store()
         .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
 
-    // This tx is located in the parent tipset
+    // This transaction is located in the parent tipset
     let parent_ts = ctx
         .chain_store()
         .load_required_tipset_or_heaviest(ts.parents())?;
 
     let parent_ts_cid = parent_ts.key().cid()?;
 
-    // lookup the transaction index
+    // Lookup the transaction index
     if tx_index < 0 {
         let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
         for (i, msg) in msgs.iter().enumerate() {
