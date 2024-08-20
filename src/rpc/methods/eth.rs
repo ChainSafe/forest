@@ -996,22 +996,15 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
     let result: Result<SignedMessage, crate::chain::Error> =
         crate::chain::message_from_cid(ctx.store(), &message_cid);
 
-    if let Ok(smsg) = result {
-        return Ok(smsg);
-    }
-
-    // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
-    let result: Result<Message, crate::chain::Error> =
-        crate::chain::message_from_cid(ctx.store(), &message_cid);
-    match result {
-        Ok(msg) => Ok(SignedMessage::new_unchecked(
+       result.or_else(|_| {
+        // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
+        let msg: Message = crate::chain::message_from_cid(ctx.store(), &message_cid)
+            .with_context(|| format!("failed to find msg {}", message_cid))?;
+        Ok(SignedMessage::new_unchecked(
             msg,
             Signature::new_bls(vec![]),
-        )),
-        Err(err) => {
-            bail!("failed to find msg {}: {}", message_cid, err)
-        }
-    }
+        ))
+    })
 }
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
