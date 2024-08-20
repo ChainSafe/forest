@@ -10,6 +10,9 @@ source "$(dirname "$0")/harness.sh"
 forest_import_non_calibnet_snapshot
 forest_init
 
+echo "Running Go F3 RPC client tests"
+go test -v ./f3-sidecar
+
 echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
 $FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
