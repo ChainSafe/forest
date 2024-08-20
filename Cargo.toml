@@ -41,7 +41,7 @@ daemonize-me = "2"
 data-encoding = "2"
 data-encoding-macro = "0.1"
 derive_builder = "0.20.0"
-derive_more = "0.99"
+derive_more = { version = "1", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
@@ -174,7 +174,7 @@ static_assertions = "1"
 statrs = "0.17"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-tabled = "0.15"
+tabled = "0.16"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -184,7 +184,7 @@ tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
-tower = { version = "0.4", features = ["full"] }
+tower = { version = "0.5", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
