@@ -1005,10 +1005,10 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
         let result: Result<Vec<Message>, crate::chain::Error> =
             crate::chain::messages_from_cids(ctx.store(), &[message_cid]);
         match result {
-            Ok(msg) => SignedMessage::new_from_parts(
+            Ok(msg) => Ok(SignedMessage::new_unchecked(
                 msg.first().unwrap().clone(),
                 Signature::new_bls(vec![]),
-            ),
+            )),
             Err(err) => {
                 bail!("failed to find msg {}: {}", message_cid, err)
             }
