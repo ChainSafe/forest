@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod eth_tx;
+// Contains data types and methods for other other filter based eth rpc
+#[allow(dead_code)]
 pub mod filter;
 pub mod types;
 
