@@ -995,18 +995,18 @@ pub fn new_eth_tx_from_message_lookup<DB: Blockstore>(
 }
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
-    let result: Result<Vec<SignedMessage>, crate::chain::Error> =
-        crate::chain::messages_from_cids(ctx.store(), &[message_cid]);
+    let result: Result<SignedMessage, crate::chain::Error> =
+        crate::chain::message_from_cid(ctx.store(), &message_cid);
 
     if let Ok(smsg) = result {
-        Ok(smsg.first().unwrap().clone())
+        Ok(smsg)
     } else {
         // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
-        let result: Result<Vec<Message>, crate::chain::Error> =
-            crate::chain::messages_from_cids(ctx.store(), &[message_cid]);
+        let result: Result<Message, crate::chain::Error> =
+            crate::chain::message_from_cid(ctx.store(), &message_cid);
         match result {
             Ok(msg) => Ok(SignedMessage::new_unchecked(
-                msg.first().unwrap().clone(),
+                msg,
                 Signature::new_bls(vec![]),
             )),
             Err(err) => {
