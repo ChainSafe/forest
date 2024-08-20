@@ -969,22 +969,16 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     let parent_ts_cid = parent_ts.key().cid()?;
 
     // Lookup the transaction index
-    let tx_index = {
-        if let Some(index) = tx_index {
-            index
-        } else {
+    let tx_index = tx_index.map_or_else(
+        || {
             let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
-            if let Some((i, _)) = msgs
-                .iter()
-                .enumerate()
-                .find(|(_, msg)| msg.cid() == message_lookup.message)
-            {
-                i as u64
-            } else {
-                bail!("cannot find the msg in the tipset")
-            }
-        }
-    };
+            msgs.iter()
+                .position(|msg| msg.cid() == message_lookup.message)
+                .context("cannot find the msg in the tipset")
+                .map(|i| i as u64)
+        },
+        Ok,
+    )?;
 
     let smsg = get_signed_message(ctx, message_lookup.message)?;
 
