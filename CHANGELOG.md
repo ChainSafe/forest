@@ -61,6 +61,9 @@
 - [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
   devnets (2k networks) in the offline Forest.
 
+- [#4463](https://github.com/ChainSafe/forest/issues/4463) Add support for the
+  `Filecoin.EthGetTransactionByHash` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
