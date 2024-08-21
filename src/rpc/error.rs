@@ -31,7 +31,9 @@ impl ServerError {
     pub fn known_code(&self) -> ErrorCode {
         self.inner.code().into()
     }
-    pub fn stubbed_4528() -> Self {
+    /// We are only including this method to get the JSON Schemas for our OpenRPC
+    /// machinery
+    pub fn stubbed_for_openrpc() -> Self {
         Self::new(
             4528,
             "unimplemented",

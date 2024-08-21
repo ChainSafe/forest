@@ -282,7 +282,7 @@ impl RpcMethod<0> for NetProtectList {
     type Params = ();
     type Ok = Vec<String>;
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_4528())
+        Err(ServerError::stubbed_for_openrpc())
     }
 }
 pub enum NetProtectRemove {}
@@ -295,6 +295,6 @@ impl RpcMethod<1> for NetProtectRemove {
     type Params = (String,);
     type Ok = ();
     async fn handle(_: Ctx<impl Blockstore>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_4528())
+        Err(ServerError::stubbed_for_openrpc())
     }
 }
