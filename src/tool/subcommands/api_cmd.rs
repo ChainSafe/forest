@@ -36,7 +36,6 @@ use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use filter::EthEventHandler;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
