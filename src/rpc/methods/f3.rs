@@ -12,10 +12,12 @@ mod types;
 use self::types::*;
 use crate::{
     chain::index::ResolveNullTipset,
+    libp2p::{NetRPCMethods, NetworkMessage},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
+        crypto::Signature,
     },
 };
 use fil_actor_interface::{
@@ -26,8 +28,11 @@ use fil_actor_interface::{
     miner, power,
 };
 use fvm_ipld_blockstore::Blockstore;
+use libp2p::PeerId;
 use num::Signed as _;
-use std::{fmt::Display, sync::Arc};
+use std::{fmt::Display, str::FromStr as _, sync::Arc};
+
+use super::wallet::WalletSign;
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
@@ -383,5 +388,68 @@ impl RpcMethod<1> for GetPowerTable {
         }
         power_entries.sort();
         Ok(power_entries)
+    }
+}
+
+pub enum ProtectPeer {}
+impl RpcMethod<1> for ProtectPeer {
+    const NAME: &'static str = "F3.ProtectPeer";
+    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (String,);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (peer_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&peer_id)?;
+        let (tx, rx) = flume::bounded(1);
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::ProtectPeer(tx, peer_id),
+            })
+            .await?;
+        rx.recv_async().await?;
+        Ok(true)
+    }
+}
+
+pub enum GetParticipatedMinerIDs {}
+impl RpcMethod<0> for GetParticipatedMinerIDs {
+    const NAME: &'static str = "F3.GetParticipatedMinerIDs";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Vec<u64>;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        // For now, just hard code the shared miner for testing
+        let shared_miner_addr = Address::from_str("t0111551")?;
+        Ok(vec![shared_miner_addr.id()?])
+    }
+}
+
+pub enum SignMessage {}
+impl RpcMethod<2> for SignMessage {
+    const NAME: &'static str = "F3.SignMessage";
+    const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Vec<u8>, Vec<u8>);
+    type Ok = Signature;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (pubkey, message): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let addr = Address::new_bls(&pubkey)?;
+        // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
+        WalletSign::handle(ctx, (addr, message)).await
     }
 }

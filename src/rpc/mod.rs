@@ -220,6 +220,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetHead);
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetPowerTable);
+        $callback!(crate::rpc::f3::ProtectPeer);
+        $callback!(crate::rpc::f3::GetParticipatedMinerIDs);
+        $callback!(crate::rpc::f3::SignMessage);
     };
 }
 pub(crate) use for_each_method;

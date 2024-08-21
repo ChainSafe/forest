@@ -86,6 +86,8 @@ pub struct PeerManager {
     peer_ops_rx: Receiver<PeerOperation>,
     /// Peer ban list, key is peer id, value is expiration time
     peer_ban_list: tokio::sync::RwLock<HashMap<PeerId, Option<Instant>>>,
+    /// A set of peers that won't be proactively banned or disconnected from
+    protected_peers: RwLock<HashSet<PeerId>>,
 }
 
 impl Default for PeerManager {
@@ -97,6 +99,7 @@ impl Default for PeerManager {
             peer_ops_tx,
             peer_ops_rx,
             peer_ban_list: Default::default(),
+            protected_peers: Default::default(),
         }
     }
 }
@@ -284,6 +287,9 @@ impl PeerManager {
         reason: impl Into<String>,
         duration: Option<Duration>,
     ) {
+        if self.is_peer_protected(&peer) {
+            return;
+        }
         let mut locked = self.peer_ban_list.write().await;
         locked.insert(peer, duration.and_then(|d| Instant::now().checked_add(d)));
         if let Err(e) = self
@@ -337,6 +343,18 @@ impl PeerManager {
 
     pub fn peer_count(&self) -> usize {
         self.peers.read().full_peers.len()
+    }
+
+    pub fn protect_peer(&self, peer_id: PeerId) {
+        self.protected_peers.write().insert(peer_id);
+    }
+
+    pub fn unprotect_peer(&self, peer_id: &PeerId) {
+        self.protected_peers.write().remove(peer_id);
+    }
+
+    pub fn is_peer_protected(&self, peer_id: &PeerId) -> bool {
+        self.protected_peers.read().contains(peer_id)
     }
 }
 
