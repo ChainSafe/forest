@@ -1870,6 +1870,41 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     }
 }
 
+pub enum EthCall {}
+impl RpcMethod<2> for EthCall {
+    const NAME: &'static str = "Filecoin.EthCall";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, BlockNumberOrHash);
+    type Ok = EthBytes;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let msg = tx.try_into()?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
+
+        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+            // As far as I can tell, the Eth API always returns empty on contract deployment
+            Ok(EthBytes::default())
+        } else {
+            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+
+            let get_bytecode_return: GetBytecodeReturn =
+                fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
+            if let Some(cid) = get_bytecode_return.0 {
+                Ok(EthBytes(ctx.store().get_required(&cid)?))
+            } else {
+                Ok(Default::default())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
