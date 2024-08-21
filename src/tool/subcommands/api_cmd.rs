@@ -1443,8 +1443,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
             tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
+            tests.push(RpcTest::identity(EthGetTransactionByHash::request((
+                tx.hash,
+            ))?));
         }
     }
     tests.push(RpcTest::identity(
