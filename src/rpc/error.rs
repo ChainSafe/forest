@@ -31,6 +31,16 @@ impl ServerError {
     pub fn known_code(&self) -> ErrorCode {
         self.inner.code().into()
     }
+    pub fn stubbed_4528() -> Self {
+        Self::new(
+            4528,
+            "unimplemented",
+            Some(
+                "This method is stubbed as part of https://github.com/ChainSafe/forest/issues/4528"
+                    .into(),
+            ),
+        )
+    }
 }
 
 impl Display for ServerError {
