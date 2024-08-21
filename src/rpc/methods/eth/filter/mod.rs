@@ -392,8 +392,8 @@ mod tests {
 
         for filter_id in filter_ids {
             let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
-            assert_eq!(
-                result, true,
+            assert!(
+                result,
                 "Uninstalling filter with id {:?} failed",
                 &filter_id
             );
