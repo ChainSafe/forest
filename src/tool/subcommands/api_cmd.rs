@@ -1277,6 +1277,9 @@ fn eth_tests() -> Vec<RpcTest> {
             EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
+            EthUninstallFilter::request_with_alias((FilterID::new().unwrap(),), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
         ));
     }
