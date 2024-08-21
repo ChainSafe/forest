@@ -31,21 +31,24 @@ impl MemPoolFilter {
             last_taken: Mutex::new(SystemTime::now()),
         }))
     }
-    pub async fn collect_message(&self, message: SignedMessage) {
-        let mut collected = self.collected.lock();
-        let sub_channel = self.sub_channel.lock();
 
-        if let Some(ref ch) = *sub_channel {
+    pub async fn collect_message(&self, message: SignedMessage) {
+        let sub_channel_opt = {
+            let sub_channel = self.sub_channel.lock();
+            sub_channel.clone()
+        };
+        if let Some(ref ch) = sub_channel_opt {
             ch.send(Box::new(message.clone())).await.ok();
             return;
         }
-
+        let mut collected = self.collected.lock();
         if self.max_results > 0 && collected.len() == self.max_results {
             collected.remove(0);
         }
 
         collected.push(message);
     }
+
     pub fn take_collected_messages(&self) -> Vec<SignedMessage> {
         let mut collected = self.collected.lock();
         let mut last_taken = self.last_taken.lock();
@@ -96,8 +99,12 @@ impl MemPoolFilterManager {
             filters: Mutex::new(HashMap::new()),
         })
     }
+
     pub async fn process_update(&self, message: SignedMessage) {
-        let filters = self.filters.lock();
+        let filters = {
+            let filters_guard = self.filters.lock();
+            filters_guard.clone()
+        };
         for filter in filters.values() {
             filter.collect_message(message.clone()).await;
         }

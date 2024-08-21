@@ -29,6 +29,8 @@ pub fn is_indexed_value(b: u8) -> bool {
 }
 
 type AddressResolver = Arc<dyn Fn(&(), ActorID, &Tipset) -> (Address, bool) + Send + Sync>;
+type LoadExecutedMessagesFn =
+    Arc<dyn Fn(&Tipset, &Tipset) -> Result<Vec<ExecutedMessage>, Box<dyn Error>> + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub struct Event {
@@ -69,8 +71,7 @@ impl ExecutedMessage {
 struct TipsetEvents {
     rct_ts: Arc<Tipset>,
     msg_ts: Arc<Tipset>,
-    load:
-        Arc<dyn Fn(&Tipset, &Tipset) -> Result<Vec<ExecutedMessage>, Box<dyn Error>> + Send + Sync>,
+    load: LoadExecutedMessagesFn,
     ems: OnceCell<Vec<ExecutedMessage>>,
 }
 
@@ -246,11 +247,11 @@ impl FilterExt for EventFilter {
         for (msg_idx, em) in ems.iter().enumerate() {
             for ev in em.events() {
                 let addr = if let Some(addr) = address_lookups.get(&ev.emitter) {
-                    addr.clone()
+                    *addr
                 } else {
                     match resolver(ev.emitter, &te.rct_ts) {
                         Some(addr) => {
-                            address_lookups.insert(ev.emitter, addr.clone());
+                            address_lookups.insert(ev.emitter, addr);
                             addr
                         }
                         None => continue,
@@ -268,7 +269,7 @@ impl FilterExt for EventFilter {
                     reverted: revert,
                     height: te.height(),
                     tipset_key: te.msg_ts.key().clone(),
-                    msg_cid: em.message().cid().clone(),
+                    msg_cid: em.message().cid(),
                     msg_idx,
                 };
 
