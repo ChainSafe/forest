@@ -26,7 +26,7 @@ use crate::shim::actors::{
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
-use crate::shim::sector::SectorNumber;
+use crate::shim::sector::{SectorNumber, SectorSize};
 use crate::shim::state_tree::{ActorID, StateTree};
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -719,7 +719,11 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
         let state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        Ok(ApiDeadlineInfo(state.deadline_info(policy, ts.epoch())))
+        Ok(ApiDeadlineInfo(
+            state
+                .recorded_deadline_info(policy, ts.epoch())
+                .next_not_elapsed(),
+        ))
     }
 }
 
@@ -855,7 +859,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
-        let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
+        let sector_weight =
+            qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
@@ -870,7 +875,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         )?;
         let initial_pledge: TokenAmount = reward_state
             .initial_pledge_for_power(
-                &sector_weigth,
+                &sector_weight,
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
@@ -913,6 +918,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
+        let sector_size = SectorSize::from(sector_size).into();
         let sector_weight =
             if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V16 {
                 qa_power_for_weight(sector_size, duration, &w, &vw)

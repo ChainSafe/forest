@@ -14,6 +14,7 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::eth::SAFE_EPOCH_DELAY;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs,
@@ -22,7 +23,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::types::{ApiTipsetKey, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::EVMActorStateLoad as _;
@@ -37,13 +38,14 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
+use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -230,6 +232,8 @@ pub enum Predefined {
     Pending,
     #[default]
     Latest,
+    Safe,
+    Finalized,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -622,6 +626,26 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
                 Ok(parent)
             }
+            Predefined::Safe => {
+                let latest_height = head.epoch() - 1;
+                let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                let ts = chain.chain_index.tipset_by_height(
+                    safe_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
+            }
+            Predefined::Finalized => {
+                let latest_height = head.epoch() - 1;
+                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                let ts = chain.chain_index.tipset_by_height(
+                    finality_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
+            }
         },
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
@@ -926,6 +950,64 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
         (tx, smsg.message().cid().into())
     };
     Ok(ApiEthTx { hash, ..tx })
+}
+
+/// Creates an Ethereum transaction from Filecoin message lookup. If `None` is passed for `tx_index`,
+/// it looks up the transaction index of the message in the tipset.
+/// Otherwise, it uses some index passed into the function.
+fn new_eth_tx_from_message_lookup<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message_lookup: &MessageLookup,
+    tx_index: Option<u64>,
+) -> Result<ApiEthTx> {
+    let ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
+
+    // This transaction is located in the parent tipset
+    let parent_ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(ts.parents())?;
+
+    let parent_ts_cid = parent_ts.key().cid()?;
+
+    // Lookup the transaction index
+    let tx_index = tx_index.map_or_else(
+        || {
+            let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
+            msgs.iter()
+                .position(|msg| msg.cid() == message_lookup.message)
+                .context("cannot find the msg in the tipset")
+                .map(|i| i as u64)
+        },
+        Ok,
+    )?;
+
+    let smsg = get_signed_message(ctx, message_lookup.message)?;
+
+    let state = StateTree::new_from_root(ctx.store().into(), ts.parent_state())?;
+
+    Ok(ApiEthTx {
+        block_hash: parent_ts_cid.into(),
+        block_number: (parent_ts.epoch() as u64).into(),
+        transaction_index: tx_index.into(),
+        ..new_eth_tx_from_signed_message(&smsg, &state, ctx.chain_config().eth_chain_id)?
+    })
+}
+
+fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
+    let result: Result<SignedMessage, crate::chain::Error> =
+        crate::chain::message_from_cid(ctx.store(), &message_cid);
+
+    result.or_else(|_| {
+        // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
+        let msg: Message = crate::chain::message_from_cid(ctx.store(), &message_cid)
+            .with_context(|| format!("failed to find msg {}", message_cid))?;
+        Ok(SignedMessage::new_unchecked(
+            msg,
+            Signature::new_bls(vec![]),
+        ))
+    })
 }
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
@@ -1682,6 +1764,71 @@ impl RpcMethod<0> for EthProtocolVersion {
         let epoch = ctx.chain_store().heaviest_tipset().epoch();
         let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
         Ok(Uint64(version.into()))
+    }
+}
+
+pub enum EthGetTransactionByHash {}
+impl RpcMethod<1> for EthGetTransactionByHash {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByHash";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHash");
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+            tracing::debug!(
+                "could not find transaction hash {} in Ethereum mapping",
+                tx_hash
+            );
+            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+            tx_hash.to_cid()
+        });
+
+        // First, try to get the cid from mined transactions
+        if let Ok(Some((tipset, receipt))) = ctx
+            .state_manager
+            .search_for_message(None, message_cid, None, Some(true))
+            .await
+        {
+            let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+            let message_lookup = MessageLookup {
+                receipt,
+                tipset: tipset.key().clone(),
+                height: tipset.epoch(),
+                message: message_cid,
+                return_dec: ipld,
+            };
+
+            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+                return Ok(Some(tx));
+            }
+        }
+
+        // If not found, try to get it from the mempool
+        let (pending, _) = ctx.mpool.pending()?;
+
+        if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
+            // We only return pending eth-account messages because we can't guarantee
+            // that the from/to addresses of other messages are conversable to 0x-style
+            // addresses. So we just ignore them.
+            //
+            // This should be "fine" as anyone using an "Ethereum-centric" block
+            // explorer shouldn't care about seeing pending messages from native
+            // accounts.
+            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
+                return Ok(Some(eth_tx.into()));
+            }
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
     }
 }
 

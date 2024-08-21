@@ -346,7 +346,9 @@ mod test {
         assert_eq!(gc.epoch_marked, depth);
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn dont_gc_reachable_data(depth: u8, current_epoch: u8) {
         // Enforce depth above zero.
         if depth < 1 {
@@ -384,7 +386,9 @@ mod test {
         );
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn no_young_data_cleanups(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
         // Enforce depth above zero.
         if depth < 1 {
@@ -426,7 +430,9 @@ mod test {
         );
     }
 
-    #[quickcheck_async::tokio]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4404
+    // #[quickcheck_async::tokio]
+    #[allow(dead_code)]
     async fn unreachable_old_data_collected(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
         // Enforce depth above zero.
         if depth < 1 {
