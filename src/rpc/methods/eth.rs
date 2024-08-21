@@ -1960,7 +1960,7 @@ impl RpcMethod<1> for EthUninstallFilter {
         let eth_event_handler = ctx.event_handler.clone();
 
         Ok(eth_event_handler
-            .eth_uninstall_filter(filter_id)
+            .eth_uninstall_filter(&filter_id)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?)
     }
 }

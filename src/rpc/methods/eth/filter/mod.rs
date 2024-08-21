@@ -159,13 +159,13 @@ impl EthEventHandler {
         Ok(filter.id())
     }
 
-    pub fn eth_uninstall_filter(&self, id: FilterID) -> Result<bool, FilterError> {
+    pub fn eth_uninstall_filter(&self, id: &FilterID) -> Result<bool, FilterError> {
         if self.filter_store.is_none() {
             return Err(FilterError::NotSupported);
         }
 
         let store = self.filter_store.as_ref().unwrap();
-        let filter = store.get(&id);
+        let filter = store.get(id);
 
         match filter {
             Ok(f) => {
@@ -359,4 +359,44 @@ struct ParsedFilter {
     tipset_cid: Cid,
     addresses: Vec<Address>,
     keys: HashMap<String, Vec<ActorEventBlock>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::rpc::eth::filter::EthEventHandler;
+    use crate::rpc::eth::types::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_eth_uninstall_filter_using_event_handler() {
+        let event_handler = EthEventHandler::new();
+        let mut filter_ids = Vec::new();
+        let filter_spec = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let filter_id = event_handler.eth_new_filter(&filter_spec, 0).unwrap();
+        filter_ids.push(filter_id);
+
+        let block_filter_id = event_handler.eth_new_block_filter().unwrap();
+        filter_ids.push(block_filter_id);
+
+        let pending_tx_filter_id = event_handler.eth_new_pending_transaction_filter().unwrap();
+        filter_ids.push(pending_tx_filter_id);
+
+        for filter_id in filter_ids {
+            let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
+            assert_eq!(
+                result, true,
+                "Uninstalling filter with id {:?} failed",
+                &filter_id
+            );
+        }
+    }
 }
