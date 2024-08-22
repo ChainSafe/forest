@@ -13,6 +13,7 @@ use self::types::*;
 use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
+    lotus_json::HasLotusJson as _,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
@@ -28,9 +29,10 @@ use fil_actor_interface::{
     miner, power,
 };
 use fvm_ipld_blockstore::Blockstore;
+use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
-use std::{fmt::Display, str::FromStr as _, sync::Arc};
+use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
 use super::wallet::WalletSign;
 
@@ -452,4 +454,97 @@ impl RpcMethod<2> for SignMessage {
         // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
         WalletSign::handle(ctx, (addr, message)).await
     }
+}
+
+pub enum F3GetCertificate {}
+impl RpcMethod<1> for F3GetCertificate {
+    const NAME: &'static str = "Filecoin.F3GetCertificate";
+    const PARAM_NAMES: [&'static str; 1] = ["instance"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (u64,);
+    type Ok = serde_json::Value;
+
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (instance,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(instance)?;
+        let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
+pub enum F3GetLatestCertificate {}
+impl RpcMethod<0> for F3GetLatestCertificate {
+    const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
+pub enum F3GetECPowerTable {}
+impl RpcMethod<1> for F3GetECPowerTable {
+    const NAME: &'static str = "Filecoin.F3GetECPowerTable";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (F3TipSetKey,);
+    type Ok = Vec<F3PowerEntry>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        params: Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        GetPowerTable::handle(ctx, params).await
+    }
+}
+
+pub enum F3GetF3PowerTable {}
+impl RpcMethod<1> for F3GetF3PowerTable {
+    const NAME: &'static str = "Filecoin.F3GetF3PowerTable";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (F3TipSetKey,);
+    type Ok = serde_json::Value;
+
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (tsk,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(tsk.into_lotus_json())?;
+        let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
+fn get_f3_rpc_endpoint() -> Cow<'static, str> {
+    if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_ENDPOINT") {
+        Cow::Owned(host)
+    } else {
+        Cow::Borrowed("127.0.0.1:23456")
+    }
+}
+
+fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
+    let client = jsonrpsee::http_client::HttpClientBuilder::new()
+        .build(format!("http://{}", get_f3_rpc_endpoint()))?;
+    Ok(client)
 }

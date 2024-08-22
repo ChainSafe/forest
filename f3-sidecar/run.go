@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/filecoin-project/go-f3"
@@ -14,7 +16,7 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
-func run(ctx context.Context, rpcEndpoint string, finality int64, db string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -74,6 +76,22 @@ func run(ctx context.Context, rpcEndpoint string, finality int64, db string) err
 	if err := f3Module.Start(ctx); err != nil {
 		return err
 	}
+
+	rpcServer := jsonrpc.NewServer()
+	serverHandler := &F3ServerHandler{f3Module}
+	rpcServer.Register("Filecoin", serverHandler)
+	srv := &http.Server{
+		Handler: rpcServer,
+	}
+	listener, err := net.Listen("tcp", f3RpcEndpoint)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := srv.Serve(listener); err != nil {
+			panic(err)
+		}
+	}()
 
 	// Goroutine for debugging
 	go func() {
