@@ -1261,12 +1261,12 @@ fn eth_tests() -> Vec<RpcTest> {
             EthCall::request_with_alias(
                 (
                     EthCallMessage {
-                        from: None,
-                        to: None,
-                        gas: Uint64::default(),
-                        gas_price: EthBigInt::default(),
-                        data: EthBytes::default(),
-                        value: EthBigInt::default(),
+                        to: Some(
+                            EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")
+                                .unwrap(),
+                        ),
+                        data: "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse().unwrap(),
+                        ..EthCallMessage::default()
                     },
                     BlockNumberOrHash::from_predefined(Predefined::Latest),
                 ),
