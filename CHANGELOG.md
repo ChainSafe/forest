@@ -90,6 +90,9 @@
 - [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
   `StateMinerProvingDeadline`.
 
+- [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
+  `StateCirculatingSupply`.
+
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible
