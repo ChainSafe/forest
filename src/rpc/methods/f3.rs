@@ -430,8 +430,8 @@ impl RpcMethod<0> for GetParticipatedMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        // For now, just hard code the shared miner for testing
-        let shared_miner_addr = Address::from_str("t0111551")?;
+        // For now, just hard code the devnet miner for testing
+        let shared_miner_addr = Address::from_str("t01000")?;
         Ok(vec![shared_miner_addr.id()?])
     }
 }

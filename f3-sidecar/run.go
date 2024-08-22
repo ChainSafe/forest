@@ -116,7 +116,6 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 			continue
 		}
 		for _, miner := range miners {
-			miner = 1000
 			signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
 			if err != nil {
 				if errors.Is(err, gpbft.ErrNoPower) {
