@@ -254,7 +254,7 @@ impl RpcMethod<0> for NetVersion {
 pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
-    const PARAM_NAMES: [&'static str; 1] = ["acl"];
+    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
 
@@ -270,5 +270,31 @@ impl RpcMethod<1> for NetProtectAdd {
     ) -> Result<Self::Ok, ServerError> {
         let _ = PeerId::from_str(&peer_id)?;
         Ok(())
+    }
+}
+pub enum NetProtectList {}
+impl RpcMethod<0> for NetProtectList {
+    const NAME: &'static str = "Filecoin.NetProtectList";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Vec<String>;
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(ServerError::stubbed_for_openrpc())
+    }
+}
+pub enum NetProtectRemove {}
+impl RpcMethod<1> for NetProtectRemove {
+    const NAME: &'static str = "Filecoin.NetProtectRemove";
+    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const PERMISSION: Permission = Permission::Admin;
+
+    type Params = (String,);
+    type Ok = ();
+    async fn handle(_: Ctx<impl Blockstore>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(ServerError::stubbed_for_openrpc())
     }
 }
