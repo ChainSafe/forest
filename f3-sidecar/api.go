@@ -20,6 +20,13 @@ type F3Api struct {
 }
 
 type FilecoinApi struct {
+	Version          func(context.Context) (VersionInfo, error)
 	StateNetworkName func(context.Context) (string, error)
 	NetAddrsListen   func(context.Context) (peer.AddrInfo, error)
+}
+
+type VersionInfo struct {
+	APIVersion int
+	BlockDelay int
+	Version    string
 }
