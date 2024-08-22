@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod eth_tx;
+pub mod filter;
 pub mod types;
 
 use self::eth_tx::*;
@@ -1867,6 +1868,29 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         }
 
         Ok(None)
+    }
+}
+
+pub enum EthNewFilter {}
+impl RpcMethod<1> for EthNewFilter {
+    const NAME: &'static str = "Filecoin.EthNewFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newFilter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter_spec"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthFilterSpec,);
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_spec,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.event_handler.clone();
+        let chain_height = ctx.chain_store().heaviest_tipset().epoch();
+        Ok(eth_event_handler
+            .eth_new_filter(&filter_spec, chain_height)
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?)
     }
 }
 
