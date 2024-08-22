@@ -23,8 +23,7 @@ pub struct ActorStateLotusJson {
     #[serde(
         with = "crate::lotus_json",
         skip_serializing_if = "Option::is_none",
-        default,
-        rename = "Address"
+        default
     )]
     delegated_address: Option<Address>,
 }
