@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::utils::io::{read_toml, write_to_file};
+use crate::utils::io::{read_toml, write_new_sensitive_file};
 use serde::Deserialize;
 
 // Please use with caution, remove_dir_all will completely delete a directory
@@ -20,7 +20,7 @@ fn write_to_file_to_path() {
     let path = PathBuf::from("./test-write");
     let file = "test.txt";
 
-    match write_to_file(msg, &path, file) {
+    match write_new_sensitive_file(msg, &path.join(file)) {
         Ok(_) => cleanup_file(&path),
         Err(e) => {
             cleanup_file(&path);
@@ -34,7 +34,7 @@ fn write_to_file_nested_dir() {
     let msg = "Hello World!".as_bytes();
     let root = PathBuf::from("./test_missing");
 
-    match write_to_file(msg, &root.join("test_write_string"), "test-file") {
+    match write_new_sensitive_file(msg, &root.join("test_write_string").join("test-file")) {
         Ok(_) => cleanup_file(&root),
         Err(e) => {
             cleanup_file(&root);
@@ -48,7 +48,7 @@ fn read_from_file_vec() {
     let msg = "Hello World!".as_bytes();
     let path = PathBuf::from("./test_read_file");
     let file_name = "out.keystore";
-    write_to_file(msg, &path, file_name).unwrap();
+    write_new_sensitive_file(msg, &path.join(file_name)).unwrap();
 
     match std::fs::read(path.join(file_name)) {
         Ok(contents) => {
@@ -68,7 +68,7 @@ fn read_from_file_string() {
     let path = PathBuf::from("./test_string_read_file");
     let file_name = "out.keystore";
 
-    write_to_file(msg.as_bytes(), &path, file_name).unwrap();
+    write_new_sensitive_file(msg.as_bytes(), &path.join(file_name)).unwrap();
     match std::fs::read_to_string(path.join(file_name)) {
         Ok(contents) => {
             cleanup_file(&path);
