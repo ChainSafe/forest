@@ -1894,13 +1894,8 @@ impl RpcMethod<2> for EthCall {
         } else {
             let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
 
-            let get_bytecode_return: GetBytecodeReturn =
-                fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
-            if let Some(cid) = get_bytecode_return.0 {
-                Ok(EthBytes(ctx.store().get_required(&cid)?))
-            } else {
-                Ok(Default::default())
-            }
+            let bytes = decode_payload(&msg_rct.return_data(), CBOR)?;
+            Ok(bytes)
         }
     }
 }
