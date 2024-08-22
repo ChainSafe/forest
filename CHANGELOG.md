@@ -90,6 +90,9 @@
 - [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
   `StateCirculatingSupply`.
 
+- [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
+  `StateCall`.
+
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible
