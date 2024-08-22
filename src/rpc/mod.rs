@@ -87,6 +87,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!(crate::rpc::eth::EthCall);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);

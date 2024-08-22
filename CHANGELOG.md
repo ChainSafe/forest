@@ -64,6 +64,9 @@
 - [#4463](https://github.com/ChainSafe/forest/issues/4463) Add support for the
   `Filecoin.EthGetTransactionByHash` RPC method.
 
+- [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
+  `Filecoin.EthCall` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
@@ -89,6 +92,9 @@
 
 - [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
   `StateCirculatingSupply`.
+
+- [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
+  `StateCall`.
 
 ## Forest 0.19.2 "Eagle"
 
