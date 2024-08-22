@@ -6,7 +6,7 @@ use std::{any::Any, collections::BTreeMap};
 use crate::{
     blocks::TipsetKey,
     lotus_json::{lotus_json_with_self, LotusJson},
-    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{types::EventEntry, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{address::Address, clock::ChainEpoch},
 };
 use cid::Cid;
@@ -56,15 +56,6 @@ pub struct ActorEvent {
     pub height: ChainEpoch,
     pub tipset_key: LotusJson<TipsetKey>,
     pub msg_cid: LotusJson<Cid>,
-}
-
-#[derive(Clone, JsonSchema, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct EventEntry {
-    pub flags: u8,
-    pub key: String,
-    pub codec: u64,
-    pub value: LotusJson<Vec<u8>>,
 }
 
 lotus_json_with_self! {
