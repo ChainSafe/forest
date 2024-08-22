@@ -94,6 +94,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::gas::GasEstimateFeeCap);
         $callback!(crate::rpc::gas::GasEstimateGasPremium);
 
+        // market vertical
+        $callback!(crate::rpc::market::MarketAddBalance);
+
         // miner vertical
         $callback!(crate::rpc::miner::MinerCreateBlock);
         $callback!(crate::rpc::miner::MinerGetBaseInfo);
@@ -294,6 +297,7 @@ mod methods {
     pub mod eth;
     pub mod f3;
     pub mod gas;
+    pub mod market;
     pub mod miner;
     pub mod mpool;
     pub mod msig;
