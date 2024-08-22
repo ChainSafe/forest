@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use libipld::error::SerdeError;
+use serde::de::{value::StringDeserializer, IntoDeserializer};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -27,6 +29,16 @@ lotus_json_with_self!(EthBytes);
 impl From<RawBytes> for EthBytes {
     fn from(value: RawBytes) -> Self {
         Self(value.into())
+    }
+}
+
+impl FromStr for EthBytes {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let deserializer: StringDeserializer<SerdeError> = String::from_str(s)?.into_deserializer();
+        let bytes = crate::lotus_json::hexify_vec_bytes::deserialize(deserializer)?;
+        Ok(Self(bytes))
     }
 }
 
