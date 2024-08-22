@@ -3219,7 +3219,6 @@ dependencies = [
  "jsonwebtoken",
  "keccak-hash",
  "kubert-prometheus-process",
- "libc",
  "libipld",
  "libipld-core",
  "libipld-macro",
