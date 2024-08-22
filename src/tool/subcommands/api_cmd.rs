@@ -1257,6 +1257,23 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
         ));
+        tests.push(RpcTest::identity(
+            EthCall::request_with_alias(
+                (
+                    EthCallMessage {
+                        to: Some(
+                            EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")
+                                .unwrap(),
+                        ),
+                        data: "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse().unwrap(),
+                        ..EthCallMessage::default()
+                    },
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
+            .unwrap(),
+        ));
         tests.push(RpcTest::basic(
             EthNewFilter::request_with_alias(
                 (EthFilterSpec {

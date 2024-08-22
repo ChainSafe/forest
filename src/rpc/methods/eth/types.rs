@@ -3,6 +3,8 @@
 
 use super::*;
 use ethereum_types::H256;
+use libipld::error::SerdeError;
+use serde::de::{value::StringDeserializer, IntoDeserializer};
 use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -29,6 +31,16 @@ lotus_json_with_self!(EthBytes);
 impl From<RawBytes> for EthBytes {
     fn from(value: RawBytes) -> Self {
         Self(value.into())
+    }
+}
+
+impl FromStr for EthBytes {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let deserializer: StringDeserializer<SerdeError> = String::from_str(s)?.into_deserializer();
+        let bytes = crate::lotus_json::hexify_vec_bytes::deserialize(deserializer)?;
+        Ok(Self(bytes))
     }
 }
 

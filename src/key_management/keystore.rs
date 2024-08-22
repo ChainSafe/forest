@@ -3,12 +3,15 @@
 
 use std::{
     fmt::Display,
-    fs::{self, create_dir, File},
+    fs::{create_dir, File},
     io::{BufReader, BufWriter, ErrorKind, Read, Write},
     path::{Path, PathBuf},
 };
 
-use crate::{shim::crypto::SignatureType, utils::encoding::from_slice_with_fallback};
+use crate::{
+    shim::crypto::SignatureType,
+    utils::{encoding::from_slice_with_fallback, io::create_new_sensitive_file},
+};
 use ahash::{HashMap, HashMapExt};
 use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
@@ -269,16 +272,7 @@ impl KeyStore {
     pub fn flush(&self) -> anyhow::Result<()> {
         match &self.persistence {
             Some(persistent_keystore) => {
-                let dir = persistent_keystore
-                    .file_path
-                    .parent()
-                    .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
-                fs::create_dir_all(dir)?;
-                let file = File::create(&persistent_keystore.file_path)?;
-
-                // Restrict permissions on files containing private keys
-                #[cfg(unix)]
-                crate::utils::io::set_user_perm(&file)?;
+                let file = create_new_sensitive_file(&persistent_keystore.file_path)?;
 
                 let mut writer = BufWriter::new(file);
 
