@@ -1889,7 +1889,6 @@ impl RpcMethod<2> for EthCall {
         let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
 
         if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-            // As far as I can tell, the Eth API always returns empty on contract deployment
             Ok(EthBytes::default())
         } else {
             let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
