@@ -622,12 +622,17 @@ where
     DB: Blockstore,
     T: DeserializeOwned,
 {
-    keys.iter()
-        .map(|k| {
-            db.get_cbor(k)?
-                .ok_or_else(|| Error::UndefinedKey(k.to_string()))
-        })
-        .collect()
+    keys.iter().map(|k| message_from_cid(db, k)).collect()
+}
+
+/// Returns message from key-value store based on a [`Cid`].
+pub fn message_from_cid<DB, T>(db: &DB, key: &Cid) -> Result<T, Error>
+where
+    DB: Blockstore,
+    T: DeserializeOwned,
+{
+    db.get_cbor(key)?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
 /// Returns parent message receipt given `block_header` and message index.
