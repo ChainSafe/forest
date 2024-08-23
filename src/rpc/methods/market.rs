@@ -10,7 +10,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use num_bigint::BigInt;
 
-pub const METHOD_ADD_BALANCE: u64 = 822473126;
+pub const METHOD_ADD_BALANCE: u64 = 2;
 
 pub enum MarketAddBalance {}
 impl RpcMethod<3> for MarketAddBalance {
@@ -26,7 +26,7 @@ impl RpcMethod<3> for MarketAddBalance {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (wallet, address, amount): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let bytes = fvm_ipld_encoding::to_vec(&address.into_payload().to_raw_bytes())?;
+        let bytes = fvm_ipld_encoding::to_vec(&address)?;
         let params = RawBytes::new(bytes);
 
         let message = Message {
