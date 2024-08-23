@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -106,11 +105,8 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 		}
 	}()
 
-	nMessageToSign := 0
 	for {
 		msgToSign := <-f3Module.MessagesToSign()
-		nMessageToSign += 1
-		fmt.Printf("Message to sign: %d\n", nMessageToSign)
 		miners, err := ec.f3api.GetParticipatedMinerIDs(ctx)
 		if err != nil {
 			continue
