@@ -1257,6 +1257,23 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
         ));
+        tests.push(RpcTest::identity(
+            EthCall::request_with_alias(
+                (
+                    EthCallMessage {
+                        to: Some(
+                            EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")
+                                .unwrap(),
+                        ),
+                        data: "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse().unwrap(),
+                        ..EthCallMessage::default()
+                    },
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
+            .unwrap(),
+        ));
     }
     tests
 }
@@ -1443,8 +1460,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
             tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
+            tests.push(RpcTest::identity(EthGetTransactionByHash::request((
+                tx.hash,
+            ))?));
         }
     }
     tests.push(RpcTest::identity(

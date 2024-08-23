@@ -6,8 +6,9 @@ pub mod progress_log;
 mod writer_checksum;
 
 use std::{
-    fs::{create_dir_all, File},
-    io::{prelude::*, Result},
+    fs::File,
+    io::{self, prelude::*, Result},
+    os::unix::fs::OpenOptionsExt,
     path::Path,
 };
 
@@ -15,36 +16,31 @@ pub use mmap::EitherMmapOrRandomAccessFile;
 pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;
 
-/// Restricts permissions on a file to user-only: 0600
-#[cfg(unix)]
-pub fn set_user_perm(file: &File) -> Result<()> {
+/// Writes bytes to a specified file. Creates the desired path if it does not
+/// exist.
+/// Note: The file is created with permissions 0600.
+/// Note: The file is truncated if it already exists.
+pub fn write_new_sensitive_file(message: &[u8], path: &Path) -> Result<()> {
+    create_new_sensitive_file(path)?.write_all(message)
+}
+
+/// Creates a new file with the specified path. The file is created
+/// with permissions 0600 and is truncated if it already exists.
+pub fn create_new_sensitive_file(path: &Path) -> Result<File> {
+    std::fs::create_dir_all(
+        path.parent()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Parent directory not found"))?,
+    )?;
+
+    let file = std::fs::OpenOptions::new()
+        .mode(0o600)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)?;
+
     use std::os::unix::fs::PermissionsExt;
-
-    use tracing::info;
-
-    let mut perm = file.metadata()?.permissions();
-    #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos
-    perm.set_mode((libc::S_IWUSR | libc::S_IRUSR).into());
-    file.set_permissions(perm)?;
-
-    info!("Permissions set to 0600 on {:?}", file);
-
-    Ok(())
-}
-
-#[cfg(not(unix))]
-pub fn set_user_perm(file: &File) -> Result<()> {
-    Ok(())
-}
-
-/// Writes a string to a specified file. Creates the desired path if it does not
-/// exist. Note: `path` and `filename` are appended to produce the resulting
-/// file path.
-pub fn write_to_file(message: &[u8], path: &Path, file_name: &str) -> Result<File> {
-    // Create path if it doesn't exist
-    create_dir_all(path)?;
-    let mut file = File::create(path.join(file_name))?;
-    file.write_all(message)?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
     Ok(file)
 }
 

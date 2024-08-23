@@ -31,6 +31,11 @@
   `--consume-snapshot` parameter from the `forest` binary. To consume a
   snapshot, use `--import-snapshot <path> --import-mode=move`.
 
+- [#3403](https://github.com/ChainSafe/forest/issues/3403) The snapshot
+  validation command `forest-tool snapshot validate` now checks the snapshots
+  individually. The previous behavior, to validate the sum of the snapshots, can
+  be achieved via `forest-tool snapshot validate-diffs`.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
@@ -56,6 +61,12 @@
 - [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
   devnets (2k networks) in the offline Forest.
 
+- [#4463](https://github.com/ChainSafe/forest/issues/4463) Add support for the
+  `Filecoin.EthGetTransactionByHash` RPC method.
+
+- [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
+  `Filecoin.EthCall` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
@@ -78,6 +89,12 @@
 
 - [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
   `StateMinerProvingDeadline`.
+
+- [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
+  `StateCirculatingSupply`.
+
+- [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
+  `StateCall`.
 
 ## Forest 0.19.2 "Eagle"
 
