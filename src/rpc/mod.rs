@@ -228,6 +228,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::F3GetLatestCertificate);
         $callback!(crate::rpc::f3::F3GetECPowerTable);
         $callback!(crate::rpc::f3::F3GetF3PowerTable);
+
+        // misc
+        $callback!(crate::rpc::misc::GetActorEventsRaw);
     };
 }
 pub(crate) use for_each_method;
@@ -303,6 +306,7 @@ mod methods {
     pub mod f3;
     pub mod gas;
     pub mod miner;
+    pub mod misc;
     pub mod mpool;
     pub mod msig;
     pub mod net;
