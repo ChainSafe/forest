@@ -56,12 +56,7 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
-    build:
-      dockerfile: ./lotus.dockerfile
-      context: .
-      args:
-        - LOTUS_VERSION=${LOTUS_VERSION}
-        - BOOTSTRAPPER=${FOREST_BOOTSTRAPPER_ADDRESS}
+    image: ${LOTUS_IMAGE}
     volumes:
       - node-data:/data
       - lotus-data:/var/lib/lotus
@@ -72,6 +67,8 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
+      - LOTUS_P2P_BOOTSTRAPPERS=${FOREST_BOOTSTRAPPER_ADDRESS}
+      - LOTUS_P2P_DHT_NO_ROUTING_TABLE_FILTER=1
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -81,12 +78,7 @@ services:
     depends_on:
       lotus:
         condition: service_started
-    build:
-      dockerfile: ./lotus.dockerfile
-      context: .
-      args:
-        - LOTUS_VERSION=${LOTUS_VERSION}
-        - BOOTSTRAPPER=${FOREST_BOOTSTRAPPER_ADDRESS}
+    image: ${LOTUS_IMAGE}
     volumes:
       - node-data:/data
       - lotus-data:/var/lib/lotus
