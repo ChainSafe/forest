@@ -25,7 +25,7 @@ use crate::shim::{
     executor::Receipt,
     fvm_shared_latest::MethodNum,
     message::Message,
-    sector::{RegisteredSealProof, SectorInfo, SectorNumber, StoragePower},
+    sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
@@ -149,7 +149,17 @@ pub struct PeerID {
     pub multihash: Multihash,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
 
 /// This wrapper is needed because of a bug in Lotus.
@@ -493,8 +503,8 @@ pub struct MiningBaseInfo {
     #[schemars(with = "LotusJson<StoragePower>")]
     pub network_power: StoragePower,
     #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Vec<SectorInfo>>")]
-    pub sectors: Vec<SectorInfo>,
+    #[schemars(with = "LotusJson<Vec<ExtendedSectorInfo>>")]
+    pub sectors: Vec<ExtendedSectorInfo>,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Address>")]
     pub worker_key: Address,
@@ -510,3 +520,12 @@ pub struct MiningBaseInfo {
 }
 
 lotus_json_with_self!(MiningBaseInfo);
+
+#[derive(Clone, JsonSchema, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct EventEntry {
+    pub flags: u8,
+    pub key: String,
+    pub codec: u64,
+    pub value: LotusJson<Vec<u8>>,
+}

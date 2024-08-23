@@ -7,6 +7,7 @@
 //! - They behaved poorly together with regular logging
 //! - They were too verbose and printed even for very small tasks (less than 5 seconds)
 //! - They were only used when connected to a TTY and not written in log files
+//!
 //! This lead us to develop our own logging code.
 //! This module provides two new types for logging progress that are [`WithProgress`] and [`WithProgressRaw`].
 //! The main goal of [`WithProgressRaw`] is to maintain a similar API to the previous one from progress bar so we could remove the [`indicatif`](https://crates.io/crates/indicatif) dependency,

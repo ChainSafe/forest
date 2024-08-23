@@ -9,9 +9,11 @@ use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
+use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::crypto::{
     cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
 };
+use crate::shim::sector::RegisteredSealProof;
 use crate::shim::{
     address::Address,
     randomness::Randomness,
@@ -27,6 +29,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
+use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
@@ -390,6 +393,7 @@ fn verify_winning_post_proof<DB: Blockstore>(
             &header.miner_address,
             Randomness::new(rand.to_vec()),
         )
+        .map(|sectors| sectors.iter().map(Into::into).collect_vec())
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
@@ -410,7 +414,9 @@ fn to_fil_public_replica_infos(
         .map::<Result<(SectorId, PublicReplicaInfo), String>, _>(|sector_info: &SectorInfo| {
             let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
             let proof = match typ {
-                ProofType::Winning => sector_info.proof.registered_winning_post_proof()?,
+                ProofType::Winning => RegisteredSealProof::from(sector_info.proof)
+                    .registered_winning_post_proof()
+                    .map_err(|e| e.to_string())?,
                 // ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
             let replica = PublicReplicaInfo::new(proof.try_into()?, commr);

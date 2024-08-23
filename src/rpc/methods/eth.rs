@@ -11,29 +11,38 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::eth::SAFE_EPOCH_DELAY;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs,
 };
+use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
+use crate::rpc::types::{ApiTipsetKey, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::actors::is_evm_actor;
+use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
+use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
+use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{bail, Result};
-use bytes::Buf;
+use anyhow::{bail, Context, Result};
+use cbor4ii::core::dec::Decode as _;
+use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
+use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -220,6 +229,8 @@ pub enum Predefined {
     Pending,
     #[default]
     Latest,
+    Safe,
+    Finalized,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -450,6 +461,7 @@ impl HasLotusJson for EthSyncingResult {
 pub enum Web3ClientVersion {}
 impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
+    const NAME_ALIAS: Option<&'static str> = Some("web3_clientVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -468,6 +480,7 @@ impl RpcMethod<0> for Web3ClientVersion {
 pub enum EthAccounts {}
 impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_accounts");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -487,6 +500,7 @@ impl RpcMethod<0> for EthAccounts {
 pub enum EthBlockNumber {}
 impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_blockNumber");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -521,6 +535,7 @@ impl RpcMethod<0> for EthBlockNumber {
 pub enum EthChainId {}
 impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_chainId");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -539,6 +554,7 @@ impl RpcMethod<0> for EthChainId {
 pub enum EthGasPrice {}
 impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_gasPrice");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -565,6 +581,7 @@ impl RpcMethod<0> for EthGasPrice {
 pub enum EthGetBalance {}
 impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
     const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -605,6 +622,26 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
                 Ok(parent)
+            }
+            Predefined::Safe => {
+                let latest_height = head.epoch() - 1;
+                let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                let ts = chain.chain_index.tipset_by_height(
+                    safe_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
+            }
+            Predefined::Finalized => {
+                let latest_height = head.epoch() - 1;
+                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                let ts = chain.chain_index.tipset_by_height(
+                    finality_height,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok(ts)
             }
         },
         BlockNumberOrHash::BlockNumber(block_number)
@@ -800,10 +837,10 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
         DAG_CBOR | CBOR => {
-            let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
-            match result {
-                Ok(buffer) => Ok(EthBytes(buffer)),
-                Err(err) => bail!("decode_payload: failed to decode cbor payload: {err}"),
+            let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
+            match Value::decode(&mut reader) {
+                Ok(Value::Bytes(bytes)) => Ok(EthBytes(bytes)),
+                _ => bail!("failed to read params byte array"),
             }
         }
         IPLD_RAW => Ok(EthBytes(payload.to_vec())),
@@ -912,6 +949,64 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     Ok(ApiEthTx { hash, ..tx })
 }
 
+/// Creates an Ethereum transaction from Filecoin message lookup. If `None` is passed for `tx_index`,
+/// it looks up the transaction index of the message in the tipset.
+/// Otherwise, it uses some index passed into the function.
+fn new_eth_tx_from_message_lookup<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message_lookup: &MessageLookup,
+    tx_index: Option<u64>,
+) -> Result<ApiEthTx> {
+    let ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
+
+    // This transaction is located in the parent tipset
+    let parent_ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(ts.parents())?;
+
+    let parent_ts_cid = parent_ts.key().cid()?;
+
+    // Lookup the transaction index
+    let tx_index = tx_index.map_or_else(
+        || {
+            let msgs = ctx.chain_store().messages_for_tipset(&parent_ts)?;
+            msgs.iter()
+                .position(|msg| msg.cid() == message_lookup.message)
+                .context("cannot find the msg in the tipset")
+                .map(|i| i as u64)
+        },
+        Ok,
+    )?;
+
+    let smsg = get_signed_message(ctx, message_lookup.message)?;
+
+    let state = StateTree::new_from_root(ctx.store().into(), ts.parent_state())?;
+
+    Ok(ApiEthTx {
+        block_hash: parent_ts_cid.into(),
+        block_number: (parent_ts.epoch() as u64).into(),
+        transaction_index: tx_index.into(),
+        ..new_eth_tx_from_signed_message(&smsg, &state, ctx.chain_config().eth_chain_id)?
+    })
+}
+
+fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
+    let result: Result<SignedMessage, crate::chain::Error> =
+        crate::chain::message_from_cid(ctx.store(), &message_cid);
+
+    result.or_else(|_| {
+        // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
+        let msg: Message = crate::chain::message_from_cid(ctx.store(), &message_cid)
+            .with_context(|| format!("failed to find msg {}", message_cid))?;
+        Ok(SignedMessage::new_unchecked(
+            msg,
+            Signature::new_bls(vec![]),
+        ))
+    })
+}
+
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: Arc<Tipset>,
@@ -980,6 +1075,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
 pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByHash");
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1000,6 +1096,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
 pub enum EthGetBlockByNumber {}
 impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1020,6 +1117,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
 pub enum EthGetBlockTransactionCountByHash {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByHash");
     const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1045,6 +1143,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
 pub enum EthGetBlockTransactionCountByNumber {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
     const PARAM_NAMES: [&'static str; 1] = ["block_number"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1072,6 +1171,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
 pub enum EthGetMessageCidByTransactionHash {}
 impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getMessageCidByTransactionHash");
     const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1131,6 +1231,7 @@ fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Res
 pub enum EthSyncing {}
 impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_syncing");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1166,10 +1267,165 @@ impl RpcMethod<0> for EthSyncing {
     }
 }
 
+pub enum EthEstimateGas {}
+
+impl RpcMethod<2> for EthEstimateGas {
+    const NAME: &'static str = "Filecoin.EthEstimateGas";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_estimateGas");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthCallMessage, Option<BlockNumberOrHash>);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut msg = Message::try_from(tx)?;
+        // Set the gas limit to the zero sentinel value, which makes
+        // gas estimation actually run.
+        msg.gas_limit = 0;
+        let tsk = if let Some(block_param) = block_param {
+            Some(
+                tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?
+                    .key()
+                    .clone(),
+            )
+        } else {
+            None
+        };
+        match gas::estimate_message_gas(&ctx, msg, None, tsk.clone().into()).await {
+            Err(e) => {
+                // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
+                // it just returns an error. That means we can't get the revert reason.
+                //
+                // So we re-execute the message with EthCall (well, applyMessage which contains the
+                // guts of EthCall). This will give us an ethereum specific error with revert
+                // information.
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4554
+                Err(anyhow::anyhow!("failed to estimate gas: {e}").into())
+            }
+            Ok(gassed_msg) => {
+                let expected_gas = Self::eth_gas_search(&ctx, gassed_msg, &tsk.into()).await?;
+                Ok(expected_gas.into())
+            }
+        }
+    }
+}
+
+impl EthEstimateGas {
+    pub async fn eth_gas_search<DB>(
+        data: &Ctx<DB>,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+    ) -> anyhow::Result<u64>
+    where
+        DB: Blockstore + Send + Sync + 'static,
+    {
+        let (_invoc_res, apply_ret, prior_messages, ts) =
+            gas::GasEstimateGasLimit::estimate_call_with_gas(
+                data,
+                msg.clone(),
+                tsk,
+                VMTrace::Traced,
+            )
+            .await?;
+        if apply_ret.msg_receipt().exit_code().is_success() {
+            return Ok(msg.gas_limit());
+        }
+
+        let exec_trace = apply_ret.exec_trace();
+        let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
+        if exec_trace.iter().any(|t| {
+            matches!(
+                t,
+                &ExecutionEvent::CallReturn(CallReturn {
+                    exit_code: Some(_expected_exit_code),
+                    ..
+                })
+            )
+        }) {
+            let ret = Self::gas_search(data, &msg, &prior_messages, ts).await?;
+            Ok(((ret as f64) * data.mpool.config.gas_limit_overestimation) as u64)
+        } else {
+            anyhow::bail!(
+                "message execution failed: exit {}, reason: {}",
+                apply_ret.msg_receipt().exit_code(),
+                apply_ret.failure_info().unwrap_or_default(),
+            );
+        }
+    }
+
+    /// `gas_search` does an exponential search to find a gas value to execute the
+    /// message with. It first finds a high gas limit that allows the message to execute
+    /// by doubling the previous gas limit until it succeeds then does a binary
+    /// search till it gets within a range of 1%
+    async fn gas_search<DB>(
+        data: &Ctx<DB>,
+        msg: &Message,
+        prior_messages: &[ChainMessage],
+        ts: Arc<Tipset>,
+    ) -> anyhow::Result<u64>
+    where
+        DB: Blockstore + Send + Sync + 'static,
+    {
+        let mut high = msg.gas_limit;
+        let mut low = msg.gas_limit;
+
+        async fn can_succeed<DB>(
+            data: &Ctx<DB>,
+            mut msg: Message,
+            prior_messages: &[ChainMessage],
+            ts: Arc<Tipset>,
+            limit: u64,
+        ) -> anyhow::Result<bool>
+        where
+            DB: Blockstore + Send + Sync + 'static,
+        {
+            msg.gas_limit = limit;
+            let (_invoc_res, apply_ret) = data
+                .state_manager
+                .call_with_gas(
+                    &mut msg.into(),
+                    prior_messages,
+                    Some(ts),
+                    VMTrace::NotTraced,
+                )
+                .await?;
+            Ok(apply_ret.msg_receipt().exit_code().is_success())
+        }
+
+        while high <= BLOCK_GAS_LIMIT {
+            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+                break;
+            }
+            low = high;
+            high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
+        }
+
+        let mut check_threshold = high / 100;
+        while (high - low) > check_threshold {
+            let median = (high + low) / 2;
+            if can_succeed(data, msg.clone(), prior_messages, ts.clone(), high).await? {
+                high = median;
+            } else {
+                low = median;
+            }
+            check_threshold = median / 100;
+        }
+
+        Ok(high)
+    }
+}
+
 pub enum EthFeeHistory {}
 
 impl RpcMethod<3> for EthFeeHistory {
     const NAME: &'static str = "Filecoin.EthFeeHistory";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_feeHistory");
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 3] =
         ["block_count", "newest_block_number", "reward_percentiles"];
@@ -1299,6 +1555,7 @@ impl EthFeeHistory {
 pub enum EthGetCode {}
 impl RpcMethod<2> for EthGetCode {
     const NAME: &'static str = "Filecoin.EthGetCode";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getCode");
     const PARAM_NAMES: [&'static str; 2] = ["eth_address", "block_number_or_hash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1317,7 +1574,7 @@ impl RpcMethod<2> for EthGetCode {
             .get_required_actor(&to_address, *ts.parent_state())?;
         // Not a contract. We could try to distinguish between accounts and "native" contracts here,
         // but it's not worth it.
-        if !fil_actor_interface::is_evm_actor(&actor.code) {
+        if !is_evm_actor(&actor.code) {
             return Ok(Default::default());
         }
 
@@ -1360,6 +1617,7 @@ impl RpcMethod<2> for EthGetCode {
 pub enum EthGetStorageAt {}
 impl RpcMethod<3> for EthGetStorageAt {
     const NAME: &'static str = "Filecoin.EthGetStorageAt";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getStorageAt");
     const PARAM_NAMES: [&'static str; 3] = ["eth_address", "position", "block_number_or_hash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1382,7 +1640,7 @@ impl RpcMethod<3> for EthGetStorageAt {
             return Ok(make_empty_result());
         };
 
-        if !fil_actor_interface::is_evm_actor(&actor.code) {
+        if !is_evm_actor(&actor.code) {
             return Ok(make_empty_result());
         }
 
@@ -1433,6 +1691,7 @@ impl RpcMethod<3> for EthGetStorageAt {
 pub enum EthGetTransactionCount {}
 impl RpcMethod<2> for EthGetTransactionCount {
     const NAME: &'static str = "Filecoin.EthGetTransactionCount";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
     const PARAM_NAMES: [&'static str; 2] = ["sender", "block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1448,7 +1707,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
-        if fil_actor_interface::is_evm_actor(&actor.code) {
+        if is_evm_actor(&actor.code) {
             let evm_state =
                 fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {
@@ -1465,6 +1724,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
 pub enum EthMaxPriorityFeePerGas {}
 impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     const NAME: &'static str = "Filecoin.EthMaxPriorityFeePerGas";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_maxPriorityFeePerGas");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1486,6 +1746,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
 pub enum EthProtocolVersion {}
 impl RpcMethod<0> for EthProtocolVersion {
     const NAME: &'static str = "Filecoin.EthProtocolVersion";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_protocolVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1503,9 +1764,75 @@ impl RpcMethod<0> for EthProtocolVersion {
     }
 }
 
+pub enum EthGetTransactionByHash {}
+impl RpcMethod<1> for EthGetTransactionByHash {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByHash";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHash");
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+            tracing::debug!(
+                "could not find transaction hash {} in Ethereum mapping",
+                tx_hash
+            );
+            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+            tx_hash.to_cid()
+        });
+
+        // First, try to get the cid from mined transactions
+        if let Ok(Some((tipset, receipt))) = ctx
+            .state_manager
+            .search_for_message(None, message_cid, None, Some(true))
+            .await
+        {
+            let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+            let message_lookup = MessageLookup {
+                receipt,
+                tipset: tipset.key().clone(),
+                height: tipset.epoch(),
+                message: message_cid,
+                return_dec: ipld,
+            };
+
+            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+                return Ok(Some(tx));
+            }
+        }
+
+        // If not found, try to get it from the mempool
+        let (pending, _) = ctx.mpool.pending()?;
+
+        if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
+            // We only return pending eth-account messages because we can't guarantee
+            // that the from/to addresses of other messages are conversable to 0x-style
+            // addresses. So we just ignore them.
+            //
+            // This should be "fine" as anyone using an "Ethereum-centric" block
+            // explorer shouldn't care about seeing pending messages from native
+            // accounts.
+            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
+                return Ok(Some(eth_tx.into()));
+            }
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
+    }
+}
+
 pub enum EthGetTransactionHashByCid {}
 impl RpcMethod<1> for EthGetTransactionHashByCid {
     const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionHashByCid");
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -1540,6 +1867,35 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         }
 
         Ok(None)
+    }
+}
+
+pub enum EthCall {}
+impl RpcMethod<2> for EthCall {
+    const NAME: &'static str = "Filecoin.EthCall";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, BlockNumberOrHash);
+    type Ok = EthBytes;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let msg = tx.try_into()?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
+
+        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+            Ok(EthBytes::default())
+        } else {
+            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+
+            let bytes = decode_payload(&msg_rct.return_data(), CBOR)?;
+            Ok(bytes)
+        }
     }
 }
 

@@ -9,7 +9,11 @@ use once_cell::sync::Lazy;
 use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
     encoding::EncodeLabelSet,
-    metrics::{counter::Counter, family::Family, histogram::Histogram},
+    metrics::{
+        counter::Counter,
+        family::Family,
+        histogram::{exponential_buckets, Histogram},
+    },
 };
 use std::sync::Arc;
 use std::{path::PathBuf, time::Instant};
@@ -35,6 +39,29 @@ pub static LRU_CACHE_MISS: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
     DEFAULT_REGISTRY
         .write()
         .register("lru_cache_miss", "Stats of lru cache miss", metric.clone());
+    metric
+});
+
+pub static RPC_METHOD_FAILURE: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY.write().register(
+        "rpc_method_failure",
+        "Number of failed RPC calls",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(|| {
+    let metric = Family::<RpcMethodLabel, Histogram>::new_with_constructor(|| {
+        // Histogram with 5 buckets starting from 0.1ms going to 1s, each bucket 10 times as big as the last.
+        Histogram::new(exponential_buckets(0.1, 10., 5))
+    });
+    crate::metrics::default_registry().register(
+        "rpc_processing_time",
+        "Duration of RPC method call in milliseconds",
+        metric.clone(),
+    );
     metric
 });
 
@@ -101,6 +128,11 @@ where
         [("content-type", "text/plain; charset=utf-8")],
         metrics,
     )
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct RpcMethodLabel {
+    pub method: String,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]

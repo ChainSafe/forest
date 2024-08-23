@@ -241,7 +241,7 @@ fn keypair_conversion_roundtrip() {
 #[test]
 fn shed_openrpc_doesnt_crash() {
     let stdout = tool()
-        .args(["shed", "openrpc"])
+        .args(["shed", "openrpc", "--path", "v1"])
         .assert()
         .success()
         .get_output()

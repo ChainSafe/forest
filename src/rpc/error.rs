@@ -31,6 +31,18 @@ impl ServerError {
     pub fn known_code(&self) -> ErrorCode {
         self.inner.code().into()
     }
+    /// We are only including this method to get the JSON Schemas for our OpenRPC
+    /// machinery
+    pub fn stubbed_for_openrpc() -> Self {
+        Self::new(
+            4528,
+            "unimplemented",
+            Some(
+                "This method is stubbed as part of https://github.com/ChainSafe/forest/issues/4528"
+                    .into(),
+            ),
+        )
+    }
 }
 
 impl Display for ServerError {
@@ -98,6 +110,10 @@ from2internal! {
     std::time::SystemTimeError,
     tokio::task::JoinError,
     fil_actors_shared::fvm_ipld_hamt::Error,
+    flume::RecvError,
+    fil_actors_shared::v12::ActorError,
+    fil_actors_shared::v13::ActorError,
+    fil_actors_shared::v14::ActorError,
 }
 
 impl From<ServerError> for ClientError {

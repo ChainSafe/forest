@@ -16,15 +16,17 @@ use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::market::MarketStateExt as _;
+use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
-    market::{BalanceTableExt as _, MarketStateExt as _},
+    market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
-use crate::shim::sector::SectorNumber;
+use crate::shim::sector::{SectorNumber, SectorSize};
 use crate::shim::state_tree::{ActorID, StateTree};
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -243,11 +245,7 @@ impl RpcMethod<2> for StateVerifierStatus {
         let aid = ctx
             .state_manager
             .lookup_required_id(&address, ts.as_ref())?;
-
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
-        let verifreg_state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
+        let verifreg_state: verifreg::State = ctx.state_manager.get_actor_state(&ts)?;
         Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
     }
 }
@@ -306,8 +304,7 @@ impl RpcMethod<2> for StateLookupRobustAddress {
         let store = ctx.store();
         let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         if let &Payload::ID(id_addr_decoded) = addr.payload() {
-            let init_actor = state_tree.get_required_actor(&Address::INIT_ACTOR)?;
-            let init_state = init::State::load(&store, init_actor.code, init_actor.state)?;
+            let init_state: init::State = state_tree.get_actor_state()?;
             let mut robust_addr = Address::default();
             match init_state {
                 init::State::V0(_) => unimplemented!(),
@@ -517,10 +514,9 @@ impl RpcMethod<2> for StateMinerAllocated {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         Ok(miner_state.load_allocated_sector_numbers(ctx.store())?)
     }
 }
@@ -543,10 +539,9 @@ impl RpcMethod<3> for StateMinerPartitions {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         let deadline = miner_state.load_deadline(policy, ctx.store(), dl_idx)?;
         let mut all_partitions = Vec::new();
         deadline.for_each(ctx.store(), |_partidx, partition| {
@@ -579,12 +574,10 @@ impl RpcMethod<3> for StateMinerSectors {
         (address, sectors, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        let sectors_info = miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?;
-        Ok(sectors_info)
+            .get_actor_state_from_address(&ts, &address)?;
+        Ok(miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?)
     }
 }
 
@@ -606,10 +599,9 @@ impl RpcMethod<2> for StateMinerSectorCount {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         // Collect live, active and faulty sectors count from each partition in each deadline.
         let mut live_count = 0;
         let mut active_count = 0;
@@ -643,10 +635,9 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let miner_state: miner::State = ctx
             .state_manager
-            .get_required_actor(&miner_address, *ts.parent_state())?;
-        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &miner_address)?;
         let allocated_sector_numbers: BitField =
             miner_state.load_allocated_sector_numbers(ctx.store())?;
         Ok(allocated_sector_numbers.get(sector_number))
@@ -693,16 +684,14 @@ impl RpcMethod<2> for StateMinerDeadlines {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let store = ctx.store();
-        let state = miner::State::load(store, actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &address)?;
         let mut res = Vec::new();
-        state.for_each_deadline(policy, store, |_idx, deadline| {
+        state.for_each_deadline(policy, ctx.store(), |_idx, deadline| {
             res.push(ApiDeadline {
                 post_submissions: deadline.partitions_posted(),
-                disputable_proof_count: deadline.disputable_proof_count(store)?,
+                disputable_proof_count: deadline.disputable_proof_count(ctx.store())?,
             });
             Ok(())
         })?;
@@ -727,11 +716,14 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let policy = &ctx.chain_config().policy;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        Ok(ApiDeadlineInfo(state.deadline_info(policy, ts.epoch())))
+            .get_actor_state_from_address(&ts, &address)?;
+        Ok(ApiDeadlineInfo(
+            state
+                .recorded_deadline_info(policy, ts.epoch())
+                .next_not_elapsed(),
+        ))
     }
 }
 
@@ -853,17 +845,12 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let state = *ts.parent_state();
-
         let sector_size = pci
             .seal_proof
             .sector_size()
             .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::MARKET_ACTOR, state)?;
-        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
             address.into(),
@@ -872,19 +859,14 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
-        let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
+        let sector_weight =
+            qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::POWER_ACTOR, state)?;
-        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
         let pledge_collateral = power_state.total_locked();
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::REWARD_ACTOR, state)?;
-        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
+        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
@@ -893,7 +875,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         )?;
         let initial_pledge: TokenAmount = reward_state
             .initial_pledge_for_power(
-                &sector_weigth,
+                &sector_weight,
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
@@ -922,17 +904,12 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let state = *ts.parent_state();
-
         let sector_size = pci
             .seal_proof
             .sector_size()
             .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::MARKET_ACTOR, state)?;
-        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
             address.into(),
@@ -941,6 +918,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
+        let sector_size = SectorSize::from(sector_size).into();
         let sector_weight =
             if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V16 {
                 qa_power_for_weight(sector_size, duration, &w, &vw)
@@ -948,16 +926,10 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
                 qa_power_max(sector_size)
             };
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::POWER_ACTOR, state)?;
-        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
 
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::REWARD_ACTOR, state)?;
-        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
+        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
         let deposit: TokenAmount = reward_state
             .pre_commit_deposit_for_power(power_smoothed, sector_weight)?
             .into();
@@ -1576,10 +1548,7 @@ impl RpcMethod<1> for StateListMiners {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
-        let state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let miners = state
             .list_all_miners(ctx.store())?
             .iter()
@@ -1630,12 +1599,9 @@ impl RpcMethod<2> for StateMarketStorageDeal {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let store = ctx.store();
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-        let market_state = market::State::load(store, actor.code, actor.state)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
         let proposals = market_state.proposals(store)?;
         let proposal = proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
 
@@ -1702,19 +1668,10 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         // This is more eloquent than giving the whole match pattern a type.
         let _: bool = verified;
 
-        let state_manager = &ctx.state_manager;
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let power_actor =
-            state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
-
-        let reward_actor =
-            state_manager.get_required_actor(&Address::REWARD_ACTOR, *ts.parent_state())?;
-
-        let store = ctx.store();
-
-        let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
-        let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
+        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
 
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
 
@@ -1805,10 +1762,9 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&miner_address, *ts.parent_state())?;
-        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &miner_address)?;
         Ok(state
             .load_precommit_on_chain_info(ctx.store(), sector_number)?
             .context("precommit info does not exist")?)
@@ -1831,10 +1787,9 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&miner_address, *ts.parent_state())?;
-        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &miner_address)?;
         Ok(state.load_precommit_on_chain_info(ctx.store(), sector_number)?)
     }
 }
@@ -1847,8 +1802,7 @@ impl StateSectorPreCommitInfo {
     ) -> anyhow::Result<Vec<u64>> {
         let mut sectors = vec![];
         let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_required_actor(miner_address)?;
-        let state = miner::State::load(store, actor.code, actor.state)?;
+        let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         match &state {
             miner::State::V8(s) => {
                 let precommitted = fil_actors_shared::v8::make_map_with_root::<
@@ -1948,8 +1902,7 @@ impl StateSectorPreCommitInfo {
     ) -> anyhow::Result<Vec<SectorPreCommitInfo>> {
         let mut infos = vec![];
         let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_required_actor(miner_address)?;
-        let state = miner::State::load(store, actor.code, actor.state)?;
+        let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         match &state {
             miner::State::V8(s) => {
                 let precommitted = fil_actors_shared::v8::make_map_with_root::<
@@ -2074,8 +2027,7 @@ impl StateSectorGetInfo {
         tipset: &Tipset,
     ) -> anyhow::Result<Vec<u64>> {
         let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_required_actor(miner_address)?;
-        let state = miner::State::load(store, actor.code, actor.state)?;
+        let state: miner::State = state_tree.get_actor_state_from_address(miner_address)?;
         Ok(state
             .load_sectors(store, None)?
             .into_iter()
@@ -2102,10 +2054,9 @@ impl RpcMethod<3> for StateSectorExpiration {
         let store = ctx.store();
         let policy = &ctx.chain_config().policy;
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&miner_address, *ts.parent_state())?;
-        let state = miner::State::load(store, actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &miner_address)?;
         let mut early = 0;
         let mut on_time = 0;
         let mut terminated = false;
@@ -2158,14 +2109,12 @@ impl RpcMethod<3> for StateSectorPartition {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.store();
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
+        let state: miner::State = ctx
             .state_manager
-            .get_required_actor(&miner_address, *ts.parent_state())?;
-        let state = miner::State::load(store, actor.code, actor.state)?;
+            .get_actor_state_from_address(&ts, &miner_address)?;
         let (deadline, partition) =
-            state.find_sector(store, sector_number, &ctx.chain_config().policy)?;
+            state.find_sector(ctx.store(), sector_number, &ctx.chain_config().policy)?;
         Ok(SectorLocation {
             deadline,
             partition,
@@ -2279,11 +2228,10 @@ impl StateGetClaims {
         address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<ClaimID, Claim>> {
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state: verifreg::State = state_tree.get_actor_state()?;
         let actor_id = state_tree.lookup_required_id(address)?;
         let actor_id_address = Address::new_id(actor_id);
-        let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
-        let state = verifreg::State::load(store, actor.code, actor.state)?;
         state.get_claims(store, &actor_id_address)
     }
 }
@@ -2357,11 +2305,8 @@ impl StateGetAllocations {
         tipset: &'a Tipset,
     ) -> anyhow::Result<impl Iterator<Item = Address> + 'a> {
         let mut addresses = HashSet::default();
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-
-        let verifreg_actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
-        let verifreg_state =
-            verifreg::State::load(store, verifreg_actor.code, verifreg_actor.state)?;
+        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let verifreg_state: verifreg::State = state_tree.get_actor_state()?;
         match verifreg_state {
             verifreg::State::V13(s) => {
                 let map = s.load_allocs(store)?;
@@ -2383,8 +2328,7 @@ impl StateGetAllocations {
         };
 
         if addresses.is_empty() {
-            let init_actor = state_tree.get_required_actor(&Address::INIT_ACTOR)?;
-            let init_state = init::State::load(store, init_actor.code, init_actor.state)?;
+            let init_state: init::State = state_tree.get_actor_state()?;
             match init_state {
                 init::State::V0(_) => unimplemented!(),
                 init::State::V8(s) => {
@@ -2471,9 +2415,8 @@ impl StateGetAllocations {
         address: &Address,
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
-        let state = verifreg::State::load(store, actor.code, actor.state)?;
+        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state: verifreg::State = state_tree.get_actor_state()?;
         state.get_allocations(store, address)
     }
 }
@@ -2514,9 +2457,8 @@ impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
         (deal_id, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-        let market_actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
-        let market_state = market::State::load(ctx.store(), market_actor.code, market_actor.state)?;
+        let state_tree = StateTree::new_from_tipset(ctx.store_owned(), &ts)?;
+        let market_state: market::State = state_tree.get_actor_state()?;
         Ok(market_state.get_allocation_id_for_pending_deal(ctx.store(), &deal_id)?)
     }
 }
@@ -2526,9 +2468,8 @@ impl StateGetAllocationIdForPendingDeal {
         store: &Arc<impl Blockstore>,
         tipset: &Tipset,
     ) -> anyhow::Result<HashMap<DealID, AllocationID>> {
-        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
-        let state = market::State::load(store, actor.code, actor.state)?;
+        let state_tree = StateTree::new_from_tipset(store.clone(), tipset)?;
+        let state: market::State = state_tree.get_actor_state()?;
         state.get_allocations_for_pending_deals(store)
     }
 }

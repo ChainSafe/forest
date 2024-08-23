@@ -3,14 +3,15 @@
 
 use std::{convert::TryFrom, str::FromStr};
 
+use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
 use crate::shim::{address::Address, crypto::SignatureType};
-use ahash::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
-use {crate::shim::crypto::Signature, ahash::HashMapExt as _};
-
-use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
+use {
+    crate::shim::crypto::Signature,
+    ahash::{HashMap, HashMapExt as _},
+};
 
 /// A key, this contains a `KeyInfo`, an address, and a public key.
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
@@ -40,6 +41,7 @@ impl TryFrom<KeyInfo> for Key {
 // - keystore which is a HashMap of KeyInfos resolved by their Address
 /// A wallet is a collection of private keys with optional persistence and
 /// optional encryption.
+#[cfg(test)]
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Wallet {
     keys: HashMap<Address, Key>,

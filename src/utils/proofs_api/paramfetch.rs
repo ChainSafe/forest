@@ -16,7 +16,10 @@ use std::{
 
 use crate::{
     shim::sector::SectorSize,
-    utils::net::{download_ipfs_file_trustlessly, global_http_client},
+    utils::{
+        misc::env::is_env_truthy,
+        net::{download_ipfs_file_trustlessly, global_http_client},
+    },
 };
 use anyhow::{bail, Context};
 use backoff::{future::retry, ExponentialBackoffBuilder};
@@ -24,12 +27,9 @@ use futures::{stream::FuturesUnordered, AsyncWriteExt, TryStreamExt};
 use tokio::fs::{self};
 use tracing::{debug, info, warn};
 
-use super::{
-    is_env_truthy,
-    parameters::{
-        check_parameter_file, param_dir, ParameterData, ParameterMap, DEFAULT_PARAMETERS,
-        PROOFS_PARAMETER_CACHE_ENV,
-    },
+use super::parameters::{
+    check_parameter_file, param_dir, ParameterData, ParameterMap, DEFAULT_PARAMETERS,
+    PROOFS_PARAMETER_CACHE_ENV,
 };
 
 /// Default IPFS gateway to use for fetching parameters.

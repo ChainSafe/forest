@@ -2,27 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{ElectionProof, Ticket, Tipset};
-use crate::chain::ChainStore;
-use crate::chain_sync::{SyncConfig, SyncStage};
-use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::{download_to, populate_eth_mappings};
-use crate::db::{car::ManyCar, MemoryDB};
-use crate::eth::EthChainId as EthChainIdType;
-use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
-use crate::key_management::{KeyStore, KeyStoreConfig};
+use crate::db::car::ManyCar;
+use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
-use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::networks::NetworkChain;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::prelude::*;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{self, eth::*};
-use crate::rpc::{prelude::*, start_rpc, RPCState};
-use crate::shim::address::{CurrentNetwork, Network};
+use crate::rpc::{
+    self,
+    eth::{types::*, *},
+};
+use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -30,11 +26,11 @@ use crate::shim::{
     message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
-use crate::state_manager::StateManager;
+use crate::tool::offline_server::start_offline_server;
 use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
-use anyhow::Context as _;
-use bls_signatures::Serialize;
+use anyhow::{bail, ensure};
+use bls_signatures::Serialize as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
@@ -45,24 +41,19 @@ use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
+use std::io;
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
     time::Duration,
 };
 use tabled::{builder::Builder, settings::Style};
-use tokio::{
-    signal::{
-        ctrl_c,
-        unix::{signal, SignalKind},
-    },
-    sync::{mpsc, RwLock, Semaphore},
-    task::JoinSet,
-};
-use tracing::{debug, info, warn};
+use tokio::sync::Semaphore;
+use tracing::debug;
 use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
@@ -89,8 +80,30 @@ pub enum ApiCommands {
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
         height: i64,
+        /// Genesis file path, only applicable for devnet
+        #[arg(long)]
+        genesis: Option<PathBuf>,
     },
-    /// Compare
+    /// Compare two RPC providers.
+    ///
+    /// The providers are labeled `forest` and `lotus`,
+    /// but other nodes may be used (such as `venus`).
+    ///
+    /// The `lotus` node is assumed to be correct and the `forest` node will be
+    /// marked as incorrect if it deviates.
+    ///
+    /// If snapshot files are provided,
+    /// these files will be used to generate additional tests.
+    ///
+    /// Example output:
+    /// ```markdown
+    /// | RPC Method                        | Forest              | Lotus         |
+    /// |-----------------------------------|---------------------|---------------|
+    /// | Filecoin.ChainGetBlock            | Valid               | Valid         |
+    /// | Filecoin.ChainGetGenesis          | Valid               | Valid         |
+    /// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
+    /// ```
+    /// The number after a method name indicates how many times an RPC call was tested.
     Compare {
         /// Forest address
         #[clap(long, default_value = "/ip4/127.0.0.1/tcp/2345/http")]
@@ -98,9 +111,6 @@ pub enum ApiCommands {
         /// Lotus address
         #[clap(long, default_value = "/ip4/127.0.0.1/tcp/1234/http")]
         lotus: UrlFromMultiAddr,
-        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
-        #[arg()]
-        snapshot_files: Vec<PathBuf>,
         /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
@@ -113,39 +123,26 @@ pub enum ApiCommands {
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
-        #[arg(short, long, default_value = "10")]
-        /// The number of tipsets to use to generate test cases.
-        n_tipsets: usize,
+
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
-        /// Miner address to use for miner tests. Miner worker key must be in the key-store.
-        #[arg(long)]
-        miner_address: Option<Address>,
-        /// Worker address to use where key is applicable. Worker key must be in the key-store.
-        #[arg(long)]
-        worker_address: Option<Address>,
-        /// Ethereum chain ID. Default to the calibnet chain ID.
-        #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
-        eth_chain_id: EthChainIdType,
-    },
-}
 
-/// For more information about each flag, refer to the Forest documentation at:
-/// <https://docs.forest.chainsafe.io/rustdoc/forest_filecoin/tool/subcommands/api_cmd/enum.ApiCommands.html>
-struct ApiTestFlags {
-    filter: String,
-    filter_file: Option<PathBuf>,
-    fail_fast: bool,
-    n_tipsets: usize,
-    run_ignored: RunIgnored,
-    max_concurrent_requests: usize,
-    miner_address: Option<Address>,
-    worker_address: Option<Address>,
-    eth_chain_id: EthChainIdType,
+        #[command(flatten)]
+        create_tests_args: CreateTestsArgs,
+    },
+    DumpTests {
+        #[command(flatten)]
+        create_tests_args: CreateTestsArgs,
+        /// Which API path to dump.
+        #[arg(long)]
+        path: rpc::ApiPath,
+        #[arg(long)]
+        include_ignored: bool,
+    },
 }
 
 impl ApiCommands {
@@ -157,47 +154,132 @@ impl ApiCommands {
                 port,
                 auto_download_snapshot,
                 height,
+                genesis,
             } => {
-                start_offline_server(snapshot_files, chain, port, auto_download_snapshot, height)
-                    .await?;
+                if chain.is_devnet() {
+                    ensure!(
+                        !auto_download_snapshot,
+                        "auto_download_snapshot is not supported for devnet"
+                    );
+                    ensure!(genesis.is_some(), "genesis must be provided for devnet");
+                }
+
+                start_offline_server(
+                    snapshot_files,
+                    chain,
+                    port,
+                    auto_download_snapshot,
+                    height,
+                    genesis,
+                )
+                .await?;
             }
             Self::Compare {
                 forest: UrlFromMultiAddr(forest),
                 lotus: UrlFromMultiAddr(lotus),
-                snapshot_files,
                 filter,
                 filter_file,
                 fail_fast,
-                n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
-                miner_address,
-                worker_address,
-                eth_chain_id,
+                create_tests_args,
             } => {
-                let config = ApiTestFlags {
-                    filter,
-                    filter_file,
-                    fail_fast,
-                    n_tipsets,
-                    run_ignored,
-                    max_concurrent_requests,
-                    miner_address,
-                    worker_address,
-                    eth_chain_id,
-                };
+                let forest = rpc::Client::from_url(forest);
+                let lotus = rpc::Client::from_url(lotus);
 
-                compare_apis(
-                    rpc::Client::from_url(forest),
-                    rpc::Client::from_url(lotus),
-                    snapshot_files,
-                    config,
+                let tests = create_tests(create_tests_args)?;
+                run_tests(
+                    tests,
+                    forest,
+                    lotus,
+                    max_concurrent_requests,
+                    filter_file,
+                    filter,
+                    run_ignored,
+                    fail_fast,
                 )
                 .await?
+            }
+            Self::DumpTests {
+                create_tests_args,
+                path,
+                include_ignored,
+            } => {
+                for RpcTest {
+                    request:
+                        rpc::Request {
+                            method_name,
+                            params,
+                            api_paths,
+                            ..
+                        },
+                    ignore,
+                    ..
+                } in create_tests(create_tests_args)?
+                {
+                    if !api_paths.contains(path) {
+                        continue;
+                    }
+                    if ignore.is_some() && !include_ignored {
+                        continue;
+                    }
+
+                    let dialogue = Dialogue {
+                        method: method_name.into(),
+                        params: match params {
+                            Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {
+                                bail!("params may not be a primitive")
+                            }
+                            Value::Array(v) => {
+                                Some(ez_jsonrpc_types::RequestParameters::ByPosition(v))
+                            }
+                            Value::Object(it) => Some(ez_jsonrpc_types::RequestParameters::ByName(
+                                it.into_iter().collect(),
+                            )),
+                        },
+                        response: None,
+                    };
+                    serde_json::to_writer(io::stdout(), &dialogue)?;
+                    println!();
+                }
             }
         }
         Ok(())
     }
+}
+
+#[derive(clap::Args, Debug)]
+pub struct CreateTestsArgs {
+    /// The number of tipsets to use to generate test cases.
+    #[arg(short, long, default_value = "10")]
+    n_tipsets: usize,
+    /// Miner address to use for miner tests. Miner worker key must be in the key-store.
+    #[arg(long)]
+    miner_address: Option<Address>,
+    /// Worker address to use where key is applicable. Worker key must be in the key-store.
+    #[arg(long)]
+    worker_address: Option<Address>,
+    /// Ethereum chain ID. Default to the calibnet chain ID.
+    #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
+    eth_chain_id: EthChainIdType,
+    /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+    snapshot_files: Vec<PathBuf>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Dialogue {
+    method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<ez_jsonrpc_types::RequestParameters>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response: Option<DialogueResponse>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum DialogueResponse {
+    Result(Value),
+    Error(ez_jsonrpc_types::Error),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -481,12 +563,6 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn auth_tests() -> Vec<RpcTest> {
-    // Auth commands should be tested as well. Tracking issue:
-    // https://github.com/ChainSafe/forest/issues/3639
-    vec![]
-}
-
 fn beacon_tests() -> Vec<RpcTest> {
     vec![RpcTest::identity(
         BeaconGetEntry::request((10101,)).unwrap(),
@@ -574,15 +650,8 @@ fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
-    let peer_id = bootstrap_peers
-        .last()
-        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
-        .to_string()
-        .rsplit_once('/')
-        .expect("No peer id found - address is not in the expected format")
-        .1
-        .to_string();
+    // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
+    let random_peer_id = libp2p::PeerId::random().to_string();
 
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
@@ -590,7 +659,11 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
-        RpcTest::basic(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic(NetAgentVersion::request((random_peer_id.clone(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::basic(NetFindPeer::request((random_peer_id,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::Pass)
+            .ignore("It times out in lotus when peer not found"),
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
@@ -619,9 +692,7 @@ fn miner_tests_with_tipset<DB: Blockstore>(
     miner_address: Option<Address>,
 ) -> anyhow::Result<Vec<RpcTest>> {
     // If no miner address is provided, we can't run any miner tests.
-    let miner_address = if let Some(miner_address) = miner_address {
-        miner_address
-    } else {
+    let Some(miner_address) = miner_address else {
         return Ok(vec![]);
     };
 
@@ -1092,7 +1163,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
-fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
+fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     // This address has been funded by the calibnet faucet and the private keys
     // has been discarded. It should always have a non-zero balance.
     let known_wallet = Address::from_str("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui").unwrap();
@@ -1114,7 +1185,7 @@ fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
 
     // If a worker address is provided, we can test wallet methods requiring
     // a shared key.
-    if let Some(worker_address) = config.worker_address {
+    if let Some(worker_address) = worker_address {
         use base64::{prelude::BASE64_STANDARD, Engine};
         let msg =
             BASE64_STANDARD.encode("Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".as_bytes());
@@ -1139,38 +1210,79 @@ fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
 }
 
 fn eth_tests() -> Vec<RpcTest> {
-    vec![
-        RpcTest::identity(EthAccounts::request(()).unwrap()),
-        RpcTest::basic(EthBlockNumber::request(()).unwrap()),
-        RpcTest::identity(EthChainId::request(()).unwrap()),
+    let mut tests = vec![];
+    for use_alias in [false, true] {
+        tests.push(RpcTest::identity(
+            EthAccounts::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthBlockNumber::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthChainId::request_with_alias((), use_alias).unwrap(),
+        ));
         // There is randomness in the result of this API
-        RpcTest::basic(EthGasPrice::request(()).unwrap()),
-        RpcTest::basic(EthSyncing::request(()).unwrap()),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
+        tests.push(RpcTest::basic(
+            EthGasPrice::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthSyncing::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthGetBalance::request_with_alias(
+                (
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
             .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBalance::request((
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
-            ))
+        ));
+        tests.push(RpcTest::identity(
+            EthGetBalance::request_with_alias(
+                (
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                    BlockNumberOrHash::from_predefined(Predefined::Pending),
+                ),
+                use_alias,
+            )
             .unwrap(),
-        ),
-        RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
-        RpcTest::basic(EthMaxPriorityFeePerGas::request(()).unwrap()),
-        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
-    ]
+        ));
+        tests.push(RpcTest::basic(
+            Web3ClientVersion::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthMaxPriorityFeePerGas::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthCall::request_with_alias(
+                (
+                    EthCallMessage {
+                        to: Some(
+                            EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")
+                                .unwrap(),
+                        ),
+                        data: "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse().unwrap(),
+                        ..EthCallMessage::default()
+                    },
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
+            .unwrap(),
+        ));
+    }
+    tests
 }
 
-fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
     let block_cid = shared_tipset.key().cid().unwrap();
     let block_hash: Hash = block_cid.into();
 
-    vec![
+    let mut tests = vec![
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
@@ -1216,6 +1328,20 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Safe),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_predefined(Predefined::Finalized),
                 true,
             ))
             .unwrap(),
@@ -1292,7 +1418,32 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
-    ]
+    ];
+
+    for block in shared_tipset.block_headers() {
+        let (bls_messages, secp_messages) =
+            crate::chain::store::block_messages(store, block).unwrap();
+        for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            if let Ok(eth_to_addr) = msg.to.try_into() {
+                tests.extend([RpcTest::identity(
+                    EthEstimateGas::request((
+                        EthCallMessage {
+                            from: None,
+                            to: Some(eth_to_addr),
+                            value: msg.value.clone().into(),
+                            data: msg.params.clone().into(),
+                            ..Default::default()
+                        },
+                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                    ))
+                    .unwrap(),
+                )
+                .policy_on_rejected(PolicyOnRejected::Pass)]);
+            }
+        }
+    }
+
+    tests
 }
 
 fn eth_state_tests_with_tipset<DB: Blockstore>(
@@ -1309,8 +1460,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
             tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
+            tests.push(RpcTest::identity(EthGetTransactionByHash::request((
+                tx.hash,
+            ))?));
         }
     }
     tests.push(RpcTest::identity(
@@ -1346,33 +1500,30 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<Vec<RpcTest>> {
+fn snapshot_tests(
+    store: Arc<ManyCar>,
+    num_tipsets: usize,
+    miner_address: Option<Address>,
+    eth_chain_id: u64,
+) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     // shared_tipset in the snapshot might not be finalized for the offline RPC server
     // use heaviest - 10 instead
     let shared_tipset = store
         .heaviest_tipset()?
         .chain(&store)
-        .take(10)
+        .take(SAFE_EPOCH_DELAY as usize)
         .last()
         .expect("Infallible");
 
-    for tipset in shared_tipset.chain(&store).take(config.n_tipsets) {
+    for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
-        tests.extend(miner_tests_with_tipset(
-            &store,
-            &tipset,
-            config.miner_address,
-        )?);
+        tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        tests.extend(eth_tests_with_tipset(&tipset));
+        tests.extend(eth_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
-        tests.extend(eth_state_tests_with_tipset(
-            &store,
-            &tipset,
-            config.eth_chain_id,
-        )?);
+        tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
     }
     Ok(tests)
 }
@@ -1425,214 +1576,58 @@ fn sample_signed_messages<'a>(
         .unique()
 }
 
-/// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
-/// but other nodes may be used (such as `venus`). The `lotus` node is assumed
-/// to be correct and the `forest` node will be marked as incorrect if it
-/// deviates.
-///
-/// If snapshot files are provided, these files will be used to generate
-/// additional tests.
-///
-/// Example output:
-/// ```markdown
-/// | RPC Method                        | Forest              | Lotus         |
-/// |-----------------------------------|---------------------|---------------|
-/// | Filecoin.ChainGetBlock            | Valid               | Valid         |
-/// | Filecoin.ChainGetGenesis          | Valid               | Valid         |
-/// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
-/// ```
-/// The number after a method name indicates how many times an RPC call was tested.
-#[allow(clippy::too_many_arguments)]
-async fn compare_apis(
-    forest: rpc::Client,
-    lotus: rpc::Client,
-    snapshot_files: Vec<PathBuf>,
-    config: ApiTestFlags,
-) -> anyhow::Result<()> {
+fn create_tests(
+    CreateTestsArgs {
+        n_tipsets,
+        miner_address,
+        worker_address,
+        eth_chain_id,
+        snapshot_files,
+    }: CreateTestsArgs,
+) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-
     tests.extend(common_tests());
-    tests.extend(auth_tests());
     tests.extend(beacon_tests());
     tests.extend(chain_tests());
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
-    tests.extend(wallet_tests(&config));
+    tests.extend(wallet_tests(worker_address));
     tests.extend(eth_tests());
     tests.extend(state_tests());
-
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.extend(snapshot_tests(store, &config)?);
+        tests.extend(snapshot_tests(
+            store,
+            n_tipsets,
+            miner_address,
+            eth_chain_id,
+        )?);
     }
-
     tests.sort_by_key(|test| test.request.method_name);
-
-    run_tests(tests, forest, lotus, &config).await
+    Ok(tests)
 }
 
-async fn start_offline_server(
-    snapshot_files: Vec<PathBuf>,
-    chain: NetworkChain,
-    rpc_port: u16,
-    auto_download_snapshot: bool,
-    height: i64,
-) -> anyhow::Result<()> {
-    info!("Configuring Offline RPC Server");
-    let db = Arc::new(ManyCar::new(MemoryDB::default()));
-
-    let snapshot_files = if snapshot_files.is_empty() {
-        let (snapshot_url, num_bytes, path) =
-            crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
-                .await
-                .context("couldn't get snapshot size")?;
-        if !auto_download_snapshot {
-            warn!("Automatic snapshot download is disabled.");
-            let message = format!(
-                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
-                indicatif::HumanBytes(num_bytes)
-            );
-            let have_permission =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt(message)
-                    .default(false)
-                    .interact()
-                    .unwrap_or(false);
-            if !have_permission {
-                anyhow::bail!("No snapshot provided, exiting offline RPC setup.");
-            }
-        }
-        info!(
-            "Downloading latest snapshot for {} size {}",
-            chain,
-            indicatif::HumanBytes(num_bytes)
-        );
-        let downloaded_snapshot_path = std::env::current_dir()?.join(path);
-        download_to(&snapshot_url, &downloaded_snapshot_path).await?;
-        info!("Snapshot downloaded");
-        vec![downloaded_snapshot_path]
-    } else {
-        snapshot_files
-    };
-    db.read_only_files(snapshot_files.iter().cloned())?;
-    info!("Using chain config for {chain}");
-    let chain_config = Arc::new(ChainConfig::from_chain(&chain));
-    if chain_config.is_testnet() {
-        CurrentNetwork::set_global(Network::Testnet);
-    }
-    let sync_config = Arc::new(SyncConfig::default());
-    let genesis_header =
-        read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-    let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
-        db.clone(),
-        db.clone(),
-        chain_config.clone(),
-        genesis_header.clone(),
-    )?);
-    let state_manager = Arc::new(StateManager::new(
-        chain_store.clone(),
-        chain_config,
-        sync_config,
-    )?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
-
-    state_manager
-        .chain_store()
-        .set_heaviest_tipset(head_ts.clone())?;
-
-    populate_eth_mappings(&state_manager, &head_ts)?;
-
-    let (network_send, _) = flume::bounded(5);
-    let (tipset_send, _) = flume::bounded(5);
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
-    let message_pool = MessagePool::new(
-        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
-        network_name.clone(),
-        network_send.clone(),
-        Default::default(),
-        state_manager.chain_config().clone(),
-        &mut JoinSet::new(),
-    )?;
-
-    // Validate tipsets since the {height} EPOCH when `height >= 0`,
-    // or valiadte the last {-height} EPOCH(s) when `height < 0`
-    let n_ts_to_validate = if height > 0 {
-        (head_ts.epoch() - height).max(0)
-    } else {
-        -height
-    } as usize;
-    if n_ts_to_validate > 0 {
-        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
-    }
-
-    let (shutdown, shutdown_recv) = mpsc::channel(1);
-
-    let rpc_state = RPCState {
-        state_manager,
-        keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
-        mpool: Arc::new(message_pool),
-        bad_blocks: Default::default(),
-        sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
-        network_send,
-        network_name,
-        start_time: chrono::Utc::now(),
-        shutdown,
-        tipset_send,
-    };
-    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
-    start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
-
-    Ok(())
-}
-
-async fn start_offline_rpc<DB>(
-    state: RPCState<DB>,
-    rpc_port: u16,
-    mut shutdown_recv: mpsc::Receiver<()>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    info!("Starting offline RPC Server");
-    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
-    let mut terminate = signal(SignalKind::terminate())?;
-
-    let result = tokio::select! {
-        ret = start_rpc(state, rpc_address) => ret,
-        _ = ctrl_c() => {
-            info!("Keyboard interrupt.");
-            Ok(())
-        },
-        _ = terminate.recv() => {
-            info!("Received SIGTERM.");
-            Ok(())
-        },
-        _ = shutdown_recv.recv() => {
-            info!("Client requested a shutdown.");
-            Ok(())
-        },
-    };
-    crate::utils::io::terminal_cleanup();
-    result
-}
-
+#[allow(clippy::too_many_arguments)]
 async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
     forest: impl Into<Arc<rpc::Client>>,
     lotus: impl Into<Arc<rpc::Client>>,
-    config: &ApiTestFlags,
+    max_concurrent_requests: usize,
+    filter_file: Option<PathBuf>,
+    filter: String,
+    run_ignored: RunIgnored,
+    fail_fast: bool,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
-    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
+    let semaphore = Arc::new(Semaphore::new(max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
 
-    let filter_list = if let Some(filter_file) = &config.filter_file {
+    let filter_list = if let Some(filter_file) = &filter_file {
         FilterList::new_from_file(filter_file)?
     } else {
-        FilterList::default().allow(config.filter.clone())
+        FilterList::default().allow(filter.clone())
     };
 
     // deduplicate tests by their hash-able representations
@@ -1650,11 +1645,11 @@ async fn run_tests(
          }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
     ) {
         // By default, do not run ignored tests.
-        if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
         }
         // If in `IgnoreOnly` mode, only run ignored tests.
-        if matches!(config.run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
             continue;
         }
 
@@ -1712,7 +1707,7 @@ async fn run_tests(
                 .or_insert(1u32);
         }
 
-        if !failed_results.is_empty() && config.fail_fast {
+        if !failed_results.is_empty() && fail_fast {
             break;
         }
     }

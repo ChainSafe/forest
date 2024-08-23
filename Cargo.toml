@@ -1,12 +1,12 @@
 [package]
 name = "forest-filecoin"
-version = "0.19.0"
+version = "0.19.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
-exclude = [".config", ".github", ".maintain", "documentation", "scripts"]
+exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests"]
 
 [dependencies]
 ahash = "0.8"
@@ -16,7 +16,7 @@ argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
-asynchronous-codec = "0.6"
+asynchronous-codec = "0.7"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
@@ -41,24 +41,25 @@ daemonize-me = "2"
 data-encoding = "2"
 data-encoding-macro = "0.1"
 derive_builder = "0.20.0"
-derive_more = "0.99"
+derive_more = { version = "1", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
 displaydoc = "0.2"
 ethereum-types = "0.14"
-fil_actor_account_state = { version = "15.2" }
-fil_actor_cron_state = { version = "15.2" }
-fil_actor_datacap_state = { version = "15.2" }
-fil_actor_init_state = { version = "15.2" }
-fil_actor_interface = { version = "15.2" }
-fil_actor_market_state = { version = "15.2" }
-fil_actor_miner_state = { version = "15.2" }
-fil_actor_power_state = { version = "15.2" }
-fil_actor_reward_state = { version = "15.2" }
-fil_actor_system_state = { version = "15.2" }
-fil_actor_verifreg_state = { version = "15.2" }
-fil_actors_shared = { version = "15.2", features = ["json"] }
+ez-jsonrpc-types = "0.1.0"
+fil_actor_account_state = { version = "16.0.1" }
+fil_actor_cron_state = { version = "16.0.1" }
+fil_actor_datacap_state = { version = "16.0.1" }
+fil_actor_init_state = { version = "16.0.1" }
+fil_actor_interface = { version = "16.0.1" }
+fil_actor_market_state = { version = "16.0.1" }
+fil_actor_miner_state = { version = "16.0.1" }
+fil_actor_power_state = { version = "16.0.1" }
+fil_actor_reward_state = { version = "16.0.1" }
+fil_actor_system_state = { version = "16.0.1" }
+fil_actor_verifreg_state = { version = "16.0.1" }
+fil_actors_shared = { version = "16.0.1", features = ["json"] }
 flume = "0.11"
 fs_extra = "1"
 futures = "0.3"
@@ -87,11 +88,10 @@ jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"
 jsonwebtoken = "9"
 keccak-hash = "0.10"
 kubert-prometheus-process = "0.1"
-libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
-libp2p = { version = "0.53", default-features = false, features = [
+libp2p = { version = "0.54", default-features = false, features = [
   'autonat',
   'gossipsub',
   'kad',
@@ -139,7 +139,7 @@ positioned-io = "0.3"
 pretty_assertions = "1"
 prometheus-client = "0.22"
 quick-protobuf = "0.8"
-quick-protobuf-codec = "0.2"
+quick-protobuf-codec = "0.3"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
@@ -153,7 +153,6 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10"
 rlp = "0.5"
 rs-car-ipfs = "0.3"
-rustls = { version = "=0.23.10", default-features = false } # https://github.com/libp2p/rust-libp2p/issues/5487
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
@@ -174,7 +173,7 @@ static_assertions = "1"
 statrs = "0.17"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-tabled = "0.15"
+tabled = "0.16"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -184,7 +183,7 @@ tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
-tower = { version = "0.4", features = ["full"] }
+tower = { version = "0.5", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -195,9 +194,10 @@ walkdir = "2"
 zstd = "0.13"
 
 # optional dependencies
-console-subscriber = { version = "0.3", features = ["parking_lot"], optional = true }
+console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
-tikv-jemallocator = { version = "0.5", optional = true }
+paste = "1.0.15"
+tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
@@ -215,7 +215,7 @@ derive-quickcheck-arbitrary = "0.1"
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
-libp2p-swarm-test = "0.3"
+libp2p-swarm-test = "0.4"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6"
 predicates = "3"
@@ -223,7 +223,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.225"
+ra_ap_syntax = "0.0.230"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
@@ -253,6 +253,7 @@ default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
 doctest-private = []                                                      # see lib.rs::doctest_private
 benchmark-private = []                                                    # see lib.rs::benchmark_private
+interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
 # Allocator
 rustalloc = []
@@ -276,3 +277,7 @@ required-features = ["benchmark-private"]
 [package.metadata.docs.rs]
 # See https://docs.rs/about/metadata
 rustdoc-args = ["--document-private-items"]
+
+[workspace]
+members = ["interop-tests"]
+resolver = "2"

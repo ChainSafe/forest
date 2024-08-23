@@ -25,6 +25,7 @@ use crate::lotus_json::HasLotusJson;
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
@@ -56,6 +57,8 @@ pub trait RpcMethod<const ARITY: usize> {
     const N_REQUIRED_PARAMS: usize = ARITY;
     /// Method name.
     const NAME: &'static str;
+    /// Alias for `NAME`. Note that currently this is not reflected in the OpenRPC spec.
+    const NAME_ALIAS: Option<&'static str> = None;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiPaths`].
@@ -168,7 +171,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .collect(),
             param_structure: Some(calling_convention),
             result: Some(ReferenceOr::Item(ContentDescriptor {
-                name: format!("{}::Result", Self::NAME),
+                name: format!("{}.Result", Self::NAME),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()
@@ -178,7 +181,17 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             ..Default::default()
         }
     }
-    /// Register this method with an [`RpcModule`].
+    /// Register this method's alias with an [`RpcModule`].
+    fn register_alias(
+        module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
+    ) -> Result<(), jsonrpsee::core::RegisterMethodError> {
+        if let Some(alias) = Self::NAME_ALIAS {
+            module.register_alias(alias, Self::NAME)?
+        }
+        Ok(())
+    }
+
+    /// Register a method with an [`RpcModule`].
     fn register(
         module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
@@ -212,23 +225,51 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
-        let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
-            RequestParameters::ByPosition(mut it) => {
-                // Omit optional parameters when they are null
-                // This can be refactored into using `while pop_if`
-                // when the API is stablized.
-                while Self::N_REQUIRED_PARAMS < it.len() {
-                    match it.last() {
-                        Some(last) if last.is_null() => it.pop(),
-                        _ => break,
-                    };
-                }
-                serde_json::Value::Array(it)
-            }
-            RequestParameters::ByName(it) => serde_json::Value::Object(it),
-        };
+        let params = Self::request_params(params)?;
         Ok(crate::rpc::Request {
             method_name: Self::NAME,
+            params,
+            result_type: std::marker::PhantomData,
+            api_paths: Self::API_PATHS,
+            timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
+        })
+    }
+
+    fn request_params(params: Self::Params) -> Result<serde_json::Value, serde_json::Error> {
+        // hardcode calling convention because lotus is by-position only
+        Ok(
+            match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
+                RequestParameters::ByPosition(mut it) => {
+                    // Omit optional parameters when they are null
+                    // This can be refactored into using `while pop_if`
+                    // when the API is stablized.
+                    while Self::N_REQUIRED_PARAMS < it.len() {
+                        match it.last() {
+                            Some(last) if last.is_null() => it.pop(),
+                            _ => break,
+                        };
+                    }
+                    serde_json::Value::Array(it)
+                }
+                RequestParameters::ByName(it) => serde_json::Value::Object(it),
+            },
+        )
+    }
+
+    /// Creates a request, using the alias method name if `use_alias` is `true`.
+    fn request_with_alias(
+        params: Self::Params,
+        use_alias: bool,
+    ) -> anyhow::Result<crate::rpc::Request<Self::Ok>> {
+        let params = Self::request_params(params)?;
+        let name = if use_alias {
+            Self::NAME_ALIAS.context("alias is None")?
+        } else {
+            Self::NAME
+        };
+
+        Ok(crate::rpc::Request {
+            method_name: name,
             params,
             result_type: std::marker::PhantomData,
             api_paths: Self::API_PATHS,

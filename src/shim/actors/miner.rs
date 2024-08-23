@@ -5,11 +5,15 @@ mod partition;
 mod state;
 
 use cid::Cid;
-use fil_actor_interface::miner::State;
+use fil_actor_interface::{
+    miner::{DeadlineInfo, State},
+    Policy,
+};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::rpc::types::{SectorOnChainInfo, SectorPreCommitOnChainInfo};
+use crate::shim::clock::ChainEpoch;
 use crate::utils::db::CborStoreExt as _;
 
 pub trait MinerStateExt {
@@ -31,6 +35,8 @@ pub trait MinerStateExt {
         store: &BS,
         sector_number: u64,
     ) -> anyhow::Result<Option<SectorPreCommitOnChainInfo>>;
+
+    fn recorded_deadline_info(&self, policy: &Policy, current_epoch: ChainEpoch) -> DeadlineInfo;
 }
 
 pub trait PartitionExt {

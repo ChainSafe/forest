@@ -106,9 +106,15 @@ impl NetworkBehaviour for HelloBehaviour {
         peer: PeerId,
         addr: &Multiaddr,
         role_override: libp2p::core::Endpoint,
+        port_use: PortUse,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        self.inner
-            .handle_established_outbound_connection(connection_id, peer, addr, role_override)
+        self.inner.handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+            port_use,
+        )
     }
 
     fn handle_pending_inbound_connection(

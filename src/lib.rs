@@ -74,9 +74,6 @@ mod tool;
 mod utils;
 mod wallet;
 
-// To make lint CI happy, remove once https://github.com/libp2p/rust-libp2p/issues/5487 is resolved
-pub use rustls;
-
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:
 // - We don't want to be concerned with library compat
@@ -107,6 +104,19 @@ pub mod doctest_private {
 pub mod benchmark_private {
     pub use crate::db::car::forest;
     pub use crate::utils::cid;
+}
+
+/// These items are semver-exempt, and exist for forest author use only
+// Allow interop tests of forest internals
+#[cfg(feature = "interop-tests-private")]
+#[doc(hidden)]
+pub mod interop_tests_private {
+    pub mod libp2p {
+        pub use crate::libp2p::*;
+    }
+    pub mod libp2p_bitswap {
+        pub use crate::libp2p_bitswap::*;
+    }
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013

@@ -157,7 +157,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
     let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
 
     let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
+        config.client.genesis_file.as_deref(),
         chain_config.genesis_bytes(&db).await?.as_deref(),
         &db,
     )

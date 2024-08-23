@@ -1,0 +1,6 @@
+go 1.21
+
+use (
+	./f3-sidecar
+	./interop-tests/src/tests/go_app
+)

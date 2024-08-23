@@ -27,6 +27,92 @@
 
 ### Breaking
 
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Removed the
+  `--consume-snapshot` parameter from the `forest` binary. To consume a
+  snapshot, use `--import-snapshot <path> --import-mode=move`.
+
+- [#3403](https://github.com/ChainSafe/forest/issues/3403) The snapshot
+  validation command `forest-tool snapshot validate` now checks the snapshots
+  individually. The previous behavior, to validate the sum of the snapshots, can
+  be achieved via `forest-tool snapshot validate-diffs`.
+
+### Added
+
+- [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
+  Ethereum RPC name aliases.
+
+- [#4607](https://github.com/ChainSafe/forest/pull/4607) Expose usage and timing
+  metrics for RPC methods.
+
+- [#4599](https://github.com/ChainSafe/forest/issues/4599) Block delay and block
+  propagation delays are now configurable via
+  [environment variables](https://github.com/ChainSafe/forest/blob/main/documentation/src/environment_variables.md).
+
+- [#4596](https://github.com/ChainSafe/forest/issues/4596) Support
+  finality-related params in the `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4620](https://github.com/ChainSafe/forest/pull/4620) Added an option to link
+  snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=symlink`.
+
+- [#4533](https://github.com/ChainSafe/forest/pull/4641) Added `build_info`
+  metric to Prometheus metrics, which include the current build's version.
+
+- [#4628](https://github.com/ChainSafe/forest/issues/4628) Added support for
+  devnets (2k networks) in the offline Forest.
+
+- [#4463](https://github.com/ChainSafe/forest/issues/4463) Add support for the
+  `Filecoin.EthGetTransactionByHash` RPC method.
+
+- [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
+  `Filecoin.EthCall` RPC method.
+
+### Changed
+
+- [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
+  date for the master token. The new behavior aligns with Lotus.
+
+### Removed
+
+- [#4624](https://github.com/ChainSafe/forest/pull/4624) Remove the
+  `--chain-import` flag. Its functionality can be accessed through the more
+  flexible `--height` flag.
+
+### Fixed
+
+- [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
+  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  `Filecoin.EthGetBlockByHash` RPC methods.
+
+- [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
+  structure in the `Filecoin.MinerGetBaseInfo` RPC method.
+
+- [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
+  `StateMinerProvingDeadline`.
+
+- [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
+  `StateCirculatingSupply`.
+
+- [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
+  `StateCall`.
+
+## Forest 0.19.2 "Eagle"
+
+Non-mandatory release that includes a fix for the Prometheus-incompatible
+metric.
+
+### Fixed
+
+- [#4594](https://github.com/ChainSafe/forest/pull/4594) Reverted the Forest
+  version metric with Prometheus-incompatible metric type.
+
+## Forest 0.19.1 "Pathfinder"
+
+Mandatory release for mainnet nodes that adds the NV23 _Waffle_ migration at
+epoch 4154640 (2024-08-06T12:00:00Z). This release also adds support for new RPC
+methods and fixes a networking issue where Forest would not bootstrap a Lotus
+node.
+
 ### Added
 
 - [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
@@ -57,11 +143,17 @@
 - [#4515](https://github.com/ChainSafe/forest/pull/4515) Add support for the
   `Filecoin.StateLookupRobustAddress` RPC method.
 
+- [#4496](https://github.com/ChainSafe/forest/pull/4496) Add support for the
+  `Filecoin.EthEstimateGas` RPC method.
+
 - [#4558](https://github.com/ChainSafe/forest/pull/4558) Add support for the
   `Filecoin.StateVerifiedRegistryRootKey` RPC method.
 
 - [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
   `forest-cli healthcheck ready`.
+
+- [#4569](https://github.com/ChainSafe/forest/pull/4569) Add support for the
+  `Filecoin.NetFindPeer` RPC method.
 
 - [#4565](https://github.com/ChainSafe/forest/pull/4565) Add support for the
   `Filecoin.StateGetRandomnessDigestFromBeacon` RPC method.
@@ -74,12 +166,6 @@
 
 - [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
   `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.
-
-### Changed
-
-### Removed
-
-### Fixed
 
 ## Forest 0.19.0 "Pastel de nata"
 

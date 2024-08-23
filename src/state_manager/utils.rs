@@ -2,21 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{
+    actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
     address::{Address, Payload},
     randomness::Randomness,
-    sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
+    sector::{ExtendedSectorInfo, RegisteredPoStProof, RegisteredSealProof},
     state_tree::ActorState,
     version::NetworkVersion,
 };
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
-use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use fil_actor_interface::miner;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
 use crate::state_manager::{errors::*, StateManager};
+
+use super::MinerActorStateLoad as _;
 
 impl<DB> StateManager<DB>
 where
@@ -30,7 +33,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<SectorInfo>, anyhow::Error> {
+    ) -> Result<Vec<ExtendedSectorInfo>, anyhow::Error> {
         let store = self.blockstore();
 
         let actor = self
@@ -74,9 +77,7 @@ where
         let info = mas.info(store)?;
         let spt = RegisteredSealProof::from_sector_size(info.sector_size().into(), nv);
 
-        let wpt = spt
-            .registered_winning_post_proof()
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let wpt = spt.registered_winning_post_proof()?;
 
         let m_id = miner_address.id()?;
 
@@ -99,7 +100,12 @@ where
 
         let out = sectors
             .into_iter()
-            .map(|s_info| SectorInfo::new(*spt, s_info.sector_number, s_info.sealed_cid))
+            .map(|s_info| ExtendedSectorInfo {
+                proof: s_info.seal_proof.into(),
+                sector_number: s_info.sector_number,
+                sector_key: s_info.sector_key_cid,
+                sealed_cid: s_info.sealed_cid,
+            })
             .collect();
 
         Ok(out)
@@ -125,7 +131,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
     }
 
     // After nv18, we also support other kinds of senders.
-    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+    if is_account_actor(&actor.code) || is_ethaccount_actor(&actor.code) {
         return true;
     }
 

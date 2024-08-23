@@ -44,6 +44,7 @@ impl CarBlock {
     pub fn write(&self, mut writer: &mut impl io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();
         writer.write_all(&frame_length.encode_var_vec())?;
+        #[allow(clippy::needless_borrows_for_generic_args)]
         self.cid
             .write_bytes(&mut writer)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;

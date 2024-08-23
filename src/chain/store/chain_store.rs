@@ -80,7 +80,7 @@ pub struct ChainStore<DB> {
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
 
     /// Needed by the Ethereum mapping.
-    chain_config: Arc<ChainConfig>,
+    pub chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -565,7 +565,7 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_root(Arc::clone(&db), ts.parent_state())?;
+    let state = StateTree::new_from_tipset(Arc::clone(&db), ts)?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
@@ -622,12 +622,17 @@ where
     DB: Blockstore,
     T: DeserializeOwned,
 {
-    keys.iter()
-        .map(|k| {
-            db.get_cbor(k)?
-                .ok_or_else(|| Error::UndefinedKey(k.to_string()))
-        })
-        .collect()
+    keys.iter().map(|k| message_from_cid(db, k)).collect()
+}
+
+/// Returns message from key-value store based on a [`Cid`].
+pub fn message_from_cid<DB, T>(db: &DB, key: &Cid) -> Result<T, Error>
+where
+    DB: Blockstore,
+    T: DeserializeOwned,
+{
+    db.get_cbor(key)?
+        .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
 /// Returns parent message receipt given `block_header` and message index.

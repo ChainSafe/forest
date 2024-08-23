@@ -4,6 +4,7 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod metrics_layer;
 mod request;
 
 pub use client::Client;
@@ -70,6 +71,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthAccounts);
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthEstimateGas);
         $callback!(crate::rpc::eth::EthFeeHistory);
         $callback!(crate::rpc::eth::EthGetCode);
         $callback!(crate::rpc::eth::EthGetStorageAt);
@@ -83,7 +85,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionCount);
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
+        $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!(crate::rpc::eth::EthCall);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
@@ -120,6 +124,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::net::NetAutoNatStatus);
         $callback!(crate::rpc::net::NetVersion);
         $callback!(crate::rpc::net::NetProtectAdd);
+        $callback!(crate::rpc::net::NetFindPeer);
 
         // node vertical
         $callback!(crate::rpc::node::NodeStatus);
@@ -209,6 +214,16 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::wallet::WalletValidateAddress);
         $callback!(crate::rpc::wallet::WalletVerify);
         $callback!(crate::rpc::wallet::WalletDelete);
+
+        // f3
+        $callback!(crate::rpc::f3::GetTipsetByEpoch);
+        $callback!(crate::rpc::f3::GetTipset);
+        $callback!(crate::rpc::f3::GetHead);
+        $callback!(crate::rpc::f3::GetParent);
+        $callback!(crate::rpc::f3::GetPowerTable);
+
+        // misc
+        $callback!(crate::rpc::misc::GetActorEventsRaw);
     };
 }
 pub(crate) use for_each_method;
@@ -281,8 +296,10 @@ mod methods {
     pub mod chain;
     pub mod common;
     pub mod eth;
+    pub mod f3;
     pub mod gas;
     pub mod miner;
+    pub mod misc;
     pub mod mpool;
     pub mod msig;
     pub mod net;
@@ -296,6 +313,7 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
+use crate::rpc::metrics_layer::MetricsLayer;
 
 use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
@@ -434,10 +452,12 @@ where
                 // NOTE, the rpc middleware must be initialized here to be able to created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
-                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer {
-                    headers,
-                    keystore: keystore.clone(),
-                });
+                let rpc_middleware = RpcServiceBuilder::new()
+                    .layer(AuthLayer {
+                        headers,
+                        keystore: keystore.clone(),
+                    })
+                    .layer(MetricsLayer {});
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
@@ -499,6 +519,8 @@ where
     macro_rules! register {
         ($ty:ty) => {
             <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+            // Optionally register an alias for the method.
+            <$ty>::register_alias(&mut module).unwrap();
         };
     }
     for_each_method!(register);
@@ -557,6 +579,7 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
+    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     fn openrpc() {
         for path in [ApiPath::V0, ApiPath::V1] {
             let _spec = super::openrpc(path, None);
@@ -567,7 +590,6 @@ mod tests {
             //                  more stable.
             //                  (We still run this test to make sure we're not
             //                  violating other invariants)
-            #[cfg(never)]
             insta::assert_yaml_snapshot!(_spec);
         }
     }
