@@ -14,6 +14,7 @@ use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
+    networks::NetworkChain,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
@@ -429,10 +430,15 @@ impl RpcMethod<0> for GetParticipatedMinerIDs {
     type Params = ();
     type Ok = Vec<u64>;
 
-    async fn handle(_ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        // For now, just hard code the devnet miner for testing
-        let shared_miner_addr = Address::from_str("t01000")?;
-        Ok(vec![shared_miner_addr.id()?])
+    async fn handle(ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        match ctx.chain_config().network {
+            NetworkChain::Devnet(_) => {
+                // For now, just hard code the devnet miner for testing
+                let shared_miner_addr = Address::from_str("t01000")?;
+                Ok(vec![shared_miner_addr.id()?])
+            }
+            _ => Ok(vec![]),
+        }
     }
 }
 
