@@ -99,6 +99,9 @@
 - [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
   `StateCall`.
 
+- [#4498](https://github.com/ChainSafe/forest/issues/4498) Fixed incorrect
+  `Filecoin.Version`s `APIVersion` field value.
+
 ## Forest 0.19.2 "Eagle"
 
 Non-mandatory release that includes a fix for the Prometheus-incompatible
