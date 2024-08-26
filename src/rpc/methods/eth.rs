@@ -1870,6 +1870,35 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     }
 }
 
+pub enum EthCall {}
+impl RpcMethod<2> for EthCall {
+    const NAME: &'static str = "Filecoin.EthCall";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_call");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx", "block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthCallMessage, BlockNumberOrHash);
+    type Ok = EthBytes;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let msg = tx.try_into()?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
+
+        if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+            Ok(EthBytes::default())
+        } else {
+            let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
+
+            let bytes = decode_payload(&msg_rct.return_data(), CBOR)?;
+            Ok(bytes)
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -64,6 +64,9 @@
 - [#4463](https://github.com/ChainSafe/forest/issues/4463) Add support for the
   `Filecoin.EthGetTransactionByHash` RPC method.
 
+- [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
+  `Filecoin.EthCall` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
@@ -86,6 +89,12 @@
 
 - [#4635](https://github.com/ChainSafe/forest/pull/4635) Fixed bug in
   `StateMinerProvingDeadline`.
+
+- [#4674](https://github.com/ChainSafe/forest/pull/4674) Fixed bug in
+  `StateCirculatingSupply`.
+
+- [#4656](https://github.com/ChainSafe/forest/pull/4656) Fixed bug in
+  `StateCall`.
 
 ## Forest 0.19.2 "Eagle"
 
@@ -151,6 +160,9 @@ node.
 
 - [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
   `Filecoin.MpoolPushUntrusted` RPC method.
+
+- [#4561](https://github.com/ChainSafe/forest/pull/4561) Add support for the
+  `Filecoin.MpoolBatchPush` and `Filecoin.MpoolBatchPushUntrusted` RPC method.
 
 - [#4566](https://github.com/ChainSafe/forest/pull/4566) Add support for the
   `Filecoin.StateGetRandomnessDigestFromTickets` RPC method.

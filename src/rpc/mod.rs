@@ -87,6 +87,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!(crate::rpc::eth::EthCall);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
@@ -223,6 +224,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetHead);
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetPowerTable);
+
+        // misc
+        $callback!(crate::rpc::misc::GetActorEventsRaw);
     };
 }
 pub(crate) use for_each_method;
@@ -299,6 +303,7 @@ mod methods {
     pub mod gas;
     pub mod market;
     pub mod miner;
+    pub mod misc;
     pub mod mpool;
     pub mod msig;
     pub mod net;

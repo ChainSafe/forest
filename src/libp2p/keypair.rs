@@ -3,7 +3,7 @@
 
 use tracing::{debug, info, trace};
 
-use crate::{libp2p::Keypair, utils::io::write_to_file};
+use crate::{libp2p::Keypair, utils::io::write_new_sensitive_file};
 use std::{fs, path::Path};
 
 const KEYPAIR_FILE: &str = "keypair";
@@ -29,12 +29,10 @@ fn create_and_save_keypair(path: &Path) -> anyhow::Result<Keypair> {
         backup_path.set_extension("bak");
 
         info!("Backing up existing keypair to {}", backup_path.display());
-        fs::rename(keypair_path, &backup_path)?;
+        fs::rename(&keypair_path, &backup_path)?;
     }
 
-    let file = write_to_file(&gen_keypair.to_bytes(), path, KEYPAIR_FILE)?;
-    // Restrict permissions on files containing private keys
-    crate::utils::io::set_user_perm(&file)?;
+    write_new_sensitive_file(&gen_keypair.to_bytes(), &keypair_path)?;
 
     Ok(gen_keypair.into())
 }

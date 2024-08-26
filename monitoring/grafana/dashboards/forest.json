@@ -37,7 +37,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Latest epoch synchronized to the node.",
       "fieldConfig": {
@@ -92,7 +92,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "builder",
           "exemplar": true,
@@ -109,7 +109,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Number of Tipset Validated Per min",
       "fieldConfig": {
@@ -174,7 +174,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "The difference between the node's network height and the expected network height.",
       "fieldConfig": {
@@ -267,7 +267,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Time since the Forest Node process started",
       "fieldConfig": {
@@ -323,7 +323,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -340,7 +340,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Number of healthy peers recognized by the Forest node.",
       "fieldConfig": {
@@ -422,7 +422,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -439,7 +439,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "The Forest Process Resident memory size",
       "fieldConfig": {
@@ -521,7 +521,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -555,7 +555,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Number of bad peers recognized by the node.",
       "fieldConfig": {
@@ -637,7 +637,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -654,7 +654,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Number of Total count of libp2p PubSub message events  recognized by the Forest Node.",
       "fieldConfig": {
@@ -709,7 +709,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -726,7 +726,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Total count of peer disconnection events recognized by the Forest Node.",
       "fieldConfig": {
@@ -781,7 +781,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -798,7 +798,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Number of Failed Peer Requests recognized by the Forest node.",
       "fieldConfig": {
@@ -852,7 +852,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -869,7 +869,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Total count of peer connection events recognized by the Forest Node.",
       "fieldConfig": {
@@ -924,7 +924,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -954,7 +954,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Size of Forest Node database",
       "fieldConfig": {
@@ -1010,7 +1010,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "exemplar": true,
           "expr": "forest_db_size{} /  1073741824 ",
@@ -1025,7 +1025,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1079,7 +1079,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1100,7 +1100,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1181,7 +1181,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1202,7 +1202,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Total user and system CPU time spent.",
       "fieldConfig": {
@@ -1272,7 +1272,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "bdhehxm2shpmod"
+        "name": "prometheus"
       },
       "description": "Total count of tipset range synchronization failures encountered by the Forest node",
       "fieldConfig": {
@@ -1327,7 +1327,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "bdhehxm2shpmod"
+            "name": "prometheus"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1360,3 +1360,4 @@
   "version": 56,
   "weekStart": ""
 }
+
