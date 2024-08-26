@@ -12,10 +12,13 @@ import (
 	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/namespace"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string, manifestServer string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -67,7 +70,18 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	m.CommitteeLookback = 5
 	// m.Pause = true
 
-	f3Module, err := f3.New(ctx, manifest.NewStaticManifestProvider(m), ds,
+	var manifestProvider manifest.ManifestProvider
+	switch manifestServerID, err := peer.Decode(manifestServer); {
+	case err != nil:
+		logger.Info("Using static manifest provider")
+		manifestProvider = manifest.NewStaticManifestProvider(m)
+	default:
+		logger.Infof("Using dynamic manifest provider at %s", manifestServerID)
+		manifestDS := namespace.Wrap(ds, datastore.NewKey("/f3-dynamic-manifest"))
+		manifestProvider = manifest.NewDynamicManifestProvider(m, manifestDS, p2p.PubSub, manifestServerID)
+	}
+
+	f3Module, err := f3.New(ctx, manifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec)
 	if err != nil {
 		return err
@@ -89,19 +103,6 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	go func() {
 		if err := srv.Serve(listener); err != nil {
 			panic(err)
-		}
-	}()
-
-	// Goroutine for debugging
-	go func() {
-		for {
-			time.Sleep(10 * time.Second)
-			cert, err := f3Module.GetLatestCert(ctx)
-			if err != nil {
-				logger.Warnf("GetLatestCert %s", err)
-				continue
-			}
-			logger.Infof("Cert: instance: %d, ec chain base: %d head: %d", cert.GPBFTInstance, cert.ECChain.Base().Epoch, cert.ECChain.Head().Epoch)
 		}
 	}()
 

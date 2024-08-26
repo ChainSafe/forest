@@ -26,11 +26,13 @@ func main() {
 	flag.Int64Var(&finality, "finality", 900, "chain finality epochs")
 	var db string
 	flag.StringVar(&db, "db", "f3-db", "path to the f3 database")
+	var manifestServer string
+	flag.StringVar(&manifestServer, "manifest-server", "", "the peer id of the dynamic manifest server")
 	flag.Parse()
 
 	ctx := context.Background()
 
-	err := run(ctx, rpcEndpoint, f3RpcEndpoint, finality, db)
+	err := run(ctx, rpcEndpoint, f3RpcEndpoint, finality, db, manifestServer)
 	if err != nil {
 		panic(err)
 	}
