@@ -557,7 +557,10 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(Version::request(()).unwrap()),
+        // We don't check the `version` field as it differs between Lotus and Forest.
+        RpcTest::validate(Version::request(()).unwrap(), |forest, lotus| {
+            forest.api_version == lotus.api_version && forest.block_delay == lotus.block_delay
+        }),
         RpcTest::basic(StartTime::request(()).unwrap()),
         RpcTest::basic(Session::request(()).unwrap()),
     ]
