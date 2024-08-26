@@ -56,7 +56,7 @@ do
   echo "Attempt $i:"
   
   JSON=$(curl -s -X POST "$FOREST_URL" \
-    -H 'Content-Type: application/json' \
+    --header 'Content-Type: application/json' \
     --data "$(jq -n --arg cid "$MSG_CID" '{jsonrpc: "2.0", id: 1, method: "Filecoin.StateSearchMsg", params: [{"/": $cid}]}')")
 
   echo "$JSON"
