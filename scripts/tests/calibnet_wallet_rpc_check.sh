@@ -28,7 +28,7 @@ FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 
 # The preloaded address
-ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
+REMOTE_ADDR=$($FOREST_WALLET_PATH --remote-wallet list | tail -1 | cut -d ' ' -f1)
 
 # Amount to add to the Market actor (in attoFIL)
 FIL_AMT="23"
@@ -37,7 +37,7 @@ JSON=$(curl -s -X POST "$FOREST_URL" \
   --header 'Accept: application/json' \
   --header 'Content-Type: application/json' \
   --header "Authorization: Bearer $ADMIN_TOKEN" \
-  --data "$(jq -n --arg addr "$ADDR_ONE" --arg amt "$FIL_AMT" '{jsonrpc: "2.0", id: 1, method: "Filecoin.MarketAddBalance", params: [$addr, $addr, $amt]}')")
+  --data "$(jq -n --arg addr "$REMOTE_ADDR" --arg amt "$FIL_AMT" '{jsonrpc: "2.0", id: 1, method: "Filecoin.MarketAddBalance", params: [$addr, $addr, $amt]}')")
 
 echo "$JSON"
 
