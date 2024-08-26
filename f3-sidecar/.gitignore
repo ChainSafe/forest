@@ -42,4 +42,5 @@ Cargo.lock
 
 # End of https://www.toptal.com/developers/gitignore/api/go,rust
 
+# The default f3 database folder
 /f3-db
