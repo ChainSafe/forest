@@ -36,7 +36,10 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		return nil, err
 	}
 
-	ps, err := pubsub.NewGossipSub(ctx, host)
+	ps, err := pubsub.NewGossipSub(ctx, host,
+		pubsub.WithPeerExchange(true),
+		pubsub.WithFloodPublish(true),
+		pubsub.WithPeerScore(PubsubPeerScoreParams, PubsubPeerScoreThresholds))
 	if err != nil {
 		return nil, err
 	}
