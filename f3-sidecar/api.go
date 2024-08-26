@@ -11,14 +11,14 @@ import (
 )
 
 type F3Api struct {
-	GetTipsetByEpoch        func(context.Context, int64) (TipSet, error)
-	GetTipset               func(context.Context, gpbft.TipSetKey) (TipSet, error)
-	GetHead                 func(context.Context) (TipSet, error)
-	GetParent               func(context.Context, gpbft.TipSetKey) (TipSet, error)
-	GetPowerTable           func(context.Context, gpbft.TipSetKey) (gpbft.PowerEntries, error)
-	ProtectPeer             func(context.Context, peer.ID) (bool, error)
-	GetParticipatedMinerIDs func(context.Context) ([]uint64, error)
-	SignMessage             func(context.Context, []byte, []byte) (*crypto.Signature, error)
+	GetTipsetByEpoch         func(context.Context, int64) (TipSet, error)
+	GetTipset                func(context.Context, gpbft.TipSetKey) (TipSet, error)
+	GetHead                  func(context.Context) (TipSet, error)
+	GetParent                func(context.Context, gpbft.TipSetKey) (TipSet, error)
+	GetPowerTable            func(context.Context, gpbft.TipSetKey) (gpbft.PowerEntries, error)
+	ProtectPeer              func(context.Context, peer.ID) (bool, error)
+	GetParticipatingMinerIDs func(context.Context) ([]uint64, error)
+	SignMessage              func(context.Context, []byte, []byte) (*crypto.Signature, error)
 }
 
 type FilecoinApi struct {

@@ -420,9 +420,9 @@ impl RpcMethod<1> for ProtectPeer {
     }
 }
 
-pub enum GetParticipatedMinerIDs {}
-impl RpcMethod<0> for GetParticipatedMinerIDs {
-    const NAME: &'static str = "F3.GetParticipatedMinerIDs";
+pub enum GetParticipatingMinerIDs {}
+impl RpcMethod<0> for GetParticipatingMinerIDs {
+    const NAME: &'static str = "F3.GetParticipatingMinerIDs";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;

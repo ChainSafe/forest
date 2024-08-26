@@ -108,7 +108,7 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 
 	for {
 		msgToSign := <-f3Module.MessagesToSign()
-		miners, err := ec.f3api.GetParticipatedMinerIDs(ctx)
+		miners, err := ec.f3api.GetParticipatingMinerIDs(ctx)
 		if err != nil {
 			continue
 		}

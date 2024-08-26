@@ -222,7 +222,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetPowerTable);
         $callback!(crate::rpc::f3::ProtectPeer);
-        $callback!(crate::rpc::f3::GetParticipatedMinerIDs);
+        $callback!(crate::rpc::f3::GetParticipatingMinerIDs);
         $callback!(crate::rpc::f3::SignMessage);
         $callback!(crate::rpc::f3::F3GetCertificate);
         $callback!(crate::rpc::f3::F3GetLatestCertificate);
