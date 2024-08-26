@@ -157,7 +157,6 @@ services:
       - lotus net id > ${LOTUS_DATA_DIR}/PEER_ID
 
   forest:
-    user: root
     depends_on:
       lotus_config:
         condition: service_completed_successfully
@@ -208,7 +207,6 @@ services:
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   forest_offline:
-    user: root
     depends_on:
       lotus_config:
         condition: service_completed_successfully
@@ -257,7 +255,6 @@ services:
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
   forest_connecter:
-    user: root
     depends_on:
       forest:
         condition: service_healthy
