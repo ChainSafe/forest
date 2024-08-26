@@ -33,17 +33,18 @@ pub enum Version {}
 impl RpcMethod<0> for Version {
     const NAME: &'static str = "Filecoin.Version";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = PublicVersion;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let v = &*crate::utils::version::FOREST_VERSION;
         Ok(PublicVersion {
             version: crate::utils::version::FOREST_VERSION_STRING.clone(),
-            api_version: ShiftingVersion::new(v.major, v.minor, v.patch),
+            // This matches Lotus's versioning for the API v1.
+            // For the API v0, we don't support it but it should be `1.5.0`.
+            api_version: ShiftingVersion::new(2, 3, 0),
             block_delay: ctx.chain_config().block_delay_secs,
         })
     }
@@ -81,7 +82,7 @@ impl RpcMethod<0> for StartTime {
 }
 
 /// Represents the current version of the API.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PublicVersion {
     pub version: String,
@@ -93,7 +94,7 @@ lotus_json_with_self!(PublicVersion);
 
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ShiftingVersion(u32);
 
 impl ShiftingVersion {
