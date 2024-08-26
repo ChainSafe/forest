@@ -275,7 +275,7 @@ services:
         set -euxo pipefail
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
-        forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key || echo "";
+        forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key || true
         forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
   f3:
     user: root
