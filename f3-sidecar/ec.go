@@ -46,3 +46,11 @@ func (ec *ForestEC) GetParent(ctx context.Context, ts ec.TipSet) (ec.TipSet, err
 func (ec *ForestEC) GetPowerTable(ctx context.Context, tsk gpbft.TipSetKey) (gpbft.PowerEntries, error) {
 	return ec.f3api.GetPowerTable(ctx, tsk)
 }
+
+func (ec *ForestEC) Sign(ctx context.Context, sender gpbft.PubKey, msg []byte) ([]byte, error) {
+	signature, err := ec.f3api.SignMessage(ctx, sender, msg)
+	if err != nil {
+		return nil, err
+	}
+	return signature.Data, err
+}
