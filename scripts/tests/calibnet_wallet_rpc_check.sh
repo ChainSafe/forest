@@ -49,10 +49,10 @@ fi
 MSG_CID=$(echo "$JSON" | jq -r '.result["/"]')
 echo "Message cid: $MSG_CID"
 
-# Try 10 times.
-for i in {1..10}
+# Try 30 times (in other words wait for 5 tipsets)
+for i in {1..30}
 do
-  sleep 30s
+  sleep 5s
   echo "Attempt $i:"
   
   JSON=$(curl -s -X POST "$FOREST_URL" \
