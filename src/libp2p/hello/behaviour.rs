@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
+    sync::Arc,
     task::Poll,
     time::{Duration, Instant},
 };
@@ -15,7 +16,7 @@ use libp2p::{
 use tracing::warn;
 
 use super::*;
-use crate::libp2p::service::metrics;
+use crate::libp2p::{service::metrics, PeerManager};
 
 type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 
@@ -23,14 +24,16 @@ pub struct HelloBehaviour {
     inner: InnerBehaviour,
     response_channels: HashMap<OutboundRequestId, flume::Sender<HelloResponse>>,
     pending_inbound_hello_peers: HashMap<PeerId, Instant>,
+    peer_manager: Arc<PeerManager>,
 }
 
 impl HelloBehaviour {
-    pub fn new(cfg: request_response::Config) -> Self {
+    pub fn new(cfg: request_response::Config, peer_manager: Arc<PeerManager>) -> Self {
         Self {
             inner: InnerBehaviour::new([(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)], cfg),
             response_channels: Default::default(),
             pending_inbound_hello_peers: Default::default(),
+            peer_manager,
         }
     }
 
@@ -194,12 +197,14 @@ impl NetworkBehaviour for HelloBehaviour {
                     now.duration_since(connected_instant) > INBOUND_HELLO_WAIT_TIMEOUT
                 })
         {
-            tracing::warn!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
             self.pending_inbound_hello_peers.remove(&peer_to_disconnect);
-            return Poll::Ready(ToSwarm::CloseConnection {
-                peer_id: peer_to_disconnect,
-                connection: CloseConnection::All,
-            });
+            if !self.peer_manager.is_peer_protected(&peer_to_disconnect) {
+                tracing::warn!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
+                return Poll::Ready(ToSwarm::CloseConnection {
+                    peer_id: peer_to_disconnect,
+                    connection: CloseConnection::All,
+                });
+            }
         }
 
         Poll::Pending

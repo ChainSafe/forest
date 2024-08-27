@@ -88,6 +88,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!(crate::rpc::eth::EthCall);
+        $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
@@ -224,6 +225,13 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetHead);
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetPowerTable);
+        $callback!(crate::rpc::f3::ProtectPeer);
+        $callback!(crate::rpc::f3::GetParticipatingMinerIDs);
+        $callback!(crate::rpc::f3::SignMessage);
+        $callback!(crate::rpc::f3::F3GetCertificate);
+        $callback!(crate::rpc::f3::F3GetLatestCertificate);
+        $callback!(crate::rpc::f3::F3GetECPowerTable);
+        $callback!(crate::rpc::f3::F3GetF3PowerTable);
 
         // misc
         $callback!(crate::rpc::misc::GetActorEventsRaw);
