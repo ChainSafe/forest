@@ -18,6 +18,13 @@ function get_sync_height {
        "http://127.0.0.1:${port}/rpc/v0" | jq '.result.Height'
 }
 
+function get_f3_latest_cert_instance {
+  local port=$1
+  curl --silent -X POST -H "Content-Type: application/json" \
+       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.F3GetLatestCertificate","param":"null"}' \
+       "http://127.0.0.1:${port}/rpc/v1" | jq '.result.GPBFTInstance'
+}
+
 start_time=$(date +%s)
 timeout=$((start_time + 300))  # Set timeout to 10 minutes
 
@@ -44,5 +51,12 @@ done
 height=$(get_sync_height ${FOREST_OFFLINE_RPC_PORT})
 if [ "$height" -ne 0 ]; then
   echo "Offline RPC height is not zero: $height"
+  exit 1
+fi
+
+# Check the F3 RPC
+height=$(get_f3_latest_cert_instance ${FOREST_RPC_PORT})
+if [ "$height" -lt 1 ]; then
+  echo "latest cert instance should be greater than zero: $height"
   exit 1
 fi

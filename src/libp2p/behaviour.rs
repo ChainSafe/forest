@@ -1,9 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::Arc};
 
-use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
+use super::{
+    discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
+    PeerManager,
+};
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
     config::Libp2pConfig,
@@ -66,6 +69,7 @@ impl ForestBehaviour {
         local_key: &Keypair,
         config: &Libp2pConfig,
         network_name: &str,
+        peer_manager: Arc<PeerManager>,
     ) -> anyhow::Result<Self> {
         const MAX_ESTABLISHED_PER_PEER: u32 = 4;
         static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
@@ -158,6 +162,7 @@ impl ForestBehaviour {
             hello: HelloBehaviour::new(
                 request_response::Config::default()
                     .with_max_concurrent_streams(max_concurrent_request_response_streams),
+                peer_manager,
             ),
             chain_exchange: ChainExchangeBehaviour::new(
                 request_response::Config::default()
