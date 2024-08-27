@@ -12,3 +12,16 @@
 - (optional) to inspect RPC calls, run
   `mitmproxy --mode reverse:http://localhost:2345 --listen-port 8080` then
   `go run . -rpc http://127.0.0.1:8080/rpc/v1`
+
+### How F3 sidecar interacts with Forest
+
+```mermaid
+flowchart TD
+    A[F3 sidecar] -->|EC API calls| B(Forest)
+    A --> |signer API calls| B
+    A --> |read manifest params| B
+    A --> |P2P bootstrap node| B
+    B --> |delegate F3 RPC calls| A
+    A --> |storing backend| C[level db]
+    A --> |dynamic manifest backend| D[manifest p2p server]
+```
