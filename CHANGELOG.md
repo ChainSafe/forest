@@ -70,6 +70,9 @@
 - [#4686](https://github.com/ChainSafe/forest/issues/4686) Add support for the
   `Filecoin.EthAddressToFilecoinAddress` RPC method.
 
+- [#4612](https://github.com/ChainSafe/forest/issues/4612) Add support for the
+  `Filecoin.MarketAddBalance` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
