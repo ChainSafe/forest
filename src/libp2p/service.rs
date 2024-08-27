@@ -152,6 +152,7 @@ pub enum NetRPCMethods {
     AddrsListen(flume::Sender<(PeerId, HashSet<Multiaddr>)>),
     Peer(flume::Sender<Option<HashSet<Multiaddr>>>, PeerId),
     Peers(flume::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    ProtectPeer(flume::Sender<()>, PeerId),
     Info(flume::Sender<NetInfoResult>),
     Connect(flume::Sender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(flume::Sender<()>, PeerId),
@@ -185,7 +186,8 @@ where
         network_name: &str,
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
-        let behaviour = ForestBehaviour::new(&net_keypair, &config, network_name)?;
+        let behaviour =
+            ForestBehaviour::new(&net_keypair, &config, network_name, peer_manager.clone())?;
         let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
             .with_tokio()
             .with_tcp(
@@ -496,6 +498,10 @@ async fn handle_network_message(
                 NetRPCMethods::Peers(response_channel) => {
                     let peer_addresses = swarm.behaviour().peer_addresses();
                     response_channel.send_or_warn(peer_addresses);
+                }
+                NetRPCMethods::ProtectPeer(tx, peer_id) => {
+                    peer_manager.protect_peer(peer_id);
+                    tx.send_or_warn(());
                 }
                 NetRPCMethods::Info(response_channel) => {
                     response_channel.send_or_warn(swarm.network_info().into());
