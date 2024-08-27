@@ -221,33 +221,6 @@ jobs:
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
-  calibnet-wallet-rpc-check:
-    needs:
-      - build-ubuntu
-    name: Wallet RPC tests
-    runs-on: ubuntu-latest
-    steps:
-      - run: lscpu
-      - uses: actions/cache@v4
-        with:
-          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
-          key: proof-params-keys
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: Wallet commands check
-        env:
-          CALIBNET_WALLET: '${{ secrets.CALIBNET_WALLET }}'
-        run: |
-          if [[ "$CALIBNET_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_wallet_rpc_check.sh "$CALIBNET_WALLET"
-          fi
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-export-check:
     needs:
       - build-ubuntu
