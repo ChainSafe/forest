@@ -1277,6 +1277,13 @@ fn eth_tests() -> Vec<RpcTest> {
             )
             .unwrap(),
         ));
+        tests.push(RpcTest::identity(
+            EthAddressToFilecoinAddress::request((EthAddress::from_str(
+                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
+            )
+            .unwrap(),))
+            .unwrap(),
+        ));
     }
     tests
 }
