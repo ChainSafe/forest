@@ -4,13 +4,13 @@
 use crate::rpc::error::ServerError;
 use crate::rpc::mpool::MpoolPushMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
-use crate::shim::{address::Address, message::Message};
+use crate::shim::{address::Address, message::Message, message::MethodNum};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use num_bigint::BigInt;
 
-pub const METHOD_ADD_BALANCE: u64 = 2;
+pub const METHOD_ADD_BALANCE: MethodNum = 2;
 
 pub enum MarketAddBalance {}
 impl RpcMethod<3> for MarketAddBalance {
