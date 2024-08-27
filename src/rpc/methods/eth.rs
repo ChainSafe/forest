@@ -1899,6 +1899,24 @@ impl RpcMethod<2> for EthCall {
     }
 }
 
+pub enum EthAddressToFilecoinAddress {}
+impl RpcMethod<1> for EthAddressToFilecoinAddress {
+    const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
+    const NAME_ALIAS: Option<&'static str> = None;
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["eth_address"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthAddress,);
+    type Ok = FilecoinAddress;
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_address,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(eth_address.to_filecoin_address()?)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
