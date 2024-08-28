@@ -88,12 +88,16 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!(crate::rpc::eth::EthCall);
+        $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
         $callback!(crate::rpc::gas::GasEstimateMessageGas);
         $callback!(crate::rpc::gas::GasEstimateFeeCap);
         $callback!(crate::rpc::gas::GasEstimateGasPremium);
+
+        // market vertical
+        $callback!(crate::rpc::market::MarketAddBalance);
 
         // miner vertical
         $callback!(crate::rpc::miner::MinerCreateBlock);
@@ -305,6 +309,7 @@ mod methods {
     pub mod eth;
     pub mod f3;
     pub mod gas;
+    pub mod market;
     pub mod miner;
     pub mod misc;
     pub mod mpool;

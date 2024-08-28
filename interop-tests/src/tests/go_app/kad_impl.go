@@ -12,6 +12,7 @@ import (
 )
 
 func init() {
+	setGoDebugEnv()
 	err := logging.SetLogLevel("dht", "debug")
 	checkError(err)
 	GoKadNodeImpl = &kadImpl{ctx: context.Background()}
