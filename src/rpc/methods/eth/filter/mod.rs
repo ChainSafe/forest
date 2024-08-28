@@ -292,4 +292,16 @@ mod tests {
         let result = parse_block_range(heaviest, Some("earliest"), Some("0x100"), max_range);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_keys_to_keys_with_codec() {
+        let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::new();
+        keys.insert("key".to_string(), vec![vec![1, 2, 3]]);
+
+        let result = keys_to_keys_with_codec(keys);
+
+        let res = result.get("key").unwrap();
+        assert_eq!(res[0].value, vec![1, 2, 3]);
+        assert_eq!(res[0].codec, MULTICODEC_RAW);
+    }
 }
