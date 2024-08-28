@@ -86,9 +86,7 @@ impl EthFilterSpec {
             if self.from_block.is_some() || self.to_block.is_some() {
                 return Err(anyhow!("must not specify block hash and from/to block"));
             }
-            let tipset_cid =
-                Cid::try_from(block_hash.0.as_bytes()).map_err(|e| anyhow!(e.to_string()))?;
-            (0, 0, tipset_cid)
+            (0, 0, block_hash.to_cid())
         } else {
             let (min, max) = parse_block_range(
                 chain_height,
@@ -233,4 +231,65 @@ struct ParsedFilter {
     tipset_cid: Cid,
     addresses: Vec<Address>,
     keys: HashMap<String, Vec<ActorEventBlock>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rpc::eth::{EthFilterSpec, EthAddress, EthTopicSpec};
+    use std::str::FromStr;
+
+    #[test]
+    fn test_parse_eth_filter_spec() {
+        let eth_filter_spec = EthFilterSpec {
+            from_block: Some("earliest".into()),
+            to_block: Some("latest".into()),
+            address: vec![EthAddress::from_str(
+                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
+            )
+            .unwrap()],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let chain_height = 50;
+        let max_filter_height_range = 100;
+
+        assert!(eth_filter_spec.parse_eth_filter_spec(chain_height, max_filter_height_range).is_ok());
+    }
+
+    #[test]
+    fn test_parse_block_range() {
+        let heaviest = 50;
+        let max_range = 100;
+
+        // Test case 1: from_block = "earliest", to_block = "latest"
+        let result = parse_block_range(heaviest, Some("earliest"), Some("latest"), max_range);
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 0);
+        assert_eq!(max_height, -1);
+
+        // Test case 2: from_block = "0x1", to_block = "0xA"
+        let result = parse_block_range(heaviest, Some("0x1"), Some("0xA"), max_range);
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 1);  // hex_str_to_epoch("0x1") = 1
+        assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
+
+        // Test case 3: from_block = "latest", to_block = None
+        let result = parse_block_range(heaviest, Some("latest"), None, max_range);
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, heaviest);
+        assert_eq!(max_height, -1);
+
+        // Test case 4: Invalid block hex format
+        let result = parse_block_range(heaviest, Some("invalid"), Some("0xA"), max_range);
+        assert!(result.is_err());
+
+        // Test case 5: Range too large
+        let result = parse_block_range(heaviest, Some("earliest"), Some("0x100"), max_range);
+        assert!(result.is_err());
+    }
 }
