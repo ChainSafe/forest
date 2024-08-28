@@ -14,6 +14,7 @@ use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, Context, Error};
 use cid::Cid;
+use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::sync::Arc;
 use store::*;
@@ -179,19 +180,22 @@ fn parse_block_range(
 }
 
 fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
-    let hex_substring = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-    i64::from_str_radix(hex_substring, 16).map_err(|e| anyhow!(e.to_string()))
+    let hex_substring = hex_str
+        .strip_prefix("0x")
+        .ok_or_else(|| anyhow!("Not a hex"))?;
+    i64::from_str_radix(hex_substring, 16)
+        .map_err(|e| anyhow!("Failed to convert hex to epoch: {}", e))
 }
 
-fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, Error> {
-    let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::new();
-    for (idx, vals) in topics.0.iter().enumerate() {
-        if vals.0.is_empty() {
-            continue;
-        }
+fn parse_eth_topics(EthTopicSpec(topics): &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, Error> {
+    let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::with_capacity(4); // Each eth log entry can contain up to 4 topics
+
+    for (idx, eth_hash_list) in topics.iter().enumerate() {
+        let EthHashList(hashes) = eth_hash_list;
         let key = format!("t{}", idx + 1);
-        for v in &vals.0 {
-            keys.entry(key.clone()).or_default().push(v.0 .0.to_vec());
+        for eth_hash in hashes {
+            let EthHash(bytes) = eth_hash;
+            keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
         }
     }
     Ok(keys)
@@ -203,24 +207,22 @@ pub(crate) struct ActorEventBlock {
     value: Vec<u8>,
 }
 
-const MULTICODEC_RAW: u64 = 0x55;
-
 fn keys_to_keys_with_codec(
     keys: HashMap<String, Vec<Vec<u8>>>,
 ) -> HashMap<String, Vec<ActorEventBlock>> {
-    let mut keys_with_codec: HashMap<String, Vec<ActorEventBlock>> = HashMap::new();
+    let mut keys_with_codec: HashMap<String, Vec<ActorEventBlock>> =
+        HashMap::with_capacity(keys.len());
 
-    for (key, val) in keys {
-        for v in val {
-            keys_with_codec
-                .entry(key.clone())
-                .or_default()
-                .push(ActorEventBlock {
-                    codec: MULTICODEC_RAW,
-                    value: v,
-                });
-        }
-    }
+    keys.into_iter().for_each(|(key, val)| {
+        let codec_val: Vec<ActorEventBlock> = val
+            .into_iter()
+            .map(|v| ActorEventBlock {
+                codec: IPLD_RAW,
+                value: v,
+            })
+            .collect();
+        keys_with_codec.insert(key, codec_val);
+    });
 
     keys_with_codec
 }
@@ -303,6 +305,38 @@ mod tests {
 
         let res = result.get("key").unwrap();
         assert_eq!(res[0].value, vec![1, 2, 3]);
-        assert_eq!(res[0].codec, MULTICODEC_RAW);
+        assert_eq!(res[0].codec, IPLD_RAW);
+    }
+
+    #[test]
+    fn test_parse_eth_topics() {
+        let topics = EthTopicSpec(vec![EthHashList(vec![EthHash::default()])]);
+        let actual = parse_eth_topics(&topics).expect("Failed to parse topics");
+
+        let mut expected = HashMap::with_capacity(4);
+        expected.insert(
+            "t1".to_string(),
+            vec![EthHash::default().0.as_bytes().to_vec()],
+        );
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_hex_str_to_epoch() {
+        // Valid hex string
+        let hex_str = "0x0";
+        let result = hex_str_to_epoch(hex_str);
+        assert_eq!(result.unwrap(), 0);
+
+        // Invalid hex string should fail
+        let hex_str = "1a";
+        let result = hex_str_to_epoch(hex_str);
+        assert!(result.is_err());
+
+        // Invalid hex string should fail
+        let hex_str = "0xG";
+        let result = hex_str_to_epoch(hex_str);
+        assert!(result.is_err());
     }
 }
