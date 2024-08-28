@@ -385,7 +385,7 @@ impl ApiEthTx {
     fn gas_fee_cap(&self) -> anyhow::Result<EthBigInt> {
         self.max_fee_per_gas
             .as_ref()
-            .or_else(|| self.gas_price.as_ref())
+            .or(self.gas_price.as_ref())
             .cloned()
             .context("gas fee cap is not set")
     }
@@ -393,7 +393,7 @@ impl ApiEthTx {
     fn gas_premium(&self) -> anyhow::Result<EthBigInt> {
         self.max_priority_fee_per_gas
             .as_ref()
-            .or_else(|| self.gas_price.as_ref())
+            .or(self.gas_price.as_ref())
             .cloned()
             .context("gas premium is not set")
     }
@@ -1078,12 +1078,12 @@ fn new_eth_tx_receipt<DB: Blockstore>(
         .chain_store()
         .load_required_tipset_or_heaviest(ts.parents())?;
 
-    let base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
+    let _base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
 
-    let gas_fee_cap = tx.gas_fee_cap()?;
-    let gas_premium = tx.gas_premium()?;
+    let _gas_fee_cap = tx.gas_fee_cap()?;
+    let _gas_premium = tx.gas_premium()?;
 
-    let gas_outputs = 0;
+    let _gas_outputs = 0;
     let total_spent = EthBigInt::default();
 
     let mut effective_gas_price = EthBigInt::default();
