@@ -236,7 +236,7 @@ struct ParsedFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::eth::{EthFilterSpec, EthAddress, EthTopicSpec};
+    use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use std::str::FromStr;
 
     #[test]
@@ -244,10 +244,9 @@ mod tests {
         let eth_filter_spec = EthFilterSpec {
             from_block: Some("earliest".into()),
             to_block: Some("latest".into()),
-            address: vec![EthAddress::from_str(
-                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-            )
-            .unwrap()],
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
             topics: EthTopicSpec(vec![]),
             block_hash: None,
         };
@@ -255,7 +254,9 @@ mod tests {
         let chain_height = 50;
         let max_filter_height_range = 100;
 
-        assert!(eth_filter_spec.parse_eth_filter_spec(chain_height, max_filter_height_range).is_ok());
+        assert!(eth_filter_spec
+            .parse_eth_filter_spec(chain_height, max_filter_height_range)
+            .is_ok());
     }
 
     #[test]
@@ -274,7 +275,7 @@ mod tests {
         let result = parse_block_range(heaviest, Some("0x1"), Some("0xA"), max_range);
         assert!(result.is_ok());
         let (min_height, max_height) = result.unwrap();
-        assert_eq!(min_height, 1);  // hex_str_to_epoch("0x1") = 1
+        assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
         // Test case 3: from_block = "latest", to_block = None
