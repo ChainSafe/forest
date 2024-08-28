@@ -10,11 +10,11 @@
 mod types;
 
 use self::types::*;
+use super::wallet::WalletSign;
 use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    networks::NetworkChain,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
@@ -22,6 +22,8 @@ use crate::{
         crypto::Signature,
     },
 };
+use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
@@ -33,9 +35,12 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
+use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
-use super::wallet::WalletSign;
+static F3_PARTICIPANT_LEASES: Lazy<RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>> =
+    Lazy::new(|| RwLock::new(Default::default()));
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
@@ -430,15 +435,31 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Params = ();
     type Ok = Vec<u64>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        match ctx.chain_config().network {
-            NetworkChain::Devnet(_) => {
-                // For now, just hard code the devnet miner for testing
-                let shared_miner_addr = Address::from_str("t01000")?;
-                Ok(vec![shared_miner_addr.id()?])
+    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        const ENV_KEY: &str = "FOREST_PERMENANT_F3_PARTICIPATING_MINER_ADDRESSES";
+        let mut ids: Vec<u64> = F3_PARTICIPANT_LEASES.read().keys().copied().collect();
+        if let Ok(permenant_addrs) = std::env::var(ENV_KEY) {
+            let mut extended_ids = HashSet::default();
+            for addr_str in permenant_addrs.split(",") {
+                let addr = Address::from_str(addr_str.trim())
+                    .with_context(|| {
+                        format!("Failed to parse miner address {addr_str} set in {ENV_KEY}")
+                    })
+                    .unwrap();
+                let id = addr
+                    .id()
+                    .with_context(|| {
+                        "miner address {addr_str} set in {ENV_KEY} is not an id address"
+                    })
+                    .unwrap();
+                extended_ids.insert(id);
             }
-            _ => Ok(vec![]),
+            if !extended_ids.is_empty() {
+                extended_ids.extend(ids.iter());
+                ids = extended_ids.into_iter().collect();
+            }
         }
+        Ok(ids)
     }
 }
 
@@ -462,6 +483,7 @@ impl RpcMethod<2> for SignMessage {
     }
 }
 
+/// returns a finality certificate at given instance number
 pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
     const NAME: &'static str = "Filecoin.F3GetCertificate";
@@ -484,6 +506,7 @@ impl RpcMethod<1> for F3GetCertificate {
     }
 }
 
+/// returns the latest finality certificate
 pub enum F3GetLatestCertificate {}
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
@@ -538,6 +561,69 @@ impl RpcMethod<1> for F3GetF3PowerTable {
         params.insert(tsk.into_lotus_json())?;
         let response = client.request(Self::NAME, params).await?;
         Ok(response)
+    }
+}
+
+/// F3Participate should be called by a storage provider to participate in signing F3 consensus.
+/// Calling this API gives the lotus node a lease to sign in F3 on behalf of given SP.
+/// The lease should be active only on one node. The lease will expire at the newLeaseExpiration.
+/// To continue participating in F3 with the given node, call F3Participate again before the newLeaseExpiration time.
+/// newLeaseExpiration cannot be further than 5 minutes in the future.
+/// It is recommended to call F3Participate every 60 seconds with newLeaseExpiration set 2min into the future.
+/// The oldLeaseExpiration has to be set to newLeaseExpiration of the last successful call.
+/// For the first call to F3Participate, set the oldLeaseExpiration to zero value/time in the past.
+/// F3Participate will return true if the lease was accepted. The minerID has to be the ID address of the miner.
+pub enum F3Participate {}
+impl RpcMethod<3> for F3Participate {
+    const NAME: &'static str = "Filecoin.F3Participate";
+    const PARAM_NAMES: [&'static str; 3] = [
+        "miner_address",
+        "new_lease_expiration",
+        "old_lease_expiration",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (
+        Address,
+        chrono::DateTime<chrono::Utc>,
+        chrono::DateTime<chrono::Utc>,
+    );
+    type Ok = bool;
+
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (miner, new_lease_expiration, old_lease_expiration): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if new_lease_expiration > chrono::Utc::now() + chrono::Duration::minutes(5) {
+            return Err(anyhow::anyhow!("F3 participation lease cannot be over 5 mins").into());
+        } else if new_lease_expiration < chrono::Utc::now() {
+            return Err(anyhow::anyhow!("F3 participation lease is in the past").into());
+        }
+        let id = miner.id()?;
+        // if the old lease is expired just insert a new one
+        if old_lease_expiration < chrono::Utc::now() {
+            F3_PARTICIPANT_LEASES
+                .write()
+                .insert(id, new_lease_expiration);
+            return Ok(true);
+        }
+
+        let Some(old_lease_expiration_in_record) = F3_PARTICIPANT_LEASES.read().get(&id).cloned()
+        else {
+            // we don't know about it, don't start a new lease
+            return Ok(false);
+        };
+        if old_lease_expiration_in_record != old_lease_expiration {
+            // the lease we know about does not match and because the old lease is not expired
+            // we should not allow for new lease
+            return Ok(false);
+        }
+        // we know about the lease, update it
+        F3_PARTICIPANT_LEASES
+            .write()
+            .insert(id, new_lease_expiration);
+        Ok(true)
     }
 }
 
