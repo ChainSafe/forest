@@ -86,6 +86,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
+        $callback!(crate::rpc::eth::EthGetTransactionReceipt);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!(crate::rpc::eth::EthCall);
         $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);

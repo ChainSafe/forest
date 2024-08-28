@@ -476,7 +476,7 @@ impl HasLotusJson for EthSyncingResult {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTxReceipt {
     transaction_hash: Hash,
@@ -498,7 +498,7 @@ pub struct EthTxReceipt {
 lotus_json_with_self!(EthTxReceipt);
 
 /// Represents the results of an event filter execution.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthLog {
     address: EthAddress,
@@ -1083,7 +1083,7 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     let gas_fee_cap = tx.gas_fee_cap()?;
     let gas_premium = tx.gas_premium()?;
 
-    let gas_outputs = todo!();
+    let gas_outputs = 0;
     let total_spent = EthBigInt::default();
 
     let mut effective_gas_price = EthBigInt::default();
@@ -1099,7 +1099,7 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     }
 
     if message_lookup.receipt.events_root().is_some() {
-        let logs = todo!();
+        let logs = Vec::new();
         receipt.logs = logs;
     }
 

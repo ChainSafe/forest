@@ -1472,7 +1472,10 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(
                 EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
-            tests.push(RpcTest::identity(EthGetTransactionByHash::request((
+            tests.push(RpcTest::identity(EthGetTransactionByHash::request((tx
+                .hash
+                .clone(),))?));
+            tests.push(RpcTest::identity(EthGetTransactionReceipt::request((
                 tx.hash,
             ))?));
         }
