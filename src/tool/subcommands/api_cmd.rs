@@ -1475,9 +1475,6 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHash::request((tx
                 .hash
                 .clone(),))?));
-            tests.push(RpcTest::identity(EthGetTransactionReceipt::request((
-                tx.hash,
-            ))?));
         }
     }
     tests.push(RpcTest::identity(
@@ -1485,6 +1482,19 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
         )?,))?,
     ));
+    // TODO: find better way to create tests
+    let addresses = [
+        "0x4c0748f2d38decd147fd2288f096177fea3dc568b9934c1fdaf9d3e58c74376d",
+        "0x1f76d3e308f109ac1844f8261c062bb00d7f0861c4f4c64c19466714bbfa54f6",
+        "0x0c298a4fd63ae3d5f97763a8eceff522687695ba96f628616dbfd0d1a3293511",
+        "0xaa1a1df35a7ad3017c163b5f46bca23288bde9a005149c68f39482e746f728c9",
+        "0x584103c474c5199904075e6694c87d73aa4ddef1a3068085a934f9bab8efb90d",
+    ];
+    for addr in addresses {
+        tests.push(RpcTest::identity(EthGetTransactionReceipt::request((
+            Hash::from_str(addr).unwrap(),
+        ))?));
+    }
 
     Ok(tests)
 }
