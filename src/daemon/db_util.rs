@@ -199,8 +199,8 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
 
 /// For the need for Ethereum RPC API, a new column in parity-db has been introduced to handle
 /// mapping of:
-/// - [`struct@Hash`] to [`TipsetKey`].
-/// - [`struct@Hash`] to delegated message [`Cid`].
+/// - [`struct@EthHash`] to [`TipsetKey`].
+/// - [`struct@EthHash`] to delegated message [`Cid`].
 ///
 /// This function traverses the chain store and populates the column.
 pub fn populate_eth_mappings<DB>(
