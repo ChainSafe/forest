@@ -436,7 +436,7 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        const ENV_KEY: &str = "FOREST_PERMENANT_F3_PARTICIPATING_MINER_ADDRESSES";
+        const ENV_KEY: &str = "FOREST_F3_PERMENANT_PARTICIPATING_MINER_ADDRESSES";
         let mut ids: Vec<u64> = F3_PARTICIPANT_LEASES.read().keys().copied().collect();
         if let Ok(permenant_addrs) = std::env::var(ENV_KEY) {
             let mut extended_ids = HashSet::default();
