@@ -206,15 +206,15 @@ impl<WriterT: SettingsStore> SettingsStore for ManyCar<WriterT> {
 }
 
 impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
-    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &eth::types::EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         EthMappingsStore::read_bin(self.writer(), key)
     }
 
-    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &eth::types::EthHash, value: &[u8]) -> anyhow::Result<()> {
         EthMappingsStore::write_bin(self.writer(), key, value)
     }
 
-    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &eth::types::EthHash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.writer(), key)
     }
 
@@ -222,7 +222,7 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::get_message_cids(self.writer())
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.writer(), keys)
     }
 }

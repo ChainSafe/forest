@@ -400,7 +400,7 @@ pub(super) async fn start(
                     mpool,
                     bad_blocks,
                     sync_state,
-                    event_handler: Arc::new(EthEventHandler::new()),
+                    eth_event_handler: Arc::new(EthEventHandler::new()),
                     network_send,
                     network_name,
                     start_time,

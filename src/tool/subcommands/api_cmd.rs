@@ -1296,7 +1296,7 @@ fn eth_tests() -> Vec<RpcTest> {
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
     let block_cid = shared_tipset.key().cid().unwrap();
-    let block_hash: Hash = block_cid.into();
+    let block_hash: EthHash = block_cid.into();
 
     let mut tests = vec![
         RpcTest::identity(
@@ -1484,7 +1484,7 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         }
     }
     tests.push(RpcTest::identity(
-        EthGetMessageCidByTransactionHash::request((Hash::from_str(
+        EthGetMessageCidByTransactionHash::request((EthHash::from_str(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
         )?,))?,
     ));

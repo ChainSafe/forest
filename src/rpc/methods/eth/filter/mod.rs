@@ -12,31 +12,11 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
+use anyhow::{anyhow, Context, Error};
 use cid::Cid;
 use serde::*;
 use std::sync::Arc;
 use store::*;
-use thiserror::Error;
-
-#[derive(Error, Debug, Clone)]
-pub enum FilterError {
-    #[error("filter already registered")]
-    AlreadyRegistered,
-    #[error("filter not found")]
-    NotFound,
-    #[error("maximum number of filters registered")]
-    MaxFilters,
-    #[error("uuid generation error")]
-    UuidError(#[from] uuid::Error),
-    #[error("Not supported")]
-    NotSupported,
-    #[error("Parsing error: {0}")]
-    ParsingError(String),
-    #[error("Installation error: {0}")]
-    InstallationError(String),
-    #[error("Removal error: {0}")]
-    RemovalError(String),
-}
 
 pub struct EthEventHandler {
     filter_store: Option<Arc<dyn FilterStore>>,
@@ -67,36 +47,32 @@ impl EthEventHandler {
         &self,
         filter_spec: &EthFilterSpec,
         chain_height: i64,
-    ) -> Result<FilterID, FilterError> {
-        if self.filter_store.is_none() || self.event_filter_manager.is_none() {
-            return Err(FilterError::NotSupported);
+    ) -> Result<FilterID, Error> {
+        if self.filter_store.is_none() {
+            return Err(Error::msg("NotSupported"));
         }
 
-        let pf = filter_spec
-            .parse_eth_filter_spec(chain_height, self.max_filter_height_range)
-            .map_err(FilterError::ParsingError)?;
+        if let Some(event_filter_manager) = &self.event_filter_manager {
+            let pf = filter_spec
+                .parse_eth_filter_spec(chain_height, self.max_filter_height_range)
+                .context("Parsing error")?;
 
-        let f = self
-            .event_filter_manager
-            .as_ref()
-            .unwrap()
-            .install(pf)
-            .map_err(|e| FilterError::InstallationError(e.to_string()))?;
+            let filter = event_filter_manager
+                .install(pf)
+                .context("Installation error")?;
 
-        self.filter_store
-            .as_ref()
-            .unwrap()
-            .add(f.clone())
-            .map_err(|e| {
-                self.tipset_filter_manager
-                    .as_ref()
-                    .unwrap()
-                    .remove(&f.id())
-                    .unwrap_or(());
-                FilterError::RemovalError(e.to_string())
-            })?;
-
-        Ok(f.id())
+            if let Some(filter_store) = &self.filter_store {
+                if filter_store.add(filter.clone()).is_err() {
+                    if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
+                        let _ = tipset_filter_manager.remove(filter.id());
+                    }
+                    return Err(Error::msg("Removal error"));
+                }
+            }
+            Ok(filter.id().clone())
+        } else {
+            Err(Error::msg("NotSupported"))
+        }
     }
 }
 
@@ -105,17 +81,14 @@ impl EthFilterSpec {
         &self,
         chain_height: i64,
         max_filter_height_range: i64,
-    ) -> Result<ParsedFilter, String> {
-        let mut min_height = 0;
-        let mut max_height = 0;
-        let mut tipset_cid = Cid::default();
-        let mut addresses = Vec::new();
-        if let Some(block_hash) = &self.block_hash {
+    ) -> Result<ParsedFilter, Error> {
+        let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
-                return Err("must not specify block hash and from/to block".to_string());
+                return Err(anyhow!("must not specify block hash and from/to block"));
             }
-
-            tipset_cid = Cid::try_from(block_hash.0.as_bytes()).map_err(|e| e.to_string())?;
+            let tipset_cid =
+                Cid::try_from(block_hash.0.as_bytes()).map_err(|e| anyhow!(e.to_string()))?;
+            (0, 0, tipset_cid)
         } else {
             let (min, max) = parse_block_range(
                 chain_height,
@@ -123,16 +96,17 @@ impl EthFilterSpec {
                 self.to_block.as_deref(),
                 max_filter_height_range,
             )?;
-            min_height = min;
-            max_height = max;
-        }
+            (min, max, Cid::default())
+        };
 
-        for ea in &self.address {
-            let addr = ea
-                .to_filecoin_address()
-                .map_err(|e| format!("invalid address {}", e))?;
-            addresses.push(addr);
-        }
+        let addresses: Vec<_> = self
+            .address
+            .iter()
+            .map(|ea| {
+                ea.to_filecoin_address()
+                    .map_err(|e| anyhow!("invalid address {}", e))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let keys = parse_eth_topics(&self.topics)?;
 
@@ -151,15 +125,15 @@ fn parse_block_range(
     from_block: Option<&str>,
     to_block: Option<&str>,
     max_range: ChainEpoch,
-) -> Result<(ChainEpoch, ChainEpoch), String> {
+) -> Result<(ChainEpoch, ChainEpoch), Error> {
     let min_height = match from_block {
         None | Some("latest") | Some("") => heaviest,
         Some("earliest") => 0,
         Some(block) => {
             if !block.starts_with("0x") {
-                return Err("FromBlock is not a hex".to_string());
+                return Err(anyhow!("FromBlock is not a hex"));
             }
-            hex_str_to_epoch(block).map_err(|_| "invalid epoch".to_string())?
+            hex_str_to_epoch(block)?
         }
     };
 
@@ -168,34 +142,35 @@ fn parse_block_range(
         Some("earliest") => 0,
         Some(block) => {
             if !block.starts_with("0x") {
-                return Err("ToBlock is not a hex".to_string());
+                return Err(anyhow!("ToBlock is not a hex"));
             }
-            hex_str_to_epoch(block).map_err(|_| "invalid epoch".to_string())?
+            hex_str_to_epoch(block)?
         }
     };
 
     if min_height == -1 && max_height > 0 {
         if max_height - heaviest > max_range {
-            return Err(format!(
+            return Err(anyhow!(
                 "invalid epoch range: to block is too far in the future (maximum: {})",
                 max_range
             ));
         }
     } else if min_height >= 0 && max_height == -1 {
         if heaviest - min_height > max_range {
-            return Err(format!(
+            return Err(anyhow!(
                 "invalid epoch range: from block is too far in the past (maximum: {})",
                 max_range
             ));
         }
     } else if min_height >= 0 && max_height >= 0 {
         if min_height > max_height {
-            return Err(format!(
+            return Err(anyhow!(
                 "invalid epoch range: to block ({}) must be after from block ({})",
-                max_height, min_height
+                max_height,
+                min_height
             ));
         } else if max_height - min_height > max_range {
-            return Err(format!(
+            return Err(anyhow!(
                 "invalid epoch range: range between to and from blocks is too large (maximum: {})",
                 max_range
             ));
@@ -205,14 +180,12 @@ fn parse_block_range(
     Ok((min_height, max_height))
 }
 
-fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, String> {
-    let hex_substring = hex_str
-        .get(2..)
-        .ok_or_else(|| "invalid hex string: unable to parse epoch".to_string())?;
-    i64::from_str_radix(hex_substring, 16).map_err(|e| e.to_string())
+fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
+    let hex_substring = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+    i64::from_str_radix(hex_substring, 16).map_err(|e| anyhow!(e.to_string()))
 }
 
-fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, String> {
+fn parse_eth_topics(topics: &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, Error> {
     let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::new();
     for (idx, vals) in topics.0.iter().enumerate() {
         if vals.0.is_empty() {

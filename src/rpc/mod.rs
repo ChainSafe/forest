@@ -350,7 +350,7 @@ pub struct RPCState<DB> {
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
     pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
-    pub event_handler: Arc<EthEventHandler>,
+    pub eth_event_handler: Arc<EthEventHandler>,
     pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,

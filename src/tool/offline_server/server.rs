@@ -111,7 +111,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
-        event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler: Arc::new(EthEventHandler::new()),
         network_send,
         network_name,
         start_time: chrono::Utc::now(),

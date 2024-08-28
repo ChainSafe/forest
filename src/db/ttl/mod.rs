@@ -30,7 +30,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
     /// Remove keys whose `(duration - timestamp) > TTL` from the database
     /// where `duration` is the elapsed time since "UNIX timestamp".
     fn ttl_workflow(&self, duration: Duration) -> anyhow::Result<()> {
-        let keys: Vec<eth::Hash> = self
+        let keys: Vec<eth::types::EthHash> = self
             .db
             .get_message_cids()?
             .iter()
@@ -42,7 +42,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
                 if let Ok(ChainMessage::Signed(smsg)) = message {
                     let result = eth_tx_from_signed_eth_message(&smsg, self.eth_chain_id);
                     if let Ok((_, tx)) = result {
-                        tx.eth_hash().ok().map(eth::Hash)
+                        tx.eth_hash().ok().map(eth::types::EthHash)
                     } else {
                         None
                     }

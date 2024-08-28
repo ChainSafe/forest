@@ -1,11 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::FilterError;
 use crate::rpc::eth::{filter::Filter, FilterID};
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
-use parking_lot::Mutex;
+use anyhow::{Context, Result};
+use parking_lot::RwLock;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -22,40 +22,38 @@ impl TipSetFilter {
 }
 
 impl Filter for TipSetFilter {
-    fn id(&self) -> FilterID {
-        self.id.clone()
+    fn id(&self) -> &FilterID {
+        &self.id
     }
 }
 
 #[derive(Debug)]
 pub struct TipSetFilterManager {
+    filters: RwLock<HashMap<FilterID, Arc<TipSetFilter>>>,
     max_filter_results: usize,
-    filters: Mutex<HashMap<FilterID, Arc<TipSetFilter>>>,
 }
 
 impl TipSetFilterManager {
     pub fn new(max_filter_results: usize) -> Arc<Self> {
         Arc::new(Self {
+            filters: RwLock::new(HashMap::new()),
             max_filter_results,
-            filters: Mutex::new(HashMap::new()),
         })
     }
 
-    pub fn install(&self) -> Result<Arc<TipSetFilter>, FilterError> {
-        let filter = TipSetFilter::new(self.max_filter_results)?;
+    pub fn install(&self) -> Result<Arc<TipSetFilter>> {
+        let filter = TipSetFilter::new(self.max_filter_results)
+            .context("Failed to create a new TipSetFilter")?;
         let id = filter.id.clone();
 
-        let mut filters = self.filters.lock();
+        let mut filters = self.filters.write();
         filters.insert(id, filter.clone());
 
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> Result<(), FilterError> {
-        let mut filters = self.filters.lock();
-        if filters.remove(id).is_none() {
-            return Err(FilterError::NotFound);
-        }
-        Ok(())
+    pub fn remove(&self, id: &FilterID) -> bool {
+        let mut filters = self.filters.write();
+        filters.remove(id).is_some()
     }
 }

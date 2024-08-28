@@ -17,7 +17,7 @@ use super::{EthMappingsStore, SettingsStore};
 pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
-    eth_mappings_db: RwLock<HashMap<eth::Hash, Vec<u8>>>,
+    eth_mappings_db: RwLock<HashMap<eth::types::EthHash, Vec<u8>>>,
 }
 
 impl GarbageCollectable<CidHashSet> for MemoryDB {
@@ -72,18 +72,18 @@ impl SettingsStore for MemoryDB {
 }
 
 impl EthMappingsStore for MemoryDB {
-    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &eth::types::EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         Ok(self.eth_mappings_db.read().get(key).cloned())
     }
 
-    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &eth::types::EthHash, value: &[u8]) -> anyhow::Result<()> {
         self.eth_mappings_db
             .write()
             .insert(key.to_owned(), value.to_vec());
         Ok(())
     }
 
-    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &eth::types::EthHash) -> anyhow::Result<bool> {
         Ok(self.eth_mappings_db.read().contains_key(key))
     }
 
@@ -98,7 +98,7 @@ impl EthMappingsStore for MemoryDB {
         Ok(cids)
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
         let mut lock = self.eth_mappings_db.write();
         for hash in keys.iter() {
             lock.remove(hash);

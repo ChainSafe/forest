@@ -177,15 +177,15 @@ impl SettingsStore for ParityDb {
 }
 
 impl EthMappingsStore for ParityDb {
-    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &eth::types::EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         self.read_from_column(key.0.as_bytes(), DbColumn::EthMappings)
     }
 
-    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &eth::types::EthHash, value: &[u8]) -> anyhow::Result<()> {
         self.write_to_column(key.0.as_bytes(), value, DbColumn::EthMappings)
     }
 
-    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &eth::types::EthHash) -> anyhow::Result<bool> {
         self.db
             .get_size(DbColumn::EthMappings as u8, key.0.as_bytes())
             .map(|size| size.is_some())
@@ -206,7 +206,7 @@ impl EthMappingsStore for ParityDb {
         Ok(cids)
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
         Ok(self.db.commit_changes(keys.into_iter().map(|key| {
             let bytes = key.0.as_bytes().to_vec();
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
