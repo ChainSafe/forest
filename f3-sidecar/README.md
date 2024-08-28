@@ -15,13 +15,13 @@
 
 ### How F3 sidecar interacts with Forest
 
-An F3 sidecar node is a standalone node that is part of a p2p network and
+An F3 sidecar node is a standalone node that is a part of a p2p network and
 participates in the f3 protocol.
 
 Besides what have been handled internally(e.g. p2p communications) in the
 `go-f3` lib
 
-- it uses `level-db` as storage backend
+- it uses `level-db` as a storage backend
 - it's bootstrapped with a manifest that contains parameters like bootstrapping
   epoch, chain finality and network name etc. the manifest can be constructed
   either statically, or dynamically by connecting to a p2p manifest server
