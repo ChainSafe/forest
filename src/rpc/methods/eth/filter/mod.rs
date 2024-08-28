@@ -5,6 +5,8 @@ mod event;
 mod store;
 mod tipset;
 
+use super::BlockNumberOrHash;
+use super::Predefined;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
@@ -83,6 +85,8 @@ impl EthFilterSpec {
         chain_height: i64,
         max_filter_height_range: i64,
     ) -> Result<ParsedFilter, Error> {
+        let from_block = self.from_block.as_deref().unwrap_or("");
+        let to_block = self.to_block.as_deref().unwrap_or("");
         let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
                 return Err(anyhow!("must not specify block hash and from/to block"));
@@ -91,8 +95,8 @@ impl EthFilterSpec {
         } else {
             let (min, max) = parse_block_range(
                 chain_height,
-                self.from_block.as_deref(),
-                self.to_block.as_deref(),
+                BlockNumberOrHash::from_str(from_block)?,
+                BlockNumberOrHash::from_str(to_block)?,
                 max_filter_height_range,
             )?;
             (min, max, Cid::default())
@@ -121,30 +125,28 @@ impl EthFilterSpec {
 
 fn parse_block_range(
     heaviest: ChainEpoch,
-    from_block: Option<&str>,
-    to_block: Option<&str>,
+    from_block: BlockNumberOrHash,
+    to_block: BlockNumberOrHash,
     max_range: ChainEpoch,
 ) -> Result<(ChainEpoch, ChainEpoch), Error> {
     let min_height = match from_block {
-        None | Some("latest") | Some("") => heaviest,
-        Some("earliest") => 0,
-        Some(block) => {
-            if !block.starts_with("0x") {
-                return Err(anyhow!("FromBlock is not a hex"));
-            }
-            hex_str_to_epoch(block)?
-        }
+        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
+            Predefined::Latest => heaviest,
+            Predefined::Earliest => 0,
+            _ => heaviest,
+        },
+        BlockNumberOrHash::BlockNumber(height) => height.into(),
+        _ => return Err(anyhow!("Unsupported type for from_block")),
     };
 
     let max_height = match to_block {
-        None | Some("latest") | Some("") => -1,
-        Some("earliest") => 0,
-        Some(block) => {
-            if !block.starts_with("0x") {
-                return Err(anyhow!("ToBlock is not a hex"));
-            }
-            hex_str_to_epoch(block)?
-        }
+        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
+            Predefined::Latest => -1,
+            Predefined::Earliest => 0,
+            _ => -1,
+        },
+        BlockNumberOrHash::BlockNumber(height) => height.into(),
+        _ => return Err(anyhow!("Unsupported type for to_block")),
     };
 
     if min_height == -1 && max_height > 0 {
@@ -179,7 +181,7 @@ fn parse_block_range(
     Ok((min_height, max_height))
 }
 
-fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
+pub fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
     let hex_substring = hex_str
         .strip_prefix("0x")
         .ok_or_else(|| anyhow!("Not a hex"))?;
@@ -264,37 +266,73 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_parse_eth_filter_spec() {
+        let eth_filter_spec = EthFilterSpec {
+            from_block: Some("earliest".into()),
+            to_block: Some("invalid".into()),
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let chain_height = 50;
+        let max_filter_height_range = 100;
+
+        assert!(eth_filter_spec
+            .parse_eth_filter_spec(chain_height, max_filter_height_range)
+            .is_err(),);
+    }
+
+    #[test]
     fn test_parse_block_range() {
         let heaviest = 50;
         let max_range = 100;
 
         // Test case 1: from_block = "earliest", to_block = "latest"
-        let result = parse_block_range(heaviest, Some("earliest"), Some("latest"), max_range);
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            max_range,
+        );
         assert!(result.is_ok());
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, 0);
         assert_eq!(max_height, -1);
 
         // Test case 2: from_block = "0x1", to_block = "0xA"
-        let result = parse_block_range(heaviest, Some("0x1"), Some("0xA"), max_range);
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("0x1").unwrap(),
+            BlockNumberOrHash::from_str("0xA").unwrap(),
+            max_range,
+        );
         assert!(result.is_ok());
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, 1); // hex_str_to_epoch("0x1") = 1
         assert_eq!(max_height, 10); // hex_str_to_epoch("0xA") = 10
 
-        // Test case 3: from_block = "latest", to_block = None
-        let result = parse_block_range(heaviest, Some("latest"), None, max_range);
+        // Test case 3: from_block = "latest", to_block = ""
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            BlockNumberOrHash::from_str("").unwrap(),
+            max_range,
+        );
         assert!(result.is_ok());
         let (min_height, max_height) = result.unwrap();
         assert_eq!(min_height, heaviest);
         assert_eq!(max_height, -1);
 
-        // Test case 4: Invalid block hex format
-        let result = parse_block_range(heaviest, Some("invalid"), Some("0xA"), max_range);
-        assert!(result.is_err());
-
-        // Test case 5: Range too large
-        let result = parse_block_range(heaviest, Some("earliest"), Some("0x100"), max_range);
+        // Test case 4: Range too large
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            BlockNumberOrHash::from_str("0x100").unwrap(),
+            max_range,
+        );
         assert!(result.is_err());
     }
 

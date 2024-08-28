@@ -6,6 +6,7 @@ pub mod filter;
 pub mod types;
 
 use self::eth_tx::*;
+use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
 use crate::blocks::Tipset;
@@ -36,6 +37,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
+use anyhow::{anyhow, Error};
 use anyhow::{bail, Context, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
@@ -273,6 +275,18 @@ impl BlockNumberOrHash {
             block_hash: hash,
             require_canonical,
         })
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, Error> {
+        match s {
+            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
+            "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
+            hex if hex.starts_with("0x") => {
+                let epoch = hex_str_to_epoch(hex)?;
+                Ok(BlockNumberOrHash::from_block_number(epoch))
+            }
+            _ => Err(anyhow!("Invalid block identifier")),
+        }
     }
 }
 
