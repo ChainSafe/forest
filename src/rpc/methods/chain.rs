@@ -36,9 +36,7 @@ use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::collections::VecDeque;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{any::Any, collections::VecDeque, path::PathBuf, sync::Arc};
 use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
     Mutex,
@@ -66,6 +64,19 @@ impl RpcMethod<1> for ChainGetMessage {
             ChainMessage::Signed(m) => m.into_message(),
             ChainMessage::Unsigned(m) => m,
         })
+    }
+}
+
+pub enum ChainGetEvents {}
+impl RpcMethod<1> for ChainGetEvents {
+    const NAME: &'static str = "Filecoin.ChainGetEvents";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (Cid,);
+    type Ok = Vec<types::Event>;
+    async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(ServerError::stubbed_for_openrpc())
     }
 }
 

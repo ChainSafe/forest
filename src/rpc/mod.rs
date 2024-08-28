@@ -90,12 +90,16 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!(crate::rpc::eth::EthCall);
         $callback!(crate::rpc::eth::EthNewFilter);
+        $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
         $callback!(crate::rpc::gas::GasEstimateMessageGas);
         $callback!(crate::rpc::gas::GasEstimateFeeCap);
         $callback!(crate::rpc::gas::GasEstimateGasPremium);
+
+        // market vertical
+        $callback!(crate::rpc::market::MarketAddBalance);
 
         // miner vertical
         $callback!(crate::rpc::miner::MinerCreateBlock);
@@ -223,6 +227,16 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetHead);
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetPowerTable);
+        $callback!(crate::rpc::f3::ProtectPeer);
+        $callback!(crate::rpc::f3::GetParticipatingMinerIDs);
+        $callback!(crate::rpc::f3::SignMessage);
+        $callback!(crate::rpc::f3::F3GetCertificate);
+        $callback!(crate::rpc::f3::F3GetLatestCertificate);
+        $callback!(crate::rpc::f3::F3GetECPowerTable);
+        $callback!(crate::rpc::f3::F3GetF3PowerTable);
+
+        // misc
+        $callback!(crate::rpc::misc::GetActorEventsRaw);
     };
 }
 pub(crate) use for_each_method;
@@ -297,7 +311,9 @@ mod methods {
     pub mod eth;
     pub mod f3;
     pub mod gas;
+    pub mod market;
     pub mod miner;
+    pub mod misc;
     pub mod mpool;
     pub mod msig;
     pub mod net;

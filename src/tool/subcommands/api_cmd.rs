@@ -557,7 +557,10 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(Version::request(()).unwrap()),
+        // We don't check the `version` field as it differs between Lotus and Forest.
+        RpcTest::validate(Version::request(()).unwrap(), |forest, lotus| {
+            forest.api_version == lotus.api_version && forest.block_delay == lotus.block_delay
+        }),
         RpcTest::basic(StartTime::request(()).unwrap()),
         RpcTest::basic(Session::request(()).unwrap()),
     ]
@@ -1274,20 +1277,23 @@ fn eth_tests() -> Vec<RpcTest> {
             )
             .unwrap(),
         ));
-        tests.push(RpcTest::basic(
-            EthNewFilter::request_with_alias(
-                (EthFilterSpec {
-                    from_block: None,
-                    to_block: None,
-                    address: vec![EthAddress::from_str(
-                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-                    )
-                    .unwrap()],
-                    topics: EthTopicSpec(vec![]),
-                    block_hash: None,
-                },),
-                use_alias,
+        tests.push(RpcTest::basic(EthNewFilter::request_with_alias(
+            (EthFilterSpec {
+                from_block: None,
+                to_block: None,
+                address: vec![
+                    EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                ],
+                topics: EthTopicSpec(vec![]),
+                block_hash: None,
+            },),
+            use_alias,
+        )));
+        tests.push(RpcTest::identity(
+            EthAddressToFilecoinAddress::request((EthAddress::from_str(
+                "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
             )
+            .unwrap(),))
             .unwrap(),
         ));
     }
