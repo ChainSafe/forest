@@ -565,7 +565,7 @@ impl RpcMethod<1> for F3GetF3PowerTable {
 }
 
 /// F3Participate should be called by a storage provider to participate in signing F3 consensus.
-/// Calling this API gives the lotus node a lease to sign in F3 on behalf of given SP.
+/// Calling this API gives the node a lease to sign in F3 on behalf of given SP.
 /// The lease should be active only on one node. The lease will expire at the newLeaseExpiration.
 /// To continue participating in F3 with the given node, call F3Participate again before the newLeaseExpiration time.
 /// newLeaseExpiration cannot be further than 5 minutes in the future.
