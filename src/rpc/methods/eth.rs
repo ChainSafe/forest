@@ -1900,9 +1900,7 @@ impl RpcMethod<1> for EthNewFilter {
     ) -> Result<Self::Ok, ServerError> {
         let eth_event_handler = ctx.eth_event_handler.clone();
         let chain_height = ctx.chain_store().heaviest_tipset().epoch();
-        Ok(eth_event_handler
-            .eth_new_filter(&filter_spec, chain_height)
-            .map_err(|e| anyhow::anyhow!("{:?}", e))?)
+        Ok(eth_event_handler.eth_new_filter(&filter_spec, chain_height)?)
     }
 }
 

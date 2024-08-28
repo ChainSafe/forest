@@ -187,7 +187,9 @@ fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
         .map_err(|e| anyhow!("Failed to convert hex to epoch: {}", e))
 }
 
-fn parse_eth_topics(EthTopicSpec(topics): &EthTopicSpec) -> Result<HashMap<String, Vec<Vec<u8>>>, Error> {
+fn parse_eth_topics(
+    EthTopicSpec(topics): &EthTopicSpec,
+) -> Result<HashMap<String, Vec<Vec<u8>>>, Error> {
     let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::with_capacity(4); // Each eth log entry can contain up to 4 topics
 
     for (idx, eth_hash_list) in topics.iter().enumerate() {
