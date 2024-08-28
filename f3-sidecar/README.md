@@ -25,8 +25,8 @@ Besides what have been handled internally(e.g. p2p communications) in the
 - it's bootstrapped with a manifest that contains parameters like bootstrapping
   epoch, chain finality and network name etc. the manifest can be constructed
   either statically, or dynamically by connecting to a p2p manifest server
-- it requires an EC(expected consensus) backend to provide the chain information
-  like chain head and power table etc
+- it requires an EC(expected consensus) backend to obtain the chain information
+  like chain head and power table etc.
 - it requires a signer backend to sign messages with the private keys of the
   participating miners
 - it requires a backend that provides the actor IDs of the participating miners
