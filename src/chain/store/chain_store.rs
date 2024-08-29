@@ -10,7 +10,7 @@ use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message, types::EthHash};
+use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,

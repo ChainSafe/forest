@@ -4,7 +4,6 @@
 use crate::cid_collections::CidHashSet;
 use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use crate::rpc::eth;
 use crate::rpc::eth::types::EthHash;
 use ahash::HashMap;
 use cid::Cid;

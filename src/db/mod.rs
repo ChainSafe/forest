@@ -14,7 +14,6 @@ use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
-use crate::rpc::eth;
 use crate::rpc::eth::types::EthHash;
 use anyhow::Context as _;
 use cid::Cid;

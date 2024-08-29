@@ -11,7 +11,6 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::db::{EthMappingsStore, MemoryDB, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
-use crate::rpc::eth;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::EitherMmapOrRandomAccessFile;

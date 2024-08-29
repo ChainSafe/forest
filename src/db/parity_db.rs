@@ -10,7 +10,6 @@ use super::EthMappingsStore;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
-use crate::rpc::eth;
 use crate::rpc::eth::types::EthHash;
 use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;

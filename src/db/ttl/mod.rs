@@ -3,7 +3,7 @@
 
 use crate::eth::EthChainId;
 use crate::message::ChainMessage;
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message, types::EthHash};
+use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 use std::time::Duration;
