@@ -89,11 +89,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
-        $callback!(crate::rpc::eth::EthGetTransactionByHash);
-        $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
-        $callback!(crate::rpc::eth::EthCall);
         $callback!(crate::rpc::eth::EthNewFilter);
-        $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);
         $callback!(crate::rpc::eth::EthSyncing);
         $callback!(crate::rpc::eth::Web3ClientVersion);
 
