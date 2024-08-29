@@ -37,6 +37,7 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use anyhow::{bail, Context, Result};
+use byteorder::{BigEndian, ByteOrder};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
@@ -62,6 +63,9 @@ const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
 /// Ethereum Bloom filter with all bits set to 1.
 const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
 
+/// Ethereum Bloom filter with all bits set to 0.
+const EMPTY_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0x0; BLOOM_SIZE_IN_BYTES];
+
 /// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
 
@@ -78,6 +82,14 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+
+pub fn eth_bloom_set(bytes: &mut EthBytes, data: &[u8]) {
+    let hash = keccak_hash::keccak(data);
+    for i in 0..3 {
+        let n = BigEndian::read_u16(&hash[i * 2..]) % BLOOM_SIZE as u16;
+        bytes.0[(BLOOM_SIZE / 8) - (n / 8) as usize - 1] |= 1 << (n % 8);
+    }
+}
 
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
 //                  use ethereum_types::U256 or use lotus_json::big_int
@@ -497,6 +509,15 @@ pub struct EthTxReceipt {
     r#type: Uint64,
 }
 lotus_json_with_self!(EthTxReceipt);
+
+impl EthTxReceipt {
+    fn new() -> Self {
+        Self {
+            logs_bloom: EthBytes(EMPTY_BLOOM.to_vec()),
+            ..Self::default()
+        }
+    }
+}
 
 /// Represents the results of an event filter execution.
 #[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
@@ -1068,7 +1089,7 @@ fn new_eth_tx_receipt<DB: Blockstore>(
         }
         .into(),
         gas_used: message_lookup.receipt.gas_used().into(),
-        ..EthTxReceipt::default()
+        ..EthTxReceipt::new()
     };
 
     // TODO: avoid loading the tipset twice (once here, once when we convert the message to a txn)
@@ -1113,6 +1134,13 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     if message_lookup.receipt.events_root().is_some() {
         let logs = Vec::new();
         receipt.logs = logs;
+    }
+
+    for log in receipt.logs.iter() {
+        for topic in log.topics.iter() {
+            eth_bloom_set(&mut receipt.logs_bloom, topic.0.as_bytes());
+        }
+        eth_bloom_set(&mut receipt.logs_bloom, log.address.0.as_bytes());
     }
 
     Ok(receipt)
