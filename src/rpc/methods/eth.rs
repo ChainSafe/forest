@@ -31,6 +31,7 @@ use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
+use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
@@ -1078,17 +1079,26 @@ fn new_eth_tx_receipt<DB: Blockstore>(
         .chain_store()
         .load_required_tipset_or_heaviest(ts.parents())?;
 
-    let _base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
+    let base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
 
-    let _gas_fee_cap = tx.gas_fee_cap()?;
-    let _gas_premium = tx.gas_premium()?;
+    let gas_fee_cap = tx.gas_fee_cap()?;
+    let gas_premium = tx.gas_premium()?;
 
-    let _gas_outputs = 0;
-    let total_spent = EthBigInt::default();
+    let gas_outputs = GasOutputs::compute(
+        message_lookup.receipt.gas_used(),
+        tx.gas.clone().into(),
+        &base_fee,
+        &gas_fee_cap.0.into(),
+        &gas_premium.0.into(),
+    );
+
+    let total_spent: BigInt =
+        (gas_outputs.base_fee_burn + gas_outputs.miner_tip + gas_outputs.over_estimation_burn)
+            .into();
 
     let mut effective_gas_price = EthBigInt::default();
     if message_lookup.receipt.gas_used() > 0 {
-        effective_gas_price = (total_spent.0 / message_lookup.receipt.gas_used()).into();
+        effective_gas_price = (total_spent / message_lookup.receipt.gas_used()).into();
     }
     receipt.effective_gas_price = effective_gas_price;
 
