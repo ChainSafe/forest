@@ -562,7 +562,7 @@ impl RpcMethod<3> for F3Participate {
         "old_lease_expiration",
     ];
     const API_PATHS: ApiPaths = ApiPaths::V1;
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Sign;
 
     type Params = (
         Address,
