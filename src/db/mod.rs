@@ -137,7 +137,7 @@ pub trait EthMappingsStore {
     fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
 
     /// Deletes `keys` if keys exist in store.
-    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()>;
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -157,7 +157,7 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
         EthMappingsStore::get_message_cids(self.as_ref())
     }
 
-    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.as_ref(), keys)
     }
 }

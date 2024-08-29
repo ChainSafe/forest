@@ -18,7 +18,7 @@ use super::{EthMappingsStore, SettingsStore};
 pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
-    eth_mappings_db: RwLock<HashMap<eth::types::EthHash, Vec<u8>>>,
+    eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
 }
 
 impl GarbageCollectable<CidHashSet> for MemoryDB {
@@ -99,7 +99,7 @@ impl EthMappingsStore for MemoryDB {
         Ok(cids)
     }
 
-    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         let mut lock = self.eth_mappings_db.write();
         for hash in keys.iter() {
             lock.remove(hash);

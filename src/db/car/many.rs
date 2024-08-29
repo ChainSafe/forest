@@ -223,7 +223,7 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::get_message_cids(self.writer())
     }
 
-    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.writer(), keys)
     }
 }

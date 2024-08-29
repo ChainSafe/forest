@@ -206,7 +206,7 @@ impl EthMappingsStore for ParityDb {
         Ok(cids)
     }
 
-    fn delete(&self, keys: Vec<eth::types::EthHash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         Ok(self.db.commit_changes(keys.into_iter().map(|key| {
             let bytes = key.0.as_bytes().to_vec();
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
