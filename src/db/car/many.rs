@@ -12,6 +12,7 @@ use super::{AnyCar, ZstdFrameCache};
 use crate::db::{EthMappingsStore, MemoryDB, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth;
+use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
@@ -206,15 +207,15 @@ impl<WriterT: SettingsStore> SettingsStore for ManyCar<WriterT> {
 }
 
 impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
-    fn read_bin(&self, key: &eth::types::EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         EthMappingsStore::read_bin(self.writer(), key)
     }
 
-    fn write_bin(&self, key: &eth::types::EthHash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
         EthMappingsStore::write_bin(self.writer(), key, value)
     }
 
-    fn exists(&self, key: &eth::types::EthHash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.writer(), key)
     }
 

@@ -14,13 +14,18 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
-use anyhow::{anyhow, ensure, Context, Error};
+use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::sync::Arc;
 use store::*;
 
+/// Handles Ethereum event filters, providing an interface for creating and managing filters.
+///
+/// The `EthEventHandler` structure is the central point for managing Ethereum filters,
+/// including event filters and tipSet filters. It interacts with a filter store and manages
+/// configurations such as the maximum filter height range and maximum filter results.
 pub struct EthEventHandler {
     filter_store: Option<Arc<dyn FilterStore>>,
     max_filter_height_range: ChainEpoch,
@@ -46,6 +51,7 @@ impl EthEventHandler {
         }
     }
 
+    // Installs an eth filter based on given filter spec.
     pub fn eth_new_filter(
         &self,
         filter_spec: &EthFilterSpec,
@@ -89,7 +95,7 @@ impl EthFilterSpec {
         let to_block = self.to_block.as_deref().unwrap_or("");
         let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
-                return Err(anyhow!("must not specify block hash and from/to block"));
+                bail!("must not specify block hash and from/to block");
             }
             (0, 0, block_hash.to_cid())
         } else {
@@ -136,7 +142,7 @@ fn parse_block_range(
             _ => heaviest,
         },
         BlockNumberOrHash::BlockNumber(height) => height.into(),
-        _ => return Err(anyhow!("Unsupported type for from_block")),
+        _ => bail!("Unsupported type for from_block"),
     };
 
     let max_height = match to_block {
@@ -146,7 +152,7 @@ fn parse_block_range(
             _ => -1,
         },
         BlockNumberOrHash::BlockNumber(height) => height.into(),
-        _ => return Err(anyhow!("Unsupported type for to_block")),
+        _ => bail!("Unsupported type for to_block"),
     };
 
     if min_height == -1 && max_height > 0 {

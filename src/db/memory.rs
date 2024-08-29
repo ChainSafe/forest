@@ -5,6 +5,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth;
+use crate::rpc::eth::types::EthHash;
 use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -72,18 +73,18 @@ impl SettingsStore for MemoryDB {
 }
 
 impl EthMappingsStore for MemoryDB {
-    fn read_bin(&self, key: &eth::types::EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         Ok(self.eth_mappings_db.read().get(key).cloned())
     }
 
-    fn write_bin(&self, key: &eth::types::EthHash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
         self.eth_mappings_db
             .write()
             .insert(key.to_owned(), value.to_vec());
         Ok(())
     }
 
-    fn exists(&self, key: &eth::types::EthHash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
         Ok(self.eth_mappings_db.read().contains_key(key))
     }
 

@@ -10,7 +10,7 @@ use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
+use crate::rpc::eth::{self, eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -196,7 +196,7 @@ where
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
-    pub fn get_required_tipset_key(&self, hash: &eth::types::EthHash) -> Result<TipsetKey, Error> {
+    pub fn get_required_tipset_key(&self, hash: &EthHash) -> Result<TipsetKey, Error> {
         let tsk = self
             .eth_mappings
             .read_obj::<TipsetKey>(hash)?
@@ -212,7 +212,7 @@ where
     }
 
     /// Reads the `Cid` from the blockstore for `EthAPI` queries.
-    pub fn get_mapping(&self, hash: &eth::types::EthHash) -> Result<Option<Cid>, Error> {
+    pub fn get_mapping(&self, hash: &EthHash) -> Result<Option<Cid>, Error> {
         Ok(self
             .eth_mappings
             .read_obj::<(Cid, u64)>(hash)?

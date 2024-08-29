@@ -7,10 +7,14 @@ use ahash::AHashMap as HashMap;
 use anyhow::Result;
 use parking_lot::RwLock;
 
+/// This trait should be implemented by any filter that needs to be identified
+/// and managed. It provide methods to retrieve the unique identifier for
+/// the filter.
 pub trait Filter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &FilterID;
 }
 
+/// The `FilterStore` trait provides the necessary interface for storing and managing filters.
 pub trait FilterStore: Send + Sync {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<()>;
 }

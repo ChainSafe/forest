@@ -27,6 +27,10 @@ impl Filter for TipSetFilter {
     }
 }
 
+/// The `TipSetFilterManager` structure maintains a set of filters that operate on TipSets,
+/// allowing new filters to be installed or existing ones to be removed. It ensures that each
+/// filter is uniquely identifiable by its ID and that a maximum number of results can be
+/// configured for each filter.
 #[derive(Debug)]
 pub struct TipSetFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<TipSetFilter>>>,
@@ -55,5 +59,41 @@ impl TipSetFilterManager {
     pub fn remove(&self, id: &FilterID) -> bool {
         let mut filters = self.filters.write();
         filters.remove(id).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tipset_filter() {
+        // Test case 1: Create a TipSetFilter
+        let max_results = 10;
+        let filter = TipSetFilter::new(max_results).expect("Failed to create TipSetFilter");
+        assert_eq!(filter.max_results, max_results);
+
+        // Test case 2: Create a TipSetFilterManager and install the TipSetFilter
+        let tipset_manager = TipSetFilterManager::new(max_results);
+        let installed_filter = tipset_manager
+            .install()
+            .expect("Failed to install TipSetFilter");
+
+        // Verify that the filter has been added to the tipset manager
+        {
+            let filters = tipset_manager.filters.read();
+            assert!(filters.contains_key(installed_filter.id()));
+        }
+
+        // Test case 3: Remove the installed TipSetFilter
+        let filter_id = installed_filter.id().clone();
+        let removed = tipset_manager.remove(&filter_id);
+        assert!(removed, "Filter should be successfully removed");
+
+        // Verify that the filter is no longer in the tipset manager
+        {
+            let filters = tipset_manager.filters.read();
+            assert!(!filters.contains_key(&filter_id));
+        }
     }
 }
