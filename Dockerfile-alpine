@@ -45,25 +45,15 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 ##
 FROM alpine:3
 
-ARG SERVICE_USER=forest
-ARG SERVICE_GROUP=forest
-
 # Install binary dependencies
 RUN apk update && \
     apk add --no-cache ca-certificates
 RUN update-ca-certificates
 
-# Create user and group and assign appropriate rights to the forest binaries
-RUN addgroup --gid 1000 ${SERVICE_GROUP} && \
-    adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
-
 # Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
-
-USER ${SERVICE_USER}
-WORKDIR /home/${SERVICE_USER}
+COPY --from=build-env /forest_out/* /usr/local/bin/
 
 # Basic verification of dynamically linked dependencies
-RUN forest -V && forest-cli -V && forest-tool -V
+RUN forest -V && forest-cli -V && forest-tool -V && forest-wallet -V
 
 ENTRYPOINT ["forest"]
