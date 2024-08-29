@@ -14,7 +14,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, ensure, Context, Error};
 use cid::Cid;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -30,9 +30,9 @@ pub struct EthEventHandler {
 
 impl EthEventHandler {
     pub fn new() -> Self {
-        let max_filters: usize = env_or_default("MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("MAX_FILTER_RESULTS", 10000);
-        let max_filter_height_range: i64 = env_or_default("MAX_FILTER_HEIGHT_RANGE", 2880);
+        let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
+        let max_filter_results: usize = env_or_default("FOREST_MAX_FILTER_RESULTS", 10000);
+        let max_filter_height_range: i64 = env_or_default("FOREST_MAX_FILTER_HEIGHT_RANGE", 2880);
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
@@ -150,32 +150,29 @@ fn parse_block_range(
     };
 
     if min_height == -1 && max_height > 0 {
-        if max_height - heaviest > max_range {
-            return Err(anyhow!(
-                "invalid epoch range: to block is too far in the future (maximum: {})",
-                max_range
-            ));
-        }
+        ensure!(
+            max_height - heaviest <= max_range,
+            "invalid epoch range: to block is too far in the future (maximum: {})",
+            max_range
+        );
     } else if min_height >= 0 && max_height == -1 {
-        if heaviest - min_height > max_range {
-            return Err(anyhow!(
-                "invalid epoch range: from block is too far in the past (maximum: {})",
-                max_range
-            ));
-        }
+        ensure!(
+            heaviest - min_height <= max_range,
+            "invalid epoch range: from block is too far in the past (maximum: {})",
+            max_range
+        );
     } else if min_height >= 0 && max_height >= 0 {
-        if min_height > max_height {
-            return Err(anyhow!(
-                "invalid epoch range: to block ({}) must be after from block ({})",
-                max_height,
-                min_height
-            ));
-        } else if max_height - min_height > max_range {
-            return Err(anyhow!(
-                "invalid epoch range: range between to and from blocks is too large (maximum: {})",
-                max_range
-            ));
-        }
+        ensure!(
+            min_height <= max_height,
+            "invalid epoch range: to block ({}) must be after from block ({})",
+            max_height,
+            min_height
+        );
+        ensure!(
+            max_height - min_height <= max_range,
+            "invalid epoch range: range between to and from blocks is too large (maximum: {})",
+            max_range
+        );
     }
 
     Ok((min_height, max_height))
