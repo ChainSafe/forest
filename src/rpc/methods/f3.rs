@@ -8,8 +8,9 @@
 //!
 
 mod types;
+mod util;
 
-use self::types::*;
+use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
     chain::index::ResolveNullTipset,
@@ -23,7 +24,6 @@ use crate::{
     },
 };
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
@@ -39,8 +39,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
-static F3_PARTICIPANT_LEASES: Lazy<RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>> =
-    Lazy::new(|| RwLock::new(Default::default()));
+static F3_LEASE_MANAGER: Lazy<F3LeaseManager> = Lazy::new(Default::default);
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
@@ -436,30 +435,11 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        const ENV_KEY: &str = "FOREST_F3_PERMENANT_PARTICIPATING_MINER_ADDRESSES";
-        let mut ids: Vec<u64> = F3_PARTICIPANT_LEASES.read().keys().copied().collect();
-        if let Ok(permenant_addrs) = std::env::var(ENV_KEY) {
-            let mut extended_ids = HashSet::default();
-            for addr_str in permenant_addrs.split(",") {
-                let addr = Address::from_str(addr_str.trim())
-                    .with_context(|| {
-                        format!("Failed to parse miner address {addr_str} set in {ENV_KEY}")
-                    })
-                    .unwrap();
-                let id = addr
-                    .id()
-                    .with_context(|| {
-                        "miner address {addr_str} set in {ENV_KEY} is not an id address"
-                    })
-                    .unwrap();
-                extended_ids.insert(id);
-            }
-            if !extended_ids.is_empty() {
-                extended_ids.extend(ids.iter());
-                ids = extended_ids.into_iter().collect();
-            }
+        let mut ids = F3_LEASE_MANAGER.get_active_participants();
+        if let Some(permenant_miner_ids) = (*F3_PERMENANT_PARTICIPATING_MINER_IDS).clone() {
+            ids.extend(permenant_miner_ids);
         }
-        Ok(ids)
+        Ok(ids.into_iter().collect())
     }
 }
 
@@ -595,35 +575,11 @@ impl RpcMethod<3> for F3Participate {
         _: Ctx<impl Blockstore>,
         (miner, new_lease_expiration, old_lease_expiration): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if new_lease_expiration > chrono::Utc::now() + chrono::Duration::minutes(5) {
-            return Err(anyhow::anyhow!("F3 participation lease cannot be over 5 mins").into());
-        } else if new_lease_expiration < chrono::Utc::now() {
-            return Err(anyhow::anyhow!("F3 participation lease is in the past").into());
-        }
-        let id = miner.id()?;
-        // if the old lease is expired just insert a new one
-        if old_lease_expiration < chrono::Utc::now() {
-            F3_PARTICIPANT_LEASES
-                .write()
-                .insert(id, new_lease_expiration);
-            return Ok(true);
-        }
-
-        let Some(old_lease_expiration_in_record) = F3_PARTICIPANT_LEASES.read().get(&id).cloned()
-        else {
-            // we don't know about it, don't start a new lease
-            return Ok(false);
-        };
-        if old_lease_expiration_in_record != old_lease_expiration {
-            // the lease we know about does not match and because the old lease is not expired
-            // we should not allow for new lease
-            return Ok(false);
-        }
-        // we know about the lease, update it
-        F3_PARTICIPANT_LEASES
-            .write()
-            .insert(id, new_lease_expiration);
-        Ok(true)
+        Ok(F3_LEASE_MANAGER.upsert_defensive(
+            miner.id()?,
+            new_lease_expiration,
+            old_lease_expiration,
+        )?)
     }
 }
 

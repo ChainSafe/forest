@@ -135,3 +135,102 @@ impl PartialOrd for F3PowerEntry {
         Some(self.cmp(other))
     }
 }
+
+#[derive(Debug, Default)]
+pub struct F3LeaseManager(RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>);
+
+impl F3LeaseManager {
+    pub fn get_active_participants(&self) -> HashSet<u64> {
+        let now = chrono::Utc::now();
+        self.0
+            .read()
+            .iter()
+            .filter_map(|(id, expire)| if expire > &now { Some(*id) } else { None })
+            .collect()
+    }
+
+    pub fn upsert_defensive(
+        &self,
+        id: u64,
+        new_lease_expiration: chrono::DateTime<chrono::Utc>,
+        old_lease_expiration: chrono::DateTime<chrono::Utc>,
+    ) -> anyhow::Result<bool> {
+        if new_lease_expiration > chrono::Utc::now() + chrono::Duration::minutes(5) {
+            anyhow::bail!("F3 participation lease cannot be over 5 mins");
+        } else if new_lease_expiration < chrono::Utc::now() {
+            anyhow::bail!("F3 participation lease is in the past");
+        }
+
+        // if the old lease is expired just insert a new one
+        if old_lease_expiration < chrono::Utc::now() {
+            self.0.write().insert(id, new_lease_expiration);
+            return Ok(true);
+        }
+
+        let Some(old_lease_expiration_in_record) = self.0.read().get(&id).cloned() else {
+            // we don't know about it, don't start a new lease
+            return Ok(false);
+        };
+        if old_lease_expiration_in_record != old_lease_expiration {
+            // the lease we know about does not match and because the old lease is not expired
+            // we should not allow for new lease
+            return Ok(false);
+        }
+        // we know about the lease, update it
+        self.0.write().insert(id, new_lease_expiration);
+
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_f3_lease_manager_upsert() {
+        let lm = F3LeaseManager::default();
+        // inserting a new lease
+        let timestamp0 = chrono::DateTime::from_timestamp(0, 0).unwrap();
+        let now = chrono::Utc::now();
+        let expiration1 = now + chrono::Duration::milliseconds(100);
+        let miner = 1;
+        assert!(lm.upsert_defensive(miner, expiration1, timestamp0).unwrap());
+        // We have one active participants
+        assert_eq!(lm.get_active_participants().len(), 1);
+        // updating an existing lease
+        let expiration2 = expiration1 + chrono::Duration::milliseconds(100);
+        // failure, old lease does not match
+        assert!(!lm
+            .upsert_defensive(miner, expiration2, expiration2)
+            .unwrap());
+        // success, old lease matches
+        assert!(lm
+            .upsert_defensive(miner, expiration2, expiration1)
+            .unwrap());
+        let expiration3 = expiration2 + chrono::Duration::milliseconds(100);
+        // success, old lease has expired
+        assert!(lm.upsert_defensive(miner, expiration3, timestamp0).unwrap());
+        // we still have one active participants
+        assert_eq!(lm.get_active_participants().len(), 1);
+        // sleep for 0.5s to let all leases expire
+        std::thread::sleep(Duration::from_millis(500));
+        // we should have no active participants
+        assert_eq!(lm.get_active_participants().len(), 0);
+        // it should fail when lease is too long
+        lm.upsert_defensive(
+            miner,
+            chrono::Utc::now() + chrono::Duration::minutes(6),
+            timestamp0,
+        )
+        .unwrap_err();
+        // it should fail when expiration is in the past
+        lm.upsert_defensive(
+            miner,
+            chrono::Utc::now() - chrono::Duration::minutes(1),
+            timestamp0,
+        )
+        .unwrap_err();
+    }
+}
