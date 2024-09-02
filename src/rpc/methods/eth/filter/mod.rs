@@ -72,16 +72,40 @@ impl EthEventHandler {
 
             if let Some(filter_store) = &self.filter_store {
                 if filter_store.add(filter.clone()).is_err() {
-                    if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
-                        let _ = tipset_filter_manager.remove(filter.id());
+                    if let Some(event_filter_manager) = &self.event_filter_manager {
+                        let _ = event_filter_manager.remove(filter.id());
                     }
-                    return Err(Error::msg("Removal error"));
+                    bail!("Removal error");
                 }
             }
             Ok(filter.id().clone())
         } else {
             Err(Error::msg("NotSupported"))
         }
+    }
+
+    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
+        if self.filter_store.is_none() || self.tipset_filter_manager.is_none() {
+            bail!("NotSupported");
+        }
+
+        let tipset_manager = self
+            .tipset_filter_manager
+            .as_ref()
+            .context("Tipset filter manager not found")?;
+
+        let filter = tipset_manager.install().context("Installation error")?;
+
+        if let Some(filter_store) = &self.filter_store {
+            if filter_store.add(filter.clone()).is_err() {
+                if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
+                    let _ = tipset_filter_manager.remove(filter.id());
+                }
+                bail!("Removal error");
+            }
+        }
+
+        Ok(filter.id().clone())
     }
 }
 
