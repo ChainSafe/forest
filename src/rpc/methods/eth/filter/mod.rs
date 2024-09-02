@@ -75,7 +75,7 @@ impl EthEventHandler {
                     if let Some(event_filter_manager) = &self.event_filter_manager {
                         let _ = event_filter_manager.remove(filter.id());
                     }
-                    bail!("Removal error");
+                    bail!("Adding filter failed.");
                 }
             }
             Ok(filter.id().clone())
@@ -101,7 +101,7 @@ impl EthEventHandler {
                 if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
                     let _ = tipset_filter_manager.remove(filter.id());
                 }
-                bail!("Removal error");
+                bail!("Adding filter failed.");
             }
         }
 
