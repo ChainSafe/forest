@@ -3,24 +3,24 @@
 
 use super::*;
 
-const F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY: &str =
-    "FOREST_F3_PERMENANT_PARTICIPATING_MINER_ADDRESSES";
+const F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY: &str =
+    "FOREST_F3_PERMANENT_PARTICIPATING_MINER_ADDRESSES";
 
-pub static F3_PERMENANT_PARTICIPATING_MINER_IDS: Lazy<Option<HashSet<u64>>> =
-    Lazy::new(get_f3_permenant_participating_miner_ids);
+pub static F3_PERMANENT_PARTICIPATING_MINER_IDS: Lazy<Option<HashSet<u64>>> =
+    Lazy::new(get_f3_permanent_participating_miner_ids);
 
-/// loads f3 permenant participating miner IDs.
+/// loads f3 permanent participating miner IDs.
 /// Note that this environment variable should only be used for testing purpose.
-fn get_f3_permenant_participating_miner_ids() -> Option<HashSet<u64>> {
-    if let Ok(permenant_addrs) = std::env::var(F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY) {
+fn get_f3_permanent_participating_miner_ids() -> Option<HashSet<u64>> {
+    if let Ok(permanent_addrs) = std::env::var(F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY) {
         let mut ids = HashSet::default();
-        for addr_str in permenant_addrs.split(",") {
+        for addr_str in permanent_addrs.split(",") {
             let Ok(addr) = Address::from_str(addr_str.trim()) else {
-                tracing::warn!("Failed to parse miner address {addr_str} set in {F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY}");
+                tracing::warn!("Failed to parse miner address {addr_str} set in {F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY}");
                 continue;
             };
             let Ok(id) = addr.id() else {
-                tracing::warn!("miner address {addr_str} set in {F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY} is not an id address");
+                tracing::warn!("miner address {addr_str} set in {F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY} is not an id address");
                 continue;
             };
             ids.insert(id);
@@ -40,33 +40,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_f3_permenant_participating_miner_ids() {
+    fn test_get_f3_permanent_participating_miner_ids() {
         // empty
-        std::env::set_var(F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY, "");
-        assert!(get_f3_permenant_participating_miner_ids().is_none());
+        std::env::set_var(F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY, "");
+        assert!(get_f3_permanent_participating_miner_ids().is_none());
 
         // 1 valid address
-        std::env::set_var(F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY, "t01000");
+        std::env::set_var(F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY, "t01000");
         assert_eq!(
-            get_f3_permenant_participating_miner_ids(),
+            get_f3_permanent_participating_miner_ids(),
             Some(HashSet::from_iter([1000])),
         );
 
         // 1 invalid address
-        std::env::set_var(F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY, "tf1000");
-        assert!(get_f3_permenant_participating_miner_ids().is_none());
+        std::env::set_var(F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY, "tf1000");
+        assert!(get_f3_permanent_participating_miner_ids().is_none());
 
         // 1 bls address
-        std::env::set_var(F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY, "t3sw466j35hqjbch5x7tcr7ona6idsgzypoturfci2ajqsfrrwhp7ty3ythtd7x646adaidnvxpdr5b2ftcciq");
-        assert!(get_f3_permenant_participating_miner_ids().is_none());
+        std::env::set_var(F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY, "t3sw466j35hqjbch5x7tcr7ona6idsgzypoturfci2ajqsfrrwhp7ty3ythtd7x646adaidnvxpdr5b2ftcciq");
+        assert!(get_f3_permanent_participating_miner_ids().is_none());
 
         // 1 valid address and 1 invalid address with extra whitespaces
         std::env::set_var(
-            F3_PERMENANT_PARTICIPATING_MINER_IDS_ENV_KEY,
+            F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY,
             "t01000, t3sw466j35hqjbch5x7tcr7ona6idsgzypoturfci2ajqsfrrwhp7ty3ythtd7x646adaidnvxpdr5b2ftcciq, ",
         );
         assert_eq!(
-            get_f3_permenant_participating_miner_ids(),
+            get_f3_permanent_participating_miner_ids(),
             Some(HashSet::from_iter([1000])),
         );
     }

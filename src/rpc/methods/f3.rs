@@ -436,8 +436,8 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         let mut ids = F3_LEASE_MANAGER.get_active_participants();
-        if let Some(permenant_miner_ids) = (*F3_PERMENANT_PARTICIPATING_MINER_IDS).clone() {
-            ids.extend(permenant_miner_ids);
+        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
+            ids.extend(permanent_miner_ids);
         }
         Ok(ids.into_iter().collect())
     }
