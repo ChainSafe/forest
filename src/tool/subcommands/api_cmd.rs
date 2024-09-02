@@ -567,9 +567,12 @@ fn common_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(
-        BeaconGetEntry::request((10101,)).unwrap(),
-    )]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
+    // Blocked by Lotus.
+    //vec![RpcTest::identity(
+    //    BeaconGetEntry::request((10101,)).unwrap(),
+    //)]
+    vec![]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
@@ -683,10 +686,13 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests() -> Vec<RpcTest> {
-    vec![
-        RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
-        RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
-    ]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
+    // Blocked by Lotus.
+    //vec![
+    //    RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+    //    RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    //]
+    vec![]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
@@ -832,6 +838,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(BeaconGetEntry::request((tipset.epoch(),))?),
         RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
