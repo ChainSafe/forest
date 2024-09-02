@@ -161,11 +161,14 @@ impl<CLOCK: Clock<chrono::Utc>> F3LeaseManager<CLOCK> {
     ) -> anyhow::Result<bool> {
         // Use a single now to avoid weird conditions
         let now = CLOCK::now();
-        if new_lease_expiration > now + chrono::Duration::minutes(5) {
-            anyhow::bail!("F3 participation lease cannot be over 5 mins");
-        } else if new_lease_expiration < now {
-            anyhow::bail!("F3 participation lease is in the past");
-        }
+        anyhow::ensure!(
+            new_lease_expiration <= now + chrono::Duration::minutes(5),
+            "F3 participation lease cannot be over 5 mins"
+        );
+        anyhow::ensure!(
+            new_lease_expiration >= now,
+            "F3 participation lease is in the past"
+        );
 
         // if the old lease is expired just insert a new one
         if old_lease_expiration < now {
