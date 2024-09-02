@@ -3,7 +3,7 @@
 
 use crate::eth::EthChainId;
 use crate::message::ChainMessage;
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
+use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,7 +30,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
     /// Remove keys whose `(duration - timestamp) > TTL` from the database
     /// where `duration` is the elapsed time since "UNIX timestamp".
     fn ttl_workflow(&self, duration: Duration) -> anyhow::Result<()> {
-        let keys: Vec<eth::Hash> = self
+        let keys: Vec<EthHash> = self
             .db
             .get_message_cids()?
             .iter()
@@ -42,7 +42,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
                 if let Ok(ChainMessage::Signed(smsg)) = message {
                     let result = eth_tx_from_signed_eth_message(&smsg, self.eth_chain_id);
                     if let Ok((_, tx)) = result {
-                        tx.eth_hash().ok().map(eth::Hash)
+                        tx.eth_hash().ok().map(EthHash)
                     } else {
                         None
                     }

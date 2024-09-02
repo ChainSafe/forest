@@ -146,6 +146,7 @@ mod tests {
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
     use crate::networks::ChainConfig;
+    use crate::rpc::eth::filter::EthEventHandler;
     use crate::rpc::RPCState;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
@@ -220,6 +221,7 @@ mod tests {
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+            eth_event_handler: Arc::new(EthEventHandler::new()),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             start_time,

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use ethereum_types::H256;
 use libipld::error::SerdeError;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
+use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -308,6 +310,90 @@ impl TryFrom<EthCallMessage> for Message {
         })
     }
 }
+
+#[derive(
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    displaydoc::Display,
+    derive_more::From,
+    derive_more::Into,
+)]
+#[displaydoc("{0:#x}")]
+pub struct EthHash(#[schemars(with = "String")] pub H256);
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
+pub struct FilterID(EthHash);
+
+lotus_json_with_self!(FilterID);
+
+impl FilterID {
+    pub fn new() -> Result<Self, uuid::Error> {
+        let raw_id = Uuid::new_v4();
+        let mut id = [0u8; 32];
+        id[..16].copy_from_slice(raw_id.as_bytes());
+        Ok(FilterID(EthHash(H256::from_slice(&id))))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct EthHashList(pub Vec<EthHash>);
+
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+pub struct EthTopicSpec(pub Vec<EthHashList>);
+
+/// Represents a filter specification for querying Ethereum event logs.
+/// This struct can be used to specify criteria for filtering Ethereum event logs based on block range,
+/// address, topics, and block hash. It is useful for making requests to Ethereum nodes to fetch logs
+/// that match certain conditions.
+///
+/// # Fields
+///
+/// * `from_block` - Optional field interpreted as an epoch (in hex):
+///   - `"latest"`: latest mined block.
+///   - `"earliest"`: first block.
+///   - `"pending"`: blocks that have not yet been mined.
+///     If omitted, the default value is `"latest"`.
+///     This field is skipped during serialization if `None`.
+///
+/// * `to_block` - Optional field interpreted as an epoch (in hex):
+///   - `"latest"`: latest mined block.
+///   - `"earliest"`: first block.
+///   - `"pending"`: blocks that have not yet been mined.
+///     If omitted, the default value is `"latest"`.
+///     This field is skipped during serialization if `None`.
+///
+/// * `address` - Actor address or a list of addresses (`Vec<EthAddress>`) from which event logs should originate.
+///   If the filter needs to match a single address, it can be specified as single element vector.
+///   This field is required and cannot be omitted.
+///
+/// * `topics` - List of topics (`EthTopicSpec`) to be matched in the event logs.  
+///
+/// * `block_hash` - Optional field specifying a block hash (`Hash`)
+///   Restricts event logs returned to those emitted from messages contained in this tipset. When `block_hash` is provided,
+///   neither `from_block` nor `to_block` can be specified.
+///   This field is skipped during serialization if `None`.
+///   [the spec](https://github.com/filecoin-project/lotus/blob/475139ff95407ed9d55d3a2ef87e28da66512937/chain/types/ethtypes/eth_types.go#L602-L627).
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthFilterSpec {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from_block: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_block: Option<String>,
+    pub address: Vec<EthAddress>,
+    pub topics: EthTopicSpec,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub block_hash: Option<EthHash>,
+}
+
+lotus_json_with_self!(EthFilterSpec);
 
 #[cfg(test)]
 mod tests {

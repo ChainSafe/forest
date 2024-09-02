@@ -14,7 +14,7 @@ use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
-use crate::rpc::eth;
+use crate::rpc::eth::types::EthHash;
 use anyhow::Context as _;
 use cid::Cid;
 use serde::de::DeserializeOwned;
@@ -123,32 +123,32 @@ impl<T: ?Sized + SettingsStoreExt> SettingsExt for T {
 pub trait EthMappingsStore {
     /// Reads binary field from the `EthMappings` store. This should be used for
     /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].
-    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>>;
+    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>>;
 
     /// Writes binary field to the `EthMappings` store. This should be used for
     /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::write_obj`].
-    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()>;
+    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()>;
 
     /// Returns `Ok(true)` if key exists in store.
-    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+    fn exists(&self, key: &EthHash) -> anyhow::Result<bool>;
 
     /// Returns all message CIDs with their timestamp.
     fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
 
     /// Deletes `keys` if keys exist in store.
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
-    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+    fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         EthMappingsStore::read_bin(self.as_ref(), key)
     }
 
-    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+    fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
         EthMappingsStore::write_bin(self.as_ref(), key, value)
     }
 
-    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+    fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.as_ref(), key)
     }
 
@@ -156,25 +156,25 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
         EthMappingsStore::get_message_cids(self.as_ref())
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+    fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.as_ref(), keys)
     }
 }
 
 pub trait EthMappingsStoreExt {
-    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>>;
-    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()>;
+    fn read_obj<V: DeserializeOwned>(&self, key: &EthHash) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &EthHash, value: &V) -> anyhow::Result<()>;
 }
 
 impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
-    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>> {
+    fn read_obj<V: DeserializeOwned>(&self, key: &EthHash) -> anyhow::Result<Option<V>> {
         match self.read_bin(key)? {
             Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
             None => Ok(None),
         }
     }
 
-    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()> {
+    fn write_obj<V: Serialize>(&self, key: &EthHash, value: &V) -> anyhow::Result<()> {
         self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
     }
 }

@@ -18,6 +18,9 @@ process.
 | FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER | positive integer                 | 10                               | the maximum concurrent streams per peer for request-response-based p2p protocols |
 | FOREST_BLOCK_DELAY_SECS                                 | positive integer                 | Depends on the network           | Duration of each tipset epoch                                                    |
 | FOREST_PROPAGATION_DELAY_SECS                           | positive integer                 | Depends on the network           | How long to wait for a block to propagate through the network                    |
+| FOREST_MAX_FILTERS                                      | integer                          | 100                              | The maximum number of filters                                                    |
+| FOREST_MAX_FILTER_RESULTS                               | integer                          | 10,000                           | The maximum number of filter results                                             |
+| FOREST_MAX_FILTER_HEIGHT_RANGE                          | integer                          | 2880                             | The maximum filter height range allowed, a conservative limit of one day         |
 
 ### FOREST_DB_DEV_MODE
 
