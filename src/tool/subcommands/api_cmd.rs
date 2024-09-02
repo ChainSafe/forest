@@ -567,9 +567,12 @@ fn common_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(
-        BeaconGetEntry::request((10101,)).unwrap(),
-    )]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
+    // Blocked by Lotus.
+    //vec![RpcTest::identity(
+    //    BeaconGetEntry::request((10101,)).unwrap(),
+    //)]
+    vec![]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
@@ -683,10 +686,13 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests() -> Vec<RpcTest> {
-    vec![
-        RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
-        RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
-    ]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
+    // Blocked by Lotus.
+    //vec![
+    //    RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+    //    RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    //]
+    vec![]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
@@ -832,6 +838,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(BeaconGetEntry::request((tipset.epoch(),))?),
         RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
@@ -1277,6 +1284,22 @@ fn eth_tests() -> Vec<RpcTest> {
             )
             .unwrap(),
         ));
+        tests.push(RpcTest::basic(
+            EthNewFilter::request_with_alias(
+                (EthFilterSpec {
+                    from_block: None,
+                    to_block: None,
+                    address: vec![EthAddress::from_str(
+                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
+                    )
+                    .unwrap()],
+                    topics: EthTopicSpec(vec![]),
+                    block_hash: None,
+                },),
+                use_alias,
+            )
+            .unwrap(),
+        ));
         tests.push(RpcTest::identity(
             EthAddressToFilecoinAddress::request((EthAddress::from_str(
                 "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
@@ -1290,7 +1313,7 @@ fn eth_tests() -> Vec<RpcTest> {
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
     let block_cid = shared_tipset.key().cid().unwrap();
-    let block_hash: Hash = block_cid.into();
+    let block_hash: EthHash = block_cid.into();
 
     let mut tests = vec![
         RpcTest::identity(
@@ -1478,7 +1501,7 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         }
     }
     tests.push(RpcTest::identity(
-        EthGetMessageCidByTransactionHash::request((Hash::from_str(
+        EthGetMessageCidByTransactionHash::request((EthHash::from_str(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
         )?,))?,
     ));

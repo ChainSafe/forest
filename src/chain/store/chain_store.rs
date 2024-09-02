@@ -10,7 +10,7 @@ use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
+use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -196,7 +196,7 @@ where
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
-    pub fn get_required_tipset_key(&self, hash: &eth::Hash) -> Result<TipsetKey, Error> {
+    pub fn get_required_tipset_key(&self, hash: &EthHash) -> Result<TipsetKey, Error> {
         let tsk = self
             .eth_mappings
             .read_obj::<TipsetKey>(hash)?
@@ -206,13 +206,13 @@ where
     }
 
     /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
-    pub fn put_mapping(&self, k: eth::Hash, v: Cid, timestamp: u64) -> Result<(), Error> {
+    pub fn put_mapping(&self, k: EthHash, v: Cid, timestamp: u64) -> Result<(), Error> {
         self.eth_mappings.write_obj(&k, &(v, timestamp))?;
         Ok(())
     }
 
     /// Reads the `Cid` from the blockstore for `EthAPI` queries.
-    pub fn get_mapping(&self, hash: &eth::Hash) -> Result<Option<Cid>, Error> {
+    pub fn get_mapping(&self, hash: &EthHash) -> Result<Option<Cid>, Error> {
         Ok(self
             .eth_mappings
             .read_obj::<(Cid, u64)>(hash)?
@@ -389,7 +389,7 @@ where
     where
         DB: fvm_ipld_blockstore::Blockstore,
     {
-        let eth_txs: Vec<(eth::Hash, Cid, u64, usize)> = messages
+        let eth_txs: Vec<(EthHash, Cid, u64, usize)> = messages
             .iter()
             .enumerate()
             .filter_map(|(i, (smsg, timestamp))| {
@@ -448,8 +448,8 @@ where
     }
 }
 
-fn filter_lowest_index(values: Vec<(eth::Hash, Cid, u64, usize)>) -> Vec<(eth::Hash, Cid, u64)> {
-    let map: HashMap<eth::Hash, (Cid, u64, usize)> = values.into_iter().fold(
+fn filter_lowest_index(values: Vec<(EthHash, Cid, u64, usize)>) -> Vec<(EthHash, Cid, u64)> {
+    let map: HashMap<EthHash, (Cid, u64, usize)> = values.into_iter().fold(
         HashMap::default(),
         |mut acc, (hash, cid, timestamp, index)| {
             acc.entry(hash)

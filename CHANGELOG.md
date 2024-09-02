@@ -36,6 +36,14 @@
   individually. The previous behavior, to validate the sum of the snapshots, can
   be achieved via `forest-tool snapshot validate-diffs`.
 
+- [#4672](https://github.com/ChainSafe/forest/issues/4672) The default user in
+  Docker images is now `root`. This facilitates usage, especially when mounting
+  volumes and dealing with surprising permission errors. Note that the default
+  data directory is now `/root/.local/share/forest` and not
+  `/home/forest/.local/share/forest`. The directory will **not** be migrated
+  automatically. Please adapt your configurations accordingly. If you've been
+  switching to `root` manually in your workflows you can now remove that step.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
@@ -67,8 +75,14 @@
 - [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
   `Filecoin.EthCall` RPC method.
 
+- [#4465](https://github.com/ChainSafe/forest/issues/4665) Add support for the
+  `Filecoin.EthNewFilter` RPC method.
+
 - [#4686](https://github.com/ChainSafe/forest/issues/4686) Add support for the
   `Filecoin.EthAddressToFilecoinAddress` RPC method.
+
+- [#4612](https://github.com/ChainSafe/forest/issues/4612) Add support for the
+  `Filecoin.MarketAddBalance` RPC method.
 
 ### Changed
 

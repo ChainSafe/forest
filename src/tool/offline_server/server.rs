@@ -10,6 +10,7 @@ use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
@@ -110,6 +111,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        eth_event_handler: Arc::new(EthEventHandler::new()),
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
