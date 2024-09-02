@@ -5,6 +5,7 @@ use super::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
     lotus_json::{base64_standard, lotus_json_with_self},
+    utils::clock::Clock,
 };
 use cid::{multihash::MultihashDigest as _, Cid};
 use fvm_shared4::ActorID;
@@ -12,7 +13,7 @@ use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, marker::PhantomData};
 
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -136,12 +137,15 @@ impl PartialOrd for F3PowerEntry {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct F3LeaseManager(RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>);
+#[derive(Debug)]
+pub struct F3LeaseManager<CLOCK: Clock<chrono::Utc> = chrono::Utc>(
+    RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>,
+    PhantomData<CLOCK>,
+);
 
-impl F3LeaseManager {
+impl<CLOCK: Clock<chrono::Utc>> F3LeaseManager<CLOCK> {
     pub fn get_active_participants(&self) -> HashSet<u64> {
-        let now = chrono::Utc::now();
+        let now = CLOCK::now();
         self.0
             .read()
             .iter()
@@ -155,14 +159,16 @@ impl F3LeaseManager {
         new_lease_expiration: chrono::DateTime<chrono::Utc>,
         old_lease_expiration: chrono::DateTime<chrono::Utc>,
     ) -> anyhow::Result<bool> {
-        if new_lease_expiration > chrono::Utc::now() + chrono::Duration::minutes(5) {
+        // Use a single now to avoid weird conditions
+        let now = CLOCK::now();
+        if new_lease_expiration > now + chrono::Duration::minutes(5) {
             anyhow::bail!("F3 participation lease cannot be over 5 mins");
-        } else if new_lease_expiration < chrono::Utc::now() {
+        } else if new_lease_expiration < now {
             anyhow::bail!("F3 participation lease is in the past");
         }
 
         // if the old lease is expired just insert a new one
-        if old_lease_expiration < chrono::Utc::now() {
+        if old_lease_expiration < now {
             self.0.write().insert(id, new_lease_expiration);
             return Ok(true);
         }
@@ -183,17 +189,35 @@ impl F3LeaseManager {
     }
 }
 
+impl<CLOCK: Clock<chrono::Utc>> Default for F3LeaseManager<CLOCK> {
+    fn default() -> Self {
+        Self(Default::default(), Default::default())
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use parking_lot::Mutex;
 
     #[test]
     fn test_f3_lease_manager_upsert() {
-        let lm = F3LeaseManager::default();
+        static NOW: Lazy<Mutex<chrono::DateTime<chrono::Utc>>> =
+            Lazy::new(|| Mutex::new(chrono::Utc::now()));
+
+        // Mock the clock with a static NOW
+        #[derive(Debug, Default)]
+        struct TestClock;
+
+        impl Clock<chrono::Utc> for TestClock {
+            fn now() -> chrono::DateTime<chrono::Utc> {
+                *NOW.lock()
+            }
+        }
+
+        let lm = F3LeaseManager::<TestClock>::default();
         // inserting a new lease
         let timestamp0 = chrono::DateTime::from_timestamp(0, 0).unwrap();
-        let now = chrono::Utc::now();
+        let now = TestClock::now();
         let expiration1 = now + chrono::Duration::milliseconds(100);
         let miner = 1;
         assert!(lm.upsert_defensive(miner, expiration1, timestamp0).unwrap());
@@ -215,20 +239,20 @@ mod tests {
         // we still have one active participants
         assert_eq!(lm.get_active_participants().len(), 1);
         // sleep for 0.5s to let all leases expire
-        std::thread::sleep(Duration::from_millis(500));
+        *NOW.lock() += chrono::Duration::milliseconds(500);
         // we should have no active participants
         assert_eq!(lm.get_active_participants().len(), 0);
         // it should fail when lease is too long
         lm.upsert_defensive(
             miner,
-            chrono::Utc::now() + chrono::Duration::minutes(6),
+            TestClock::now() + chrono::Duration::minutes(6),
             timestamp0,
         )
         .unwrap_err();
         // it should fail when expiration is in the past
         lm.upsert_defensive(
             miner,
-            chrono::Utc::now() - chrono::Duration::minutes(1),
+            TestClock::now() - chrono::Duration::minutes(1),
             timestamp0,
         )
         .unwrap_err();

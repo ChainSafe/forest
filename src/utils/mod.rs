@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod cid;
+pub mod clock;
 pub mod db;
 pub mod encoding;
 pub mod flume;
