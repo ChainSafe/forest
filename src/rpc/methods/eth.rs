@@ -40,7 +40,7 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
@@ -291,7 +291,7 @@ impl BlockNumberOrHash {
         })
     }
 
-    pub fn from_str(s: &str) -> Result<Self, anyhow::Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match s {
             "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
             "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
@@ -299,7 +299,7 @@ impl BlockNumberOrHash {
                 let epoch = hex_str_to_epoch(hex)?;
                 Ok(BlockNumberOrHash::from_block_number(epoch))
             }
-            _ => Err(anyhow::anyhow!("Invalid block identifier")),
+            _ => Err(anyhow!("Invalid block identifier")),
         }
     }
 }
