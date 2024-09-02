@@ -1512,10 +1512,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         "0x0c298a4fd63ae3d5f97763a8eceff522687695ba96f628616dbfd0d1a3293511",
         "0xaa1a1df35a7ad3017c163b5f46bca23288bde9a005149c68f39482e746f728c9",
         "0x584103c474c5199904075e6694c87d73aa4ddef1a3068085a934f9bab8efb90d",
+        "0x9d7ea89dbae5a54d77618d367a17053f1cb4aba6f846e6f0041e4b3da71fddd7",
     ];
     for addr in addresses {
         tests.push(RpcTest::identity(EthGetTransactionReceipt::request((
-            Hash::from_str(addr).unwrap(),
+            EthHash::from_str(addr).unwrap(),
         ))?));
     }
 
