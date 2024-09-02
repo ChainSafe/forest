@@ -114,6 +114,8 @@ from2internal! {
     fil_actors_shared::v12::ActorError,
     fil_actors_shared::v13::ActorError,
     fil_actors_shared::v14::ActorError,
+    serde_json::Error,
+    jsonrpsee::core::client::error::Error,
 }
 
 impl From<ServerError> for ClientError {

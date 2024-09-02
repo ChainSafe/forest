@@ -19,6 +19,7 @@ import (
 var logger = logging.Logger("bitswap/test")
 
 func init() {
+	setGoDebugEnv()
 	logging.SetDebugLogging()
 	GoBitswapNodeImpl = &bitswapImpl{ctx: context.Background()}
 }

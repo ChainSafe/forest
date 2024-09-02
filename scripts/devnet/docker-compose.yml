@@ -157,7 +157,6 @@ services:
       - lotus net id > ${LOTUS_DATA_DIR}/PEER_ID
 
   forest:
-    user: root
     depends_on:
       lotus_config:
         condition: service_completed_successfully
@@ -182,6 +181,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - RUST_LOG=info,forest_filecoin::blocks::header=trace
+      - FOREST_F3_SIDECAR_RPC_ENDPOINT=f3:${F3_RPC_PORT}
       - FOREST_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - FOREST_SHARK_HEIGHT=${SHARK_HEIGHT}
       - FOREST_HYGGE_HEIGHT=${HYGGE_HEIGHT}
@@ -207,7 +207,6 @@ services:
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   forest_offline:
-    user: root
     depends_on:
       lotus_config:
         condition: service_completed_successfully
@@ -256,7 +255,6 @@ services:
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
   forest_connecter:
-    user: root
     depends_on:
       forest:
         condition: service_healthy
@@ -274,7 +272,29 @@ services:
         set -euxo pipefail
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
+        forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key || true
         forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
+  f3:
+    user: root
+    depends_on:
+      forest_connecter:
+        condition: service_completed_successfully
+    build:
+      context: ../../f3-sidecar
+      dockerfile: Dockerfile
+    container_name: f3
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+      - forest-data:${FOREST_DATA_DIR}
+    ports:
+      - ${F3_RPC_PORT}:${F3_RPC_PORT}
+    networks:
+      - devnet
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        f3-sidecar -finality ${F3_FINALITY} -rpc http://forest:${FOREST_RPC_PORT}/rpc/v1 -f3-rpc 0.0.0.0:${F3_RPC_PORT}
 
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
