@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod eth_tx;
+pub mod filter;
 pub mod types;
 
 use self::eth_tx::*;
+use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
 use crate::blocks::Tipset;
@@ -35,6 +37,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
+use anyhow::{anyhow, Error};
 use anyhow::{bail, Context, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
@@ -168,24 +171,7 @@ pub struct Int64(
 
 lotus_json_with_self!(Int64);
 
-#[derive(
-    PartialEq,
-    Eq,
-    Hash,
-    Debug,
-    Deserialize,
-    Serialize,
-    Default,
-    Clone,
-    JsonSchema,
-    displaydoc::Display,
-    derive_more::From,
-    derive_more::Into,
-)]
-#[displaydoc("{0:#x}")]
-pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
-
-impl Hash {
+impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
         use cid::multihash::MultihashDigest;
@@ -205,22 +191,22 @@ impl Hash {
     }
 }
 
-impl FromStr for Hash {
+impl FromStr for EthHash {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Hash(ethereum_types::H256::from_str(s)?))
+        Ok(EthHash(ethereum_types::H256::from_str(s)?))
     }
 }
 
-impl From<Cid> for Hash {
+impl From<Cid> for EthHash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
-        Hash(ethereum_types::H256::from_slice(&digest[0..32]))
+        EthHash(ethereum_types::H256::from_slice(&digest[0..32]))
     }
 }
 
-lotus_json_with_self!(Hash);
+lotus_json_with_self!(EthHash);
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -242,7 +228,7 @@ pub struct BlockNumber {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockHash {
-    block_hash: Hash,
+    block_hash: EthHash,
     require_canonical: bool,
 }
 
@@ -252,7 +238,7 @@ pub enum BlockNumberOrHash {
     #[schemars(with = "String")]
     PredefinedBlock(Predefined),
     BlockNumber(Int64),
-    BlockHash(Hash),
+    BlockHash(EthHash),
     BlockNumberObject(BlockNumber),
     BlockHashObject(BlockHash),
 }
@@ -268,7 +254,7 @@ impl BlockNumberOrHash {
         Self::BlockNumber(Int64(number))
     }
 
-    pub fn from_block_hash(hash: Hash) -> Self {
+    pub fn from_block_hash(hash: EthHash) -> Self {
         Self::BlockHash(hash)
     }
 
@@ -284,11 +270,23 @@ impl BlockNumberOrHash {
     /// Construct a block hash using EIP-1898 Object scheme.
     ///
     /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
-    pub fn from_block_hash_object(hash: Hash, require_canonical: bool) -> Self {
+    pub fn from_block_hash_object(hash: EthHash, require_canonical: bool) -> Self {
         Self::BlockHashObject(BlockHash {
             block_hash: hash,
             require_canonical,
         })
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, Error> {
+        match s {
+            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
+            "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
+            hex if hex.starts_with("0x") => {
+                let epoch = hex_str_to_epoch(hex)?;
+                Ok(BlockNumberOrHash::from_block_number(epoch))
+            }
+            _ => Err(anyhow!("Invalid block identifier")),
+        }
     }
 }
 
@@ -308,13 +306,13 @@ impl Default for Transactions {
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub hash: Hash,
-    pub parent_hash: Hash,
-    pub sha3_uncles: Hash,
+    pub hash: EthHash,
+    pub parent_hash: EthHash,
+    pub sha3_uncles: EthHash,
     pub miner: EthAddress,
-    pub state_root: Hash,
-    pub transactions_root: Hash,
-    pub receipts_root: Hash,
+    pub state_root: EthHash,
+    pub transactions_root: EthHash,
+    pub receipts_root: EthHash,
     pub logs_bloom: Bloom,
     pub difficulty: Uint64,
     pub total_difficulty: Uint64,
@@ -323,13 +321,13 @@ pub struct Block {
     pub gas_used: Uint64,
     pub timestamp: Uint64,
     pub extra_data: EthBytes,
-    pub mix_hash: Hash,
+    pub mix_hash: EthHash,
     pub nonce: Nonce,
     pub base_fee_per_gas: EthBigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
     pub transactions: Transactions,
-    pub uncles: Vec<Hash>,
+    pub uncles: Vec<EthHash>,
 }
 
 impl Block {
@@ -337,11 +335,11 @@ impl Block {
         Self {
             gas_limit: Uint64(BLOCK_GAS_LIMIT.saturating_mul(tipset_len as _)),
             logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
-            sha3_uncles: Hash::empty_uncles(),
+            sha3_uncles: EthHash::empty_uncles(),
             transactions_root: if has_transactions {
-                Hash::default()
+                EthHash::default()
             } else {
-                Hash::empty_root()
+                EthHash::empty_root()
             },
             ..Default::default()
         }
@@ -355,8 +353,8 @@ lotus_json_with_self!(Block);
 pub struct ApiEthTx {
     pub chain_id: Uint64,
     pub nonce: Uint64,
-    pub hash: Hash,
-    pub block_hash: Hash,
+    pub hash: EthHash,
+    pub block_hash: EthHash,
     pub block_number: Uint64,
     pub transaction_index: Uint64,
     pub from: EthAddress,
@@ -372,9 +370,9 @@ pub struct ApiEthTx {
     pub max_priority_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
-    #[schemars(with = "Option<Vec<Hash>>")]
+    #[schemars(with = "Option<Vec<EthHash>>")]
     #[serde(with = "crate::lotus_json")]
-    pub access_list: Vec<Hash>,
+    pub access_list: Vec<EthHash>,
     pub v: EthBigInt,
     pub r: EthBigInt,
     pub s: EthBigInt,
@@ -603,7 +601,7 @@ impl RpcMethod<2> for EthGetBalance {
 
 fn get_tipset_from_hash<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
-    block_hash: &Hash,
+    block_hash: &EthHash,
 ) -> anyhow::Result<Tipset> {
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
     Tipset::load_required(chain_store.blockstore(), &tsk)
@@ -1018,7 +1016,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
 
     let tsk = tipset.key();
     let block_cid = tsk.cid()?;
-    let block_hash: Hash = block_cid.into();
+    let block_hash: EthHash = block_cid.into();
 
     let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
 
@@ -1122,7 +1120,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Hash,);
+    type Params = (EthHash,);
     type Ok = Uint64;
 
     async fn handle(
@@ -1176,7 +1174,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Hash,);
+    type Params = (EthHash,);
     type Ok = Option<Cid>;
 
     async fn handle(
@@ -1772,7 +1770,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Hash,);
+    type Params = (EthHash,);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
@@ -1838,7 +1836,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
-    type Ok = Option<Hash>;
+    type Ok = Option<EthHash>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1899,6 +1897,27 @@ impl RpcMethod<2> for EthCall {
     }
 }
 
+pub enum EthNewFilter {}
+impl RpcMethod<1> for EthNewFilter {
+    const NAME: &'static str = "Filecoin.EthNewFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newFilter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter_spec"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthFilterSpec,);
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_spec,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+        let chain_height = ctx.chain_store().heaviest_tipset().epoch();
+        Ok(eth_event_handler.eth_new_filter(&filter_spec, chain_height)?)
+    }
+}
+
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
@@ -1923,7 +1942,7 @@ mod test {
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
-    impl Arbitrary for Hash {
+    impl Arbitrary for EthHash {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
             Self(ethereum_types::H256(arr))
@@ -2023,16 +2042,16 @@ mod test {
         ];
 
         for hash in test_cases {
-            let h: Hash = serde_json::from_str(hash).unwrap();
+            let h: EthHash = serde_json::from_str(hash).unwrap();
 
             let c = h.to_cid();
-            let h1: Hash = c.into();
+            let h1: EthHash = c.into();
             assert_eq!(h, h1);
         }
     }
 
     #[quickcheck]
-    fn test_eth_hash_roundtrip(eth_hash: Hash) {
+    fn test_eth_hash_roundtrip(eth_hash: EthHash) {
         let cid = eth_hash.to_cid();
         let hash = cid.into();
         assert_eq!(eth_hash, hash);
@@ -2041,9 +2060,9 @@ mod test {
     #[test]
     fn test_block_constructor() {
         let block = Block::new(false, 1);
-        assert_eq!(block.transactions_root, Hash::empty_root());
+        assert_eq!(block.transactions_root, EthHash::empty_root());
 
         let block = Block::new(true, 1);
-        assert_eq!(block.transactions_root, Hash::default());
+        assert_eq!(block.transactions_root, EthHash::default());
     }
 }
