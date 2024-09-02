@@ -193,6 +193,12 @@ impl TryFrom<FilecoinAddress> for EthAddress {
     }
 }
 
+impl From<[u8; 20]> for EthAddress {
+    fn from(value: [u8; 20]) -> Self {
+        Self(ethereum_types::H160(value))
+    }
+}
+
 impl TryFrom<&EthAddress> for FilecoinAddress {
     type Error = anyhow::Error;
 

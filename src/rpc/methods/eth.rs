@@ -22,6 +22,7 @@ use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
@@ -36,6 +37,7 @@ use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
+use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::{bail, Context, Result};
 use byteorder::{BigEndian, ByteOrder};
 use cbor4ii::core::dec::Decode as _;
@@ -1127,8 +1129,10 @@ fn new_eth_tx_receipt<DB: Blockstore>(
 
     if receipt.to.is_none() && message_lookup.receipt.exit_code().is_success() {
         // Create and Create2 return the same things.
+        let ret: eam::CreateExternalReturn =
+            from_slice_with_fallback(message_lookup.receipt.return_data().bytes())?;
 
-        // TODO: add missing types in fil-actor-states
+        receipt.contract_address = Some(ret.eth_address.into());
     }
 
     if message_lookup.receipt.events_root().is_some() {
