@@ -351,7 +351,7 @@ impl FilterID {
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct EthHashList(pub Vec<EthHash>);
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct EthTopicSpec(pub Vec<EthHashList>);
 
 /// Represents a filter specification for querying Ethereum event logs.
@@ -386,7 +386,7 @@ pub struct EthTopicSpec(pub Vec<EthHashList>);
 ///   neither `from_block` nor `to_block` can be specified.
 ///   This field is skipped during serialization if `None`.
 ///   [the spec](https://github.com/filecoin-project/lotus/blob/475139ff95407ed9d55d3a2ef87e28da66512937/chain/types/ethtypes/eth_types.go#L602-L627).
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthFilterSpec {
     #[serde(skip_serializing_if = "Option::is_none", default)]

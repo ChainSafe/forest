@@ -10,12 +10,15 @@ use super::Predefined;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
+use crate::rpc::eth::CollectedEvent;
+use crate::rpc::Ctx;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::sync::Arc;
@@ -82,6 +85,40 @@ impl EthEventHandler {
         } else {
             Err(Error::msg("NotSupported"))
         }
+    }
+
+    fn eth_get_events_for_filter<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        spec: EthFilterSpec,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let event_filter_manager = self
+            .event_filter_manager
+            .as_ref()
+            .context("not supported")?
+            .clone();
+
+        let event_index = event_filter_manager
+            .event_index
+            .as_ref()
+            .context("cannot use eth_get_logs if historical event index is disabled")?
+            .clone();
+
+        todo!()
+    }
+
+    pub fn parse_eth_filter_spec(
+        &self,
+        filter_spec: &EthFilterSpec,
+    ) -> anyhow::Result<ParsedFilter> {
+        // We probably need to pass the ChainStore here
+        let chain_height = todo!();
+        let max_filter_height_range = self.max_filter_height_range;
+        EthFilterSpec::parse_eth_filter_spec(
+            filter_spec,
+            chain_height,
+            self.max_filter_height_range,
+        )
     }
 }
 

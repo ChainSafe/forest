@@ -9,7 +9,7 @@ use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
@@ -47,6 +47,7 @@ use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
+use fvm_shared4::sys::EventEntry;
 use itertools::Itertools;
 use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
@@ -1133,7 +1134,7 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     }
 
     if message_lookup.receipt.events_root().is_some() {
-        let logs = Vec::new();
+        let logs = get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)?;
         receipt.logs = logs;
     }
 
@@ -1145,6 +1146,112 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     }
 
     Ok(receipt)
+}
+
+fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    block_hash: &EthHash,
+    tx_hash: &EthHash,
+) -> anyhow::Result<Vec<EthLog>> {
+    let events = eth_get_events_for_filter(
+        ctx,
+        EthFilterSpec {
+            block_hash: Some(block_hash.clone()),
+            ..EthFilterSpec::default()
+        },
+    )?;
+    let logs = eth_filter_logs_from_events(ctx, &events)?;
+    let filtered: Vec<EthLog> = logs
+        .into_iter()
+        .filter(|e| &e.transaction_hash == tx_hash)
+        .collect();
+    Ok(filtered)
+}
+
+struct CollectedEvent {
+    entries: Vec<EventEntry>,
+    emitter_addr: crate::shim::address::Address,
+    event_idx: u64,
+    reverted: bool,
+    height: ChainEpoch,
+    tipset_key: TipsetKey,
+    msg_idx: u64,
+    msg_cid: Cid,
+}
+
+fn eth_get_events_for_filter<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    spec: EthFilterSpec,
+) -> anyhow::Result<Vec<CollectedEvent>> {
+    todo!()
+}
+
+fn eth_filter_logs_from_events<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<Vec<EthLog>> {
+    let mut logs = Vec::new();
+    for event in events {
+        let mut log = EthLog {
+            removed: event.reverted,
+            log_index: event.event_idx.into(),
+            transaction_index: event.msg_idx.into(),
+            block_number: (event.height as u64).into(),
+            ..EthLog::default()
+        };
+        if let Ok((data, topics)) = eth_log_from_event(&event.entries) {
+            log.data = data;
+            log.topics = topics;
+        } else {
+            continue;
+        }
+        log.address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
+        log.transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
+        if log.transaction_hash == EthHash::default() {
+            // We've garbage collected the message, ignore the events and continue.
+            continue;
+        }
+        log.block_hash = event.tipset_key.cid()?.into();
+        logs.push(log);
+    }
+    Ok(logs)
+}
+
+fn eth_log_from_event(entries: &[EventEntry]) -> Result<(EthBytes, Vec<EthHash>)> {
+    todo!()
+}
+
+fn eth_tx_hash_from_message_cid<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message_cid: &Cid,
+) -> anyhow::Result<EthHash> {
+    if let Ok(smsg) = crate::chain::message_from_cid(ctx.store(), message_cid) {
+        // This is an Eth Tx, Secp message, Or BLS message in the mpool
+        return eth_tx_hash_from_signed_message(ctx, &smsg);
+    }
+    let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
+    if result.is_ok() {
+        // This is a BLS message
+        let hash: EthHash = message_cid.clone().into();
+        return Ok(hash);
+    }
+
+    Ok(EthHash::default())
+}
+
+fn eth_tx_hash_from_signed_message<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message: &SignedMessage,
+) -> anyhow::Result<EthHash> {
+    if message.is_delegated() {
+        let (_, tx) =
+            eth_tx_from_signed_eth_message(message, ctx.state_manager.chain_config().eth_chain_id)?;
+        Ok(tx.eth_hash()?.into())
+    } else if message.is_secp256k1() {
+        Ok(message.cid().into())
+    } else {
+        Ok(message.message().cid().into())
+    }
 }
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
