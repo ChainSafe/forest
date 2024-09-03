@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod event;
+mod mempool;
 mod store;
 mod tipset;
 
 use super::BlockNumberOrHash;
 use super::Predefined;
 use crate::rpc::eth::filter::event::*;
+use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::shim::address::Address;
@@ -31,6 +33,7 @@ pub struct EthEventHandler {
     max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
+    mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
 impl EthEventHandler {
@@ -42,12 +45,14 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
 
         Self {
             filter_store,
             max_filter_height_range,
             event_filter_manager,
             tipset_filter_manager,
+            mempool_filter_manager,
         }
     }
 
@@ -82,6 +87,26 @@ impl EthEventHandler {
         } else {
             Err(Error::msg("NotSupported"))
         }
+    }
+
+    pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
+        if self.filter_store.is_none() || self.mempool_filter_manager.is_none() {
+            bail!("NotSupported");
+        }
+
+        let mempool_manager = self.mempool_filter_manager.as_ref().unwrap();
+        let filter = mempool_manager.install().context("Installation error")?;
+
+        if let Some(filter_store) = &self.filter_store {
+            if filter_store.add(filter.clone()).is_err() {
+                if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
+                    let _ = mempool_filter_manager.remove(filter.id());
+                }
+                bail!("Adding filter failed.");
+            }
+        }
+
+        Ok(filter.id().clone())
     }
 }
 

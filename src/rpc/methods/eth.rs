@@ -1918,6 +1918,27 @@ impl RpcMethod<1> for EthNewFilter {
     }
 }
 
+pub enum EthNewPendingTransactionFilter {}
+impl RpcMethod<0> for EthNewPendingTransactionFilter {
+    const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_new_pending_transaction_filter()?)
+    }
+}
+
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
