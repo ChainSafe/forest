@@ -81,8 +81,8 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
-//                  use ethereum_types::U256 or use lotus_json::big_int
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4436
+//               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
     PartialEq,
     Debug,
@@ -404,8 +404,8 @@ pub enum EthSyncingResultLotusJson {
     },
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+//               this shouldn't exist
 impl HasLotusJson for EthSyncingResult {
     type LotusJson = EthSyncingResultLotusJson;
 
