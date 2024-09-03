@@ -282,9 +282,9 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
     {
         async {
-            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-            //                  Client::call has an inappropriate HasLotusJson
-            //                  bound, work around it for now.
+            // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+            //               Client::call has an inappropriate HasLotusJson
+            //               bound, work around it for now.
             let json = client.call(Self::request(params)?.map_ty()).await?;
             Ok(serde_json::from_value(json)?)
         }
