@@ -9,6 +9,7 @@ use super::eth_filter_logs_from_events;
 use super::BlockNumberOrHash;
 use super::EthLog;
 use super::Predefined;
+use super::EVENT_READ_TIMEOUT;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
@@ -89,7 +90,7 @@ impl EthEventHandler {
         }
     }
 
-    fn eth_get_events_for_filter<DB: Blockstore>(
+    async fn eth_get_events_for_filter<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
         spec: EthFilterSpec,
@@ -124,7 +125,7 @@ impl EthEventHandler {
             bail!("max_height requested is greater than the heaviest tipset");
         }
 
-        self.wait_for_height_processed(ctx, max_height)?;
+        self.wait_for_height_processed(ctx, max_height).await?;
         // TODO: Ideally we should also check that events for the epoch at `pf.minheight` have been indexed
         // However, it is currently tricky to check/guarantee this for two reasons:
         // a) Event Index is not aware of null-blocks. This means that the Event Index wont be able to say whether the block at
@@ -146,12 +147,56 @@ impl EthEventHandler {
         Ok(events)
     }
 
-    fn wait_for_height_processed<DB: Blockstore>(
+    async fn wait_for_height_processed<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
-        max_height: ChainEpoch,
+        height: ChainEpoch,
     ) -> anyhow::Result<()> {
-        todo!()
+        let event_filter_manager = self
+            .event_filter_manager
+            .as_ref()
+            .context("not supported")?
+            .clone();
+
+        let event_index = event_filter_manager
+            .event_index
+            .as_ref()
+            .context("cannot use eth_get_logs if historical event index is disabled")?
+            .clone();
+
+        if height > ctx.chain_store().heaviest_tipset().epoch() {
+            bail!("height is in the future");
+        }
+
+        let result: Result<anyhow::Result<()>, tokio::time::error::Elapsed> =
+            tokio::time::timeout(EVENT_READ_TIMEOUT, async {
+                // do nothing if the height we're interested in has already been indexed
+                if event_index
+                    .is_height_past(height)
+                    .context("failed to check if event index has events for given height")?
+                {
+                    return Ok(());
+                }
+                // TODO(elmattic): subscribe for updates to the event index
+
+                // it could be that the event index was updated while the subscription was being
+                // processed -> check if index has what we need now
+                if event_index
+                    .is_height_past(height)
+                    .context("failed to check if event index has events for given height")?
+                {
+                    return Ok(());
+                }
+
+                // wait for the update
+
+                Ok(())
+            })
+            .await;
+        match result {
+            Err(_) => bail!("timeouted"),
+            Ok(res) => Ok(res?),
+        }
     }
 
     fn parse_eth_filter_spec<DB: Blockstore>(
@@ -166,19 +211,21 @@ impl EthEventHandler {
         )
     }
 
-    pub fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
+    pub async fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
         block_hash: &EthHash,
         tx_hash: &EthHash,
     ) -> anyhow::Result<Vec<EthLog>> {
-        let events = self.eth_get_events_for_filter(
-            ctx,
-            EthFilterSpec {
-                block_hash: Some(block_hash.clone()),
-                ..EthFilterSpec::default()
-            },
-        )?;
+        let events = self
+            .eth_get_events_for_filter(
+                ctx,
+                EthFilterSpec {
+                    block_hash: Some(block_hash.clone()),
+                    ..EthFilterSpec::default()
+                },
+            )
+            .await?;
         let logs = eth_filter_logs_from_events(ctx, &events)?;
         let filtered: Vec<EthLog> = logs
             .into_iter()

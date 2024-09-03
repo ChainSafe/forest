@@ -54,6 +54,7 @@ use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use std::time::Duration;
 use std::{ops::Add, sync::Arc};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -87,6 +88,9 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+
+/// Corresponds to 3 epochs.
+const EVENT_READ_TIMEOUT: Duration = Duration::from_secs(90);
 
 pub fn eth_bloom_set(bytes: &mut EthBytes, data: &[u8]) {
     let hash = keccak_hash::keccak(data);
@@ -1069,7 +1073,7 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     })
 }
 
-fn new_eth_tx_receipt<DB: Blockstore>(
+async fn new_eth_tx_receipt<DB: Blockstore>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
     message_lookup: &MessageLookup,
@@ -1136,7 +1140,8 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     if message_lookup.receipt.events_root().is_some() {
         let logs = ctx
             .eth_event_handler
-            .get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)?;
+            .get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)
+            .await?;
         receipt.logs = logs;
     }
 
@@ -2217,7 +2222,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
         let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
             .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
 
-        let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup)?;
+        let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
 
         Ok(tx_receipt)
     }
