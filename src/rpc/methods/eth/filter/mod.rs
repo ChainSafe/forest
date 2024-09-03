@@ -90,9 +90,10 @@ impl EthEventHandler {
     }
 
     pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
-        if self.filter_store.is_none() || self.mempool_filter_manager.is_none() {
-            bail!("NotSupported");
-        }
+        ensure!(
+            self.filter_store.is_some() && self.mempool_filter_manager.is_some(),
+            "NotSupported"
+        );
 
         let mempool_manager = self.mempool_filter_manager.as_ref().unwrap();
         let filter = mempool_manager.install().context("Installation error")?;
@@ -100,7 +101,7 @@ impl EthEventHandler {
         if let Some(filter_store) = &self.filter_store {
             if filter_store.add(filter.clone()).is_err() {
                 if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
-                    let _ = mempool_filter_manager.remove(filter.id());
+                    mempool_filter_manager.remove(filter.id());
                 }
                 bail!("Adding filter failed.");
             }
