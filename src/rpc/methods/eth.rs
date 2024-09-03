@@ -1134,7 +1134,9 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     }
 
     if message_lookup.receipt.events_root().is_some() {
-        let logs = get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)?;
+        let logs = ctx
+            .eth_event_handler
+            .get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)?;
         receipt.logs = logs;
     }
 
@@ -1146,27 +1148,6 @@ fn new_eth_tx_receipt<DB: Blockstore>(
     }
 
     Ok(receipt)
-}
-
-fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
-    ctx: &Ctx<DB>,
-    block_hash: &EthHash,
-    tx_hash: &EthHash,
-) -> anyhow::Result<Vec<EthLog>> {
-    // let events = eth_get_events_for_filter(
-    //     ctx,
-    //     EthFilterSpec {
-    //         block_hash: Some(block_hash.clone()),
-    //         ..EthFilterSpec::default()
-    //     },
-    // )?;
-    // let logs = eth_filter_logs_from_events(ctx, &events)?;
-    // let filtered: Vec<EthLog> = logs
-    //     .into_iter()
-    //     .filter(|e| &e.transaction_hash == tx_hash)
-    //     .collect();
-    // Ok(filtered)
-    todo!()
 }
 
 struct CollectedEvent {

@@ -166,7 +166,7 @@ impl EthEventHandler {
         )
     }
 
-    fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
+    pub fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
         block_hash: &EthHash,
