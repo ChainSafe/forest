@@ -57,9 +57,10 @@ impl EthEventHandler {
         filter_spec: &EthFilterSpec,
         chain_height: i64,
     ) -> Result<FilterID, Error> {
-        if self.filter_store.is_none() {
-            return Err(Error::msg("NotSupported"));
-        }
+        ensure!(
+            self.filter_store.is_some() && self.event_filter_manager.is_some(),
+            "NotSupported"
+        );
 
         if let Some(event_filter_manager) = &self.event_filter_manager {
             let pf = filter_spec
@@ -73,7 +74,7 @@ impl EthEventHandler {
             if let Some(filter_store) = &self.filter_store {
                 if filter_store.add(filter.clone()).is_err() {
                     if let Some(event_filter_manager) = &self.event_filter_manager {
-                        let _ = event_filter_manager.remove(filter.id());
+                        event_filter_manager.remove(filter.id());
                     }
                     bail!("Adding filter failed.");
                 }
@@ -84,10 +85,12 @@ impl EthEventHandler {
         }
     }
 
+    // Installs an eth tipset filter
     pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
-        if self.filter_store.is_none() || self.tipset_filter_manager.is_none() {
-            bail!("NotSupported");
-        }
+        ensure!(
+            self.filter_store.is_some() && self.tipset_filter_manager.is_some(),
+            "NotSupported"
+        );
 
         let tipset_manager = self
             .tipset_filter_manager
@@ -99,7 +102,7 @@ impl EthEventHandler {
         if let Some(filter_store) = &self.filter_store {
             if filter_store.add(filter.clone()).is_err() {
                 if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
-                    let _ = tipset_filter_manager.remove(filter.id());
+                    tipset_filter_manager.remove(filter.id());
                 }
                 bail!("Adding filter failed.");
             }
