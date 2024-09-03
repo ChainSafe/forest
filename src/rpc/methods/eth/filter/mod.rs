@@ -5,7 +5,9 @@ mod event;
 mod store;
 mod tipset;
 
+use super::eth_filter_logs_from_events;
 use super::BlockNumberOrHash;
+use super::EthLog;
 use super::Predefined;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -98,27 +100,91 @@ impl EthEventHandler {
             .context("not supported")?
             .clone();
 
-        let event_index = event_filter_manager
+        let _event_index = event_filter_manager
             .event_index
             .as_ref()
             .context("cannot use eth_get_logs if historical event index is disabled")?
             .clone();
 
+        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
+        // Should pf.tipset_cid be an Option?
+        let mut max_height = pf.max_height;
+        if max_height == -1 {
+            // heaviest tipset doesn't have events because its messages haven't been executed yet
+            max_height = ctx.chain_store().heaviest_tipset().epoch() - 1;
+        }
+
+        if max_height < 0 {
+            bail!("max_height requested is less than 0");
+        }
+
+        // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+        // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+        if max_height > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+            bail!("max_height requested is greater than the heaviest tipset");
+        }
+
+        self.wait_for_height_processed(ctx, max_height)?;
+        // TODO: Ideally we should also check that events for the epoch at `pf.minheight` have been indexed
+        // However, it is currently tricky to check/guarantee this for two reasons:
+        // a) Event Index is not aware of null-blocks. This means that the Event Index wont be able to say whether the block at
+        //    `pf.minheight` is a null block or whether it has no events
+        // b) There can be holes in the index where events at certain epoch simply haven't been indexed because of edge cases around
+        //    node restarts while indexing. This needs a long term "auto-repair"/"automated-backfilling" implementation in the index
+        // So, for now, the best we can do is ensure that the event index has evenets for events at height >= `pf.maxHeight`
+
+        // Create a temporary filter
+        let filter = event_filter_manager
+            .install(pf)
+            .context("failed to install event filter")?;
+        let events = filter.take_collected_events();
+
+        if !event_filter_manager.remove(filter.id()) {
+            bail!("failed to uninstall filter");
+        }
+
+        Ok(events)
+    }
+
+    fn wait_for_height_processed<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        max_height: ChainEpoch,
+    ) -> anyhow::Result<()> {
         todo!()
     }
 
-    pub fn parse_eth_filter_spec(
+    fn parse_eth_filter_spec<DB: Blockstore>(
         &self,
+        ctx: &Ctx<DB>,
         filter_spec: &EthFilterSpec,
     ) -> anyhow::Result<ParsedFilter> {
-        // We probably need to pass the ChainStore here
-        let chain_height = todo!();
-        let max_filter_height_range = self.max_filter_height_range;
         EthFilterSpec::parse_eth_filter_spec(
             filter_spec,
-            chain_height,
+            ctx.chain_store().heaviest_tipset().epoch(),
             self.max_filter_height_range,
         )
+    }
+
+    fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        block_hash: &EthHash,
+        tx_hash: &EthHash,
+    ) -> anyhow::Result<Vec<EthLog>> {
+        let events = self.eth_get_events_for_filter(
+            ctx,
+            EthFilterSpec {
+                block_hash: Some(block_hash.clone()),
+                ..EthFilterSpec::default()
+            },
+        )?;
+        let logs = eth_filter_logs_from_events(ctx, &events)?;
+        let filtered: Vec<EthLog> = logs
+            .into_iter()
+            .filter(|e| &e.transaction_hash == tx_hash)
+            .collect();
+        Ok(filtered)
     }
 }
 

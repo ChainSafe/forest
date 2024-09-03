@@ -3,6 +3,7 @@
 
 use crate::rpc::eth::filter::ActorEventBlock;
 use crate::rpc::eth::filter::ParsedFilter;
+use crate::rpc::eth::CollectedEvent;
 use crate::rpc::eth::{filter::Filter, FilterID};
 use crate::rpc::Arc;
 use crate::shim::address::Address;
@@ -27,6 +28,9 @@ pub struct EventFilter {
 impl Filter for EventFilter {
     fn id(&self) -> &FilterID {
         &self.id
+    }
+    fn take_collected_events(&self) -> Vec<CollectedEvent> {
+        vec![]
     }
 }
 

@@ -1153,19 +1153,20 @@ fn get_eth_logs_for_block_and_transaction<DB: Blockstore>(
     block_hash: &EthHash,
     tx_hash: &EthHash,
 ) -> anyhow::Result<Vec<EthLog>> {
-    let events = eth_get_events_for_filter(
-        ctx,
-        EthFilterSpec {
-            block_hash: Some(block_hash.clone()),
-            ..EthFilterSpec::default()
-        },
-    )?;
-    let logs = eth_filter_logs_from_events(ctx, &events)?;
-    let filtered: Vec<EthLog> = logs
-        .into_iter()
-        .filter(|e| &e.transaction_hash == tx_hash)
-        .collect();
-    Ok(filtered)
+    // let events = eth_get_events_for_filter(
+    //     ctx,
+    //     EthFilterSpec {
+    //         block_hash: Some(block_hash.clone()),
+    //         ..EthFilterSpec::default()
+    //     },
+    // )?;
+    // let logs = eth_filter_logs_from_events(ctx, &events)?;
+    // let filtered: Vec<EthLog> = logs
+    //     .into_iter()
+    //     .filter(|e| &e.transaction_hash == tx_hash)
+    //     .collect();
+    // Ok(filtered)
+    todo!()
 }
 
 struct CollectedEvent {
@@ -1177,13 +1178,6 @@ struct CollectedEvent {
     tipset_key: TipsetKey,
     msg_idx: u64,
     msg_cid: Cid,
-}
-
-fn eth_get_events_for_filter<DB: Blockstore>(
-    ctx: &Ctx<DB>,
-    spec: EthFilterSpec,
-) -> anyhow::Result<Vec<CollectedEvent>> {
-    todo!()
 }
 
 fn eth_filter_logs_from_events<DB: Blockstore>(

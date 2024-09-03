@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::{filter::Filter, FilterID};
+use crate::rpc::eth::{filter::Filter, CollectedEvent, FilterID};
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
@@ -24,6 +24,9 @@ impl TipSetFilter {
 impl Filter for TipSetFilter {
     fn id(&self) -> &FilterID {
         &self.id
+    }
+    fn take_collected_events(&self) -> Vec<CollectedEvent> {
+        vec![]
     }
 }
 
