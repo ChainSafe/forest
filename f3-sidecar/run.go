@@ -42,6 +42,7 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	if err != nil {
 		return err
 	}
+	defer ec.Close()
 	if _, err = ec.f3api.ProtectPeer(ctx, p2p.Host.ID()); err != nil {
 		return err
 	}

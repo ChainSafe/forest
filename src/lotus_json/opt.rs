@@ -3,9 +3,9 @@
 
 use super::*;
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  Remove this - users should use `Option<LotusJson<T>>` instead
-//                  of LotusJson<Option<T>>
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+//               Remove this - users should use `Option<LotusJson<T>>` instead
+//               of LotusJson<Option<T>>
 impl<T> HasLotusJson for Option<T>
 where
     T: HasLotusJson,

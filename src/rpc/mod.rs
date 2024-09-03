@@ -604,13 +604,13 @@ mod tests {
     fn openrpc() {
         for path in [ApiPath::V0, ApiPath::V1] {
             let _spec = super::openrpc(path, None);
-            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-            //                  this is disabled because it causes lots of merge
-            //                  conflicts.
-            //                  We should consider re-enabling it when our RPC is
-            //                  more stable.
-            //                  (We still run this test to make sure we're not
-            //                  violating other invariants)
+            // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+            //               this is disabled because it causes lots of merge
+            //               conflicts.
+            //               We should consider re-enabling it when our RPC is
+            //               more stable.
+            //               (We still run this test to make sure we're not
+            //               violating other invariants)
             insta::assert_yaml_snapshot!(_spec);
         }
     }

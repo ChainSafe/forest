@@ -20,7 +20,6 @@
         rustdoc::private_intra_doc_links,
         // See module `doctest_private` below.
         rustdoc::private_doc_tests,
-        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3602
         rustdoc::missing_crate_level_docs
     )
 )]
