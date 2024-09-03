@@ -45,7 +45,7 @@ impl MempoolFilterManager {
 
     pub fn install(&self) -> Result<Arc<MempoolFilter>> {
         let filter = MempoolFilter::new(self.max_filter_results)
-            .context("Failed to create a new MempoolFilter")?;
+            .context("Failed to create a new mempool filter")?;
         let id = filter.id.clone();
 
         let mut filters = self.filters.write();
@@ -68,14 +68,14 @@ mod tests {
     fn test_mempool_filter() {
         // Test case 1: Create a mempool filter
         let max_results = 10;
-        let filter = MempoolFilter::new(max_results).expect("Failed to create MempoolFilter");
+        let filter = MempoolFilter::new(max_results).expect("Failed to create mempool filter");
         assert_eq!(filter.max_results, max_results);
 
         // Test case 2: Create a mempool filter manager and install the mempool filter
         let mempool_manager = MempoolFilterManager::new(max_results);
         let installed_filter = mempool_manager
             .install()
-            .expect("Failed to install MempoolFilter");
+            .expect("Failed to install mempool filter");
 
         // Verify that the filter has been added to the mempool manager
         {
@@ -83,7 +83,7 @@ mod tests {
             assert!(filters.contains_key(installed_filter.id()));
         }
 
-        // Test case 3: Remove the installed mempoolFilter
+        // Test case 3: Remove the installed mempool filter
         let filter_id = installed_filter.id().clone();
         let removed = mempool_manager.remove(&filter_id);
         assert!(removed, "Filter should be successfully removed");
