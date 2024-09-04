@@ -1762,6 +1762,46 @@ impl RpcMethod<0> for EthProtocolVersion {
     }
 }
 
+pub enum EthGetTransactionByBlockNumberAndIndex {}
+impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Uint64, Uint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (_p1, _p2): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus doesn't support this method (v1.29.0), so do we.
+        Err(ServerError::unsupported_method())
+    }
+}
+
+pub enum EthGetTransactionByBlockHashAndIndex {}
+impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthHash, Uint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (_p1, _p2): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus doesn't support this method (v1.29.0), so do we.
+        Err(ServerError::unsupported_method())
+    }
+}
+
 pub enum EthGetTransactionByHash {}
 impl RpcMethod<1> for EthGetTransactionByHash {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHash";

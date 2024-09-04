@@ -1440,6 +1440,18 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndex::request((
+                (shared_tipset.epoch() as u64).into(),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockHashAndIndex::request((block_hash.clone(), 0.into())).unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
             EthGetBlockByHash::request((
                 BlockNumberOrHash::from_block_hash(block_hash.clone()),
                 false,
