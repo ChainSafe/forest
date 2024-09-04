@@ -22,7 +22,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
@@ -47,7 +47,6 @@ use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
-use fvm_shared4::sys::EventEntry;
 use itertools::Itertools;
 use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
@@ -222,6 +221,12 @@ impl From<Cid> for EthHash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
         EthHash(ethereum_types::H256::from_slice(&digest[0..32]))
+    }
+}
+
+impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
+    fn from(value: [u8; EVM_WORD_LENGTH]) -> Self {
+        Self(ethereum_types::H256(value))
     }
 }
 
@@ -1179,7 +1184,7 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
             block_number: (event.height as u64).into(),
             ..EthLog::default()
         };
-        if let Ok((data, topics)) = eth_log_from_event(&event.entries) {
+        if let Some((data, topics)) = eth_log_from_event(&event.entries) {
             log.data = data;
             log.topics = topics;
         } else {
@@ -1197,8 +1202,80 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
     Ok(logs)
 }
 
-fn eth_log_from_event(entries: &[EventEntry]) -> Result<(EthBytes, Vec<EthHash>)> {
-    todo!()
+fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
+    let mut topics_found = [false; 4];
+    let mut topics_found_count = 0;
+    let mut data_found = false;
+
+    let mut data: EthBytes = EthBytes::default();
+    let mut topics: Vec<EthHash> = Vec::default();
+    for entry in entries {
+        // Drop events with non-raw topics. Built-in actors emit CBOR, and anything else would be
+        // invalid anyway.
+        if entry.codec != IPLD_RAW {
+            return None;
+        }
+        // Check if the key is t1..t4
+        if match entry.key.get(0..2) {
+            Some("t1") | Some("t2") | Some("t3") | Some("t4") => true,
+            _ => false,
+        } {
+            let idx = entry.key[1..2]
+                .parse::<usize>()
+                .expect("parse must succeed")
+                - 1;
+
+            // Drop events with mis-sized topics.
+            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
+            let bytes = if let Ok(value) = result {
+                value
+            } else {
+                tracing::warn!(
+                    "got an EVM event topic with an invalid size (key: {}, size: {})",
+                    entry.key,
+                    entry.value.0.len()
+                );
+                return None;
+            };
+
+            // Drop events with duplicate topics.
+            if topics_found[idx] {
+                tracing::warn!("got a duplicate EVM event topic (key: {})", entry.key);
+                return None;
+            }
+            topics_found[idx] = true;
+            topics_found_count += 1;
+
+            // Extend the topics array
+            if topics.len() <= idx {
+                topics.resize(idx + 1, EthHash::default());
+            }
+            topics[idx] = bytes.into();
+        } else if entry.key == "d" {
+            // Drop events with duplicate data fields.
+            if data_found {
+                tracing::warn!("got duplicate EVM event data");
+                return None;
+            }
+            data_found = true;
+            data = EthBytes(entry.value.0.clone());
+        } else {
+            // Skip entries we don't understand (makes it easier to extend things).
+            // But we warn for now because we don't expect them.
+            tracing::warn!("unexpected event entry (key: {})", entry.key);
+        }
+    }
+
+    // Drop events with skipped topics.
+    if topics.len() != topics_found_count {
+        tracing::warn!(
+            "EVM event topic length mismatch (expected: {}, actual: {})",
+            topics.len(),
+            topics_found_count
+        );
+        return None;
+    }
+    Some((data, topics))
 }
 
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
