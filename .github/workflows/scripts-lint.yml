@@ -54,4 +54,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           yarn install
+          yarn run prettier-version
           yarn run md-check
