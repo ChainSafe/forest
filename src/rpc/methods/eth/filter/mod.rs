@@ -101,7 +101,10 @@ impl EthEventHandler {
         if let Some(filter_store) = &self.filter_store {
             if filter_store.add(filter.clone()).is_err() {
                 if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
-                    mempool_filter_manager.remove(filter.id());
+                    ensure!(
+                        mempool_filter_manager.remove(filter.id()).is_some(),
+                        "Filter not found"
+                    );
                 }
                 bail!("Adding filter failed.");
             }

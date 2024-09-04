@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use parking_lot::RwLock;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MempoolFilter {
     id: FilterID,
     max_results: usize,
@@ -54,9 +54,9 @@ impl MempoolFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> bool {
+    pub fn remove(&self, id: &FilterID) -> Option<Arc<MempoolFilter>> {
         let mut filters = self.filters.write();
-        filters.remove(id).is_some()
+        filters.remove(id)
     }
 }
 
@@ -86,7 +86,11 @@ mod tests {
         // Test case 3: Remove the installed mempool filter
         let filter_id = installed_filter.id().clone();
         let removed = mempool_manager.remove(&filter_id);
-        assert!(removed, "Filter should be successfully removed");
+        assert_eq!(
+            removed,
+            Some(installed_filter),
+            "Filter should be successfully removed"
+        );
 
         // Verify that the filter is no longer in the mempool manager
         {
