@@ -30,9 +30,9 @@ env:
 
 jobs:
   tests:
-    # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
+    # Change to `buildjet-8vcpu-ubuntu-2404` if `fuzzy` is down.
     # runs-on: fuzzy
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: buildjet-8vcpu-ubuntu-2404
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -51,9 +51,9 @@ jobs:
         uses: taiki-e/install-action@nextest
       - run: make test
   tests-release:
-    # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
+    # Change to `buildjet-8vcpu-ubuntu-2404` if `fuzzy` is down.
     # runs-on: fuzzy
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: buildjet-8vcpu-ubuntu-2404
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
