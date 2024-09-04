@@ -57,11 +57,6 @@ impl EthEventHandler {
         filter_spec: &EthFilterSpec,
         chain_height: i64,
     ) -> Result<FilterID, Error> {
-        ensure!(
-            self.filter_store.is_some() && self.event_filter_manager.is_some(),
-            "NotSupported"
-        );
-
         if let Some(event_filter_manager) = &self.event_filter_manager {
             let pf = filter_spec
                 .parse_eth_filter_spec(chain_height, self.max_filter_height_range)
@@ -73,12 +68,10 @@ impl EthEventHandler {
 
             if let Some(filter_store) = &self.filter_store {
                 if let Err(err) = filter_store.add(filter.clone()) {
-                    if let Some(event_filter_manager) = &self.event_filter_manager {
-                        ensure!(
-                            event_filter_manager.remove(filter.id()).is_some(),
-                            "Filter not found"
-                        );
-                    }
+                    ensure!(
+                        event_filter_manager.remove(filter.id()).is_some(),
+                        "Filter not found"
+                    );
                     bail!("Adding filter failed: {}", err);
                 }
             }
@@ -90,31 +83,24 @@ impl EthEventHandler {
 
     // Installs an eth tipset filter
     pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
-        ensure!(
-            self.filter_store.is_some() && self.tipset_filter_manager.is_some(),
-            "NotSupported"
-        );
+        if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
+            let filter = tipset_filter_manager
+                .install()
+                .context("Installation error")?;
 
-        let tipset_manager = self
-            .tipset_filter_manager
-            .as_ref()
-            .context("Tipset filter manager not found")?;
-
-        let filter = tipset_manager.install().context("Installation error")?;
-
-        if let Some(filter_store) = &self.filter_store {
-            if let Err(err) = filter_store.add(filter.clone()) {
-                if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
+            if let Some(filter_store) = &self.filter_store {
+                if let Err(err) = filter_store.add(filter.clone()) {
                     ensure!(
                         tipset_filter_manager.remove(filter.id()).is_some(),
                         "Filter not found"
                     );
+                    bail!("Adding filter failed: {}", err);
                 }
-                bail!("Adding filter failed: {}", err);
             }
+            Ok(filter.id().clone())
+        } else {
+            Err(Error::msg("NotSupported"))
         }
-
-        Ok(filter.id().clone())
     }
 }
 
