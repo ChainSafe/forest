@@ -84,6 +84,14 @@
 - [#4612](https://github.com/ChainSafe/forest/issues/4612) Add support for the
   `Filecoin.MarketAddBalance` RPC method.
 
+- [#4701](https://github.com/ChainSafe/forest/issues/4701) Add method
+  `Filecoin.EthGetTransactionByBlockHashAndIndex` to existing methods (though
+  without support, which matches the current Lotus's behavior).
+
+- [#4702](https://github.com/ChainSafe/forest/issues/4702) Add method
+  `Filecoin.EthGetTransactionByBlockNumberAndIndex` to existing methods (though
+  without support, which matches the current Lotus's behavior).
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
