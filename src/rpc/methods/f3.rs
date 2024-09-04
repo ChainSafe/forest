@@ -8,13 +8,14 @@
 //!
 
 mod types;
+mod util;
 
-use self::types::*;
+use self::{types::*, util::*};
+use super::wallet::WalletSign;
 use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    networks::NetworkChain,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
@@ -22,6 +23,7 @@ use crate::{
         crypto::Signature,
     },
 };
+use ahash::{HashMap, HashSet};
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
@@ -33,9 +35,11 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
+use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
-use super::wallet::WalletSign;
+static F3_LEASE_MANAGER: Lazy<F3LeaseManager> = Lazy::new(Default::default);
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
@@ -430,15 +434,12 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Params = ();
     type Ok = Vec<u64>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        match ctx.chain_config().network {
-            NetworkChain::Devnet(_) => {
-                // For now, just hard code the devnet miner for testing
-                let shared_miner_addr = Address::from_str("t01000")?;
-                Ok(vec![shared_miner_addr.id()?])
-            }
-            _ => Ok(vec![]),
+    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        let mut ids = F3_LEASE_MANAGER.get_active_participants();
+        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
+            ids.extend(permanent_miner_ids);
         }
+        Ok(ids.into_iter().collect())
     }
 }
 
@@ -462,6 +463,7 @@ impl RpcMethod<2> for SignMessage {
     }
 }
 
+/// returns a finality certificate at given instance number
 pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
     const NAME: &'static str = "Filecoin.F3GetCertificate";
@@ -484,6 +486,7 @@ impl RpcMethod<1> for F3GetCertificate {
     }
 }
 
+/// returns the latest finality certificate
 pub enum F3GetLatestCertificate {}
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
@@ -538,6 +541,45 @@ impl RpcMethod<1> for F3GetF3PowerTable {
         params.insert(tsk.into_lotus_json())?;
         let response = client.request(Self::NAME, params).await?;
         Ok(response)
+    }
+}
+
+/// F3Participate should be called by a storage provider to participate in signing F3 consensus.
+/// Calling this API gives the node a lease to sign in F3 on behalf of given SP.
+/// The lease should be active only on one node. The lease will expire at the newLeaseExpiration.
+/// To continue participating in F3 with the given node, call F3Participate again before the newLeaseExpiration time.
+/// newLeaseExpiration cannot be further than 5 minutes in the future.
+/// It is recommended to call F3Participate every 60 seconds with newLeaseExpiration set 2min into the future.
+/// The oldLeaseExpiration has to be set to newLeaseExpiration of the last successful call.
+/// For the first call to F3Participate, set the oldLeaseExpiration to zero value/time in the past.
+/// F3Participate will return true if the lease was accepted. The minerID has to be the ID address of the miner.
+pub enum F3Participate {}
+impl RpcMethod<3> for F3Participate {
+    const NAME: &'static str = "Filecoin.F3Participate";
+    const PARAM_NAMES: [&'static str; 3] = [
+        "miner_address",
+        "new_lease_expiration",
+        "old_lease_expiration",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Sign;
+
+    type Params = (
+        Address,
+        chrono::DateTime<chrono::Utc>,
+        chrono::DateTime<chrono::Utc>,
+    );
+    type Ok = bool;
+
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (miner, new_lease_expiration, old_lease_expiration): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(F3_LEASE_MANAGER.upsert_defensive(
+            miner.id()?,
+            new_lease_expiration,
+            old_lease_expiration,
+        )?)
     }
 }
 
