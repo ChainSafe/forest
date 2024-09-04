@@ -20,7 +20,7 @@
 
 # Cross-compilation helpers
 # https://github.com/tonistiigi/xx
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.5.0 AS xx
+FROM --platform=$BUILDPLATFORM ghcr.io/lesnyrumcajs/xx:1.2.1 AS xx
 
 FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
