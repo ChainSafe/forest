@@ -3275,6 +3275,7 @@ dependencies = [
  "rlimit",
  "rlp",
  "rs-car-ipfs",
+ "rust2go",
  "schemars",
  "scopeguard",
  "semver",

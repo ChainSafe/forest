@@ -47,6 +47,9 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Cargo Check
         run: cargo check
   build-ubuntu:
@@ -71,6 +74,9 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Cargo Install
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
@@ -95,6 +101,8 @@ jobs:
         run: |
           sudo make install-deps
       - run: cargo publish --dry-run
+        env:
+          FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
   forest-cli-check:
     needs:
       - build-ubuntu

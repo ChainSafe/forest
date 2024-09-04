@@ -47,3 +47,14 @@ flowchart TD
     A --> |storage backend| C[level db]
     A --> |dynamic manifest backend| D[manifest p2p server]
 ```
+
+### To build and run F3 sidecar within Forest via FFI
+
+By default, the Go F3-sidecar is built and linked into Forest binary unless
+environment variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
+
+F3 sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
+opt in.
+
+Set dynamic manifest server via `FOREST_F3_MANIFEST_SERVER`, e.g.
+`FOREST_F3_MANIFEST_SERVER=12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7`
