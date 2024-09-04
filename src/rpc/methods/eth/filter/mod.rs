@@ -72,14 +72,14 @@ impl EthEventHandler {
                 .context("Installation error")?;
 
             if let Some(filter_store) = &self.filter_store {
-                if filter_store.add(filter.clone()).is_err() {
+                if let Err(err) = filter_store.add(filter.clone()) {
                     if let Some(event_filter_manager) = &self.event_filter_manager {
                         ensure!(
                             event_filter_manager.remove(filter.id()).is_some(),
                             "Filter not found"
                         );
                     }
-                    bail!("Adding filter failed.");
+                    bail!("Adding filter failed: {}", err);
                 }
             }
             Ok(filter.id().clone())
@@ -103,14 +103,14 @@ impl EthEventHandler {
         let filter = tipset_manager.install().context("Installation error")?;
 
         if let Some(filter_store) = &self.filter_store {
-            if filter_store.add(filter.clone()).is_err() {
+            if let Err(err) = filter_store.add(filter.clone()) {
                 if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
                     ensure!(
                         tipset_filter_manager.remove(filter.id()).is_some(),
                         "Filter not found"
                     );
                 }
-                bail!("Adding filter failed.");
+                bail!("Adding filter failed: {}", err);
             }
         }
 
