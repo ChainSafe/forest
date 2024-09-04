@@ -90,27 +90,24 @@ impl EthEventHandler {
     }
 
     pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
-        ensure!(
-            self.filter_store.is_some() && self.mempool_filter_manager.is_some(),
-            "NotSupported"
-        );
+        if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
+            let filter = mempool_filter_manager
+                .install()
+                .context("Installation error")?;
 
-        let mempool_manager = self.mempool_filter_manager.as_ref().unwrap();
-        let filter = mempool_manager.install().context("Installation error")?;
-
-        if let Some(filter_store) = &self.filter_store {
-            if let Err(err) = filter_store.add(filter.clone()) {
-                if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
+            if let Some(filter_store) = &self.filter_store {
+                if let Err(err) = filter_store.add(filter.clone()) {
                     ensure!(
                         mempool_filter_manager.remove(filter.id()).is_some(),
                         "Filter not found"
                     );
+                    bail!("Adding filter failed: {}", err);
                 }
-                bail!("Adding filter failed: {}", err);
             }
+            Ok(filter.id().clone())
+        } else {
+            Err(Error::msg("NotSupported"))
         }
-
-        Ok(filter.id().clone())
     }
 }
 
