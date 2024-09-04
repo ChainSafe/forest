@@ -99,14 +99,14 @@ impl EthEventHandler {
         let filter = mempool_manager.install().context("Installation error")?;
 
         if let Some(filter_store) = &self.filter_store {
-            if filter_store.add(filter.clone()).is_err() {
+            if let Err(err) = filter_store.add(filter.clone()) {
                 if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
                     ensure!(
                         mempool_filter_manager.remove(filter.id()).is_some(),
                         "Filter not found"
                     );
                 }
-                bail!("Adding filter failed.");
+                bail!("Adding filter failed: {}", err);
             }
         }
 
