@@ -57,10 +57,6 @@ impl EthEventHandler {
         filter_spec: &EthFilterSpec,
         chain_height: i64,
     ) -> Result<FilterID, Error> {
-        if self.filter_store.is_none() {
-            return Err(Error::msg("NotSupported"));
-        }
-
         if let Some(event_filter_manager) = &self.event_filter_manager {
             let pf = filter_spec
                 .parse_eth_filter_spec(chain_height, self.max_filter_height_range)
@@ -71,11 +67,34 @@ impl EthEventHandler {
                 .context("Installation error")?;
 
             if let Some(filter_store) = &self.filter_store {
-                if filter_store.add(filter.clone()).is_err() {
-                    if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
-                        let _ = tipset_filter_manager.remove(filter.id());
-                    }
-                    return Err(Error::msg("Removal error"));
+                if let Err(err) = filter_store.add(filter.clone()) {
+                    ensure!(
+                        event_filter_manager.remove(filter.id()).is_some(),
+                        "Filter not found"
+                    );
+                    bail!("Adding filter failed: {}", err);
+                }
+            }
+            Ok(filter.id().clone())
+        } else {
+            Err(Error::msg("NotSupported"))
+        }
+    }
+
+    // Installs an eth tipset filter
+    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
+        if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
+            let filter = tipset_filter_manager
+                .install()
+                .context("Installation error")?;
+
+            if let Some(filter_store) = &self.filter_store {
+                if let Err(err) = filter_store.add(filter.clone()) {
+                    ensure!(
+                        tipset_filter_manager.remove(filter.id()).is_some(),
+                        "Filter not found"
+                    );
+                    bail!("Adding filter failed: {}", err);
                 }
             }
             Ok(filter.id().clone())
@@ -208,7 +227,7 @@ fn parse_eth_topics(
     Ok(keys)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ActorEventBlock {
     codec: u64,
     value: Vec<u8>,
@@ -381,5 +400,33 @@ mod tests {
         let hex_str = "0xG";
         let result = hex_str_to_epoch(hex_str);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_eth_new_filter() {
+        let eth_event_handler = EthEventHandler::new();
+
+        let filter_spec = EthFilterSpec {
+            from_block: Some("earliest".into()),
+            to_block: Some("latest".into()),
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let chain_height = 50;
+        let result = eth_event_handler.eth_new_filter(&filter_spec, chain_height);
+
+        assert!(result.is_ok(), "Expected successful filter creation");
+    }
+
+    #[test]
+    fn test_eth_new_block_filter() {
+        let eth_event_handler = EthEventHandler::new();
+        let result = eth_event_handler.eth_new_block_filter();
+
+        assert!(result.is_ok(), "Expected successful block filter creation");
     }
 }

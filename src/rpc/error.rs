@@ -15,6 +15,16 @@ pub struct ServerError {
     inner: ErrorObjectOwned,
 }
 
+/// According to the [JSON-RPC 2.0 spec](https://www.jsonrpc.org/specification#response_object),
+/// the error codes from -32000 to -32099 are reserved for implementation-defined server-errors.
+/// We define them here.
+pub(crate) mod implementation_defined_errors {
+    /// This error indicates that the method is not supported by the current version of the Forest
+    /// node. Note that it's not the same as not found, as we are explicitly not supporting it,
+    /// e.g., because it's deprecated or Lotus is doing the same.
+    pub(crate) const UNSUPPORTED_METHOD: i32 = -32001;
+}
+
 impl ServerError {
     pub fn new(
         code: i32,
@@ -41,6 +51,14 @@ impl ServerError {
                 "This method is stubbed as part of https://github.com/ChainSafe/forest/issues/4528"
                     .into(),
             ),
+        )
+    }
+
+    pub fn unsupported_method() -> Self {
+        Self::new(
+            implementation_defined_errors::UNSUPPORTED_METHOD,
+            "unsupported method",
+            Some("This method is not supported by the current version of the Forest node".into()),
         )
     }
 }

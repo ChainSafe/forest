@@ -75,14 +75,25 @@
 - [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
   `Filecoin.EthCall` RPC method.
 
-- [#4465](https://github.com/ChainSafe/forest/issues/4665) Add support for the
+- [#4665](https://github.com/ChainSafe/forest/issues/4665) Add support for the
   `Filecoin.EthNewFilter` RPC method.
+
+- [#4666](https://github.com/ChainSafe/forest/issues/4666) Add support for the
+  `Filecoin.EthNewBlockFilter` RPC method.
 
 - [#4686](https://github.com/ChainSafe/forest/issues/4686) Add support for the
   `Filecoin.EthAddressToFilecoinAddress` RPC method.
 
 - [#4612](https://github.com/ChainSafe/forest/issues/4612) Add support for the
   `Filecoin.MarketAddBalance` RPC method.
+
+- [#4701](https://github.com/ChainSafe/forest/issues/4701) Add method
+  `Filecoin.EthGetTransactionByBlockHashAndIndex` to existing methods (though
+  without support, which matches the current Lotus's behavior).
+
+- [#4702](https://github.com/ChainSafe/forest/issues/4702) Add method
+  `Filecoin.EthGetTransactionByBlockNumberAndIndex` to existing methods (though
+  without support, which matches the current Lotus's behavior).
 
 ### Changed
 
