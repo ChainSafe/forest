@@ -29,7 +29,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install --no-install-recommends -y build-essential clang-14 curl git ca-certificates
 RUN update-ca-certificates
-RUN ln -sf /usr/bin/clang-14 /usr/bin/clang && ln -sf /usr/bin/clang-14++ /usr/bin/clang++
+RUN ln -sf /usr/bin/clang-14 /usr/local/bin/clang && ln -sf /usr/bin/clang-14++ /usr/local/bin/clang++
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
