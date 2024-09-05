@@ -412,7 +412,22 @@ pub(super) async fn start(
             .await
         });
 
-        let finality = chain_config.policy.chain_finality;
+        let finality = std::env::var("FOREST_F3_FINALITY")
+            .ok()
+            .and_then(|finality| {
+                finality.parse().ok().and_then(|f| {
+                    if f > 0 {
+                        tracing::warn!("F3 finality is set to {f} via FOREST_F3_FINALITY");
+                        Some(f)
+                    } else {
+                        tracing::error!(
+                            "F3 finality {f} set via FOREST_F3_FINALITY is invalid, a positive integer is expected."
+                        );
+                        None
+                    }
+                })
+            })
+            .unwrap_or(chain_config.policy.chain_finality);
         let chain = config.chain.to_string();
         services.spawn_blocking(move || {
             crate::f3::run_f3_sidecar_if_enabled(
