@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             file: forest-${{ github.event.inputs.tag }}-linux-amd64.zip
           - os: macos-latest
             file: forest-${{ github.event.inputs.tag }}-macos-amd64.zip

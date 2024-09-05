@@ -1,4 +1,5 @@
-FROM ubuntu:22.04
+# The version has to match Github CI runner images
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
