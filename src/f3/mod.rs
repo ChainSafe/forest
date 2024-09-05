@@ -1,9 +1,9 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(f3sidecar)]
+#[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
-#[cfg(f3sidecar)]
+#[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
 
 pub fn run_f3_sidecar_if_enabled(
@@ -14,7 +14,7 @@ pub fn run_f3_sidecar_if_enabled(
     _manifest_server: String,
 ) {
     if is_sidecar_ffi_enabled() {
-        #[cfg(f3sidecar)]
+        #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
             GoF3NodeImpl::run(
                 _rpc_endpoint,
@@ -34,7 +34,7 @@ fn is_sidecar_ffi_enabled() -> bool {
         Ok(value) => {
             let enabled = matches!(value.to_lowercase().as_str(), "1" | "true");
             cfg_if::cfg_if! {
-                if #[cfg(f3sidecar)] {
+                if #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))] {
                     enabled
                 }
                 else {

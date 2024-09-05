@@ -30,6 +30,10 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
 RUN update-ca-certificates
 
+# install Go
+RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | bash
+RUN "${HOME}/.g/bin/g" install 1.21 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
+
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
