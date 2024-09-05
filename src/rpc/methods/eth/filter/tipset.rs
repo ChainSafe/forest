@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use parking_lot::RwLock;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TipSetFilter {
     id: FilterID,
     max_results: usize,
@@ -56,9 +56,9 @@ impl TipSetFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> bool {
+    pub fn remove(&self, id: &FilterID) -> Option<Arc<TipSetFilter>> {
         let mut filters = self.filters.write();
-        filters.remove(id).is_some()
+        filters.remove(id)
     }
 }
 
@@ -88,7 +88,11 @@ mod tests {
         // Test case 3: Remove the installed TipSetFilter
         let filter_id = installed_filter.id().clone();
         let removed = tipset_manager.remove(&filter_id);
-        assert!(removed, "Filter should be successfully removed");
+        assert_eq!(
+            removed,
+            Some(installed_filter),
+            "Filter should be successfully removed"
+        );
 
         // Verify that the filter is no longer in the tipset manager
         {

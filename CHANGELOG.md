@@ -75,8 +75,11 @@
 - [#4613](https://github.com/ChainSafe/forest/issues/4613) Add support for the
   `Filecoin.EthCall` RPC method.
 
-- [#4465](https://github.com/ChainSafe/forest/issues/4665) Add support for the
+- [#4665](https://github.com/ChainSafe/forest/issues/4665) Add support for the
   `Filecoin.EthNewFilter` RPC method.
+
+- [#4666](https://github.com/ChainSafe/forest/issues/4666) Add support for the
+  `Filecoin.EthNewBlockFilter` RPC method.
 
 - [#4667](https://github.com/ChainSafe/forest/issues/4667) Add support for the
   `Filecoin.EthNewPendingTransactionFilter` RPC method.

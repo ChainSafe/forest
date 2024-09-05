@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-push-docker-image:
     name: Build image and push to GHCR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: List cached docker images
         run: docker image ls
