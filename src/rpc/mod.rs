@@ -92,6 +92,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthNewFilter);
+        $callback!(crate::rpc::eth::EthNewBlockFilter);
         $callback!(crate::rpc::eth::EthSyncing);
         $callback!(crate::rpc::eth::Web3ClientVersion);
 
