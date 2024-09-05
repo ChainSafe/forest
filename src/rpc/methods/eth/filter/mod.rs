@@ -455,4 +455,15 @@ mod tests {
 
         assert!(result.is_ok(), "Expected successful block filter creation");
     }
+
+    #[test]
+    fn test_eth_new_pending_transaction_filter() {
+        let eth_event_handler = EthEventHandler::new();
+        let result = eth_event_handler.eth_new_pending_transaction_filter();
+
+        assert!(
+            result.is_ok(),
+            "Expected successful pending transaction filter creation"
+        );
+    }
 }
