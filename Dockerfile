@@ -22,14 +22,13 @@
 # https://github.com/tonistiigi/xx
 FROM --platform=$BUILDPLATFORM ghcr.io/lesnyrumcajs/xx:1.2.1 AS xx
 
-FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS build-env
+FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang-14 curl git ca-certificates
+    apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
 RUN update-ca-certificates
-RUN ln -sf /usr/bin/clang-14 /usr/bin/clang && ln -sf /usr/bin/clang-14++ /usr/bin/clang++
 
 # install Go
 RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | bash
@@ -65,7 +64,7 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
 # A slim image contains only forest binaries
-FROM ubuntu:24.04 AS slim-image
+FROM ubuntu:22.04 AS slim-image
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
