@@ -51,23 +51,18 @@ where
             let id = req.id();
             let id = create_unique_id(id, start_time);
 
-            let params = if tracing::enabled!(tracing::Level::DEBUG) {
-                req.params().as_str().map(ToOwned::to_owned)
-            } else {
-                None
-            };
-
-            let resp = service.call(req).await;
-            let elapsed = start_time.elapsed();
-            let result = resp.as_error_code().map_or(
-                Cow::Borrowed("OK"),
-                |code| Cow::Owned(format!("ERR({code})"))
-            );
-            tracing::info!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
             tracing::debug!(
                 "RPC#{id}: {method_name}. Params: {params}",
-                params = params.unwrap_or_else(|| "[]".to_owned())
+                params = req.params().as_str().unwrap_or("[]")
             );
+
+            let resp = service.call(req).await;
+
+            let elapsed = start_time.elapsed();
+            let result = resp.as_error_code().map_or(Cow::Borrowed("OK"), |code| {
+                Cow::Owned(format!("ERR({code})"))
+            });
+            tracing::info!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
 
             resp
         }
