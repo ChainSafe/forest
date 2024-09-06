@@ -59,11 +59,10 @@ where
 
             let resp = service.call(req).await;
             let elapsed = start_time.elapsed();
-            let result = if let Some(code) = resp.as_error_code() {
-                Cow::Owned(format!("ERR({code})"))
-            } else {
-                "OK".into()
-            };
+            let result = resp.as_error_code().map_or(
+                Cow::Borrowed("OK"),
+                |code| Cow::Owned(format!("ERR({code})"))
+            );
             tracing::info!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
             tracing::debug!(
                 "RPC#{id}: {method_name}. Params: {params}",
