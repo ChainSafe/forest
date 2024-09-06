@@ -6,7 +6,7 @@ repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
-exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests"]
+exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
 
 [dependencies]
 ahash = "0.8"

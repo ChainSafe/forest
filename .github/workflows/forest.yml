@@ -100,9 +100,12 @@ jobs:
       - name: Install Apt Dependencies
         run: |
           sudo make install-deps
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - run: cargo publish --dry-run
         env:
-          FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
+          GOWORK: off
   forest-cli-check:
     needs:
       - build-ubuntu

@@ -412,18 +412,23 @@ pub(super) async fn start(
             .await
         });
 
-        let finality = chain_config.policy.chain_finality;
-        let chain = config.chain.to_string();
-        services.spawn_blocking(move || {
-            crate::f3::run_f3_sidecar_if_enabled(
-                format!("http://{rpc_address}/rpc/v1"),
-                crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
-                finality,
-                std::env::var("FOREST_F3_DB_PATH")
-                    .unwrap_or_else(|_| format!("/var/tmp/f3-db-{chain}")),
-                std::env::var("FOREST_F3_MANIFEST_SERVER").unwrap_or_default(),
-            );
-            Ok(())
+        services.spawn_blocking({
+            let finality = chain_config.policy.chain_finality;
+            let default_f3_db_path = config
+                .client
+                .data_dir
+                .join(format!("/var/tmp/f3-db/{}", config.chain));
+            move || {
+                crate::f3::run_f3_sidecar_if_enabled(
+                    format!("http://{rpc_address}/rpc/v1"),
+                    crate::rpc::f3::get_f3_rpc_socket_addr()?.to_string(),
+                    finality,
+                    std::env::var("FOREST_F3_DB_PATH")
+                        .unwrap_or(default_f3_db_path.display().to_string()),
+                    std::env::var("FOREST_F3_MANIFEST_SERVER").unwrap_or_default(),
+                );
+                Ok(())
+            }
         });
     } else {
         debug!("RPC disabled.");

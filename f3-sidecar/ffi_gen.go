@@ -8,10 +8,6 @@ package main
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct EmptyReqRef {
-
-} EmptyReqRef;
-
 typedef struct ListRef {
   const void *ptr;
   uintptr_t len;
@@ -37,12 +33,12 @@ import (
 var GoF3NodeImpl GoF3Node
 
 type GoF3Node interface {
-	run(rpc_endpoint string, f3_rpc_endpoint string, finality int64, db string, manifest_server string) bool
+	run(rpc_endpoint string, f3_rpc_socket_address string, finality int64, db string, manifest_server string) bool
 }
 
 //export CGoF3Node_run
-func CGoF3Node_run(rpc_endpoint C.StringRef, f3_rpc_endpoint C.StringRef, finality C.int64_t, db C.StringRef, manifest_server C.StringRef, slot *C.void, cb *C.void) {
-	resp := GoF3NodeImpl.run(newString(rpc_endpoint), newString(f3_rpc_endpoint), newC_int64_t(finality), newString(db), newString(manifest_server))
+func CGoF3Node_run(rpc_endpoint C.StringRef, f3_rpc_socket_address C.StringRef, finality C.int64_t, db C.StringRef, manifest_server C.StringRef, slot *C.void, cb *C.void) {
+	resp := GoF3NodeImpl.run(newString(rpc_endpoint), newString(f3_rpc_socket_address), newC_int64_t(finality), newString(db), newString(manifest_server))
 	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
 	C.GoF3Node_run_cb(unsafe.Pointer(cb), resp_ref, unsafe.Pointer(slot))
 	runtime.KeepAlive(resp)
@@ -195,16 +191,3 @@ func refC_uintptr_t(p *uint, _ *[]byte) C.uintptr_t { return C.uintptr_t(*p) }
 func refC_intptr_t(p *int, _ *[]byte) C.intptr_t    { return C.intptr_t(*p) }
 func refC_float(p *float32, _ *[]byte) C.float      { return C.float(*p) }
 func refC_double(p *float64, _ *[]byte) C.double    { return C.double(*p) }
-
-type EmptyReq struct {
-}
-
-func newEmptyReq(p C.EmptyReqRef) EmptyReq {
-	return EmptyReq{}
-}
-func cntEmptyReq(s *EmptyReq, cnt *uint) [0]C.EmptyReqRef {
-	return [0]C.EmptyReqRef{}
-}
-func refEmptyReq(p *EmptyReq, buffer *[]byte) C.EmptyReqRef {
-	return C.EmptyReqRef{}
-}

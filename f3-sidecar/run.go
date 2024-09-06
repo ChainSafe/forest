@@ -18,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcSocketAddress string, finality int64, db string, manifestServer string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -97,7 +97,7 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	srv := &http.Server{
 		Handler: rpcServer,
 	}
-	listener, err := net.Listen("tcp", f3RpcEndpoint)
+	listener, err := net.Listen("tcp", f3RpcSocketAddress)
 	if err != nil {
 		return err
 	}
