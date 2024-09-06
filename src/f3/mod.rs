@@ -1,10 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(f3sidecar)]
+#[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
-#[cfg(f3sidecar)]
+#[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
+
+use crate::utils::misc::env::is_env_truthy;
 
 pub fn run_f3_sidecar_if_enabled(
     _rpc_endpoint: String,
@@ -14,7 +16,7 @@ pub fn run_f3_sidecar_if_enabled(
     _manifest_server: String,
 ) {
     if is_sidecar_ffi_enabled() {
-        #[cfg(f3sidecar)]
+        #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
             GoF3NodeImpl::run(
                 _rpc_endpoint,
@@ -30,21 +32,16 @@ pub fn run_f3_sidecar_if_enabled(
 // Use opt-in mode for now. Consider switching to opt-out mode once F3 is shipped.
 fn is_sidecar_ffi_enabled() -> bool {
     // Opt-out building the F3 sidecar staticlib
-    match std::env::var("FOREST_F3_SIDECAR_FFI_ENABLED") {
-        Ok(value) => {
-            let enabled = matches!(value.to_lowercase().as_str(), "1" | "true");
-            cfg_if::cfg_if! {
-                if #[cfg(f3sidecar)] {
-                    enabled
-                }
-                else {
-                    if enabled {
-                        tracing::error!("Failed to enable F3 sidecar, the forerst binary is not compiled with f3-sidecar Go lib");
-                    }
-                    false
-                }
-            }
+    let enabled = is_env_truthy("FOREST_F3_SIDECAR_FFI_ENABLED");
+    cfg_if::cfg_if! {
+        if #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))] {
+            enabled
         }
-        _ => false,
+        else {
+            if enabled {
+                tracing::error!("Failed to enable F3 sidecar, the forerst binary is not compiled with f3-sidecar Go lib");
+            }
+            false
+        }
     }
 }

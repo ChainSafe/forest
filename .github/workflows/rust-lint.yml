@@ -30,7 +30,7 @@ env:
 jobs:
   lint-all:
     name: All lint checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Configure SCCache variables
         run: |
@@ -61,7 +61,7 @@ jobs:
 
   dependencies-check:
     name: Check cargo files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby

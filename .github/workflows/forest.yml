@@ -54,7 +54,7 @@ jobs:
         run: cargo check
   build-ubuntu:
     name: Build Ubuntu
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Configure SCCache variables
         run: |
@@ -89,7 +89,7 @@ jobs:
             ~/.cargo/bin/forest*
           if-no-files-found: error
   cargo-publish-dry-run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -100,14 +100,17 @@ jobs:
       - name: Install Apt Dependencies
         run: |
           sudo make install-deps
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - run: cargo publish --dry-run
         env:
-          FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT: 1
+          GOWORK: off
   forest-cli-check:
     needs:
       - build-ubuntu
     name: Forest CLI checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -129,7 +132,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -158,7 +161,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet stateless mode check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -184,7 +187,7 @@ jobs:
     needs:
       - build-ubuntu
     name: State migrations
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -206,7 +209,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Wallet tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -233,7 +236,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Snapshot export checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -255,7 +258,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet no discovery checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -276,7 +279,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet kademlia checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -297,7 +300,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet eth mapping check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: lscpu
       - uses: actions/cache@v4
@@ -322,7 +325,7 @@ jobs:
   db-migration-checks:
     needs:
       - build-ubuntu
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/cache@v4
         with:
@@ -342,7 +345,7 @@ jobs:
   db-migration-checks-car-db:
     needs:
       - build-ubuntu
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/cache@v4
         with:
@@ -361,7 +364,7 @@ jobs:
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   local-devnet-check:
     name: Devnet checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - build-ubuntu
     env:
@@ -408,7 +411,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
@@ -451,7 +454,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Bootstrap checks - Forest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
@@ -470,7 +473,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Bootstrap checks - Lotus
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile

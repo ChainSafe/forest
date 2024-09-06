@@ -1,3 +1,11 @@
+### Dependencies
+
+In addition to the Rust toolchain, Go toolchain is required to build the
+`f3-sidecar`. The Go version is specified in `go.mod`.
+
+Follow https://go.dev/doc/install or use one of the version managers of Go.
+(e.g. https://github.com/voidint/g?tab=readme-ov-file#installation)
+
 ### EC tests
 
 - run a forest node locally and expose RPC port at the default 2345

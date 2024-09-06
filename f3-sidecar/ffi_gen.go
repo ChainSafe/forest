@@ -8,10 +8,6 @@ package main
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct EmptyReqRef {
-
-} EmptyReqRef;
-
 typedef struct ListRef {
   const void *ptr;
   uintptr_t len;
@@ -195,16 +191,3 @@ func refC_uintptr_t(p *uint, _ *[]byte) C.uintptr_t { return C.uintptr_t(*p) }
 func refC_intptr_t(p *int, _ *[]byte) C.intptr_t    { return C.intptr_t(*p) }
 func refC_float(p *float32, _ *[]byte) C.float      { return C.float(*p) }
 func refC_double(p *float64, _ *[]byte) C.double    { return C.double(*p) }
-
-type EmptyReq struct {
-}
-
-func newEmptyReq(p C.EmptyReqRef) EmptyReq {
-	return EmptyReq{}
-}
-func cntEmptyReq(s *EmptyReq, cnt *uint) [0]C.EmptyReqRef {
-	return [0]C.EmptyReqRef{}
-}
-func refEmptyReq(p *EmptyReq, buffer *[]byte) C.EmptyReqRef {
-	return C.EmptyReqRef{}
-}

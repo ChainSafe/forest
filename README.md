@@ -51,15 +51,19 @@ docker exec -it forest /bin/bash
 ```
 
 For more in-depth usage and sample use cases, please refer to the Forest Docker
-documentation in the [Forest Book]. Keep in mind that the `latest` tag is the
-latest stable release. If you want to use the current development build, use the
-`edge` tag.
+documentation in the [Forest Book]. Keep in mind that the `latest` tag is the latest
+stable release. If you want to use the current development build, use the `edge`
+tag.
 
 ## Dependencies
 
 - Rust (toolchain version is specified in `rust-toolchain.toml`)
+- Go for building F3 sidecar module. (toolchain version is specified in
+  `go.work`)
 
 Install [rustup](https://rustup.rs/)
+
+Install [Go](https://go.dev/doc/install)
 
 - OS Base-Devel/Build-Essential
 - Clang compiler
