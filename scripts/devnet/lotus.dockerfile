@@ -1,5 +1,5 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
-FROM golang:1.21-bookworm AS lotus-builder
+FROM golang:1.21-bullseye AS lotus-builder
 
 RUN apt-get update && apt-get install -y curl ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
 
@@ -19,7 +19,7 @@ RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     FFI_USE_GPU="0" \
     make 2k && strip lotus*
 
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 # Needed for the healthcheck
 RUN apt-get update && apt-get install -y curl
