@@ -9,8 +9,8 @@ use jsonrpsee::MethodResponse;
 use tower::Layer;
 
 // State-less jsonrpcsee layer for measuring RPC metrics
-#[derive(Clone)]
-pub struct MetricsLayer {}
+#[derive(Clone, Default)]
+pub(super) struct MetricsLayer {}
 
 impl<S> Layer<S> for MetricsLayer {
     type Service = RecordMetrics<S>;
@@ -21,7 +21,7 @@ impl<S> Layer<S> for MetricsLayer {
 }
 
 #[derive(Clone)]
-pub struct RecordMetrics<S> {
+pub(super) struct RecordMetrics<S> {
     service: S,
 }
 
@@ -40,18 +40,18 @@ where
         async move {
             // Cannot use HistogramTimerExt::start_timer here since it would lock the metric.
             let start_time = std::time::Instant::now();
-            let req = service.call(req).await;
+            let resp = service.call(req).await;
 
             metrics::RPC_METHOD_TIME
                 .get_or_create(&method)
                 // Observe the elapsed time in milliseconds
                 .observe(start_time.elapsed().as_secs_f64() * 1000.0);
 
-            if req.is_error() {
+            if resp.is_error() {
                 metrics::RPC_METHOD_FAILURE.get_or_create(&method).inc();
             }
 
-            req
+            resp
         }
         .boxed()
     }
