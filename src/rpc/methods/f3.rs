@@ -37,13 +37,7 @@ use libp2p::PeerId;
 use num::Signed as _;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::{
-    borrow::Cow,
-    fmt::Display,
-    net::{AddrParseError, SocketAddr},
-    str::FromStr as _,
-    sync::Arc,
-};
+use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
 static F3_LEASE_MANAGER: Lazy<F3LeaseManager> = Lazy::new(Default::default);
 
@@ -589,17 +583,16 @@ impl RpcMethod<3> for F3Participate {
     }
 }
 
-pub fn get_f3_rpc_socket_addr() -> Result<SocketAddr, AddrParseError> {
-    if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_SOCKET_ADDRESS") {
+pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
+    if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_ENDPOINT") {
         Cow::Owned(host)
     } else {
         Cow::Borrowed("127.0.0.1:23456")
     }
-    .parse()
 }
 
 fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
     let client = jsonrpsee::http_client::HttpClientBuilder::new()
-        .build(format!("http://{}", get_f3_rpc_socket_addr()?))?;
+        .build(format!("http://{}", get_f3_rpc_endpoint()))?;
     Ok(client)
 }

@@ -421,7 +421,7 @@ pub(super) async fn start(
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
                     format!("http://{rpc_address}/rpc/v1"),
-                    crate::rpc::f3::get_f3_rpc_socket_addr()?.to_string(),
+                    crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
                     finality,
                     std::env::var("FOREST_F3_DB_PATH")
                         .unwrap_or(default_f3_db_path.display().to_string()),

@@ -11,7 +11,7 @@ pub mod binding {
 pub trait GoF3Node {
     fn run(
         rpc_endpoint: String,
-        f3_rpc_socket_address: String,
+        f3_rpc_endpoint: String,
         finality: i64,
         db: String,
         manifest_server: String,

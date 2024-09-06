@@ -21,8 +21,8 @@ type f3Impl struct {
 	ctx context.Context
 }
 
-func (f3 *f3Impl) run(rpc_endpoint string, f3_rpc_socket_address string, finality int64, db string, manifest_server string) bool {
-	err := run(f3.ctx, rpc_endpoint, f3_rpc_socket_address, finality, db, manifest_server)
+func (f3 *f3Impl) run(rpc_endpoint string, f3_rpc_endpoint string, finality int64, db string, manifest_server string) bool {
+	err := run(f3.ctx, rpc_endpoint, f3_rpc_endpoint, finality, db, manifest_server)
 	return err == nil
 }
 
