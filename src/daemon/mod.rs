@@ -417,7 +417,7 @@ pub(super) async fn start(
             let default_f3_db_path = config
                 .client
                 .data_dir
-                .join(format!("/var/tmp/f3-db/{}", config.chain));
+                .join(format!("f3-db/{}", config.chain));
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
                     format!("http://{rpc_address}/rpc/v1"),
