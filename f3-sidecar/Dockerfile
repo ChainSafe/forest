@@ -1,5 +1,5 @@
 # F3 sidecar binaries image
-FROM golang:1.21-bullseye AS builder
+FROM golang:1.21-bookworm AS builder
 
 WORKDIR /f3
 
@@ -7,7 +7,7 @@ COPY * /f3
 
 RUN go build . && strip f3-sidecar
 
-FROM ubuntu:focal
+FROM ubuntu:24.04
 
 WORKDIR /f3
 
