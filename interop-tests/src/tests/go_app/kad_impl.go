@@ -56,6 +56,6 @@ func (impl *kadImpl) connect(multiaddr string) {
 
 }
 
-func (impl *kadImpl) get_n_connected(req EmptyReq) uint {
+func (impl *kadImpl) get_n_connected() uint {
 	return uint(impl.node.host.Peerstore().Peers().Len())
 }
