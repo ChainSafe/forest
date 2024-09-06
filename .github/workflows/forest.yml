@@ -104,8 +104,6 @@ jobs:
         with:
           go-version-file: "go.work"
       - run: cargo publish --dry-run
-        env:
-          GOWORK: off
   forest-cli-check:
     needs:
       - build-ubuntu
