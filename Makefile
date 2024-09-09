@@ -93,7 +93,7 @@ lint-docker: $(DOCKERFILES)
 fmt:
 	cargo fmt --all
 	taplo fmt
-	yarn md-fmt
+	yarn && yarn md-fmt
 
 build:
 	cargo build

@@ -147,7 +147,6 @@ fn default_env_filter() -> EnvFilter {
         "libp2p_bitswap=off",
         "libp2p_gossipsub=error",
         "libp2p_kad=error",
-        "rpc=error",
         "storage_proofs_core=warn",
         "tracing_loki=off",
         "quinn_udp=error",
