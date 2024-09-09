@@ -81,6 +81,9 @@
 - [#4666](https://github.com/ChainSafe/forest/issues/4666) Add support for the
   `Filecoin.EthNewBlockFilter` RPC method.
 
+- [#4667](https://github.com/ChainSafe/forest/issues/4667) Add support for the
+  `Filecoin.EthNewPendingTransactionFilter` RPC method.
+
 - [#4686](https://github.com/ChainSafe/forest/issues/4686) Add support for the
   `Filecoin.EthAddressToFilecoinAddress` RPC method.
 
