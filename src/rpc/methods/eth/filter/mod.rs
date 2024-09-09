@@ -148,26 +148,26 @@ impl EthEventHandler {
             self.event_filter_manager
                 .as_ref()
                 .context("Event filter manager is missing")?
-                .remove(&id)
+                .remove(id)
                 .context("Failed to remove event filter")?;
         } else if filter.as_any().is::<TipSetFilter>() {
             self.tipset_filter_manager
                 .as_ref()
                 .context("TipSet filter manager is missing")?
-                .remove(&id)
+                .remove(id)
                 .context("Failed to remove tipset filter")?;
         } else if filter.as_any().is::<MempoolFilter>() {
             self.mempool_filter_manager
                 .as_ref()
                 .context("Mempool filter manager is missing")?
-                .remove(&id)
+                .remove(id)
                 .context("Failed to remove mempool filter")?;
         }
 
         self.filter_store
             .as_ref()
             .context("Filter store is missing")?
-            .remove(&id)
+            .remove(id)
             .context("Failed to remove filter from store")?;
 
         Ok(())
