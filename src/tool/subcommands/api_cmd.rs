@@ -40,6 +40,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
+use libp2p::PeerId;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -656,24 +657,24 @@ fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
-    let random_peer_id = libp2p::PeerId::random().to_string();
-
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
-        RpcTest::basic(NetAgentVersion::request((random_peer_id.clone(),)).unwrap())
+        // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
+        RpcTest::basic(NetAgentVersion::request((PeerId::random().to_string(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::basic(NetFindPeer::request((random_peer_id,)).unwrap())
+        RpcTest::basic(NetFindPeer::request((PeerId::random().to_string(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::Pass)
             .ignore("It times out in lotus when peer not found"),
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
         RpcTest::identity(NetVersion::request(()).unwrap()),
+        RpcTest::identity(NetProtectAdd::request((PeerId::random().to_string(),)).unwrap()),
+        RpcTest::identity(NetProtectRemove::request((PeerId::random().to_string(),)).unwrap()),
     ]
 }
 
