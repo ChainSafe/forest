@@ -129,12 +129,8 @@ impl KeyStore {
                         // Existing cleartext JSON keystore
                         let persisted_key_info: HashMap<String, PersistentKeyInfo> =
                             serde_json::from_reader(reader)
-                                .map_err(|e| {
-                                    error!(
-                                "failed to deserialize keyfile, initializing new keystore at: {:?}",
-                                file_path
-                            );
-                                    e
+                                .inspect_err(|error| {
+                                    error!(%error, "failed to deserialize keyfile, initializing new keystore at: {}.", file_path.display());
                                 })
                                 .unwrap_or_default();
 
@@ -160,8 +156,8 @@ impl KeyStore {
                     Err(e) => {
                         if e.kind() == ErrorKind::NotFound {
                             warn!(
-                                "Keystore does not exist, initializing new keystore at: {:?}",
-                                file_path
+                                "Keystore does not exist, initializing new keystore at: {}",
+                                file_path.display()
                             );
                             Ok(Self {
                                 key_info: HashMap::new(),
@@ -230,9 +226,8 @@ impl KeyStore {
                                 .map_err(|error| Error::Other(error.to_string()))?;
 
                             let key_info = from_slice_with_fallback(&decrypted_data)
-                                .map_err(|e| {
-                                    error!("Failed to deserialize keyfile, initializing new");
-                                    e
+                                .inspect_err(|error| {
+                                    error!(%error, "Failed to deserialize keyfile, initializing new");
                                 })
                                 .unwrap_or_default();
 
