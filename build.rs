@@ -9,6 +9,7 @@ fn main() {
     // No proper version of Go compiler is available.
     if !is_docs_rs() && is_sidecar_ffi_enabled() {
         println!("cargo:rustc-cfg=f3sidecar");
+        std::env::set_var("GOWORK", "off");
         rust2go::Builder::default()
             .with_go_src("./f3-sidecar")
             .with_regen_arg(rust2go::RegenArgs {

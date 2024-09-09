@@ -3,11 +3,9 @@
 
 pub mod binding {
     #![allow(warnings)]
+    #![allow(clippy::indexing_slicing)]
     rust2go::r2g_include_binding!();
 }
-
-#[derive(rust2go::R2G, Clone, Default)]
-pub struct EmptyReq {}
 
 #[rust2go::r2g]
 pub trait GoKadNode {
@@ -15,7 +13,7 @@ pub trait GoKadNode {
 
     fn connect(multiaddr: &String);
 
-    fn get_n_connected(req: &EmptyReq) -> usize;
+    fn get_n_connected() -> usize;
 }
 
 #[rust2go::r2g]
