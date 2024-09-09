@@ -140,6 +140,52 @@ impl EthEventHandler {
             .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
         self.install_filter(&filter_manager)
     }
+
+    fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {
+        let id = filter.id();
+
+        if filter.as_any().is::<EventFilter>() {
+            self.event_filter_manager
+                .as_ref()
+                .context("Event filter manager is missing")?
+                .remove(&id)
+                .context("Failed to remove event filter")?;
+        } else if filter.as_any().is::<TipSetFilter>() {
+            self.tipset_filter_manager
+                .as_ref()
+                .context("TipSet filter manager is missing")?
+                .remove(&id)
+                .context("Failed to remove tipset filter")?;
+        } else if filter.as_any().is::<MempoolFilter>() {
+            self.mempool_filter_manager
+                .as_ref()
+                .context("Mempool filter manager is missing")?
+                .remove(&id)
+                .context("Failed to remove mempool filter")?;
+        }
+
+        self.filter_store
+            .as_ref()
+            .context("Filter store is missing")?
+            .remove(&id)
+            .context("Failed to remove filter from store")?;
+
+        Ok(())
+    }
+
+    pub fn eth_uninstall_filter(&self, id: &FilterID) -> Result<bool, Error> {
+        let store = self
+            .filter_store
+            .as_ref()
+            .context("Filter store is not supported")?;
+
+        if let Ok(filter) = store.get(id) {
+            self.uninstall_filter(filter)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 impl EthFilterSpec {
@@ -477,5 +523,38 @@ mod tests {
             result.is_ok(),
             "Expected successful pending transaction filter creation"
         );
+    }
+
+    #[test]
+    fn test_eth_uninstall_filter() {
+        let event_handler = EthEventHandler::new();
+        let mut filter_ids = Vec::new();
+        let filter_spec = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let filter_id = event_handler.eth_new_filter(&filter_spec, 0).unwrap();
+        filter_ids.push(filter_id);
+
+        let block_filter_id = event_handler.eth_new_block_filter().unwrap();
+        filter_ids.push(block_filter_id);
+
+        let pending_tx_filter_id = event_handler.eth_new_pending_transaction_filter().unwrap();
+        filter_ids.push(pending_tx_filter_id);
+
+        for filter_id in filter_ids {
+            let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
+            assert!(
+                result,
+                "Uninstalling filter with id {:?} failed",
+                &filter_id
+            );
+        }
     }
 }

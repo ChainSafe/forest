@@ -6,6 +6,7 @@ use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
+use std::any::Any;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
@@ -24,6 +25,10 @@ impl TipSetFilter {
 impl Filter for TipSetFilter {
     fn id(&self) -> &FilterID {
         &self.id
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
