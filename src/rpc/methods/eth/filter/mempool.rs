@@ -7,11 +7,13 @@ use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
 
+/// Data structure for filtering and collecting pending transactions
+/// from the mempool before they are confirmed in a block.
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct MempoolFilter {
-    id: FilterID,
-    max_results: usize,
+    id: FilterID,       // Unique id used to identify the filter
+    max_results: usize, // maximum number of results to collect
 }
 
 impl MempoolFilter {

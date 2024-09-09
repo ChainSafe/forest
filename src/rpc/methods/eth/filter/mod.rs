@@ -1,6 +1,19 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! # Ethereum Event Filters Module
+//!
+//! This module provides the structures and logic necessary to manage filters for Ethereum
+//! events, tipsets, and mempool operations. Ethereum event filters enable clients to monitor
+//! and subscribe to changes in the blockchain, such as log events, pending transactions in the
+//! mempool, or new tipsets in the chain. These filters can be customized to capture specific events
+//! or conditions based on various parameters.
+//!
+//! ## Filter Types:
+//!
+//! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
+//! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
+//! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
 mod event;
 mod mempool;
 mod store;
