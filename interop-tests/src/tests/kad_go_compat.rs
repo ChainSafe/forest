@@ -34,11 +34,11 @@ async fn kad_go_compat_test() -> anyhow::Result<()> {
     // Wait for 10s
     for _ in 0..10 {
         tokio::time::sleep(Duration::from_secs(1)).await;
-        if GoKadNodeImpl::get_n_connected(&Default::default()) > 2 {
+        if GoKadNodeImpl::get_n_connected() > 2 {
             break;
         }
     }
-    assert!(GoKadNodeImpl::get_n_connected(&Default::default()) > 2);
+    assert!(GoKadNodeImpl::get_n_connected() > 2);
     Ok(())
 }
 

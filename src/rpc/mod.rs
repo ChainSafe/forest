@@ -4,6 +4,7 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod log_layer;
 mod metrics_layer;
 mod request;
 
@@ -11,6 +12,7 @@ pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
 use futures::FutureExt as _;
+use log_layer::LogLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -482,7 +484,8 @@ where
                         headers,
                         keystore: keystore.clone(),
                     })
-                    .layer(MetricsLayer {});
+                    .layer(LogLayer::default())
+                    .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
