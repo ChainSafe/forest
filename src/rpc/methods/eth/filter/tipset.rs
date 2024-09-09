@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::{filter::Filter, FilterID};
+use crate::rpc::eth::{filter::Filter, filter::FilterManager, FilterID};
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
@@ -33,7 +33,7 @@ impl Filter for TipSetFilter {
 /// configured for each filter.
 #[derive(Debug)]
 pub struct TipSetFilterManager {
-    filters: RwLock<HashMap<FilterID, Arc<TipSetFilter>>>,
+    filters: RwLock<HashMap<FilterID, Arc<dyn Filter>>>,
     max_filter_results: usize,
 }
 
@@ -44,19 +44,20 @@ impl TipSetFilterManager {
             max_filter_results,
         })
     }
+}
 
-    pub fn install(&self) -> Result<Arc<TipSetFilter>> {
+impl FilterManager for TipSetFilterManager {
+    fn install(&self) -> Result<Arc<dyn Filter>> {
         let filter = TipSetFilter::new(self.max_filter_results)
-            .context("Failed to create a new TipSetFilter")?;
-        let id = filter.id.clone();
+            .context("Failed to create a new tipset filter")?;
+        let id = filter.id().clone();
 
-        let mut filters = self.filters.write();
-        filters.insert(id, filter.clone());
+        self.filters.write().insert(id, filter.clone());
 
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> Option<Arc<TipSetFilter>> {
+    fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>> {
         let mut filters = self.filters.write();
         filters.remove(id)
     }
@@ -89,8 +90,8 @@ mod tests {
         let filter_id = installed_filter.id().clone();
         let removed = tipset_manager.remove(&filter_id);
         assert_eq!(
-            removed,
-            Some(installed_filter),
+            removed.map(|f| f.id().clone()),
+            Some(installed_filter.id().clone()),
             "Filter should be successfully removed"
         );
 

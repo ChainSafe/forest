@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::{filter::Filter, FilterID};
+use crate::rpc::eth::{filter::Filter, filter::FilterManager, FilterID};
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
@@ -31,7 +31,7 @@ impl Filter for MempoolFilter {
 /// instances, each identified by a `FilterID`. The number of results returned by the filters is capped by `max_filter_results`.
 #[derive(Debug)]
 pub struct MempoolFilterManager {
-    filters: RwLock<HashMap<FilterID, Arc<MempoolFilter>>>,
+    filters: RwLock<HashMap<FilterID, Arc<dyn Filter>>>,
     max_filter_results: usize,
 }
 
@@ -42,19 +42,20 @@ impl MempoolFilterManager {
             max_filter_results,
         })
     }
+}
 
-    pub fn install(&self) -> Result<Arc<MempoolFilter>> {
+impl FilterManager for MempoolFilterManager {
+    fn install(&self) -> Result<Arc<dyn Filter>> {
         let filter = MempoolFilter::new(self.max_filter_results)
             .context("Failed to create a new mempool filter")?;
-        let id = filter.id.clone();
+        let id = filter.id().clone();
 
-        let mut filters = self.filters.write();
-        filters.insert(id, filter.clone());
+        self.filters.write().insert(id, filter.clone());
 
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> Option<Arc<MempoolFilter>> {
+    fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>> {
         let mut filters = self.filters.write();
         filters.remove(id)
     }
@@ -87,8 +88,8 @@ mod tests {
         let filter_id = installed_filter.id().clone();
         let removed = mempool_manager.remove(&filter_id);
         assert_eq!(
-            removed,
-            Some(installed_filter),
+            removed.map(|f| f.id().clone()),
+            Some(installed_filter.id().clone()),
             "Filter should be successfully removed"
         );
 

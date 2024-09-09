@@ -23,6 +23,12 @@ use serde::*;
 use std::sync::Arc;
 use store::*;
 
+/// Trait for managing filters. Provides common functionality for installing and removing filters.
+pub trait FilterManager {
+    fn install(&self) -> Result<Arc<dyn Filter>, Error>;
+    fn remove(&self, filter_id: &FilterID) -> Option<Arc<dyn Filter>>;
+}
+
 /// Handles Ethereum event filters, providing an interface for creating and managing filters.
 ///
 /// The `EthEventHandler` structure is the central point for managing Ethereum filters,
@@ -86,19 +92,15 @@ impl EthEventHandler {
         }
     }
 
-    // Installs an eth tipset filter
-    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
-        if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
-            let filter = tipset_filter_manager
-                .install()
-                .context("Installation error")?;
-
+    fn install_filter(
+        &self,
+        filter_manager: &Option<Arc<dyn FilterManager>>,
+    ) -> Result<FilterID, Error> {
+        if let Some(manager) = filter_manager {
+            let filter = manager.install().context("Installation error")?;
             if let Some(filter_store) = &self.filter_store {
                 if let Err(err) = filter_store.add(filter.clone()) {
-                    ensure!(
-                        tipset_filter_manager.remove(filter.id()).is_some(),
-                        "Filter not found"
-                    );
+                    ensure!(manager.remove(filter.id()).is_some(), "Filter not found");
                     bail!("Adding filter failed: {}", err);
                 }
             }
@@ -108,25 +110,22 @@ impl EthEventHandler {
         }
     }
 
-    pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
-        if let Some(mempool_filter_manager) = &self.mempool_filter_manager {
-            let filter = mempool_filter_manager
-                .install()
-                .context("Installation error")?;
+    // Installs an eth block filter
+    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
+        let filter_manager: Option<Arc<dyn FilterManager>> = self
+            .tipset_filter_manager
+            .as_ref()
+            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
+        self.install_filter(&filter_manager)
+    }
 
-            if let Some(filter_store) = &self.filter_store {
-                if let Err(err) = filter_store.add(filter.clone()) {
-                    ensure!(
-                        mempool_filter_manager.remove(filter.id()).is_some(),
-                        "Filter not found"
-                    );
-                    bail!("Adding filter failed: {}", err);
-                }
-            }
-            Ok(filter.id().clone())
-        } else {
-            Err(Error::msg("NotSupported"))
-        }
+    // Installs an eth pending transaction filter
+    pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
+        let filter_manager: Option<Arc<dyn FilterManager>> = self
+            .mempool_filter_manager
+            .as_ref()
+            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
+        self.install_filter(&filter_manager)
     }
 }
 
