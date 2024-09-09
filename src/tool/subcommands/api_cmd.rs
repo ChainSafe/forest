@@ -7,17 +7,18 @@ use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::networks::NetworkChain;
+use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
-use crate::rpc::prelude::*;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{
     self,
     eth::{types::*, *},
 };
+use crate::rpc::{prelude::*, Permission};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
@@ -605,6 +606,7 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
+        RpcTest::identity(ChainSetHead::request((tipset.key().clone(),))?),
     ];
 
     for block in tipset.block_headers() {
@@ -634,6 +636,27 @@ fn chain_tests_with_tipset<DB: Blockstore>(
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
+
+fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
+    Ok(vec![
+        RpcTest::basic(AuthNew::request((AuthNewParams {
+            perms: AuthNewParams::process_perms(Permission::Admin.to_string())?,
+            token_exp: chrono::Duration::days(1),
+        },))?),
+        RpcTest::basic(AuthNew::request((AuthNewParams {
+            perms: AuthNewParams::process_perms(Permission::Write.to_string())?,
+            token_exp: chrono::Duration::days(1),
+        },))?),
+        RpcTest::basic(AuthNew::request((AuthNewParams {
+            perms: AuthNewParams::process_perms(Permission::Sign.to_string())?,
+            token_exp: chrono::Duration::days(1),
+        },))?),
+        RpcTest::basic(AuthNew::request((AuthNewParams {
+            perms: AuthNewParams::process_perms(Permission::Read.to_string())?,
+            token_exp: chrono::Duration::days(1),
+        },))?),
+    ])
+}
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
@@ -1637,6 +1660,7 @@ fn create_tests(
     }: CreateTestsArgs,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
+    tests.extend(auth_tests()?);
     tests.extend(common_tests());
     tests.extend(beacon_tests());
     tests.extend(chain_tests());

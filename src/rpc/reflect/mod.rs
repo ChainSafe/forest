@@ -81,11 +81,15 @@ pub trait RpcMethod<const ARITY: usize> {
 }
 
 /// The permission required to call an RPC method.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, displaydoc::Display)]
 pub enum Permission {
+    /// admin
     Admin,
+    /// sign
     Sign,
+    /// write
     Write,
+    /// read
     Read,
 }
 

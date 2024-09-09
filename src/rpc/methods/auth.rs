@@ -60,3 +60,18 @@ pub struct AuthNewParams {
     pub token_exp: Duration,
 }
 lotus_json_with_self!(AuthNewParams);
+
+impl AuthNewParams {
+    pub fn process_perms(perm: String) -> Result<Vec<String>, ServerError> {
+        Ok(match perm.to_lowercase().as_str() {
+            "admin" => ADMIN,
+            "sign" => SIGN,
+            "write" => WRITE,
+            "read" => READ,
+            _ => return Err(ServerError::invalid_params("unknown permission", None)),
+        }
+        .iter()
+        .map(ToString::to_string)
+        .collect())
+    }
+}

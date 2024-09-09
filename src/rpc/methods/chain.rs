@@ -564,17 +564,17 @@ impl RpcMethod<1> for ChainSetHead {
     const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
 
-    type Params = (ApiTipsetKey,);
+    type Params = (TipsetKey,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tsk),): Self::Params,
+        (tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         // This is basically a port of the reference implementation at
         // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 
-        let new_head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let new_head = ctx.chain_index().load_required_tipset(&tsk)?;
         let mut current = ctx.chain_store().heaviest_tipset();
         while current.epoch() >= new_head.epoch() {
             for cid in current.key().to_cids() {
