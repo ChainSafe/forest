@@ -261,14 +261,22 @@ impl RpcMethod<1> for NetProtectAdd {
     type Params = (String,);
     type Ok = ();
 
-    // This is a no-op due to the fact that `rust-libp2p` implementation is very different to that
+    // This whitelists a peer in forest peer manager but has no impact on libp2p swarm
+    // due to the fact that `rust-libp2p` implementation is very different to that
     // in go. However it would be nice to investigate connection limiting options in Rust.
     // See: <https://github.com/ChainSafe/forest/issues/4355>.
     async fn handle(
-        _: Ctx<impl Blockstore>,
+        ctx: Ctx<impl Blockstore>,
         (peer_id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let _ = PeerId::from_str(&peer_id)?;
+        let peer_id = PeerId::from_str(&peer_id)?;
+        let (tx, rx) = flume::bounded(1);
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::ProtectPeer(tx, peer_id),
+            })
+            .await?;
+        rx.recv_async().await?;
         Ok(())
     }
 }
@@ -285,6 +293,7 @@ impl RpcMethod<0> for NetProtectList {
         Err(ServerError::stubbed_for_openrpc())
     }
 }
+
 pub enum NetProtectRemove {}
 impl RpcMethod<1> for NetProtectRemove {
     const NAME: &'static str = "Filecoin.NetProtectRemove";
@@ -294,7 +303,20 @@ impl RpcMethod<1> for NetProtectRemove {
 
     type Params = (String,);
     type Ok = ();
-    async fn handle(_: Ctx<impl Blockstore>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+
+    // Similar to NetProtectAdd
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (peer_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&peer_id)?;
+        let (tx, rx) = flume::bounded(1);
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::UnprotectPeer(tx, peer_id),
+            })
+            .await?;
+        rx.recv_async().await?;
+        Ok(())
     }
 }
