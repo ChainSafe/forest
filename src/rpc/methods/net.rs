@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use itertools::Itertools;
 pub use types::*;
 
 use std::any::Any;
@@ -254,11 +255,11 @@ impl RpcMethod<0> for NetVersion {
 pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
 
-    type Params = (String,);
+    type Params = (Vec<String>,);
     type Ok = ();
 
     // This whitelists a peer in forest peer manager but has no impact on libp2p swarm
@@ -267,13 +268,17 @@ impl RpcMethod<1> for NetProtectAdd {
     // See: <https://github.com/ChainSafe/forest/issues/4355>.
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (peer_id,): Self::Params,
+        (peer_ids,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let peer_id = PeerId::from_str(&peer_id)?;
+        let peer_ids = peer_ids
+            .iter()
+            .map(String::as_str)
+            .map(PeerId::from_str)
+            .try_collect()?;
         let (tx, rx) = flume::bounded(1);
         ctx.network_send
             .send_async(NetworkMessage::JSONRPCRequest {
-                method: NetRPCMethods::ProtectPeer(tx, peer_id),
+                method: NetRPCMethods::ProtectPeer(tx, peer_ids),
             })
             .await?;
         rx.recv_async().await?;
@@ -297,23 +302,27 @@ impl RpcMethod<0> for NetProtectList {
 pub enum NetProtectRemove {}
 impl RpcMethod<1> for NetProtectRemove {
     const NAME: &'static str = "Filecoin.NetProtectRemove";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
     const API_PATHS: ApiPaths = ApiPaths::Both;
     const PERMISSION: Permission = Permission::Admin;
 
-    type Params = (String,);
+    type Params = (Vec<String>,);
     type Ok = ();
 
     // Similar to NetProtectAdd
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (peer_id,): Self::Params,
+        (peer_ids,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let peer_id = PeerId::from_str(&peer_id)?;
+        let peer_ids = peer_ids
+            .iter()
+            .map(String::as_str)
+            .map(PeerId::from_str)
+            .try_collect()?;
         let (tx, rx) = flume::bounded(1);
         ctx.network_send
             .send_async(NetworkMessage::JSONRPCRequest {
-                method: NetRPCMethods::UnprotectPeer(tx, peer_id),
+                method: NetRPCMethods::UnprotectPeer(tx, peer_ids),
             })
             .await?;
         rx.recv_async().await?;
