@@ -1301,6 +1301,9 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ));
         tests.push(RpcTest::basic(
+            EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
             EthNewBlockFilter::request_with_alias((), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
