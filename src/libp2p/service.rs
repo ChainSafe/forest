@@ -501,15 +501,15 @@ async fn handle_network_message(
                     response_channel.send_or_warn(peer_addresses);
                 }
                 NetRPCMethods::ProtectPeer(tx, peer_ids) => {
-                    for peer_id in peer_ids {
+                    peer_ids.into_iter().for_each(|peer_id| {
                         peer_manager.protect_peer(peer_id);
-                    }
+                    });
                     tx.send_or_warn(());
                 }
                 NetRPCMethods::UnprotectPeer(tx, peer_ids) => {
-                    for peer_id in peer_ids {
-                        peer_manager.unprotect_peer(&peer_id);
-                    }
+                    peer_ids.iter().for_each(|peer_id| {
+                        peer_manager.unprotect_peer(peer_id);
+                    });
                     tx.send_or_warn(());
                 }
                 NetRPCMethods::Info(response_channel) => {
