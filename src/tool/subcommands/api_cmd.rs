@@ -1700,15 +1700,8 @@ fn create_tests_pass_2(
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        // shared_tipset in the snapshot might not be finalized for the offline RPC server
-        // use heaviest - SAFE_EPOCH_DELAY instead
-        let shared_tipset = store
+        tests.push(RpcTest::identity(ChainSetHead::request((store
             .heaviest_tipset()?
-            .chain(&store)
-            .take(SAFE_EPOCH_DELAY as usize)
-            .last()
-            .expect("Infallible");
-        tests.push(RpcTest::identity(ChainSetHead::request((shared_tipset
             .key()
             .clone(),))?));
     }
