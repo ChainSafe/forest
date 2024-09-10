@@ -416,7 +416,7 @@ impl RpcMethod<1> for ProtectPeer {
         let (tx, rx) = flume::bounded(1);
         ctx.network_send
             .send_async(NetworkMessage::JSONRPCRequest {
-                method: NetRPCMethods::ProtectPeer(tx, peer_id),
+                method: NetRPCMethods::ProtectPeer(tx, std::iter::once(peer_id).collect()),
             })
             .await?;
         rx.recv_async().await?;
