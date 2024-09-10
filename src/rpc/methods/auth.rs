@@ -13,20 +13,27 @@ use serde_with::{serde_as, DurationSeconds};
 
 /// RPC call to create a new JWT Token
 pub enum AuthNew {}
-impl RpcMethod<1> for AuthNew {
+impl RpcMethod<2> for AuthNew {
     const NAME: &'static str = "Filecoin.AuthNew";
-    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const N_REQUIRED_PARAMS: usize = 1;
+    // Note: Lotus does not support the optional `expiration_secs` parameter
+    const PARAM_NAMES: [&'static str; 2] = ["permissions", "expiration_secs"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
-    type Params = (AuthNewParams,);
+    type Params = (Vec<String>, Option<i64>);
     type Ok = Vec<u8>;
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (params,): Self::Params,
+        (permissions, expiration_secs): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read().await;
         let ki = ks.get(JWT_IDENTIFIER)?;
-        let token = create_token(params.perms, ki.private_key(), params.token_exp)?;
+        let token = create_token(
+            permissions,
+            ki.private_key(),
+            // default to 24h
+            chrono::Duration::seconds(expiration_secs.unwrap_or(60 * 60 * 24)),
+        )?;
         Ok(token.as_bytes().to_vec())
     }
 }
@@ -73,5 +80,11 @@ impl AuthNewParams {
         .iter()
         .map(ToString::to_string)
         .collect())
+    }
+}
+
+impl From<AuthNewParams> for (Vec<String>, Option<i64>) {
+    fn from(value: AuthNewParams) -> Self {
+        (value.perms, Some(value.token_exp.num_seconds()))
     }
 }

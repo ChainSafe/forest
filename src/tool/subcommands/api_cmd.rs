@@ -606,7 +606,6 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
-        RpcTest::identity(ChainSetHead::request((tipset.key().clone(),))?),
     ];
 
     for block in tipset.block_headers() {
@@ -638,23 +637,24 @@ const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 
 fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
+    // Note: The second optional parameter of `AuthNew` is not supported in Lotus
     Ok(vec![
-        RpcTest::basic(AuthNew::request((AuthNewParams {
-            perms: AuthNewParams::process_perms(Permission::Admin.to_string())?,
-            token_exp: chrono::Duration::days(1),
-        },))?),
-        RpcTest::basic(AuthNew::request((AuthNewParams {
-            perms: AuthNewParams::process_perms(Permission::Write.to_string())?,
-            token_exp: chrono::Duration::days(1),
-        },))?),
-        RpcTest::basic(AuthNew::request((AuthNewParams {
-            perms: AuthNewParams::process_perms(Permission::Sign.to_string())?,
-            token_exp: chrono::Duration::days(1),
-        },))?),
-        RpcTest::basic(AuthNew::request((AuthNewParams {
-            perms: AuthNewParams::process_perms(Permission::Read.to_string())?,
-            token_exp: chrono::Duration::days(1),
-        },))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Admin.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Sign.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Write.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Read.to_string())?,
+            None,
+        ))?),
     ])
 }
 
@@ -1589,6 +1589,7 @@ fn snapshot_tests(
         .take(SAFE_EPOCH_DELAY as usize)
         .last()
         .expect("Infallible");
+    let shared_tipset_key = shared_tipset.key().clone();
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
@@ -1599,6 +1600,12 @@ fn snapshot_tests(
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
     }
+
+    // Test ChainSetHead in the last
+    tests.push(RpcTest::identity(ChainSetHead::request((
+        shared_tipset_key,
+    ))?));
+
     Ok(tests)
 }
 
