@@ -84,6 +84,9 @@ pub enum ApiCommands {
         /// Genesis file path, only applicable for devnet
         #[arg(long)]
         genesis: Option<PathBuf>,
+        /// If provided, indicates the file to which to save the admin token.
+        #[arg(long)]
+        save_token: Option<PathBuf>,
     },
     /// Compare two RPC providers.
     ///
@@ -156,6 +159,7 @@ impl ApiCommands {
                 auto_download_snapshot,
                 height,
                 genesis,
+                save_token,
             } => {
                 if chain.is_devnet() {
                     ensure!(
@@ -172,6 +176,7 @@ impl ApiCommands {
                     auto_download_snapshot,
                     height,
                     genesis,
+                    save_token,
                 )
                 .await?;
             }
