@@ -185,21 +185,25 @@ impl ApiCommands {
                 max_concurrent_requests,
                 create_tests_args,
             } => {
-                let forest = rpc::Client::from_url(forest);
-                let lotus = rpc::Client::from_url(lotus);
+                let forest = Arc::new(rpc::Client::from_url(forest));
+                let lotus = Arc::new(rpc::Client::from_url(lotus));
 
-                let tests = create_tests(create_tests_args)?;
-                run_tests(
-                    tests,
-                    forest,
-                    lotus,
-                    max_concurrent_requests,
-                    filter_file,
-                    filter,
-                    run_ignored,
-                    fail_fast,
-                )
-                .await?
+                for tests in [
+                    create_tests(create_tests_args.clone())?,
+                    create_tests_pass_2(create_tests_args)?,
+                ] {
+                    run_tests(
+                        tests,
+                        forest.clone(),
+                        lotus.clone(),
+                        max_concurrent_requests,
+                        filter_file.clone(),
+                        filter.clone(),
+                        run_ignored,
+                        fail_fast,
+                    )
+                    .await?;
+                }
             }
             Self::DumpTests {
                 create_tests_args,
@@ -249,7 +253,7 @@ impl ApiCommands {
     }
 }
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Debug, Clone)]
 pub struct CreateTestsArgs {
     /// The number of tipsets to use to generate test cases.
     #[arg(short, long, default_value = "10")]
@@ -283,7 +287,7 @@ enum DialogueResponse {
     Error(ez_jsonrpc_types::Error),
 }
 
-#[derive(ValueEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone, Copy)]
 #[clap(rename_all = "kebab_case")]
 pub enum RunIgnored {
     Default,
@@ -1582,14 +1586,13 @@ fn snapshot_tests(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     // shared_tipset in the snapshot might not be finalized for the offline RPC server
-    // use heaviest - 10 instead
+    // use heaviest - SAFE_EPOCH_DELAY instead
     let shared_tipset = store
         .heaviest_tipset()?
         .chain(&store)
         .take(SAFE_EPOCH_DELAY as usize)
         .last()
         .expect("Infallible");
-    let shared_tipset_key = shared_tipset.key().clone();
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
@@ -1600,11 +1603,6 @@ fn snapshot_tests(
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
     }
-
-    // Test ChainSetHead in the last
-    tests.push(RpcTest::identity(ChainSetHead::request((
-        shared_tipset_key,
-    ))?));
 
     Ok(tests)
 }
@@ -1687,6 +1685,29 @@ fn create_tests(
         )?);
     }
     tests.sort_by_key(|test| test.request.method_name);
+    Ok(tests)
+}
+
+fn create_tests_pass_2(
+    CreateTestsArgs { snapshot_files, .. }: CreateTestsArgs,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    if !snapshot_files.is_empty() {
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        // shared_tipset in the snapshot might not be finalized for the offline RPC server
+        // use heaviest - SAFE_EPOCH_DELAY instead
+        let shared_tipset = store
+            .heaviest_tipset()?
+            .chain(&store)
+            .take(SAFE_EPOCH_DELAY as usize)
+            .last()
+            .expect("Infallible");
+        tests.push(RpcTest::identity(ChainSetHead::request((shared_tipset
+            .key()
+            .clone(),))?));
+    }
+
     Ok(tests)
 }
 
