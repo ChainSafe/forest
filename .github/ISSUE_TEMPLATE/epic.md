@@ -10,6 +10,10 @@ assignees: ""
 
 <!-- Provide a summary of the epic -->
 
+# Motivation
+
+<!-- Describe the rationale for this epic. What does it enable? Who does it serve? -->
+
 # Tasks
 
 <!-- Provide a list of individual tasks that would complete this epic -->
