@@ -4,10 +4,10 @@
 use super::*;
 
 impl<T> HasLotusJson for Vec<T>
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  This shouldn't recurse - LotusJson<Vec<T>> should only handle
-//                  the OUTER issue of serializing an empty Vec as null, and
-//                  shouldn't be interested in the inner representation.
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+//               This shouldn't recurse - LotusJson<Vec<T>> should only handle
+//               the OUTER issue of serializing an empty Vec as null, and
+//               shouldn't be interested in the inner representation.
 where
     T: HasLotusJson + Clone,
 {

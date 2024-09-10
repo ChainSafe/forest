@@ -16,8 +16,8 @@ impl From<&TipsetKey> for ApiTipsetKey {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+//               this shouldn't exist
 impl HasLotusJson for ApiTipsetKey {
     type LotusJson = <Vec<Cid> as HasLotusJson>::LotusJson;
 

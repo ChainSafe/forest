@@ -70,6 +70,7 @@ MDNS
 mempool
 Merkle
 MiB
+middleware
 milliGas
 multiaddr/SM
 multihash

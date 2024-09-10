@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::{CollectedEvent, FilterID};
+use crate::rpc::eth::FilterID;
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::Result;
@@ -12,7 +12,6 @@ use parking_lot::RwLock;
 /// the filter.
 pub trait Filter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &FilterID;
-    fn take_collected_events(&self) -> Vec<CollectedEvent>;
 }
 
 /// The `FilterStore` trait provides the necessary interface for storing and managing filters.
@@ -64,9 +63,6 @@ mod tests {
     impl Filter for TestFilter {
         fn id(&self) -> &FilterID {
             &self.id
-        }
-        fn take_collected_events(&self) -> Vec<CollectedEvent> {
-            vec![]
         }
     }
 

@@ -9,7 +9,7 @@ on:
 
 jobs:
   update-lotus:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Update dependencies
@@ -23,12 +23,13 @@ jobs:
           if [ "$(printf '%s\n' "$TAG" "$CURRENT_TAG" | sort -V | tail -n1)" != "$CURRENT_TAG" ]; then
             echo "Updating Lotus version to $TAG"
             sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/api_compare/.env
+            sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/bootstrapper/.env
             sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/snapshot_parity/.env
           else
             echo "Lotus version is already up to date"
           fi
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
             token: ${{ secrets.ACTIONS_PAT }}
             commit-message: Update Lotus dependency

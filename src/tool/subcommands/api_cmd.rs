@@ -1300,6 +1300,12 @@ fn eth_tests() -> Vec<RpcTest> {
             )
             .unwrap(),
         ));
+        tests.push(RpcTest::basic(
+            EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
+            EthNewBlockFilter::request_with_alias((), use_alias).unwrap(),
+        ));
         tests.push(RpcTest::identity(
             EthAddressToFilecoinAddress::request((EthAddress::from_str(
                 "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
@@ -1436,6 +1442,18 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
+        RpcTest::identity(
+            EthGetTransactionByBlockNumberAndIndex::request((
+                (shared_tipset.epoch() as u64).into(),
+                0.into(),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionByBlockHashAndIndex::request((block_hash.clone(), 0.into())).unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(
             EthGetBlockByHash::request((
                 BlockNumberOrHash::from_block_hash(block_hash.clone()),

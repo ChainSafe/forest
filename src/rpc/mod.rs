@@ -4,6 +4,7 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod log_layer;
 mod metrics_layer;
 mod request;
 
@@ -11,6 +12,7 @@ pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
 use futures::FutureExt as _;
+use log_layer::LogLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
@@ -87,10 +89,14 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionByHash);
         $callback!(crate::rpc::eth::EthGetTransactionCount);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!(crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
+        $callback!(crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionReceipt);
         $callback!(crate::rpc::eth::EthNewFilter);
+        $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
+        $callback!(crate::rpc::eth::EthNewBlockFilter);
         $callback!(crate::rpc::eth::EthSyncing);
         $callback!(crate::rpc::eth::Web3ClientVersion);
 
@@ -232,6 +238,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::F3GetECPowerTable);
         $callback!(crate::rpc::f3::F3GetF3PowerTable);
         $callback!(crate::rpc::f3::F3GetLatestCertificate);
+        $callback!(crate::rpc::f3::F3Participate);
         $callback!(crate::rpc::f3::GetHead);
         $callback!(crate::rpc::f3::GetParent);
         $callback!(crate::rpc::f3::GetParticipatingMinerIDs);
@@ -478,7 +485,8 @@ where
                         headers,
                         keystore: keystore.clone(),
                     })
-                    .layer(MetricsLayer {});
+                    .layer(LogLayer::default())
+                    .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
@@ -604,13 +612,13 @@ mod tests {
     fn openrpc() {
         for path in [ApiPath::V0, ApiPath::V1] {
             let _spec = super::openrpc(path, None);
-            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-            //                  this is disabled because it causes lots of merge
-            //                  conflicts.
-            //                  We should consider re-enabling it when our RPC is
-            //                  more stable.
-            //                  (We still run this test to make sure we're not
-            //                  violating other invariants)
+            // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+            //               this is disabled because it causes lots of merge
+            //               conflicts.
+            //               We should consider re-enabling it when our RPC is
+            //               more stable.
+            //               (We still run this test to make sure we're not
+            //               violating other invariants)
             insta::assert_yaml_snapshot!(_spec);
         }
     }

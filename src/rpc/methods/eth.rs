@@ -99,8 +99,8 @@ pub fn eth_bloom_set(bytes: &mut EthBytes, data: &[u8]) {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
-//                  use ethereum_types::U256 or use lotus_json::big_int
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4436
+//               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
     PartialEq,
     Debug,
@@ -446,8 +446,8 @@ pub enum EthSyncingResultLotusJson {
     },
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+//               this shouldn't exist
 impl HasLotusJson for EthSyncingResult {
     type LotusJson = EthSyncingResultLotusJson;
 
@@ -1160,7 +1160,7 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
     Ok(receipt)
 }
 
-struct CollectedEvent {
+pub struct CollectedEvent {
     entries: Vec<EventEntry>,
     emitter_addr: crate::shim::address::Address,
     event_idx: u64,
@@ -2083,6 +2083,46 @@ impl RpcMethod<0> for EthProtocolVersion {
     }
 }
 
+pub enum EthGetTransactionByBlockNumberAndIndex {}
+impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Uint64, Uint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (_p1, _p2): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus doesn't support this method (v1.29.0), so do we.
+        Err(ServerError::unsupported_method())
+    }
+}
+
+pub enum EthGetTransactionByBlockHashAndIndex {}
+impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
+    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthHash, Uint64);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (_p1, _p2): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus doesn't support this method (v1.29.0), so do we.
+        Err(ServerError::unsupported_method())
+    }
+}
+
 pub enum EthGetTransactionByHash {}
 impl RpcMethod<1> for EthGetTransactionByHash {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHash";
@@ -2236,6 +2276,48 @@ impl RpcMethod<1> for EthNewFilter {
         let eth_event_handler = ctx.eth_event_handler.clone();
         let chain_height = ctx.chain_store().heaviest_tipset().epoch();
         Ok(eth_event_handler.eth_new_filter(&filter_spec, chain_height)?)
+    }
+}
+
+pub enum EthNewPendingTransactionFilter {}
+impl RpcMethod<0> for EthNewPendingTransactionFilter {
+    const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_new_pending_transaction_filter()?)
+    }
+}
+
+pub enum EthNewBlockFilter {}
+impl RpcMethod<0> for EthNewBlockFilter {
+    const NAME: &'static str = "Filecoin.EthNewBlockFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newBlockFilter");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_new_block_filter()?)
     }
 }
 

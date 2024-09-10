@@ -3,7 +3,6 @@
 
 use crate::rpc::eth::filter::ActorEventBlock;
 use crate::rpc::eth::filter::ParsedFilter;
-use crate::rpc::eth::CollectedEvent;
 use crate::rpc::eth::{filter::Filter, FilterID};
 use crate::rpc::Arc;
 use crate::shim::address::Address;
@@ -14,7 +13,7 @@ use cid::Cid;
 use parking_lot::RwLock;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct EventFilter {
     id: FilterID,
     min_height: ChainEpoch, // minimum epoch to apply filter
@@ -28,9 +27,6 @@ pub struct EventFilter {
 impl Filter for EventFilter {
     fn id(&self) -> &FilterID {
         &self.id
-    }
-    fn take_collected_events(&self) -> Vec<CollectedEvent> {
-        vec![]
     }
 }
 
@@ -62,7 +58,7 @@ impl EventFilterManager {
         })
     }
 
-    pub fn install(&self, pf: ParsedFilter) -> Result<Arc<dyn Filter>> {
+    pub fn install(&self, pf: ParsedFilter) -> Result<Arc<EventFilter>> {
         let id = FilterID::new().context("Failed to generate new FilterID")?;
 
         let filter = Arc::new(EventFilter {
@@ -80,9 +76,9 @@ impl EventFilterManager {
         Ok(filter)
     }
 
-    pub fn remove(&self, id: &FilterID) -> bool {
+    pub fn remove(&self, id: &FilterID) -> Option<Arc<EventFilter>> {
         let mut filters = self.filters.write();
-        filters.remove(id).is_some()
+        filters.remove(id)
     }
 }
 
@@ -120,7 +116,11 @@ mod tests {
 
         // Test case 2: Remove the EventFilter
         let removed = event_manager.remove(&filter_id);
-        assert!(removed, "Filter should be successfully removed");
+        assert_eq!(
+            removed,
+            Some(filter),
+            "Filter should be successfully removed"
+        );
 
         // Verify that the filter is no longer in the event manager
         {
