@@ -98,6 +98,14 @@
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` to existing methods (though
   without support, which matches the current Lotus's behavior).
 
+- [#4757](https://github.com/ChainSafe/forest/pull/4757) Added an option to
+  hardlink snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=hardlink`.
+
+- [#4757](https://github.com/ChainSafe/forest/pull/4757) Added an option to
+  hardlink snapshots and fallback to copying them if not applicable. This can be
+  invoked with `--import-snapshot <path> --import-mode=auto`.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
