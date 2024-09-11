@@ -7,17 +7,18 @@ use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::networks::NetworkChain;
+use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
-use crate::rpc::prelude::*;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{
     self,
     eth::{types::*, *},
 };
+use crate::rpc::{prelude::*, Permission};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
@@ -40,6 +41,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
+use libp2p::PeerId;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -83,6 +85,9 @@ pub enum ApiCommands {
         /// Genesis file path, only applicable for devnet
         #[arg(long)]
         genesis: Option<PathBuf>,
+        /// If provided, indicates the file to which to save the admin token.
+        #[arg(long)]
+        save_token: Option<PathBuf>,
     },
     /// Compare two RPC providers.
     ///
@@ -155,6 +160,7 @@ impl ApiCommands {
                 auto_download_snapshot,
                 height,
                 genesis,
+                save_token,
             } => {
                 if chain.is_devnet() {
                     ensure!(
@@ -171,6 +177,7 @@ impl ApiCommands {
                     auto_download_snapshot,
                     height,
                     genesis,
+                    save_token,
                 )
                 .await?;
             }
@@ -184,21 +191,25 @@ impl ApiCommands {
                 max_concurrent_requests,
                 create_tests_args,
             } => {
-                let forest = rpc::Client::from_url(forest);
-                let lotus = rpc::Client::from_url(lotus);
+                let forest = Arc::new(rpc::Client::from_url(forest));
+                let lotus = Arc::new(rpc::Client::from_url(lotus));
 
-                let tests = create_tests(create_tests_args)?;
-                run_tests(
-                    tests,
-                    forest,
-                    lotus,
-                    max_concurrent_requests,
-                    filter_file,
-                    filter,
-                    run_ignored,
-                    fail_fast,
-                )
-                .await?
+                for tests in [
+                    create_tests(create_tests_args.clone())?,
+                    create_tests_pass_2(create_tests_args)?,
+                ] {
+                    run_tests(
+                        tests,
+                        forest.clone(),
+                        lotus.clone(),
+                        max_concurrent_requests,
+                        filter_file.clone(),
+                        filter.clone(),
+                        run_ignored,
+                        fail_fast,
+                    )
+                    .await?;
+                }
             }
             Self::DumpTests {
                 create_tests_args,
@@ -248,7 +259,7 @@ impl ApiCommands {
     }
 }
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Debug, Clone)]
 pub struct CreateTestsArgs {
     /// The number of tipsets to use to generate test cases.
     #[arg(short, long, default_value = "10")]
@@ -282,7 +293,7 @@ enum DialogueResponse {
     Error(ez_jsonrpc_types::Error),
 }
 
-#[derive(ValueEnum, Debug, Clone)]
+#[derive(ValueEnum, Debug, Clone, Copy)]
 #[clap(rename_all = "kebab_case")]
 pub enum RunIgnored {
     Default,
@@ -635,6 +646,28 @@ fn chain_tests_with_tipset<DB: Blockstore>(
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 
+fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
+    // Note: The second optional parameter of `AuthNew` is not supported in Lotus
+    Ok(vec![
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Admin.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Sign.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Write.to_string())?,
+            None,
+        ))?),
+        RpcTest::basic(AuthNew::request((
+            AuthNewParams::process_perms(Permission::Read.to_string())?,
+            None,
+        ))?),
+    ])
+}
+
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
@@ -656,24 +689,26 @@ fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
-    let random_peer_id = libp2p::PeerId::random().to_string();
-
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
-        RpcTest::basic(NetAgentVersion::request((random_peer_id.clone(),)).unwrap())
+        // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only
+        RpcTest::basic(NetAgentVersion::request((PeerId::random().to_string(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        RpcTest::basic(NetFindPeer::request((random_peer_id,)).unwrap())
+        RpcTest::basic(NetFindPeer::request((PeerId::random().to_string(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::Pass)
             .ignore("It times out in lotus when peer not found"),
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
         RpcTest::identity(NetVersion::request(()).unwrap()),
+        RpcTest::identity(NetProtectAdd::request((vec![PeerId::random().to_string()],)).unwrap()),
+        RpcTest::identity(
+            NetProtectRemove::request((vec![PeerId::random().to_string()],)).unwrap(),
+        ),
     ]
 }
 
@@ -1301,7 +1336,13 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ));
         tests.push(RpcTest::basic(
+            EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::basic(
             EthNewBlockFilter::request_with_alias((), use_alias).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            EthUninstallFilter::request_with_alias((FilterID::new().unwrap(),), use_alias).unwrap(),
         ));
         tests.push(RpcTest::identity(
             EthAddressToFilecoinAddress::request((EthAddress::from_str(
@@ -1556,7 +1597,7 @@ fn snapshot_tests(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     // shared_tipset in the snapshot might not be finalized for the offline RPC server
-    // use heaviest - 10 instead
+    // use heaviest - SAFE_EPOCH_DELAY instead
     let shared_tipset = store
         .heaviest_tipset()?
         .chain(&store)
@@ -1573,6 +1614,7 @@ fn snapshot_tests(
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
     }
+
     Ok(tests)
 }
 
@@ -1634,6 +1676,7 @@ fn create_tests(
     }: CreateTestsArgs,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
+    tests.extend(auth_tests()?);
     tests.extend(common_tests());
     tests.extend(beacon_tests());
     tests.extend(chain_tests());
@@ -1653,6 +1696,22 @@ fn create_tests(
         )?);
     }
     tests.sort_by_key(|test| test.request.method_name);
+    Ok(tests)
+}
+
+fn create_tests_pass_2(
+    CreateTestsArgs { snapshot_files, .. }: CreateTestsArgs,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    if !snapshot_files.is_empty() {
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        tests.push(RpcTest::identity(ChainSetHead::request((store
+            .heaviest_tipset()?
+            .key()
+            .clone(),))?));
+    }
+
     Ok(tests)
 }
 

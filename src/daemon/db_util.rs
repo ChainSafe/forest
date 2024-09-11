@@ -75,12 +75,16 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum ImportMode {
     #[default]
+    /// Hard link the snapshot and fallback to `Copy` if not applicable
+    Auto,
     /// Copies the snapshot to the database directory.
     Copy,
     /// Moves the snapshot to the database directory (or copies and deletes the original).
     Move,
     /// Creates a symbolic link to the snapshot in the database directory.
     Symlink,
+    /// Creates a symbolic link to the snapshot in the database directory.
+    Hardlink,
 }
 
 /// This function validates and stores the CAR binary from `from_path`(either local path or URL) into the `{DB_ROOT}/car_db/`
@@ -99,14 +103,15 @@ pub async fn import_chain_as_forest_car(
         chrono::Utc::now().timestamp_millis()
     ));
 
-    match import_mode {
-        ImportMode::Copy | ImportMode::Move => {
+    let move_or_copy = |mode: ImportMode| {
+        let forest_car_db_path = forest_car_db_path.clone();
+        async move {
             let downloaded_car_temp_path =
                 tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
             if let Ok(url) = Url::parse(&from_path.display().to_string()) {
                 download_to(&url, &downloaded_car_temp_path).await?;
             } else {
-                move_or_copy_file(from_path, &downloaded_car_temp_path, import_mode)?;
+                move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
             }
 
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(
@@ -121,12 +126,58 @@ pub async fn import_chain_as_forest_car(
                     .await?;
                 forest_car_db_temp_path.persist(&forest_car_db_path)?;
             }
+            anyhow::Ok(())
+        }
+    };
+
+    match import_mode {
+        ImportMode::Auto => {
+            if Url::parse(&from_path.display().to_string()).is_ok() {
+                // Fallback to move if from_path is url
+                move_or_copy(ImportMode::Move).await?;
+            } else if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
+                tracing::info!(
+                    "Hardlinking {} to {}",
+                    from_path.display(),
+                    forest_car_db_path.display()
+                );
+                if std::fs::hard_link(from_path, &forest_car_db_path).is_err() {
+                    tracing::warn!("Error creating hardlink, fallback to copy");
+                    move_or_copy(ImportMode::Copy).await?;
+                }
+            } else {
+                tracing::warn!(
+                    "Snapshot file is not a valid forest.car.zst file, fallback to copy"
+                );
+                move_or_copy(ImportMode::Copy).await?;
+            }
+        }
+        ImportMode::Copy | ImportMode::Move => {
+            move_or_copy(import_mode).await?;
         }
         ImportMode::Symlink => {
             let from_path = std::path::absolute(from_path)?;
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(&from_path)?) {
+                tracing::info!(
+                    "Symlinking {} to {}",
+                    from_path.display(),
+                    forest_car_db_path.display()
+                );
                 std::os::unix::fs::symlink(from_path, &forest_car_db_path)
                     .context("Error creating symlink")?;
+            } else {
+                bail!("Snapshot file must be a valid forest.car.zst file");
+            }
+        }
+        ImportMode::Hardlink => {
+            if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
+                tracing::info!(
+                    "Hardlinking {} to {}",
+                    from_path.display(),
+                    forest_car_db_path.display()
+                );
+                std::fs::hard_link(from_path, &forest_car_db_path)
+                    .context("Error creating hardlink")?;
             } else {
                 bail!("Snapshot file must be a valid forest.car.zst file");
             }
@@ -165,6 +216,7 @@ pub async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
 fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow::Result<()> {
     match import_mode {
         ImportMode::Move => {
+            tracing::info!("Moving {} to {}", from.display(), to.display());
             if fs::rename(from, to).is_ok() {
                 Ok(())
             } else {
@@ -173,9 +225,12 @@ fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow:
                 Ok(())
             }
         }
-        ImportMode::Copy => fs::copy(from, to).map(|_| ()).context("Error copying file"),
-        ImportMode::Symlink => {
-            bail!("Symlinking must be handled elsewhere");
+        ImportMode::Copy => {
+            tracing::info!("Copying {} to {}", from.display(), to.display());
+            fs::copy(from, to).map(|_| ()).context("Error copying file")
+        }
+        m => {
+            bail!("{m} must be handled elsewhere");
         }
     }
 }
@@ -248,36 +303,46 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car", *import_mode)
+        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
                 .await
                 .unwrap();
         }
 
         // Linking is not supported for raw CAR files.
-        import_snapshot_from_file("test-snapshots/chain4.car", ImportMode::Symlink)
-            .await
-            .unwrap_err();
+        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
+                .await
+                .unwrap_err();
+        }
     }
 
     #[tokio::test]
     async fn import_snapshot_from_compressed_file_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car.zst", *import_mode)
+        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
+            import_snapshot_from_file("test-snapshots/chain4.car.zst", import_mode)
                 .await
                 .unwrap();
         }
 
-        // Linking is supported only for `forest.car.zst` files.
-        import_snapshot_from_file("test-snapshots/chain4.car.zst", ImportMode::Symlink)
-            .await
-            .unwrap_err();
+        // Linking is not supported for raw CAR files.
+        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
+                .await
+                .unwrap_err();
+        }
     }
 
     #[tokio::test]
     async fn import_snapshot_from_forest_car_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
-            import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", *import_mode)
+        for import_mode in [
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
+            import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", import_mode)
                 .await
                 .unwrap();
         }
@@ -285,7 +350,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_invalid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("Cargo.toml", *import_mode)
                 .await
                 .unwrap_err();
@@ -294,7 +365,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -303,7 +380,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("https://forest.chainsafe.io/dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -329,7 +412,12 @@ mod test {
                     std::path::absolute(file_path)?
                 );
             }
+            ImportMode::Move => {
+                assert!(!file_path.exists());
+                assert!(path.is_file());
+            }
             _ => {
+                assert!(file_path.is_file());
                 assert!(path.is_file());
             }
         }

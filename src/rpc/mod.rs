@@ -14,13 +14,12 @@ use eth::filter::EthEventHandler;
 use futures::FutureExt as _;
 use log_layer::LogLayer;
 use reflect::Ctx;
-pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
+pub use reflect::{ApiPath, ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
-use reflect::Permission;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -94,7 +93,9 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthNewFilter);
+        $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!(crate::rpc::eth::EthNewBlockFilter);
+        $callback!(crate::rpc::eth::EthUninstallFilter);
         $callback!(crate::rpc::eth::EthSyncing);
         $callback!(crate::rpc::eth::Web3ClientVersion);
 

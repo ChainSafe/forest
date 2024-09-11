@@ -44,6 +44,10 @@
   automatically. Please adapt your configurations accordingly. If you've been
   switching to `root` manually in your workflows you can now remove that step.
 
+- [#4757](https://github.com/ChainSafe/forest/pull/4757) Changed the default
+  option of `--import-mode` to `auto` which hardlink snapshots and fallback to
+  copying them if not applicable.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
@@ -81,6 +85,9 @@
 - [#4666](https://github.com/ChainSafe/forest/issues/4666) Add support for the
   `Filecoin.EthNewBlockFilter` RPC method.
 
+- [#4667](https://github.com/ChainSafe/forest/issues/4667) Add support for the
+  `Filecoin.EthNewPendingTransactionFilter` RPC method.
+
 - [#4686](https://github.com/ChainSafe/forest/issues/4686) Add support for the
   `Filecoin.EthAddressToFilecoinAddress` RPC method.
 
@@ -94,6 +101,13 @@
 - [#4702](https://github.com/ChainSafe/forest/issues/4702) Add method
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` to existing methods (though
   without support, which matches the current Lotus's behavior).
+
+- [#4757](https://github.com/ChainSafe/forest/pull/4757) Added an option to
+  hardlink snapshots instead of moving or copying them. This can be invoked with
+  `--import-snapshot <path> --import-mode=hardlink`.
+
+- [#4668](https://github.com/ChainSafe/forest/issues/4668) Add support for the
+  `Filecoin.EthUninstallFilter` RPC method.
 
 ### Changed
 

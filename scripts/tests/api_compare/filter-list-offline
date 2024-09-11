@@ -9,6 +9,9 @@
 !Filecoin.NetAutoNatStatus
 !Filecoin.NetPeers
 !Filecoin.NetFindPeer
+!Filecoin.NetProtectAdd
+!Filecoin.NetProtectRemove
+!Filecoin.NetProtectList
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateReplay
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
@@ -21,3 +24,4 @@
 # Offline server won't provide correct results for finality-related methods
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
+!Filecoin.ChainSetHead

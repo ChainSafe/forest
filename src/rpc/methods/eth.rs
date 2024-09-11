@@ -1958,6 +1958,27 @@ impl RpcMethod<1> for EthNewFilter {
     }
 }
 
+pub enum EthNewPendingTransactionFilter {}
+impl RpcMethod<0> for EthNewPendingTransactionFilter {
+    const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = FilterID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_new_pending_transaction_filter()?)
+    }
+}
+
 pub enum EthNewBlockFilter {}
 impl RpcMethod<0> for EthNewBlockFilter {
     const NAME: &'static str = "Filecoin.EthNewBlockFilter";
@@ -1976,6 +1997,27 @@ impl RpcMethod<0> for EthNewBlockFilter {
         let eth_event_handler = ctx.eth_event_handler.clone();
 
         Ok(eth_event_handler.eth_new_block_filter()?)
+    }
+}
+
+pub enum EthUninstallFilter {}
+impl RpcMethod<1> for EthUninstallFilter {
+    const NAME: &'static str = "Filecoin.EthUninstallFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_uninstallFilter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (FilterID,);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_uninstall_filter(&filter_id)?)
     }
 }
 

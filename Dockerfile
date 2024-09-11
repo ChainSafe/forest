@@ -50,6 +50,9 @@ RUN xx-apt-get update && \
 WORKDIR /forest
 COPY . .
 
+# TODO(forest): https://github.com/ChainSafe/forest/issues/4758
+ENV FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1
+
 # Install Forest. Move it out of the cache for the prod image.
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \

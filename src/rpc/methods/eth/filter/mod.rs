@@ -1,13 +1,28 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! # Ethereum Event Filters Module
+//!
+//! This module provides the structures and logic necessary to manage filters for Ethereum
+//! events, tipsets, and mempool operations. Ethereum event filters enable clients to monitor
+//! and subscribe to changes in the blockchain, such as log events, pending transactions in the
+//! mempool, or new tipsets in the chain. These filters can be customized to capture specific events
+//! or conditions based on various parameters.
+//!
+//! ## Filter Types:
+//!
+//! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
+//! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
+//! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
 mod event;
+mod mempool;
 mod store;
 mod tipset;
 
 use super::BlockNumberOrHash;
 use super::Predefined;
 use crate::rpc::eth::filter::event::*;
+use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::shim::address::Address;
@@ -21,6 +36,12 @@ use serde::*;
 use std::sync::Arc;
 use store::*;
 
+/// Trait for managing filters. Provides common functionality for installing and removing filters.
+pub trait FilterManager {
+    fn install(&self) -> Result<Arc<dyn Filter>, Error>;
+    fn remove(&self, filter_id: &FilterID) -> Option<Arc<dyn Filter>>;
+}
+
 /// Handles Ethereum event filters, providing an interface for creating and managing filters.
 ///
 /// The `EthEventHandler` structure is the central point for managing Ethereum filters,
@@ -31,6 +52,7 @@ pub struct EthEventHandler {
     max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
+    mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
 impl EthEventHandler {
@@ -42,12 +64,14 @@ impl EthEventHandler {
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
         let tipset_filter_manager = Some(TipSetFilterManager::new(max_filter_results));
+        let mempool_filter_manager = Some(MempoolFilterManager::new(max_filter_results));
 
         Self {
             filter_store,
             max_filter_height_range,
             event_filter_manager,
             tipset_filter_manager,
+            mempool_filter_manager,
         }
     }
 
@@ -81,25 +105,85 @@ impl EthEventHandler {
         }
     }
 
-    // Installs an eth tipset filter
-    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
-        if let Some(tipset_filter_manager) = &self.tipset_filter_manager {
-            let filter = tipset_filter_manager
-                .install()
-                .context("Installation error")?;
-
+    fn install_filter(
+        &self,
+        filter_manager: &Option<Arc<dyn FilterManager>>,
+    ) -> Result<FilterID, Error> {
+        if let Some(manager) = filter_manager {
+            let filter = manager.install().context("Installation error")?;
             if let Some(filter_store) = &self.filter_store {
                 if let Err(err) = filter_store.add(filter.clone()) {
-                    ensure!(
-                        tipset_filter_manager.remove(filter.id()).is_some(),
-                        "Filter not found"
-                    );
+                    ensure!(manager.remove(filter.id()).is_some(), "Filter not found");
                     bail!("Adding filter failed: {}", err);
                 }
             }
             Ok(filter.id().clone())
         } else {
             Err(Error::msg("NotSupported"))
+        }
+    }
+
+    // Installs an eth block filter
+    pub fn eth_new_block_filter(&self) -> Result<FilterID, Error> {
+        let filter_manager: Option<Arc<dyn FilterManager>> = self
+            .tipset_filter_manager
+            .as_ref()
+            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
+        self.install_filter(&filter_manager)
+    }
+
+    // Installs an eth pending transaction filter
+    pub fn eth_new_pending_transaction_filter(&self) -> Result<FilterID, Error> {
+        let filter_manager: Option<Arc<dyn FilterManager>> = self
+            .mempool_filter_manager
+            .as_ref()
+            .map(|fm| Arc::clone(fm) as Arc<dyn FilterManager>);
+        self.install_filter(&filter_manager)
+    }
+
+    fn uninstall_filter(&self, filter: Arc<dyn Filter>) -> Result<(), Error> {
+        let id = filter.id();
+
+        if filter.as_any().is::<EventFilter>() {
+            self.event_filter_manager
+                .as_ref()
+                .context("Event filter manager is missing")?
+                .remove(id)
+                .context("Failed to remove event filter")?;
+        } else if filter.as_any().is::<TipSetFilter>() {
+            self.tipset_filter_manager
+                .as_ref()
+                .context("TipSet filter manager is missing")?
+                .remove(id)
+                .context("Failed to remove tipset filter")?;
+        } else if filter.as_any().is::<MempoolFilter>() {
+            self.mempool_filter_manager
+                .as_ref()
+                .context("Mempool filter manager is missing")?
+                .remove(id)
+                .context("Failed to remove mempool filter")?;
+        }
+
+        self.filter_store
+            .as_ref()
+            .context("Filter store is missing")?
+            .remove(id)
+            .context("Failed to remove filter from store")?;
+
+        Ok(())
+    }
+
+    pub fn eth_uninstall_filter(&self, id: &FilterID) -> Result<bool, Error> {
+        let store = self
+            .filter_store
+            .as_ref()
+            .context("Filter store is not supported")?;
+
+        if let Ok(filter) = store.get(id) {
+            self.uninstall_filter(filter)?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 }
@@ -428,5 +512,49 @@ mod tests {
         let result = eth_event_handler.eth_new_block_filter();
 
         assert!(result.is_ok(), "Expected successful block filter creation");
+    }
+
+    #[test]
+    fn test_eth_new_pending_transaction_filter() {
+        let eth_event_handler = EthEventHandler::new();
+        let result = eth_event_handler.eth_new_pending_transaction_filter();
+
+        assert!(
+            result.is_ok(),
+            "Expected successful pending transaction filter creation"
+        );
+    }
+
+    #[test]
+    fn test_eth_uninstall_filter() {
+        let event_handler = EthEventHandler::new();
+        let mut filter_ids = Vec::new();
+        let filter_spec = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            ],
+            topics: EthTopicSpec(vec![]),
+            block_hash: None,
+        };
+
+        let filter_id = event_handler.eth_new_filter(&filter_spec, 0).unwrap();
+        filter_ids.push(filter_id);
+
+        let block_filter_id = event_handler.eth_new_block_filter().unwrap();
+        filter_ids.push(block_filter_id);
+
+        let pending_tx_filter_id = event_handler.eth_new_pending_transaction_filter().unwrap();
+        filter_ids.push(pending_tx_filter_id);
+
+        for filter_id in filter_ids {
+            let result = event_handler.eth_uninstall_filter(&filter_id).unwrap();
+            assert!(
+                result,
+                "Uninstalling filter with id {:?} failed",
+                &filter_id
+            );
+        }
     }
 }
