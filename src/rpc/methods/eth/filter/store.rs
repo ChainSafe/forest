@@ -4,19 +4,24 @@
 use crate::rpc::eth::FilterID;
 use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
+use anyhow::anyhow;
 use anyhow::Result;
 use parking_lot::RwLock;
+use std::any::Any;
 
 /// This trait should be implemented by any filter that needs to be identified
 /// and managed. It provide methods to retrieve the unique identifier for
 /// the filter.
 pub trait Filter: Send + Sync + std::fmt::Debug {
     fn id(&self) -> &FilterID;
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// The `FilterStore` trait provides the necessary interface for storing and managing filters.
 pub trait FilterStore: Send + Sync {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<()>;
+    fn get(&self, id: &FilterID) -> Result<Arc<dyn Filter>>;
+    fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>>;
 }
 
 #[derive(Debug)]
@@ -47,6 +52,19 @@ impl FilterStore for MemFilterStore {
         filters.insert(filter.id().clone(), filter);
         Ok(())
     }
+
+    fn get(&self, id: &FilterID) -> Result<Arc<dyn Filter>> {
+        let filters = self.filters.read();
+        filters
+            .get(id)
+            .cloned()
+            .ok_or_else(|| anyhow!("Filter with the given ID not found"))
+    }
+
+    fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>> {
+        let mut filters = self.filters.write();
+        filters.remove(id)
+    }
 }
 
 #[cfg(test)]
@@ -63,6 +81,10 @@ mod tests {
     impl Filter for TestFilter {
         fn id(&self) -> &FilterID {
             &self.id
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
     }
 

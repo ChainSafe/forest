@@ -2000,6 +2000,27 @@ impl RpcMethod<0> for EthNewBlockFilter {
     }
 }
 
+pub enum EthUninstallFilter {}
+impl RpcMethod<1> for EthUninstallFilter {
+    const NAME: &'static str = "Filecoin.EthUninstallFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_uninstallFilter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (FilterID,);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+
+        Ok(eth_event_handler.eth_uninstall_filter(&filter_id)?)
+    }
+}
+
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
