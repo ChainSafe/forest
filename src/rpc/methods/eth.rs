@@ -41,7 +41,6 @@ use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::{anyhow, bail, Context, Error, Result};
-use byteorder::{BigEndian, ByteOrder};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
@@ -53,7 +52,6 @@ use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use std::time::Duration;
 use std::{ops::Add, sync::Arc};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -87,17 +85,6 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
-
-/// Corresponds to 3 epochs.
-const EVENT_READ_TIMEOUT: Duration = Duration::from_secs(90);
-
-pub fn eth_bloom_set(bytes: &mut EthBytes, data: &[u8]) {
-    let hash = keccak_hash::keccak(data);
-    for i in 0..3 {
-        let n = BigEndian::read_u16(&hash[i * 2..]) % BLOOM_SIZE as u16;
-        bytes.0[(BLOOM_SIZE / 8) - (n / 8) as usize - 1] |= 1 << (n % 8);
-    }
-}
 
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
@@ -1142,20 +1129,7 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
         receipt.contract_address = Some(ret.eth_address.into());
     }
 
-    if message_lookup.receipt.events_root().is_some() {
-        let logs = ctx
-            .eth_event_handler
-            .get_eth_logs_for_block_and_transaction(ctx, &tx.block_hash, &tx.hash)
-            .await?;
-        receipt.logs = logs;
-    }
-
-    for log in receipt.logs.iter() {
-        for topic in log.topics.iter() {
-            eth_bloom_set(&mut receipt.logs_bloom, topic.0.as_bytes());
-        }
-        eth_bloom_set(&mut receipt.logs_bloom, log.address.0.as_bytes());
-    }
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
 
     Ok(receipt)
 }

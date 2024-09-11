@@ -35,23 +35,14 @@ impl Filter for EventFilter {
     }
 }
 
-pub struct EventIndex {}
-
-impl EventIndex {
-    pub fn is_height_past(&self, _height: ChainEpoch) -> anyhow::Result<bool> {
-        todo!()
-    }
-}
-
 /// The `EventFilterManager` structure maintains a set of filters, allowing new filters to be
 /// installed or existing ones to be removed. It ensures that each filter is uniquely identifiable
 /// by its ID and that a maximum number of results can be configured for each filter.
 pub struct EventFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<EventFilter>>>,
     max_filter_results: usize,
-
-    // TODO(elmattic): implement similar functionality
-    pub event_index: Option<Arc<EventIndex>>,
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4740
+    //pub event_index: Option<Arc<EventIndex>>,
 }
 
 impl EventFilterManager {
@@ -59,7 +50,6 @@ impl EventFilterManager {
         Arc::new(Self {
             filters: RwLock::new(HashMap::new()),
             max_filter_results,
-            event_index: None,
         })
     }
 
