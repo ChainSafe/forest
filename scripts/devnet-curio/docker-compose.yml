@@ -250,6 +250,24 @@ services:
         set -euxo pipefail
         f3-sidecar -finality ${F3_FINALITY} -rpc http://forest:${FOREST_RPC_PORT}/rpc/v1 -f3-rpc 0.0.0.0:${F3_RPC_PORT}
 
+  yugabyte:
+    container_name: yugabyte
+    image: yugabytedb/yugabyte:2024.1.0.0-b129
+    init: true
+    environment:
+      - TINI_SUBREAPER=true
+    ports:
+      - "5433:5433"
+      - "9042:9042"
+      - "15433:15433"
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ./data/yugabyte:/home/yugabyte/yb_data
+    command: ["bin/yugabyted", "start", "--base_dir=/home/yugabyte/yb_data", "--background=false"]
+    networks:
+      - devnet
+
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
   filecoin-proofs:
