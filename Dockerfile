@@ -30,10 +30,6 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
 RUN update-ca-certificates
 
-# install Go
-RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | bash
-RUN "${HOME}/.g/bin/g" install 1.21 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
-
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
@@ -49,6 +45,9 @@ RUN xx-apt-get update && \
 
 WORKDIR /forest
 COPY . .
+
+# TODO(forest): https://github.com/ChainSafe/forest/issues/4758
+ENV FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1
 
 # Install Forest. Move it out of the cache for the prod image.
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
