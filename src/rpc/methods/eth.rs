@@ -1088,7 +1088,6 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
         ..EthTxReceipt::new()
     };
 
-    // TODO: avoid loading the tipset twice (once here, once when we convert the message to a txn)
     let ts = ctx
         .chain_store()
         .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
