@@ -91,7 +91,7 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
                 let tipset = tipset_by_epoch_or_offset(&client, epoch).await?;
-                ChainSetHead::call(&client, (tipset.key().into(),)).await?;
+                ChainSetHead::call(&client, (tipset.key().clone(),)).await?;
                 Ok(())
             }
             Self::SetHead {
@@ -102,10 +102,9 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 ChainSetHead::call(
                     &client,
-                    (
-                        TipsetKey::from(NonEmpty::new(cids).expect("empty vec disallowed by clap"))
-                            .into(),
-                    ),
+                    (TipsetKey::from(
+                        NonEmpty::new(cids).expect("empty vec disallowed by clap"),
+                    ),),
                 )
                 .await?;
                 Ok(())

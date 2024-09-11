@@ -14,13 +14,12 @@ use eth::filter::EthEventHandler;
 use futures::FutureExt as _;
 use log_layer::LogLayer;
 use reflect::Ctx;
-pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
+pub use reflect::{ApiPath, ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
-use reflect::Permission;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;

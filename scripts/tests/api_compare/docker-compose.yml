@@ -121,7 +121,7 @@ services:
       - |
         set -euxo pipefail
         forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
-          --chain calibnet --height=-50 --port ${FOREST_OFFLINE_RPC_PORT}
+          --chain calibnet --height=-50 --port ${FOREST_OFFLINE_RPC_PORT} --save-token /data/forest-token-offline
     healthcheck:
       test: [ "CMD", "forest-cli", "chain", "head" ]
       interval: 10s
@@ -238,7 +238,7 @@ services:
       - |
         set -euxo pipefail
         LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        FOREST_API_INFO="/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http"
+        FOREST_API_INFO="$(cat /data/forest-token-offline):/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \

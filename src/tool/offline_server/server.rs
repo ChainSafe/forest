@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
@@ -14,6 +15,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
+use crate::JWT_IDENTIFIER;
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use std::{
@@ -38,6 +40,7 @@ pub async fn start_offline_server(
     auto_download_snapshot: bool,
     height: i64,
     genesis: Option<PathBuf>,
+    save_jwt_token: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
 
@@ -105,9 +108,26 @@ pub async fn start_offline_server(
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);
 
+    let mut keystore = KeyStore::new(KeyStoreConfig::Memory)?;
+    keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
+    let ki = keystore.get(JWT_IDENTIFIER)?;
+    // Lotus admin tokens do not expire but Forest requires all JWT tokens to
+    // have an expiration date. So we set the expiration date to 100 years in
+    // the future to match user-visible behavior of Lotus.
+    let token_exp = chrono::Duration::days(365 * 100);
+    let token = crate::auth::create_token(
+        crate::auth::ADMIN.iter().map(ToString::to_string).collect(),
+        ki.private_key(),
+        token_exp,
+    )?;
+    info!("Admin token: {token}");
+    if let Some(path) = save_jwt_token {
+        std::fs::write(path, token)?;
+    }
+
     let rpc_state = RPCState {
         state_manager,
-        keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
+        keystore: Arc::new(RwLock::new(keystore)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
