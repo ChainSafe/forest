@@ -44,6 +44,10 @@
   automatically. Please adapt your configurations accordingly. If you've been
   switching to `root` manually in your workflows you can now remove that step.
 
+- [#4757](https://github.com/ChainSafe/forest/pull/4757) Changed the default
+  option of `--import-mode` to `auto` which hardlink snapshots and fallback to
+  copying them if not applicable.
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the
@@ -102,9 +106,8 @@
   hardlink snapshots instead of moving or copying them. This can be invoked with
   `--import-snapshot <path> --import-mode=hardlink`.
 
-- [#4757](https://github.com/ChainSafe/forest/pull/4757) Added an option to
-  hardlink snapshots and fallback to copying them if not applicable. This can be
-  invoked with `--import-snapshot <path> --import-mode=auto`.
+- [#4668](https://github.com/ChainSafe/forest/issues/4668) Add support for the
+  `Filecoin.EthUninstallFilter` RPC method.
 
 ### Changed
 
