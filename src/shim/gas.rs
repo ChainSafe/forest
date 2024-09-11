@@ -260,7 +260,7 @@ pub fn price_list_by_network_version(network_version: NetworkVersion) -> PriceLi
     }
 }
 
-// TODO(elmattic): shim GasOutputs type
+// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
 use crate::shim::econ::TokenAmount;
 
 #[derive(Clone, Default)]
