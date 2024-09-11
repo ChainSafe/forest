@@ -98,6 +98,9 @@
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` to existing methods (though
   without support, which matches the current Lotus's behavior).
 
+- [#4668](https://github.com/ChainSafe/forest/issues/4668) Add support for the
+  `Filecoin.EthUninstallFilter` RPC method.
+
 ### Changed
 
 - [#4583](https://github.com/ChainSafe/forest/pull/4583) Removed the expiration
