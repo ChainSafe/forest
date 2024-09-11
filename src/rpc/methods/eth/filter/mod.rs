@@ -31,7 +31,6 @@ use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::sync::Arc;
