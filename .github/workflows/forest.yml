@@ -8,9 +8,6 @@ concurrency:
   pull_request:
     branches:
       - main
-    # This needs to be declared explicitly so that the job is actually
-    # run when moved out of draft.
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -482,9 +479,13 @@ jobs:
       - build-ubuntu
     name: Calibnet snapshot parity checks
     runs-on: buildjet-8vcpu-ubuntu-2204
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    # Run the job only on main to limit the runner cost.
+    # The downside is that the offending commit can only be caught after being merged
+    # and a manual revert is required.
+    # Note that running this step on non-draft PR does not save the cost as it always re-run
+    # all the jobs when a PR is moved out of draft. Also this parity test will be stale soon
+    # once we start including the F3(fast finality) metadata in the Forest snapshots.
+    if: github.ref == 'refs/heads/main'
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
