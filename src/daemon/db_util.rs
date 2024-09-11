@@ -303,36 +303,46 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car", *import_mode)
+        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
                 .await
                 .unwrap();
         }
 
         // Linking is not supported for raw CAR files.
-        import_snapshot_from_file("test-snapshots/chain4.car", ImportMode::Symlink)
-            .await
-            .unwrap_err();
+        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
+                .await
+                .unwrap_err();
+        }
     }
 
     #[tokio::test]
     async fn import_snapshot_from_compressed_file_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car.zst", *import_mode)
+        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
+            import_snapshot_from_file("test-snapshots/chain4.car.zst", import_mode)
                 .await
                 .unwrap();
         }
 
-        // Linking is supported only for `forest.car.zst` files.
-        import_snapshot_from_file("test-snapshots/chain4.car.zst", ImportMode::Symlink)
-            .await
-            .unwrap_err();
+        // Linking is not supported for raw CAR files.
+        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
+            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
+                .await
+                .unwrap_err();
+        }
     }
 
     #[tokio::test]
     async fn import_snapshot_from_forest_car_valid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
-            import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", *import_mode)
+        for import_mode in [
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
+            import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", import_mode)
                 .await
                 .unwrap();
         }
@@ -340,7 +350,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_invalid() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("Cargo.toml", *import_mode)
                 .await
                 .unwrap_err();
@@ -349,7 +365,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -358,7 +380,13 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() {
-        for import_mode in &[ImportMode::Copy, ImportMode::Move, ImportMode::Symlink] {
+        for import_mode in &[
+            ImportMode::Auto,
+            ImportMode::Copy,
+            ImportMode::Move,
+            ImportMode::Symlink,
+            ImportMode::Hardlink,
+        ] {
             import_snapshot_from_file("https://forest.chainsafe.io/dummy.car", *import_mode)
                 .await
                 .unwrap_err();
@@ -384,7 +412,12 @@ mod test {
                     std::path::absolute(file_path)?
                 );
             }
+            ImportMode::Move => {
+                assert!(!file_path.exists());
+                assert!(path.is_file());
+            }
             _ => {
+                assert!(file_path.is_file());
                 assert!(path.is_file());
             }
         }
