@@ -1,10 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    auth::*,
-    rpc::{self, auth::AuthNewParams, prelude::*},
-};
+use crate::rpc::{self, auth::AuthNewParams, prelude::*};
 use chrono::Duration;
 use clap::Subcommand;
 
@@ -32,35 +29,22 @@ pub enum AuthCommands {
     },
 }
 
-fn process_perms(perm: String) -> Result<Vec<String>, rpc::ServerError> {
-    Ok(match perm.as_str() {
-        "admin" => ADMIN,
-        "sign" => SIGN,
-        "write" => WRITE,
-        "read" => READ,
-        _ => return Err(rpc::ServerError::invalid_params("unknown permission", None)),
-    }
-    .iter()
-    .map(ToString::to_string)
-    .collect())
-}
-
 impl AuthCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
-                let perms = process_perms(perm)?;
+                let perms = AuthNewParams::process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let res = AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?;
+                let res = AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?;
                 print_rpc_res_bytes(res)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
-                let perms = process_perms(perm)?;
+                let perms = AuthNewParams::process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
                 let token = String::from_utf8(
-                    AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?,
+                    AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?,
                 )?;
                 let addr = multiaddr::from_url(client.base_url().as_str())?;
                 println!("FULLNODE_API_INFO=\"{}:{}\"", token, addr);
