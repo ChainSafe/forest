@@ -58,8 +58,12 @@ tag.
 ## Dependencies
 
 - Rust (toolchain version is specified in `rust-toolchain.toml`)
+- Go for building F3 sidecar module. (toolchain version is specified in
+  `go.work`)
 
 Install [rustup](https://rustup.rs/)
+
+Install [Go](https://go.dev/doc/install)
 
 - OS Base-Devel/Build-Essential
 - Clang compiler

@@ -583,7 +583,7 @@ impl RpcMethod<3> for F3Participate {
     }
 }
 
-fn get_f3_rpc_endpoint() -> Cow<'static, str> {
+pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
     if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_ENDPOINT") {
         Cow::Owned(host)
     } else {
