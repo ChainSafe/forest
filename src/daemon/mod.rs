@@ -413,7 +413,21 @@ pub(super) async fn start(
         });
 
         services.spawn_blocking({
-            let finality = chain_config.policy.chain_finality;
+            let finality = std::env::var("FOREST_F3_FINALITY")
+                .ok()
+                .and_then(|v| match v.parse::<i64>() {
+                    Ok(f) if f > 0 => {
+                        tracing::info!("Using F3 finality {f} set by FOREST_F3_FINALITY");
+                        Some(f)
+                    }
+                    _ => {
+                        tracing::warn!(
+                            "Invalid FOREST_F3_FINALITY value {v}. A positive integer is expected."
+                        );
+                        None
+                    }
+                })
+                .unwrap_or(chain_config.policy.chain_finality);
             let default_f3_db_path = config
                 .client
                 .data_dir
