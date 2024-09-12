@@ -24,7 +24,7 @@ jobs:
   build-and-push-docker-image:
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    # if: github.event.pull_request.draft == false
     name: Build images and push to GHCR
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     # runs-on: fuzzy
@@ -83,7 +83,8 @@ jobs:
           labels: ${{ steps.metafat.outputs.labels }}
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
-          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          # platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: 'linux/arm64'
           target: fat-image
 
       # This step yields the following labels
