@@ -1078,12 +1078,7 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
         block_hash: tx.block_hash.clone(),
         block_number: tx.block_number.clone(),
         r#type: tx.r#type.clone(),
-        status: if message_lookup.receipt.exit_code().is_success() {
-            1
-        } else {
-            0
-        }
-        .into(),
+        status: (message_lookup.receipt.exit_code().is_success() as u8).into(),
         gas_used: message_lookup.receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
