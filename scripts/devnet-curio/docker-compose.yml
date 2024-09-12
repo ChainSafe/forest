@@ -4,6 +4,14 @@
 # - Lotus miner (2k build),
 # - Forest node.
 
+x-logging:
+  &default-logging
+  options:
+    max-size: '20m'
+    max-file: '3'
+  driver: json-file
+
+
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
@@ -249,6 +257,27 @@ services:
       - |
         set -euxo pipefail
         f3-sidecar -finality ${F3_FINALITY} -rpc http://forest:${FOREST_RPC_PORT}/rpc/v1 -f3-rpc 0.0.0.0:${F3_RPC_PORT}
+
+  curio:
+    container_name: curio
+    image: ${CURIO_IMAGE}
+    init: true
+    ports:
+      - "12300:12300" # API
+      - "4701:4701" # UI
+      - "32100:32100" # Market
+    environment:
+      - CURIO_REPO_PATH=/var/lib/curio
+      - CURIO_HARMONYDB_HOSTS=yugabyte
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ./data/curio:/var/lib/curio:rw
+      - lotus-data:/var/lib/lotus:ro
+      # - ./data/lotus-miner:/var/lib/lotus-miner:ro
+      - filecoin-proofs:/var/tmp/filecoin-proof-parameters:rw
+    networks:
+      - devnet
 
   yugabyte:
     container_name: yugabyte
