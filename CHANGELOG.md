@@ -48,6 +48,9 @@
   option of `--import-mode` to `auto` which hardlink snapshots and fallback to
   copying them if not applicable.
 
+- [#4768](https://github.com/ChainSafe/forest/pull/4768) Moved all RPC methods
+  to V1 when applicabile
+
 ### Added
 
 - [#3959](https://github.com/ChainSafe/forest/issues/3959) Added support for the

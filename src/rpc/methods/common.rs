@@ -18,7 +18,7 @@ pub enum Session {}
 impl RpcMethod<0> for Session {
     const NAME: &'static str = "Filecoin.Session";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -54,7 +54,7 @@ pub enum Shutdown {}
 impl RpcMethod<0> for Shutdown {
     const NAME: &'static str = "Filecoin.Shutdown";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = ();
@@ -70,7 +70,7 @@ pub enum StartTime {}
 impl RpcMethod<0> for StartTime {
     const NAME: &'static str = "Filecoin.StartTime";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
