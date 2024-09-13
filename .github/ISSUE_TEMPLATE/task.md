@@ -1,6 +1,6 @@
 ---
 name: Task
-about:
+about: [internal] A specific, actionable unit of work
 title: ""
 labels: "Type: Task"
 assignees: ""
