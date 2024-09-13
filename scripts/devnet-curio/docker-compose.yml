@@ -4,13 +4,6 @@
 # - Lotus miner (2k build),
 # - Forest node.
 
-x-logging:
-  &default-logging
-  options:
-    max-size: '20m'
-    max-file: '3'
-  driver: json-file
-
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
@@ -269,7 +262,6 @@ services:
       - CURIO_REPO_PATH=/var/lib/curio
       - CURIO_HARMONYDB_HOSTS=yugabyte
     restart: unless-stopped
-    logging: *default-logging
     volumes:
       - ./data/curio:/var/lib/curio:rw
       - filecoin-proofs:/var/tmp/filecoin-proof-parameters:rw
@@ -290,7 +282,6 @@ services:
       - "9042:9042"
       - "15433:15433"
     restart: unless-stopped
-    logging: *default-logging
     volumes:
       - ./data/yugabyte:/home/yugabyte/yb_data
     command: ["bin/yugabyted", "start", "--base_dir=/home/yugabyte/yb_data", "--background=false"]
