@@ -20,7 +20,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address,);
@@ -39,7 +39,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -108,7 +108,7 @@ pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
     const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "ticket_quality"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey, f64);
@@ -128,7 +128,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
@@ -148,7 +148,7 @@ pub enum MpoolBatchPush {}
 impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
     const PARAM_NAMES: [&'static str; 1] = ["msgs"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (Vec<SignedMessage>,);
@@ -171,7 +171,7 @@ pub enum MpoolPushUntrusted {}
 impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignedMessage,);
@@ -193,7 +193,7 @@ pub enum MpoolBatchPushUntrusted {}
 impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["msgs"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (Vec<SignedMessage>,);
@@ -213,7 +213,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Message, Option<MessageSendSpec>);

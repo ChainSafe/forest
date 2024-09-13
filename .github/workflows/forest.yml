@@ -87,7 +87,7 @@ jobs:
           if-no-files-found: error
   build-ubuntu-arm64:
     name: Build Ubuntu (arm64)
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-4vcpu-ubuntu-2204-arm
     steps:
       - name: Configure SCCache variables
         run: |
