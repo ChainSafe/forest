@@ -1412,14 +1412,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
-        RpcTest::identity(
+        RpcTest::basic(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_predefined(Predefined::Safe),
                 true,
             ))
             .unwrap(),
         ),
-        RpcTest::identity(
+        RpcTest::basic(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_predefined(Predefined::Finalized),
                 true,
