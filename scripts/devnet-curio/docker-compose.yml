@@ -270,6 +270,7 @@ services:
       - CURIO_REPO_PATH=/var/lib/curio
       - CURIO_HARMONYDB_HOSTS=yugabyte
       - FULLNODE_API_INFO=/dns/lotus/tcp/1234/http
+      - MINER_API_INFO=/dns/lotus-miner/tcp/2345/http
     restart: unless-stopped
     logging: *default-logging
     volumes:
