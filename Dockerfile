@@ -20,9 +20,10 @@
 
 # Cross-compilation helpers
 # https://github.com/tonistiigi/xx
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.5.0 AS xx
+# FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.5.0 AS xx
 
-FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
+# FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
+FROM ubuntu:22.04 AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # export TARGETPLATFORM TARGETOS and TARGETARCH
@@ -44,15 +45,15 @@ RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | ba
 RUN "${HOME}/.g/bin/g" install 1.21 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
 
 # Opt out F3 sidecar FFI build for arm64 for now
-RUN if [ "${TARGETARCH}" != "amd64" ] ;then echo FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1 >>/etc/environment ; fi
-RUN cat /etc/environment && echo "FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=${FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT}"
+# RUN if [ "${TARGETARCH}" != "amd64" ] ;then echo FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1 >>/etc/environment ; fi
+# RUN cat /etc/environment && echo "FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=${FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT}"
 
 # Copy the cross-compilation scripts 
-COPY --from=xx / /
+# COPY --from=xx / /
 
 # Install those packages for the target architecture
-RUN xx-apt-get update && \
-    xx-apt-get install -y libc6-dev g++
+# RUN xx-apt-get update && \
+#     xx-apt-get install -y libc6-dev g++
 
 WORKDIR /forest
 COPY . .
@@ -64,7 +65,7 @@ ENV GOARCH=${TARGETARCH}
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install-xx && \
+    make install && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 
