@@ -394,6 +394,9 @@ enum PolicyOnRejected {
     Fail,
     Pass,
     PassWithIdenticalError,
+    /// If Forest reason is a subset of Lotus reason, the test passes.
+    /// We don't always bubble up errors and format the error chain like Lotus.
+    PassWithQuasiIdenticalError,
 }
 
 struct RpcTest {
@@ -1551,9 +1554,18 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(
                 EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
-            tests.push(RpcTest::identity(EthGetTransactionByHash::request((
-                tx.hash,
-            ))?));
+            tests.push(RpcTest::identity(EthGetTransactionByHash::request((tx
+                .hash
+                .clone(),))?));
+
+            if smsg.message.from.protocol() == Protocol::Delegated
+                && smsg.message.to.protocol() == Protocol::Delegated
+            {
+                tests.push(
+                    RpcTest::identity(EthGetTransactionReceipt::request((tx.hash,))?)
+                        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+                );
+            }
         }
     }
     tests.push(RpcTest::identity(
@@ -1791,6 +1803,11 @@ async fn run_tests(
                 match test.policy_on_rejected {
                     PolicyOnRejected::Pass => true,
                     PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {
+                        true
+                    }
+                    PolicyOnRejected::PassWithQuasiIdenticalError
+                        if reason_lotus.starts_with(reason_forest) =>
+                    {
                         true
                     }
                     _ => false,

@@ -24,6 +24,7 @@ use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
@@ -33,12 +34,13 @@ use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
+use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{anyhow, Error};
-use anyhow::{bail, Context, Result};
+use crate::utils::encoding::from_slice_with_fallback;
+use anyhow::{anyhow, bail, Context, Error, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
@@ -63,6 +65,9 @@ const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
 
 /// Ethereum Bloom filter with all bits set to 1.
 const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
+
+/// Ethereum Bloom filter with all bits set to 0.
+const EMPTY_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0x0; BLOOM_SIZE_IN_BYTES];
 
 /// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
@@ -203,6 +208,12 @@ impl From<Cid> for EthHash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
         EthHash(ethereum_types::H256::from_slice(&digest[0..32]))
+    }
+}
+
+impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
+    fn from(value: [u8; EVM_WORD_LENGTH]) -> Self {
+        Self(ethereum_types::H256(value))
     }
 }
 
@@ -379,6 +390,24 @@ pub struct ApiEthTx {
 }
 lotus_json_with_self!(ApiEthTx);
 
+impl ApiEthTx {
+    fn gas_fee_cap(&self) -> anyhow::Result<EthBigInt> {
+        self.max_fee_per_gas
+            .as_ref()
+            .or(self.gas_price.as_ref())
+            .cloned()
+            .context("gas fee cap is not set")
+    }
+
+    fn gas_premium(&self) -> anyhow::Result<EthBigInt> {
+        self.max_priority_fee_per_gas
+            .as_ref()
+            .or(self.gas_price.as_ref())
+            .cloned()
+            .context("gas premium is not set")
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EthSyncingResult {
     pub done_sync: bool,
@@ -455,6 +484,52 @@ impl HasLotusJson for EthSyncingResult {
         }
     }
 }
+
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTxReceipt {
+    transaction_hash: EthHash,
+    transaction_index: Uint64,
+    block_hash: EthHash,
+    block_number: Uint64,
+    from: EthAddress,
+    to: Option<EthAddress>,
+    root: EthHash,
+    status: Uint64,
+    contract_address: Option<EthAddress>,
+    cumulative_gas_used: Uint64,
+    gas_used: Uint64,
+    effective_gas_price: EthBigInt,
+    logs_bloom: EthBytes,
+    logs: Vec<EthLog>,
+    r#type: Uint64,
+}
+lotus_json_with_self!(EthTxReceipt);
+
+impl EthTxReceipt {
+    fn new() -> Self {
+        Self {
+            logs_bloom: EthBytes(EMPTY_BLOOM.to_vec()),
+            ..Self::default()
+        }
+    }
+}
+
+/// Represents the results of an event filter execution.
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthLog {
+    address: EthAddress,
+    data: EthBytes,
+    topics: Vec<EthHash>,
+    removed: bool,
+    log_index: Uint64,
+    transaction_index: Uint64,
+    transaction_hash: EthHash,
+    block_hash: EthHash,
+    block_number: Uint64,
+}
+lotus_json_with_self!(EthLog);
 
 pub enum Web3ClientVersion {}
 impl RpcMethod<0> for Web3ClientVersion {
@@ -988,6 +1063,69 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
         transaction_index: tx_index.into(),
         ..new_eth_tx_from_signed_message(&smsg, &state, ctx.chain_config().eth_chain_id)?
     })
+}
+
+async fn new_eth_tx_receipt<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    tx: &ApiEthTx,
+    message_lookup: &MessageLookup,
+) -> anyhow::Result<EthTxReceipt> {
+    let mut receipt = EthTxReceipt {
+        transaction_hash: tx.hash.clone(),
+        from: tx.from.clone(),
+        to: tx.to.clone(),
+        transaction_index: tx.transaction_index.clone(),
+        block_hash: tx.block_hash.clone(),
+        block_number: tx.block_number.clone(),
+        r#type: tx.r#type.clone(),
+        status: (message_lookup.receipt.exit_code().is_success() as u64).into(),
+        gas_used: message_lookup.receipt.gas_used().into(),
+        ..EthTxReceipt::new()
+    };
+
+    let ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
+
+    // This transaction is located in the parent tipset
+    let parent_ts = ctx
+        .chain_store()
+        .load_required_tipset_or_heaviest(ts.parents())?;
+
+    let base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
+
+    let gas_fee_cap = tx.gas_fee_cap()?;
+    let gas_premium = tx.gas_premium()?;
+
+    let gas_outputs = GasOutputs::compute(
+        message_lookup.receipt.gas_used(),
+        tx.gas.clone().into(),
+        &base_fee,
+        &gas_fee_cap.0.into(),
+        &gas_premium.0.into(),
+    );
+
+    let total_spent: BigInt =
+        (gas_outputs.base_fee_burn + gas_outputs.miner_tip + gas_outputs.over_estimation_burn)
+            .into();
+
+    let mut effective_gas_price = EthBigInt::default();
+    if message_lookup.receipt.gas_used() > 0 {
+        effective_gas_price = (total_spent / message_lookup.receipt.gas_used()).into();
+    }
+    receipt.effective_gas_price = effective_gas_price;
+
+    if receipt.to.is_none() && message_lookup.receipt.exit_code().is_success() {
+        // Create and Create2 return the same things.
+        let ret: eam::CreateExternalReturn =
+            from_slice_with_fallback(message_lookup.receipt.return_data().bytes())?;
+
+        receipt.contract_address = Some(ret.eth_address.into());
+    }
+
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
+
+    Ok(receipt)
 }
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
@@ -2036,6 +2174,54 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
         (eth_address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(eth_address.to_filecoin_address()?)
+    }
+}
+
+pub enum EthGetTransactionReceipt {}
+impl RpcMethod<1> for EthGetTransactionReceipt {
+    const NAME: &'static str = "Filecoin.EthGetTransactionReceipt";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceipt");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash,);
+    type Ok = EthTxReceipt;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+            tracing::debug!(
+                "could not find transaction hash {} in Ethereum mapping",
+                tx_hash
+            );
+            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+            tx_hash.to_cid()
+        });
+
+        let option = ctx
+            .state_manager
+            .search_for_message(None, msg_cid, None, Some(true))
+            .await
+            .with_context(|| format!("failed to lookup Eth Txn {} as {}", tx_hash, msg_cid))?;
+
+        let (tipset, receipt) = option.context("not indexed")?;
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: msg_cid,
+            return_dec: ipld,
+        };
+
+        let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
+            .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
+
+        let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
+
+        Ok(tx_receipt)
     }
 }
 

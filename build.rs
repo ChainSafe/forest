@@ -29,7 +29,9 @@ fn is_docs_rs() -> bool {
 
 fn is_sidecar_ffi_enabled() -> bool {
     // Note: arm64 is disabled for now as cross-compilation is not yet supported in rust2go
+    // and it's reported rust2go build does not work on arm64 MacOS
     if cfg!(target_arch = "x86_64") {
+        // Opt-out building the F3 sidecar staticlib
         match std::env::var("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
             Ok(value) => !matches!(value.to_lowercase().as_str(), "1" | "true"),
             _ => true,

@@ -92,6 +92,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
+        $callback!(crate::rpc::eth::EthGetTransactionReceipt);
         $callback!(crate::rpc::eth::EthNewFilter);
         $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!(crate::rpc::eth::EthNewBlockFilter);
