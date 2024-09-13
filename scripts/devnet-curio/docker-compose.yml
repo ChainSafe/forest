@@ -11,7 +11,6 @@ x-logging:
     max-file: '3'
   driver: json-file
 
-
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
@@ -269,15 +268,14 @@ services:
     environment:
       - CURIO_REPO_PATH=/var/lib/curio
       - CURIO_HARMONYDB_HOSTS=yugabyte
-      - FULLNODE_API_INFO=/dns/lotus/tcp/1234/http
-      - MINER_API_INFO=/dns/lotus-miner/tcp/2345/http
     restart: unless-stopped
     logging: *default-logging
     volumes:
       - ./data/curio:/var/lib/curio:rw
-      - lotus-data:/var/lib/lotus:ro
-      # - ./data/lotus-miner:/var/lib/lotus-miner:ro
       - filecoin-proofs:/var/tmp/filecoin-proof-parameters:rw
+      - lotus-data:${LOTUS_DATA_DIR}
+    env_file:
+      - lotus-miner.env
     networks:
       - devnet
 
