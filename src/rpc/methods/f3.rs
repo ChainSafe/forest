@@ -416,7 +416,7 @@ impl RpcMethod<1> for ProtectPeer {
         let (tx, rx) = flume::bounded(1);
         ctx.network_send
             .send_async(NetworkMessage::JSONRPCRequest {
-                method: NetRPCMethods::ProtectPeer(tx, peer_id),
+                method: NetRPCMethods::ProtectPeer(tx, std::iter::once(peer_id).collect()),
             })
             .await?;
         rx.recv_async().await?;
@@ -583,7 +583,7 @@ impl RpcMethod<3> for F3Participate {
     }
 }
 
-fn get_f3_rpc_endpoint() -> Cow<'static, str> {
+pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
     if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_ENDPOINT") {
         Cow::Owned(host)
     } else {

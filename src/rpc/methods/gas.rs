@@ -30,7 +30,7 @@ pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {
     const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
     const PARAM_NAMES: [&'static str; 3] = ["message", "max_queue_blocks", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, i64, ApiTipsetKey);
@@ -69,7 +69,7 @@ pub enum GasEstimateGasPremium {}
 impl RpcMethod<4> for GasEstimateGasPremium {
     const NAME: &'static str = "Filecoin.GasEstimateGasPremium";
     const PARAM_NAMES: [&'static str; 4] = ["nblocksincl", "sender", "gas_limit", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (u64, Address, i64, ApiTipsetKey);
@@ -167,7 +167,7 @@ pub enum GasEstimateGasLimit {}
 impl RpcMethod<2> for GasEstimateGasLimit {
     const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
     const PARAM_NAMES: [&'static str; 2] = ["msg", "tsk"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, ApiTipsetKey);
@@ -262,7 +262,7 @@ pub enum GasEstimateMessageGas {}
 impl RpcMethod<3> for GasEstimateMessageGas {
     const NAME: &'static str = "Filecoin.GasEstimateMessageGas";
     const PARAM_NAMES: [&'static str; 3] = ["msg", "spec", "tsk"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);

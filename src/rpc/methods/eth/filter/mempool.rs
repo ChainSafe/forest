@@ -6,6 +6,7 @@ use crate::rpc::Arc;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
+use std::any::Any;
 
 /// Data structure for filtering and collecting pending transactions
 /// from the mempool before they are confirmed in a block.
@@ -26,6 +27,10 @@ impl MempoolFilter {
 impl Filter for MempoolFilter {
     fn id(&self) -> &FilterID {
         &self.id
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

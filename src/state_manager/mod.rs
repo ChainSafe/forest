@@ -892,9 +892,9 @@ where
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
         let current_tipset = self.cs.heaviest_tipset();
-        let maybe_message_reciept =
+        let maybe_message_receipt =
             self.tipset_executed_message(&current_tipset, &message, true)?;
-        if let Some(r) = maybe_message_reciept {
+        if let Some(r) = maybe_message_receipt {
             return Ok((Some(current_tipset.clone()), Some(r)));
         }
 
@@ -1014,9 +1014,9 @@ where
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
-        let maybe_message_reciept =
+        let maybe_message_receipt =
             self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
-        if let Some(r) = maybe_message_reciept {
+        if let Some(r) = maybe_message_receipt {
             Ok(Some((from, r)))
         } else {
             self.search_back_for_message(current_tipset, &message, look_back_limit, allow_replaced)

@@ -349,7 +349,6 @@ impl PeerManager {
         self.protected_peers.write().insert(peer_id);
     }
 
-    #[allow(dead_code)]
     pub fn unprotect_peer(&self, peer_id: &PeerId) {
         self.protected_peers.write().remove(peer_id);
     }

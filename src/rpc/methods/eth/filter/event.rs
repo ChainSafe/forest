@@ -11,6 +11,7 @@ use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use cid::Cid;
 use parking_lot::RwLock;
+use std::any::Any;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
@@ -28,6 +29,10 @@ impl Filter for EventFilter {
     fn id(&self) -> &FilterID {
         &self.id
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// The `EventFilterManager` structure maintains a set of filters, allowing new filters to be
@@ -36,6 +41,8 @@ impl Filter for EventFilter {
 pub struct EventFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<EventFilter>>>,
     max_filter_results: usize,
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4740
+    //pub event_index: Option<Arc<EventIndex>>,
 }
 
 impl EventFilterManager {

@@ -76,6 +76,8 @@ services:
 
         # Make sure to use the Forest bootstrapper as the only bootstrap peer
         cat > config.toml <<EOF
+        [client]
+        data_dir = "/data/forest"
         [network]
         bootstrap_peers = ["/dns/forest-bootstrapper/tcp/$FOREST_P2P_PORT/p2p/$${PEER_ID}"]
         EOF
@@ -83,8 +85,7 @@ services:
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --config config.toml \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
-          --import-mode=move
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s
