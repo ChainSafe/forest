@@ -25,6 +25,11 @@ FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.5.0 AS xx
 FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# export TARGETPLATFORM TARGETOS and TARGETARCH
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
 # install dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
@@ -38,11 +43,12 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | bash
 RUN "${HOME}/.g/bin/g" install 1.21 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
 
+# Opt out F3 sidecar FFI build for arm64 for now
+RUN if [ "${TARGETARCH}" != "amd64" ] ;then echo FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1 >>/etc/environment ; fi
+RUN cat /etc/environment && echo "FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=${FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT}"
+
 # Copy the cross-compilation scripts 
 COPY --from=xx / /
-
-# export TARGETPLATFORM
-ARG TARGETPLATFORM
 
 # Install those packages for the target architecture
 RUN xx-apt-get update && \
@@ -50,6 +56,9 @@ RUN xx-apt-get update && \
 
 WORKDIR /forest
 COPY . .
+
+ENV GOOS=${TARGETOS}
+ENV GOARCH=${TARGETARCH}
 
 # Install Forest. Move it out of the cache for the prod image.
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
