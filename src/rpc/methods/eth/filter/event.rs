@@ -41,6 +41,8 @@ impl Filter for EventFilter {
 pub struct EventFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<EventFilter>>>,
     max_filter_results: usize,
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4740
+    //pub event_index: Option<Arc<EventIndex>>,
 }
 
 impl EventFilterManager {

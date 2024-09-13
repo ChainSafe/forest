@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod common;
+pub mod eam;
 pub mod market;
 pub mod miner;
 pub mod multisig;
