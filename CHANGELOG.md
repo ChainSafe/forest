@@ -27,6 +27,21 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.20.0 "Brexit"
+
+Non-mandatory release including a number of new RPC methods, fixes, and other
+improvements. Be sure to check the breaking changes before upgrading.
+
+### Breaking
+
 - [#4620](https://github.com/ChainSafe/forest/pull/4620) Removed the
   `--consume-snapshot` parameter from the `forest` binary. To consume a
   snapshot, use `--import-snapshot <path> --import-mode=move`.
