@@ -12,7 +12,7 @@ services:
     image: ${LOTUS_IMAGE}
     volumes:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
       - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
@@ -59,7 +59,7 @@ services:
       - devnet
     volumes:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
       - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
@@ -100,7 +100,7 @@ services:
       - devnet
     volumes:
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
       - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
@@ -136,7 +136,7 @@ services:
       lotus_node:
         condition: service_healthy
     volumes:
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_SHARK_HEIGHT=${SHARK_HEIGHT}
       - LOTUS_HYGGE_HEIGHT=${HYGGE_HEIGHT}
@@ -173,9 +173,9 @@ services:
       timeout: 5s
       start_period: 15s
     volumes:
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
-      - forest-data:${FOREST_DATA_DIR}
+      - ./data/forest:${FOREST_DATA_DIR}
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
@@ -216,8 +216,8 @@ services:
       context: ../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
-      - lotus-data:${LOTUS_DATA_DIR}
-      - forest-data:${FOREST_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
+      - ./data/forest:${FOREST_DATA_DIR}
     networks:
       - devnet
     entrypoint: ["/bin/bash", "-c" ]
@@ -238,8 +238,8 @@ services:
       dockerfile: Dockerfile
     container_name: f3
     volumes:
-      - lotus-data:${LOTUS_DATA_DIR}
-      - forest-data:${FOREST_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
+      - ./data/forest:${FOREST_DATA_DIR}
     ports:
       - ${F3_RPC_PORT}:${F3_RPC_PORT}
     networks:
@@ -258,18 +258,77 @@ services:
       - "12300:12300" # API
       - "4701:4701" # UI
       - "32100:32100" # Market
-    environment:
-      - CURIO_REPO_PATH=/var/lib/curio
-      - CURIO_HARMONYDB_HOSTS=yugabyte
     restart: unless-stopped
     volumes:
       - ./data/curio:/var/lib/curio:rw
       - filecoin-proofs:/var/tmp/filecoin-proof-parameters:rw
-      - lotus-data:${LOTUS_DATA_DIR}
+      - ./data/lotus:${LOTUS_DATA_DIR}
     env_file:
-      - lotus-miner.env
+      - curio.env
     networks:
       - devnet
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -ex
+        echo CURIO_REPO_PATH=$CURIO_REPO_PATH
+        echo Wait for lotus is ready ...
+        lotus wait-api
+        head=0
+        # Loop until the head is greater than 9
+        while [[ $$head -le 9 ]]; do
+            head=$(lotus chain list | awk '{print $1}' | awk -F':' '{print $1}' | tail -1)
+            if [[ $$head -le 9 ]]; then
+                echo "Current head: $$head, which is not greater than 9. Waiting..."
+                sleep 1  # Wait for 4 seconds before checking again
+            else
+                echo "The head is now greater than 9: $$head"
+            fi
+        done
+
+        echo All ready. Lets go
+        myip=`nslookup curio | grep -v "#" | grep Address | awk '{print $2}'`
+
+        if [ ! -f $CURIO_REPO_PATH/.init.curio ]; then
+
+          if [ ! -f $CURIO_REPO_PATH/.init.setup ]; then
+          export DEFAULT_WALLET=`lotus wallet default`
+        	echo Create a new miner actor ...
+        	lotus-shed miner create $$DEFAULT_WALLET $$DEFAULT_WALLET $$DEFAULT_WALLET 8MiB
+        	touch $CURIO_REPO_PATH/.init.setup
+        	fi
+
+        	if [ ! -f $CURIO_REPO_PATH/.init.config ]; then
+
+        	newminer=`lotus state list-miners | grep -v t01000`
+        	echo "New Miner is $$newminer"
+        	echo Initiating a new Curio cluster ...
+        	curio config new-cluster $$newminer
+        	echo Enabling market ...
+          curio config get seal | sed -e $'$a\\\n  BoostAdapters = ["'$$newminer'":'"$$myip"':32100"]\n  EnableParkPiece = true' | curio config set --title seal
+          touch $CURIO_REPO_PATH/.init.config
+          fi
+
+          echo Starting Curio node to attach storage ...
+          curio run --nosync --layers seal,post,gui &
+          CURIO_PID=`echo $!`
+          until curio cli --machine $$myip:12300 wait-api; do
+            echo "Waiting for the curio CLI to become ready..."
+            sleep 5
+          done
+          curio cli --machine $$myip:12300 storage attach --init --seal --store $CURIO_REPO_PATH
+          touch $CURIO_REPO_PATH/.init.curio
+          echo Stopping Curio node ...
+          echo Try to stop curio...
+              kill -15 $$CURIO_PID || kill -9 $$CURIO_PID
+        	echo Done
+        fi
+
+        echo Starting curio node ...
+        exec curio run --nosync --name devnet --layers seal,post,gui
+
+
+
 
   yugabyte:
     container_name: yugabyte
@@ -291,9 +350,6 @@ services:
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
   filecoin-proofs:
-  # Lotus node, miner and network data.
-  lotus-data:
-  forest-data:
 
 networks:
   devnet:
