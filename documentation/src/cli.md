@@ -42,7 +42,7 @@ The chain-sync CLI can mark blocks to never be synced, provide information about
 the state of the syncing process, and check blocks that will never be synced
 (and for what reason).
 
-Wait Wait for the sync process to be complete Usage: `forest-cli sync wait`
+Wait for the sync process to be complete Usage: `forest-cli sync wait`
 Permissions: Read
 
 Status Check the current state of the syncing process, displaying some
