@@ -3,6 +3,8 @@
 # - Lotus node (2k build),
 # - Lotus miner (2k build),
 # - Forest node.
+# - Curio node.
+# - YugabyteDB.
 
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
