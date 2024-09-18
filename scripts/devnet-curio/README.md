@@ -67,6 +67,12 @@ export FULLNODE_API_INFO=$TOKEN:/dns/forest/tcp/1234/http
 forest-cli net peers
 ```
 
+## Known problems
+
+- YugabyteDB sometimes fails to start. If this happens, restart the devnet.
+- As of writing, using Forest with Curio doesn't work. Forest fails to find a
+  miner actor.
+
 ## Local devnet development
 
 If you prefer to have Forest running directly on the host, you can comment it
