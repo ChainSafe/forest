@@ -25,7 +25,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
     env_file:
       - lotus.env
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
@@ -48,9 +48,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: >-
-        curl -s -x post -h "content-type: application/json"
-        --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }'
-        http://lotus_node:${LOTUS_RPC_PORT}/rpc/v0 || exit 1
+        curl -s -x post -h "content-type: application/json" --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }' http://lotus_node:${LOTUS_RPC_PORT}/rpc/v0 || exit 1
       interval: 10s
       retries: 10
       timeout: 5s
@@ -75,7 +73,7 @@ services:
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
     env_file:
       - lotus.env
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
@@ -116,7 +114,7 @@ services:
     env_file:
       - lotus-miner.env
     restart: on-failure # lotus node might not be ready
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
@@ -147,7 +145,7 @@ services:
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_PHOENIX_HEIGHT=${DRAND_QUICKNET_HEIGHT}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     env_file:
       - lotus.env
     networks:
@@ -195,7 +193,7 @@ services:
       - devnet
     ports:
       - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
@@ -220,7 +218,7 @@ services:
       - ./data/forest:${FOREST_DATA_DIR}
     networks:
       - devnet
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
@@ -275,10 +273,10 @@ services:
       - curio.env
     networks:
       - devnet
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
-        set -ex
+        set -e
         echo CURIO_REPO_PATH=$CURIO_REPO_PATH
         echo Wait for lotus is ready ...
         lotus wait-api
@@ -312,8 +310,8 @@ services:
         	echo "New Miner is $$newminer"
         	echo Initiating a new Curio cluster ...
         	curio config new-cluster $$newminer
-        	echo Enabling market ...
-          curio config get seal | sed -e $'$a\\\n  BoostAdapters = ["'$$newminer'":'"$$myip"':32100"]\n  EnableParkPiece = true' | curio config set --title seal
+        	# echo Enabling market ...
+          # curio config get seal | sed -e $'$$a\n  BoostAdapters = ["'$$newminer'":'"$$myip"':32100"]\n  EnableParkPiece = true' | curio config set --title seal
           touch $CURIO_REPO_PATH/.init.config
           fi
 
@@ -332,11 +330,10 @@ services:
         	echo Done
         fi
 
+        export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
         echo Starting curio node ...
         exec curio run --nosync --name devnet --layers seal,post,gui
-
-
-
 
   yugabyte:
     container_name: yugabyte
@@ -351,13 +348,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./data/yugabyte:/home/yugabyte/yb_data
-    command: ["bin/yugabyted", "start", "--base_dir=/home/yugabyte/yb_data", "--background=false"]
+    command: [ "bin/yugabyted", "start", "--base_dir=/home/yugabyte/yb_data", "--background=false" ]
     networks:
       - devnet
 
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
   filecoin-proofs:
+
 
 networks:
   devnet:
