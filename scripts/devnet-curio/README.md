@@ -22,9 +22,9 @@ default, running it will expose relevant RPC and P2P ports to the host:
 ## Running the devnet
 
 Prerequisites:
-- Fetch the Curio repository and run:
-  -  "make docker/curio-all-in-one"
-  -  "make docker/curio"
+- Fetch the Curio repository (`git clone https://github.com/filecoin-project/curio`) and run:
+  - `make docker/curio-all-in-one`
+  - `make docker/curio`
 
 Run it with:
 
