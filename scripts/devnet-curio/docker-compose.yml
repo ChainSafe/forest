@@ -300,21 +300,18 @@ services:
         if [ ! -f $CURIO_REPO_PATH/.init.curio ]; then
 
           if [ ! -f $CURIO_REPO_PATH/.init.setup ]; then
-          export DEFAULT_WALLET=`lotus wallet default`
-        	echo Create a new miner actor ...
-        	lotus-shed miner create $$DEFAULT_WALLET $$DEFAULT_WALLET $$DEFAULT_WALLET 8MiB
-        	touch $CURIO_REPO_PATH/.init.setup
-        	fi
+            export DEFAULT_WALLET=`lotus wallet default`
+            echo Create a new miner actor ...
+            lotus-shed miner create $$DEFAULT_WALLET $$DEFAULT_WALLET $$DEFAULT_WALLET 8MiB
+            touch $CURIO_REPO_PATH/.init.setup
+          fi
 
-        	if [ ! -f $CURIO_REPO_PATH/.init.config ]; then
-
-        	newminer=`lotus state list-miners | grep -v t01000`
-        	echo "New Miner is $$newminer"
-        	echo Initiating a new Curio cluster ...
-        	curio config new-cluster $$newminer
-        	# echo Enabling market ...
-          # curio config get seal | sed -e $'$$a\n  BoostAdapters = ["'$$newminer'":'"$$myip"':32100"]\n  EnableParkPiece = true' | curio config set --title seal
-          touch $CURIO_REPO_PATH/.init.config
+          if [ ! -f $CURIO_REPO_PATH/.init.config ]; then
+            newminer=`lotus state list-miners | grep -v t01000`
+            echo "New Miner is $$newminer"
+            echo Initiating a new Curio cluster ...
+            curio config new-cluster $$newminer
+            touch $CURIO_REPO_PATH/.init.config
           fi
 
           echo Starting Curio node to attach storage ...
@@ -328,8 +325,8 @@ services:
           touch $CURIO_REPO_PATH/.init.curio
           echo Stopping Curio node ...
           echo Try to stop curio...
-              kill -15 $$CURIO_PID || kill -9 $$CURIO_PID
-        	echo Done
+          kill -15 $$CURIO_PID || kill -9 $$CURIO_PID
+          echo Done
         fi
 
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
