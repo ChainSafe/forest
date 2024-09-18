@@ -244,13 +244,20 @@ services:
       - ${F3_RPC_PORT}:${F3_RPC_PORT}
     networks:
       - devnet
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
         f3-sidecar -finality ${F3_FINALITY} -rpc http://forest:${FOREST_RPC_PORT}/rpc/v1 -f3-rpc 0.0.0.0:${F3_RPC_PORT}
 
   curio:
+    depends_on:
+      forest:
+        condition: service_healthy
+      yugabyte:
+        condition: service_started
+      lotus_node:
+        condition: service_healthy
     container_name: curio
     image: ${CURIO_IMAGE}
     init: true
@@ -263,6 +270,7 @@ services:
       - ./data/curio:/var/lib/curio:rw
       - filecoin-proofs:/var/tmp/filecoin-proof-parameters:rw
       - ./data/lotus:${LOTUS_DATA_DIR}
+      - ./data/forest:${FOREST_DATA_DIR}
     env_file:
       - curio.env
     networks:
