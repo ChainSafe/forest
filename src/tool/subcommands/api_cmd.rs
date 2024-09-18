@@ -1557,7 +1557,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHash::request((tx
                 .hash
                 .clone(),))?));
-
+            tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
+                (tx.hash.clone(), Some(shared_tipset.epoch())),
+            )?));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {

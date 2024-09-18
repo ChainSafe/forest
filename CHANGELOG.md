@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4703](https://github.com/ChainSafe/forest/issues/4703) Add support for the
+  `Filecoin.EthGetTransactionByHashLimited` RPC method.
+
 ### Changed
 
 ### Removed
