@@ -83,6 +83,7 @@ services:
         lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
 
   # Lotus miner container. It communicates only with Lotus and not with Forest.
+  # Curio is supposed to replace this miner, but it is helpful for sanity checking to keep it around.
   lotus_miner:
     image: ${LOTUS_IMAGE}
     depends_on:
