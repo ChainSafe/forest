@@ -5,6 +5,8 @@ The devnet consists of a:
 - Lotus miner,
 - Lotus node,
 - Forest node.
+- Curio node.
+- YugabyteDB.
 
 It's packed in a docker compose setup for convenience and ease of usage. By
 default, running it will expose relevant RPC and P2P ports to the host:
@@ -13,8 +15,16 @@ default, running it will expose relevant RPC and P2P ports to the host:
 - 9090 - Lotus P2P port,
 - 2345 - Miner RPC,
 - 3456 - Forest RPC.
+- 12300 - Curio API.
+- 4701 - Curio UI.
+- 32100 - Curio Market.
 
 ## Running the devnet
+
+Prerequisites:
+- Fetch the Curio repository and run:
+  -  "make docker/curio-all-in-one"
+  -  "make docker/curio"
 
 Run it with:
 
