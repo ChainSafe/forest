@@ -443,6 +443,25 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     }
 }
 
+pub enum Finalize {}
+impl RpcMethod<1> for Finalize {
+    const NAME: &'static str = "F3.Finalize";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (F3TipSetKey,);
+    type Ok = ();
+
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (_tsk,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/4775
+        Ok(())
+    }
+}
+
 pub enum SignMessage {}
 impl RpcMethod<2> for SignMessage {
     const NAME: &'static str = "F3.SignMessage";

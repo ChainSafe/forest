@@ -64,3 +64,10 @@ func TestGetPowerTable(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("GetPowerTable: %s\n", string(ptJsonBytes))
 }
+
+func TestFinalize(t *testing.T) {
+	head, err := EC.GetHead(ctx)
+	require.NoError(t, err)
+	err = EC.Finalize(ctx, head.Key())
+	require.NoError(t, err)
+}
