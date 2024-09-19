@@ -246,6 +246,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::GetPowerTable);
         $callback!(crate::rpc::f3::GetTipset);
         $callback!(crate::rpc::f3::GetTipsetByEpoch);
+        $callback!(crate::rpc::f3::Finalize);
         $callback!(crate::rpc::f3::ProtectPeer);
         $callback!(crate::rpc::f3::SignMessage);
 
