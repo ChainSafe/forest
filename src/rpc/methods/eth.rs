@@ -2225,6 +2225,24 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     }
 }
 
+pub enum EthGetLogs {}
+impl RpcMethod<1> for EthGetLogs {
+    const NAME: &'static str = "Filecoin.EthGetLogs";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getLogs");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["eth_filter"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthFilterSpec,);
+    type Ok = EthFilterResult;
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

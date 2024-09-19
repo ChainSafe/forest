@@ -398,8 +398,20 @@ pub struct EthFilterSpec {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,
 }
-
 lotus_json_with_self!(EthFilterSpec);
+
+/// `EthFilterResult` represents the response from executing a filter:
+/// - A list of block hashes
+/// - A list of transaction hashes
+/// - Or a list of logs
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum EthFilterResult {
+    Blocks(Vec<EthHash>),
+    Txs(Vec<EthHash>),
+    Logs(Vec<EthLog>),
+}
+lotus_json_with_self!(EthFilterResult);
 
 #[cfg(test)]
 mod tests {
