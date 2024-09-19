@@ -9,7 +9,7 @@ use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
@@ -22,7 +22,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
@@ -2225,6 +2225,160 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     }
 }
 
+pub struct CollectedEvent {
+    entries: Vec<EventEntry>,
+    emitter_addr: crate::shim::address::Address,
+    event_idx: u64,
+    reverted: bool,
+    height: ChainEpoch,
+    tipset_key: TipsetKey,
+    msg_idx: u64,
+    msg_cid: Cid,
+}
+
+fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
+    let mut topics_found = [false; 4];
+    let mut topics_found_count = 0;
+    let mut data_found = false;
+    let mut data: EthBytes = EthBytes::default();
+    let mut topics: Vec<EthHash> = Vec::default();
+    for entry in entries {
+        // Drop events with non-raw topics. Built-in actors emit CBOR, and anything else would be
+        // invalid anyway.
+        if entry.codec != IPLD_RAW {
+            return None;
+        }
+        // Check if the key is t1..t4
+        if match entry.key.get(0..2) {
+            Some("t1") | Some("t2") | Some("t3") | Some("t4") => true,
+            _ => false,
+        } {
+            let idx = entry.key[1..2]
+                .parse::<usize>()
+                .expect("parse must succeed")
+                - 1;
+            // Drop events with mis-sized topics.
+            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
+            let bytes = if let Ok(value) = result {
+                value
+            } else {
+                tracing::warn!(
+                    "got an EVM event topic with an invalid size (key: {}, size: {})",
+                    entry.key,
+                    entry.value.0.len()
+                );
+                return None;
+            };
+            // Drop events with duplicate topics.
+            if topics_found[idx] {
+                tracing::warn!("got a duplicate EVM event topic (key: {})", entry.key);
+                return None;
+            }
+            topics_found[idx] = true;
+            topics_found_count += 1;
+            // Extend the topics array
+            if topics.len() <= idx {
+                topics.resize(idx + 1, EthHash::default());
+            }
+            topics[idx] = bytes.into();
+        } else if entry.key == "d" {
+            // Drop events with duplicate data fields.
+            if data_found {
+                tracing::warn!("got duplicate EVM event data");
+                return None;
+            }
+            data_found = true;
+            data = EthBytes(entry.value.0.clone());
+        } else {
+            // Skip entries we don't understand (makes it easier to extend things).
+            // But we warn for now because we don't expect them.
+            tracing::warn!("unexpected event entry (key: {})", entry.key);
+        }
+    }
+    // Drop events with skipped topics.
+    if topics.len() != topics_found_count {
+        tracing::warn!(
+            "EVM event topic length mismatch (expected: {}, actual: {})",
+            topics.len(),
+            topics_found_count
+        );
+        return None;
+    }
+    Some((data, topics))
+}
+
+fn eth_tx_hash_from_signed_message<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message: &SignedMessage,
+) -> anyhow::Result<EthHash> {
+    if message.is_delegated() {
+        let (_, tx) =
+            eth_tx_from_signed_eth_message(message, ctx.state_manager.chain_config().eth_chain_id)?;
+        Ok(tx.eth_hash()?.into())
+    } else if message.is_secp256k1() {
+        Ok(message.cid().into())
+    } else {
+        Ok(message.message().cid().into())
+    }
+}
+
+fn eth_tx_hash_from_message_cid<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    message_cid: &Cid,
+) -> anyhow::Result<EthHash> {
+    if let Ok(smsg) = crate::chain::message_from_cid(ctx.store(), message_cid) {
+        // This is an Eth Tx, Secp message, Or BLS message in the mpool
+        return eth_tx_hash_from_signed_message(ctx, &smsg);
+    }
+    let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
+    if result.is_ok() {
+        // This is a BLS message
+        let hash: EthHash = message_cid.clone().into();
+        return Ok(hash);
+    }
+    Ok(EthHash::default())
+}
+
+fn eth_filter_logs_from_events<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<Vec<EthLog>> {
+    let mut logs = Vec::new();
+    for event in events {
+        let mut log = EthLog {
+            removed: event.reverted,
+            log_index: event.event_idx.into(),
+            transaction_index: event.msg_idx.into(),
+            block_number: (event.height as u64).into(),
+            ..EthLog::default()
+        };
+        if let Some((data, topics)) = eth_log_from_event(&event.entries) {
+            log.data = data;
+            log.topics = topics;
+        } else {
+            continue;
+        }
+        log.address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
+        log.transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
+        if log.transaction_hash == EthHash::default() {
+            // We've garbage collected the message, ignore the events and continue.
+            continue;
+        }
+        log.block_hash = event.tipset_key.cid()?.into();
+        logs.push(log);
+    }
+    Ok(logs)
+}
+
+fn eth_filter_result_from_events<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Logs(eth_filter_logs_from_events(
+        ctx, events,
+    )?))
+}
+
 pub enum EthGetLogs {}
 impl RpcMethod<1> for EthGetLogs {
     const NAME: &'static str = "Filecoin.EthGetLogs";
@@ -2236,10 +2390,14 @@ impl RpcMethod<1> for EthGetLogs {
     type Params = (EthFilterSpec,);
     type Ok = EthFilterResult;
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        todo!()
+        let events = ctx
+            .eth_event_handler
+            .eth_get_events_for_filter(&ctx, eth_filter)
+            .await?;
+        Ok(eth_filter_result_from_events(&ctx, &events)?)
     }
 }
 

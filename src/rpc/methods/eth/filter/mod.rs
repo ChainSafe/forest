@@ -20,17 +20,20 @@ mod store;
 mod tipset;
 
 use super::BlockNumberOrHash;
+use super::CollectedEvent;
 use super::Predefined;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
+use crate::rpc::reflect::Ctx;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
 use std::sync::Arc;
@@ -185,6 +188,40 @@ impl EthEventHandler {
         } else {
             Ok(false)
         }
+    }
+
+    fn parse_eth_filter_spec<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        filter_spec: &EthFilterSpec,
+    ) -> anyhow::Result<ParsedFilter> {
+        EthFilterSpec::parse_eth_filter_spec(
+            filter_spec,
+            ctx.chain_store().heaviest_tipset().epoch(),
+            self.max_filter_height_range,
+        )
+    }
+
+    pub async fn eth_get_events_for_filter<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        spec: EthFilterSpec,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
+        let mut max_height = pf.max_height;
+        if max_height == -1 {
+            // heaviest tipset doesn't have events because its messages haven't been executed yet
+            max_height = ctx.chain_store().heaviest_tipset().epoch() - 1;
+        }
+        if max_height < 0 {
+            bail!("max_height requested is less than 0");
+        }
+        // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+        // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+        if max_height > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+            bail!("max_height requested is greater than the heaviest tipset");
+        }
+        Ok(vec![])
     }
 }
 
