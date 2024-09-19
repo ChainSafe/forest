@@ -1,9 +1,9 @@
 module f3-sidecar/v2
 
-go 1.21
+go 1.22
 
 require (
-	github.com/filecoin-project/go-f3 v0.2.0
+	github.com/filecoin-project/go-f3 v0.3.0
 	github.com/filecoin-project/go-jsonrpc v0.6.0
 	github.com/filecoin-project/go-state-types v0.14.0
 	github.com/ipfs/go-datastore v0.6.0
@@ -16,7 +16,6 @@ require (
 )
 
 require (
-	github.com/Kubuxu/go-broadcast v0.0.0-20240621161059-1a8c90734cd6 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
