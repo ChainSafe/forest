@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#4782](https://github.com/ChainSafe/forest/pull/4782) Devnets are no longer
+  configurable with legacy drand network.
+
 ### Added
 
 ### Changed
