@@ -31,7 +31,7 @@ fn is_docs_rs() -> bool {
 
 fn is_sidecar_ffi_enabled() -> bool {
     // Note: arm64 is disabled on MacOS for now as it's reported rust2go build does not work there
-    if cfg!(target_arch = "aarch64") && cfg!(target_os = "macos") {
+    if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
         false
     } else {
         // Opt-out building the F3 sidecar staticlib
