@@ -20,7 +20,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # install Go.
-RUN curl -sSL https://raw.githubusercontent.com/voidint/g/master/install.sh | bash
+RUN curl -sSL https://raw.githubusercontent.com/voidint/g/v1.7.0/install.sh | bash
 RUN "${HOME}/.g/bin/g" install 1.22 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
 
 WORKDIR /forest
