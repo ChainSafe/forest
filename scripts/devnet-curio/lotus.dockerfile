@@ -10,7 +10,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN git clone --depth 1 --branch v1.28.0-rc1 https://github.com/filecoin-project/lotus.git .
+RUN git clone --depth 1 --branch v1.28.3 https://github.com/filecoin-project/lotus.git .
 
 # https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
@@ -19,7 +19,7 @@ RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     FFI_USE_GPU="0" \
     make 2k && strip lotus*
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Needed for the healthcheck
 RUN apt-get update && apt-get install -y curl

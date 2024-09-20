@@ -26,8 +26,8 @@ docker compose up --build --force-recreate --detach
 # RPC server is up. This checks if Forest's RPC endpoint is up.
  function call_forest_chain_head {
     curl --silent -X POST -H "Content-Type: application/json" \
-         --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.NetPeers","params":"null"}' \
-         "http://127.0.0.1:${FOREST_RPC_PORT}/rpc/v0"
+         --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
+         "http://127.0.0.1:${FOREST_RPC_PORT}/rpc/v1"
  }
  
  until call_forest_chain_head; do
