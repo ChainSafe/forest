@@ -47,6 +47,10 @@ func (ec *ForestEC) GetPowerTable(ctx context.Context, tsk gpbft.TipSetKey) (gpb
 	return ec.f3api.GetPowerTable(ctx, tsk)
 }
 
+func (ec *ForestEC) Finalize(ctx context.Context, tsk gpbft.TipSetKey) error {
+	return ec.f3api.Finalize(ctx, tsk)
+}
+
 func (ec *ForestEC) Sign(ctx context.Context, sender gpbft.PubKey, msg []byte) ([]byte, error) {
 	signature, err := ec.f3api.SignMessage(ctx, sender, msg)
 	if err != nil {

@@ -275,6 +275,7 @@ services:
       - ./run_curio.sh:/run_curio.sh
     env_file:
       - curio.env
+      - .env
     networks:
       - devnet
     entrypoint: [ "/bin/bash", "/run_curio.sh" ]

@@ -19,6 +19,7 @@ type F3Api struct {
 	ProtectPeer              func(context.Context, peer.ID) (bool, error)
 	GetParticipatingMinerIDs func(context.Context) ([]uint64, error)
 	SignMessage              func(context.Context, []byte, []byte) (*crypto.Signature, error)
+	Finalize                 func(context.Context, gpbft.TipSetKey) error
 }
 
 type FilecoinApi struct {
