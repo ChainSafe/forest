@@ -19,6 +19,7 @@ mod mempool;
 mod store;
 mod tipset;
 
+use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
@@ -29,6 +30,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::reflect::Ctx;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Receipt;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
@@ -202,7 +204,7 @@ impl EthEventHandler {
         )
     }
 
-    pub async fn eth_get_events_for_filter<DB: Blockstore>(
+    pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
         &self,
         ctx: &Ctx<DB>,
         spec: EthFilterSpec,
@@ -221,6 +223,18 @@ impl EthEventHandler {
         if max_height > ctx.chain_store().heaviest_tipset().epoch() - 1 {
             bail!("max_height requested is greater than the heaviest tipset");
         }
+
+        if let Some(block_hash) = spec.block_hash {
+            let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+            let (_, receipt_root) = ctx.state_manager.tipset_state(&Arc::new(ts)).await?;
+            let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
+            for receipt in receipts {
+                if let Some(cid) = receipt.events_root() {
+                    tracing::debug!("events root: {}", cid);
+                }
+            }
+        }
+
         Ok(vec![])
     }
 }
@@ -257,14 +271,18 @@ impl EthFilterSpec {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let keys = parse_eth_topics(&self.topics)?;
+        let keys = if let Some(topics) = &self.topics {
+            keys_to_keys_with_codec(parse_eth_topics(topics)?)
+        } else {
+            HashMap::new()
+        };
 
         Ok(ParsedFilter {
             min_height,
             max_height,
             tipset_cid,
             addresses,
-            keys: keys_to_keys_with_codec(keys),
+            keys,
         })
     }
 }
@@ -396,7 +414,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -416,7 +434,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -533,7 +551,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -572,7 +590,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 

@@ -394,7 +394,7 @@ pub struct EthFilterSpec {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_block: Option<String>,
     pub address: Vec<EthAddress>,
-    pub topics: EthTopicSpec,
+    pub topics: Option<EthTopicSpec>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,
 }

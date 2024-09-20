@@ -1331,7 +1331,7 @@ fn eth_tests() -> Vec<RpcTest> {
                         "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
                     )
                     .unwrap()],
-                    topics: EthTopicSpec(vec![]),
+                    topics: None,
                     block_hash: None,
                 },),
                 use_alias,
