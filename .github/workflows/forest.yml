@@ -85,39 +85,6 @@ jobs:
           path: |
             ~/.cargo/bin/forest*
           if-no-files-found: error
-  build-ubuntu-arm64:
-    name: Build Ubuntu (arm64)
-    runs-on: buildjet-8vcpu-ubuntu-2204-arm
-    steps:
-      - name: Configure SCCache variables
-        run: |
-          # External PRs do not have access to 'vars' or 'secrets'.
-          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
-          fi
-      - run: lscpu
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.5
-        timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
-        continue-on-error: true
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: "go.work"
-      - name: Cargo Install
-        run: make install-slim-quick
-      - uses: actions/upload-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}-arm64'
-          path: |
-            ~/.cargo/bin/forest*
-          if-no-files-found: error
   cargo-publish-dry-run:
     runs-on: ubuntu-24.04
     steps:
