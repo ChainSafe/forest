@@ -27,7 +27,7 @@ use crate::key_management::{
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use crate::networks::{self, ChainConfig, NetworkChain};
+use crate::networks::{self, ChainConfig};
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
@@ -35,6 +35,7 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
+use crate::utils;
 use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::ensure_params_downloaded,
     version::FOREST_VERSION_STRING,
@@ -294,7 +295,7 @@ pub(super) async fn start(
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
-    display_chain_logo(&config.chain);
+    utils::misc::display_chain_logo(&config.chain);
     let (tipset_sender, tipset_receiver) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
@@ -781,19 +782,6 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
             "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
         )
         .interact_on(&term)
-}
-
-/// Displays the network logo/ASCII art if available.
-fn display_chain_logo(chain: &NetworkChain) {
-    let logo = match chain {
-        NetworkChain::Butterflynet => {
-            Some(include_str!("../../build/ascii-art/butterfly").to_string())
-        }
-        _ => None,
-    };
-    if let Some(logo) = logo {
-        info!("\n{logo}");
-    }
 }
 
 fn init_ethereum_mapping<DB: Blockstore>(
