@@ -7,7 +7,7 @@ COPY * /f3
 
 RUN go build . && strip f3-sidecar
 
-FROM ubuntu:focal
+FROM ubuntu:noble
 
 WORKDIR /f3
 
