@@ -1,5 +1,5 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
-FROM golang:1.21-bullseye AS lotus-builder
+FROM golang:1.21-bookworm AS lotus-builder
 
 RUN apt-get update && apt-get install -y curl ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
 

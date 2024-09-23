@@ -1,5 +1,5 @@
 # F3 sidecar binaries image
-FROM golang:1.22-bullseye AS builder
+FROM golang:1.22-bookworm AS builder
 
 WORKDIR /f3
 
