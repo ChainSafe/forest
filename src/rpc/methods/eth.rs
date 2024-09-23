@@ -1967,14 +1967,14 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (EthHash, Option<ChainEpoch>);
+    type Params = (EthHash, ChainEpoch);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, limit).await
+        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
     }
 }
 
