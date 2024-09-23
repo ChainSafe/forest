@@ -154,6 +154,7 @@ pub enum NetRPCMethods {
     Peers(flume::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
     ProtectPeer(flume::Sender<()>, HashSet<PeerId>),
     UnprotectPeer(flume::Sender<()>, HashSet<PeerId>),
+    ListProtectedPeers(flume::Sender<HashSet<PeerId>>),
     Info(flume::Sender<NetInfoResult>),
     Connect(flume::Sender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(flume::Sender<()>, PeerId),
@@ -505,6 +506,9 @@ async fn handle_network_message(
                         peer_manager.protect_peer(peer_id);
                     });
                     tx.send_or_warn(());
+                }
+                NetRPCMethods::ListProtectedPeers(tx) => {
+                    tx.send_or_warn(peer_manager.list_protected_peers());
                 }
                 NetRPCMethods::UnprotectPeer(tx, peer_ids) => {
                     peer_ids.iter().for_each(|peer_id| {

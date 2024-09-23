@@ -712,6 +712,7 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::identity(
             NetProtectRemove::request((vec![PeerId::random().to_string()],)).unwrap(),
         ),
+        RpcTest::basic(NetProtectList::request(()).unwrap()),
     ]
 }
 
