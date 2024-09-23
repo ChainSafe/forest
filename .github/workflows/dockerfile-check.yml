@@ -6,12 +6,6 @@ on:
   schedule:
     # Run every Sunday at midnight
     - cron:  '0 0 * * 0'
-  pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
 
 jobs:
   docker-check:
