@@ -7,7 +7,7 @@
 # ```
 # 
 
-FROM ubuntu:22.04 AS build-env
+FROM golang:1.22-bullseye AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
@@ -18,10 +18,6 @@ RUN update-ca-certificates
 # install Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
-
-# install Go.
-RUN curl -sSL https://raw.githubusercontent.com/voidint/g/v1.7.0/install.sh | bash
-RUN "${HOME}/.g/bin/g" install 1.22 && ln -sf "${HOME}/.g/go/bin/go" /usr/local/bin/go && go version
 
 WORKDIR /forest
 COPY . .
