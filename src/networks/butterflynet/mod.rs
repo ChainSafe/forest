@@ -14,10 +14,8 @@ use crate::{
 };
 
 use super::{
-    actors_bundle::ACTOR_BUNDLES_METADATA,
-    drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
-    NetworkChain,
+    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, parse_bootstrap_peers,
+    DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V22;
