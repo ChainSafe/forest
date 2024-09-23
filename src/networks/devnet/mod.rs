@@ -139,7 +139,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
             get_bundle_cid("v13.0.0")
         ),
-        make_height!(Phoenix, -1),
+        make_height!(Phoenix, i64::MIN),
         make_height!(
             Waffle,
             get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999),
