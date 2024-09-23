@@ -1,34 +1,14 @@
-# This Dockerfile is for the main forest binary
-# 
-# Build and run locally:
+# This Dockerfile is for building official Forest docker multiplatform images on CI,
+# linux/amd64 and linux/arm64 are currently supported.
+#
+# This Dockerfile composes Forest binaries that are prebuilt in other CI steps, to take
+# better advantage of build cache and reduce build time and cost.
+#
+# Build and manually push to Github Container Registry (see https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 # ```
-# docker build -t forest:latest -f ./Dockerfile .
-# docker run --init -it forest
+# docker build -t ghcr.io/chainsafe/forest:latest .
+# docker push ghcr.io/chainsafe/forest:latest
 # ```
-# 
-
-FROM golang:1.22-bullseye AS build-env
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# install dependencies
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
-RUN update-ca-certificates
-
-# install Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-WORKDIR /forest
-COPY . .
-
-# Install Forest. Move it out of the cache for the prod image.
-RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
-    --mount=type=cache,sharing=private,target=/root/.rustup \
-    --mount=type=cache,sharing=private,target=/forest/target \
-    make install && \
-    mkdir /forest_out && \
-    cp /root/.cargo/bin/forest* /forest_out
 
 ##
 # Prod image for forest binary
@@ -38,6 +18,11 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # A slim image contains only forest binaries
 FROM ubuntu:22.04 AS slim-image
 
+# export TARGETPLATFORM TARGETOS and TARGETARCH
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
 RUN apt-get update && \
@@ -45,8 +30,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 
-# Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env /forest_out/* /usr/local/bin/
+# Assuming prebuilt Forest binaries are under `forest-linux-[amd64|arm64]`
+COPY --chmod=555 ./forest-${TARGETOS}-${TARGETARCH}/* /usr/local/bin
 
 # Basic verification of dynamically linked dependencies
 RUN forest -V && forest-cli -V && forest-tool -V && forest-wallet -V

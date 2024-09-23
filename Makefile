@@ -1,8 +1,3 @@
-# Using https://github.com/tonistiigi/xx
-# Use in Docker images when cross-compiling.
-install-xx:
-	xx-cargo install --locked --path . --force
-
 # Redundancy tracked by #2991
 install-cli:
 	cargo install --locked --path . --force
