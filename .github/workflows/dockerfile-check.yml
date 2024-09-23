@@ -6,6 +6,12 @@ on:
   schedule:
     # Run every Sunday at midnight
     - cron:  '0 0 * * 0'
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
   docker-check:
@@ -16,6 +22,7 @@ jobs:
           docker build -t forest-test .
           docker run --rm forest-test --version
       - uses: JasonEtco/create-an-issue@v2
+        if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
