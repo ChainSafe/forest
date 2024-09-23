@@ -14,10 +14,8 @@ use crate::{
 };
 
 use super::{
-    actors_bundle::ACTOR_BUNDLES_METADATA,
-    drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
-    NetworkChain,
+    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, parse_bootstrap_peers,
+    DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V22;
@@ -101,7 +99,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Thunder, -23),
         make_height!(Watermelon, -24),
         make_height!(Dragon, -25, get_bundle_cid("v13.0.0")),
-        make_height!(Phoenix, i64::MAX),
+        make_height!(Phoenix, i64::MIN),
         make_height!(Waffle, 100, get_bundle_cid("v14.0.0-rc.1")),
     ])
 });
@@ -113,18 +111,11 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
-    [
-        DrandPoint {
-            height: 0,
-            config: &DRAND_MAINNET,
-        },
-        DrandPoint {
-            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
-            config: &DRAND_QUICKNET,
-        },
-    ]
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
+    [DrandPoint {
+        height: 0,
+        config: &DRAND_QUICKNET,
+    }]
 });
 
 /// Creates a new butterfly policy with the given version.
