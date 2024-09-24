@@ -353,6 +353,10 @@ impl PeerManager {
         self.protected_peers.write().remove(peer_id);
     }
 
+    pub fn list_protected_peers(&self) -> HashSet<PeerId> {
+        self.protected_peers.read().clone()
+    }
+
     pub fn is_peer_protected(&self, peer_id: &PeerId) -> bool {
         self.protected_peers.read().contains(peer_id)
     }
