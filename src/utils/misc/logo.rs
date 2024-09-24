@@ -116,7 +116,7 @@ fn reveal_waffle_upgrade() {
     );
 }
 
-/// Reveals a speedy TukTuk, the symbol of the Tuktuk (NV24) upgrade.
+/// Reveals a speedy `TukTuk`, the symbol and the codename of the `NV24` upgrade.
 #[allow(dead_code)]
 fn reveal_tuktuk_upgrade() {
     info!(
