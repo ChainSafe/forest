@@ -16,7 +16,7 @@ on:
 
 jobs:
   check-docs:
-    name: Publish
+    name: Check Markdown Links
     runs-on: ubuntu-24.04
     steps:
       - name: Link Checker (Repo Readme)
