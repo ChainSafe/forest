@@ -9,14 +9,18 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**.md'
   merge_group:
   pull_request:
     branches:
       - main
+    paths:
+      - '**.md'
 
 jobs:
   check-docs:
-    name: Check Markdown Links
+    name: Markdown Lint
     runs-on: ubuntu-24.04
     steps:
       - name: Link Checker (Repo Readme)
@@ -25,3 +29,6 @@ jobs:
           args: '*.md'
           # Fail action on broken links
           fail: true
+      - name: Lint Markdown
+        uses: actions/checkout@v4
+      - run: make md-check
