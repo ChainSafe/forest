@@ -6,7 +6,6 @@
     <a href="https://github.com/ChainSafe/forest/actions"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge"></a>
     <a href="https://github.com/ChainSafe/forest/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge"></a>
     <a href="https://docs.forest.chainsafe.io"><img alt="Docs" src="https://img.shields.io/badge/doc-user_guide-green?style=for-the-badge"></a>
-    <a href="https://docs.forest.chainsafe.io/rustdoc/"><img alt="Rust Docs" src="https://img.shields.io/badge/doc-rust_docs-green?style=for-the-badge"></a>
 </p>
  <p align="center">
     <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE"><img alt="License Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge"></a>
@@ -41,7 +40,7 @@ Docker - works on Linux, macOS and Windows.
 ```
 
 Next, run a Forest node in a CLI window. E.g.
-[Run calibration network](https://docs.forest.chainsafe.io/docker.html#create-a-forest-node-running-calibration-network-then-list-all-connected-peers)
+[Run calibration network](https://docs.forest.chainsafe.io/getting_started/syncing/#calibnet)
 
 Thereafter, in another terminal, you will be able to use the `forest-cli` binary
 directly by launching `bash` in the `forest` container:
@@ -295,8 +294,7 @@ server, allowing you to chain some RPC command immediately after.
 
 ### Documentation
 
-- [Forest Book]
-- [rust doc](https://docs.forest.chainsafe.io/rustdoc/)
+- [Forest Book](https://docs.forest.chainsafe.io/)
 
 ## Contributing
 
