@@ -23,12 +23,12 @@ jobs:
     name: Markdown Lint
     runs-on: ubuntu-24.04
     steps:
+      - name: Lint Markdown
+        uses: actions/checkout@v4
+        run: make md-check
       - name: Link Checker (Repo Readme)
         uses: lycheeverse/lychee-action@v1.10.0
         with:
           args: '*.md'
           # Fail action on broken links
           fail: true
-      - name: Lint Markdown
-        uses: actions/checkout@v4
-      - run: make md-check
