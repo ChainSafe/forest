@@ -7,13 +7,14 @@
 # ```
 # 
 
-FROM golang:1.22-bullseye AS build-env
+FROM golang:1.22-bookworm AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
+    apt-get install --no-install-recommends -y build-essential clang-14 curl git ca-certificates
 RUN update-ca-certificates
+ENV CC=clang-14 CXX=clang++-14
 
 # install Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
@@ -36,7 +37,7 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
 # A slim image contains only forest binaries
-FROM ubuntu:22.04 AS slim-image
+FROM ubuntu:24.04 AS slim-image
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies

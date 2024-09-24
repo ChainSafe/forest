@@ -40,6 +40,9 @@
 
 ### Changed
 
+- [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
+  upgraded from 22.04 to 24.04 in Dockerfile
+
 ### Removed
 
 ### Fixed
