@@ -8,5 +8,6 @@
     "prettier-version": "prettier --version",
     "md-fmt": "prettier --write '**/*.md'",
     "md-check": "prettier --check '**/*.md'"
-  }
+  },
+  "packageManager": "yarn@4.5.0"
 }

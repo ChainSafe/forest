@@ -88,7 +88,10 @@ lint-docker: $(DOCKERFILES)
 fmt:
 	cargo fmt --all
 	taplo fmt
-	yarn && yarn md-fmt
+	corepack enable && yarn && yarn md-fmt
+
+md-check:
+	corepack enable && yarn && yarn md-check
 
 build:
 	cargo build
