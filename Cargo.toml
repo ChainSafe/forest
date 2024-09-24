@@ -46,8 +46,8 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
 displaydoc = "0.2"
-ethereum-types = "0.14"
-ez-jsonrpc-types = "0.1.0"
+ethereum-types = "0.15"
+ez-jsonrpc-types = "0.3"
 fil_actor_account_state = { version = "16.0.1" }
 fil_actor_cron_state = { version = "16.0.1" }
 fil_actor_datacap_state = { version = "16.0.1" }
@@ -86,7 +86,7 @@ is-terminal = "0.4"
 itertools = "0.13"
 jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
-keccak-hash = "0.10"
+keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
@@ -151,7 +151,7 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
-rlp = "0.5"
+rlp = "0.6"
 rs-car-ipfs = "0.3"
 rust2go = { version = "0.3" }
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
@@ -160,7 +160,7 @@ semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.4"
 serde_json = { version = "1.0", features = ["raw_value"] }
-serde_tuple = "0.5"
+serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }
