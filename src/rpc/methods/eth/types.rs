@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::hash::Hash;
+
 use super::*;
 use ethereum_types::H256;
 use libipld::error::SerdeError;
@@ -153,6 +155,27 @@ impl EthAddress {
         ];
 
         Self(ethereum_types::H160(payload))
+    }
+
+    /// Returns the Ethereum address corresponding to an uncompressed secp256k1 public key.
+    pub fn eth_address_from_pub_key(pubkey: &[u8]) -> anyhow::Result<Self> {
+        // Check if the public key has the correct length (65 bytes)
+        if pubkey.len() != 65 {
+            bail!(
+                "public key should have {} in length, but got {}",
+                65,
+                pubkey.len()
+            );
+        }
+
+        // Check if the first byte of the public key is 0x04 (uncompressed)
+        if pubkey[0] != 0x04 {
+            bail!("expected first byte of secp256k1 to be 0x04 (uncompressed)");
+        }
+
+        let hash = keccak_hash::keccak(&pubkey[1..]);
+        let addr: &[u8] = &hash[12..32];
+        Ok(EthAddress::try_from(addr)?)
     }
 }
 

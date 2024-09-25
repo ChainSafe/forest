@@ -4,6 +4,8 @@
 //! This module contains the logic for EIP-1559 transaction types.
 //! Constants are taken from [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
 
+use crate::shim::crypto::SignatureType::Delegated;
+use anyhow::bail;
 use anyhow::ensure;
 use derive_builder::Builder;
 use num::BigInt;
@@ -33,9 +35,40 @@ pub struct EthEip1559TxArgs {
 }
 
 impl EthEip1559TxArgs {
+    pub fn signature(&self) -> anyhow::Result<Signature> {
+        // Convert r, s, v to byte arrays
+        let r_bytes = self.r.to_bytes_be().1;
+        let s_bytes = self.s.to_bytes_be().1;
+        let v_bytes = self.v.to_bytes_be().1;
+
+        // Convert r, s, v to padded 32-byte arrays
+        let mut sig = pad_leading_zeros(&r_bytes, 32);
+        sig.extend(pad_leading_zeros(&s_bytes, 32));
+
+        if v_bytes.is_empty() {
+            sig.push(0);
+        } else {
+            sig.push(v_bytes[0]);
+        }
+
+        // Check if signature is 65 bytes
+        if sig.len() != 65 {
+            bail!("signature is not 65 bytes");
+        }
+
+        Ok(Signature {
+            sig_type: Delegated,
+            bytes: sig,
+        })
+    }
+
+    pub fn to_verifiable_signature(&self, sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        Ok(sig)
+    }
+
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
-            signature.signature_type() == crate::shim::crypto::SignatureType::Delegated,
+            signature.signature_type() == Delegated,
             "Signature is not delegated type, is {}",
             signature.signature_type()
         );
@@ -81,6 +114,25 @@ impl EthEip1559TxArgs {
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+
+    pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
+        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
+        let access_list: &[u8] = &[];
+        let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.chain_id))
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.max_priority_fee_per_gas)?)
+            .append(&format_bigint(&self.max_fee_per_gas)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_bigint(&self.value)?)
+            .append(&format_address(&self.to))
+            .append(&self.input)
+            .append_list(access_list)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }

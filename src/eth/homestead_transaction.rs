@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use anyhow::{ensure, Context};
+use crate::shim::crypto::SignatureType::Delegated;
+use anyhow::{bail, ensure, Context};
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
+use num_traits::FromPrimitive;
 
 pub const HOMESTEAD_SIG_LEN: usize = 66;
 pub const HOMESTEAD_SIG_PREFIX: u8 = 0x01;
@@ -29,6 +31,84 @@ pub struct EthLegacyHomesteadTxArgs {
 }
 
 impl EthLegacyHomesteadTxArgs {
+    pub fn signature(&self) -> anyhow::Result<Signature> {
+        // Check if v is either 27 or 28
+        let v27 = BigInt::from(27);
+        let v28 = BigInt::from(28);
+        if self.v != v27 && self.v != v28 {
+            bail!("legacy homestead transactions only support 27 or 28 for v");
+        }
+
+        // Convert r, s, v to byte arrays
+        let r_bytes = self.r.to_bytes_be().1;
+        let s_bytes = self.s.to_bytes_be().1;
+        let v_bytes = self.v.to_bytes_be().1;
+
+        // Pad r and s to 32 bytes
+        let mut sig = pad_leading_zeros(&r_bytes, 32);
+        sig.extend(pad_leading_zeros(&s_bytes, 32));
+
+        if v_bytes.is_empty() {
+            sig.push(0);
+        } else {
+            sig.push(v_bytes[0]);
+        }
+
+        // Prepend the one-byte legacy transaction marker
+        sig.insert(0, HOMESTEAD_SIG_PREFIX);
+
+        // Check if signature length is correct
+        if sig.len() != HOMESTEAD_SIG_LEN {
+            bail!("signature is not {} bytes", HOMESTEAD_SIG_LEN);
+        }
+
+        Ok(Signature {
+            sig_type: Delegated,
+            bytes: sig,
+        })
+    }
+
+    pub fn to_verifiable_signature(&self, mut sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        // Check if the signature length is correct
+        if sig.len() != HOMESTEAD_SIG_LEN {
+            bail!(
+                "signature should be {} bytes long (1 byte metadata, {} bytes sig data), but got {} bytes",
+                HOMESTEAD_SIG_LEN,
+                HOMESTEAD_SIG_LEN - 1,
+                sig.len()
+            );
+        }
+
+        // Check if the first byte matches the expected signature prefix
+        if sig[0] != HOMESTEAD_SIG_PREFIX {
+            bail!(
+                "expected signature prefix 0x{:x}, but got 0x{:x}",
+                HOMESTEAD_SIG_PREFIX,
+                sig[0]
+            );
+        }
+
+        // Remove the prefix byte as it's only used for legacy transaction identification
+        sig.remove(0);
+
+        // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
+        let v_value = BigInt::from_bytes_be(num_bigint::Sign::Plus, &sig[64..]);
+
+        // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
+        if v_value == BigInt::from_u8(27).unwrap() {
+            sig[64] = 0;
+        } else if v_value == BigInt::from_u8(28).unwrap() {
+            sig[64] = 1;
+        } else {
+            bail!(
+                "invalid 'v' value: expected 27 or 28, got {}",
+                v_value.to_string()
+            );
+        }
+
+        Ok(sig)
+    }
+
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
             signature.signature_type() == SignatureType::Delegated,
@@ -82,6 +162,20 @@ impl EthLegacyHomesteadTxArgs {
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+
+    pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new();
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.gas_price)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_address(&self.to))
+            .append(&format_bigint(&self.value)?)
+            .append(&self.input)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }

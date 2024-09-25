@@ -1,10 +1,15 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::{bail, ensure};
+use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
+use crate::shim::crypto::Signature;
+use anyhow::{bail, ensure, Context};
+use bytes::BufMut;
 use bytes::BytesMut;
 use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
-use num::{BigInt, Signed as _};
+use num::{bigint::Sign, BigInt, Signed as _};
+use num_traits::cast::ToPrimitive;
+use rlp::Rlp;
 
 use crate::{
     message::{Message as _, SignedMessage},
@@ -22,7 +27,7 @@ use super::{
         EthLegacyHomesteadTxArgs, EthLegacyHomesteadTxArgsBuilder, HOMESTEAD_SIG_LEN,
         HOMESTEAD_SIG_PREFIX,
     },
-    EthChainId,
+    EthChainId, EIP_1559_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
 #[repr(u64)]
@@ -105,11 +110,93 @@ impl EthTx {
         Ok(keccak_hash::keccak(self.rlp_signed_message()?))
     }
 
+    pub fn get_signed_message(&self) -> anyhow::Result<SignedMessage> {
+        let from = self.sender()?;
+        let msg = match self {
+            Self::Homestead(tx) => {
+                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
+                let message = Message {
+                    version: 0,
+                    from,
+                    to: method_info.to,
+                    sequence: tx.nonce,
+                    value: tx.value.clone().into(),
+                    method_num: method_info.method,
+                    params: method_info.params.into(),
+                    gas_limit: tx.gas_limit,
+                    gas_fee_cap: tx.gas_price.clone().into(),
+                    gas_premium: tx.gas_price.clone().into(),
+                };
+                let signature = tx.signature()?;
+                SignedMessage { message, signature }
+            }
+            Self::Eip1559(tx) => {
+                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
+                let message = Message {
+                    version: 0,
+                    from,
+                    to: method_info.to,
+                    sequence: tx.nonce,
+                    value: tx.value.clone().into(),
+                    method_num: method_info.method,
+                    params: method_info.params.into(),
+                    gas_limit: tx.gas_limit,
+                    gas_fee_cap: tx.max_fee_per_gas.clone().into(),
+                    gas_premium: tx.max_priority_fee_per_gas.clone().into(),
+                };
+                let signature = tx.signature()?;
+                SignedMessage { message, signature }
+            }
+            Self::Eip155(tx) => {
+                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
+                let message = Message {
+                    version: 0,
+                    from,
+                    to: method_info.to,
+                    sequence: tx.nonce,
+                    value: tx.value.clone().into(),
+                    method_num: method_info.method,
+                    params: method_info.params.into(),
+                    gas_limit: tx.gas_limit,
+                    gas_fee_cap: tx.gas_price.clone().into(),
+                    gas_premium: tx.gas_price.clone().into(),
+                };
+                let signature = tx.signature()?;
+                SignedMessage { message, signature }
+            }
+        };
+        Ok(msg)
+    }
+
+    fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Homestead(tx) => (*tx).rlp_unsigned_message(),
+            Self::Eip1559(tx) => (*tx).rlp_unsigned_message(),
+            Self::Eip155(tx) => (*tx).rlp_unsigned_message(),
+        }
+    }
+
     fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Homestead(tx) => (*tx).rlp_signed_message(),
             Self::Eip1559(tx) => (*tx).rlp_signed_message(),
             Self::Eip155(tx) => (*tx).rlp_signed_message(),
+        }
+    }
+
+    fn signature(&self) -> anyhow::Result<Signature> {
+        match self {
+            Self::Homestead(tx) => (*tx).signature(),
+            Self::Eip1559(tx) => (*tx).signature(),
+            Self::Eip155(tx) => (*tx).signature(),
+        }
+    }
+
+    fn to_verifiable_signature(&self, sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Homestead(tx) => (*tx).to_verifiable_signature(sig),
+            Self::Eip1559(tx) => (*tx).to_verifiable_signature(sig),
+            Self::Eip155(tx) => (*tx).to_verifiable_signature(sig),
         }
     }
 
@@ -134,6 +221,22 @@ impl EthTx {
         EthAddress::from_filecoin_address(&msg.from())?;
 
         Ok(())
+    }
+
+    fn sender(&self) -> anyhow::Result<Address> {
+        let hash = keccak_hash::keccak(self.rlp_unsigned_message()?);
+        let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
+        let sig = self.signature()?;
+        let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?;
+        let rec_sig = libsecp256k1::Signature::parse_standard(
+            &sig_data[..64]
+                .try_into()
+                .context("slice should be 64 bytes")?,
+        )?;
+        let rec_id = libsecp256k1::RecoveryId::parse(sig_data[64])?;
+        let pubkey = libsecp256k1::recover(&msg, &rec_sig, &rec_id)?;
+        let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey.serialize())?;
+        eth_addr.to_filecoin_address()
     }
 }
 
@@ -223,6 +326,200 @@ pub fn format_address(value: &Option<EthAddress>) -> BytesMut {
     }
 }
 
+pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
+    if data.len() >= length {
+        return data.to_vec();
+    }
+    let mut zeros = vec![0; length - data.len()];
+    zeros.extend_from_slice(data);
+    zeros
+}
+
+pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
+    if data.is_empty() {
+        return Err(anyhow::anyhow!("empty data"));
+    }
+
+    match data[0] as u64 {
+        1 => {
+            // EIP-2930
+            Err(anyhow::anyhow!("EIP-2930 transaction is not supported"))
+        }
+        EIP_1559_TX_TYPE => {
+            // EIP-1559
+            parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
+        }
+        _ if data[0] > 0x7f => {
+            // Legacy transaction
+            parse_legacy_tx(data)
+                .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err))
+        }
+        _ => Err(anyhow::anyhow!("unsupported transaction type")),
+    }
+}
+
+fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
+    // Decode RLP data, skipping the first byte (EIP_1559_TX_TYPE)
+    let decoded = Rlp::new(&data[1..]);
+    if decoded.item_count()? != 12 {
+        bail!("not an EIP-1559 transaction: should have 12 elements in the rlp list");
+    }
+
+    let chain_id = decoded.at(0)?.as_val::<u64>()?;
+    let nonce = decoded.at(1)?.as_val::<u64>()?;
+    let max_priority_fee_per_gas = BigInt::from_bytes_be(Sign::Plus, decoded.at(2)?.data()?);
+    let max_fee_per_gas = BigInt::from_bytes_be(Sign::Plus, decoded.at(3)?.data()?);
+    let gas_limit = decoded.at(4)?.as_val::<u64>()?;
+
+    let addr_data = decoded.at(5)?.data()?;
+    let to = (!addr_data.is_empty())
+        .then(|| EthAddress::try_from(addr_data))
+        .transpose()?;
+
+    let value = BigInt::from_bytes_be(Sign::Plus, decoded.at(6)?.data()?);
+    let input = decoded.at(7)?.data()?.to_vec();
+
+    // Ensure access list is empty (should be an empty list)
+    if decoded.at(8)?.item_count()? != 0 {
+        bail!("access list should be an empty list");
+    }
+
+    let v = BigInt::from_bytes_be(Sign::Plus, decoded.at(9)?.data()?);
+    let r = BigInt::from_bytes_be(Sign::Plus, decoded.at(10)?.data()?);
+    let s = BigInt::from_bytes_be(Sign::Plus, decoded.at(11)?.data()?);
+
+    // EIP-1559 transactions only support 0 or 1 for v
+    if v != BigInt::from(0) && v != BigInt::from(1) {
+        bail!("EIP-1559 transactions only support 0 or 1 for v");
+    }
+
+    // Construct and return the Eth1559TxArgs struct
+    let tx_args = EthEip1559TxArgs {
+        chain_id,
+        nonce,
+        to,
+        max_priority_fee_per_gas,
+        max_fee_per_gas,
+        gas_limit,
+        value,
+        input,
+        v,
+        r,
+        s,
+    };
+
+    Ok(EthTx::Eip1559(Box::new(tx_args)))
+}
+
+fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
+    // Decode RLP data
+    let decoded = Rlp::new(&data[1..]);
+    if decoded.item_count()? != 9 {
+        bail!("not a Legacy transaction: should have 9 elements in the rlp list");
+    }
+
+    // Parse transaction fields
+    let nonce = decoded.at(0)?.as_val::<u64>()?;
+    let gas_price = BigInt::from_bytes_be(Sign::Plus, decoded.at(1)?.data()?);
+    let gas_limit = decoded.at(2)?.as_val::<u64>()?;
+
+    // Parse 'to' address (optional)
+    let addr_data = decoded.at(3)?.data()?;
+    let to = (!addr_data.is_empty())
+        .then(|| EthAddress::try_from(addr_data))
+        .transpose()?;
+
+    let value = BigInt::from_bytes_be(Sign::Plus, decoded.at(4)?.data()?);
+    let input = decoded.at(5)?.data()?.to_vec();
+
+    // Parse signature fields
+    let v = BigInt::from_bytes_be(Sign::Plus, decoded.at(6)?.data()?);
+    let r = BigInt::from_bytes_be(Sign::Plus, decoded.at(7)?.data()?);
+    let s = BigInt::from_bytes_be(Sign::Plus, decoded.at(8)?.data()?);
+
+    // Derive chain ID from the 'v' field
+    let chain_id = derive_eip_155_chain_id(&v)?
+        .to_u64()
+        .context("unable to convert derived chain to `u64`")?;
+
+    // Check if the transaction is a legacy Homestead transaction
+    if chain_id == 0 {
+        // Validate that 'v' is either 27 or 28
+        if v != BigInt::from(27) && v != BigInt::from(28) {
+            bail!(
+                "legacy homestead transactions only support 27 or 28 for v, got {}",
+                v
+            );
+        }
+        let tx_args = EthLegacyHomesteadTxArgs {
+            nonce,
+            gas_price,
+            gas_limit,
+            to,
+            value,
+            input,
+            v,
+            r,
+            s,
+        };
+        return Ok(EthTx::Homestead(Box::new(tx_args)));
+    }
+
+    // For EIP-155 transactions, validate chain ID protection
+    validate_eip155_chain_id(chain_id, &v)?;
+
+    Ok(EthTx::Eip155(Box::new(EthLegacyEip155TxArgs {
+        chain_id,
+        nonce,
+        gas_price,
+        gas_limit,
+        to,
+        value,
+        input,
+        v,
+        r,
+        s,
+    })))
+}
+
+#[derive(Debug)]
+pub struct MethodInfo {
+    to: Address,
+    method: u64,
+    params: Vec<u8>,
+}
+
+pub fn get_filecoin_method_info(
+    recipient: &Option<EthAddress>,
+    input: &[u8],
+) -> anyhow::Result<MethodInfo> {
+    let params = if !input.is_empty() {
+        let mut buf = BytesMut::with_capacity(input.len());
+        buf.put(input);
+        buf.to_vec()
+    } else {
+        vec![]
+    };
+
+    let (to, method) = match recipient {
+        None => {
+            // If recipient is None, use Ethereum Address Manager Actor and CreateExternal method
+            (
+                Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
+                EAMMethod::CreateExternal as u64,
+            )
+        }
+        Some(recipient) => {
+            // Otherwise, use InvokeContract method and convert EthAddress to Filecoin address
+            let to = recipient
+                .to_filecoin_address()
+                .context("failed to convert EthAddress to Filecoin address")?;
+            (to, EVMMethod::InvokeContract as u64)
+        }
+    };
+
+    Ok(MethodInfo { to, method, params })
+}
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
