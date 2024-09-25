@@ -1042,25 +1042,38 @@ impl RpcMethod<4> for StateWaitMsg {
 }
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#statesearchmsg>
 pub enum StateSearchMsg {}
 
-impl RpcMethod<1> for StateSearchMsg {
+impl RpcMethod<4> for StateSearchMsg {
     const NAME: &'static str = "Filecoin.StateSearchMsg";
-    const PARAM_NAMES: [&'static str; 1] = ["message_cid"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PARAM_NAMES: [&'static str; 4] = [
+        "tipset_key",
+        "message_cid",
+        "look_back_limit",
+        "allow_replaced",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Cid,);
+    type Params = (ApiTipsetKey, Cid, i64, bool);
     type Ok = MessageLookup;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (message_cid,): Self::Params,
+        (ApiTipsetKey(tsk), message_cid, look_back_limit, allow_replaced): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let from = tsk
+            .map(|k| ctx.chain_index().load_required_tipset(&k))
+            .transpose()?;
         let (tipset, receipt) = ctx
             .state_manager
-            .search_for_message(None, message_cid, None, None)
+            .search_for_message(
+                from,
+                message_cid,
+                Some(look_back_limit),
+                Some(allow_replaced),
+            )
             .await?
             .with_context(|| format!("message {message_cid} not found."))?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
