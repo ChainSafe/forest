@@ -11,6 +11,7 @@ use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
+use fvm_shared4::event::StampedEvent;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -103,6 +104,15 @@ impl ApplyRet {
             ApplyRet::V2(v2) => v2.exec_trace.iter().cloned().map(Into::into).collect(),
             ApplyRet::V3(v3) => v3.exec_trace.iter().cloned().map(Into::into).collect(),
             ApplyRet::V4(v4) => v4.exec_trace.iter().cloned().map(Into::into).collect(),
+        }
+    }
+
+    pub fn events(&self) -> Vec<StampedEvent> {
+        // TODO: shim StampedEvent
+        match self {
+            ApplyRet::V2(v2) => todo!(),
+            ApplyRet::V3(v3) => todo!(),
+            ApplyRet::V4(v4) => v4.events.iter().cloned().map(Into::into).collect(),
         }
     }
 }

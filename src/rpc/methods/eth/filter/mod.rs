@@ -35,6 +35,8 @@ use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fvm_shared4::event::StampedEvent;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -231,12 +233,30 @@ impl EthEventHandler {
             for receipt in receipts {
                 if let Some(cid) = receipt.events_root() {
                     tracing::debug!("events root: {}", cid);
+                    let events = get_events(ctx.store(), &cid)?;
+                    dbg!(events);
                 }
             }
         }
 
         Ok(vec![])
     }
+}
+
+fn get_events(
+    db: &impl Blockstore,
+    events_cid: &Cid,
+) -> anyhow::Result<Vec<StampedEvent>> {
+    // TODO: persist events in db
+    let mut events = Vec::new();
+    if let Ok(amt) = Amt::<StampedEvent, _, >::load(events_cid, db) {
+        amt.for_each(|_, event| {
+            events.push(event.clone());
+            Ok(())
+        })?;
+    }
+
+    Ok(events)
 }
 
 impl EthFilterSpec {
