@@ -11,6 +11,7 @@ use crate::utils::misc::env::is_env_truthy;
 pub fn run_f3_sidecar_if_enabled(
     _rpc_endpoint: String,
     _f3_rpc_endpoint: String,
+    _initial_power_table: String,
     _finality: i64,
     _db: String,
     _manifest_server: String,
@@ -21,6 +22,7 @@ pub fn run_f3_sidecar_if_enabled(
             GoF3NodeImpl::run(
                 _rpc_endpoint,
                 _f3_rpc_endpoint,
+                _initial_power_table,
                 _finality,
                 _db,
                 _manifest_server,

@@ -33,12 +33,12 @@ import (
 var GoF3NodeImpl GoF3Node
 
 type GoF3Node interface {
-	run(rpc_endpoint string, f3_rpc_endpoint string, finality int64, db string, manifest_server string) bool
+	run(rpc_endpoint string, f3_rpc_endpoint string, initial_power_table string, finality int64, db string, manifest_server string) bool
 }
 
 //export CGoF3Node_run
-func CGoF3Node_run(rpc_endpoint C.StringRef, f3_rpc_endpoint C.StringRef, finality C.int64_t, db C.StringRef, manifest_server C.StringRef, slot *C.void, cb *C.void) {
-	resp := GoF3NodeImpl.run(newString(rpc_endpoint), newString(f3_rpc_endpoint), newC_int64_t(finality), newString(db), newString(manifest_server))
+func CGoF3Node_run(rpc_endpoint C.StringRef, f3_rpc_endpoint C.StringRef, initial_power_table C.StringRef, finality C.int64_t, db C.StringRef, manifest_server C.StringRef, slot *C.void, cb *C.void) {
+	resp := GoF3NodeImpl.run(newString(rpc_endpoint), newString(f3_rpc_endpoint), newString(initial_power_table), newC_int64_t(finality), newString(db), newString(manifest_server))
 	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
 	C.GoF3Node_run_cb(unsafe.Pointer(cb), resp_ref, unsafe.Pointer(slot))
 	runtime.KeepAlive(resp)
