@@ -434,9 +434,14 @@ pub(super) async fn start(
                 .data_dir
                 .join(format!("f3-db/{}", config.chain));
             move || {
+                // This will be used post-bootstrap to hard-code the initial F3's initial power table CID.
+                // Read from an environment variable for now before the hard-coded value is determined.
+                let initial_power_table =
+                    std::env::var("FOREST_F3_INITIAL_POWER_TABLE").unwrap_or_default();
                 crate::f3::run_f3_sidecar_if_enabled(
                     format!("http://{rpc_address}/rpc/v1"),
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
+                    initial_power_table,
                     finality,
                     std::env::var("FOREST_F3_DB_PATH")
                         .unwrap_or(default_f3_db_path.display().to_string()),

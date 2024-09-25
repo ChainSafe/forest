@@ -12,6 +12,7 @@ pub trait GoF3Node {
     fn run(
         rpc_endpoint: String,
         f3_rpc_endpoint: String,
+        initial_power_table: String,
         finality: i64,
         db: String,
         manifest_server: String,
