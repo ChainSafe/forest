@@ -29,6 +29,6 @@ jobs:
       - name: Link Checker (Repo Readme)
         uses: lycheeverse/lychee-action@v1.10.0
         with:
-          args: './**/*.md'
+          args: '.**/*.md'
           # Fail action on broken links
           fail: true

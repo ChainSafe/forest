@@ -30,7 +30,7 @@ predefined dashboards. Use the default Grafana credentials: `admin`/`admin`.
 To receive telemetries via `Loki`, run `forest-daemon` with `--loki`, then go to
 `Configuration/Data Sources` on `grafana` webapp, select `Loki`, click on
 `Explore`, and then you can run queries with `LogQL`. For details of `LogQL`
-refer to its [documentation](https://grafana.com/docs/loki/latest/logql/).
+refer to its [documentation](https://grafana.com/docs/loki/latest/logql /).
 
 ## Reload Dashboards
 
