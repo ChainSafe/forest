@@ -44,10 +44,6 @@ install-lint-tools-ci:
 
 	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-audit
 
-install-doc-tools:
-	cargo install --locked mdbook
-	cargo install --locked mdbook-linkcheck
-
 clean-all:
 	cargo clean
 
@@ -120,17 +116,5 @@ license:
 
 docs:
 	cargo doc --no-deps
-
-mdbook:
-	mdbook serve documentation
-
-mdbook-build:
-	mdbook build ./documentation
-
-# These are the docs that are hosted at https://chainsafe.github.io/forest/rustdoc/.
-# The root index.html simply redirects to the main `forest-filecoin` library documentation.
-vendored-docs:
-	cargo doc --document-private-items
-	cp ./build/vendored-docs-redirect.index.html target/doc/index.html
 
 .PHONY: $(MAKECMDGOALS)

@@ -9,75 +9,26 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**.md'
   merge_group:
   pull_request:
     branches:
       - main
-
-env:
-  CACHE_TIMEOUT_MINUTES: 5
-  AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
-  AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
-  RUSTC_WRAPPER: "sccache"
+    paths:
+      - '**.md'
 
 jobs:
-  check-publish-docs:
-    name: Publish
+  check-docs:
+    name: Markdown Lint
     runs-on: ubuntu-24.04
     steps:
-      - name: Configure SCCache variables
-        run: |
-          # External PRs do not have access to 'vars' or 'secrets'.
-          if [[ "$AWS_ACCESS_KEY_ID" != "" ]]; then
-            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
-            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
-            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
-          fi
-      - name: Checkout Sources
+      - name: Lint Markdown
         uses: actions/checkout@v4
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.5
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        run: make md-check
       - name: Link Checker (Repo Readme)
         uses: lycheeverse/lychee-action@v1.10.0
         with:
-          args: 'README.md'
+          args: '*.md .github/*.md .github/**/*.md .config/*.md'
           # Fail action on broken links
           fail: true
-      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
-      - name: Install MDBook
-        run: make install-doc-tools
-        env:
-          RUSTFLAGS: "-Cstrip=symbols"
-      - name: Execute MDBook
-        run: make mdbook-build
-      - name: Build vendored docs
-        run: make vendored-docs
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
-      - name: Link Checker (Library Documentation)
-        uses: lycheeverse/lychee-action@v1.10.0
-        with:
-          args: './target/doc/forest_filecoin/**/index.html'
-          # Fail action on broken links
-          fail: true
-      - name: Prepare rustdoc for publishing
-        run: mv ./target/doc ./documentation/book/html/rustdoc
-      # The deploy steps are identical expect for name and 'dry-run' attribute.
-      # Ideally this would be refactored.
-      - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.6.4
-        if: ${{ github.event_name == 'pull_request' }}
-        with:
-          branch: gh-pages
-          folder: ./documentation/book/html/
-          dry-run: true
-      - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.6.4
-        if: ${{ github.event_name == 'push' }}
-        with:
-          branch: gh-pages
-          folder: ./documentation/book/html/
-          dry-run: false
