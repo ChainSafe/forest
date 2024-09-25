@@ -59,7 +59,7 @@ do
   
   JSON=$(curl -s -X POST "$FOREST_URL" \
     --header 'Content-Type: application/json' \
-    --data "$(jq -n --arg cid "$MSG_CID" '{jsonrpc: "2.0", id: 1, method: "Filecoin.StateSearchMsg", params: [{"/": $cid}]}')")
+    --data "$(jq -n --arg cid "$MSG_CID" '{jsonrpc: "2.0", id: 1, method: "Filecoin.StateSearchMsg", params: [[], {"/": $cid}, 800, true]}')")
 
   echo "$JSON"
   
