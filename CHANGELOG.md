@@ -27,9 +27,21 @@
 
 ### Breaking
 
+- [#4782](https://github.com/ChainSafe/forest/pull/4782) Devnets are no longer
+  configurable with legacy drand network.
+
 ### Added
 
+- [#4703](https://github.com/ChainSafe/forest/issues/4703) Add support for the
+  `Filecoin.EthGetTransactionByHashLimited` RPC method.
+
+- [#4783](https://github.com/ChainSafe/forest/issues/4783) Add support for the
+  `Filecoin.NetProtectList` RPC method.
+
 ### Changed
+
+- [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
+  upgraded from 22.04 to 24.04 in Dockerfile
 
 ### Removed
 

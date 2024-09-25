@@ -15,7 +15,7 @@ function get_sync_height {
   local port=$1
   curl --silent -X POST -H "Content-Type: application/json" \
        --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
-       "http://127.0.0.1:${port}/rpc/v0" | jq '.result.Height'
+       "http://127.0.0.1:${port}/rpc/v1" | jq '.result.Height'
 }
 
 function get_f3_latest_cert_instance {

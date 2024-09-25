@@ -1,8 +1,3 @@
-# Using https://github.com/tonistiigi/xx
-# Use in Docker images when cross-compiling.
-install-xx:
-	xx-cargo install --locked --path . --force
-
 # Redundancy tracked by #2991
 install-cli:
 	cargo install --locked --path . --force
@@ -93,7 +88,10 @@ lint-docker: $(DOCKERFILES)
 fmt:
 	cargo fmt --all
 	taplo fmt
-	yarn && yarn md-fmt
+	corepack enable && yarn && yarn md-fmt
+
+md-check:
+	corepack enable && yarn && yarn md-check
 
 build:
 	cargo build

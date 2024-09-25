@@ -1955,54 +1955,81 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
-            tracing::debug!(
-                "could not find transaction hash {} in Ethereum mapping",
-                tx_hash
-            );
-            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
-            tx_hash.to_cid()
-        });
-
-        // First, try to get the cid from mined transactions
-        if let Ok(Some((tipset, receipt))) = ctx
-            .state_manager
-            .search_for_message(None, message_cid, None, Some(true))
-            .await
-        {
-            let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-            let message_lookup = MessageLookup {
-                receipt,
-                tipset: tipset.key().clone(),
-                height: tipset.epoch(),
-                message: message_cid,
-                return_dec: ipld,
-            };
-
-            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
-                return Ok(Some(tx));
-            }
-        }
-
-        // If not found, try to get it from the mempool
-        let (pending, _) = ctx.mpool.pending()?;
-
-        if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
-            // We only return pending eth-account messages because we can't guarantee
-            // that the from/to addresses of other messages are conversable to 0x-style
-            // addresses. So we just ignore them.
-            //
-            // This should be "fine" as anyone using an "Ethereum-centric" block
-            // explorer shouldn't care about seeing pending messages from native
-            // accounts.
-            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
-                return Ok(Some(eth_tx.into()));
-            }
-        }
-
-        // Ethereum clients expect an empty response when the message was not found
-        Ok(None)
+        get_eth_transaction_by_hash(ctx, tx_hash, None).await
     }
+}
+
+pub enum EthGetTransactionByHashLimited {}
+impl RpcMethod<2> for EthGetTransactionByHashLimited {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByHashLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHashLimited");
+    const PARAM_NAMES: [&'static str; 2] = ["tx_hash", "limit"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthHash, ChainEpoch);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash, limit): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
+    }
+}
+
+async fn get_eth_transaction_by_hash(
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: EthHash,
+    limit: Option<ChainEpoch>,
+) -> Result<Option<ApiEthTx>, ServerError> {
+    let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+        tracing::debug!(
+            "could not find transaction hash {} in Ethereum mapping",
+            tx_hash
+        );
+        // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+        tx_hash.to_cid()
+    });
+
+    // First, try to get the cid from mined transactions
+    if let Ok(Some((tipset, receipt))) = ctx
+        .state_manager
+        .search_for_message(None, message_cid, limit, Some(true))
+        .await
+    {
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        };
+
+        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+            return Ok(Some(tx));
+        }
+    }
+
+    // If not found, try to get it from the mempool
+    let (pending, _) = ctx.mpool.pending()?;
+
+    if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
+        // We only return pending eth-account messages because we can't guarantee
+        // that the from/to addresses of other messages are conversable to 0x-style
+        // addresses. So we just ignore them.
+        //
+        // This should be "fine" as anyone using an "Ethereum-centric" block
+        // explorer shouldn't care about seeing pending messages from native
+        // accounts.
+        if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
+            return Ok(Some(eth_tx.into()));
+        }
+    }
+
+    // Ethereum clients expect an empty response when the message was not found
+    Ok(None)
 }
 
 pub enum EthGetTransactionHashByCid {}

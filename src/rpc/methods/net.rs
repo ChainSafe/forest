@@ -294,8 +294,15 @@ impl RpcMethod<0> for NetProtectList {
 
     type Params = ();
     type Ok = Vec<String>;
-    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = flume::bounded(1);
+        ctx.network_send
+            .send_async(NetworkMessage::JSONRPCRequest {
+                method: NetRPCMethods::ListProtectedPeers(tx),
+            })
+            .await?;
+        let peers = rx.recv_async().await?;
+        Ok(peers.into_iter().map(|p| p.to_string()).collect())
     }
 }
 
