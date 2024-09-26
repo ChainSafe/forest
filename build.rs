@@ -11,7 +11,7 @@ fn main() {
         println!("cargo:rustc-cfg=f3sidecar");
         std::env::set_var("GOWORK", "off");
         // See <https://github.com/golang/go/issues/58159>
-        std::env::set_var("GOFLAGS", "-tags=netgo -lresolv");
+        std::env::set_var("GOFLAGS", "-tags=netgo");
         rust2go::Builder::default()
             .with_go_src("./f3-sidecar")
             // the generated Go file has been commited to the git repository,
