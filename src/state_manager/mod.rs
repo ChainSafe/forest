@@ -82,6 +82,8 @@ pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
+const EVENTS_AMT_BITWIDTH: u32 = 5;
+
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
@@ -1665,8 +1667,27 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
-        let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
+        let (receipts, events) = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
+        // construct events root
+        let receipts_iter = receipts.iter();
+        for (receipt, events) in receipts_iter.zip(events.iter()) {
+            if let Some(events_root) = receipt.events_root() {
+                let root = fil_actors_shared::fvm_ipld_amt::Amt::new_from_iter_with_bit_width(
+                    &chain_index.db,
+                    EVENTS_AMT_BITWIDTH,
+                    events.iter(),
+                )
+                .context("failed to construct events AMT")?;
+
+                (root == events_root)
+                    .then(|| ())
+                    .context("events root mismatch")?;
+
+                tracing::debug!("Wrote events AMT (root={})", events_root);
+            }
+            // if None, events vector is empty
+        }
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
         let state_root = vm.flush()?;

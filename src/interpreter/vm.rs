@@ -52,6 +52,7 @@ use fvm4::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::clock::ChainEpoch;
+use fvm_shared4::event::StampedEvent;
 use num::Zero;
 use std::time::{Duration, Instant};
 
@@ -351,8 +352,9 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-    ) -> Result<Vec<Receipt>, anyhow::Error> {
+    ) -> Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error> {
         let mut receipts = Vec::new();
+        let mut events = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
         for block in messages.iter() {
@@ -382,6 +384,9 @@ where
                 penalty += ret.penalty();
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
+
+                // TODO: only push events if enabled in config
+                events.push(ret.events());
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -428,7 +433,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok(receipts)
+        Ok((receipts, events))
     }
 
     /// Applies single message through VM and returns result from execution.
