@@ -1510,7 +1510,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
-        RpcTest::identity(EthSendRawTransaction::request((EthBytes(vec![0xa]),)).unwrap()),
+        RpcTest::identity(EthSendRawTransaction::request((EthBytes(vec![0x07]),)).unwrap()),
     ];
 
     for block in shared_tipset.block_headers() {
