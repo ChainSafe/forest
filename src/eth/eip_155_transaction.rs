@@ -97,11 +97,11 @@ impl EthLegacyEip155TxArgs {
         }
 
         // Check if the first byte matches the expected signature prefix
-        if sig[0] != HOMESTEAD_SIG_PREFIX {
+        if *sig.first().context("failed to get value")? != HOMESTEAD_SIG_PREFIX {
             bail!(
                 "expected signature prefix 0x{:x}, but got 0x{:x}",
                 HOMESTEAD_SIG_PREFIX,
-                sig[0]
+                sig.first().context("failed to get value")?
             );
         }
 
@@ -109,13 +109,20 @@ impl EthLegacyEip155TxArgs {
         sig.remove(0);
 
         // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
-        let v_value = BigInt::from_bytes_be(num_bigint::Sign::Plus, &sig[64..]);
+        let v_value = BigInt::from_bytes_be(
+            num_bigint::Sign::Plus,
+            sig.get(64..).context("failed to get value")?,
+        );
 
         // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
         if v_value == BigInt::from_u8(27).unwrap() {
-            sig[64] = 0;
+            if let Some(value) = sig.get_mut(64) {
+                *value = 0
+            };
         } else if v_value == BigInt::from_u8(28).unwrap() {
-            sig[64] = 1;
+            if let Some(value) = sig.get_mut(64) {
+                *value = 1
+            };
         } else {
             bail!(
                 "invalid 'v' value: expected 27 or 28, got {}",

@@ -7,6 +7,7 @@
 use crate::shim::crypto::SignatureType::Delegated;
 use anyhow::bail;
 use anyhow::ensure;
+use anyhow::Context;
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
@@ -48,7 +49,7 @@ impl EthEip1559TxArgs {
         if v_bytes.is_empty() {
             sig.push(0);
         } else {
-            sig.push(v_bytes[0]);
+            sig.push(*v_bytes.first().context("failed to get first element")?);
         }
 
         // Check if signature is 65 bytes

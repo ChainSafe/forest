@@ -169,13 +169,13 @@ impl EthAddress {
         }
 
         // Check if the first byte of the public key is 0x04 (uncompressed)
-        if pubkey[0] != 0x04 {
+        if *pubkey.first().context("failed to get value")? != 0x04 {
             bail!("expected first byte of secp256k1 to be 0x04 (uncompressed)");
         }
 
-        let hash = keccak_hash::keccak(&pubkey[1..]);
+        let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get value")?);
         let addr: &[u8] = &hash[12..32];
-        Ok(EthAddress::try_from(addr)?)
+        EthAddress::try_from(addr)
     }
 }
 

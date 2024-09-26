@@ -229,11 +229,14 @@ impl EthTx {
         let sig = self.signature()?;
         let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?;
         let rec_sig = libsecp256k1::Signature::parse_standard(
-            &sig_data[..64]
+            sig_data
+                .get(..64)
+                .context("failed to get a range of values")?
                 .try_into()
                 .context("slice should be 64 bytes")?,
         )?;
-        let rec_id = libsecp256k1::RecoveryId::parse(sig_data[64])?;
+        let rec_id =
+            libsecp256k1::RecoveryId::parse(*sig_data.get(64).context("failed to get value")?)?;
         let pubkey = libsecp256k1::recover(&msg, &rec_sig, &rec_id)?;
         let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey.serialize())?;
         eth_addr.to_filecoin_address()
@@ -340,7 +343,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
         return Err(anyhow::anyhow!("empty data"));
     }
 
-    match data[0] as u64 {
+    match *data.first().context("failed to get value")? as u64 {
         1 => {
             // EIP-2930
             Err(anyhow::anyhow!("EIP-2930 transaction is not supported"))
@@ -349,7 +352,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
             // EIP-1559
             parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
         }
-        _ if data[0] > 0x7f => {
+        _ if *data.first().context("failed to get value")? > 0x7f => {
             // Legacy transaction
             parse_legacy_tx(data)
                 .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err))
@@ -360,7 +363,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
 
 fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data, skipping the first byte (EIP_1559_TX_TYPE)
-    let decoded = Rlp::new(&data[1..]);
+    let decoded = Rlp::new(data.get(1..).context("failed to get range of values")?);
     if decoded.item_count()? != 12 {
         bail!("not an EIP-1559 transaction: should have 12 elements in the rlp list");
     }
@@ -413,7 +416,7 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
 
 fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data
-    let decoded = Rlp::new(&data[1..]);
+    let decoded = Rlp::new(data.get(1..).context("failed to get range of values")?);
     if decoded.item_count()? != 9 {
         bail!("not a Legacy transaction: should have 9 elements in the rlp list");
     }
