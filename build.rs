@@ -13,7 +13,7 @@ fn main() {
         // `Netgo` is enabled for all the platforms to be consistent across different builds. It
         // is using pure Go implementation for functionality like name resolution. In the case of
         // sidecar it does not make much difference, but it does fix the Apple silicons builds.
-        // See <https://github.com/golang/go/issues/58159>
+        // See <https://github.com/status-im/status-mobile/issues/20135#issuecomment-2137400475>
         std::env::set_var("GOFLAGS", "-tags=netgo");
         rust2go::Builder::default()
             .with_go_src("./f3-sidecar")
