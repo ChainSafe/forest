@@ -35,6 +35,19 @@ jobs:
         run: |
           gem install rubocop -v 1.58 --no-document
           rubocop scripts/
+  python-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install black flake8
+      - name: Run Python linters
+        uses: wearerequired/lint-action@v2
+        with:
+          black: true
+          flake8: true
   docker-lint:
     runs-on: ubuntu-24.04
     steps:
