@@ -47,6 +47,9 @@
 
 ### Fixed
 
+- [#4809](https://github.com/ChainSafe/forest/issues/4777) the Mac OS X build on
+  Apple silicons is now working again.
+
 ## Forest 0.20.0 "Brexit"
 
 Non-mandatory release including a number of new RPC methods, fixes, and other
