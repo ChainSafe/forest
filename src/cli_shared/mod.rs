@@ -7,7 +7,7 @@ pub mod logger;
 use crate::cli_shared::cli::{find_config_path, Config, ConfigPath};
 use crate::db::db_engine::db_root;
 use crate::db::CAR_DB_DIR_NAME;
-use crate::networks::NetworkChain;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::utils::io::read_toml;
 use std::path::PathBuf;
 
@@ -18,7 +18,7 @@ pub use tikv_jemallocator;
 
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir).join(config.chain.to_string())
+    PathBuf::from(&config.client.data_dir).join(config.chain().to_string())
 }
 
 /// Gets car db path
@@ -43,7 +43,7 @@ pub fn read_config(
         None => (None, Config::default()),
     };
     if let Some(chain) = chain_opt {
-        config.chain = chain;
+        config.chain = ChainConfig::from_chain(&chain);
     }
     Ok((path, config))
 }
@@ -57,7 +57,7 @@ mod tests {
         let (config_path, config) = read_config(None, None).unwrap();
 
         assert!(config_path.is_none());
-        assert_eq!(config.chain, NetworkChain::Mainnet);
+        assert_eq!(config.chain(), &NetworkChain::Mainnet);
     }
 
     #[test]
@@ -65,7 +65,7 @@ mod tests {
         let (config_path, config) = read_config(None, Some(NetworkChain::Calibnet)).unwrap();
 
         assert!(config_path.is_none());
-        assert_eq!(config.chain, NetworkChain::Calibnet);
+        assert_eq!(config.chain(), &NetworkChain::Calibnet);
     }
 
     #[test]
@@ -73,7 +73,7 @@ mod tests {
         let (config_path, config) = read_config(None, Some(NetworkChain::Butterflynet)).unwrap();
 
         assert!(config_path.is_none());
-        assert_eq!(config.chain, NetworkChain::Butterflynet);
+        assert_eq!(config.chain(), &NetworkChain::Butterflynet);
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod tests {
         let (config_path, config) = read_config(Some(&path), None).unwrap();
 
         assert_eq!(config_path.unwrap(), ConfigPath::Cli(path));
-        assert_eq!(config.chain, NetworkChain::Mainnet);
+        assert_eq!(config.chain(), &NetworkChain::Mainnet);
         assert_eq!(config, default_config);
     }
 }

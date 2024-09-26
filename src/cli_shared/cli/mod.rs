@@ -154,6 +154,9 @@ pub struct CliOpts {
     /// Skip loading actors from the actors bundle.
     #[arg(long)]
     pub skip_load_actors: bool,
+    /// Store events in blockstore (default: true)
+    #[arg(long)]
+    pub store_events: Option<bool>,
 }
 
 impl CliOpts {
@@ -224,6 +227,9 @@ impl CliOpts {
         }
 
         cfg.client.load_actors = !self.skip_load_actors;
+        if self.store_events.unwrap_or(cfg.client.store_events) {
+            cfg.client.store_events = true;
+        }
 
         Ok((cfg, path))
     }

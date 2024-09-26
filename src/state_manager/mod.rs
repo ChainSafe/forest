@@ -16,6 +16,7 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::chain_sync::SyncConfig;
+use crate::cli_shared::cli::Config;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
@@ -223,6 +224,7 @@ pub struct StateManager<DB> {
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
+    config: Arc<Config>,
     chain_config: Arc<ChainConfig>,
     sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
@@ -235,18 +237,17 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore,
 {
-    pub fn new(
-        cs: Arc<ChainStore<DB>>,
-        chain_config: Arc<ChainConfig>,
-        sync_config: Arc<SyncConfig>,
-    ) -> Result<Self, anyhow::Error> {
+    pub fn new(cs: Arc<ChainStore<DB>>, config: Arc<Config>) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
+        let beacon = Arc::new(config.chain.get_beacon_schedule(genesis.timestamp));
+        let chain_config = Arc::new(config.chain.clone());
+        let sync_config = Arc::new(config.sync.clone());
 
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
             beacon,
+            config,
             chain_config,
             sync_config,
             engine: crate::shim::machine::MultiEngine::default(),
@@ -259,7 +260,7 @@ where
 
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        self.chain_config.network_version(epoch)
+        self.config.chain.network_version(epoch)
     }
 
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
