@@ -10,6 +10,9 @@ fn main() {
     if !is_docs_rs() && is_sidecar_ffi_enabled() {
         println!("cargo:rustc-cfg=f3sidecar");
         std::env::set_var("GOWORK", "off");
+        // `Netgo` is enabled for all the platforms to be consistent across different builds. It
+        // is using pure Go implementation for functionality like name resolution. In the case of
+        // sidecar it does not make much difference, but it does fix the Apple silicons builds.
         // See <https://github.com/golang/go/issues/58159>
         std::env::set_var("GOFLAGS", "-tags=netgo");
         rust2go::Builder::default()
