@@ -555,6 +555,7 @@ async fn show_tipset_diff(
         tipset,
         NO_CALLBACK,
         VMTrace::NotTraced,
+        false,
     )?;
 
     if child_tipset.parent_state() != &state_root {

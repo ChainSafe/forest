@@ -67,6 +67,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
             Arc::clone(&self.chain_config),
             Arc::clone(&self.heaviest_tipset),
             height,
+            false,
         )?;
         Ok(st)
     }

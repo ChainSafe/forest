@@ -94,7 +94,7 @@ impl Default for Client {
             ),
             load_actors: true,
             eth_mapping_ttl: None,
-            store_events: false,
+            store_events: true,
         }
     }
 }

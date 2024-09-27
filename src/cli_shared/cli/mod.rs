@@ -229,6 +229,8 @@ impl CliOpts {
         cfg.client.load_actors = !self.skip_load_actors;
         if self.store_events.unwrap_or(cfg.client.store_events) {
             cfg.client.store_events = true;
+        } else {
+            cfg.client.store_events = false;
         }
 
         Ok((cfg, path))

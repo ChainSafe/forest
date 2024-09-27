@@ -78,6 +78,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
         state_manager.chain_config().clone(),
         base_tipset.clone(),
         block.header().epoch,
+        state_manager.store_events(),
     )
     .map_err(to_errs)?;
 

@@ -164,6 +164,8 @@ pub struct ExecutionContext<DB> {
     pub chain_index: Arc<ChainIndex<Arc<DB>>>,
     // UNIX timestamp for epoch
     pub timestamp: u64,
+    // Store events in the DB
+    pub store_events: bool,
 }
 
 impl<DB> VM<DB>
@@ -181,6 +183,7 @@ where
             chain_config,
             chain_index,
             timestamp,
+            store_events,
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
         enable_tracing: VMTrace,
@@ -210,6 +213,7 @@ where
                     state_tree_root,
                     chain_index,
                     chain_config,
+                    store_events,
                 ),
             )?;
             let exec: ForestExecutorV4<DB> = DefaultExecutor_v4::new(engine, fvm)?;
@@ -352,6 +356,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        store_events: bool,
     ) -> Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
@@ -385,8 +390,9 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                // TODO: only push events if enabled in config
-                events.push(ret.events());
+                if store_events {
+                    events.push(ret.events());
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);

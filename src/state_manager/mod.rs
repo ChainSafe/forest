@@ -271,6 +271,10 @@ where
         &self.sync_config
     }
 
+    pub fn store_events(&self) -> bool {
+        self.config.client.store_events
+    }
+
     /// Gets the state tree
     pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DB>> {
         StateTree::new_from_root(self.blockstore_owned(), state_cid)
@@ -471,6 +475,7 @@ where
                 chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
+                store_events: self.store_events(),
             },
             &self.engine,
             VMTrace::Traced,
@@ -561,6 +566,7 @@ where
                     chain_config: self.chain_config().clone(),
                     chain_index: Arc::clone(&self.chain_store().chain_index),
                     timestamp: ts.min_timestamp(),
+                    store_events: self.store_events(),
                 },
                 &self.engine,
                 trace_config,
@@ -739,6 +745,7 @@ where
             tipset,
             callback,
             enable_tracing,
+            self.store_events(),
         )?)
     }
 
@@ -1215,6 +1222,7 @@ where
             self.chain_config.clone(),
             tipset.clone(),
             epoch,
+            self.store_events(),
         )?;
 
         let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
@@ -1340,6 +1348,7 @@ where
             self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
+            self.store_events(),
         )
     }
 
@@ -1451,6 +1460,7 @@ pub fn validate_tipsets<DB, T>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipsets: T,
+    store_events: bool,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1471,6 +1481,7 @@ where
                 parent,
                 NO_CALLBACK,
                 VMTrace::NotTraced,
+                store_events,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;
@@ -1578,6 +1589,7 @@ pub fn apply_block_messages<DB>(
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
+    store_events: bool,
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1623,6 +1635,7 @@ where
                 chain_config: Arc::clone(&chain_config),
                 chain_index: Arc::clone(&chain_index),
                 timestamp,
+                store_events,
             },
             engine,
             enable_tracing,
@@ -1668,26 +1681,29 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
-        let (receipts, events) = vm.apply_block_messages(&block_messages, epoch, callback)?;
+        let (receipts, events) =
+            vm.apply_block_messages(&block_messages, epoch, callback, store_events)?;
 
         // construct events root
-        let receipts_iter = receipts.iter();
-        for (receipt, events) in receipts_iter.zip(events.iter()) {
-            if let Some(events_root) = receipt.events_root() {
-                let root = fil_actors_shared::fvm_ipld_amt::Amt::new_from_iter_with_bit_width(
-                    &chain_index.db,
-                    EVENTS_AMT_BITWIDTH,
-                    events.iter(),
-                )
-                .context("failed to construct events AMT")?;
+        if store_events {
+            let receipts_iter = receipts.iter();
+            for (receipt, events) in receipts_iter.zip(events.iter()) {
+                if let Some(events_root) = receipt.events_root() {
+                    let root = fil_actors_shared::fvm_ipld_amt::Amt::new_from_iter_with_bit_width(
+                        &chain_index.db,
+                        EVENTS_AMT_BITWIDTH,
+                        events.iter(),
+                    )
+                    .context("failed to construct events AMT")?;
 
-                (root == events_root)
-                    .then(|| ())
-                    .context("events root mismatch")?;
+                    (root == events_root)
+                        .then(|| ())
+                        .context("events root mismatch")?;
 
-                tracing::debug!("Wrote events AMT (root={})", events_root);
+                    tracing::debug!("Wrote events AMT (root={})", events_root);
+                }
+                // if None, events vector is empty
             }
-            // if None, events vector is empty
         }
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;

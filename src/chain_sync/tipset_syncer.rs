@@ -1298,6 +1298,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         state_manager.chain_config().clone(),
         base_tipset.clone(),
         block.header().epoch,
+        state_manager.store_events(),
     )
     .map_err(|e| (*block_cid, e.into()))
     .map(|(_, s)| Arc::new(s))?;

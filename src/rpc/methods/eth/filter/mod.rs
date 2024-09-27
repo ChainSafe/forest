@@ -36,9 +36,9 @@ use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
-use fvm_shared4::event::StampedEvent;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
+use fvm_shared4::event::StampedEvent;
 use serde::*;
 use std::sync::Arc;
 use store::*;
@@ -243,13 +243,9 @@ impl EthEventHandler {
     }
 }
 
-fn get_events(
-    db: &impl Blockstore,
-    events_cid: &Cid,
-) -> anyhow::Result<Vec<StampedEvent>> {
-    // TODO: persist events in db
+fn get_events(db: &impl Blockstore, events_cid: &Cid) -> anyhow::Result<Vec<StampedEvent>> {
     let mut events = Vec::new();
-    if let Ok(amt) = Amt::<StampedEvent, _, >::load(events_cid, db) {
+    if let Ok(amt) = Amt::<StampedEvent, _>::load(events_cid, db) {
         amt.for_each(|_, event| {
             events.push(event.clone());
             Ok(())

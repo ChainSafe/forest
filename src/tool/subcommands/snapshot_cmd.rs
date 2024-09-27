@@ -440,6 +440,7 @@ where
         beacon,
         &MultiEngine::default(),
         tipsets,
+        false,
     )?;
 
     pb.finish_with_message("✅ verified!");
@@ -505,6 +506,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
         }, // enable traces if json flag is used
+        false,
     )?;
 
     if json {
