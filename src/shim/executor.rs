@@ -4,7 +4,7 @@
 use super::trace::ExecutionEvent;
 use crate::shim::{econ::TokenAmount, fvm_shared_latest::error::ExitCode};
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::Amtv0;
+use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm4::executor::ApplyRet as ApplyRet_v4;
@@ -221,6 +221,19 @@ impl From<StampedEvent_v3> for StampedEvent {
 impl From<StampedEvent_v4> for StampedEvent {
     fn from(other: StampedEvent_v4) -> Self {
         StampedEvent::V4(other)
+    }
+}
+
+impl StampedEvent {
+    pub fn get_events(db: &impl Blockstore, events_cid: &Cid) -> anyhow::Result<Vec<StampedEvent>> {
+        let mut events = Vec::new();
+        if let Ok(amt) = Amt::<StampedEvent_v4, _>::load(events_cid, db) {
+            amt.for_each(|_, event| {
+                events.push(event.clone().into());
+                Ok(())
+            })?;
+        }
+        Ok(events)
     }
 }
 
