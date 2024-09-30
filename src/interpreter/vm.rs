@@ -242,6 +242,7 @@ where
                     state_tree_root,
                     chain_index,
                     chain_config,
+                    store_events,
                 ),
             )?;
             let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
