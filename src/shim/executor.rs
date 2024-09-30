@@ -11,8 +11,9 @@ use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
+use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
-use fvm_shared4::event::StampedEvent;
+use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
 
@@ -109,8 +110,8 @@ impl ApplyRet {
 
     pub fn events(&self) -> Vec<StampedEvent> {
         match self {
-            ApplyRet::V2(_v2) => Vec::new(),
-            ApplyRet::V3(_v3) => Vec::new(),
+            ApplyRet::V2(_) => Vec::<StampedEvent>::default(),
+            ApplyRet::V3(v3) => v3.events.iter().cloned().map(Into::into).collect(),
             ApplyRet::V4(v4) => v4.events.iter().cloned().map(Into::into).collect(),
         }
     }
@@ -201,6 +202,25 @@ impl Receipt {
 impl From<Receipt_v3> for Receipt {
     fn from(other: Receipt_v3) -> Self {
         Receipt::V3(other)
+    }
+}
+
+#[derive(PartialEq, Clone, Debug, Serialize)]
+#[serde(untagged)]
+pub enum StampedEvent {
+    V3(StampedEvent_v3),
+    V4(StampedEvent_v4),
+}
+
+impl From<StampedEvent_v3> for StampedEvent {
+    fn from(other: StampedEvent_v3) -> Self {
+        StampedEvent::V3(other)
+    }
+}
+
+impl From<StampedEvent_v4> for StampedEvent {
+    fn from(other: StampedEvent_v4) -> Self {
+        StampedEvent::V4(other)
     }
 }
 

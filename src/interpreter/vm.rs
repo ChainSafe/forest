@@ -17,6 +17,7 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
+    executor::StampedEvent,
     executor::{ApplyRet, Receipt},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
@@ -52,7 +53,6 @@ use fvm4::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::clock::ChainEpoch;
-use fvm_shared4::event::StampedEvent;
 use num::Zero;
 use std::time::{Duration, Instant};
 
