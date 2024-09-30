@@ -2360,7 +2360,7 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
     if result.is_ok() {
         // This is a BLS message
-        let hash: EthHash = message_cid.clone().into();
+        let hash: EthHash = (*message_cid).into();
         return Ok(hash);
     }
     Ok(EthHash::default())

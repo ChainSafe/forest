@@ -1697,7 +1697,7 @@ where
                     .context("failed to construct events AMT")?;
 
                     (root == events_root)
-                        .then(|| ())
+                        .then_some(..)
                         .context("events root mismatch")?;
 
                     tracing::debug!("Wrote events AMT (root={})", events_root);
