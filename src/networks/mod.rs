@@ -142,6 +142,7 @@ pub enum Height {
     DragonFix,
     Phoenix,
     Waffle,
+    TukTuk,
 }
 
 impl Default for Height {
@@ -183,6 +184,7 @@ impl From<Height> for NetworkVersion {
             Height::DragonFix => NetworkVersion::V22,
             Height::Phoenix => NetworkVersion::V22,
             Height::Waffle => NetworkVersion::V23,
+            Height::TukTuk => NetworkVersion::V24,
         }
     }
 }
@@ -472,7 +474,7 @@ mod tests {
     fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 27] = [
+        const REQUIRED_HEIGHTS: [Height; 28] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -500,6 +502,7 @@ mod tests {
             Height::Dragon,
             Height::Phoenix,
             Height::Waffle,
+            Height::TukTuk,
         ];
 
         for height in &REQUIRED_HEIGHTS {
