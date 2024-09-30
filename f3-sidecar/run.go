@@ -12,13 +12,14 @@ import (
 	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialPowerTable string, finality int64, db string, manifestServer string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -56,6 +57,14 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	}
 	verif := blssig.VerifierWithKeyOnG1()
 	m := manifest.LocalDevnetManifest()
+	switch _, initialPowerTable, err := cid.CidFromBytes([]byte(initialPowerTable)); {
+	case err == nil && initialPowerTable != cid.Undef:
+		logger.Infof("InitialPowerTable is %s", initialPowerTable)
+		m.InitialPowerTable = initialPowerTable
+	default:
+		logger.Warn("InitialPowerTable is undefined")
+		m.InitialPowerTable = cid.Undef
+	}
 	m.NetworkName = gpbft.NetworkName(network)
 	versionInfo, err := api.Version(ctx)
 	if err != nil {

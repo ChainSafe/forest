@@ -24,7 +24,7 @@ Closes
 <!-- Follow this format https://keepachangelog.com/en/1.0.0/ -->
 
 - [ ] I have performed a self-review of my own code,
-- [ ] I have made corresponding changes to the documentation. All new code adheres to the team's [documentation standards](https://www.notion.so/chainsafe/Documentation-practices-1a7ec5e5486b4a56b26d9df6b1677a63),
+- [ ] I have made corresponding changes to the documentation. All new code adheres to the team's [documentation standards](https://github.com/ChainSafe/forest/wiki/Documentation-practices),
 - [ ] I have added tests that prove my fix is effective or that my feature works (if possible),
 - [ ] I have made sure the [CHANGELOG][1] is up-to-date. All user-facing changes should be reflected in this document.
 

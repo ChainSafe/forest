@@ -70,7 +70,7 @@ jobs:
   
   build-ubuntu-2204-arm64:
     name: Build forest binaries on Ubuntu-22.04-arm64
-    runs-on: buildjet-4vcpu-ubuntu-2204-arm
+    runs-on: buildjet-8vcpu-ubuntu-2204-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -84,7 +84,9 @@ jobs:
             echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
           fi
+          echo "SCCACHE_S3_KEY_PREFIX=aarch64" >> $GITHUB_ENV
       - run: lscpu
+      - run: vmstat -s
       - name: Show IP
         run: curl ifconfig.me
         continue-on-error: true

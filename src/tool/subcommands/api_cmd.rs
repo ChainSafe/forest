@@ -1171,7 +1171,18 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     StateWaitMsg::request((msg_cid, 0, 10101, false))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
-                validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
+                validate_message_lookup(StateSearchMsg::request((
+                    None.into(),
+                    msg_cid,
+                    800,
+                    true,
+                ))?),
+                validate_message_lookup(StateSearchMsg::request((
+                    None.into(),
+                    msg_cid,
+                    800,
+                    false,
+                ))?),
                 validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
             ]);
         }

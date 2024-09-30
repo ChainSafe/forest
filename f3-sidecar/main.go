@@ -22,6 +22,8 @@ func main() {
 	flag.StringVar(&rpcEndpoint, "rpc", "http://127.0.0.1:2345/rpc/v1", "forest RPC endpoint")
 	var f3RpcEndpoint string
 	flag.StringVar(&f3RpcEndpoint, "f3-rpc", "127.0.0.1:23456", "The RPC endpoint F3 sidecar listens on")
+	var initialPowerTable string
+	flag.StringVar(&initialPowerTable, "initial-power-table", "", "The CID of the initial power table")
 	var finality int64
 	flag.Int64Var(&finality, "finality", 900, "chain finality epochs")
 	var db string
@@ -32,7 +34,7 @@ func main() {
 
 	ctx := context.Background()
 
-	err := run(ctx, rpcEndpoint, f3RpcEndpoint, finality, db, manifestServer)
+	err := run(ctx, rpcEndpoint, f3RpcEndpoint, initialPowerTable, finality, db, manifestServer)
 	if err != nil {
 		panic(err)
 	}
