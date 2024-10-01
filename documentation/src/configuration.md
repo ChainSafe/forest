@@ -37,18 +37,19 @@ and provide it to the process with the `--config` flag or through the
 The following is an sample configuration file:
 
 ```toml
-genesis = "/path/to/genesis/file"
-rpc = true
-port = 1234
-token = "0394j3094jg0394jg34g"
-metrics-port = 2345
-kademlia = true
-mdns = true
-import-snapshot = /path/to/snapshot/file
-import-chain = /path/to/chain/file
-skip-load = false
-req-window = 100
-tipset-sample-size = 10
-target-peer-count = 100
-encrypt-keystore = false
+[client]
+encrypt_keystore = false
+genesis_file = "/path/to/genesis/file"
+
+[chain]
+name = "<NetworkName taken from localnet.json>"
+type = "devnet"
+
+[sync]
+recent_state_roots = 1
+request_window = 100
+tipset_sample_size = 10
+
+[network]
+bootstrap_peers = ["<multiaddress>"]
 ```

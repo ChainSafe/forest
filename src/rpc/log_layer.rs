@@ -41,8 +41,8 @@ where
         let service = self.service.clone();
 
         async move {
-            // Avoid performance overhead if INFO level is not enabled.
-            if !tracing::enabled!(tracing::Level::INFO) {
+            // Avoid performance overhead if DEBUG level is not enabled.
+            if !tracing::enabled!(tracing::Level::DEBUG) {
                 return service.call(req).await;
             }
 
@@ -51,7 +51,7 @@ where
             let id = req.id();
             let id = create_unique_id(id, start_time);
 
-            tracing::debug!(
+            tracing::trace!(
                 "RPC#{id}: {method_name}. Params: {params}",
                 params = req.params().as_str().unwrap_or("[]")
             );
@@ -62,7 +62,7 @@ where
             let result = resp.as_error_code().map_or(Cow::Borrowed("OK"), |code| {
                 Cow::Owned(format!("ERR({code})"))
             });
-            tracing::info!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
+            tracing::debug!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
 
             resp
         }

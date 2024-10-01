@@ -137,11 +137,12 @@ forest --config /path/to/your_config.toml
 Example of config options available:
 
 ```toml
+[client]
 data_dir = "<directory for all chain and networking data>"
 genesis_file = "<relative file path of genesis car file>"
 
 [network]
-listening_multiaddr = "<multiaddress>"
+listening_multiaddrs = ["<multiaddress>"]
 bootstrap_peers = ["<multiaddress>"]
 ```
 
