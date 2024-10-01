@@ -275,8 +275,11 @@ impl EthEventHandler {
                                     msg_idx: i as u64,
                                     msg_cid: message.cid(),
                                 };
-                                let is_match =
-                                    spec.address.iter().any(|other| other == &eth_emitter_addr);
+                                let is_match = if spec.address.is_empty() {
+                                    true
+                                } else {
+                                    spec.address.iter().any(|other| other == &eth_emitter_addr)
+                                };
 
                                 if is_match {
                                     collected_events.push(ce);

@@ -1538,6 +1538,21 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         ),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                from_block: None,
+                to_block: None,
+                address: vec![],
+                topics: None,
+                block_hash: Some(
+                    EthHash::from_str(
+                        "0xa158a536fe66e18b8cbf5c392384d840483f84732e2a2ed8d9fb68cedcffef54",
+                    )
+                    .unwrap(),
+                ),
+            },))
+            .unwrap(),
+        ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ];
 
