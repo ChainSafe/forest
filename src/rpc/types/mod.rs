@@ -524,7 +524,7 @@ lotus_json_with_self!(MiningBaseInfo);
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct EventEntry {
-    pub flags: u8,
+    pub flags: u64,
     pub key: String,
     pub codec: u64,
     pub value: LotusJson<Vec<u8>>,

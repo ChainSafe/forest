@@ -28,6 +28,7 @@ use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::rpc::reflect::Ctx;
+use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
@@ -241,12 +242,23 @@ impl EthEventHandler {
                     let events = StampedEvent::get_events(ctx.store(), &cid)?;
                     for event in events {
                         match event {
-                            StampedEvent::V4(_event) => {
+                            StampedEvent::V4(event) => {
                                 let emitter_addr = message.message().to;
                                 let eth_emitter_addr =
                                     EthAddress::from_filecoin_address(&emitter_addr)?;
+                                // TODO(elmattic): make proper ApiEventEntry type and EventEntry shim
+                                let mut entries = vec![];
+                                for fvm_entry in event.event.entries {
+                                    let entry = EventEntry {
+                                        flags: fvm_entry.flags.bits(),
+                                        key: fvm_entry.key,
+                                        codec: fvm_entry.codec,
+                                        value: fvm_entry.value.into(),
+                                    };
+                                    entries.push(entry);
+                                }
                                 let ce = CollectedEvent {
-                                    entries: vec![],
+                                    entries,
                                     emitter_addr,
                                     event_idx: 0,
                                     reverted: false,
