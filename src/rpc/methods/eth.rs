@@ -2373,7 +2373,6 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut logs = Vec::new();
     for event in events {
-        dbg!(&event);
         let mut log = EthLog {
             removed: event.reverted,
             log_index: event.event_idx.into(),
@@ -2396,7 +2395,6 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
         log.block_hash = event.tipset_key.cid()?.into();
         logs.push(log);
     }
-    dbg!(&logs);
     Ok(logs)
 }
 
@@ -2423,7 +2421,7 @@ impl RpcMethod<1> for EthGetLogs {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        dbg!(&eth_filter);
+        //dbg!(&eth_filter);
         let events = ctx
             .eth_event_handler
             .eth_get_events_for_filter(&ctx, eth_filter)
