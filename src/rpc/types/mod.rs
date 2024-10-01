@@ -521,7 +521,7 @@ pub struct MiningBaseInfo {
 
 lotus_json_with_self!(MiningBaseInfo);
 
-#[derive(Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct EventEntry {
     pub flags: u8,

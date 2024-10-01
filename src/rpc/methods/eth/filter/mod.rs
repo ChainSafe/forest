@@ -225,20 +225,53 @@ impl EthEventHandler {
             bail!("max_height requested is greater than the heaviest tipset");
         }
 
+        let mut collected_events = vec![];
         if let Some(block_hash) = spec.block_hash {
-            let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-            let (_, receipt_root) = ctx.state_manager.tipset_state(&Arc::new(ts)).await?;
+            let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+            let tipset_key = tipset.key().clone();
+            let height = tipset.epoch();
+
+            let messages = ctx.chain_store().messages_for_tipset(&tipset)?;
+
+            let (_, receipt_root) = ctx.state_manager.tipset_state(&Arc::new(tipset)).await?;
             let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
-            for receipt in receipts {
+            for (i, (message, receipt)) in messages.iter().zip(receipts.iter()).enumerate() {
                 if let Some(cid) = receipt.events_root() {
                     tracing::debug!("events root: {}", cid);
                     let events = StampedEvent::get_events(ctx.store(), &cid)?;
-                    dbg!(events);
+                    for event in events {
+                        match event {
+                            StampedEvent::V4(_event) => {
+                                let emitter_addr = message.message().to;
+                                let eth_emitter_addr =
+                                    EthAddress::from_filecoin_address(&emitter_addr)?;
+                                let ce = CollectedEvent {
+                                    entries: vec![],
+                                    emitter_addr,
+                                    event_idx: 0,
+                                    reverted: false,
+                                    height,
+                                    tipset_key: tipset_key.clone(),
+                                    msg_idx: i as u64,
+                                    msg_cid: message.cid(),
+                                };
+                                let is_match =
+                                    spec.address.iter().any(|other| other == &eth_emitter_addr);
+
+                                if is_match {
+                                    collected_events.push(ce);
+                                }
+                            }
+                            _ => {
+                                tracing::warn!("Unsupported event version");
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Ok(vec![])
+        Ok(collected_events)
     }
 }
 

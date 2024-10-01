@@ -2252,6 +2252,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     }
 }
 
+#[derive(Debug)]
 pub struct CollectedEvent {
     entries: Vec<EventEntry>,
     emitter_addr: crate::shim::address::Address,
@@ -2372,6 +2373,7 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut logs = Vec::new();
     for event in events {
+        dbg!(&event);
         let mut log = EthLog {
             removed: event.reverted,
             log_index: event.event_idx.into(),
@@ -2394,6 +2396,7 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
         log.block_hash = event.tipset_key.cid()?.into();
         logs.push(log);
     }
+    dbg!(&logs);
     Ok(logs)
 }
 
