@@ -29,6 +29,7 @@ pub fn reveal_upgrade_logo(network_version: NetworkVersion) {
     }
     match network_version {
         NetworkVersion::V23 => reveal_waffle_upgrade(),
+        NetworkVersion::V24 => reveal_tuktuk_upgrade(),
         _ => reveal_three_trees(),
     }
 }
@@ -117,7 +118,6 @@ fn reveal_waffle_upgrade() {
 }
 
 /// Reveals a speedy `TukTuk`, the symbol and the codename of the `NV24` upgrade.
-#[allow(dead_code)]
 fn reveal_tuktuk_upgrade() {
     info!(
         r###"

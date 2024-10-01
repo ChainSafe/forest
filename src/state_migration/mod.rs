@@ -23,6 +23,7 @@ mod nv21fix2;
 mod nv22;
 mod nv22fix;
 mod nv23;
+mod nv24;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -46,6 +47,8 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4801
+                // (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -59,12 +62,16 @@ where
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::DragonFix, nv22fix::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4800
+                // (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
             vec![
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4799
+                // (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
         NetworkChain::Devnet(_) => {
@@ -75,6 +82,8 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
+                // TODO(forest): https://github.com/ChainSafe/forest/issues/4802
+                // (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
     };
