@@ -240,7 +240,7 @@ impl EthEventHandler {
                 if let Some(cid) = receipt.events_root() {
                     tracing::debug!("events root: {}", cid);
                     let events = StampedEvent::get_events(ctx.store(), &cid)?;
-                    for event in events {
+                    for (j, event) in events.iter().enumerate() {
                         match event {
                             StampedEvent::V4(event) => {
                                 let emitter_addr = message.message().to;
@@ -248,19 +248,19 @@ impl EthEventHandler {
                                     EthAddress::from_filecoin_address(&emitter_addr)?;
                                 // TODO(elmattic): make proper ApiEventEntry type and EventEntry shim
                                 let mut entries = vec![];
-                                for fvm_entry in event.event.entries {
+                                for fvm_entry in event.event.entries.iter() {
                                     let entry = EventEntry {
                                         flags: fvm_entry.flags.bits(),
-                                        key: fvm_entry.key,
+                                        key: fvm_entry.key.clone(),
                                         codec: fvm_entry.codec,
-                                        value: fvm_entry.value.into(),
+                                        value: fvm_entry.value.clone().into(),
                                     };
                                     entries.push(entry);
                                 }
                                 let ce = CollectedEvent {
                                     entries,
                                     emitter_addr,
-                                    event_idx: 0,
+                                    event_idx: j as u64,
                                     reverted: false,
                                     height,
                                     tipset_key: tipset_key.clone(),
