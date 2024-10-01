@@ -234,7 +234,9 @@ impl EthEventHandler {
 
             let messages = ctx.chain_store().messages_for_tipset(&tipset)?;
 
-            let (_, receipt_root) = ctx.state_manager.tipset_state(&Arc::new(tipset)).await?;
+            let tipset = Arc::new(tipset);
+
+            let (_, receipt_root) = ctx.state_manager.tipset_state(&tipset).await?;
             let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
             for (i, (message, receipt)) in messages.iter().zip(receipts.iter()).enumerate() {
                 if let Some(cid) = receipt.events_root() {
@@ -243,9 +245,15 @@ impl EthEventHandler {
                     for (j, event) in events.iter().enumerate() {
                         match event {
                             StampedEvent::V4(event) => {
-                                let emitter_addr = message.message().to;
+                                let id_addr = Address::new_id(event.emitter);
+                                let resolved = ctx
+                                    .state_manager
+                                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                                    .await?;
+
                                 let eth_emitter_addr =
-                                    EthAddress::from_filecoin_address(&emitter_addr)?;
+                                    EthAddress::from_filecoin_address(&resolved)?;
+
                                 // TODO(elmattic): make proper ApiEventEntry type and EventEntry shim
                                 let mut entries = vec![];
                                 for fvm_entry in event.event.entries.iter() {
@@ -259,7 +267,7 @@ impl EthEventHandler {
                                 }
                                 let ce = CollectedEvent {
                                     entries,
-                                    emitter_addr,
+                                    emitter_addr: resolved,
                                     event_idx: j as u64,
                                     reverted: false,
                                     height,
