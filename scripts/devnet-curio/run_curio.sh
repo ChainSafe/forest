@@ -26,6 +26,7 @@ if [ ! -f "$CURIO_REPO_PATH"/.init.curio ]; then
     echo Create a new miner actor ...
     lotus-shed miner create "$DEFAULT_WALLET" "$DEFAULT_WALLET" "$DEFAULT_WALLET" 8MiB
     touch "$CURIO_REPO_PATH"/.init.setup
+    lotus wallet export "$DEFAULT_WALLET" >"$CURIO_REPO_PATH"/default.key
   fi
 
   if [ ! -f "$CURIO_REPO_PATH"/.init.config ]; then
@@ -54,5 +55,6 @@ fi
 TOKEN=$(cat "$FOREST_DATA_DIR"/token.jwt)
 FULLNODE_API_INFO=$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
 export FULLNODE_API_INFO
+lotus wallet import "$CURIO_REPO_PATH"/default.key || true
 echo Starting curio node ...
 exec curio run --nosync --name devnet --layers seal,post,gui
