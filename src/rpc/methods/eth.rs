@@ -2262,6 +2262,16 @@ pub struct CollectedEvent {
     msg_cid: Cid,
 }
 
+fn match_key(key: &str) -> Option<usize> {
+    match key.get(0..2) {
+        Some("t1") => Some(0),
+        Some("t2") => Some(1),
+        Some("t3") => Some(2),
+        Some("t4") => Some(3),
+        _ => None,
+    }
+}
+
 fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
     let mut topics_found = [false; 4];
     let mut topics_found_count = 0;
@@ -2275,14 +2285,7 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
             return None;
         }
         // Check if the key is t1..t4
-        if match entry.key.get(0..2) {
-            Some("t1") | Some("t2") | Some("t3") | Some("t4") => true,
-            _ => false,
-        } {
-            let idx = entry.key[1..2]
-                .parse::<usize>()
-                .expect("parse must succeed")
-                - 1;
+        if let Some(idx) = match_key(&entry.key) {
             // Drop events with mis-sized topics.
             let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
             let bytes = if let Ok(value) = result {
@@ -2296,17 +2299,17 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
                 return None;
             };
             // Drop events with duplicate topics.
-            if topics_found[idx] {
+            if *topics_found.get(idx).expect("Infallible") {
                 tracing::warn!("got a duplicate EVM event topic (key: {})", entry.key);
                 return None;
             }
-            topics_found[idx] = true;
+            *topics_found.get_mut(idx).expect("Infallible") = true;
             topics_found_count += 1;
             // Extend the topics array
             if topics.len() <= idx {
                 topics.resize(idx + 1, EthHash::default());
             }
-            topics[idx] = bytes.into();
+            *topics.get_mut(idx).expect("Infallible") = bytes.into();
         } else if entry.key == "d" {
             // Drop events with duplicate data fields.
             if data_found {
