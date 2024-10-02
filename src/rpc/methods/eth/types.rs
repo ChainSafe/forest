@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use ethereum_types::H256;
 use libipld::error::SerdeError;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use uuid::Uuid;
@@ -332,7 +331,9 @@ impl TryFrom<EthCallMessage> for Message {
     derive_more::Into,
 )]
 #[displaydoc("{0:#x}")]
-pub struct EthHash(#[schemars(with = "String")] pub H256);
+pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
+
+lotus_json_with_self!(EthHash);
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
 pub struct FilterID(EthHash);
@@ -344,7 +345,7 @@ impl FilterID {
         let raw_id = Uuid::new_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
-        Ok(FilterID(EthHash(H256::from_slice(&id))))
+        Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))
     }
 }
 

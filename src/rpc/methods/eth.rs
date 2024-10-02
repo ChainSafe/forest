@@ -217,8 +217,6 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
     }
 }
 
-lotus_json_with_self!(EthHash);
-
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum Predefined {
