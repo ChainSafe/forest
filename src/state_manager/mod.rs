@@ -1214,7 +1214,14 @@ where
             epoch,
         )?;
 
+        // If the miner actor doesn't exist in the current tipset, it is a
+        // user-error and we must return an error message. If the miner exists
+        // in the current tipset but not in the lookback tipset, we may not
+        // error and should instead return None.
         let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
+        if self.get_actor(&addr, lb_state_root)?.is_none() {
+            return Ok(None);
+        }
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 

@@ -49,6 +49,8 @@
 
 - [#4809](https://github.com/ChainSafe/forest/issues/4777) the Mac OS X build on
   Apple silicons works
+- [#4820](https://github.com/ChainSafe/forest/pull/4820) Fix edge-case in
+  `Filecoin.MinerGetBaseInfo` RPC method.
 
 ## Forest 0.20.0 "Brexit"
 
