@@ -282,29 +282,29 @@ impl EthEventHandler {
                                     spec.address.iter().any(|other| other == &eth_emitter_addr)
                                 };
                                 let match_topics = if let Some(spec) = spec.topics.as_ref() {
-                                    let push = ce.entries.iter().any(|entry| {
-                                        let mut buff = [0u8; EVM_WORD_LENGTH];
-                                        let value_slice = entry.value.0.as_slice();
-                                        // Limit the slice word length to avoid panics
-                                        let slice_to_copy =
-                                            &value_slice[..value_slice.len().min(buff.len())];
-                                        buff[..].copy_from_slice(slice_to_copy);
-                                        let hash = EthHash(ethereum_types::H256::from_slice(&buff));
-
-                                        tracing::debug!(
-                                            "Do entry (key: {}, value: {}) match: {:?}?",
-                                            entry.key,
-                                            hash,
-                                            spec.0,
-                                        );
-                                        spec.0.iter().any(|list| list.0.contains(&hash))
+                                    let matched = ce.entries.iter().any(|entry| {
+                                        let result: Result<[u8; EVM_WORD_LENGTH], _> =
+                                            entry.value.0.clone().try_into();
+                                        if let Ok(slice) = result {
+                                            let hash: EthHash = slice.into();
+                                            tracing::debug!(
+                                                "Do entry (key: {}, value: {}) match: {:?}?",
+                                                entry.key,
+                                                hash,
+                                                spec.0,
+                                            );
+                                            spec.0.iter().any(|list| list.0.contains(&hash))
+                                        } else {
+                                            // Drop events with mis-sized topics
+                                            false
+                                        }
                                     });
                                     tracing::debug!(
                                         "Event {} {}match filter topics",
                                         ce.event_idx,
-                                        if push { "" } else { "do not " }
+                                        if matched { "" } else { "do not " }
                                     );
-                                    push
+                                    matched
                                 } else {
                                     true
                                 };
