@@ -56,8 +56,10 @@ pub async fn start_offline_server(
     .await?;
 
     db.read_only_files(snapshot_files.iter().cloned())?;
-    let mut config = Config::default();
-    config.chain = handle_chain_config(&chain)?;
+    let config = Config {
+        chain: handle_chain_config(&chain)?,
+        ..Default::default()
+    };
     let genesis_header = read_genesis_header(
         genesis.as_deref(),
         config.chain.genesis_bytes(&db).await?.as_deref(),
