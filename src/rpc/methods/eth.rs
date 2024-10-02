@@ -2254,7 +2254,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
 pub struct CollectedEvent {
     entries: Vec<EventEntry>,
     emitter_addr: crate::shim::address::Address,
-    event_idx: u64,
+    pub event_idx: u64,
     reverted: bool,
     height: ChainEpoch,
     tipset_key: TipsetKey,

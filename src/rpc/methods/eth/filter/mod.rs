@@ -27,6 +27,7 @@ use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
+use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
@@ -275,13 +276,40 @@ impl EthEventHandler {
                                     msg_idx: i as u64,
                                     msg_cid: message.cid(),
                                 };
-                                let is_match = if spec.address.is_empty() {
+                                let match_addr = if spec.address.is_empty() {
                                     true
                                 } else {
                                     spec.address.iter().any(|other| other == &eth_emitter_addr)
                                 };
+                                let match_topics = if let Some(spec) = spec.topics.as_ref() {
+                                    let push = ce.entries.iter().any(|entry| {
+                                        let mut buff = [0u8; EVM_WORD_LENGTH];
+                                        let value_slice = entry.value.0.as_slice();
+                                        // Limit the slice word length to avoid panics
+                                        let slice_to_copy =
+                                            &value_slice[..value_slice.len().min(buff.len())];
+                                        buff[..].copy_from_slice(slice_to_copy);
+                                        let hash = EthHash(ethereum_types::H256::from_slice(&buff));
 
-                                if is_match {
+                                        tracing::debug!(
+                                            "Do entry (key: {}, value: {}) match: {:?}?",
+                                            entry.key,
+                                            hash,
+                                            spec.0,
+                                        );
+                                        spec.0.iter().any(|list| list.0.contains(&hash))
+                                    });
+                                    tracing::debug!(
+                                        "Event {} {}match filter topics",
+                                        ce.event_idx,
+                                        if push { "" } else { "do not " }
+                                    );
+                                    push
+                                } else {
+                                    true
+                                };
+
+                                if match_addr && match_topics {
                                     collected_events.push(ce);
                                 }
                             }
