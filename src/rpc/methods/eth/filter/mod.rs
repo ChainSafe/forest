@@ -23,6 +23,8 @@ use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
+use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -207,6 +209,103 @@ impl EthEventHandler {
         )
     }
 
+    async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
+        &self,
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        spec: &EthFilterSpec,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let tipset_key = tipset.key().clone();
+        let height = tipset.epoch();
+
+        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
+
+        let (_, receipt_root) = ctx.state_manager.tipset_state(tipset).await?;
+        let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
+        for (i, (message, receipt)) in messages.iter().zip(receipts.iter()).enumerate() {
+            if let Some(cid) = receipt.events_root() {
+                tracing::debug!("events root: {}", cid);
+                let events = StampedEvent::get_events(ctx.store(), &cid)?;
+                for (j, event) in events.iter().enumerate() {
+                    match event {
+                        StampedEvent::V4(event) => {
+                            let id_addr = Address::new_id(event.emitter);
+                            let resolved = ctx
+                                .state_manager
+                                .resolve_to_deterministic_address(id_addr, tipset.clone())
+                                .await?;
+
+                            let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
+
+                            // TODO(elmattic): make proper ApiEventEntry type and EventEntry shim
+                            let mut entries = vec![];
+                            for fvm_entry in event.event.entries.iter() {
+                                let entry = EventEntry {
+                                    flags: fvm_entry.flags.bits(),
+                                    key: fvm_entry.key.clone(),
+                                    codec: fvm_entry.codec,
+                                    value: fvm_entry.value.clone().into(),
+                                };
+                                entries.push(entry);
+                            }
+                            let ce = CollectedEvent {
+                                entries,
+                                emitter_addr: resolved,
+                                event_idx: j as u64,
+                                reverted: false,
+                                height,
+                                tipset_key: tipset_key.clone(),
+                                msg_idx: i as u64,
+                                msg_cid: message.cid(),
+                            };
+                            let match_addr = if spec.address.is_empty() {
+                                true
+                            } else {
+                                spec.address.iter().any(|other| other == &eth_emitter_addr)
+                            };
+                            let match_topics = if let Some(spec) = spec.topics.as_ref() {
+                                let matched = ce.entries.iter().any(|entry| {
+                                    let result: Result<[u8; EVM_WORD_LENGTH], _> =
+                                        entry.value.0.clone().try_into();
+                                    if let Ok(slice) = result {
+                                        let hash: EthHash = slice.into();
+                                        tracing::debug!(
+                                            "Do entry (key: {}, value: {}) match: {:?}?",
+                                            entry.key,
+                                            hash,
+                                            spec.0,
+                                        );
+                                        spec.0.iter().any(|list| list.0.contains(&hash))
+                                    } else {
+                                        // Drop events with mis-sized topics
+                                        false
+                                    }
+                                });
+                                tracing::debug!(
+                                    "Event {} {}match filter topics",
+                                    ce.event_idx,
+                                    if matched { "" } else { "do not " }
+                                );
+                                matched
+                            } else {
+                                true
+                            };
+
+                            if match_addr && match_topics {
+                                collected_events.push(ce);
+                            }
+                        }
+                        _ => {
+                            tracing::warn!("Unsupported event version");
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
         &self,
         ctx: &Ctx<DB>,
@@ -228,97 +327,28 @@ impl EthEventHandler {
         }
 
         let mut collected_events = vec![];
-        if let Some(block_hash) = spec.block_hash {
-            let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-            let tipset_key = tipset.key().clone();
-            let height = tipset.epoch();
-
-            let messages = ctx.chain_store().messages_for_tipset(&tipset)?;
-
+        if let Some(block_hash) = &spec.block_hash {
+            let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
             let tipset = Arc::new(tipset);
-
-            let (_, receipt_root) = ctx.state_manager.tipset_state(&tipset).await?;
-            let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
-            for (i, (message, receipt)) in messages.iter().zip(receipts.iter()).enumerate() {
-                if let Some(cid) = receipt.events_root() {
-                    tracing::debug!("events root: {}", cid);
-                    let events = StampedEvent::get_events(ctx.store(), &cid)?;
-                    for (j, event) in events.iter().enumerate() {
-                        match event {
-                            StampedEvent::V4(event) => {
-                                let id_addr = Address::new_id(event.emitter);
-                                let resolved = ctx
-                                    .state_manager
-                                    .resolve_to_deterministic_address(id_addr, tipset.clone())
-                                    .await?;
-
-                                let eth_emitter_addr =
-                                    EthAddress::from_filecoin_address(&resolved)?;
-
-                                // TODO(elmattic): make proper ApiEventEntry type and EventEntry shim
-                                let mut entries = vec![];
-                                for fvm_entry in event.event.entries.iter() {
-                                    let entry = EventEntry {
-                                        flags: fvm_entry.flags.bits(),
-                                        key: fvm_entry.key.clone(),
-                                        codec: fvm_entry.codec,
-                                        value: fvm_entry.value.clone().into(),
-                                    };
-                                    entries.push(entry);
-                                }
-                                let ce = CollectedEvent {
-                                    entries,
-                                    emitter_addr: resolved,
-                                    event_idx: j as u64,
-                                    reverted: false,
-                                    height,
-                                    tipset_key: tipset_key.clone(),
-                                    msg_idx: i as u64,
-                                    msg_cid: message.cid(),
-                                };
-                                let match_addr = if spec.address.is_empty() {
-                                    true
-                                } else {
-                                    spec.address.iter().any(|other| other == &eth_emitter_addr)
-                                };
-                                let match_topics = if let Some(spec) = spec.topics.as_ref() {
-                                    let matched = ce.entries.iter().any(|entry| {
-                                        let result: Result<[u8; EVM_WORD_LENGTH], _> =
-                                            entry.value.0.clone().try_into();
-                                        if let Ok(slice) = result {
-                                            let hash: EthHash = slice.into();
-                                            tracing::debug!(
-                                                "Do entry (key: {}, value: {}) match: {:?}?",
-                                                entry.key,
-                                                hash,
-                                                spec.0,
-                                            );
-                                            spec.0.iter().any(|list| list.0.contains(&hash))
-                                        } else {
-                                            // Drop events with mis-sized topics
-                                            false
-                                        }
-                                    });
-                                    tracing::debug!(
-                                        "Event {} {}match filter topics",
-                                        ce.event_idx,
-                                        if matched { "" } else { "do not " }
-                                    );
-                                    matched
-                                } else {
-                                    true
-                                };
-
-                                if match_addr && match_topics {
-                                    collected_events.push(ce);
-                                }
-                            }
-                            _ => {
-                                tracing::warn!("Unsupported event version");
-                            }
-                        }
-                    }
-                }
+            self.collect_events(ctx, &tipset, &spec, &mut collected_events)
+                .await?;
+        } else {
+            let range = pf.min_height..pf.max_height + 1;
+            let num_tipsets = (range.end - range.start) as usize;
+            let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
+                pf.max_height,
+                ctx.chain_store().heaviest_tipset(),
+                ResolveNullTipset::TakeOlder,
+            )?;
+            for tipset in max_tipset
+                .as_ref()
+                .clone()
+                .chain(&ctx.store())
+                .take(num_tipsets)
+            {
+                let tipset = Arc::new(tipset);
+                self.collect_events(ctx, &tipset, &spec, &mut collected_events)
+                    .await?;
             }
         }
 
