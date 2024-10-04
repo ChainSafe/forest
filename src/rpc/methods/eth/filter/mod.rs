@@ -231,7 +231,7 @@ impl EthEventHandler {
                         match event {
                             StampedEvent::V4(event) => {
                                 let id_addr = Address::new_id(event.emitter);
-                                let resolved = ctx
+                                let result = ctx
                                     .state_manager
                                     .resolve_to_deterministic_address(id_addr, tipset.clone())
                                     .await
@@ -241,7 +241,12 @@ impl EthEventHandler {
                                             id_addr,
                                             tipset.epoch()
                                         )
-                                    })?;
+                                    });
+                                if result.is_err() {
+                                    // Skip event
+                                    continue;
+                                };
+                                let resolved = result.expect("Infallible");
 
                                 let eth_emitter_addr =
                                     EthAddress::from_filecoin_address(&resolved)?;
