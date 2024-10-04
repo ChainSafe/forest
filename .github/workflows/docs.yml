@@ -11,20 +11,22 @@ on:
       - main
     paths:
       - '**.md'
+      - '.github/workflows/docs.yml'
   merge_group:
   pull_request:
     branches:
       - main
     paths:
       - '**.md'
+      - '.github/workflows/docs.yml'
 
 jobs:
   check-docs:
     name: Markdown Lint
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
       - name: Lint Markdown
-        uses: actions/checkout@v4
         run: make md-check
       - name: Link Checker (Repo Readme)
         uses: lycheeverse/lychee-action@v1.10.0
