@@ -37,7 +37,7 @@ COPY --from=lotus-builder /usr/lib/*/libhwloc.so.*  /lib/
 COPY --from=lotus-builder /usr/lib/*/libOpenCL.so.1 /lib/
 
 # Copy only the binaries relevant for the devnet
-COPY --from=lotus-builder /lotus/lotus /lotus/lotus-miner /lotus/lotus-seed /usr/local/bin/
+COPY --from=lotus-builder /lotus/lotus /lotus/lotus-miner /lotus/lotus-seed /lotus/lotus-shed /usr/local/bin/
 
 WORKDIR /lotus
 
