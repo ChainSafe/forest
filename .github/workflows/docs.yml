@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint Markdown
         run: make md-check
-      - name: Link Checker (Repo Readme)
+      - name: Link check
         uses: lycheeverse/lychee-action@v1.10.0
         with:
           args: '*.md .github/*.md .github/**/*.md .config/*.md'
