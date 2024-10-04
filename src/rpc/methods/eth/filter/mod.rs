@@ -235,7 +235,13 @@ impl EthEventHandler {
                                     .state_manager
                                     .resolve_to_deterministic_address(id_addr, tipset.clone())
                                     .await
-                                    .context(format!("resolving address {} failed", id_addr))?;
+                                    .with_context(|| {
+                                        format!(
+                                            "resolving address {} failed (EPOCH = {})",
+                                            id_addr,
+                                            tipset.epoch()
+                                        )
+                                    })?;
 
                                 let eth_emitter_addr =
                                     EthAddress::from_filecoin_address(&resolved)?;

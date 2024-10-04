@@ -2385,12 +2385,13 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
             log.data = data;
             log.topics = topics;
         } else {
+            tracing::warn!("ignoring event");
             continue;
         }
         log.address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
         log.transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
         if log.transaction_hash == EthHash::default() {
-            // We've garbage collected the message, ignore the events and continue.
+            tracing::warn!("ignoring event");
             continue;
         }
         log.block_hash = event.tipset_key.cid()?.into();
