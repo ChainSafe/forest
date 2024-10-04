@@ -225,6 +225,7 @@ impl From<StampedEvent_v4> for StampedEvent {
 }
 
 impl StampedEvent {
+    #[allow(dead_code)]
     pub fn get_events(db: &impl Blockstore, events_cid: &Cid) -> anyhow::Result<Vec<StampedEvent>> {
         let mut events = Vec::new();
         if let Ok(amt) = Amt::<StampedEvent_v4, _>::load(events_cid, db) {
