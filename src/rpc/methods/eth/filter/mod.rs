@@ -234,7 +234,8 @@ impl EthEventHandler {
                             let resolved = ctx
                                 .state_manager
                                 .resolve_to_deterministic_address(id_addr, tipset.clone())
-                                .await?;
+                                .await
+                                .context(format!("resolving address {} failed", id_addr))?;
 
                             let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
 
