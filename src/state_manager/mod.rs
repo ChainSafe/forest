@@ -33,13 +33,12 @@ use crate::shim::{
         miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
         LoadActorStateFromBlockstore,
     },
-    executor::ApplyRet,
+    executor::{ApplyRet, Receipt, StampedEvent},
 };
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
-    executor::Receipt,
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -88,10 +87,12 @@ const EVENTS_AMT_BITWIDTH: u32 = 5;
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
+type CidPairPlus = (CidPair, Vec<Vec<StampedEvent>>);
+
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
-    values: LruCache<TipsetKey, CidPair>,
+    values: LruCache<TipsetKey, CidPairPlus>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
@@ -109,7 +110,7 @@ struct TipsetStateCache {
 }
 
 enum Status {
-    Done(CidPair),
+    Done(CidPairPlus),
     Empty(Arc<TokioMutex<()>>),
 }
 
@@ -128,13 +129,21 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(
+        &self,
+        key: &TipsetKey,
+        compute: F,
+    ) -> anyhow::Result<CidPairPlus>
     where
         F: Fn() -> Fut,
-        Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
+        Fut: core::future::Future<Output = anyhow::Result<CidPairPlus>>,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(*v),
+            Some(v) => {
+                let cids = v.0.clone();
+                let events = v.1.clone();
+                Status::Done((cids, events))
+            }
             None => {
                 let option = inner
                     .pending
@@ -178,7 +187,7 @@ impl TipsetStateCache {
                         let cid_pair = compute().await?;
 
                         // Write back to cache, release lock and return value
-                        self.insert(key.clone(), cid_pair);
+                        self.insert(key.clone(), cid_pair.clone());
                         Ok(cid_pair)
                     }
                 }
@@ -186,11 +195,11 @@ impl TipsetStateCache {
         }
     }
 
-    fn get(&self, key: &TipsetKey) -> Option<CidPair> {
-        self.with_inner(|inner| inner.values.get(key).copied())
+    fn get(&self, key: &TipsetKey) -> Option<CidPairPlus> {
+        self.with_inner(|inner| inner.values.get(key).cloned())
     }
 
-    fn insert(&self, key: TipsetKey, value: CidPair) {
+    fn insert(&self, key: TipsetKey, value: CidPairPlus) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -423,6 +432,15 @@ where
     /// state for a given tipset is guaranteed not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
+        let (pair, _) = self.tipset_state_plus(tipset).await?;
+        Ok(pair)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn tipset_state_plus(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<CidPairPlus> {
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
@@ -720,7 +738,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error> {
+    ) -> Result<CidPairPlus, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
@@ -735,7 +753,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error> {
+    ) -> Result<CidPairPlus, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
@@ -1479,7 +1497,7 @@ where
         .par_bridge()
         .try_for_each(|(child, parent)| {
             info!(height = parent.epoch(), "compute parent state");
-            let (actual_state, actual_receipt) = apply_block_messages(
+            let ((actual_state, actual_receipt), _) = apply_block_messages(
                 genesis_timestamp,
                 chain_index.clone(),
                 chain_config.clone(),
@@ -1597,7 +1615,7 @@ pub fn apply_block_messages<DB>(
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     store_events: bool,
-) -> Result<CidPair, anyhow::Error>
+) -> Result<CidPairPlus, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1615,7 +1633,7 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts;
-        return Ok((*tipset.parent_state(), message_receipts));
+        return Ok(((*tipset.parent_state(), message_receipts), vec![]));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1684,38 +1702,38 @@ where
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
-    stacker::grow(64 << 20, || -> anyhow::Result<(Cid, Cid)> {
+    stacker::grow(64 << 20, || -> anyhow::Result<CidPairPlus> {
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
         let (receipts, events) =
             vm.apply_block_messages(&block_messages, epoch, callback, store_events)?;
 
-        // construct events root
-        if store_events {
-            let receipts_iter = receipts.iter();
-            for (receipt, events) in receipts_iter.zip(events.iter()) {
-                if let Some(events_root) = receipt.events_root() {
-                    let root = fil_actors_shared::fvm_ipld_amt::Amt::new_from_iter_with_bit_width(
-                        &chain_index.db,
-                        EVENTS_AMT_BITWIDTH,
-                        events.iter(),
-                    )
-                    .context("failed to construct events AMT")?;
+        // // construct events root
+        // if store_events {
+        //     let receipts_iter = receipts.iter();
+        //     for (receipt, events) in receipts_iter.zip(events.iter()) {
+        //         if let Some(events_root) = receipt.events_root() {
+        //             let root = fil_actors_shared::fvm_ipld_amt::Amt::new_from_iter_with_bit_width(
+        //                 &chain_index.db,
+        //                 EVENTS_AMT_BITWIDTH,
+        //                 events.iter(),
+        //             )
+        //             .context("failed to construct events AMT")?;
 
-                    (root == events_root)
-                        .then_some(..)
-                        .context("events root mismatch")?;
+        //             (root == events_root)
+        //                 .then_some(..)
+        //                 .context("events root mismatch")?;
 
-                    tracing::debug!("Wrote events AMT (root={})", events_root);
-                }
-                // if None, events vector is empty
-            }
-        }
+        //             tracing::debug!("Wrote events AMT (root={})", events_root);
+        //         }
+        //         // if None, events vector is empty
+        //     }
+        // }
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
         let state_root = vm.flush()?;
 
-        Ok((state_root, receipt_root))
+        Ok(((state_root, receipt_root), events))
     })
 }

@@ -1320,7 +1320,7 @@ impl RpcMethod<1> for StateCompute {
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let (state_root, _) = ctx
+        let ((state_root, _), _) = ctx
             .state_manager
             .compute_tipset_state(
                 tipset,

@@ -546,7 +546,7 @@ async fn show_tipset_diff(
         ResolveNullTipset::TakeNewer,
     )?;
 
-    let (state_root, _) = apply_block_messages(
+    let ((state_root, _), _) = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),

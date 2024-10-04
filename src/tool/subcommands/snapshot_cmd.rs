@@ -482,7 +482,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
 
     let mut message_calls = vec![];
 
-    let (state_root, _) = apply_block_messages(
+    let ((state_root, _), _) = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),
