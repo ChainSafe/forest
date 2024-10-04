@@ -271,9 +271,11 @@ impl EthEventHandler {
                                     if let Ok(slice) = result {
                                         let hash: EthHash = slice.into();
                                         tracing::debug!(
-                                            "Do entry (key: {}, value: {}) match: {:?}?",
+                                            "Do entry (key: {}, value: {}, codec: {}, flags: {}) match: {:?}?",
                                             entry.key,
                                             hash,
+                                            entry.codec,
+                                            entry.flags,
                                             spec.0,
                                         );
                                         spec.0.iter().any(|list| list.0.contains(&hash))
