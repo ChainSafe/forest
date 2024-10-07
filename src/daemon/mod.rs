@@ -288,6 +288,7 @@ pub(super) async fn start(
         Arc::clone(&chain_store),
         Arc::clone(&chain_config),
         Arc::new(config.sync.clone()),
+        config.client.store_events,
     )?;
 
     let state_manager = Arc::new(sm);
