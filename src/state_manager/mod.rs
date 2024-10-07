@@ -16,7 +16,6 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::chain_sync::SyncConfig;
-use crate::cli_shared::cli::Config;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,

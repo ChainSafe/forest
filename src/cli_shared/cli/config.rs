@@ -3,7 +3,7 @@
 
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
-use crate::{chain_sync::SyncConfig, networks::ChainConfig, networks::NetworkChain};
+use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
