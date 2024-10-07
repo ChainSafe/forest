@@ -154,7 +154,7 @@ pub struct CliOpts {
     /// Skip loading actors from the actors bundle.
     #[arg(long)]
     pub skip_load_actors: bool,
-    /// Store events in blockstore (default: true)
+    /// Store events in the tipset cache (default: true)
     #[arg(long)]
     pub store_events: Option<bool>,
 }

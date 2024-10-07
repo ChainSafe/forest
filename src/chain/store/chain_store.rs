@@ -322,7 +322,6 @@ where
         chain_config: Arc<ChainConfig>,
         heaviest_tipset: Arc<Tipset>,
         round: ChainEpoch,
-        store_events: bool,
     ) -> Result<(Arc<Tipset>, Cid), Error>
     where
         DB: Send + Sync + 'static,
@@ -354,7 +353,7 @@ where
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
-                store_events,
+                false,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state));

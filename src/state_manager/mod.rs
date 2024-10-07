@@ -491,7 +491,6 @@ where
                 chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
-                store_events: self.store_events(),
             },
             &self.engine,
             VMTrace::Traced,
@@ -582,7 +581,6 @@ where
                     chain_config: self.chain_config().clone(),
                     chain_index: Arc::clone(&self.chain_store().chain_index),
                     timestamp: ts.min_timestamp(),
-                    store_events: self.store_events(),
                 },
                 &self.engine,
                 trace_config,
@@ -1238,7 +1236,6 @@ where
             self.chain_config.clone(),
             tipset.clone(),
             epoch,
-            self.store_events(),
         )?;
 
         // If the miner actor doesn't exist in the current tipset, it is a
@@ -1658,7 +1655,6 @@ where
                 chain_config: Arc::clone(&chain_config),
                 chain_index: Arc::clone(&chain_index),
                 timestamp,
-                store_events,
             },
             engine,
             enable_tracing,

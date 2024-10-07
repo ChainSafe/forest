@@ -42,7 +42,6 @@ pub struct ForestExterns<DB> {
     root: Cid,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
-    store_events: bool,
     bail: AtomicBool,
 }
 
@@ -54,7 +53,6 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         root: Cid,
         chain_index: Arc<ChainIndex<Arc<DB>>>,
         chain_config: Arc<ChainConfig>,
-        store_events: bool,
     ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
@@ -63,7 +61,6 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
             root,
             chain_index,
             chain_config,
-            store_events,
             bail: AtomicBool::new(false),
         }
     }
@@ -74,7 +71,6 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
             Arc::clone(&self.chain_config),
             Arc::clone(&self.heaviest_tipset),
             height,
-            self.store_events,
         )?;
         Ok(st)
     }

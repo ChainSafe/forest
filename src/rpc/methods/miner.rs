@@ -120,7 +120,6 @@ impl RpcMethod<1> for MinerCreateBlock {
             ctx.chain_config().clone(),
             parent_tipset.clone(),
             block_template.epoch,
-            false,
         )
         .map(|(_, s)| Arc::new(s))?;
 
