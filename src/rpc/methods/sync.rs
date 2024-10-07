@@ -140,17 +140,17 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
-    use crate::chain_sync::SyncStage;
+    use crate::chain_sync::{SyncConfig, SyncStage};
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
+    use crate::networks::ChainConfig;
     use crate::rpc::eth::filter::EthEventHandler;
     use crate::rpc::RPCState;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
-    use crate::Config;
     use tokio::sync::mpsc;
     use tokio::{sync::RwLock, task::JoinSet};
 
@@ -161,8 +161,8 @@ mod tests {
         let (tipset_send, _) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
-        let config = Arc::new(Config::default());
-        let chain_config = Arc::new(config.chain.clone());
+        let chain_config = Arc::new(ChainConfig::default());
+        let sync_config = Arc::new(SyncConfig::default());
 
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
@@ -181,7 +181,8 @@ mod tests {
             .unwrap(),
         );
 
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), config).unwrap());
+        let state_manager =
+            Arc::new(StateManager::new(cs_arc.clone(), chain_config, sync_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let mpool_network_send = network_send.clone();

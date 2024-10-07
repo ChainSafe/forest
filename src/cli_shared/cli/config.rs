@@ -40,7 +40,7 @@ impl Default for DaemonConfig {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct Config {
-    pub chain: ChainConfig,
+    pub chain: NetworkChain,
     pub client: Client,
     pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
@@ -54,7 +54,7 @@ impl Config {
     }
 
     pub fn chain(&self) -> &NetworkChain {
-        &self.chain.network
+        &self.chain
     }
 }
 

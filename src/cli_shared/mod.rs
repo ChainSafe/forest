@@ -43,7 +43,7 @@ pub fn read_config(
         None => (None, Config::default()),
     };
     if let Some(chain) = chain_opt {
-        config.chain = ChainConfig::from_chain(&chain);
+        config.chain = chain;
     }
     Ok((path, config))
 }

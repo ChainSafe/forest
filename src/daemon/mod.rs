@@ -284,7 +284,11 @@ pub(super) async fn start(
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.clone()))?;
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&chain_config),
+        Arc::new(config.sync.clone()),
+    )?;
 
     let state_manager = Arc::new(sm);
 

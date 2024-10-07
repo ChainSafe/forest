@@ -3,8 +3,7 @@
 
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
-use crate::chain_sync::SyncStage;
-use crate::cli_shared::cli::Config;
+use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
@@ -56,13 +55,11 @@ pub async fn start_offline_server(
     .await?;
 
     db.read_only_files(snapshot_files.iter().cloned())?;
-    let config = Config {
-        chain: handle_chain_config(&chain)?,
-        ..Default::default()
-    };
+    let chain_config = Arc::new(handle_chain_config(&chain)?);
+    let sync_config = Arc::new(SyncConfig::default());
     let genesis_header = read_genesis_header(
         genesis.as_deref(),
-        config.chain.genesis_bytes(&db).await?.as_deref(),
+        chain_config.genesis_bytes(&db).await?.as_deref(),
         &db,
     )
     .await?;
@@ -70,10 +67,14 @@ pub async fn start_offline_server(
         db.clone(),
         db.clone(),
         db.clone(),
-        Arc::new(config.chain.clone()),
+        chain_config.clone(),
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone(), Arc::new(config))?);
+    let state_manager = Arc::new(StateManager::new(
+        chain_store.clone(),
+        chain_config,
+        sync_config,
+    )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
     state_manager
