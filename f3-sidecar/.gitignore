@@ -1,2 +1,4 @@
 # The default f3 database folder
 /f3-db
+# The binary
+f3-sidecar
