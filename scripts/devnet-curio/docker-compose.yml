@@ -236,7 +236,11 @@ services:
       lotus_node:
         condition: service_healthy
     container_name: curio
-    image: ${CURIO_IMAGE}
+    build:
+      context: .
+      dockerfile: curio.dockerfile
+      args:
+        GOFLAGS: "-tags=debug"
     init: true
     ports:
       - "12300:12300" # API
