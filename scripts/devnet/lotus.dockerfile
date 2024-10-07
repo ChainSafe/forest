@@ -1,7 +1,10 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
 FROM golang:1.21-bookworm AS lotus-builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN apt-get update && apt-get install -y curl ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /lotus
 
@@ -22,7 +25,9 @@ RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
 FROM ubuntu:24.04
 
 # Needed for the healthcheck
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # Need to copy the relevant shared libraries from the builder image.
 # See https://github.com/filecoin-project/lotus/blob/master/Dockerfile

@@ -1,6 +1,6 @@
 ---
 name: Epic
-about: [Internal] Larger chunk of work that can be broken down into a smaller tasks
+about: "[Internal] Larger chunk of work that can be broken down into smaller tasks"
 title: ""
 labels: "Type: Epic"
 assignees: ""
