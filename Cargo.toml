@@ -59,9 +59,7 @@ fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states",
 fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
 fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
 fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15", features = [
-  "json",
-] }
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15", features = [ "json", ] }
 flume = "0.11"
 fs_extra = "1"
 futures = "0.3"
