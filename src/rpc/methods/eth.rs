@@ -2423,7 +2423,6 @@ impl RpcMethod<1> for EthGetLogs {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        //dbg!(&eth_filter);
         let events = ctx
             .eth_event_handler
             .eth_get_events_for_filter(&ctx, eth_filter)
