@@ -1,13 +1,5 @@
-# Redundancy tracked by #2991
-install-cli:
-	cargo install --locked --path . --force
-
-install-daemon:
-	cargo install --locked --path . --force
-
 install:
 	cargo install --locked --path . --force
-
 
 install-quick:
 	cargo install --profile quick --locked --path . --force
@@ -44,9 +36,6 @@ install-lint-tools-ci:
 
 	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-audit
 
-clean-all:
-	cargo clean
-
 clean:
 	cargo clean
 
@@ -65,8 +54,6 @@ lint: license clean lint-clippy
 	taplo lint
 
 # Don't bother linting different allocators
-# Don't lint all permutations, just different versions of database, cns
-# This should be simplified in #2984
 # --quiet: don't show build logs
 lint-clippy:
 	cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
