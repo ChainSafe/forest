@@ -35,6 +35,10 @@ impl<'bs, BS: Blockstore> BalanceTableExt for BalanceTable<'bs, BS> {
                 f(&address.into(), &escrow.into())
                     .map_err(|e| fil_actors_shared::v14::ActorError::unspecified(e.to_string()))
             })?,
+            Self::V15(t) => t.0.for_each(|address, escrow| {
+                f(&address.into(), &escrow.into())
+                    .map_err(|e| fil_actors_shared::v15::ActorError::unspecified(e.to_string()))
+            })?,
         };
         Ok(())
     }

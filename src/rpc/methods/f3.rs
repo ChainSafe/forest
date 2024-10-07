@@ -27,7 +27,7 @@ use ahash::{HashMap, HashSet};
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v9,
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
     },
     miner, power,
 };
@@ -378,6 +378,15 @@ impl RpcMethod<1> for GetPowerTable {
                     &ts,
                     s,
                     &from_policy_v13_to_v14(&ctx.chain_config().policy)
+                );
+            }
+            power::State::V15(s) => {
+                handle_miner_state_v12_on!(
+                    v15,
+                    id_power_worker_mappings,
+                    &ts,
+                    s,
+                    &from_policy_v13_to_v15(&ctx.chain_config().policy)
                 );
             }
         }

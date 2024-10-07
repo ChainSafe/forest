@@ -41,6 +41,11 @@ impl MultisigExt for State {
                 start_epoch: st.start_epoch,
                 unlock_duration: st.unlock_duration,
             }),
+            State::V15(st) => Ok(MsigVesting {
+                initial_balance: st.initial_balance.atto().clone(),
+                start_epoch: st.start_epoch,
+                unlock_duration: st.unlock_duration,
+            }),
         }
     }
 }
