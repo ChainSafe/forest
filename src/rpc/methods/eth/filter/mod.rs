@@ -34,7 +34,6 @@ use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::StampedEvent;
 use crate::state_manager::StateOutput;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
