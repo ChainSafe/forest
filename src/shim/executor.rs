@@ -14,9 +14,11 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::event::ActorEvent as ActorEvent_v3;
+use fvm_shared3::event::Entry as Entry_v3;
 use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::event::ActorEvent as ActorEvent_v4;
+use fvm_shared4::event::Entry as Entry_v4;
 use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -210,6 +212,54 @@ impl From<Receipt_v3> for Receipt {
 }
 
 #[derive(Clone, Debug)]
+pub enum Entry {
+    V3(Entry_v3),
+    V4(Entry_v4),
+}
+
+impl From<Entry_v3> for Entry {
+    fn from(other: Entry_v3) -> Self {
+        Self::V3(other)
+    }
+}
+
+impl From<Entry_v4> for Entry {
+    fn from(other: Entry_v4) -> Self {
+        Self::V4(other)
+    }
+}
+
+impl Entry {
+    pub fn flags(&self) -> u64 {
+        match self {
+            Self::V3(v3) => v3.flags.bits(),
+            Self::V4(v4) => v4.flags.bits(),
+        }
+    }
+
+    pub fn key(&self) -> String {
+        match self {
+            Self::V3(v3) => v3.key.clone(),
+            Self::V4(v4) => v4.key.clone(),
+        }
+    }
+
+    pub fn codec(&self) -> u64 {
+        match self {
+            Self::V3(v3) => v3.codec,
+            Self::V4(v4) => v4.codec,
+        }
+    }
+
+    pub fn value(&self) -> Vec<u8> {
+        match self {
+            Self::V3(v3) => v3.value.clone(),
+            Self::V4(v4) => v4.value.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum ActorEvent {
     V3(ActorEvent_v3),
     V4(ActorEvent_v4),
@@ -224,6 +274,15 @@ impl From<ActorEvent_v3> for ActorEvent {
 impl From<ActorEvent_v4> for ActorEvent {
     fn from(other: ActorEvent_v4) -> Self {
         ActorEvent::V4(other)
+    }
+}
+
+impl ActorEvent {
+    pub fn entries(&self) -> Vec<Entry> {
+        match self {
+            Self::V3(v3) => v3.entries.clone().into_iter().map(Into::into).collect(),
+            Self::V4(v4) => v4.entries.clone().into_iter().map(Into::into).collect(),
+        }
     }
 }
 
@@ -260,15 +319,15 @@ impl StampedEvent {
 
     pub fn emitter(&self) -> ActorID {
         match self {
-            StampedEvent::V3(v3) => v3.emitter,
-            StampedEvent::V4(v4) => v4.emitter,
+            Self::V3(v3) => v3.emitter,
+            Self::V4(v4) => v4.emitter,
         }
     }
 
     pub fn event(&self) -> ActorEvent {
         match self {
-            StampedEvent::V3(v3) => v3.event.clone().into(),
-            StampedEvent::V4(v4) => v4.event.clone().into(),
+            Self::V3(v3) => v3.event.clone().into(),
+            Self::V4(v4) => v4.event.clone().into(),
         }
     }
 }
