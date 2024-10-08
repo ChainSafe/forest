@@ -3,6 +3,7 @@
 
 //! This module contains the migration logic for the `NV24` upgrade.
 mod migration;
+mod power;
 
 /// Run migration for `NV24`. This should be the only exported method in this
 /// module.
