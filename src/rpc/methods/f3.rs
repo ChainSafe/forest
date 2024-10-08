@@ -580,7 +580,7 @@ impl RpcMethod<0> for F3IsRunning {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = bool;
+    type Ok = serde_json::Value;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
