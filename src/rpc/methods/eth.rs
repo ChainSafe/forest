@@ -2365,21 +2365,21 @@ fn eth_tx_hash_from_signed_message<DB: Blockstore>(
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     ctx: &Ctx<DB>,
     message_cid: &Cid,
-) -> anyhow::Result<EthHash> {
+) -> anyhow::Result<Option<EthHash>> {
     if let Ok(smsg) = crate::chain::message_from_cid(ctx.store(), message_cid) {
         // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return eth_tx_hash_from_signed_message(ctx, &smsg);
+        return Ok(Some(eth_tx_hash_from_signed_message(ctx, &smsg)?));
     }
     let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
     if result.is_ok() {
         // This is a BLS message
         let hash: EthHash = (*message_cid).into();
-        return Ok(hash);
+        return Ok(Some(hash));
     }
-    Ok(EthHash::default())
+    Ok(None)
 }
 
-fn filter_map_events<F>(events: &[CollectedEvent], f: F) -> anyhow::Result<Vec<EthLog>>
+fn transform_events<F>(events: &[CollectedEvent], f: F) -> anyhow::Result<Vec<EthLog>>
 where
     F: Fn(&CollectedEvent) -> anyhow::Result<Option<EthLog>>,
 {
@@ -2397,18 +2397,20 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
 ) -> anyhow::Result<Vec<EthLog>> {
-    filter_map_events(events, |event| {
+    transform_events(events, |event| {
         let (data, topics) = if let Some((data, topics)) = eth_log_from_event(&event.entries) {
             (data, topics)
         } else {
             tracing::warn!("Ignoring event");
             return Ok(None);
         };
-        let transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
-        if transaction_hash == EthHash::default() {
-            tracing::warn!("Ignoring event");
-            return Ok(None);
-        }
+        let transaction_hash =
+            if let Some(transaction_hash) = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)? {
+                transaction_hash
+            } else {
+                tracing::warn!("Ignoring event");
+                return Ok(None);
+            };
         let address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
         Ok(Some(EthLog {
             address,
