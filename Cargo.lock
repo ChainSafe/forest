@@ -818,7 +818,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -2669,7 +2669,8 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b52e7f0eae0bb799774c4d2f72d6c31a149456cdd08c820cea1e0f38db5643d"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2684,7 +2685,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "289491e1b352f84d641a9f2b22149526ee37a493d056956f2314545a075cd641"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
@@ -2698,7 +2700,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "987a1fcf02e5ee9e6ea5c92f8d880ec01b4071b4bc96a3df3059a48ef4591c3b"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2717,7 +2720,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2b0ee0df13acfd107aa4920e25ab6caae3906c61efca5563b490c4cc20307b4"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2736,7 +2740,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfc2b2fb6b5b965cf4daafae4daef7722b984734d0f018dda9990b9bd0b3b08b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2756,7 +2761,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8193752bd5a007ab92fb185b690392d8ae41ff7fac9414035b714736f5eecab7"
 dependencies = [
  "anyhow",
  "cid",
@@ -2792,7 +2798,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b488e62af8fae7c70528ea65413bc487f3ea77178957f4b0790570493c8406e5"
 dependencies = [
  "anyhow",
  "cid",
@@ -2818,7 +2825,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2aa5564d23b4ce2b68c8a5d8eead9f2a129d059fccc31b92335b17728ec437cf"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
@@ -2848,7 +2856,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ddbda8df4d601d4bcd4d31aa8777ebff9bd99fd1674622cfc43fd6a537d2080"
 dependencies = [
  "anyhow",
  "cid",
@@ -2871,7 +2880,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7036ba5cf4fbbf87bab2f29c2bf0a0d27e3279b090315595136605728a46fc7"
 dependencies = [
  "anyhow",
  "cid",
@@ -2894,7 +2904,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ff96363a23bcc1526ad7a65e043764fdb981a20f2fd6f0d66148014f5d2fa87"
 dependencies = [
  "fil_actor_miner_state",
  "fil_actors_shared",
@@ -2911,7 +2922,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f39dfddda827ca9531580438d9bc8fec535631aca489d871967e3c4241f56bfa"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2927,7 +2939,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db8dbe228504cd35f5ba500d1ec4997bc8c362bb5ebf8000678c9a9622c68b44"
 dependencies = [
  "anyhow",
  "cid",
@@ -2948,7 +2961,8 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "17.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=shashank/v15#54e236c4963a0f45233d335f25560ead9292cd04"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "754e8c3b98ff7941ff907804b56cc159936c91767eb853f852658971a97ac388"
 dependencies = [
  "anyhow",
  "cid",
@@ -4445,7 +4459,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -5195,7 +5209,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7134,7 +7148,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9552f850d5f0964a4e4d0bf306459ac29323ddfbae05e35a7c0d35cb0803cc5"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.79",

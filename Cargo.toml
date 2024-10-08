@@ -48,18 +48,18 @@ directories = "5"
 displaydoc = "0.2"
 ethereum-types = "0.15"
 ez-jsonrpc-types = "0.3"
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/v15", features = [ "json", ] }
+fil_actor_account_state = { version = "17.0.0" }
+fil_actor_cron_state = { version = "17.0.0" }
+fil_actor_datacap_state = { version = "17.0.0" }
+fil_actor_init_state = { version = "17.0.0" }
+fil_actor_interface = { version = "17.0.0" }
+fil_actor_market_state = { version = "17.0.0" }
+fil_actor_miner_state = { version = "17.0.0" }
+fil_actor_power_state = { version = "17.0.0" }
+fil_actor_reward_state = { version = "17.0.0" }
+fil_actor_system_state = { version = "17.0.0" }
+fil_actor_verifreg_state = { version = "17.0.0" }
+fil_actors_shared = { version = "17.0.0", features = ["json"] }
 flume = "0.11"
 fs_extra = "1"
 futures = "0.3"
