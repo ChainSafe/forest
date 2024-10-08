@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::trace::ExecutionEvent;
-use crate::shim::{econ::TokenAmount, fvm_shared_latest::error::ExitCode};
+use crate::shim::{
+    econ::TokenAmount, fvm_shared_latest::error::ExitCode, fvm_shared_latest::ActorID,
+};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::{Amt, Amtv0};
 use fvm2::executor::ApplyRet as ApplyRet_v2;
@@ -11,8 +13,10 @@ use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
+use fvm_shared3::event::ActorEvent as ActorEvent_v3;
 use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
+use fvm_shared4::event::ActorEvent as ActorEvent_v4;
 use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -205,8 +209,25 @@ impl From<Receipt_v3> for Receipt {
     }
 }
 
-#[derive(PartialEq, Clone, Debug, Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug)]
+pub enum ActorEvent {
+    V3(ActorEvent_v3),
+    V4(ActorEvent_v4),
+}
+
+impl From<ActorEvent_v3> for ActorEvent {
+    fn from(other: ActorEvent_v3) -> Self {
+        ActorEvent::V3(other)
+    }
+}
+
+impl From<ActorEvent_v4> for ActorEvent {
+    fn from(other: ActorEvent_v4) -> Self {
+        ActorEvent::V4(other)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),
     V4(StampedEvent_v4),
@@ -235,6 +256,20 @@ impl StampedEvent {
             })?;
         }
         Ok(events)
+    }
+
+    pub fn emitter(&self) -> ActorID {
+        match self {
+            StampedEvent::V3(v3) => v3.emitter,
+            StampedEvent::V4(v4) => v4.emitter,
+        }
+    }
+
+    pub fn event(&self) -> ActorEvent {
+        match self {
+            StampedEvent::V3(v3) => v3.event.clone().into(),
+            StampedEvent::V4(v4) => v4.event.clone().into(),
+        }
     }
 }
 
