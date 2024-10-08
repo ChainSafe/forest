@@ -14,7 +14,7 @@ pub trait GoF3Node {
         f3_rpc_endpoint: String,
         initial_power_table: String,
         finality: i64,
-        db: String,
+        f3_root: String,
         manifest_server: String,
     ) -> bool;
 }
