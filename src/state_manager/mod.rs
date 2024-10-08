@@ -88,7 +88,7 @@ type CidPair = (Cid, Cid);
 pub struct StateOutput {
     pub state_root: Cid,
     pub receipt_root: Cid,
-    pub events: Vec<Vec<StampedEvent>>,
+    pub events: Option<Vec<Vec<StampedEvent>>>,
 }
 
 // Various structures for implementing the tipset state cache
@@ -1649,7 +1649,7 @@ where
         return Ok(StateOutput {
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
-            events: vec![],
+            events: if store_events { Some(vec![]) } else { None },
         });
     }
 

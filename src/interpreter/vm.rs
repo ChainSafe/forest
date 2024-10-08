@@ -353,7 +353,7 @@ where
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         store_events: bool,
-    ) -> Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error> {
+    ) -> Result<(Vec<Receipt>, Option<Vec<Vec<StampedEvent>>>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -435,7 +435,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((receipts, events))
+        Ok((receipts, if store_events { Some(events) } else { None }))
     }
 
     /// Applies single message through VM and returns result from execution.
