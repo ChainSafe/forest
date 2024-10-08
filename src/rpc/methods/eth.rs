@@ -517,14 +517,25 @@ impl EthTxReceipt {
 #[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthLog {
+    /// The address of the actor that produced the event log.
     address: EthAddress,
+    /// The value of the event log, excluding topics.
     data: EthBytes,
+    /// List of topics associated with the event log.
     topics: Vec<EthHash>,
+    /// Indicates whether the log was removed due to a chain reorganization.
     removed: bool,
+    /// The index of the event log in the sequence of events produced by the message execution.
+    /// (this is the index in the events AMT on the message receipt)
     log_index: Uint64,
+    /// The index in the tipset of the transaction that produced the event log.
+    /// The index corresponds to the sequence of messages produced by `ChainGetParentMessages`
     transaction_index: Uint64,
+    /// The hash of the RLP message that produced the event log.
     transaction_hash: EthHash,
+    /// The hash of the tipset containing the message that produced the log.
     block_hash: EthHash,
+    /// The epoch of the tipset containing the message.
     block_number: Uint64,
 }
 lotus_json_with_self!(EthLog);
@@ -2368,36 +2379,49 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     Ok(EthHash::default())
 }
 
+fn filter_map_events<F>(events: &[CollectedEvent], f: F) -> anyhow::Result<Vec<EthLog>>
+where
+    F: Fn(&CollectedEvent) -> anyhow::Result<Option<EthLog>>,
+{
+    events
+        .iter()
+        .filter_map(|event| match f(event) {
+            Ok(Some(eth_log)) => Some(Ok(eth_log)),
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        })
+        .collect()
+}
+
 fn eth_filter_logs_from_events<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
 ) -> anyhow::Result<Vec<EthLog>> {
-    let mut logs = Vec::new();
-    for event in events {
-        let mut log = EthLog {
+    filter_map_events(events, |event| {
+        let (data, topics) = if let Some((data, topics)) = eth_log_from_event(&event.entries) {
+            (data, topics)
+        } else {
+            tracing::warn!("Ignoring event");
+            return Ok(None);
+        };
+        let transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
+        if transaction_hash == EthHash::default() {
+            tracing::warn!("Ignoring event");
+            return Ok(None);
+        }
+        let address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
+        Ok(Some(EthLog {
+            address,
+            data,
+            topics,
             removed: event.reverted,
             log_index: event.event_idx.into(),
             transaction_index: event.msg_idx.into(),
+            transaction_hash,
+            block_hash: event.tipset_key.cid()?.into(),
             block_number: (event.height as u64).into(),
-            ..EthLog::default()
-        };
-        if let Some((data, topics)) = eth_log_from_event(&event.entries) {
-            log.data = data;
-            log.topics = topics;
-        } else {
-            tracing::warn!("ignoring event");
-            continue;
-        }
-        log.address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
-        log.transaction_hash = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)?;
-        if log.transaction_hash == EthHash::default() {
-            tracing::warn!("ignoring event");
-            continue;
-        }
-        log.block_hash = event.tipset_key.cid()?.into();
-        logs.push(log);
-    }
-    Ok(logs)
+        }))
+    })
 }
 
 fn eth_filter_result_from_events<DB: Blockstore>(
