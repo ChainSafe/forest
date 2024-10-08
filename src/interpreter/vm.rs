@@ -17,8 +17,7 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    executor::StampedEvent,
-    executor::{ApplyRet, Receipt},
+    executor::{ApplyRet, Receipt, StampedEvent},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
     message::{Message, Message_v3},
