@@ -228,7 +228,7 @@ impl EthEventHandler {
             tracing::warn!("No events stored");
             return Ok(());
         };
-        for (i, (message, events)) in messages.iter().zip(events.iter()).enumerate() {
+        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
             for (j, event) in events.iter().enumerate() {
                 let id_addr = Address::new_id(event.emitter());
                 let result = ctx
@@ -250,16 +250,20 @@ impl EthEventHandler {
 
                 let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
 
-                let mut entries = vec![];
-                for entry in event.event().entries().iter() {
-                    let entry = EventEntry {
-                        flags: entry.flags(),
-                        key: entry.key(),
-                        codec: entry.codec(),
-                        value: entry.value().into(),
-                    };
-                    entries.push(entry);
-                }
+                let entries = event
+                    .event()
+                    .entries()
+                    .into_iter()
+                    .map(|entry| {
+                        let (flags, key, codec, value) = entry.into_parts();
+                        EventEntry {
+                            flags,
+                            key,
+                            codec,
+                            value: value.into(),
+                        }
+                    })
+                    .collect();
                 let ce = CollectedEvent {
                     entries,
                     emitter_addr: resolved,

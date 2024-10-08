@@ -230,31 +230,26 @@ impl From<Entry_v4> for Entry {
 }
 
 impl Entry {
-    pub fn flags(&self) -> u64 {
+    pub fn into_parts(self) -> (u64, String, u64, Vec<u8>) {
         match self {
-            Self::V3(v3) => v3.flags.bits(),
-            Self::V4(v4) => v4.flags.bits(),
-        }
-    }
-
-    pub fn key(&self) -> String {
-        match self {
-            Self::V3(v3) => v3.key.clone(),
-            Self::V4(v4) => v4.key.clone(),
-        }
-    }
-
-    pub fn codec(&self) -> u64 {
-        match self {
-            Self::V3(v3) => v3.codec,
-            Self::V4(v4) => v4.codec,
-        }
-    }
-
-    pub fn value(&self) -> Vec<u8> {
-        match self {
-            Self::V3(v3) => v3.value.clone(),
-            Self::V4(v4) => v4.value.clone(),
+            Self::V3(v3) => {
+                let Entry_v3 {
+                    flags,
+                    key,
+                    codec,
+                    value,
+                } = v3;
+                (flags.bits(), key, codec, value)
+            }
+            Self::V4(v4) => {
+                let Entry_v4 {
+                    flags,
+                    key,
+                    codec,
+                    value,
+                } = v4;
+                (flags.bits(), key, codec, value)
+            }
         }
     }
 }
