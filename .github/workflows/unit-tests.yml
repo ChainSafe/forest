@@ -25,8 +25,8 @@ env:
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   RUSTC_WRAPPER: "sccache"
-  CC: "sccache clang"
-  CXX: "sccache clang++"
+  CC: sccache clang-14
+  CXX: sccache clang++-14
 
 jobs:
   tests:

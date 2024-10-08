@@ -65,30 +65,30 @@ Install [rustup](https://rustup.rs/)
 Install [Go](https://go.dev/doc/install)
 
 - OS Base-Devel/Build-Essential
-- Clang compiler
+- Clang-14 compiler
 
-### Ubuntu (20.04)
+### Ubuntu (22.04)
 
 ```
-sudo apt install build-essential clang
+sudo apt install build-essential clang-14
 ```
 
 ### Archlinux
 
 ```
-sudo pacman -S base-devel clang
+sudo pacman -S base-devel clang-14
 ```
 
 ### Fedora (36)
 
 ```
-sudo dnf install -y clang-devel
+sudo dnf install -y clang-14-devel
 ```
 
 ### Alpine
 
 ```
-apk add git curl make gcc clang clang-dev musl-dev
+apk add git curl make gcc clang-14 clang-14-dev musl-dev
 ```
 
 ## Installation
