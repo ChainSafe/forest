@@ -42,7 +42,7 @@ use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::{apply_block_messages, NO_CALLBACK};
+use crate::state_manager::{apply_block_messages, StateOutput, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::DateTime;
 use cid::Cid;
@@ -546,7 +546,7 @@ async fn show_tipset_diff(
         ResolveNullTipset::TakeNewer,
     )?;
 
-    let ((state_root, _), _) = apply_block_messages(
+    let StateOutput { state_root, .. } = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),

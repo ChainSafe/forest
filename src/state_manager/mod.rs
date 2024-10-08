@@ -84,12 +84,17 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
-type CidPairPlus = (CidPair, Vec<Vec<StampedEvent>>);
+#[derive(Clone)]
+pub struct StateOutput {
+    pub state_root: Cid,
+    pub receipt_root: Cid,
+    pub events: Vec<Vec<StampedEvent>>,
+}
 
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
-    values: LruCache<TipsetKey, CidPairPlus>,
+    values: LruCache<TipsetKey, StateOutput>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
@@ -107,7 +112,7 @@ struct TipsetStateCache {
 }
 
 enum Status {
-    Done(CidPairPlus),
+    Done(StateOutput),
     Empty(Arc<TokioMutex<()>>),
 }
 
@@ -130,16 +135,19 @@ impl TipsetStateCache {
         &self,
         key: &TipsetKey,
         compute: F,
-    ) -> anyhow::Result<CidPairPlus>
+    ) -> anyhow::Result<StateOutput>
     where
         F: Fn() -> Fut,
-        Fut: core::future::Future<Output = anyhow::Result<CidPairPlus>>,
+        Fut: core::future::Future<Output = anyhow::Result<StateOutput>>,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
             Some(v) => {
-                let cids = v.0;
-                let events = v.1.clone();
-                Status::Done((cids, events))
+                let events = v.events.clone();
+                Status::Done(StateOutput {
+                    state_root: v.state_root,
+                    receipt_root: v.receipt_root,
+                    events,
+                })
             }
             None => {
                 let option = inner
@@ -192,11 +200,11 @@ impl TipsetStateCache {
         }
     }
 
-    fn get(&self, key: &TipsetKey) -> Option<CidPairPlus> {
+    fn get(&self, key: &TipsetKey) -> Option<StateOutput> {
         self.with_inner(|inner| inner.values.get(key).cloned())
     }
 
-    fn insert(&self, key: TipsetKey, value: CidPairPlus) {
+    fn insert(&self, key: TipsetKey, value: StateOutput) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -432,15 +440,19 @@ where
     /// state for a given tipset is guaranteed not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        let (pair, _) = self.tipset_state_plus(tipset).await?;
-        Ok(pair)
+        let StateOutput {
+            state_root,
+            receipt_root,
+            ..
+        } = self.tipset_state_plus(tipset).await?;
+        Ok((state_root, receipt_root))
     }
 
     #[instrument(skip(self))]
     pub async fn tipset_state_plus(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
-    ) -> anyhow::Result<CidPairPlus> {
+    ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
@@ -736,7 +748,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPairPlus, Error> {
+    ) -> Result<StateOutput, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
@@ -751,7 +763,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPairPlus, Error> {
+    ) -> Result<StateOutput, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
@@ -1494,7 +1506,11 @@ where
         .par_bridge()
         .try_for_each(|(child, parent)| {
             info!(height = parent.epoch(), "compute parent state");
-            let ((actual_state, actual_receipt), _) = apply_block_messages(
+            let StateOutput {
+                state_root: actual_state,
+                receipt_root: actual_receipt,
+                ..
+            } = apply_block_messages(
                 genesis_timestamp,
                 chain_index.clone(),
                 chain_config.clone(),
@@ -1612,7 +1628,7 @@ pub fn apply_block_messages<DB>(
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     store_events: bool,
-) -> Result<CidPairPlus, anyhow::Error>
+) -> Result<StateOutput, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1630,7 +1646,11 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts;
-        return Ok(((*tipset.parent_state(), message_receipts), vec![]));
+        return Ok(StateOutput {
+            state_root: *tipset.parent_state(),
+            receipt_root: message_receipts,
+            events: vec![],
+        });
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1698,7 +1718,7 @@ where
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
-    stacker::grow(64 << 20, || -> anyhow::Result<CidPairPlus> {
+    stacker::grow(64 << 20, || -> anyhow::Result<StateOutput> {
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
@@ -1709,6 +1729,10 @@ where
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
         let state_root = vm.flush()?;
 
-        Ok(((state_root, receipt_root), events))
+        Ok(StateOutput {
+            state_root,
+            receipt_root,
+            events,
+        })
     })
 }

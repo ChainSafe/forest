@@ -33,7 +33,7 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::MarketBalance;
+use crate::state_manager::{MarketBalance, StateOutput};
 use crate::utils::db::{
     car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
@@ -1320,7 +1320,7 @@ impl RpcMethod<1> for StateCompute {
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let ((state_root, _), _) = ctx
+        let StateOutput { state_root, .. } = ctx
             .state_manager
             .compute_tipset_state(
                 tipset,

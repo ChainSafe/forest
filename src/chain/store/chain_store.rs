@@ -16,6 +16,7 @@ use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::StateTree, version::NetworkVersion,
 };
+use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context;
@@ -340,7 +341,7 @@ where
             // state-root without caching.
             let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let ((state, _), _) = crate::state_manager::apply_block_messages(
+            let StateOutput { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
                 Arc::clone(&chain_index),
                 Arc::clone(&chain_config),
@@ -356,7 +357,7 @@ where
                 false,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
-            return Ok((heaviest_tipset, state));
+            return Ok((heaviest_tipset, state_root));
         }
 
         let next_ts = chain_index

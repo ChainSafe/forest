@@ -15,7 +15,7 @@ use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::apply_block_messages;
+use crate::state_manager::{apply_block_messages, StateOutput};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_params_downloaded;
 use anyhow::{bail, Context as _};
@@ -482,7 +482,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
 
     let mut message_calls = vec![];
 
-    let ((state_root, _), _) = apply_block_messages(
+    let StateOutput { state_root, .. } = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),

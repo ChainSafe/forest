@@ -36,6 +36,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::shim::executor::StampedEvent;
+use crate::state_manager::StateOutput;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
@@ -221,7 +222,11 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let ((_, receipt_root), events) = ctx.state_manager.tipset_state_plus(tipset).await?;
+        let StateOutput {
+            receipt_root,
+            events,
+            ..
+        } = ctx.state_manager.tipset_state_plus(tipset).await?;
         let receipts = Receipt::get_receipts(ctx.store(), receipt_root)?;
         for (i, (message, receipt)) in messages.iter().zip(receipts.iter()).enumerate() {
             if let Some(cid) = receipt.events_root() {
