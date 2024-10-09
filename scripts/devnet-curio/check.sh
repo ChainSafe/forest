@@ -26,7 +26,7 @@ function get_f3_latest_cert_instance {
 }
 
 start_time=$(date +%s)
-timeout=$((start_time + 300))  # Set timeout to 10 minutes
+timeout=$((start_time + 300))  # Set timeout to 5 minutes
 
 # Target height set so that all migrations are applied.
 target_height=$TARGET_HEIGHT
