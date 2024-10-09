@@ -27,7 +27,7 @@ impl<BS: Blockstore> StateMigration<BS> {
         store: &Arc<BS>,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
-        _chain_config: &ChainConfig,
+        chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
@@ -48,9 +48,18 @@ impl<BS: Blockstore> StateMigration<BS> {
             system::system_migrator(new_manifest),
         );
 
+        let tuktuk_epoch = chain_config
+            .height_infos
+            .get(&Height::TukTuk)
+            .context("no height info for network version NV24")?
+            .epoch;
         self.add_migrator(
             current_manifest.get(BuiltinActor::Power)?,
-            power::power_migrator(new_manifest.get(BuiltinActor::Power)?),
+            power::power_migrator(
+                new_manifest.get(BuiltinActor::Power)?,
+                tuktuk_epoch,
+                chain_config.fip0081_ramp_duration_epochs,
+            ),
         );
 
         Ok(())

@@ -4,6 +4,7 @@
 //! This module contains the migration logic for the `NV19` upgrade for the
 //! Power actor.
 
+use crate::shim::clock::ChainEpoch;
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
@@ -12,12 +13,22 @@ use fil_actors_shared::v15::builtin::reward::smooth::FilterEstimate as FilterEst
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 
-pub struct PowerMigrator(Cid);
+pub struct PowerMigrator {
+    new_code_cid: Cid,
+    tuktuk_epoch: ChainEpoch,
+    ramp_duration_epochs: u64,
+}
 
 pub(in crate::state_migration) fn power_migrator<BS: Blockstore>(
     cid: Cid,
+    tuktuk_epoch: ChainEpoch,
+    ramp_duration_epochs: u64,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
-    Arc::new(PowerMigrator(cid))
+    Arc::new(PowerMigrator {
+        new_code_cid: cid,
+        tuktuk_epoch,
+        ramp_duration_epochs,
+    })
 }
 
 // original golang code: https://github.com/filecoin-project/go-state-types/blob/master/builtin/v11/migration/power.go
@@ -44,8 +55,8 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
             },
             miner_count: in_state.miner_count,
             miner_above_min_power_count: in_state.miner_above_min_power_count,
-            ramp_start_epoch: 0,
-            ramp_duration_epochs: 0,
+            ramp_start_epoch: self.tuktuk_epoch,
+            ramp_duration_epochs: self.ramp_duration_epochs,
             cron_event_queue: in_state.cron_event_queue,
             first_cron_epoch: in_state.first_cron_epoch,
             claims: in_state.claims,
@@ -55,7 +66,7 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
         let new_head = store.put_cbor_default(&out_state)?;
 
         Ok(Some(ActorMigrationOutput {
-            new_code_cid: self.0,
+            new_code_cid: self.new_code_cid,
             new_head,
         }))
     }
