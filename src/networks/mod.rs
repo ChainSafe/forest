@@ -230,7 +230,8 @@ pub struct ChainConfig {
     pub fip0081_ramp_duration_epochs: u64,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
-    pub f3_mainfest_server: Option<Cid>,
+    #[cfg_attr(test, arbitrary(gen(|_| Some(libp2p::PeerId::random()))))]
+    pub f3_mainfest_server: Option<libp2p::PeerId>,
 }
 
 impl ChainConfig {
@@ -257,7 +258,7 @@ impl ChainConfig {
             f3_mainfest_server: Some(
                 "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
                     .parse()
-                    .expect("Invalid CID"),
+                    .expect("Invalid PeerId"),
             ),
         }
     }
@@ -285,7 +286,7 @@ impl ChainConfig {
             f3_mainfest_server: Some(
                 "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
                     .parse()
-                    .expect("Invalid CID"),
+                    .expect("Invalid PeerId"),
             ),
         }
     }
@@ -337,7 +338,7 @@ impl ChainConfig {
             f3_mainfest_server: Some(
                 "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
                     .parse()
-                    .expect("Invalid CID"),
+                    .expect("Invalid PeerId"),
             ),
         }
     }
@@ -632,5 +633,13 @@ mod tests {
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"
         );
+    }
+
+    #[test]
+    fn chain_config() {
+        ChainConfig::mainnet();
+        ChainConfig::calibnet();
+        ChainConfig::devnet();
+        ChainConfig::butterflynet();
     }
 }
