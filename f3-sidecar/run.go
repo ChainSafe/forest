@@ -72,7 +72,11 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialP
 	if err != nil {
 		return err
 	}
-	m.EC.Period = time.Duration(versionInfo.BlockDelay) * time.Second
+
+	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
+	m.EC.Period = blockDelay
+	m.CatchUpAlignment = blockDelay / 2
+
 	head, err := ec.GetHead(ctx)
 	if err != nil {
 		return err
