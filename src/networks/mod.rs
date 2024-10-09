@@ -225,6 +225,9 @@ pub struct ChainConfig {
     pub policy: Policy,
     pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
+    pub f3_bootstrap_epoch: i64,
+    pub f3_initial_power_table: Cid,
+    pub f3_mainfest_server: Option<Cid>,
 }
 
 impl ChainConfig {
@@ -244,6 +247,13 @@ impl ChainConfig {
             policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_mainfest_server: Some(
+                "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
+                    .parse()
+                    .expect("Invalid CID"),
+            ),
         }
     }
 
@@ -263,6 +273,13 @@ impl ChainConfig {
             policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_mainfest_server: Some(
+                "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
+                    .parse()
+                    .expect("Invalid CID"),
+            ),
         }
     }
 
@@ -279,12 +296,14 @@ impl ChainConfig {
             policy: make_devnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_mainfest_server: None,
         }
     }
 
     pub fn butterflynet() -> Self {
         use butterflynet::*;
-
         Self {
             network: NetworkChain::Butterflynet,
             genesis_cid: Some(GENESIS_CID.to_string()),
@@ -299,6 +318,13 @@ impl ChainConfig {
             policy: make_butterfly_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_mainfest_server: Some(
+                "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
+                    .parse()
+                    .expect("Invalid CID"),
+            ),
         }
     }
 

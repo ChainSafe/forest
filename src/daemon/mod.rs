@@ -418,7 +418,6 @@ pub(super) async fn start(
                 .ok()
                 .and_then(|v| match v.parse::<i64>() {
                     Ok(f) if f > 0 => {
-                        tracing::info!("Using F3 finality {f} set by FOREST_F3_FINALITY");
                         Some(f)
                     }
                     _ => {
@@ -428,21 +427,46 @@ pub(super) async fn start(
                         None
                     }
                 })
+                .inspect(|i| {
+                    tracing::info!("Using F3 finality {i} set by FOREST_F3_FINALITY");
+                })
                 .unwrap_or(chain_config.policy.chain_finality);
             let default_f3_root = config.client.data_dir.join(format!("f3/{}", config.chain));
+            let f3_bootstrap_epoch = chain_config.f3_bootstrap_epoch;
+            let f3_initial_power_table = chain_config.f3_initial_power_table;
+            let f3_mainfest_server = chain_config.f3_mainfest_server;
             move || {
                 // This will be used post-bootstrap to hard-code the initial F3's initial power table CID.
                 // Read from an environment variable for now before the hard-coded value is determined.
                 let initial_power_table =
-                    std::env::var("FOREST_F3_INITIAL_POWER_TABLE").unwrap_or_default();
+                    std::env::var("FOREST_F3_INITIAL_POWER_TABLE").ok().and_then(|i|i.parse().ok()).inspect(|i| {
+                        tracing::info!(
+                            "Using F3 initial power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE"
+                        )
+                    }).unwrap_or(f3_initial_power_table);
+                let bootstrap_epoch = std::env::var("FOREST_F3_BOOTSTRAP_EPOCH")
+                    .ok()
+                    .and_then(|i| i.parse().ok())
+                    .inspect(|i| {
+                        tracing::info!(
+                            "Using F3 bootstrap epoch {i} set by FOREST_F3_BOOTSTRAP_EPOCH"
+                        )
+                    })
+                    .unwrap_or(f3_bootstrap_epoch);
+                let manifest_server = std::env::var("FOREST_F3_MANIFEST_SERVER").ok().and_then(|i|i.parse().ok()).inspect(|i| {
+                    tracing::info!(
+                        "Using F3 manifest server {i} set by FOREST_F3_MANIFEST_SERVER"
+                    )
+                }).or(f3_mainfest_server);
                 crate::f3::run_f3_sidecar_if_enabled(
                     format!("http://{rpc_address}/rpc/v1"),
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
-                    initial_power_table,
+                    initial_power_table.to_string(),
+                    bootstrap_epoch,
                     finality,
                     std::env::var("FOREST_F3_ROOT")
                         .unwrap_or(default_f3_root.display().to_string()),
-                    std::env::var("FOREST_F3_MANIFEST_SERVER").unwrap_or_default(),
+                        manifest_server.map(|i|i.to_string()).unwrap_or_default(),
                 );
                 Ok(())
             }
