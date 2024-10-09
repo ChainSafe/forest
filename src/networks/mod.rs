@@ -226,6 +226,7 @@ pub struct ChainConfig {
     pub policy: Policy,
     pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
+    // FIP0081 gradually comes into effect over this many epochs.
     pub fip0081_ramp_duration_epochs: u64,
 }
 
