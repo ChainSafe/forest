@@ -110,12 +110,16 @@ mod network_guard_impl {
 /// parse both versions and discard the prefix. See also [`StrictAddress`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(
-    Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Address(Address_latest);
+
+impl Default for Address {
+    fn default() -> Self {
+        Address(Address_latest::new_id(0))
+    }
+}
 
 impl Address {
     pub const SYSTEM_ACTOR: Address = Address::new_id(0);
