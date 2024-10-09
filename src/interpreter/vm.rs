@@ -76,6 +76,9 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
+pub type ApplyBlockResult =
+    anyhow::Result<(Vec<Receipt>, Option<Vec<Vec<StampedEvent>>>), anyhow::Error>;
+
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
@@ -352,7 +355,7 @@ where
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         store_events: bool,
-    ) -> Result<(Vec<Receipt>, Option<Vec<Vec<StampedEvent>>>), anyhow::Error> {
+    ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
         let mut processed = HashSet::<Cid>::default();
