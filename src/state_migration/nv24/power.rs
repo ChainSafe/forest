@@ -31,7 +31,8 @@ pub(in crate::state_migration) fn power_migrator<BS: Blockstore>(
     })
 }
 
-// original golang code: https://github.com/filecoin-project/go-state-types/blob/master/builtin/v11/migration/power.go
+// The v15 actor is identical to v14, except for the addition of the `ramp_start_epoch`
+// and `ramp_duration_epochs` fields.
 impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
     fn migrate_state(
         &self,
