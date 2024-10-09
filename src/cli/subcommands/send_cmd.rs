@@ -53,7 +53,6 @@ impl SendCommand {
             gas_limit: self.gas_limit as u64,
             gas_fee_cap: self.gas_feecap.clone(),
             gas_premium: self.gas_premium.clone(),
-            // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
             ..Default::default()
         };
 
