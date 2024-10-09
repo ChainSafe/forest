@@ -22,6 +22,7 @@ use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
     market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
+    power::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
@@ -355,6 +356,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         &store,
                         &state.address_map,
                         fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
+                init::State::V15(state) => {
+                    let map = fil_actor_init_state::v15::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v15::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )
                     .context("Failed to load address map")?;
@@ -794,6 +813,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V15(s) => (
+                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V14(s) => (
                 s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -879,6 +902,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
+                power_state.ramp_start_epoch(),
+                power_state.ramp_duration_epochs(),
             )?
             .into();
 
@@ -1903,6 +1928,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V15(s) => {
+                let precommitted = fil_actor_miner_state::v15::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v15::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -1994,6 +2033,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v14::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V15(s) => {
+                let precommitted = fil_actor_miner_state::v15::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v15::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2405,6 +2458,18 @@ impl StateGetAllocations {
                         store,
                         &s.address_map,
                         fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V15(s) => {
+                    let map = fil_actor_init_state::v15::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v15::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )?;
                     map.for_each(|_k, v| {

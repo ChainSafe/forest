@@ -27,7 +27,7 @@ use ahash::{HashMap, HashSet};
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v9,
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
     },
     miner, power,
 };
@@ -380,6 +380,15 @@ impl RpcMethod<1> for GetPowerTable {
                     &from_policy_v13_to_v14(&ctx.chain_config().policy)
                 );
             }
+            power::State::V15(s) => {
+                handle_miner_state_v12_on!(
+                    v15,
+                    id_power_worker_mappings,
+                    &ts,
+                    s,
+                    &from_policy_v13_to_v15(&ctx.chain_config().policy)
+                );
+            }
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {
@@ -559,6 +568,23 @@ impl RpcMethod<1> for F3GetF3PowerTable {
         let mut params = ArrayParams::new();
         params.insert(tsk.into_lotus_json())?;
         let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
+pub enum F3IsRunning {}
+impl RpcMethod<0> for F3IsRunning {
+    const NAME: &'static str = "Filecoin.F3IsRunning";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
     }
 }

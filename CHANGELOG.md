@@ -38,6 +38,12 @@
 - [#4783](https://github.com/ChainSafe/forest/issues/4783) Add support for the
   `Filecoin.NetProtectList` RPC method.
 
+- [#4865](https://github.com/ChainSafe/forest/issues/4865) Add support for the
+  `Filecoin.F3IsRunning` RPC method.
+
+- [#4857](https://github.com/ChainSafe/forest/pull/4857) Add support for nv24
+  (TukTuk).
+
 ### Changed
 
 - [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
@@ -1711,8 +1717,8 @@ All initial change sets:
 - `ccf1ac11` Return Ok when validating drand beacon entries similar to how Lotus
   does as per the audit recommendation.
   ([#1206](https://github.com/ChainSafe/forest/pull/1206)) (Hunter Trujillo)
-- `f5fe14d2` [Audit fixes] FOR-03 - Inconsistent Deserialization of Randomness
-  ([#1205](https://github.com/ChainSafe/forest/pull/1205)) (Hunter Trujillo)
+- `f5fe14d2` [Audit fixes] FOR-03 - Inconsistent Deserialization of Randomness ([#1205](https://github.com/ChainSafe/forest/pull/1205))
+  (Hunter Trujillo)
 - `32a9ae5f` Rest of V5 Updates
   ([#1217](https://github.com/ChainSafe/forest/pull/1217)) (Eric Tu)
 - `e6e1c8ad` API_IMPLEMENTATION.md build script formatting improvements
@@ -1767,11 +1773,10 @@ All initial change sets:
   ([#1160](https://github.com/ChainSafe/forest/pull/1160)) (creativcoder)
 - `34799734` Wallet CLI Implementation
   ([#1128](https://github.com/ChainSafe/forest/pull/1128)) (Connor Mullett)
-- `f698ba88` [Audit fixes] FOR-02: Inconsistent Deserialization of Address ID
-  ([#1149](https://github.com/ChainSafe/forest/pull/1149)) (Hunter Trujillo)
+- `f698ba88` [Audit fixes] FOR-02: Inconsistent Deserialization of Address ID ([#1149](https://github.com/ChainSafe/forest/pull/1149))
+  (Hunter Trujillo)
 - `e50d2ae8` [Audit fixes] FOR-16: Unnecessary Extensive Permissions for Private
-  Keys ([#1151](https://github.com/ChainSafe/forest/pull/1151)) (Hunter
-  Trujillo)
+  Keys ([#1151](https://github.com/ChainSafe/forest/pull/1151)) (Hunter Trujillo)
 - `665ca476` Subtract 1 ([#1152](https://github.com/ChainSafe/forest/pull/1152))
   (Eric Tu)
 - `4047ff5e` 3 -> 4 ([#1153](https://github.com/ChainSafe/forest/pull/1153))
