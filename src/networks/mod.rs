@@ -246,6 +246,7 @@ impl ChainConfig {
             policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
         }
     }
@@ -266,6 +267,7 @@ impl ChainConfig {
             policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
         }
     }
