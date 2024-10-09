@@ -38,10 +38,10 @@ use crate::state_manager::StateOutput;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
-use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
@@ -323,43 +323,45 @@ impl EthEventHandler {
         spec: EthFilterSpec,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
         let pf = self.parse_eth_filter_spec(ctx, &spec)?;
-        let mut max_height = pf.max_height;
-        if max_height == -1 {
-            // heaviest tipset doesn't have events because its messages haven't been executed yet
-            max_height = ctx.chain_store().heaviest_tipset().epoch() - 1;
-        }
-        if max_height < 0 {
-            bail!("max_height requested is less than 0");
-        }
-        // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
-        // in the next non-null tipset (because of Filecoin's "deferred execution" model)
-        if max_height > ctx.chain_store().heaviest_tipset().epoch() - 1 {
-            bail!("max_height requested is greater than the heaviest tipset");
-        }
 
         let mut collected_events = vec![];
-        if let Some(block_hash) = &spec.block_hash {
-            let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
-            let tipset = Arc::new(tipset);
-            self.collect_events(ctx, &tipset, &spec, &mut collected_events)
-                .await?;
-        } else {
-            let range = pf.min_height..pf.max_height + 1;
-            let num_tipsets = (range.end - range.start) as usize;
-            let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
-                pf.max_height,
-                ctx.chain_store().heaviest_tipset(),
-                ResolveNullTipset::TakeOlder,
-            )?;
-            for tipset in max_tipset
-                .as_ref()
-                .clone()
-                .chain(&ctx.store())
-                .take(num_tipsets)
-            {
+        match pf.tipsets {
+            ParsedFilterTipsets::Hash(block_hash) => {
+                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
                 let tipset = Arc::new(tipset);
                 self.collect_events(ctx, &tipset, &spec, &mut collected_events)
                     .await?;
+            }
+            ParsedFilterTipsets::Range(range) => {
+                let max_height = if *range.end() == -1 {
+                    // heaviest tipset doesn't have events because its messages haven't been executed yet
+                    ctx.chain_store().heaviest_tipset().epoch() - 1
+                } else if *range.end() < 0 {
+                    bail!("max_height requested is less than 0")
+                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                    bail!("max_height requested is greater than the heaviest tipset");
+                } else {
+                    *range.end()
+                };
+
+                let num_tipsets = (range.end() - range.start()) as usize + 1;
+                let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
+                    max_height,
+                    ctx.chain_store().heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                for tipset in max_tipset
+                    .as_ref()
+                    .clone()
+                    .chain(&ctx.store())
+                    .take(num_tipsets)
+                {
+                    let tipset = Arc::new(tipset);
+                    self.collect_events(ctx, &tipset, &spec, &mut collected_events)
+                        .await?;
+                }
             }
         }
 
@@ -373,21 +375,21 @@ impl EthFilterSpec {
         chain_height: i64,
         max_filter_height_range: i64,
     ) -> Result<ParsedFilter, Error> {
-        let from_block = self.from_block.as_deref().unwrap_or("");
-        let to_block = self.to_block.as_deref().unwrap_or("");
-        let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
+        let tipsets = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
                 bail!("must not specify block hash and from/to block");
             }
-            (0, 0, block_hash.to_cid())
+            ParsedFilterTipsets::Hash(block_hash.clone())
         } else {
+            let from_block = self.from_block.as_deref().unwrap_or("");
+            let to_block = self.to_block.as_deref().unwrap_or("");
             let (min, max) = parse_block_range(
                 chain_height,
                 BlockNumberOrHash::from_str(from_block)?,
                 BlockNumberOrHash::from_str(to_block)?,
                 max_filter_height_range,
             )?;
-            (min, max, Cid::default())
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
         let addresses: Vec<_> = self
@@ -406,9 +408,7 @@ impl EthFilterSpec {
         };
 
         Ok(ParsedFilter {
-            min_height,
-            max_height,
-            tipset_cid,
+            tipsets,
             addresses,
             keys,
         })
@@ -520,10 +520,14 @@ fn keys_to_keys_with_codec(
     keys_with_codec
 }
 
+#[derive(Debug, PartialEq)]
+enum ParsedFilterTipsets {
+    Range(std::ops::RangeInclusive<ChainEpoch>),
+    Hash(EthHash),
+}
+
 struct ParsedFilter {
-    min_height: ChainEpoch,
-    max_height: ChainEpoch,
-    tipset_cid: Cid,
+    tipsets: ParsedFilterTipsets,
     addresses: Vec<Address>,
     keys: HashMap<String, Vec<ActorEventBlock>>,
 }
