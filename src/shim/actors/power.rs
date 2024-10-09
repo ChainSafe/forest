@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use crate::shim::clock::ChainEpoch;
 use fil_actor_interface::power::State;
 
