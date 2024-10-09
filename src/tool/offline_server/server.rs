@@ -74,6 +74,7 @@ pub async fn start_offline_server(
         chain_store.clone(),
         chain_config,
         sync_config,
+        true,
     )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 

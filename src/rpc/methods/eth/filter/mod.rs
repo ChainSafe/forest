@@ -19,20 +19,29 @@ mod mempool;
 mod store;
 mod tipset;
 
+use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;
+use super::CollectedEvent;
 use super::Predefined;
+use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
+use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::reflect::Ctx;
+use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::state_manager::StateOutput;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
-use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
@@ -186,6 +195,178 @@ impl EthEventHandler {
             Ok(false)
         }
     }
+
+    fn parse_eth_filter_spec<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        filter_spec: &EthFilterSpec,
+    ) -> anyhow::Result<ParsedFilter> {
+        EthFilterSpec::parse_eth_filter_spec(
+            filter_spec,
+            ctx.chain_store().heaviest_tipset().epoch(),
+            self.max_filter_height_range,
+        )
+    }
+
+    async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
+        &self,
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        spec: &EthFilterSpec,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let tipset_key = tipset.key().clone();
+        let height = tipset.epoch();
+
+        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
+
+        let StateOutput { events, .. } = ctx.state_manager.tipset_state_plus(tipset).await?;
+
+        let events = if let Some(events) = events {
+            events
+        } else {
+            tracing::warn!("No events stored");
+            return Ok(());
+        };
+        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
+            for (j, event) in events.iter().enumerate() {
+                let id_addr = Address::new_id(event.emitter());
+                let result = ctx
+                    .state_manager
+                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "resolving address {} failed (EPOCH = {})",
+                            id_addr,
+                            tipset.epoch()
+                        )
+                    });
+                if result.is_err() {
+                    // Skip event
+                    continue;
+                };
+                let resolved = result.expect("Infallible");
+
+                let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
+
+                let entries = event
+                    .event()
+                    .entries()
+                    .into_iter()
+                    .map(|entry| {
+                        let (flags, key, codec, value) = entry.into_parts();
+                        EventEntry {
+                            flags,
+                            key,
+                            codec,
+                            value: value.into(),
+                        }
+                    })
+                    .collect();
+                let ce = CollectedEvent {
+                    entries,
+                    emitter_addr: resolved,
+                    event_idx: j as u64,
+                    reverted: false,
+                    height,
+                    tipset_key: tipset_key.clone(),
+                    msg_idx: i as u64,
+                    msg_cid: message.cid(),
+                };
+                let match_addr = if spec.address.is_empty() {
+                    true
+                } else {
+                    spec.address.iter().any(|other| other == &eth_emitter_addr)
+                };
+                let match_topics = if let Some(spec) = spec.topics.as_ref() {
+                    let matched = ce.entries.iter().any(|entry| {
+                        let result: Result<[u8; EVM_WORD_LENGTH], _> =
+                            entry.value.0.clone().try_into();
+                        if let Ok(slice) = result {
+                            let hash: EthHash = slice.into();
+                            tracing::debug!(
+                                "Do entry (key: {}, value: {}, codec: {}, flags: {}) match: {:?}?",
+                                entry.key,
+                                hash,
+                                entry.codec,
+                                entry.flags,
+                                spec.0,
+                            );
+                            spec.0.iter().any(|list| list.0.contains(&hash))
+                        } else {
+                            // Drop events with mis-sized topics
+                            false
+                        }
+                    });
+                    tracing::debug!(
+                        "Event {} {}match filter topics",
+                        ce.event_idx,
+                        if matched { "" } else { "do not " }
+                    );
+                    matched
+                } else {
+                    true
+                };
+
+                if match_addr && match_topics {
+                    collected_events.push(ce);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
+        &self,
+        ctx: &Ctx<DB>,
+        spec: EthFilterSpec,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
+
+        let mut collected_events = vec![];
+        match pf.tipsets {
+            ParsedFilterTipsets::Hash(block_hash) => {
+                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+                let tipset = Arc::new(tipset);
+                self.collect_events(ctx, &tipset, &spec, &mut collected_events)
+                    .await?;
+            }
+            ParsedFilterTipsets::Range(range) => {
+                let max_height = if *range.end() == -1 {
+                    // heaviest tipset doesn't have events because its messages haven't been executed yet
+                    ctx.chain_store().heaviest_tipset().epoch() - 1
+                } else if *range.end() < 0 {
+                    bail!("max_height requested is less than 0")
+                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                    bail!("max_height requested is greater than the heaviest tipset");
+                } else {
+                    *range.end()
+                };
+
+                let num_tipsets = (range.end() - range.start()) as usize + 1;
+                let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
+                    max_height,
+                    ctx.chain_store().heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                for tipset in max_tipset
+                    .as_ref()
+                    .clone()
+                    .chain(&ctx.store())
+                    .take(num_tipsets)
+                {
+                    let tipset = Arc::new(tipset);
+                    self.collect_events(ctx, &tipset, &spec, &mut collected_events)
+                        .await?;
+                }
+            }
+        }
+
+        Ok(collected_events)
+    }
 }
 
 impl EthFilterSpec {
@@ -194,21 +375,21 @@ impl EthFilterSpec {
         chain_height: i64,
         max_filter_height_range: i64,
     ) -> Result<ParsedFilter, Error> {
-        let from_block = self.from_block.as_deref().unwrap_or("");
-        let to_block = self.to_block.as_deref().unwrap_or("");
-        let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
+        let tipsets = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
                 bail!("must not specify block hash and from/to block");
             }
-            (0, 0, block_hash.to_cid())
+            ParsedFilterTipsets::Hash(block_hash.clone())
         } else {
+            let from_block = self.from_block.as_deref().unwrap_or("");
+            let to_block = self.to_block.as_deref().unwrap_or("");
             let (min, max) = parse_block_range(
                 chain_height,
                 BlockNumberOrHash::from_str(from_block)?,
                 BlockNumberOrHash::from_str(to_block)?,
                 max_filter_height_range,
             )?;
-            (min, max, Cid::default())
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
         let addresses: Vec<_> = self
@@ -220,14 +401,16 @@ impl EthFilterSpec {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let keys = parse_eth_topics(&self.topics)?;
+        let keys = if let Some(topics) = &self.topics {
+            keys_to_keys_with_codec(parse_eth_topics(topics)?)
+        } else {
+            HashMap::new()
+        };
 
         Ok(ParsedFilter {
-            min_height,
-            max_height,
-            tipset_cid,
+            tipsets,
             addresses,
-            keys: keys_to_keys_with_codec(keys),
+            keys,
         })
     }
 }
@@ -337,10 +520,14 @@ fn keys_to_keys_with_codec(
     keys_with_codec
 }
 
+#[derive(Debug, PartialEq)]
+enum ParsedFilterTipsets {
+    Range(std::ops::RangeInclusive<ChainEpoch>),
+    Hash(EthHash),
+}
+
 struct ParsedFilter {
-    min_height: ChainEpoch,
-    max_height: ChainEpoch,
-    tipset_cid: Cid,
+    tipsets: ParsedFilterTipsets,
     addresses: Vec<Address>,
     keys: HashMap<String, Vec<ActorEventBlock>>,
 }
@@ -359,7 +546,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -379,7 +566,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -496,7 +683,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -535,7 +722,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
