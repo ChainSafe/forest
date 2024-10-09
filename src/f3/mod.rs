@@ -13,7 +13,7 @@ pub fn run_f3_sidecar_if_enabled(
     _f3_rpc_endpoint: String,
     _initial_power_table: String,
     _finality: i64,
-    _db: String,
+    _f3_root: String,
     _manifest_server: String,
 ) {
     if is_sidecar_ffi_enabled() {
@@ -24,7 +24,7 @@ pub fn run_f3_sidecar_if_enabled(
                 _f3_rpc_endpoint,
                 _initial_power_table,
                 _finality,
-                _db,
+                _f3_root,
                 _manifest_server,
             );
         }
