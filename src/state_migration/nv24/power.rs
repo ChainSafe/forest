@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the `NV19` upgrade for the
+//! This module contains the migration logic for the `NV24` upgrade for the
 //! Power actor.
 
 use crate::shim::clock::ChainEpoch;
