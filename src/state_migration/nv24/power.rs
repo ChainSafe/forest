@@ -7,7 +7,8 @@
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
-use fil_actor_power_state::v14::State as StateV14;
+use fil_actor_power_state::{v14::State as StateV14, v15::State as StateV15};
+use fil_actors_shared::v15::builtin::reward::smooth::FilterEstimate as FilterEstimateV15;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 
@@ -28,7 +29,28 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: StateV14 = store.get_cbor_required(&input.head)?;
 
-        let out_state = StateV14 { ..in_state };
+        let out_state = StateV15 {
+            total_raw_byte_power: in_state.total_raw_byte_power,
+            total_bytes_committed: in_state.total_bytes_committed,
+            total_quality_adj_power: in_state.total_quality_adj_power,
+            total_qa_bytes_committed: in_state.total_qa_bytes_committed,
+            total_pledge_collateral: in_state.total_pledge_collateral,
+            this_epoch_raw_byte_power: in_state.this_epoch_raw_byte_power,
+            this_epoch_quality_adj_power: in_state.this_epoch_quality_adj_power,
+            this_epoch_pledge_collateral: in_state.this_epoch_pledge_collateral,
+            this_epoch_qa_power_smoothed: FilterEstimateV15 {
+                position: in_state.this_epoch_qa_power_smoothed.position,
+                velocity: in_state.this_epoch_qa_power_smoothed.velocity,
+            },
+            miner_count: in_state.miner_count,
+            miner_above_min_power_count: in_state.miner_above_min_power_count,
+            ramp_start_epoch: 0,
+            ramp_duration_epochs: 0,
+            cron_event_queue: in_state.cron_event_queue,
+            first_cron_epoch: in_state.first_cron_epoch,
+            claims: in_state.claims,
+            proof_validation_batch: in_state.proof_validation_batch,
+        };
 
         let new_head = store.put_cbor_default(&out_state)?;
 
