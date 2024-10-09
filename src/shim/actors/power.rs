@@ -1,9 +1,12 @@
 use crate::shim::clock::ChainEpoch;
-// use fil_actor_power_state::{v14::State as StateV14, v15::State as StateV15};
 use fil_actor_interface::power::State;
 
 pub trait PowerStateExt {
+    /// FIP0081 activation epoch. Should be same as TukTuk epoch.
     fn ramp_start_epoch(&self) -> ChainEpoch;
+    /// FIP0081 activation ramp. One year on mainnet, 3 days on calibnet,
+    /// defaults to 200 epochs on devnet. Only applicable to v15 (aka TukTuk)
+    /// actors.
     fn ramp_duration_epochs(&self) -> u64;
 }
 
