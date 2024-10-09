@@ -38,6 +38,9 @@
 - [#4783](https://github.com/ChainSafe/forest/issues/4783) Add support for the
   `Filecoin.NetProtectList` RPC method.
 
+- [#4865](https://github.com/ChainSafe/forest/issues/4865) Add support for the
+  `Filecoin.F3IsRunning` RPC method.
+
 ### Changed
 
 - [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
