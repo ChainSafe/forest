@@ -250,6 +250,11 @@ strip = true
 # The FVM relies on catching panics. See: https://github.com/ChainSafe/forest/issues/3153
 panic = "unwind"
 overflow-checks = true
+lto = "thin"
+
+[profile.release-lto-fat]
+inherits = "release"
+lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
