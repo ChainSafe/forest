@@ -42,7 +42,7 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
-const ENV_PLEDGE_RULE_RAMP: &str = "PLEDGE_RULE_RAMP";
+const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
