@@ -6,6 +6,7 @@ pub mod eam;
 pub mod market;
 pub mod miner;
 pub mod multisig;
+pub mod power;
 pub mod verifreg;
 
 pub use common::*;

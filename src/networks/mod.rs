@@ -16,7 +16,7 @@ use tracing::warn;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
-use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
@@ -42,6 +42,7 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
+const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -225,6 +226,8 @@ pub struct ChainConfig {
     pub policy: Policy,
     pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
+    // FIP0081 gradually comes into effect over this many epochs.
+    pub fip0081_ramp_duration_epochs: u64,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
     pub f3_mainfest_server: Option<Cid>,
@@ -247,6 +250,8 @@ impl ChainConfig {
             policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 1 year on mainnet
+            fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_mainfest_server: Some(
@@ -273,6 +278,8 @@ impl ChainConfig {
             policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 3 days on calibnet
+            fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_mainfest_server: Some(
@@ -296,6 +303,8 @@ impl ChainConfig {
             policy: make_devnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // Devnet ramp is 200 epochs in Lotus (subject to change).
+            fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_mainfest_server: None,
@@ -318,6 +327,11 @@ impl ChainConfig {
             policy: make_butterfly_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // Butterflynet ramp is current set to 365 days in Lotus but this may change.
+            fip0081_ramp_duration_epochs: env_or_default(
+                ENV_PLEDGE_RULE_RAMP,
+                365 * EPOCHS_IN_DAY as u64,
+            ),
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_mainfest_server: Some(

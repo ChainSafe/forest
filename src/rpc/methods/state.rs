@@ -22,6 +22,7 @@ use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
     market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
+    power::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
@@ -901,8 +902,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
-                0,
-                0,
+                power_state.ramp_start_epoch(),
+                power_state.ramp_duration_epochs(),
             )?
             .into();
 
