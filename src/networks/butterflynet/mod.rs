@@ -40,7 +40,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzaceajpno2eryhvocvmol7s3urztu7aie2sk3fp2ecl72qhxj7a3vone").unwrap()
+    Cid::from_str("bafy2bzacebmqn35nebrnlpymcubuhfrocz5ujngmkt5qyh56dye6dnwv4alw2").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
@@ -100,9 +100,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Watermelon, -24),
         make_height!(Dragon, -25, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, i64::MIN),
-        make_height!(Waffle, 100, get_bundle_cid("v14.0.0-rc.1")),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/4799
-        make_height!(TukTuk, i64::MAX),
+        make_height!(Waffle, -26, get_bundle_cid("v14.0.0-rc.1")),
+        make_height!(TukTuk, 360, get_bundle_cid("v15.0.0-rc1")),
     ])
 });
 
