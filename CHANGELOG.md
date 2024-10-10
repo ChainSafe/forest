@@ -41,6 +41,9 @@
 - [#4865](https://github.com/ChainSafe/forest/issues/4865) Add support for the
   `Filecoin.F3IsRunning` RPC method.
 
+- [#4878](https://github.com/ChainSafe/forest/issues/4878) Add support for the
+  `Filecoin.F3GetProgress` RPC method.
+
 - [#4857](https://github.com/ChainSafe/forest/pull/4857) Add support for nv24
   (TukTuk).
 
