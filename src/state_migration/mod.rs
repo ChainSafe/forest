@@ -70,8 +70,7 @@ where
             vec![
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
-                // TODO(forest): https://github.com/ChainSafe/forest/issues/4799
-                // (Height::TukTuk, nv24::run_migration::<DB>),
+                (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
         NetworkChain::Devnet(_) => {
