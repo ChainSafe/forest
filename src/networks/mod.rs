@@ -231,7 +231,7 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
     #[cfg_attr(test, arbitrary(gen(|_| Some(libp2p::PeerId::random()))))]
-    pub f3_mainfest_server: Option<libp2p::PeerId>,
+    pub f3_manifest_server: Option<libp2p::PeerId>,
 }
 
 impl ChainConfig {
@@ -255,7 +255,7 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
-            f3_mainfest_server: Some(
+            f3_manifest_server: Some(
                 "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
                     .parse()
                     .expect("Invalid PeerId"),
@@ -283,7 +283,7 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
-            f3_mainfest_server: Some(
+            f3_manifest_server: Some(
                 "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
                     .parse()
                     .expect("Invalid PeerId"),
@@ -308,7 +308,7 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
-            f3_mainfest_server: None,
+            f3_manifest_server: None,
         }
     }
 
@@ -335,7 +335,7 @@ impl ChainConfig {
             ),
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
-            f3_mainfest_server: Some(
+            f3_manifest_server: Some(
                 "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
                     .parse()
                     .expect("Invalid PeerId"),
