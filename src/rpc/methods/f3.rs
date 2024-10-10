@@ -589,6 +589,7 @@ impl RpcMethod<0> for F3IsRunning {
     }
 }
 
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#F3GetProgress>
 pub enum F3GetProgress {}
 impl RpcMethod<0> for F3GetProgress {
     const NAME: &'static str = "Filecoin.F3GetProgress";
