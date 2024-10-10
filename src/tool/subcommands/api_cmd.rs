@@ -1522,6 +1522,12 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
+        RpcTest::identity(
+            EthSendRawTransaction::request((EthBytes(vec![
+                0xe6808609184e72a0008303000094b0920c523d582040f2bcb1bd7fb1c7c1ecebdb3480801c8080,
+            ]),))
+            .unwrap(),
+        ),
     ];
 
     for block in shared_tipset.block_headers() {
@@ -1563,6 +1569,7 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
+
             tests.push(RpcTest::identity(
                 EthGetMessageCidByTransactionHash::request((tx.hash.clone(),))?,
             ));
