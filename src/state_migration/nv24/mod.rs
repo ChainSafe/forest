@@ -7,16 +7,13 @@ mod power;
 
 /// Run migration for `NV24`. This should be the only exported method in this
 /// module.
-#[allow(unused_imports)]
 pub use migration::run_migration;
 
 use crate::{define_system_states, impl_system, impl_verifier};
 
 define_system_states!(
     fil_actor_system_state::v14::State,
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4804
-    // This should point to the new state type, e.g., `fil_actor_system_state::v15::State`
-    fil_actor_system_state::v14::State
+    fil_actor_system_state::v15::State
 );
 
 impl_system!();

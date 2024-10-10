@@ -147,7 +147,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         ),
         make_height!(
             TukTuk,
-            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(9999999999)
+            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(9999999999),
+            get_bundle_cid("v15.0.0-rc1")
         ),
     ])
 });
