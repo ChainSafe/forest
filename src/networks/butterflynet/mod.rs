@@ -18,7 +18,7 @@ use super::{
     DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V22;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V23;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -40,7 +40,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzacebmqn35nebrnlpymcubuhfrocz5ujngmkt5qyh56dye6dnwv4alw2").unwrap()
+    Cid::from_str("bafy2bzacecqfnzdjcmjisrj6qvdaohweaxdvgwfej2sb4eklw3ksatbg7xj4k").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
