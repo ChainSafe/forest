@@ -414,35 +414,23 @@ pub(super) async fn start(
         });
 
         services.spawn_blocking({
-            let finality = std::env::var("FOREST_F3_FINALITY")
-                .ok()
-                .and_then(|v| match v.parse::<i64>() {
-                    Ok(f) if f > 0 => {
-                        tracing::info!("Using F3 finality {f} set by FOREST_F3_FINALITY");
-                        Some(f)
-                    }
-                    _ => {
-                        tracing::warn!(
-                            "Invalid FOREST_F3_FINALITY value {v}. A positive integer is expected."
-                        );
-                        None
-                    }
-                })
-                .unwrap_or(chain_config.policy.chain_finality);
             let default_f3_root = config.client.data_dir.join(format!("f3/{}", config.chain));
+            let crate::f3::F3Options {
+                chain_finality,
+                bootstrap_epoch,
+                initial_power_table,
+                manifest_server,
+            } = crate::f3::get_f3_sidecar_params(&chain_config);
             move || {
-                // This will be used post-bootstrap to hard-code the initial F3's initial power table CID.
-                // Read from an environment variable for now before the hard-coded value is determined.
-                let initial_power_table =
-                    std::env::var("FOREST_F3_INITIAL_POWER_TABLE").unwrap_or_default();
                 crate::f3::run_f3_sidecar_if_enabled(
                     format!("http://{rpc_address}/rpc/v1"),
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
-                    initial_power_table,
-                    finality,
+                    initial_power_table.to_string(),
+                    bootstrap_epoch,
+                    chain_finality,
                     std::env::var("FOREST_F3_ROOT")
                         .unwrap_or(default_f3_root.display().to_string()),
-                    std::env::var("FOREST_F3_MANIFEST_SERVER").unwrap_or_default(),
+                    manifest_server.map(|i| i.to_string()).unwrap_or_default(),
                 );
                 Ok(())
             }
