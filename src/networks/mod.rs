@@ -230,6 +230,7 @@ pub struct ChainConfig {
     pub fip0081_ramp_duration_epochs: u64,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
+    // This will likely be deprecated once F3 is fully bootstrapped to avoid single point network dependencies.
     #[cfg_attr(test, arbitrary(gen(|_| Some(libp2p::PeerId::random()))))]
     pub f3_manifest_server: Option<libp2p::PeerId>,
 }
