@@ -53,13 +53,28 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
             tracing::info!("Using F3 bootstrap epoch {i} set by FOREST_F3_BOOTSTRAP_EPOCH")
         })
         .unwrap_or(chain_config.f3_bootstrap_epoch);
-    let manifest_server = std::env::var("FOREST_F3_MANIFEST_SERVER")
-        .ok()
-        .and_then(|i| i.parse().ok())
-        .inspect(|i| {
-            tracing::info!("Using F3 manifest server {i} set by FOREST_F3_MANIFEST_SERVER")
-        })
-        .or(chain_config.f3_manifest_server);
+    let manifest_server = match std::env::var("FOREST_F3_MANIFEST_SERVER") {
+        Ok(v) => {
+            if v.is_empty() {
+                None
+            } else {
+                match v.parse() {
+                    Ok(i) => Some(i),
+                    _ => {
+                        tracing::warn!(
+                            "Invalid libp2p peer id {v} set by FOREST_F3_MANIFEST_SERVER"
+                        );
+                        None
+                    }
+                }
+                .inspect(|i| {
+                    tracing::info!("Using F3 manifest server {i} set by FOREST_F3_MANIFEST_SERVER")
+                })
+                .or(chain_config.f3_manifest_server)
+            }
+        }
+        _ => chain_config.f3_manifest_server,
+    };
 
     F3Options {
         chain_finality,
@@ -154,6 +169,20 @@ mod tests {
                         .parse()
                         .unwrap()
                 ),
+            }
+        );
+
+        // Unset FOREST_F3_MANIFEST_SERVER
+        std::env::set_var("FOREST_F3_MANIFEST_SERVER", "");
+        assert_eq!(
+            get_f3_sidecar_params(&chain_config),
+            F3Options {
+                chain_finality: 100,
+                bootstrap_epoch: 100,
+                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
+                    .parse()
+                    .unwrap(),
+                manifest_server: None,
             }
         );
     }
