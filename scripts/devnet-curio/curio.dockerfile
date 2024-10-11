@@ -1,9 +1,9 @@
 #####################################
-ARG LOTUS_TEST_IMAGE=ghcr.io/chainsafe/lotus-devnet
-FROM ${LOTUS_TEST_IMAGE} as lotus-test
+ARG LOTUS_IMAGE=ghcr.io/chainsafe/lotus-devnet:2024-10-10-600728e
+FROM ${LOTUS_IMAGE} as lotus-test
 FROM golang:1.22.3-bullseye AS curio-builder
 
-RUN apt-get update && apt-get install -y ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev
 
 ENV XDG_CACHE_HOME="/tmp"
 
@@ -13,7 +13,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.63.0
 
-RUN set -eux; \
+RUN set -euxo pipefail; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
     amd64) rustArch='x86_64-unknown-linux-gnu'; rustupSha256='5cc9ffd1026e82e7fb2eec2121ad71f4b0f044e88bca39207b3f6b769aaa799c' ;; \
@@ -21,7 +21,7 @@ RUN set -eux; \
     *) echo >&2 "unsupported architecture: ${dpkgArch}"; exit 1 ;; \
     esac; \
     url="https://static.rust-lang.org/rustup/archive/1.25.1/${rustArch}/rustup-init"; \
-    wget "$url"; \
+    wget --quiet "$url"; \
     echo "${rustupSha256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
     ./rustup-init -y --no-modify-path --profile minimal --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
@@ -49,7 +49,7 @@ RUN make build
 #####################################
 FROM ubuntu:22.04 AS curio-all-in-one
 
-RUN apt-get update && apt-get install -y dnsutils vim curl aria2
+RUN apt-get update && apt-get install -y --no-install-recommends dnsutils vim curl aria2
 
 # Copy libraries and binaries from curio-builder
 COPY --from=curio-builder /etc/ssl/certs /etc/ssl/certs
