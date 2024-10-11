@@ -589,6 +589,24 @@ impl RpcMethod<0> for F3IsRunning {
     }
 }
 
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#F3GetProgress>
+pub enum F3GetProgress {}
+impl RpcMethod<0> for F3GetProgress {
+    const NAME: &'static str = "Filecoin.F3GetProgress";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
 /// F3Participate should be called by a storage provider to participate in signing F3 consensus.
 /// Calling this API gives the node a lease to sign in F3 on behalf of given SP.
 /// The lease should be active only on one node. The lease will expire at the newLeaseExpiration.
