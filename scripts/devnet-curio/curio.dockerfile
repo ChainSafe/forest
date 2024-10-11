@@ -1,5 +1,5 @@
 #####################################
-ARG LOTUS_IMAGE=ghcr.io/chainsafe/lotus-devnet:2024-10-10-600728e
+ARG LOTUS_IMAGE
 # hadolint ignore=DL3006
 FROM ${LOTUS_IMAGE} as lotus-test
 FROM golang:1.22.3-bullseye AS curio-builder

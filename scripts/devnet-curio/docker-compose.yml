@@ -241,6 +241,7 @@ services:
       dockerfile: curio.dockerfile
       args:
         GOFLAGS: "-tags=debug"
+        LOTUS_IMAGE: ${LOTUS_IMAGE}
     init: true
     ports:
       - "12300:12300" # API
