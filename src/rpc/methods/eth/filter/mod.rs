@@ -245,11 +245,12 @@ impl EthEventHandler {
                             tipset.epoch()
                         )
                     });
-                if result.is_err() {
+                let resolved = if let Ok(resolved) = result {
+                    resolved
+                } else {
                     // Skip event
                     continue;
                 };
-                let resolved = result.expect("Infallible");
 
                 let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
 
