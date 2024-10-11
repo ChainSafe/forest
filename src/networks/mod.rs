@@ -228,6 +228,11 @@ pub struct ChainConfig {
     pub breeze_gas_tamping_duration: i64,
     // FIP0081 gradually comes into effect over this many epochs.
     pub fip0081_ramp_duration_epochs: u64,
+    pub f3_bootstrap_epoch: i64,
+    pub f3_initial_power_table: Cid,
+    // This will likely be deprecated once F3 is fully bootstrapped to avoid single point network dependencies.
+    #[cfg_attr(test, arbitrary(gen(|_| Some(libp2p::PeerId::random()))))]
+    pub f3_manifest_server: Option<libp2p::PeerId>,
 }
 
 impl ChainConfig {
@@ -249,6 +254,13 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
+                    .parse()
+                    .expect("Invalid PeerId"),
+            ),
         }
     }
 
@@ -270,6 +282,13 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
+                    .parse()
+                    .expect("Invalid PeerId"),
+            ),
         }
     }
 
@@ -288,12 +307,14 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // Devnet ramp is 200 epochs in Lotus (subject to change).
             fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: None,
         }
     }
 
     pub fn butterflynet() -> Self {
         use butterflynet::*;
-
         Self {
             network: NetworkChain::Butterflynet,
             genesis_cid: Some(GENESIS_CID.to_string()),
@@ -312,6 +333,13 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: env_or_default(
                 ENV_PLEDGE_RULE_RAMP,
                 365 * EPOCHS_IN_DAY as u64,
+            ),
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
+                    .parse()
+                    .expect("Invalid PeerId"),
             ),
         }
     }
@@ -606,5 +634,13 @@ mod tests {
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"
         );
+    }
+
+    #[test]
+    fn chain_config() {
+        ChainConfig::mainnet();
+        ChainConfig::calibnet();
+        ChainConfig::devnet();
+        ChainConfig::butterflynet();
     }
 }

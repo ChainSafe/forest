@@ -1442,7 +1442,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+            EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
+                .unwrap(),
         ),
         RpcTest::identity(
             EthGetTransactionCount::request((
@@ -1456,7 +1457,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
-                BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
+                BlockNumberOrHash::BlockNumber(EthInt64(shared_tipset.epoch())),
             ))
             .unwrap(),
         ),
