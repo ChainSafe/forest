@@ -1,5 +1,6 @@
 #####################################
 ARG LOTUS_IMAGE=ghcr.io/chainsafe/lotus-devnet:2024-10-10-600728e
+# hadolint ignore=DL3006
 FROM ${LOTUS_IMAGE} as lotus-test
 FROM golang:1.22.3-bullseye AS curio-builder
 
@@ -13,7 +14,9 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.63.0
 
-RUN set -euxo pipefail; \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN set -eux; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
     amd64) rustArch='x86_64-unknown-linux-gnu'; rustupSha256='5cc9ffd1026e82e7fb2eec2121ad71f4b0f044e88bca39207b3f6b769aaa799c' ;; \
@@ -49,7 +52,10 @@ RUN make build
 #####################################
 FROM ubuntu:22.04 AS curio-all-in-one
 
-RUN apt-get update && apt-get install -y --no-install-recommends dnsutils vim curl aria2
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends dnsutils vim curl aria2 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy libraries and binaries from curio-builder
 COPY --from=curio-builder /etc/ssl/certs /etc/ssl/certs
