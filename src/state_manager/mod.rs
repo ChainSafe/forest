@@ -17,7 +17,7 @@ use crate::chain::{
 };
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
-    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
+    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, EventCache, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
@@ -288,8 +288,12 @@ where
         &self.sync_config
     }
 
-    pub fn store_events(&self) -> bool {
-        self.store_events
+    pub fn enable_event_caching(&self) -> EventCache {
+        if self.store_events {
+            EventCache::Cached
+        } else {
+            EventCache::NotCached
+        }
     }
 
     /// Gets the state tree
@@ -773,7 +777,7 @@ where
             tipset,
             callback,
             enable_tracing,
-            self.store_events(),
+            self.enable_event_caching(),
         )?)
     }
 
@@ -1382,7 +1386,7 @@ where
             self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
-            self.store_events(),
+            self.enable_event_caching(),
         )
     }
 
@@ -1494,7 +1498,7 @@ pub fn validate_tipsets<DB, T>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipsets: T,
-    store_events: bool,
+    enable_event_caching: EventCache,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1519,7 +1523,7 @@ where
                 parent,
                 NO_CALLBACK,
                 VMTrace::NotTraced,
-                store_events,
+                enable_event_caching,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;
@@ -1627,7 +1631,7 @@ pub fn apply_block_messages<DB>(
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-    store_events: bool,
+    enable_event_caching: EventCache,
 ) -> Result<StateOutput, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1649,7 +1653,11 @@ where
         return Ok(StateOutput {
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
-            events: if store_events { Some(vec![]) } else { None },
+            events: if enable_event_caching.is_cached() {
+                Some(vec![])
+            } else {
+                None
+            },
         });
     }
 
@@ -1723,7 +1731,7 @@ where
 
         // step 4: apply tipset messages
         let (receipts, events) =
-            vm.apply_block_messages(&block_messages, epoch, callback, store_events)?;
+            vm.apply_block_messages(&block_messages, epoch, callback, enable_event_caching)?;
 
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;

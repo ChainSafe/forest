@@ -8,7 +8,7 @@ use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::interpreter::{EventCache, MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
@@ -440,7 +440,7 @@ where
         beacon,
         &MultiEngine::default(),
         tipsets,
-        false,
+        EventCache::NotCached,
     )?;
 
     pb.finish_with_message("✅ verified!");
@@ -506,7 +506,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
         }, // enable traces if json flag is used
-        false,
+        EventCache::NotCached,
     )?;
 
     if json {

@@ -354,7 +354,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-        store_events: bool,
+        enable_event_caching: EventCache,
     ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
@@ -388,7 +388,7 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                if store_events {
+                if enable_event_caching.is_cached() {
                     events.push(ret.events());
                 }
 
@@ -437,7 +437,14 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((receipts, if store_events { Some(events) } else { None }))
+        Ok((
+            receipts,
+            if enable_event_caching.is_cached() {
+                Some(events)
+            } else {
+                None
+            },
+        ))
     }
 
     /// Applies single message through VM and returns result from execution.
@@ -597,5 +604,23 @@ impl VMTrace {
     /// Should tracing be collected?
     pub fn is_traced(&self) -> bool {
         matches!(self, VMTrace::Traced)
+    }
+}
+
+/// Caching events will use more memory.
+/// This controls whether we should cache or not events when a state transition is performed.
+#[derive(Default, Clone, Copy)]
+pub enum EventCache {
+    /// Store event in the tipset state cache
+    Cached,
+    /// Do not cache event
+    #[default]
+    NotCached,
+}
+
+impl EventCache {
+    /// Should event be kept in cache?
+    pub fn is_cached(&self) -> bool {
+        matches!(self, EventCache::Cached)
     }
 }
