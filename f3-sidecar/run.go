@@ -21,7 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialPowerTable string, finality int64, f3Root string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -72,13 +72,23 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialP
 	if err != nil {
 		return err
 	}
-	m.EC.Period = time.Duration(versionInfo.BlockDelay) * time.Second
+
+	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
+	m.EC.Period = blockDelay
+	m.CatchUpAlignment = blockDelay / 2
+
 	head, err := ec.GetHead(ctx)
 	if err != nil {
 		return err
 	}
 	m.EC.Finality = finality
-	m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
+	if bootstrapEpoch < 0 {
+		// This is temporary logic to make the dummy bootstrap epoch work locally.
+		// It should be removed once bootstrapEpochs are determinted.
+		m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
+	} else {
+		m.BootstrapEpoch = bootstrapEpoch
+	}
 	m.CommitteeLookback = 5
 	// m.Pause = true
 

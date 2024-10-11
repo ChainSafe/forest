@@ -501,7 +501,6 @@ impl WalletCommands {
                     gas_limit: gas_limit as u64,
                     gas_fee_cap: gas_feecap,
                     gas_premium,
-                    // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
                     ..Default::default()
                 };
 

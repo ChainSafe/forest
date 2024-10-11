@@ -49,3 +49,11 @@ func (h *F3ServerHandler) F3GetLatestCertificate(ctx context.Context) (*certs.Fi
 func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gpbft.PowerEntries, error) {
 	return h.f3.GetPowerTable(ctx, tsk)
 }
+
+func (h *F3ServerHandler) F3IsRunning(_ context.Context) bool {
+	return h.f3.IsRunning()
+}
+
+func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
+	return h.f3.Progress()
+}
