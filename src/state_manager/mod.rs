@@ -241,7 +241,7 @@ pub struct StateManager<DB> {
     chain_config: Arc<ChainConfig>,
     sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
-    store_events: bool,
+    enable_event_caching: EventCache,
 }
 
 #[allow(clippy::type_complexity)]
@@ -255,7 +255,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
-        store_events: bool,
+        enable_event_caching: bool,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
@@ -266,7 +266,11 @@ where
             beacon,
             chain_config,
             sync_config,
-            store_events,
+            enable_event_caching: if enable_event_caching {
+                EventCache::Cached
+            } else {
+                EventCache::NotCached
+            },
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -289,11 +293,7 @@ where
     }
 
     pub fn enable_event_caching(&self) -> EventCache {
-        if self.store_events {
-            EventCache::Cached
-        } else {
-            EventCache::NotCached
-        }
+        self.enable_event_caching
     }
 
     /// Gets the state tree
