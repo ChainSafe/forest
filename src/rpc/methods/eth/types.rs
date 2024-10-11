@@ -221,7 +221,7 @@ impl TryFrom<EthAddress> for FilecoinAddress {
 pub enum BlockNumberOrPredefined {
     #[schemars(with = "String")]
     PredefinedBlock(Predefined),
-    BlockNumber(Int64),
+    BlockNumber(EthInt64),
 }
 lotus_json_with_self!(BlockNumberOrPredefined);
 
@@ -237,7 +237,7 @@ impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthFeeHistoryResult {
-    pub oldest_block: Uint64,
+    pub oldest_block: EthUint64,
     pub base_fee_per_gas: Vec<EthBigInt>,
     pub gas_used_ratio: Vec<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -256,7 +256,7 @@ pub struct GasReward {
 pub struct EthCallMessage {
     pub from: Option<EthAddress>,
     pub to: Option<EthAddress>,
-    pub gas: Uint64,
+    pub gas: EthUint64,
     pub gas_price: EthBigInt,
     pub value: EthBigInt,
     pub data: EthBytes,
