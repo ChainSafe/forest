@@ -209,7 +209,6 @@ impl EthEventHandler {
     }
 
     async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
-        &self,
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
         spec: &EthFilterSpec,
@@ -334,8 +333,7 @@ impl EthEventHandler {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
                 let tipset = Arc::new(tipset);
-                self.collect_events(ctx, &tipset, &spec, &mut collected_events)
-                    .await?;
+                Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
@@ -364,8 +362,7 @@ impl EthEventHandler {
                     .take(num_tipsets)
                 {
                     let tipset = Arc::new(tipset);
-                    self.collect_events(ctx, &tipset, &spec, &mut collected_events)
-                        .await?;
+                    Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
                 }
             }
         }

@@ -2367,7 +2367,7 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
 ) -> anyhow::Result<Option<EthHash>> {
     eth_tx_hash_from_message_cid_internal(
         ctx.store(),
-        &message_cid,
+        message_cid,
         ctx.state_manager.chain_config().eth_chain_id,
     )
 }
@@ -2645,7 +2645,5 @@ mod test {
 
         let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp1.cid(), 0).unwrap();
         assert!(tx_hash.is_none());
-
-        assert!(true);
     }
 }
