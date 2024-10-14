@@ -225,7 +225,7 @@ impl EthEventHandler {
         let events = if let Some(events) = events {
             events
         } else {
-            tracing::warn!("No events stored");
+            tracing::warn!("No events cached");
             return Ok(());
         };
         (messages.len() == events.len())
