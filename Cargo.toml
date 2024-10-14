@@ -40,7 +40,7 @@ crypto_secretbox = "0.1"
 daemonize-me = "2"
 data-encoding = "2"
 data-encoding-macro = "0.1"
-derive_builder = "0.20.2"
+derive_builder = "0.20"
 derive_more = { version = "1", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
