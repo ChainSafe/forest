@@ -448,12 +448,12 @@ where
             state_root,
             receipt_root,
             ..
-        } = self.tipset_state_plus(tipset).await?;
+        } = self.tipset_state_output(tipset).await?;
         Ok((state_root, receipt_root))
     }
 
     #[instrument(skip(self))]
-    pub async fn tipset_state_plus(
+    pub async fn tipset_state_output(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<StateOutput> {
