@@ -339,9 +339,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.13"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e614738943d3f68c628ae3dbce7c3daffb196665f82f8c8ea6b65de73c79429"
+checksum = "e26a9844c659a2a293d239c7910b752f8487fe122c6c8bd1659bf85a6507c302"
 dependencies = [
  "futures-core",
  "memchr",
@@ -1294,9 +1294,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.19"
+version = "4.5.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7be5744db7978a28d9df86a214130d106a89ce49644cbc4e3f0c22c3fba30615"
+checksum = "b97f376d85a664d5837dbae44bf546e6477a679ff6610010f17276f686d867e8"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1304,9 +1304,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.19"
+version = "4.5.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5fbc17d3ef8278f55b282b2a2e75ae6f6c7d4bb70ed3d0382375104bfafdb4b"
+checksum = "19bc80abd44e4bed93ca373a0704ccbd1b710dc5749406201bb018272808dc54"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2172,11 +2172,11 @@ dependencies = [
 
 [[package]]
 name = "derive_builder"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd33f37ee6a119146a1781d3356a7c26028f83d779b2e04ecd45fdc75c76877b"
+checksum = "507dfb09ea8b7fa618fcf76e953f4f5e192547945816d5358edffe39f6f94947"
 dependencies = [
- "derive_builder_macro 0.20.1",
+ "derive_builder_macro 0.20.2",
 ]
 
 [[package]]
@@ -2193,9 +2193,9 @@ dependencies = [
 
 [[package]]
 name = "derive_builder_core"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7431fa049613920234f22c47fdc33e6cf3ee83067091ea4277a3f8c4587aae38"
+checksum = "2d5bcf7b024d6835cfb3d473887cd966994907effbe9227e8c8219824d06c4e8"
 dependencies = [
  "darling 0.20.10",
  "proc-macro2",
@@ -2215,11 +2215,11 @@ dependencies = [
 
 [[package]]
 name = "derive_builder_macro"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4abae7035bf79b9877b779505d8cf3749285b80c43941eda66604841889451dc"
+checksum = "ab63b0e2bf4d5928aff72e83a7dace85d7bba5fe12dcc3c5a572d78caffd3f3c"
 dependencies = [
- "derive_builder_core 0.20.1",
+ "derive_builder_core 0.20.2",
  "syn 2.0.79",
 ]
 
@@ -3180,7 +3180,7 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "derive-quickcheck-arbitrary",
- "derive_builder 0.20.1",
+ "derive_builder 0.20.2",
  "derive_more 1.0.0",
  "dialoguer",
  "digest 0.10.7",
@@ -7321,15 +7321,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.238"
+version = "0.0.239"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be44a831ab3d686cef80b5bd26173d18ed0c741a7844c4bbceeb90d4c933d047"
+checksum = "e30e94cfc9bdc319ab6388d129a84580a907090bbcfb6a2c021905a3f5da169c"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.238"
+version = "0.0.239"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c6ab0585107a4dbfaf8c9a4372bb9ee7c703a6074c90b26de4493017e5090c6"
+checksum = "0501c3e3e6e6bf4fa1797e5b92f4b1e1cc24f865ba35958beebb6625f33cbd15"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7339,9 +7339,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.238"
+version = "0.0.239"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b67cde317ebf6c3caf16b944f04524e559f417b590b12422d97eb88ec830441"
+checksum = "398483bbc1c886c0af6244003836b72c80c8f5d3dfe1fd093aa431b9323b7f80"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7354,9 +7354,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.238"
+version = "0.0.239"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "442153ff4e62849fed34bb952aff8b5401024c619a55f6e2e0afebf3cf8ecadc"
+checksum = "1e72e2b10207ff345f7023267b9e7f025ab795e6a2c6cfb0543e5afaf33c3756"
 dependencies = [
  "cov-mark",
  "either",
@@ -7375,9 +7375,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.238"
+version = "0.0.239"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "312ded473b1fba2d7e980788acf7b138981d49df00396b1ba0bb48a1dc320347"
+checksum = "e480b0e3eab97cce9665643834a89b4eb01047987a5ddd35c401f277523225bd"
 dependencies = [
  "itertools 0.12.1",
  "text-size",

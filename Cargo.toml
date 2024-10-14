@@ -40,7 +40,7 @@ crypto_secretbox = "0.1"
 daemonize-me = "2"
 data-encoding = "2"
 data-encoding-macro = "0.1"
-derive_builder = "0.20.1"
+derive_builder = "0.20.2"
 derive_more = { version = "1", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
@@ -226,7 +226,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.238"
+ra_ap_syntax = "0.0.239"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
