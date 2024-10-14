@@ -83,7 +83,7 @@ docker exec -it curio /bin/bash
 And then run:
 
 ```
-curio seal start --now --cc --actor t00002
+curio seal start --now --cc --actor t01002
 ```
 
 You can inspect the status at `localhost:4701`. After a few hours, the sectors
