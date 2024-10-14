@@ -2365,14 +2365,23 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     ctx: &Ctx<DB>,
     message_cid: &Cid,
 ) -> anyhow::Result<Option<EthHash>> {
-    if let Ok(smsg) = crate::chain::message_from_cid(ctx.store(), message_cid) {
+    eth_tx_hash_from_message_cid_internal(
+        ctx.store(),
+        &message_cid,
+        ctx.state_manager.chain_config().eth_chain_id,
+    )
+}
+
+fn eth_tx_hash_from_message_cid_internal<DB: Blockstore>(
+    blockstore: &DB,
+    message_cid: &Cid,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<Option<EthHash>> {
+    if let Ok(smsg) = crate::chain::message_from_cid(blockstore, message_cid) {
         // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return Ok(Some(eth_tx_hash_from_signed_message(
-            &smsg,
-            ctx.state_manager.chain_config().eth_chain_id,
-        )?));
+        return Ok(Some(eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?));
     }
-    let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
+    let result: Result<Message, _> = crate::chain::message_from_cid(blockstore, message_cid);
     if result.is_ok() {
         // This is a BLS message
         let hash: EthHash = (*message_cid).into();
@@ -2462,7 +2471,10 @@ impl RpcMethod<1> for EthGetLogs {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_utils::{construct_bls_messages, construct_eth_messages, construct_messages};
+    use crate::{
+        db::MemoryDB,
+        test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
+    };
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
@@ -2612,5 +2624,33 @@ mod test {
             eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
                 .unwrap();
         assert_eq!(tx_hash.to_cid(), signed.message().cid());
+    }
+
+    #[test]
+    fn test_eth_tx_hash_from_message_cid_internal() {
+        let blockstore = Arc::new(MemoryDB::default());
+
+        let (msg0, secp0) = construct_eth_messages(0);
+        let (msg1, secp1) = construct_eth_messages(1);
+        let (msg2, bls0) = construct_bls_messages();
+
+        crate::chain::persist_objects(
+            &blockstore,
+            [msg0.clone(), msg1.clone(), msg2.clone()].iter(),
+        )
+        .unwrap();
+        crate::chain::persist_objects(
+            &blockstore,
+            [secp0.clone(), secp1.clone(), bls0.clone()].iter(),
+        )
+        .unwrap();
+
+        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp0.cid(), 0).unwrap();
+        assert!(tx_hash.is_some());
+
+        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &msg2.cid(), 0).unwrap();
+        assert!(tx_hash.is_some());
+
+        assert!(true);
     }
 }
