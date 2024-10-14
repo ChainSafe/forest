@@ -34,6 +34,7 @@ use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Entry;
 use crate::state_manager::StateOutput;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
@@ -208,12 +209,11 @@ impl EthEventHandler {
         )
     }
 
-    fn do_collect(
-        spec: &EthFilterSpec,
-        event_idx: u64,
-        eth_emitter_addr: &EthAddress,
-        entries: &Vec<EventEntry>,
-    ) -> bool {
+    fn do_match(spec: &EthFilterSpec, eth_emitter_addr: &EthAddress, entries: &[Entry]) -> bool {
+        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
+            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
+        }
+
         let match_addr = if spec.address.is_empty() {
             true
         } else {
@@ -221,28 +221,14 @@ impl EthEventHandler {
         };
         let match_topics = if let Some(spec) = spec.topics.as_ref() {
             let matched = entries.iter().any(|entry| {
-                let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
-                if let Ok(slice) = result {
-                    let hash: EthHash = slice.into();
-                    tracing::debug!(
-                        "Do entry (key: {}, value: {}, codec: {}, flags: {}) match: {:?}?",
-                        entry.key,
-                        hash,
-                        entry.codec,
-                        entry.flags,
-                        spec.0,
-                    );
+                if let Some(slice) = get_word(entry.value()) {
+                    let hash: EthHash = slice.clone().into();
                     spec.0.iter().any(|list| list.0.contains(&hash))
                 } else {
                     // Drop events with mis-sized topics
                     false
                 }
             });
-            tracing::debug!(
-                "Event {} {}match filter topics",
-                event_idx,
-                if matched { "" } else { "do not " }
-            );
             matched
         } else {
             true
@@ -298,22 +284,28 @@ impl EthEventHandler {
 
                 let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
 
-                let entries = event
-                    .event()
-                    .entries()
-                    .into_iter()
-                    .map(|entry| {
-                        let (flags, key, codec, value) = entry.into_parts();
-                        EventEntry {
-                            flags,
-                            key,
-                            codec,
-                            value: value.into(),
-                        }
-                    })
-                    .collect();
+                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
 
-                if Self::do_collect(spec, event_idx, &eth_emitter_addr, &entries) {
+                let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
+                tracing::debug!(
+                    "Event {} {}match filter topics",
+                    event_idx,
+                    if matched { "" } else { "do not " }
+                );
+                if matched {
+                    let entries: Vec<EventEntry> = entries
+                        .into_iter()
+                        .map(|entry| {
+                            let (flags, key, codec, value) = entry.into_parts();
+                            EventEntry {
+                                flags,
+                                key,
+                                codec,
+                                value: value.into(),
+                            }
+                        })
+                        .collect();
+
                     let ce = CollectedEvent {
                         entries,
                         emitter_addr: resolved,
@@ -755,5 +747,30 @@ mod tests {
                 &filter_id
             );
         }
+    }
+
+    #[test]
+    fn test_do_match() {
+        let empty_spec = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: None,
+            block_hash: None,
+        };
+
+        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
+
+        let eth_addr1 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64ab").unwrap();
+
+        let topics_0 = vec![];
+
+        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
+
+        assert!(EthEventHandler::do_match(
+            &empty_spec,
+            &eth_addr0,
+            &topics_0
+        ));
     }
 }

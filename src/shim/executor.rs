@@ -19,6 +19,7 @@ use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::event::ActorEvent as ActorEvent_v4;
 use fvm_shared4::event::Entry as Entry_v4;
+use fvm_shared4::event::Flags;
 use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -230,6 +231,15 @@ impl From<Entry_v4> for Entry {
 }
 
 impl Entry {
+    pub fn new(flags: Flags, key: String, codec: u64, value: Vec<u8>) -> Self {
+        Entry::V4(Entry_v4 {
+            flags,
+            key,
+            codec,
+            value,
+        })
+    }
+
     pub fn into_parts(self) -> (u64, String, u64, Vec<u8>) {
         match self {
             Self::V3(v3) => {
@@ -250,6 +260,13 @@ impl Entry {
                 } = v4;
                 (flags.bits(), key, codec, value)
             }
+        }
+    }
+
+    pub fn value(&self) -> &Vec<u8> {
+        match self {
+            Self::V3(v3) => &v3.value,
+            Self::V4(v4) => &v4.value,
         }
     }
 }
