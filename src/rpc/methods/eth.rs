@@ -2631,25 +2631,20 @@ mod test {
         let blockstore = Arc::new(MemoryDB::default());
 
         let (msg0, secp0) = construct_eth_messages(0);
-        let (msg1, secp1) = construct_eth_messages(1);
+        let (_msg1, secp1) = construct_eth_messages(1);
         let (msg2, bls0) = construct_bls_messages();
 
-        crate::chain::persist_objects(
-            &blockstore,
-            [msg0.clone(), msg1.clone(), msg2.clone()].iter(),
-        )
-        .unwrap();
-        crate::chain::persist_objects(
-            &blockstore,
-            [secp0.clone(), secp1.clone(), bls0.clone()].iter(),
-        )
-        .unwrap();
+        crate::chain::persist_objects(&blockstore, [msg0.clone(), msg2.clone()].iter()).unwrap();
+        crate::chain::persist_objects(&blockstore, [secp0.clone(), bls0.clone()].iter()).unwrap();
 
         let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp0.cid(), 0).unwrap();
         assert!(tx_hash.is_some());
 
         let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &msg2.cid(), 0).unwrap();
         assert!(tx_hash.is_some());
+
+        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp1.cid(), 0).unwrap();
+        assert!(tx_hash.is_none());
 
         assert!(true);
     }
