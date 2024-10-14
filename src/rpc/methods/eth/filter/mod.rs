@@ -228,9 +228,10 @@ impl EthEventHandler {
             tracing::warn!("No events cached");
             return Ok(());
         };
-        (messages.len() == events.len())
-            .then_some(..)
-            .context("length of messages and events mismatch")?;
+        ensure!(
+            messages.len() == events.len(),
+            "Length of messages and events do not match"
+        );
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
             for (j, event) in events.iter().enumerate() {
                 let id_addr = Address::new_id(event.emitter());
