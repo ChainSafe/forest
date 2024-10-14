@@ -2347,13 +2347,12 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
     Some((data, topics))
 }
 
-fn eth_tx_hash_from_signed_message<DB: Blockstore>(
-    ctx: &Ctx<DB>,
+fn eth_tx_hash_from_signed_message(
     message: &SignedMessage,
+    eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<EthHash> {
     if message.is_delegated() {
-        let (_, tx) =
-            eth_tx_from_signed_eth_message(message, ctx.state_manager.chain_config().eth_chain_id)?;
+        let (_, tx) = eth_tx_from_signed_eth_message(message, eth_chain_id)?;
         Ok(tx.eth_hash()?.into())
     } else if message.is_secp256k1() {
         Ok(message.cid().into())
@@ -2368,7 +2367,10 @@ fn eth_tx_hash_from_message_cid<DB: Blockstore>(
 ) -> anyhow::Result<Option<EthHash>> {
     if let Ok(smsg) = crate::chain::message_from_cid(ctx.store(), message_cid) {
         // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return Ok(Some(eth_tx_hash_from_signed_message(ctx, &smsg)?));
+        return Ok(Some(eth_tx_hash_from_signed_message(
+            &smsg,
+            ctx.state_manager.chain_config().eth_chain_id,
+        )?));
     }
     let result: Result<Message, _> = crate::chain::message_from_cid(ctx.store(), message_cid);
     if result.is_ok() {
@@ -2460,6 +2462,7 @@ impl RpcMethod<1> for EthGetLogs {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::test_utils::{construct_bls_messages, construct_eth_messages, construct_messages};
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
@@ -2585,5 +2588,29 @@ mod test {
 
         let block = Block::new(true, 1);
         assert_eq!(block.transactions_root, EthHash::default());
+    }
+
+    #[test]
+    fn test_eth_tx_hash_from_signed_message() {
+        let (_, signed) = construct_eth_messages(0);
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(
+            &format!("{}", tx_hash),
+            "0xfc81dd8d9ffb045e7e2d494f925824098183263c7f402d69e18cc25e3422791b"
+        );
+
+        let (_, signed) = construct_messages();
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(tx_hash.to_cid(), signed.cid());
+
+        let (_, signed) = construct_bls_messages();
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(tx_hash.to_cid(), signed.message().cid());
     }
 }
