@@ -73,7 +73,8 @@ genesis file.
 
 ## Testing mining
 
-By default, Curio won't mine any sectors. You can add sectors by starting a new container:
+By default, Curio won't mine any sectors. You can add sectors by starting a new
+container:
 
 ```
 docker exec -it curio /bin/bash
@@ -85,4 +86,5 @@ And then run:
 curio seal start --now --cc --actor t00002
 ```
 
-You can inspect the status at `localhost:4701`. After a few hours, the sectors should be sealed and proven.
+You can inspect the status at `localhost:4701`. After a few hours, the sectors
+should be sealed and proven.
