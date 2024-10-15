@@ -538,6 +538,8 @@ struct ParsedFilter {
 
 #[cfg(test)]
 mod tests {
+    use fvm_shared4::event::Flags;
+
     use super::*;
     use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use std::str::FromStr;
@@ -763,7 +765,12 @@ mod tests {
 
         let eth_addr1 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64ab").unwrap();
 
-        let topics_0 = vec![];
+        let topics_0 = vec![Entry::new(
+            Flags::FLAG_INDEXED_ALL,
+            "t1".into(),
+            IPLD_RAW,
+            vec![],
+        )];
 
         assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
 
