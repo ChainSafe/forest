@@ -287,7 +287,9 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
-            f3_enabled: true,
+            // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
+            // (state tree of epoch 2_081_674 - 900 has to be present in the database if `f3_initial_power_table` is not set)
+            f3_enabled: false,
             f3_consensus: true,
             // 2024-10-24T13:30:00Z
             f3_bootstrap_epoch: 2_081_674,
