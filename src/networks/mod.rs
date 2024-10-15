@@ -287,9 +287,10 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
-            f3_enabled: false,
-            f3_consensus: false,
-            f3_bootstrap_epoch: -1,
+            f3_enabled: true,
+            f3_consensus: true,
+            // 2024-10-24T13:30:00Z
+            f3_bootstrap_epoch: 2_081_674,
             f3_initial_power_table: Default::default(),
             f3_manifest_server: Some(
                 "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
