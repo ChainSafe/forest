@@ -363,6 +363,7 @@ pub(super) async fn start(
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
+    let sync_network_context = chain_muxer.sync_network_context();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
     if config.client.enable_health_check {
@@ -402,7 +403,7 @@ pub(super) async fn start(
                     bad_blocks,
                     sync_state,
                     eth_event_handler: Arc::new(EthEventHandler::new()),
-                    network_send,
+                    sync_network_context,
                     network_name,
                     start_time,
                     shutdown: shutdown_send,
@@ -414,6 +415,7 @@ pub(super) async fn start(
         });
 
         services.spawn_blocking({
+            let chain_config = chain_config.clone();
             let default_f3_root = config.client.data_dir.join(format!("f3/{}", config.chain));
             let crate::f3::F3Options {
                 chain_finality,
@@ -423,6 +425,7 @@ pub(super) async fn start(
             } = crate::f3::get_f3_sidecar_params(&chain_config);
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
+                    &chain_config,
                     format!("http://{rpc_address}/rpc/v1"),
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
                     initial_power_table.to_string(),

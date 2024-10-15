@@ -9,10 +9,12 @@ import (
 
 func init() {
 	setGoDebugEnv()
-	logging.SetAllLoggers(logging.LevelWarn)
-	err := logging.SetLogLevel("f3/sidecar", "info")
+	logging.SetAllLoggers(logging.LevelInfo)
+	err := logging.SetLogLevel("dht", "error")
 	checkError(err)
-	err = logging.SetLogLevel("f3", "info")
+	err = logging.SetLogLevel("net/identify", "error")
+	checkError(err)
+	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
 }

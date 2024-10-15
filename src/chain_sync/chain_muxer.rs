@@ -201,6 +201,11 @@ where
         })
     }
 
+    /// Returns a clone of the inner [`SyncNetworkContext`]
+    pub fn sync_network_context(&self) -> SyncNetworkContext<DB> {
+        self.network.clone()
+    }
+
     /// Returns a clone of the bad blocks cache to be used outside of chain
     /// sync.
     pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
