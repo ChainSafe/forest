@@ -1624,6 +1624,14 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     )]
 }
 
+fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    Ok(vec![
+        // using basic because 2 nodes are not garanteed to be at the same head
+        RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
+        RpcTest::identity(F3GetECPowerTable::request((tipset.key().into(),))?),
+    ])
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
@@ -1650,6 +1658,7 @@ fn snapshot_tests(
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
+        tests.extend(f3_tests_with_tipset(&tipset)?);
     }
 
     Ok(tests)
