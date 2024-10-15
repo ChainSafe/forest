@@ -29,7 +29,7 @@ jobs:
       - name: Lint Markdown
         run: make md-check
       - name: Link check
-        uses: lycheeverse/lychee-action@v1.10.0
+        uses: lycheeverse/lychee-action@v2.0.2
         with:
           args: '*.md .github/*.md .github/**/*.md .config/*.md'
           # Fail action on broken links
