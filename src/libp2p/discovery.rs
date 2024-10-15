@@ -429,6 +429,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                                     Some(info.clone());
                                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
                                     for address in &info.listen_addrs {
+                                        if self.n_node_connected >= self.target_peer_count {
+                                            // Already over discovery max, don't add new peers.
+                                            continue;
+                                        }
                                         kademlia.add_address(peer_id, address.clone());
                                     }
                                 }
