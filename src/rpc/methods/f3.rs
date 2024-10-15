@@ -16,7 +16,7 @@ use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{types::ApiTipsetKey, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
@@ -576,14 +576,15 @@ impl RpcMethod<1> for F3GetECPowerTable {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (F3TipSetKey,);
+    type Params = (ApiTipsetKey,);
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
+        (ApiTipsetKey(tsk_opt),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        GetPowerTable::handle(ctx, params).await
+        let tsk = tsk_opt.unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone());
+        GetPowerTable::handle(ctx, (tsk.into(),)).await
     }
 }
 
@@ -594,13 +595,16 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (F3TipSetKey,);
+    type Params = (ApiTipsetKey,);
     type Ok = serde_json::Value;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
-        (tsk,): Self::Params,
+        ctx: Ctx<impl Blockstore>,
+        (ApiTipsetKey(tsk_opt),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let tsk: F3TipSetKey = tsk_opt
+            .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone())
+            .into();
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(tsk.into_lotus_json())?;
