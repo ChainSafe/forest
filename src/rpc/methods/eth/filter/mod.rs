@@ -765,12 +765,36 @@ mod tests {
 
         let eth_addr1 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64ab").unwrap();
 
-        let topics_0 = vec![Entry::new(
-            Flags::FLAG_INDEXED_ALL,
-            "t1".into(),
-            IPLD_RAW,
-            vec![],
-        )];
+        let topics_0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
+                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
+                ],
+            ),
+        ];
 
         assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
 
