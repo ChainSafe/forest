@@ -61,6 +61,10 @@
 - [#4820](https://github.com/ChainSafe/forest/pull/4820) Fix edge-case in
   `Filecoin.MinerGetBaseInfo` RPC method.
 
+- [#4890](https://github.com/ChainSafe/forest/issues/4890) Fix incorrect deal
+  weight calculation in the `Filecoin.StateMinerInitialPledgeCollateral` RPC
+  method.
+
 ## Forest 0.20.0 "Brexit"
 
 Non-mandatory release including a number of new RPC methods, fixes, and other

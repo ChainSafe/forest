@@ -6,5 +6,3 @@
 !Filecoin.StateReplay
 # TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
 !Filecoin.EthGetTransactionReceipt
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4890
-!Filecoin.StateMinerInitialPledgeCollateral
