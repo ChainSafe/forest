@@ -115,7 +115,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
             .try_send(Arc::new(ts.into_tipset()))
             .context("tipset queue is full")?;
 
-        ctx.network_send.send(NetworkMessage::PubsubMessage {
+        ctx.network_send().send(NetworkMessage::PubsubMessage {
             topic: IdentTopic::new(pubsub_block_str),
             message: encoded_message,
         })?;
@@ -140,10 +140,11 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
+    use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::chain_sync::{SyncConfig, SyncStage};
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
-    use crate::libp2p::NetworkMessage;
+    use crate::libp2p::{NetworkMessage, PeerManager};
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
     use crate::networks::ChainConfig;
     use crate::rpc::eth::filter::EthEventHandler;
@@ -215,6 +216,9 @@ mod tests {
         };
         let start_time = chrono::Utc::now();
 
+        let peer_manager = Arc::new(PeerManager::default());
+        let sync_network_context =
+            SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
@@ -222,7 +226,7 @@ mod tests {
             bad_blocks: Default::default(),
             sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
-            network_send,
+            sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests

@@ -111,6 +111,7 @@ macro_rules! from2internal {
 // TODO(forest): https://github.com/ChainSafe/forest/issues/3965
 //               Just mapping everything to an internal error is not appropriate
 from2internal! {
+    String,
     anyhow::Error,
     base64::DecodeError,
     cid::multibase::Error,
