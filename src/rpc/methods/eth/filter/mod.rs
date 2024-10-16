@@ -982,5 +982,18 @@ mod tests {
         };
 
         assert!(!EthEventHandler::do_match(&spec6, &eth_addr0, &entries0));
+
+        let spec7 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(Some(topic1.clone())),
+                EthHashList::Single(Some(topic1.clone())),
+            ])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec7, &eth_addr0, &entries0));
     }
 }
