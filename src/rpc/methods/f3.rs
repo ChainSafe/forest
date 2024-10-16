@@ -457,7 +457,7 @@ impl RpcMethod<1> for Finalize {
     const NAME: &'static str = "F3.Finalize";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (F3TipSetKey,);
     type Ok = ();
@@ -476,7 +476,7 @@ impl RpcMethod<2> for SignMessage {
     const NAME: &'static str = "F3.SignMessage";
     const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Vec<u8>, Vec<u8>);
     type Ok = Signature;
