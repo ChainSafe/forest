@@ -19,7 +19,6 @@ use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::event::ActorEvent as ActorEvent_v4;
 use fvm_shared4::event::Entry as Entry_v4;
-use fvm_shared4::event::Flags;
 use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
@@ -231,7 +230,13 @@ impl From<Entry_v4> for Entry {
 }
 
 impl Entry {
-    pub fn new(flags: Flags, key: String, codec: u64, value: Vec<u8>) -> Self {
+    #[cfg(test)]
+    pub fn new(
+        flags: crate::shim::fvm_shared_latest::event::Flags,
+        key: String,
+        codec: u64,
+        value: Vec<u8>,
+    ) -> Self {
         Entry::V4(Entry_v4 {
             flags,
             key,

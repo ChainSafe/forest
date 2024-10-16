@@ -763,7 +763,7 @@ mod tests {
 
         let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
-        let eth_addr1 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64ab").unwrap();
+        let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
 
         let topics_0 = vec![
             Entry::new(
@@ -796,6 +796,7 @@ mod tests {
             ),
         ];
 
+        // Matching an empty spec always work
         assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
 
         assert!(EthEventHandler::do_match(
@@ -803,5 +804,31 @@ mod tests {
             &eth_addr0,
             &topics_0
         ));
+
+        // Matching the given address 0
+        let spec0 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![eth_addr0.clone()],
+            topics: None,
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &vec![]));
+
+        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &vec![]));
+
+        // Matching the given address 0 or 1
+        let spec1 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![eth_addr0.clone(), eth_addr1.clone()],
+            topics: None,
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &vec![]));
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &vec![]));
     }
 }
