@@ -765,7 +765,7 @@ mod tests {
 
         let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
 
-        let topics_0 = vec![
+        let entries0 = vec![
             Entry::new(
                 Flags::FLAG_INDEXED_ALL,
                 "t1".into(),
@@ -796,13 +796,13 @@ mod tests {
             ),
         ];
 
-        // Matching an empty spec always work
+        // Matching an empty spec
         assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
 
         assert!(EthEventHandler::do_match(
             &empty_spec,
             &eth_addr0,
-            &topics_0
+            &entries0
         ));
 
         // Matching the given address 0
@@ -830,5 +830,65 @@ mod tests {
         assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &vec![]));
 
         assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &vec![]));
+
+        let topic0 =
+            EthHash::from_str("0xe24720f45cb74f2d55f1deebb6098f50f10b511dab8a7d47c4819a08dcd0b895")
+                .unwrap();
+
+        let topic1 =
+            EthHash::from_str("0x7404e3d104ea7841c3d9e6fd20adfe99b4ad586bc08d8f3bd3afef894cf184de")
+                .unwrap();
+
+        let topic2 =
+            EthHash::from_str("0x000000000000000000000000d0fb381fc644cdd5d694d35e1afb445527b9244b")
+                .unwrap();
+
+        let topic3 =
+            EthHash::from_str("0x00000000000000000000000092c3b379c217fdf8603884770e83fded7b7410f8")
+                .unwrap();
+
+        // Matching the given topic 0
+        let spec2 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList(vec![topic0.clone()])])),
+            block_hash: None,
+        };
+
+        let spec3 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList(vec![topic0.clone()])])),
+            block_hash: None,
+        };
+
+        let spec4 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList(vec![
+                topic0.clone(),
+                topic1.clone(),
+            ])])),
+            block_hash: None,
+        };
+
+        let spec5 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList(vec![topic2.clone()])])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+
+        assert!(EthEventHandler::do_match(&spec3, &eth_addr0, &entries0));
+
+        assert!(EthEventHandler::do_match(&spec4, &eth_addr0, &entries0));
+
+        assert!(!EthEventHandler::do_match(&spec5, &eth_addr0, &entries0));
     }
 }
