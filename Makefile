@@ -48,7 +48,7 @@ audit:
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 
-lint: license clean lint-clippy
+lint: license lint-clippy
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
