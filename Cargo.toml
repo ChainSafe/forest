@@ -10,7 +10,6 @@ version = "0.21.0"
 
 [dependencies]
 ahash = "0.8"
-hashbrown = { version = "0.14.5", default-features = false, features = ["serde"]}
 anes = "0.2"
 anyhow = "1.0"
 argon2 = "0.5"
@@ -75,6 +74,7 @@ fvm_shared4 = { package = "fvm_shared", version = "~4.3.3", features = ["arb", "
 gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
+hashbrown = { version = "0.14.5", default-features = false, features = ["serde"] }
 hex = { version = "0.4", features = ["serde"] }
 http = "1"
 human-repr = "1"
