@@ -257,6 +257,7 @@ macro_rules! for_each_method {
     };
 }
 pub(crate) use for_each_method;
+use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
 #[allow(unused)]
@@ -487,8 +488,7 @@ where
                     keystore,
                 } = per_conn.clone();
                 let http_middleware = tower::ServiceBuilder::new()
-                    // This does not compile yet, a fix has been made in https://github.com/paritytech/jsonrpsee/pull/1475
-                    // .layer(CompressionLayer::new())
+                    .layer(CompressionLayer::new())
                     // Mark the `Authorization` request header as sensitive so it doesn't show in logs
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
                         http::header::AUTHORIZATION,
