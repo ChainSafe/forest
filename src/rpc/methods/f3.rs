@@ -478,13 +478,19 @@ impl RpcMethod<1> for Finalize {
         let tsk = f3_tsk.try_into()?;
         let finalized_ts = match ctx.chain_index().load_tipset(&tsk)? {
             Some(ts) => ts,
-            None => ctx
-                .sync_network_context
-                .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
-                .await?
-                .first()
-                .cloned()
-                .with_context(|| format!("failed to get tipset via chain exchange. tsk: {tsk}"))?,
+            None => {
+                let ts = ctx
+                    .sync_network_context
+                    .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
+                    .await?
+                    .first()
+                    .cloned()
+                    .with_context(|| {
+                        format!("failed to get tipset via chain exchange. tsk: {tsk}")
+                    })?;
+                ctx.chain_store().put_tipset(&ts)?;
+                ts
+            }
         };
         tracing::info!(
             "F3 finalized tsk {} at epoch {}",
@@ -492,10 +498,15 @@ impl RpcMethod<1> for Finalize {
             finalized_ts.epoch()
         );
         let head = ctx.chain_store().heaviest_tipset();
-        if !head
-            .chain_arc(ctx.store())
-            .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
-            .any(|ts| ts == finalized_ts)
+        // When finalized_ts is not part of the current chain,
+        // reset the current head to finalized_ts.
+        // Note that when finalized_ts is newer than head, we don't reset the head
+        // to allow the chain to catch up.
+        if head.epoch() >= finalized_ts.epoch()
+            && !head
+                .chain_arc(ctx.store())
+                .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
+                .any(|ts| ts == finalized_ts)
         {
             tracing::info!(
                 "F3 reset chain head to tsk {} at epoch {}",
