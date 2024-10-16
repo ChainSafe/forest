@@ -15,7 +15,7 @@ jobs:
           - os: ubuntu-24.04
             file: forest-${{ github.ref_name }}-linux-amd64.zip
           - os: macos-latest
-            file: forest-${{ github.ref_name }}-macos-amd64.zip
+            file: forest-${{ github.ref_name }}-macos-arm64.zip
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -27,8 +27,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Cargo Build
-        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool
+        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool --bin forest-wallet
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
@@ -37,6 +40,7 @@ jobs:
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
           sha256sum forest-${{ github.ref_name }}/forest-tool > forest-${{ github.ref_name }}/forest-tool.sha256
+          sha256sum forest-${{ github.ref_name }}/forest-wallet > forest-${{ github.ref_name }}/forest-wallet.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2

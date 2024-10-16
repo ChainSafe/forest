@@ -19,7 +19,7 @@ jobs:
           - os: ubuntu-24.04
             file: forest-${{ github.event.inputs.tag }}-linux-amd64.zip
           - os: macos-latest
-            file: forest-${{ github.event.inputs.tag }}-macos-amd64.zip
+            file: forest-${{ github.event.inputs.tag }}-macos-arm64.zip
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -31,8 +31,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Cargo Build
-        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool
+        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool --bin forest-wallet
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.event.inputs.tag }}
@@ -41,6 +44,7 @@ jobs:
           sha256sum forest-${{ github.event.inputs.tag }}/forest > forest-${{ github.event.inputs.tag }}/forest.sha256
           sha256sum forest-${{ github.event.inputs.tag }}/forest-cli > forest-${{ github.event.inputs.tag }}/forest-cli.sha256
           sha256sum forest-${{ github.event.inputs.tag }}/forest-tool > forest-${{ github.event.inputs.tag }}/forest-tool.sha256
+          sha256sum forest-${{ github.event.inputs.tag }}/forest-wallet > forest-${{ github.event.inputs.tag }}/forest-wallet.sha256
           zip -r ${{ matrix.file }} forest-${{ github.event.inputs.tag }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2
