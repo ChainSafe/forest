@@ -10,6 +10,7 @@ version = "0.21.0"
 
 [dependencies]
 ahash = "0.8"
+hashbrown = { version = "0.14.5", default-features = false, features = ["serde"]}
 anes = "0.2"
 anyhow = "1.0"
 argon2 = "0.5"
@@ -168,7 +169,7 @@ sha2 = { version = "0.10", default-features = false }
 shared_memory = "0.12"
 similar = "2"
 slotmap = "1.0"
-smallvec = "1.13"
+smallvec = { version = "1.13", features = ["serde"] }
 smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
