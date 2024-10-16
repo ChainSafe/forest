@@ -14,6 +14,9 @@ func main() {
 	if err := logging.SetLogLevel("dht", "error"); err != nil {
 		panic(err)
 	}
+	if err := logging.SetLogLevel("dht/RtRefreshManager", "warn"); err != nil {
+		panic(err)
+	}
 	if err := logging.SetLogLevel("net/identify", "error"); err != nil {
 		panic(err)
 	}

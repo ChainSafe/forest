@@ -12,6 +12,8 @@ func init() {
 	logging.SetAllLoggers(logging.LevelInfo)
 	err := logging.SetLogLevel("dht", "error")
 	checkError(err)
+	err = logging.SetLogLevel("dht/RtRefreshManager", "warn")
+	checkError(err)
 	err = logging.SetLogLevel("net/identify", "error")
 	checkError(err)
 	err = logging.SetLogLevel("f3/sidecar", "debug")
