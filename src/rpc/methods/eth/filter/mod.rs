@@ -909,5 +909,78 @@ mod tests {
         };
 
         assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &entries0));
+
+        let spec2 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(None),
+                EthHashList::Single(None),
+            ])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+
+        let spec2 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
+                topic0.clone(),
+            ))])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+
+        let spec3 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0.clone()])])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec3, &eth_addr0, &entries0));
+
+        let spec4 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
+                topic1.clone(),
+                topic0.clone(),
+            ])])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec4, &eth_addr0, &entries0));
+
+        let spec5 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
+                topic1.clone(),
+            ))])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec5, &eth_addr0, &entries0));
+
+        let spec6 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
+                topic2.clone(),
+                topic3.clone(),
+            ])])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec6, &eth_addr0, &entries0));
     }
 }
