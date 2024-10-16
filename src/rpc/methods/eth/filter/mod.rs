@@ -220,17 +220,23 @@ impl EthEventHandler {
             spec.address.iter().any(|other| other == eth_emitter_addr)
         };
         let match_topics = if let Some(spec) = spec.topics.as_ref() {
-            // let matched = entries.iter().any(|entry| {
-            //     if let Some(slice) = get_word(entry.value()) {
-            //         let hash: EthHash = slice.clone().into();
-            //         spec.0.iter().any(|list| list.0.contains(&hash))
-            //     } else {
-            //         // Drop events with mis-sized topics
-            //         false
-            //     }
-            // });
-            // matched
-            todo!()
+            let matched = entries.iter().enumerate().all(|(i, entry)| {
+                if let Some(slice) = get_word(entry.value()) {
+                    let hash: EthHash = slice.clone().into();
+                    match spec.0.get(i) {
+                        Some(EthHashList::List(vec)) => vec.contains(&hash),
+                        Some(EthHashList::Single(opt)) => match opt {
+                            Some(h) => h == &hash,
+                            None => true, /* wildcard */
+                        },
+                        None => true,
+                    }
+                } else {
+                    // Drop events with mis-sized topics
+                    false
+                }
+            });
+            matched
         } else {
             true
         };
@@ -499,11 +505,11 @@ fn parse_eth_topics(
                     keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
                 }
             }
-            EthHashList::Item(Some(hash)) => {
+            EthHashList::Single(Some(hash)) => {
                 let EthHash(bytes) = hash;
                 keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
             }
-            EthHashList::Item(None) => {}
+            EthHashList::Single(None) => {}
         }
     }
     Ok(keys)
