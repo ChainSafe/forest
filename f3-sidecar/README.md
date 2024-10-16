@@ -13,10 +13,11 @@ Follow https://go.dev/doc/install or use one of the version managers of Go.
 
 ### Run sidecar
 
-- run a forest node on calibnet
+- run a forest node on calibnet (make sure to save jwt token with
+  `--save-token jwt_path`)
 - import a shared miner key for testing `forest-wallet --remote-wallet import`
   (the shared miner worker key can be found in `scripts/tests/api_compare/.env`)
-- run f3 sidecar `go run .`
+- run f3 sidecar `go run . -jwt $(cat jwt_path)`
 - (optional) to inspect RPC calls, run
   `mitmproxy --mode reverse:http://localhost:2345 --listen-port 8080` then
   `go run . -rpc http://127.0.0.1:8080/rpc/v1`

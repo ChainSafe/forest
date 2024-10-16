@@ -21,8 +21,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
 	api := FilecoinApi{}
+	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
 		return err
@@ -41,7 +42,7 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialP
 	if err != nil {
 		return err
 	}
-	ec, err := NewForestEC(rpcEndpoint)
+	ec, err := NewForestEC(rpcEndpoint, jwt)
 	if err != nil {
 		return err
 	}
@@ -155,23 +156,28 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialP
 		if err != nil {
 			continue
 		}
-		for _, miner := range miners {
-			signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
-			if err != nil {
-				if errors.Is(err, gpbft.ErrNoPower) {
-					// we don't have any power in F3, continue
-					logger.Warnf("no power to participate in F3: %+v", err)
-				} else {
-					logger.Warnf("preparing signing inputs: %+v", err)
+		if !isJwtProvided && len(miners) > 0 {
+			logger.Warn("Unable to sign messages, jwt for Forest RPC endpoint is not provided.")
+		}
+		if isJwtProvided {
+			for _, miner := range miners {
+				signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
+				if err != nil {
+					if errors.Is(err, gpbft.ErrNoPower) {
+						// we don't have any power in F3, continue
+						logger.Warnf("no power to participate in F3: %+v", err)
+					} else {
+						logger.Warnf("preparing signing inputs: %+v", err)
+					}
+					continue
 				}
-				continue
+				payloadSig, vrfSig, err := signatureBuilder.Sign(ctx, &ec)
+				if err != nil {
+					logger.Warnf("signing message: %+v", err)
+				}
+				logger.Debugf("miner with id %d is sending message in F3", miner)
+				f3Module.Broadcast(ctx, signatureBuilder, payloadSig, vrfSig)
 			}
-			payloadSig, vrfSig, err := signatureBuilder.Sign(ctx, &ec)
-			if err != nil {
-				logger.Warnf("signing message: %+v", err)
-			}
-			logger.Debugf("miner with id %d is sending message in F3", miner)
-			f3Module.Broadcast(ctx, signatureBuilder, payloadSig, vrfSig)
 		}
 	}
 }

@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	ec, err := NewForestEC("http://127.0.0.1:2345/rpc/v1")
+	ec, err := NewForestEC("http://127.0.0.1:2345/rpc/v1", "")
 	if err != nil {
 		panic(err)
 	}
@@ -69,5 +69,5 @@ func TestFinalize(t *testing.T) {
 	head, err := EC.GetHead(ctx)
 	require.NoError(t, err)
 	err = EC.Finalize(ctx, head.Key())
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "unable to finalize tipset, jwt is not provided")
 }
