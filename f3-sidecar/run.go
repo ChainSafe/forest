@@ -90,8 +90,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	} else {
 		m.BootstrapEpoch = bootstrapEpoch
 	}
-	m.CommitteeLookback = 5
-	// m.Pause = true
+	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
 	var manifestProvider manifest.ManifestProvider
 	switch manifestServerID, err := peer.Decode(manifestServer); {

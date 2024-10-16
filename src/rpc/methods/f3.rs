@@ -22,8 +22,10 @@ use crate::{
         clock::ChainEpoch,
         crypto::Signature,
     },
+    utils::misc::env::is_env_set_and_truthy,
 };
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
@@ -37,7 +39,7 @@ use libp2p::PeerId;
 use num::Signed as _;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
+use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
 
 static F3_LEASE_MANAGER: Lazy<F3LeaseManager> = Lazy::new(Default::default);
 
@@ -423,7 +425,7 @@ impl RpcMethod<1> for ProtectPeer {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::ProtectPeer(tx, std::iter::once(peer_id).collect()),
             })
@@ -463,10 +465,56 @@ impl RpcMethod<1> for Finalize {
     type Ok = ();
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
-        (_tsk,): Self::Params,
+        ctx: Ctx<impl Blockstore>,
+        (f3_tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/4775
+        // Respect the environment variable when set, and fallback to chain config when not set.
+        let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
+            .unwrap_or(ctx.chain_config().f3_consensus);
+        if !enabled {
+            return Ok(());
+        }
+
+        let tsk = f3_tsk.try_into()?;
+        let finalized_ts = match ctx.chain_index().load_tipset(&tsk)? {
+            Some(ts) => ts,
+            None => {
+                let ts = ctx
+                    .sync_network_context
+                    .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
+                    .await?
+                    .first()
+                    .cloned()
+                    .with_context(|| {
+                        format!("failed to get tipset via chain exchange. tsk: {tsk}")
+                    })?;
+                ctx.chain_store().put_tipset(&ts)?;
+                ts
+            }
+        };
+        tracing::info!(
+            "F3 finalized tsk {} at epoch {}",
+            finalized_ts.key(),
+            finalized_ts.epoch()
+        );
+        let head = ctx.chain_store().heaviest_tipset();
+        // When finalized_ts is not part of the current chain,
+        // reset the current head to finalized_ts.
+        // Note that when finalized_ts is newer than head, we don't reset the head
+        // to allow the chain to catch up.
+        if head.epoch() >= finalized_ts.epoch()
+            && !head
+                .chain_arc(ctx.store())
+                .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
+                .any(|ts| ts == finalized_ts)
+        {
+            tracing::info!(
+                "F3 reset chain head to tsk {} at epoch {}",
+                finalized_ts.key(),
+                finalized_ts.epoch()
+            );
+            ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
+        }
         Ok(())
     }
 }

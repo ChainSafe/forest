@@ -1176,7 +1176,7 @@ impl RpcMethod<2> for StateFetchRoot {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (root_cid, save_to_file): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let network_send = ctx.network_send.clone();
+        let network_send = ctx.network_send().clone();
         let db = ctx.store_owned();
 
         let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {

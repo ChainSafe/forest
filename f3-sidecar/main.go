@@ -10,11 +10,17 @@ import (
 var logger = logging.Logger("f3/sidecar")
 
 func main() {
-	logging.SetAllLoggers(logging.LevelError)
-	if err := logging.SetLogLevel("f3/sidecar", "debug"); err != nil {
+	logging.SetAllLoggers(logging.LevelInfo)
+	if err := logging.SetLogLevel("dht", "error"); err != nil {
 		panic(err)
 	}
-	if err := logging.SetLogLevel("f3", "debug"); err != nil {
+	if err := logging.SetLogLevel("dht/RtRefreshManager", "warn"); err != nil {
+		panic(err)
+	}
+	if err := logging.SetLogLevel("net/identify", "error"); err != nil {
+		panic(err)
+	}
+	if err := logging.SetLogLevel("f3/sidecar", "debug"); err != nil {
 		panic(err)
 	}
 

@@ -52,10 +52,9 @@ const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
-pub(in crate::chain_sync) struct SyncNetworkContext<DB> {
+pub struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
-
     /// Manages peers to send requests to and updates request stats for the
     /// respective peers.
     peer_manager: Arc<PeerManager>,
@@ -139,6 +138,11 @@ where
     /// Returns a reference to the peer manager of the network context.
     pub fn peer_manager(&self) -> &PeerManager {
         self.peer_manager.as_ref()
+    }
+
+    /// Returns a reference to the channel for sending network messages through P2P service.
+    pub fn network_send(&self) -> &flume::Sender<NetworkMessage> {
+        &self.network_send
     }
 
     /// Send a `chain_exchange` request for only block headers (ignore
