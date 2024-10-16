@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(clippy::too_many_arguments)]
+
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
@@ -84,7 +86,6 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn run_f3_sidecar_if_enabled(
     chain_config: &ChainConfig,
     _rpc_endpoint: String,
