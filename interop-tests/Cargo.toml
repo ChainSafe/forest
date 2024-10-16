@@ -1,12 +1,12 @@
 [package]
-name = "forest-interop-tests"
-version = "0.1.0"
 authors = ["ChainSafe Systems <forest@chainsafe.io>"]
-repository = "https://github.com/ChainSafe/forest"
+description = "Interop tests for Forest."
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "Interop tests for Forest."
+name = "forest-interop-tests"
 publish = false
+repository = "https://github.com/ChainSafe/forest"
+version = "0.1.0"
 
 [dependencies]
 

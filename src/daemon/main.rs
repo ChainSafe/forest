@@ -79,6 +79,7 @@ pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
     ArgT: Into<OsString> + Clone,
 {
+    let _ = object::AddressSize::U8.bytes();
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::parse_from(args);
 

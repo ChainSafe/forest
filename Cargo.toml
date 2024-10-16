@@ -1,12 +1,12 @@
 [package]
-name = "forest-filecoin"
-version = "0.21.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-repository = "https://github.com/ChainSafe/forest"
-edition = "2021"
-license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
+edition = "2021"
 exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
+license = "MIT OR Apache-2.0"
+name = "forest-filecoin"
+repository = "https://github.com/ChainSafe/forest"
+version = "0.21.0"
 
 [dependencies]
 ahash = "0.8"
@@ -129,6 +129,7 @@ num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars"] }
+object = { version = "0.36", default-features = false, features = ['write_core', 'std'] }
 once_cell = "1"
 openrpc-types = "0.4"
 parity-db = { version = "0.5", default-features = false }
@@ -243,16 +244,16 @@ split-debuginfo = "unpacked"
 
 [profile.quick]
 inherits = "release"
-opt-level = 1
 lto = "off"
+opt-level = 1
 
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
 # The FVM relies on catching panics. See: https://github.com/ChainSafe/forest/issues/3153
-panic = "unwind"
-overflow-checks = true
 lto = "thin"
+overflow-checks = true
+panic = "unwind"
 
 [profile.release-lto-fat]
 inherits = "release"
@@ -260,31 +261,31 @@ lto = "fat"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
-slim = ["rustalloc"]
-doctest-private = []                                                      # see lib.rs::doctest_private
 benchmark-private = []                                                    # see lib.rs::benchmark_private
+default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
+doctest-private = []                                                      # see lib.rs::doctest_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
+slim = ["rustalloc"]
 
 # Allocator
-rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
+rustalloc = []
 
 tokio-console = ["dep:console-subscriber"]
-tracing-loki = ["dep:tracing-loki"]
 tracing-chrome = ["dep:tracing-chrome"]
+tracing-loki = ["dep:tracing-loki"]
 
 no-f3-sidecar = []
 
 [[bench]]
-name = "example-benchmark"
 harness = false
+name = "example-benchmark"
 required-features = ["benchmark-private"]
 
 [[bench]]
-name = "car-index"
 harness = false
+name = "car-index"
 required-features = ["benchmark-private"]
 
 [package.metadata.docs.rs]
