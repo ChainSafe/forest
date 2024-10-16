@@ -21,13 +21,6 @@ default, running it will expose relevant RPC and P2P ports to the host:
 
 ## Running the devnet
 
-Prerequisites:
-
-- Fetch the Curio repository
-  (`git clone https://github.com/filecoin-project/curio`) and run:
-  - `make docker/curio-all-in-one`
-  - `make docker/curio`
-
 Run it with:
 
 ```shell
@@ -70,8 +63,6 @@ forest-cli net peers
 ## Known problems
 
 - YugabyteDB sometimes fails to start. If this happens, restart the devnet.
-- As of writing, using Forest with Curio doesn't work. Forest fails to find a
-  miner actor.
 
 ## Local devnet development
 
@@ -79,3 +70,21 @@ If you prefer to have Forest running directly on the host, you can comment it
 out and draw inspiration from the `docker-compose.yml` on how to connect it to
 Lotus. In short, you will need to obtain the peer id, network name and the
 genesis file.
+
+## Testing mining
+
+By default, Curio won't mine any sectors. You can add sectors by starting a new
+container:
+
+```
+docker exec -it curio /bin/bash
+```
+
+And then run:
+
+```
+curio seal start --now --cc --actor t01002
+```
+
+You can inspect the status at `localhost:4701`. After a few hours, the sectors
+should be sealed and proven.
