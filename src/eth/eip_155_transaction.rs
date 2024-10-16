@@ -7,12 +7,14 @@ use anyhow::{bail, ensure, Context};
 use derive_builder::Builder;
 use num::{BigInt, BigUint};
 use num_bigint::Sign;
+use num_bigint::ToBigInt;
 use num_traits::cast::ToPrimitive;
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
+use std::ops::Mul;
 
 pub const EIP_155_SIG_PREFIX: u8 = 0x02;
-pub const EIP155_CHAIN_ID: EthChainId = 314;
+pub const EIP155_CHAIN_ID: EthChainId = 314159;
 
 pub static ETH_LEGACY_155_TX_SIGNATURE_LEN_0: Lazy<usize> =
     Lazy::new(|| calc_eip155_sig_len(EIP155_CHAIN_ID, 35) as usize);
@@ -87,21 +89,23 @@ impl EthLegacyEip155TxArgs {
 
     pub fn to_verifiable_signature(&self, mut sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         // Check if the signature length is correct
-        if sig.len() != HOMESTEAD_SIG_LEN {
+        if sig.len() != *ETH_LEGACY_155_TX_SIGNATURE_LEN_0
+            && sig.len() != *ETH_LEGACY_155_TX_SIGNATURE_LEN_1
+        {
             bail!(
-                "signature should be {} bytes long (1 byte metadata, {} bytes sig data), but got {} bytes",
-                HOMESTEAD_SIG_LEN,
-                HOMESTEAD_SIG_LEN - 1,
+                "signature should be {} or {} bytes long (1 byte metadata and rest bytes are sig data), but got {} bytes",
+                *ETH_LEGACY_155_TX_SIGNATURE_LEN_0,
+                *ETH_LEGACY_155_TX_SIGNATURE_LEN_1,
                 sig.len()
             );
         }
 
         // Check if the first byte matches the expected signature prefix
-        if sig[0] != HOMESTEAD_SIG_PREFIX {
+        if *sig.first().context("failed to get value")? != EIP_155_SIG_PREFIX {
             bail!(
                 "expected signature prefix 0x{:x}, but got 0x{:x}",
                 HOMESTEAD_SIG_PREFIX,
-                sig[0]
+                sig.first().context("failed to get value")?
             );
         }
 
@@ -109,13 +113,30 @@ impl EthLegacyEip155TxArgs {
         sig.remove(0);
 
         // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
-        let v_value = BigInt::from_bytes_be(num_bigint::Sign::Plus, &sig[64..]);
+        let mut v_value = BigInt::from_bytes_be(
+            num_bigint::Sign::Plus,
+            sig.get(64..).context("failed to get value")?,
+        );
+
+        ensure!(
+            validate_eip155_chain_id(EIP155_CHAIN_ID, &v_value).is_ok(),
+            "Invalid chain Id"
+        );
+
+        let chain_id_mul = BigInt::from(EIP155_CHAIN_ID)
+            .mul(2_i32.to_bigint().context("Failed to convert 2 to BigInt")?);
+        v_value -= chain_id_mul;
+        v_value -= BigInt::from(8);
 
         // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
         if v_value == BigInt::from_u8(27).unwrap() {
-            sig[64] = 0;
+            if let Some(value) = sig.get_mut(64) {
+                *value = 0
+            };
         } else if v_value == BigInt::from_u8(28).unwrap() {
-            sig[64] = 1;
+            if let Some(value) = sig.get_mut(64) {
+                *value = 1
+            };
         } else {
             bail!(
                 "invalid 'v' value: expected 27 or 28, got {}",
@@ -123,7 +144,10 @@ impl EthLegacyEip155TxArgs {
             );
         }
 
-        Ok(sig)
+        Ok(sig
+            .get(..65)
+            .context("failed to get range of values")?
+            .to_vec())
     }
 
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
@@ -236,8 +260,6 @@ pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow:
 }
 
 pub fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
-    ensure!(v >= &35.into(), "Invalid V value for EIP155 transaction");
-
     if v.bits() <= 64 {
         let v = v.to_u64().context("Failed to convert v to u64")?;
         if v == 27 || v == 28 {

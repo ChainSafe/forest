@@ -3,6 +3,7 @@
 
 use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
 use crate::shim::crypto::Signature;
+use crate::shim::fvm_shared_latest;
 use anyhow::{bail, ensure, Context};
 use bytes::BufMut;
 use bytes::BytesMut;
@@ -21,7 +22,7 @@ use super::{
     eip_1559_transaction::{EthEip1559TxArgs, EthEip1559TxArgsBuilder, EIP_1559_SIG_LEN},
     eip_155_transaction::{
         calc_valid_eip155_sig_len, EthLegacyEip155TxArgs, EthLegacyEip155TxArgsBuilder,
-        EIP_155_SIG_PREFIX,
+        EIP155_CHAIN_ID, EIP_155_SIG_PREFIX,
     },
     homestead_transaction::{
         EthLegacyHomesteadTxArgs, EthLegacyHomesteadTxArgsBuilder, HOMESTEAD_SIG_LEN,
@@ -131,6 +132,7 @@ impl EthTx {
                 SignedMessage { message, signature }
             }
             Self::Eip1559(tx) => {
+                ensure!(tx.chain_id != EIP155_CHAIN_ID, "Invalid chain id");
                 let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
                 let message = Message {
                     version: 0,
@@ -148,6 +150,10 @@ impl EthTx {
                 SignedMessage { message, signature }
             }
             Self::Eip155(tx) => {
+                ensure!(
+                    validate_eip155_chain_id(EIP155_CHAIN_ID, &tx.v).is_ok(),
+                    "Failed to validate EIP155 chain Id"
+                );
                 let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
                 let message = Message {
                     version: 0,
@@ -223,18 +229,14 @@ impl EthTx {
         Ok(())
     }
 
-    fn sender(&self) -> anyhow::Result<Address> {
+    pub fn sender(&self) -> anyhow::Result<Address> {
         let hash = keccak_hash::keccak(self.rlp_unsigned_message()?);
-        let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
         let sig = self.signature()?;
-        let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?;
-        let rec_sig = libsecp256k1::Signature::parse_standard(
-            &sig_data[..64]
-                .try_into()
-                .context("slice should be 64 bytes")?,
-        )?;
-        let rec_id = libsecp256k1::RecoveryId::parse(sig_data[64])?;
-        let pubkey = libsecp256k1::recover(&msg, &rec_sig, &rec_id)?;
+        let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?[..]
+            .try_into()
+            .expect("Incorrect signature length");
+        let pubkey =
+            fvm_shared_latest::crypto::signature::ops::recover_secp_public_key(&hash.0, &sig_data)?;
         let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey.serialize())?;
         eth_addr.to_filecoin_address()
     }
@@ -340,7 +342,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
         return Err(anyhow::anyhow!("empty data"));
     }
 
-    match data[0] as u64 {
+    match *data.first().context("failed to get value")? as u64 {
         1 => {
             // EIP-2930
             Err(anyhow::anyhow!("EIP-2930 transaction is not supported"))
@@ -349,7 +351,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
             // EIP-1559
             parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
         }
-        _ if data[0] > 0x7f => {
+        _ if *data.first().context("failed to get value")? > 0x7f => {
             // Legacy transaction
             parse_legacy_tx(data)
                 .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err))
@@ -360,7 +362,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
 
 fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data, skipping the first byte (EIP_1559_TX_TYPE)
-    let decoded = Rlp::new(&data[1..]);
+    let decoded = Rlp::new(data.get(1..).context("failed to get range of values")?);
     if decoded.item_count()? != 12 {
         bail!("not an EIP-1559 transaction: should have 12 elements in the rlp list");
     }
@@ -413,7 +415,7 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
 
 fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data
-    let decoded = Rlp::new(&data[1..]);
+    let decoded = Rlp::new(data);
     if decoded.item_count()? != 9 {
         bail!("not a Legacy transaction: should have 9 elements in the rlp list");
     }
@@ -899,6 +901,111 @@ pub(crate) mod tests {
                 // fails in case of negative number
                 assert!(bi.is_negative());
             }
+        }
+    }
+
+    #[test]
+    fn test_parse_legacy_tx() {
+        // Raw transaction hex for a Legacy transaction
+        let raw_tx = hex::decode(
+            "f8cc04830406968419ca81cc94d0fb381fc644cdd5d694d35e1afb445527b9244b80b864d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000001518083099681a0580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796a055e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",
+        )
+        .expect("Invalid hex");
+
+        let result = parse_legacy_tx(&raw_tx);
+        assert!(result.is_ok());
+        let txn = result.unwrap();
+        let from = txn.sender().unwrap();
+
+        if let EthTx::Eip155(tx) = txn {
+            assert_eq!(tx.chain_id, 314159);
+            assert_eq!(tx.nonce, 4);
+            assert_eq!(tx.gas_price, BigInt::from(263830u64));
+            assert_eq!(tx.gas_limit, 432701900);
+            assert_eq!(
+                tx.to.unwrap(),
+                EthAddress::from_str("0xd0fb381fc644cdd5d694d35e1afb445527b9244b").unwrap()
+            );
+            assert_eq!(
+                EthAddress::from_filecoin_address(&from).unwrap(),
+                EthAddress::from_str("0xEb1D0C87B7e33D0Ab44a397b675F0897295491C2").unwrap()
+            );
+            assert_eq!(tx.value, BigInt::from(0));
+            assert_eq!(
+                tx.v,
+                BigInt::from_str_radix("099681", 16).expect("Invalid hex string")
+            );
+            assert_eq!(
+                tx.r,
+                BigInt::from_str_radix(
+                    "580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796",
+                    16
+                )
+                .expect("Invalid hex string")
+            );
+            assert_eq!(
+                tx.s,
+                BigInt::from_str_radix(
+                    "55e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",
+                    16
+                )
+                .expect("Invalid hex string")
+            );
+        } else {
+            panic!("Expected EIP-1559 transaction");
+        }
+    }
+
+    #[test]
+    fn test_parse_eip1559_tx() {
+        // Raw transaction hex for the EIP-1559 transaction
+        let raw_tx = hex::decode(
+            "02f901368304cb2f8201e68459682f008459682f7884023b53a794eb4a9cdb9f42d3a503d580a39b6e3736eb21fffd80b8c4383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000c001a0b9f0afb3fa8821fa414bac6056e613c61a8263ca341b59539096dbbc8600f530a0114a6a032347e132f115accc7664ccc61549be28f5b844c3fc170006feb72f24"
+        ).expect("Invalid hex");
+
+        let result = parse_eip1559_tx(&raw_tx);
+        assert!(result.is_ok());
+
+        let txn = result.unwrap();
+        let from = txn.sender().unwrap();
+
+        if let EthTx::Eip1559(tx) = txn {
+            assert_eq!(tx.chain_id, 314159);
+            assert_eq!(tx.nonce, 486);
+            assert_eq!(tx.max_fee_per_gas, BigInt::from(1500000120u64));
+            assert_eq!(tx.max_priority_fee_per_gas, BigInt::from(1500000000u64));
+            assert_eq!(tx.gas_limit, 37442471);
+            assert_eq!(
+                tx.to.unwrap(),
+                EthAddress::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd").unwrap()
+            );
+            assert_eq!(
+                EthAddress::from_filecoin_address(&from).unwrap(),
+                EthAddress::from_str("0x4fda4174D5D07C906395bfB77806287cc65Fd129").unwrap()
+            );
+            assert_eq!(tx.value, BigInt::from(0));
+            assert_eq!(
+                tx.v,
+                BigInt::from_str_radix("01", 16).expect("Invalid hex string")
+            );
+            assert_eq!(
+                tx.r,
+                BigInt::from_str_radix(
+                    "b9f0afb3fa8821fa414bac6056e613c61a8263ca341b59539096dbbc8600f530",
+                    16
+                )
+                .expect("Invalid hex string")
+            );
+            assert_eq!(
+                tx.s,
+                BigInt::from_str_radix(
+                    "114a6a032347e132f115accc7664ccc61549be28f5b844c3fc170006feb72f24",
+                    16
+                )
+                .expect("Invalid hex string")
+            );
+        } else {
+            panic!("Expected EIP-1559 transaction");
         }
     }
 }
