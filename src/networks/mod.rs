@@ -16,7 +16,7 @@ use tracing::warn;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
-use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
@@ -42,6 +42,7 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
+const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -142,6 +143,7 @@ pub enum Height {
     DragonFix,
     Phoenix,
     Waffle,
+    TukTuk,
 }
 
 impl Default for Height {
@@ -183,6 +185,7 @@ impl From<Height> for NetworkVersion {
             Height::DragonFix => NetworkVersion::V22,
             Height::Phoenix => NetworkVersion::V22,
             Height::Waffle => NetworkVersion::V23,
+            Height::TukTuk => NetworkVersion::V24,
         }
     }
 }
@@ -223,6 +226,13 @@ pub struct ChainConfig {
     pub policy: Policy,
     pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
+    // FIP0081 gradually comes into effect over this many epochs.
+    pub fip0081_ramp_duration_epochs: u64,
+    pub f3_bootstrap_epoch: i64,
+    pub f3_initial_power_table: Cid,
+    // This will likely be deprecated once F3 is fully bootstrapped to avoid single point network dependencies.
+    #[cfg_attr(test, arbitrary(gen(|_| Some(libp2p::PeerId::random()))))]
+    pub f3_manifest_server: Option<libp2p::PeerId>,
 }
 
 impl ChainConfig {
@@ -242,6 +252,15 @@ impl ChainConfig {
             policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 1 year on mainnet
+            fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
+                    .parse()
+                    .expect("Invalid PeerId"),
+            ),
         }
     }
 
@@ -261,6 +280,16 @@ impl ChainConfig {
             policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // 3 days on calibnet
+            fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
+            // 2024-10-24T13:30:00Z
+            f3_bootstrap_epoch: 2_081_674,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
+                    .parse()
+                    .expect("Invalid PeerId"),
+            ),
         }
     }
 
@@ -277,12 +306,16 @@ impl ChainConfig {
             policy: make_devnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // Devnet ramp is 200 epochs in Lotus (subject to change).
+            fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: None,
         }
     }
 
     pub fn butterflynet() -> Self {
         use butterflynet::*;
-
         Self {
             network: NetworkChain::Butterflynet,
             genesis_cid: Some(GENESIS_CID.to_string()),
@@ -297,6 +330,18 @@ impl ChainConfig {
             policy: make_butterfly_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
+            // Butterflynet ramp is current set to 365 days in Lotus but this may change.
+            fip0081_ramp_duration_epochs: env_or_default(
+                ENV_PLEDGE_RULE_RAMP,
+                365 * EPOCHS_IN_DAY as u64,
+            ),
+            f3_bootstrap_epoch: -1,
+            f3_initial_power_table: Default::default(),
+            f3_manifest_server: Some(
+                "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
+                    .parse()
+                    .expect("Invalid PeerId"),
+            ),
         }
     }
 
@@ -472,7 +517,7 @@ mod tests {
     fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 27] = [
+        const REQUIRED_HEIGHTS: [Height; 28] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -500,6 +545,7 @@ mod tests {
             Height::Dragon,
             Height::Phoenix,
             Height::Waffle,
+            Height::TukTuk,
         ];
 
         for height in &REQUIRED_HEIGHTS {
@@ -589,5 +635,13 @@ mod tests {
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"
         );
+    }
+
+    #[test]
+    fn chain_config() {
+        ChainConfig::mainnet();
+        ChainConfig::calibnet();
+        ChainConfig::devnet();
+        ChainConfig::butterflynet();
     }
 }

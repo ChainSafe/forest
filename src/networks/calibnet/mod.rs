@@ -12,8 +12,7 @@ use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
-    NetworkChain,
+    parse_bootstrap_peers, DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
 /// Default genesis car file bytes.
@@ -74,6 +73,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Phoenix, 1_428_094),
         // 2024-07-11 12:00:00Z
         make_height!(Waffle, 1_779_094, get_bundle_cid("v14.0.0-rc.1")),
+        // 2024-10-23T13:30:00Z
+        make_height!(TukTuk, 2_078_794, get_bundle_cid("v15.0.0-rc1")),
     ])
 });
 
@@ -91,8 +92,7 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
+            height: HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch,
             config: &DRAND_QUICKNET,
         },
     ]

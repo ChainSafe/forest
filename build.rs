@@ -10,14 +10,21 @@ fn main() {
     if !is_docs_rs() && is_sidecar_ffi_enabled() {
         println!("cargo:rustc-cfg=f3sidecar");
         std::env::set_var("GOWORK", "off");
+        // `Netgo` is enabled for all the platforms to be consistent across different builds. It
+        // is using pure Go implementation for functionality like name resolution. In the case of
+        // sidecar it does not make much difference, but it does fix the Apple silicons builds.
+        // See <https://github.com/status-im/status-mobile/issues/20135#issuecomment-2137400475>
+        std::env::set_var("GOFLAGS", "-tags=netgo");
         rust2go::Builder::default()
             .with_go_src("./f3-sidecar")
-            .with_regen_arg(rust2go::RegenArgs {
-                src: "./src/f3/go_ffi.rs".into(),
-                dst: "./f3-sidecar/ffi_gen.go".into(),
-                without_main: true,
-                ..Default::default()
-            })
+            // the generated Go file has been commited to the git repository,
+            // uncomment to regenerate the code locally
+            // .with_regen_arg(rust2go::RegenArgs {
+            //     src: "./src/f3/go_ffi.rs".into(),
+            //     dst: "./f3-sidecar/ffi_gen.go".into(),
+            //     without_main: true,
+            //     ..Default::default()
+            // })
             .build();
     }
 }
@@ -28,15 +35,9 @@ fn is_docs_rs() -> bool {
 }
 
 fn is_sidecar_ffi_enabled() -> bool {
-    // Note: arm64 is disabled for now as cross-compilation is not yet supported in rust2go
-    // and it's reported rust2go build does not work on arm64 MacOS
-    if cfg!(target_arch = "x86_64") {
-        // Opt-out building the F3 sidecar staticlib
-        match std::env::var("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
-            Ok(value) => !matches!(value.to_lowercase().as_str(), "1" | "true"),
-            _ => true,
-        }
-    } else {
-        false
+    // Opt-out building the F3 sidecar staticlib
+    match std::env::var("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
+        Ok(value) => !matches!(value.to_lowercase().as_str(), "1" | "true"),
+        _ => true,
     }
 }

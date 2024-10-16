@@ -149,13 +149,13 @@ lotus_json_with_self!(Bloom);
     derive_more::From,
     derive_more::Into,
 )]
-pub struct Uint64(
+pub struct EthUint64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
     pub u64,
 );
 
-lotus_json_with_self!(Uint64);
+lotus_json_with_self!(EthUint64);
 
 #[derive(
     PartialEq,
@@ -168,13 +168,13 @@ lotus_json_with_self!(Uint64);
     derive_more::From,
     derive_more::Into,
 )]
-pub struct Int64(
+pub struct EthInt64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
     pub i64,
 );
 
-lotus_json_with_self!(Int64);
+lotus_json_with_self!(EthInt64);
 
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
@@ -233,7 +233,7 @@ pub enum Predefined {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockNumber {
-    block_number: Int64,
+    block_number: EthInt64,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -248,7 +248,7 @@ pub struct BlockHash {
 pub enum BlockNumberOrHash {
     #[schemars(with = "String")]
     PredefinedBlock(Predefined),
-    BlockNumber(Int64),
+    BlockNumber(EthInt64),
     BlockHash(EthHash),
     BlockNumberObject(BlockNumber),
     BlockHashObject(BlockHash),
@@ -262,7 +262,7 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_block_number(number: i64) -> Self {
-        Self::BlockNumber(Int64(number))
+        Self::BlockNumber(EthInt64(number))
     }
 
     pub fn from_block_hash(hash: EthHash) -> Self {
@@ -274,7 +274,7 @@ impl BlockNumberOrHash {
     /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
     pub fn from_block_number_object(number: i64) -> Self {
         Self::BlockNumberObject(BlockNumber {
-            block_number: Int64(number),
+            block_number: EthInt64(number),
         })
     }
 
@@ -325,17 +325,17 @@ pub struct Block {
     pub transactions_root: EthHash,
     pub receipts_root: EthHash,
     pub logs_bloom: Bloom,
-    pub difficulty: Uint64,
-    pub total_difficulty: Uint64,
-    pub number: Uint64,
-    pub gas_limit: Uint64,
-    pub gas_used: Uint64,
-    pub timestamp: Uint64,
+    pub difficulty: EthUint64,
+    pub total_difficulty: EthUint64,
+    pub number: EthUint64,
+    pub gas_limit: EthUint64,
+    pub gas_used: EthUint64,
+    pub timestamp: EthUint64,
     pub extra_data: EthBytes,
     pub mix_hash: EthHash,
     pub nonce: Nonce,
     pub base_fee_per_gas: EthBigInt,
-    pub size: Uint64,
+    pub size: EthUint64,
     // can be Vec<Tx> or Vec<String> depending on query params
     pub transactions: Transactions,
     pub uncles: Vec<EthHash>,
@@ -344,7 +344,7 @@ pub struct Block {
 impl Block {
     pub fn new(has_transactions: bool, tipset_len: usize) -> Self {
         Self {
-            gas_limit: Uint64(BLOCK_GAS_LIMIT.saturating_mul(tipset_len as _)),
+            gas_limit: EthUint64(BLOCK_GAS_LIMIT.saturating_mul(tipset_len as _)),
             logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
             sha3_uncles: EthHash::empty_uncles(),
             transactions_root: if has_transactions {
@@ -362,19 +362,19 @@ lotus_json_with_self!(Block);
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiEthTx {
-    pub chain_id: Uint64,
-    pub nonce: Uint64,
+    pub chain_id: EthUint64,
+    pub nonce: EthUint64,
     pub hash: EthHash,
     pub block_hash: EthHash,
-    pub block_number: Uint64,
-    pub transaction_index: Uint64,
+    pub block_number: EthUint64,
+    pub transaction_index: EthUint64,
     pub from: EthAddress,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to: Option<EthAddress>,
     pub value: EthBigInt,
-    pub r#type: Uint64,
+    pub r#type: EthUint64,
     pub input: EthBytes,
-    pub gas: Uint64,
+    pub gas: EthUint64,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_fee_per_gas: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -489,20 +489,20 @@ impl HasLotusJson for EthSyncingResult {
 #[serde(rename_all = "camelCase")]
 pub struct EthTxReceipt {
     transaction_hash: EthHash,
-    transaction_index: Uint64,
+    transaction_index: EthUint64,
     block_hash: EthHash,
-    block_number: Uint64,
+    block_number: EthUint64,
     from: EthAddress,
     to: Option<EthAddress>,
     root: EthHash,
-    status: Uint64,
+    status: EthUint64,
     contract_address: Option<EthAddress>,
-    cumulative_gas_used: Uint64,
-    gas_used: Uint64,
+    cumulative_gas_used: EthUint64,
+    gas_used: EthUint64,
     effective_gas_price: EthBigInt,
     logs_bloom: EthBytes,
     logs: Vec<EthLog>,
-    r#type: Uint64,
+    r#type: EthUint64,
 }
 lotus_json_with_self!(EthTxReceipt);
 
@@ -523,11 +523,11 @@ pub struct EthLog {
     data: EthBytes,
     topics: Vec<EthHash>,
     removed: bool,
-    log_index: Uint64,
-    transaction_index: Uint64,
+    log_index: EthUint64,
+    transaction_index: EthUint64,
     transaction_hash: EthHash,
     block_hash: EthHash,
-    block_number: Uint64,
+    block_number: EthUint64,
 }
 lotus_json_with_self!(EthLog);
 
@@ -987,11 +987,11 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         to,
         from,
         input,
-        nonce: Uint64(msg.sequence),
-        chain_id: Uint64(chain_id),
+        nonce: EthUint64(msg.sequence),
+        chain_id: EthUint64(chain_id),
         value: msg.value.clone().into(),
-        r#type: Uint64(EIP_1559_TX_TYPE),
-        gas: Uint64(msg.gas_limit),
+        r#type: EthUint64(EIP_1559_TX_TYPE),
+        gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
         access_list: vec![],
@@ -1150,7 +1150,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<Block> {
     let parent_cid = tipset.parents().cid()?;
 
-    let block_number = Uint64(tipset.epoch() as u64);
+    let block_number = EthUint64(tipset.epoch() as u64);
 
     let tsk = tipset.key();
     let block_cid = tsk.cid()?;
@@ -1164,7 +1164,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let mut hash_transactions = vec![];
     let mut gas_used = 0;
     for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
-        let ti = Uint64(i as u64);
+        let ti = EthUint64(i as u64);
         gas_used += receipt.gas_used();
         let smsg = match msg {
             ChainMessage::Signed(msg) => msg.clone(),
@@ -1191,14 +1191,14 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         hash: block_hash,
         number: block_number,
         parent_hash: parent_cid.into(),
-        timestamp: Uint64(tipset.block_headers().first().timestamp),
+        timestamp: EthUint64(tipset.block_headers().first().timestamp),
         base_fee_per_gas: tipset
             .block_headers()
             .first()
             .parent_base_fee
             .clone()
             .into(),
-        gas_used: Uint64(gas_used),
+        gas_used: EthUint64(gas_used),
         transactions: if full_tx_info {
             Transactions::Full(full_transactions)
         } else {
@@ -1259,7 +1259,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
-    type Ok = Uint64;
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1272,7 +1272,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
             return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
         }
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
-        Ok(Uint64(count as _))
+        Ok(EthUint64(count as _))
     }
 }
 
@@ -1284,8 +1284,8 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Int64,);
-    type Ok = Uint64;
+    type Params = (EthInt64,);
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1300,7 +1300,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
             .chain_index()
             .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
-        Ok(Uint64(count as _))
+        Ok(EthUint64(count as _))
     }
 }
 
@@ -1414,7 +1414,7 @@ impl RpcMethod<2> for EthEstimateGas {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
-    type Ok = Uint64;
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1568,12 +1568,12 @@ impl RpcMethod<3> for EthFeeHistory {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Uint64, BlockNumberOrPredefined, Option<Vec<f64>>);
+    type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
     type Ok = EthFeeHistoryResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (Uint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+        (EthUint64(block_count), newest_block_number, reward_percentiles): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if block_count > 1024 {
             return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
@@ -1626,7 +1626,7 @@ impl RpcMethod<3> for EthFeeHistory {
         rewards_array.reverse();
 
         Ok(EthFeeHistoryResult {
-            oldest_block: Uint64(oldest_block_height as _),
+            oldest_block: EthUint64(oldest_block_height as _),
             base_fee_per_gas: base_fee_array,
             gas_used_ratio: gas_used_ratio_array,
             reward: if reward_percentiles.is_empty() {
@@ -1833,7 +1833,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = Uint64;
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1847,12 +1847,12 @@ impl RpcMethod<2> for EthGetTransactionCount {
             let evm_state =
                 fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {
-                return Ok(Uint64(0));
+                return Ok(EthUint64(0));
             }
 
-            Ok(Uint64(evm_state.nonce()))
+            Ok(EthUint64(evm_state.nonce()))
         } else {
-            Ok(Uint64(ctx.mpool.get_sequence(&addr)?))
+            Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
         }
     }
 }
@@ -1888,7 +1888,7 @@ impl RpcMethod<0> for EthProtocolVersion {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = Uint64;
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1896,7 +1896,7 @@ impl RpcMethod<0> for EthProtocolVersion {
     ) -> Result<Self::Ok, ServerError> {
         let epoch = ctx.chain_store().heaviest_tipset().epoch();
         let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
-        Ok(Uint64(version.into()))
+        Ok(EthUint64(version.into()))
     }
 }
 
@@ -1908,7 +1908,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Uint64, Uint64);
+    type Params = (EthUint64, EthUint64);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
@@ -1928,7 +1928,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (EthHash, Uint64);
+    type Params = (EthHash, EthUint64);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
@@ -1955,54 +1955,81 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
-            tracing::debug!(
-                "could not find transaction hash {} in Ethereum mapping",
-                tx_hash
-            );
-            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
-            tx_hash.to_cid()
-        });
-
-        // First, try to get the cid from mined transactions
-        if let Ok(Some((tipset, receipt))) = ctx
-            .state_manager
-            .search_for_message(None, message_cid, None, Some(true))
-            .await
-        {
-            let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-            let message_lookup = MessageLookup {
-                receipt,
-                tipset: tipset.key().clone(),
-                height: tipset.epoch(),
-                message: message_cid,
-                return_dec: ipld,
-            };
-
-            if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
-                return Ok(Some(tx));
-            }
-        }
-
-        // If not found, try to get it from the mempool
-        let (pending, _) = ctx.mpool.pending()?;
-
-        if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
-            // We only return pending eth-account messages because we can't guarantee
-            // that the from/to addresses of other messages are conversable to 0x-style
-            // addresses. So we just ignore them.
-            //
-            // This should be "fine" as anyone using an "Ethereum-centric" block
-            // explorer shouldn't care about seeing pending messages from native
-            // accounts.
-            if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
-                return Ok(Some(eth_tx.into()));
-            }
-        }
-
-        // Ethereum clients expect an empty response when the message was not found
-        Ok(None)
+        get_eth_transaction_by_hash(ctx, tx_hash, None).await
     }
+}
+
+pub enum EthGetTransactionByHashLimited {}
+impl RpcMethod<2> for EthGetTransactionByHashLimited {
+    const NAME: &'static str = "Filecoin.EthGetTransactionByHashLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHashLimited");
+    const PARAM_NAMES: [&'static str; 2] = ["tx_hash", "limit"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthHash, ChainEpoch);
+    type Ok = Option<ApiEthTx>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash, limit): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
+    }
+}
+
+async fn get_eth_transaction_by_hash(
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: EthHash,
+    limit: Option<ChainEpoch>,
+) -> Result<Option<ApiEthTx>, ServerError> {
+    let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+        tracing::debug!(
+            "could not find transaction hash {} in Ethereum mapping",
+            tx_hash
+        );
+        // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+        tx_hash.to_cid()
+    });
+
+    // First, try to get the cid from mined transactions
+    if let Ok(Some((tipset, receipt))) = ctx
+        .state_manager
+        .search_for_message(None, message_cid, limit, Some(true))
+        .await
+    {
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        };
+
+        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+            return Ok(Some(tx));
+        }
+    }
+
+    // If not found, try to get it from the mempool
+    let (pending, _) = ctx.mpool.pending()?;
+
+    if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
+        // We only return pending eth-account messages because we can't guarantee
+        // that the from/to addresses of other messages are conversable to 0x-style
+        // addresses. So we just ignore them.
+        //
+        // This should be "fine" as anyone using an "Ethereum-centric" block
+        // explorer shouldn't care about seeing pending messages from native
+        // accounts.
+        if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
+            return Ok(Some(eth_tx.into()));
+        }
+    }
+
+    // Ethereum clients expect an empty response when the message was not found
+    Ok(None)
 }
 
 pub enum EthGetTransactionHashByCid {}

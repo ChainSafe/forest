@@ -1,18 +1,5 @@
-# Using https://github.com/tonistiigi/xx
-# Use in Docker images when cross-compiling.
-install-xx:
-	xx-cargo install --locked --path . --force
-
-# Redundancy tracked by #2991
-install-cli:
-	cargo install --locked --path . --force
-
-install-daemon:
-	cargo install --locked --path . --force
-
 install:
 	cargo install --locked --path . --force
-
 
 install-quick:
 	cargo install --profile quick --locked --path . --force
@@ -49,13 +36,6 @@ install-lint-tools-ci:
 
 	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-audit
 
-install-doc-tools:
-	cargo install --locked mdbook
-	cargo install --locked mdbook-linkcheck
-
-clean-all:
-	cargo clean
-
 clean:
 	cargo clean
 
@@ -74,8 +54,6 @@ lint: license clean lint-clippy
 	taplo lint
 
 # Don't bother linting different allocators
-# Don't lint all permutations, just different versions of database, cns
-# This should be simplified in #2984
 # --quiet: don't show build logs
 lint-clippy:
 	cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
@@ -93,7 +71,10 @@ lint-docker: $(DOCKERFILES)
 fmt:
 	cargo fmt --all
 	taplo fmt
-	yarn && yarn md-fmt
+	corepack enable && yarn && yarn md-fmt
+
+md-check:
+	corepack enable && yarn && yarn md-check
 
 build:
 	cargo build
@@ -122,17 +103,5 @@ license:
 
 docs:
 	cargo doc --no-deps
-
-mdbook:
-	mdbook serve documentation
-
-mdbook-build:
-	mdbook build ./documentation
-
-# These are the docs that are hosted at https://chainsafe.github.io/forest/rustdoc/.
-# The root index.html simply redirects to the main `forest-filecoin` library documentation.
-vendored-docs:
-	cargo doc --document-private-items
-	cp ./build/vendored-docs-redirect.index.html target/doc/index.html
 
 .PHONY: $(MAKECMDGOALS)

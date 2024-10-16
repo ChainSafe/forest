@@ -27,13 +27,43 @@
 
 ### Breaking
 
+- [#4782](https://github.com/ChainSafe/forest/pull/4782) Devnets are no longer
+  configurable with legacy drand network.
+
 ### Added
 
+- [#4703](https://github.com/ChainSafe/forest/issues/4703) Add support for the
+  `Filecoin.EthGetTransactionByHashLimited` RPC method.
+
+- [#4783](https://github.com/ChainSafe/forest/issues/4783) Add support for the
+  `Filecoin.NetProtectList` RPC method.
+
+- [#4865](https://github.com/ChainSafe/forest/issues/4865) Add support for the
+  `Filecoin.F3IsRunning` RPC method.
+
+- [#4878](https://github.com/ChainSafe/forest/issues/4878) Add support for the
+  `Filecoin.F3GetProgress` RPC method.
+
+- [#4857](https://github.com/ChainSafe/forest/pull/4857) Add support for nv24
+  (TukTuk).
+
 ### Changed
+
+- [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
+  upgraded from 22.04 to 24.04 in Dockerfile
 
 ### Removed
 
 ### Fixed
+
+- [#4809](https://github.com/ChainSafe/forest/issues/4777) the Mac OS X build on
+  Apple silicons works
+- [#4820](https://github.com/ChainSafe/forest/pull/4820) Fix edge-case in
+  `Filecoin.MinerGetBaseInfo` RPC method.
+
+- [#4890](https://github.com/ChainSafe/forest/issues/4890) Fix incorrect deal
+  weight calculation in the `Filecoin.StateMinerInitialPledgeCollateral` RPC
+  method.
 
 ## Forest 0.20.0 "Brexit"
 

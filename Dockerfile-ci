@@ -1,0 +1,56 @@
+# This Dockerfile is for building official Forest docker multiplatform images on CI,
+# linux/amd64 and linux/arm64 are currently supported.
+#
+# This Dockerfile composes Forest binaries that are prebuilt in other CI steps, to take
+# better advantage of build cache and reduce build time and cost.
+#
+# Build and manually push to Github Container Registry (see https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+# ```
+# docker build -t ghcr.io/chainsafe/forest:latest .
+# docker push ghcr.io/chainsafe/forest:latest
+# ```
+
+##
+# Prod image for forest binary
+# Use github action runner cached images to avoid being rate limited
+# https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
+##
+# A slim image contains only forest binaries
+FROM ubuntu:22.04 AS slim-image
+
+# export TARGETPLATFORM TARGETOS and TARGETARCH
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+ENV DEBIAN_FRONTEND="noninteractive"
+# Install binary dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+RUN update-ca-certificates
+
+# Assuming prebuilt Forest binaries are under `forest-linux-[amd64|arm64]`
+COPY --chmod=555 ./forest-${TARGETOS}-${TARGETARCH}/* /usr/local/bin
+
+# Basic verification of dynamically linked dependencies
+RUN forest -V && forest-cli -V && forest-tool -V && forest-wallet -V
+
+ENTRYPOINT ["forest"]
+
+# A fat image contains forest binaries and fil proof parameter files under $FIL_PROOFS_PARAMETER_CACHE
+FROM slim-image AS fat-image
+
+# Move FIL_PROOFS_PARAMETER_CACHE out of forest data dir since users always need to mount the data dir
+ENV FIL_PROOFS_PARAMETER_CACHE="/var/tmp/filecoin-proof-parameters"
+
+# Populate $FIL_PROOFS_PARAMETER_CACHE
+RUN forest-tool fetch-params --keys
+
+# Cache actor bundle in the image
+ENV FOREST_ACTOR_BUNDLE_PATH="/var/tmp/forest_actor_bundle.car.zst"
+
+# Populate $FOREST_ACTOR_BUNDLE_PATH
+RUN forest-tool state-migration actor-bundle $FOREST_ACTOR_BUNDLE_PATH
+
+ENTRYPOINT ["forest"]

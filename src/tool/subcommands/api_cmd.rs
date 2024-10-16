@@ -712,6 +712,7 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::identity(
             NetProtectRemove::request((vec![PeerId::random().to_string()],)).unwrap(),
         ),
+        RpcTest::basic(NetProtectList::request(()).unwrap()),
     ]
 }
 
@@ -1170,7 +1171,18 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     StateWaitMsg::request((msg_cid, 0, 10101, false))?
                         .with_timeout(Duration::from_secs(15)),
                 ),
-                validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
+                validate_message_lookup(StateSearchMsg::request((
+                    None.into(),
+                    msg_cid,
+                    800,
+                    true,
+                ))?),
+                validate_message_lookup(StateSearchMsg::request((
+                    None.into(),
+                    msg_cid,
+                    800,
+                    false,
+                ))?),
                 validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
             ]);
         }
@@ -1430,7 +1442,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+            EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
+                .unwrap(),
         ),
         RpcTest::identity(
             EthGetTransactionCount::request((
@@ -1444,7 +1457,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
-                BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
+                BlockNumberOrHash::BlockNumber(EthInt64(shared_tipset.epoch())),
             ))
             .unwrap(),
         ),
@@ -1557,7 +1570,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHash::request((tx
                 .hash
                 .clone(),))?));
-
+            tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
+                (tx.hash.clone(), shared_tipset.epoch()),
+            )?));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {
@@ -1599,6 +1614,14 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     )]
 }
 
+fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    Ok(vec![
+        // using basic because 2 nodes are not garanteed to be at the same head
+        RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
+        RpcTest::identity(F3GetECPowerTable::request((tipset.key().into(),))?),
+    ])
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
@@ -1625,6 +1648,7 @@ fn snapshot_tests(
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
+        tests.extend(f3_tests_with_tipset(&tipset)?);
     }
 
     Ok(tests)

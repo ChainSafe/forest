@@ -16,7 +16,7 @@ use crate::{
     chain::index::ResolveNullTipset,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{types::ApiTipsetKey, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
@@ -27,7 +27,7 @@ use ahash::{HashMap, HashSet};
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v9,
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
     },
     miner, power,
 };
@@ -380,6 +380,15 @@ impl RpcMethod<1> for GetPowerTable {
                     &from_policy_v13_to_v14(&ctx.chain_config().policy)
                 );
             }
+            power::State::V15(s) => {
+                handle_miner_state_v12_on!(
+                    v15,
+                    id_power_worker_mappings,
+                    &ts,
+                    s,
+                    &from_policy_v13_to_v15(&ctx.chain_config().policy)
+                );
+            }
         }
         let mut power_entries = vec![];
         for (id, power, worker) in id_power_worker_mappings {
@@ -530,14 +539,15 @@ impl RpcMethod<1> for F3GetECPowerTable {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (F3TipSetKey,);
+    type Params = (ApiTipsetKey,);
     type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        params: Self::Params,
+        (ApiTipsetKey(tsk_opt),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        GetPowerTable::handle(ctx, params).await
+        let tsk = tsk_opt.unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone());
+        GetPowerTable::handle(ctx, (tsk.into(),)).await
     }
 }
 
@@ -548,17 +558,55 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (F3TipSetKey,);
+    type Params = (ApiTipsetKey,);
     type Ok = serde_json::Value;
 
     async fn handle(
-        _: Ctx<impl Blockstore>,
-        (tsk,): Self::Params,
+        ctx: Ctx<impl Blockstore>,
+        (ApiTipsetKey(tsk_opt),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let tsk: F3TipSetKey = tsk_opt
+            .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone())
+            .into();
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(tsk.into_lotus_json())?;
         let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
+pub enum F3IsRunning {}
+impl RpcMethod<0> for F3IsRunning {
+    const NAME: &'static str = "Filecoin.F3IsRunning";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#F3GetProgress>
+pub enum F3GetProgress {}
+impl RpcMethod<0> for F3GetProgress {
+    const NAME: &'static str = "Filecoin.F3GetProgress";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
     }
 }

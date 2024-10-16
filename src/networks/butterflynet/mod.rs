@@ -14,13 +14,11 @@ use crate::{
 };
 
 use super::{
-    actors_bundle::ACTOR_BUNDLES_METADATA,
-    drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
-    NetworkChain,
+    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, parse_bootstrap_peers,
+    DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V22;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V23;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -42,7 +40,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzaceajpno2eryhvocvmol7s3urztu7aie2sk3fp2ecl72qhxj7a3vone").unwrap()
+    Cid::from_str("bafy2bzacecqfnzdjcmjisrj6qvdaohweaxdvgwfej2sb4eklw3ksatbg7xj4k").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
@@ -101,8 +99,9 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Thunder, -23),
         make_height!(Watermelon, -24),
         make_height!(Dragon, -25, get_bundle_cid("v13.0.0")),
-        make_height!(Phoenix, i64::MAX),
-        make_height!(Waffle, 100, get_bundle_cid("v14.0.0-rc.1")),
+        make_height!(Phoenix, i64::MIN),
+        make_height!(Waffle, -26, get_bundle_cid("v14.0.0-rc.1")),
+        make_height!(TukTuk, 360, get_bundle_cid("v15.0.0-rc1")),
     ])
 });
 
@@ -113,18 +112,11 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
-    [
-        DrandPoint {
-            height: 0,
-            config: &DRAND_MAINNET,
-        },
-        DrandPoint {
-            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
-            config: &DRAND_QUICKNET,
-        },
-    ]
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
+    [DrandPoint {
+        height: 0,
+        config: &DRAND_QUICKNET,
+    }]
 });
 
 /// Creates a new butterfly policy with the given version.

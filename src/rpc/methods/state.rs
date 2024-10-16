@@ -22,6 +22,7 @@ use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
     market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
+    power::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
@@ -355,6 +356,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         &store,
                         &state.address_map,
                         fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
+                init::State::V15(state) => {
+                    let map = fil_actor_init_state::v15::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v15::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )
                     .context("Failed to load address map")?;
@@ -794,6 +813,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V15(s) => (
+                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V14(s) => (
                 s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -879,6 +902,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
+                power_state.ramp_start_epoch(),
+                power_state.ramp_duration_epochs(),
             )?
             .into();
 
@@ -1042,25 +1067,38 @@ impl RpcMethod<4> for StateWaitMsg {
 }
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#statesearchmsg>
 pub enum StateSearchMsg {}
 
-impl RpcMethod<1> for StateSearchMsg {
+impl RpcMethod<4> for StateSearchMsg {
     const NAME: &'static str = "Filecoin.StateSearchMsg";
-    const PARAM_NAMES: [&'static str; 1] = ["message_cid"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PARAM_NAMES: [&'static str; 4] = [
+        "tipset_key",
+        "message_cid",
+        "look_back_limit",
+        "allow_replaced",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Cid,);
+    type Params = (ApiTipsetKey, Cid, i64, bool);
     type Ok = MessageLookup;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (message_cid,): Self::Params,
+        (ApiTipsetKey(tsk), message_cid, look_back_limit, allow_replaced): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let from = tsk
+            .map(|k| ctx.chain_index().load_required_tipset(&k))
+            .transpose()?;
         let (tipset, receipt) = ctx
             .state_manager
-            .search_for_message(None, message_cid, None, None)
+            .search_for_message(
+                from,
+                message_cid,
+                Some(look_back_limit),
+                Some(allow_replaced),
+            )
             .await?
             .with_context(|| format!("message {message_cid} not found."))?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -1890,6 +1928,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V15(s) => {
+                let precommitted = fil_actor_miner_state::v15::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v15::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -1981,6 +2033,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v14::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V15(s) => {
+                let precommitted = fil_actor_miner_state::v15::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v15::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2399,6 +2465,18 @@ impl StateGetAllocations {
                         Ok(())
                     })?;
                 }
+                init::State::V15(s) => {
+                    let map = fil_actor_init_state::v15::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v15::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
             };
         }
 
@@ -2650,6 +2728,8 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
             upgrade_waffle_height: get_height(Waffle)?,
+            // TODO(forest): https://github.com/ChainSafe/forest/issues/4800
+            // upgrade_tuktuk_height: get_height(TukTuk)?,
         })
     }
 }

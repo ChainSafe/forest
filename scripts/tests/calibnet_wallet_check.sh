@@ -25,57 +25,58 @@ forest_init
 $FOREST_WALLET_PATH import preloaded_wallet.key
 $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 
-: Begin Filecoin.MarketAddBalance test
-
-FOREST_URL='http://127.0.0.1:2345/rpc/v1'
-
-# Amount to add to the Market actor (in attoFIL)
-MARKET_FIL_AMT="23"
-
-# The preloaded address
-REMOTE_ADDR=$($FOREST_WALLET_PATH --remote-wallet list | tail -1 | cut -d ' ' -f1)
-
-JSON=$(curl -s -X POST "$FOREST_URL" \
-  --header 'Accept: application/json' \
-  --header 'Content-Type: application/json' \
-  --header "Authorization: Bearer $ADMIN_TOKEN" \
-  --data "$(jq -n --arg addr "$REMOTE_ADDR" --arg amt "$MARKET_FIL_AMT" '{jsonrpc: "2.0", id: 1, method: "Filecoin.MarketAddBalance", params: [$addr, $addr, $amt]}')")
-
-echo "$JSON"
-
-if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
-  echo "Error while sending message."
-  exit 1
-fi
-
-MSG_CID=$(echo "$JSON" | jq -r '.result["/"]')
-echo "Message cid: $MSG_CID"
-
-# Try 30 times (in other words wait for 5 tipsets)
-for i in {1..30}
-do
-  sleep 5s
-  echo "Attempt $i:"
-  
-  JSON=$(curl -s -X POST "$FOREST_URL" \
-    --header 'Content-Type: application/json' \
-    --data "$(jq -n --arg cid "$MSG_CID" '{jsonrpc: "2.0", id: 1, method: "Filecoin.StateSearchMsg", params: [{"/": $cid}]}')")
-
-  echo "$JSON"
-  
-  # Check if the message has been mined.
-  if echo "$JSON" | jq -e '.result' > /dev/null; then
-    echo "Message found, exiting."
-    break
-  fi
-
-  echo -e "\n"
-done
-
-if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
-  echo "Error while sending message."
-  exit 1
-fi
+# Test commented out due to it being flaky. See the tracking issue: https://github.com/ChainSafe/forest/issues/4849
+# : Begin Filecoin.MarketAddBalance test
+# 
+# FOREST_URL='http://127.0.0.1:2345/rpc/v1'
+# 
+# # Amount to add to the Market actor (in attoFIL)
+# MARKET_FIL_AMT="23"
+# 
+# # The preloaded address
+# REMOTE_ADDR=$($FOREST_WALLET_PATH --remote-wallet list | tail -1 | cut -d ' ' -f1)
+# 
+# JSON=$(curl -s -X POST "$FOREST_URL" \
+#   --header 'Accept: application/json' \
+#   --header 'Content-Type: application/json' \
+#   --header "Authorization: Bearer $ADMIN_TOKEN" \
+#   --data "$(jq -n --arg addr "$REMOTE_ADDR" --arg amt "$MARKET_FIL_AMT" '{jsonrpc: "2.0", id: 1, method: "Filecoin.MarketAddBalance", params: [$addr, $addr, $amt]}')")
+# 
+# echo "$JSON"
+# 
+# if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
+#   echo "Error while sending message."
+#   exit 1
+# fi
+# 
+# MSG_CID=$(echo "$JSON" | jq -r '.result["/"]')
+# echo "Message cid: $MSG_CID"
+# 
+# # Try 30 times (in other words wait for 5 tipsets)
+# for i in {1..30}
+# do
+#   sleep 5s
+#   echo "Attempt $i:"
+#   
+#   JSON=$(curl -s -X POST "$FOREST_URL" \
+#     --header 'Content-Type: application/json' \
+#     --data "$(jq -n --arg cid "$MSG_CID" '{jsonrpc: "2.0", id: 1, method: "Filecoin.StateSearchMsg", params: [[], {"/": $cid}, 800, true]}')")
+# 
+#   echo "$JSON"
+#   
+#   # Check if the message has been mined.
+#   if echo "$JSON" | jq -e '.result' > /dev/null; then
+#     echo "Message found, exiting."
+#     break
+#   fi
+# 
+#   echo -e "\n"
+# done
+# 
+# if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
+#   echo "Error while sending message."
+#   exit 1
+# fi
 
 : Begin wallet tests
 

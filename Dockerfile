@@ -6,54 +6,28 @@
 # docker run --init -it forest
 # ```
 # 
-# Build and manually push to Github Container Registry (see https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-# ```
-# docker build -t ghcr.io/chainsafe/forest:latest .
-# docker push ghcr.io/chainsafe/forest:latest
-# ```
 
-##
-# Build stage
-# Use github action runner cached images to avoid being rate limited
-# https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
-## 
-
-# Cross-compilation helpers
-# https://github.com/tonistiigi/xx
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.5.0 AS xx
-
-FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
+FROM golang:1.22-bookworm AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
+    apt-get install --no-install-recommends -y build-essential clang-14 curl git ca-certificates
 RUN update-ca-certificates
+ENV CC=clang-14 CXX=clang++-14
 
+# install Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Copy the cross-compilation scripts 
-COPY --from=xx / /
-
-# export TARGETPLATFORM
-ARG TARGETPLATFORM
-
-# Install those packages for the target architecture
-RUN xx-apt-get update && \
-    xx-apt-get install -y libc6-dev g++
-
 WORKDIR /forest
 COPY . .
-
-# TODO(forest): https://github.com/ChainSafe/forest/issues/4758
-ENV FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1
 
 # Install Forest. Move it out of the cache for the prod image.
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install-xx && \
+    make install && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 
@@ -63,7 +37,7 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
 # A slim image contains only forest binaries
-FROM ubuntu:22.04 AS slim-image
+FROM ubuntu:24.04 AS slim-image
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies

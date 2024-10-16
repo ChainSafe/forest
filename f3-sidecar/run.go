@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/filecoin-project/go-f3"
@@ -12,13 +14,14 @@ import (
 	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality int64, db string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
 	api := FilecoinApi{}
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
@@ -50,24 +53,42 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	if err != nil {
 		return err
 	}
-	ds, err := leveldb.NewDatastore(db, nil)
+	ds, err := leveldb.NewDatastore(filepath.Join(f3Root, "db"), nil)
 	if err != nil {
 		return err
 	}
 	verif := blssig.VerifierWithKeyOnG1()
 	m := manifest.LocalDevnetManifest()
+	switch _, initialPowerTable, err := cid.CidFromBytes([]byte(initialPowerTable)); {
+	case err == nil && initialPowerTable != cid.Undef:
+		logger.Infof("InitialPowerTable is %s", initialPowerTable)
+		m.InitialPowerTable = initialPowerTable
+	default:
+		logger.Warn("InitialPowerTable is undefined")
+		m.InitialPowerTable = cid.Undef
+	}
 	m.NetworkName = gpbft.NetworkName(network)
 	versionInfo, err := api.Version(ctx)
 	if err != nil {
 		return err
 	}
-	m.EC.Period = time.Duration(versionInfo.BlockDelay) * time.Second
+
+	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
+	m.EC.Period = blockDelay
+	m.CatchUpAlignment = blockDelay / 2
+
 	head, err := ec.GetHead(ctx)
 	if err != nil {
 		return err
 	}
 	m.EC.Finality = finality
-	m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
+	if bootstrapEpoch < 0 {
+		// This is temporary logic to make the dummy bootstrap epoch work locally.
+		// It should be removed once bootstrapEpochs are determinted.
+		m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
+	} else {
+		m.BootstrapEpoch = bootstrapEpoch
+	}
 	m.CommitteeLookback = 5
 	// m.Pause = true
 
@@ -75,15 +96,37 @@ func run(ctx context.Context, rpcEndpoint string, f3RpcEndpoint string, finality
 	switch manifestServerID, err := peer.Decode(manifestServer); {
 	case err != nil:
 		logger.Info("Using static manifest provider")
-		manifestProvider = manifest.NewStaticManifestProvider(m)
+		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
+			return err
+		}
 	default:
 		logger.Infof("Using dynamic manifest provider at %s", manifestServerID)
 		manifestDS := namespace.Wrap(ds, datastore.NewKey("/f3-dynamic-manifest"))
-		manifestProvider = manifest.NewDynamicManifestProvider(m, manifestDS, p2p.PubSub, manifestServerID)
+		primaryNetworkName := m.NetworkName
+		filter := func(m *manifest.Manifest) error {
+			if m.EC.Finalize {
+				return fmt.Errorf("refusing dynamic manifest that finalizes tipsets")
+			}
+			if m.NetworkName == primaryNetworkName {
+				return fmt.Errorf(
+					"refusing dynamic manifest with network name %q that clashes with initial manifest",
+					primaryNetworkName,
+				)
+			}
+			return nil
+		}
+		if manifestProvider, err = manifest.NewDynamicManifestProvider(
+			p2p.PubSub,
+			manifestServerID,
+			manifest.DynamicManifestProviderWithInitialManifest(m),
+			manifest.DynamicManifestProviderWithDatastore(manifestDS),
+			manifest.DynamicManifestProviderWithFilter(filter)); err != nil {
+			return err
+		}
 	}
 
 	f3Module, err := f3.New(ctx, manifestProvider, ds,
-		p2p.Host, p2p.PubSub, verif, &ec)
+		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {
 		return err
 	}
