@@ -222,14 +222,11 @@ impl EthEventHandler {
         let match_topics = if let Some(spec) = spec.topics.as_ref() {
             let matched = entries.iter().enumerate().all(|(i, entry)| {
                 if let Some(slice) = get_word(entry.value()) {
-                    let hash: EthHash = slice.clone().into();
+                    let hash: EthHash = (*slice).into();
                     match spec.0.get(i) {
                         Some(EthHashList::List(vec)) => vec.contains(&hash),
-                        Some(EthHashList::Single(opt)) => match opt {
-                            Some(h) => h == &hash,
-                            None => true, /* wildcard */
-                        },
-                        None => true,
+                        Some(EthHashList::Single(Some(h))) => h == &hash,
+                        _ => true, /* wildcard */
                     }
                 } else {
                     // Drop events with mis-sized topics
@@ -814,7 +811,7 @@ mod tests {
         ];
 
         // Matching an empty spec
-        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &vec![]));
+        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &[]));
 
         assert!(EthEventHandler::do_match(
             &empty_spec,
@@ -831,9 +828,9 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &vec![]));
+        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &[]));
 
-        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &vec![]));
+        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &[]));
 
         // Matching the given address 0 or 1
         let spec1 = EthFilterSpec {
@@ -844,9 +841,9 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &vec![]));
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &[]));
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &vec![]));
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &[]));
     }
 
     #[test]
