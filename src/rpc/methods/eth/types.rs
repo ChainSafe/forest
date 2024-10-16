@@ -349,8 +349,17 @@ impl FilterID {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
-pub struct EthHashList(pub Vec<EthHash>);
+/// `EthHashList` represents a topic filter that can take one of two forms:
+/// - `List`: Matches if a hash is found within the provided vector.
+/// - `Item`: An optional hash, where:
+///     - `Some(hash)`: Matches a specific hash.
+///     - `None`: Matches any hash (acts as a wildcard).
+#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(untagged)]
+pub enum EthHashList {
+    List(Vec<EthHash>),
+    Item(Option<EthHash>),
+}
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct EthTopicSpec(pub Vec<EthHashList>);
