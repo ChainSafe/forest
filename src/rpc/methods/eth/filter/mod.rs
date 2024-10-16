@@ -851,9 +851,9 @@ mod tests {
 
     #[test]
     fn test_do_match_topic() {
-        let eth_addr = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
+        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
-        let entries = vec![
+        let entries0 = vec![
             Entry::new(
                 Flags::FLAG_INDEXED_ALL,
                 "t1".into(),
@@ -900,15 +900,14 @@ mod tests {
             EthHash::from_str("0x00000000000000000000000092c3b379c217fdf8603884770e83fded7b7410f8")
                 .unwrap();
 
-        let filter_spec = EthFilterSpec {
+        let spec1 = EthFilterSpec {
             from_block: None,
             to_block: None,
             address: vec![],
-            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
-                topic0.clone(),
-                topic1.clone(),
-            ])])),
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(None)])),
             block_hash: None,
         };
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &entries0));
     }
 }
