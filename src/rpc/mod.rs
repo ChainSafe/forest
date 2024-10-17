@@ -258,6 +258,8 @@ macro_rules! for_each_method {
     };
 }
 pub(crate) use for_each_method;
+use tower_http::compression::CompressionLayer;
+use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
 #[allow(unused)]
 /// All handler definitions.
@@ -486,6 +488,12 @@ where
                     svc_builder,
                     keystore,
                 } = per_conn.clone();
+                let http_middleware = tower::ServiceBuilder::new()
+                    .layer(CompressionLayer::new())
+                    // Mark the `Authorization` request header as sensitive so it doesn't show in logs
+                    .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
+                        http::header::AUTHORIZATION,
+                    )));
                 // NOTE, the rpc middleware must be initialized here to be able to created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
@@ -497,6 +505,7 @@ where
                     .layer(LogLayer::default())
                     .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
+                    .set_http_middleware(http_middleware)
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
 
