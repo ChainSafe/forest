@@ -11,6 +11,7 @@ pub mod binding {
 pub trait GoF3Node {
     fn run(
         rpc_endpoint: String,
+        jwt: String,
         f3_rpc_endpoint: String,
         initial_power_table: String,
         bootstrap_epoch: i64,

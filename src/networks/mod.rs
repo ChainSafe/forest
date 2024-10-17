@@ -228,6 +228,9 @@ pub struct ChainConfig {
     pub breeze_gas_tamping_duration: i64,
     // FIP0081 gradually comes into effect over this many epochs.
     pub fip0081_ramp_duration_epochs: u64,
+    pub f3_enabled: bool,
+    // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
+    pub f3_consensus: bool,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
     // This will likely be deprecated once F3 is fully bootstrapped to avoid single point network dependencies.
@@ -254,6 +257,8 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
+            f3_enabled: false,
+            f3_consensus: false,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_manifest_server: Some(
@@ -282,6 +287,10 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
+            // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
+            // (state tree of epoch 2_081_674 - 900 has to be present in the database if `f3_initial_power_table` is not set)
+            f3_enabled: false,
+            f3_consensus: true,
             // 2024-10-24T13:30:00Z
             f3_bootstrap_epoch: 2_081_674,
             f3_initial_power_table: Default::default(),
@@ -308,6 +317,8 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // Devnet ramp is 200 epochs in Lotus (subject to change).
             fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
+            f3_enabled: false,
+            f3_consensus: false,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_manifest_server: None,
@@ -335,7 +346,9 @@ impl ChainConfig {
                 ENV_PLEDGE_RULE_RAMP,
                 365 * EPOCHS_IN_DAY as u64,
             ),
-            f3_bootstrap_epoch: -1,
+            f3_enabled: true,
+            f3_consensus: true,
+            f3_bootstrap_epoch: 2760,
             f3_initial_power_table: Default::default(),
             f3_manifest_server: Some(
                 "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"

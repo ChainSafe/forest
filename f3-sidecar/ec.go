@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 
 	"github.com/filecoin-project/go-f3/ec"
 	"github.com/filecoin-project/go-f3/gpbft"
@@ -9,18 +11,24 @@ import (
 )
 
 type ForestEC struct {
-	rpcEndpoint string
-	f3api       F3Api
-	closer      jsonrpc.ClientCloser
+	rpcEndpoint   string
+	isJwtProvided bool
+	f3api         F3Api
+	closer        jsonrpc.ClientCloser
 }
 
-func NewForestEC(rpcEndpoint string) (ForestEC, error) {
+func NewForestEC(rpcEndpoint, jwt string) (ForestEC, error) {
 	f3api := F3Api{}
-	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "F3", &f3api, nil)
+	headers := make(http.Header)
+	isJwtProvided := len(jwt) > 0
+	if isJwtProvided {
+		headers.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+	}
+	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "F3", &f3api, headers)
 	if err != nil {
 		return ForestEC{}, err
 	}
-	return ForestEC{rpcEndpoint, f3api, closer}, nil
+	return ForestEC{rpcEndpoint, isJwtProvided, f3api, closer}, nil
 }
 
 func (ec *ForestEC) Close() {
@@ -48,10 +56,16 @@ func (ec *ForestEC) GetPowerTable(ctx context.Context, tsk gpbft.TipSetKey) (gpb
 }
 
 func (ec *ForestEC) Finalize(ctx context.Context, tsk gpbft.TipSetKey) error {
+	if !ec.isJwtProvided {
+		return fmt.Errorf("unable to finalize tipset, jwt is not provided")
+	}
 	return ec.f3api.Finalize(ctx, tsk)
 }
 
 func (ec *ForestEC) Sign(ctx context.Context, sender gpbft.PubKey, msg []byte) ([]byte, error) {
+	if !ec.isJwtProvided {
+		return nil, fmt.Errorf("unable to sign messages, jwt is not provided")
+	}
 	signature, err := ec.f3api.SignMessage(ctx, sender, msg)
 	if err != nil {
 		return nil, err

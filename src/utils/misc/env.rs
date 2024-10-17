@@ -13,11 +13,17 @@ pub fn env_or_default<T: FromStr>(key: &str, default: T) -> T {
 }
 
 /// Check if the given environment variable is set to truthy value.
+/// Returns false if not set.
 pub fn is_env_truthy(env: &str) -> bool {
-    match std::env::var(env) {
-        Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
-        _ => false,
-    }
+    is_env_set_and_truthy(env).unwrap_or_default()
+}
+
+/// Check if the given environment variable is set to truthy value.
+/// Returns None if not set.
+pub fn is_env_set_and_truthy(env: &str) -> Option<bool> {
+    std::env::var(env)
+        .ok()
+        .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true"))
 }
 
 #[cfg(test)]

@@ -30,7 +30,7 @@ impl RpcMethod<0> for NetAddrsListen {
             method: NetRPCMethods::AddrsListen(tx),
         };
 
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         let (id, addrs) = rx.recv_async().await?;
 
         Ok(AddrInfo::new(id, addrs))
@@ -53,7 +53,7 @@ impl RpcMethod<0> for NetPeers {
             method: NetRPCMethods::Peers(tx),
         };
 
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         let peer_addresses = rx.recv_async().await?;
 
         let connections = peer_addresses
@@ -81,7 +81,7 @@ impl RpcMethod<1> for NetFindPeer {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::Peer(tx, peer_id),
             })
@@ -125,7 +125,7 @@ impl RpcMethod<0> for NetInfo {
             method: NetRPCMethods::Info(tx),
         };
 
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         Ok(rx.recv_async().await?)
     }
 }
@@ -152,7 +152,7 @@ impl RpcMethod<1> for NetConnect {
             method: NetRPCMethods::Connect(tx, peer_id, addrs),
         };
 
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         let success = rx.recv_async().await?;
 
         if success {
@@ -184,7 +184,7 @@ impl RpcMethod<1> for NetDisconnect {
             method: NetRPCMethods::Disconnect(tx, peer_id),
         };
 
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         rx.recv_async().await?;
 
         Ok(())
@@ -207,7 +207,7 @@ impl RpcMethod<1> for NetAgentVersion {
     ) -> Result<Self::Ok, ServerError> {
         let peer_id = PeerId::from_str(&id)?;
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::AgentVersion(tx, peer_id),
             })
@@ -231,7 +231,7 @@ impl RpcMethod<0> for NetAutoNatStatus {
         let req = NetworkMessage::JSONRPCRequest {
             method: NetRPCMethods::AutoNATStatus(tx),
         };
-        ctx.network_send.send_async(req).await?;
+        ctx.network_send().send_async(req).await?;
         let nat_status = rx.recv_async().await?;
         Ok(nat_status.into())
     }
@@ -276,7 +276,7 @@ impl RpcMethod<1> for NetProtectAdd {
             .map(PeerId::from_str)
             .try_collect()?;
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::ProtectPeer(tx, peer_ids),
             })
@@ -296,7 +296,7 @@ impl RpcMethod<0> for NetProtectList {
     type Ok = Vec<String>;
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::ListProtectedPeers(tx),
             })
@@ -327,7 +327,7 @@ impl RpcMethod<1> for NetProtectRemove {
             .map(PeerId::from_str)
             .try_collect()?;
         let (tx, rx) = flume::bounded(1);
-        ctx.network_send
+        ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
                 method: NetRPCMethods::UnprotectPeer(tx, peer_ids),
             })

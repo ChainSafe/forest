@@ -3,12 +3,14 @@
 
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
+use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
+use crate::libp2p::PeerManager;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::eth::filter::EthEventHandler;
@@ -126,6 +128,9 @@ pub async fn start_offline_server(
         std::fs::write(path, token)?;
     }
 
+    let peer_manager = Arc::new(PeerManager::default());
+    let sync_network_context =
+        SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(keystore)),
@@ -133,7 +138,7 @@ pub async fn start_offline_server(
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
-        network_send,
+        sync_network_context,
         network_name,
         start_time: chrono::Utc::now(),
         shutdown,

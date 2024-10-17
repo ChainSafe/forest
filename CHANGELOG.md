@@ -27,6 +27,23 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.21.0 "Songthaew"
+
+This is a mandatory release for calibration network node operators. It includes
+state migration for the NV24 _TukTuk_ upgrade at epoch `2078794`
+2024-10-23T13:30:00Z. It also includes a number of new RPC methods, fixes and F3
+support.
+
+### Breaking
+
 - [#4782](https://github.com/ChainSafe/forest/pull/4782) Devnets are no longer
   configurable with legacy drand network.
 
@@ -52,14 +69,16 @@
 - [#4786](https://github.com/ChainSafe/forest/issues/4786) ubuntu image is
   upgraded from 22.04 to 24.04 in Dockerfile
 
-### Removed
-
 ### Fixed
 
 - [#4809](https://github.com/ChainSafe/forest/issues/4777) the Mac OS X build on
   Apple silicons works
 - [#4820](https://github.com/ChainSafe/forest/pull/4820) Fix edge-case in
   `Filecoin.MinerGetBaseInfo` RPC method.
+
+- [#4890](https://github.com/ChainSafe/forest/issues/4890) Fix incorrect deal
+  weight calculation in the `Filecoin.StateMinerInitialPledgeCollateral` RPC
+  method.
 
 ## Forest 0.20.0 "Brexit"
 
