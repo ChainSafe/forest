@@ -3,15 +3,7 @@
 # User Guide
 
 - [Introduction](./introduction.md)
-  - [Basic Usage](./basic_usage.md)
-  - [Command-line interface](./cli.md)
-  - [Wallet handling](./wallet.md)
-  - [Configuration](./configuration.md)
-  - [Environment Variables](./environment_variables.md)
-  - [Docker](./docker.md)
-  - [Healthcheck](./healthcheck.md)
   - [Snapshot exporting](./snapshot_export.md)
-  - [JSON-RPC API](./jsonrpc.md)
   - [Backups](./backups.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)
