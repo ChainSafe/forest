@@ -35,16 +35,16 @@ jobs:
         with:
           go-version-file: "go.work"
       - name: Cargo Build
-        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool --bin forest-wallet
-      - name: Compress Binary
         run: |
-          mkdir -p forest-${{ github.event.inputs.tag }}
-          cp -v target/release/forest target/release/forest-cli target/release/forest-tool forest-${{ github.event.inputs.tag }}
-          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.event.inputs.tag }}
-          sha256sum forest-${{ github.event.inputs.tag }}/forest > forest-${{ github.event.inputs.tag }}/forest.sha256
-          sha256sum forest-${{ github.event.inputs.tag }}/forest-cli > forest-${{ github.event.inputs.tag }}/forest-cli.sha256
-          sha256sum forest-${{ github.event.inputs.tag }}/forest-tool > forest-${{ github.event.inputs.tag }}/forest-tool.sha256
-          sha256sum forest-${{ github.event.inputs.tag }}/forest-wallet > forest-${{ github.event.inputs.tag }}/forest-wallet.sha256
+          mkdir -p release-binaries forest-${{ github.event.inputs.tag }}
+          cargo install --locked --path . --force --root release-binaries
+          mv -v release-binaries/bin/* forest-${{ github.event.inputs.tag }}
+      - name: Pack artifacts
+        run: |
+          for bin in forest-${{ github.event.inputs.tag }}/*; do
+            sha256sum $bin > $bin.sha256
+          done
+          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md forest-${{ github.event.inputs.tag }}
           zip -r ${{ matrix.file }} forest-${{ github.event.inputs.tag }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2
