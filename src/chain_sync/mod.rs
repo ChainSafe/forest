@@ -5,7 +5,7 @@ mod bad_block_cache;
 mod chain_muxer;
 pub mod consensus;
 mod metrics;
-mod network_context;
+pub mod network_context;
 mod sync_state;
 mod tipset_syncer;
 mod validation;

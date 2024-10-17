@@ -341,11 +341,11 @@ mod methods {
     pub mod wallet;
 }
 
-use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::metrics_layer::MetricsLayer;
+use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
@@ -385,7 +385,7 @@ pub struct RPCState<DB> {
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
     pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
     pub eth_event_handler: Arc<EthEventHandler>,
-    pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
+    pub sync_network_context: SyncNetworkContext<DB>,
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
@@ -415,6 +415,10 @@ impl<DB: Blockstore> RPCState<DB> {
 
     pub fn store_owned(&self) -> Arc<DB> {
         self.state_manager.blockstore_owned()
+    }
+
+    pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
+        self.sync_network_context.network_send()
     }
 }
 

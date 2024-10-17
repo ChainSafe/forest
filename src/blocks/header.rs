@@ -228,7 +228,8 @@ pub struct CachingBlockHeader {
 
 impl PartialEq for CachingBlockHeader {
     fn eq(&self, other: &Self) -> bool {
-        self.cid() == other.cid()
+        // Epoch check is redundant but cheap.
+        self.uncached.epoch == other.uncached.epoch && self.cid() == other.cid()
     }
 }
 

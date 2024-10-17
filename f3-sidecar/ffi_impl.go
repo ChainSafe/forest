@@ -9,10 +9,14 @@ import (
 
 func init() {
 	setGoDebugEnv()
-	logging.SetAllLoggers(logging.LevelWarn)
-	err := logging.SetLogLevel("f3/sidecar", "info")
+	logging.SetAllLoggers(logging.LevelInfo)
+	err := logging.SetLogLevel("dht", "error")
 	checkError(err)
-	err = logging.SetLogLevel("f3", "info")
+	err = logging.SetLogLevel("dht/RtRefreshManager", "warn")
+	checkError(err)
+	err = logging.SetLogLevel("net/identify", "error")
+	checkError(err)
+	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
 }
@@ -21,8 +25,8 @@ type f3Impl struct {
 	ctx context.Context
 }
 
-func (f3 *f3Impl) run(rpc_endpoint string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, db string, manifest_server string) bool {
-	err := run(f3.ctx, rpc_endpoint, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
+func (f3 *f3Impl) run(rpc_endpoint string, jwt string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, db string, manifest_server string) bool {
+	err := run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
 	return err == nil
 }
 

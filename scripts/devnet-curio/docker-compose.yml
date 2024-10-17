@@ -35,6 +35,8 @@ services:
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new ${LOTUS_DATA_DIR}/localnet.json
+          cp ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${DUMMY_MINER_ACTOR_ADDRESS}.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
+          cp ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${DUMMY_MINER_ACTOR_ADDRESS}.key ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
           touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
         fi
@@ -236,7 +238,12 @@ services:
       lotus_node:
         condition: service_healthy
     container_name: curio
-    image: ${CURIO_IMAGE}
+    build:
+      context: .
+      dockerfile: curio.dockerfile
+      args:
+        GOFLAGS: "-tags=debug"
+        LOTUS_IMAGE: ${LOTUS_IMAGE}
     init: true
     ports:
       - "12300:12300" # API

@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(clippy::too_many_arguments)]
+
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
@@ -9,7 +11,7 @@ use go_ffi::*;
 use cid::Cid;
 use libp2p::PeerId;
 
-use crate::{networks::ChainConfig, utils::misc::env::is_env_truthy};
+use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct F3Options {
@@ -85,7 +87,9 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
 }
 
 pub fn run_f3_sidecar_if_enabled(
+    chain_config: &ChainConfig,
     _rpc_endpoint: String,
+    _jwt: String,
     _f3_rpc_endpoint: String,
     _initial_power_table: String,
     _bootstrap_epoch: i64,
@@ -93,11 +97,12 @@ pub fn run_f3_sidecar_if_enabled(
     _f3_root: String,
     _manifest_server: String,
 ) {
-    if is_sidecar_ffi_enabled() {
+    if is_sidecar_ffi_enabled(chain_config) {
         #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
             GoF3NodeImpl::run(
                 _rpc_endpoint,
+                _jwt,
                 _f3_rpc_endpoint,
                 _initial_power_table,
                 _bootstrap_epoch,
@@ -109,10 +114,11 @@ pub fn run_f3_sidecar_if_enabled(
     }
 }
 
-// Use opt-in mode for now. Consider switching to opt-out mode once F3 is shipped.
-fn is_sidecar_ffi_enabled() -> bool {
-    // Opt-out building the F3 sidecar staticlib
-    let enabled = is_env_truthy("FOREST_F3_SIDECAR_FFI_ENABLED");
+/// Whether F3 sidecar via FFI is enabled.
+fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
+    // Respect the environment variable when set, and fallback to chain config when not set.
+    let enabled =
+        is_env_set_and_truthy("FOREST_F3_SIDECAR_FFI_ENABLED").unwrap_or(chain_config.f3_enabled);
     cfg_if::cfg_if! {
         if #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))] {
             enabled
