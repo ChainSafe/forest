@@ -111,21 +111,21 @@ impl EthTx {
         Ok(keccak_hash::keccak(self.rlp_signed_message()?))
     }
 
-    pub fn get_signed_message(&self) -> anyhow::Result<SignedMessage> {
-        let from = self.sender()?;
+    pub fn get_signed_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<SignedMessage> {
+        let from = self.sender(eth_chain_id)?;
         let msg = match self {
             Self::Homestead(tx) => (*tx).get_signed_message(from)?,
-            Self::Eip1559(tx) => (*tx).get_signed_message(from)?,
-            Self::Eip155(tx) => (*tx).get_signed_message(from)?,
+            Self::Eip1559(tx) => (*tx).get_signed_message(from, eth_chain_id)?,
+            Self::Eip155(tx) => (*tx).get_signed_message(from, eth_chain_id)?,
         };
         Ok(msg)
     }
 
-    fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
+    fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Homestead(tx) => (*tx).rlp_unsigned_message(),
             Self::Eip1559(tx) => (*tx).rlp_unsigned_message(),
-            Self::Eip155(tx) => (*tx).rlp_unsigned_message(),
+            Self::Eip155(tx) => (*tx).rlp_unsigned_message(eth_chain_id),
         }
     }
 
@@ -137,19 +137,23 @@ impl EthTx {
         }
     }
 
-    fn signature(&self) -> anyhow::Result<Signature> {
+    fn signature(&self, eth_chain_id: EthChainId) -> anyhow::Result<Signature> {
         match self {
             Self::Homestead(tx) => (*tx).signature(),
             Self::Eip1559(tx) => (*tx).signature(),
-            Self::Eip155(tx) => (*tx).signature(),
+            Self::Eip155(tx) => (*tx).signature(eth_chain_id),
         }
     }
 
-    fn to_verifiable_signature(&self, sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+    fn to_verifiable_signature(
+        &self,
+        sig: Vec<u8>,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Homestead(tx) => (*tx).to_verifiable_signature(sig),
             Self::Eip1559(tx) => (*tx).to_verifiable_signature(sig),
-            Self::Eip155(tx) => (*tx).to_verifiable_signature(sig),
+            Self::Eip155(tx) => (*tx).to_verifiable_signature(sig, eth_chain_id),
         }
     }
 
@@ -176,10 +180,10 @@ impl EthTx {
         Ok(())
     }
 
-    fn sender(&self) -> anyhow::Result<Address> {
-        let hash = keccak_hash::keccak(self.rlp_unsigned_message()?);
-        let sig = self.signature()?;
-        let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?[..]
+    fn sender(&self, eth_chain_id: EthChainId) -> anyhow::Result<Address> {
+        let hash = keccak_hash::keccak(self.rlp_unsigned_message(eth_chain_id)?);
+        let sig = self.signature(eth_chain_id)?;
+        let sig_data = self.to_verifiable_signature(sig.bytes().to_vec(), eth_chain_id)?[..]
             .try_into()
             .expect("Incorrect signature length");
         let pubkey =
@@ -473,7 +477,7 @@ pub fn get_filecoin_method_info(
 pub(crate) mod tests {
     use super::*;
     use crate::{
-        networks::mainnet,
+        networks::{calibnet, mainnet},
         shim::{crypto::Signature, econ::TokenAmount},
     };
     use num::{traits::FromBytes as _, BigInt, Num as _, Zero as _};
@@ -730,6 +734,13 @@ pub(crate) mod tests {
         )
         .unwrap();
         let tx = EthTx::Eip1559(Box::new(tx_args));
+        let sig = tx.signature(mainnet::ETH_CHAIN_ID);
+        assert!(sig.is_ok());
+        assert!(tx
+            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), mainnet::ETH_CHAIN_ID)
+            .is_ok());
+        assert!(tx.rlp_unsigned_message(mainnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.get_signed_message(mainnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
             "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f",
         )
@@ -766,6 +777,13 @@ pub(crate) mod tests {
         )
         .unwrap();
         let tx = EthTx::Eip155(Box::new(tx_args));
+        let sig = tx.signature(calibnet::ETH_CHAIN_ID);
+        assert!(sig.is_ok());
+        assert!(tx
+            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
+            .is_ok());
+        assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
             "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
         )
@@ -802,12 +820,22 @@ pub(crate) mod tests {
             16,
         )
         .unwrap();
-        let tx = EthTx::Homestead(Box::new(tx_args));
+        let tx = EthTx::Homestead(Box::new(tx_args.clone()));
         let expected_hash = ethereum_types::H256::from_str(
             "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
         )
         .unwrap();
         assert_eq!(expected_hash, tx.eth_hash().unwrap());
+        // Note: `v` value 27 is for homestead
+        tx_args.v = BigInt::from_str_radix("1b", 16).unwrap();
+        let tx = EthTx::Homestead(Box::new(tx_args.clone()));
+        let sig = tx.signature(calibnet::ETH_CHAIN_ID);
+        assert!(sig.is_ok());
+        assert!(tx
+            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
+            .is_ok());
+        assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
     }
 
     #[quickcheck]
@@ -901,7 +929,7 @@ pub(crate) mod tests {
         )
         .expect("Invalid hex");
         let eth_tx = parse_eth_transaction(&raw_tx).unwrap();
-        let from = eth_tx.sender().unwrap();
+        let from = eth_tx.sender(calibnet::ETH_CHAIN_ID).unwrap();
         assert_eq!(
             EthAddress::from_filecoin_address(&from).unwrap(),
             EthAddress::from_str("0xEb1D0C87B7e33D0Ab44a397b675F0897295491C2").unwrap()
@@ -913,7 +941,7 @@ pub(crate) mod tests {
         )
         .expect("Invalid hex");
         let eth_tx = parse_eth_transaction(&raw_tx).unwrap();
-        let from = eth_tx.sender().unwrap();
+        let from = eth_tx.sender(calibnet::ETH_CHAIN_ID).unwrap();
         assert_eq!(
             EthAddress::from_filecoin_address(&from).unwrap(),
             EthAddress::from_str("0x4fda4174D5D07C906395bfB77806287cc65Fd129").unwrap()

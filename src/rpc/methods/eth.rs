@@ -2268,7 +2268,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
         (raw_tx,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
-        let smsg = tx_args.get_signed_message()?;
+        let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.as_ref().push(smsg).await?;
         Ok(cid.into())
     }

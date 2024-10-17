@@ -35,9 +35,7 @@ pub struct EthLegacyHomesteadTxArgs {
 impl EthLegacyHomesteadTxArgs {
     pub fn signature(&self) -> anyhow::Result<Signature> {
         // Check if v is either 27 or 28
-        let v27 = BigInt::from(27);
-        let v28 = BigInt::from(28);
-        if self.v != v27 && self.v != v28 {
+        if self.v != BigInt::from(27) && self.v != BigInt::from(28) {
             bail!("legacy homestead transactions only support 27 or 28 for v");
         }
 

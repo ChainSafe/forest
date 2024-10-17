@@ -7,9 +7,8 @@
 use crate::message::SignedMessage;
 use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
-use anyhow::bail;
-use anyhow::ensure;
 use anyhow::Context;
+use anyhow::{bail, ensure};
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
@@ -140,8 +139,12 @@ impl EthEip1559TxArgs {
         Ok(stream.out().to_vec())
     }
 
-    pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
-        ensure!(self.chain_id != EIP155_CHAIN_ID, "Invalid chain id");
+    pub fn get_signed_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<SignedMessage> {
+        ensure!(self.chain_id != eth_chain_id, "Invalid chain id");
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
         let message = Message {
             version: 0,
@@ -219,5 +222,16 @@ mod tests {
         let args = create_eip1559_tx_args();
         let signature = Signature::new(SignatureType::Delegated, vec![0u8; EIP_1559_SIG_LEN - 1]);
         assert!(args.with_signature(&signature).is_err());
+    }
+
+    #[test]
+    fn test_signature() {
+        let args = create_eip1559_tx_args();
+        let signature = Signature::new(SignatureType::Delegated, vec![0u8; EIP_1559_SIG_LEN]);
+        args.clone().with_signature(&signature).unwrap();
+
+        let sig = args.signature().unwrap();
+        assert_eq!(sig, signature);
+        assert!(args.to_verifiable_signature(sig.bytes().to_vec()).is_ok());
     }
 }
