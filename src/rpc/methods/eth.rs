@@ -2362,17 +2362,6 @@ fn eth_tx_hash_from_signed_message(
 }
 
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
-    ctx: &Ctx<DB>,
-    message_cid: &Cid,
-) -> anyhow::Result<Option<EthHash>> {
-    eth_tx_hash_from_message_cid_internal(
-        ctx.store(),
-        message_cid,
-        ctx.state_manager.chain_config().eth_chain_id,
-    )
-}
-
-fn eth_tx_hash_from_message_cid_internal<DB: Blockstore>(
     blockstore: &DB,
     message_cid: &Cid,
     eth_chain_id: EthChainIdType,
@@ -2415,13 +2404,16 @@ fn eth_filter_logs_from_events<DB: Blockstore>(
             tracing::warn!("Ignoring event");
             return Ok(None);
         };
-        let transaction_hash =
-            if let Some(transaction_hash) = eth_tx_hash_from_message_cid(ctx, &event.msg_cid)? {
-                transaction_hash
-            } else {
-                tracing::warn!("Ignoring event");
-                return Ok(None);
-            };
+        let transaction_hash = if let Some(transaction_hash) = eth_tx_hash_from_message_cid(
+            ctx.store(),
+            &event.msg_cid,
+            ctx.state_manager.chain_config().eth_chain_id,
+        )? {
+            transaction_hash
+        } else {
+            tracing::warn!("Ignoring event");
+            return Ok(None);
+        };
         let address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
         Ok(Some(EthLog {
             address,
@@ -2627,7 +2619,7 @@ mod test {
     }
 
     #[test]
-    fn test_eth_tx_hash_from_message_cid_internal() {
+    fn test_eth_tx_hash_from_message_cid() {
         let blockstore = Arc::new(MemoryDB::default());
 
         let (msg0, secp0) = construct_eth_messages(0);
@@ -2637,13 +2629,13 @@ mod test {
         crate::chain::persist_objects(&blockstore, [msg0.clone(), msg2.clone()].iter()).unwrap();
         crate::chain::persist_objects(&blockstore, [secp0.clone(), bls0.clone()].iter()).unwrap();
 
-        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp0.cid(), 0).unwrap();
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
         assert!(tx_hash.is_some());
 
-        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &msg2.cid(), 0).unwrap();
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &msg2.cid(), 0).unwrap();
         assert!(tx_hash.is_some());
 
-        let tx_hash = eth_tx_hash_from_message_cid_internal(&blockstore, &secp1.cid(), 0).unwrap();
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
         assert!(tx_hash.is_none());
     }
 }
