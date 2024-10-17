@@ -436,6 +436,17 @@ impl RpcMethod<1> for ProtectPeer {
 }
 
 pub enum GetParticipatingMinerIDs {}
+
+impl GetParticipatingMinerIDs {
+    fn run() -> Vec<u64> {
+        let mut ids = F3_LEASE_MANAGER.get_active_participants();
+        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
+            ids.extend(permanent_miner_ids);
+        }
+        ids.into_iter().collect()
+    }
+}
+
 impl RpcMethod<0> for GetParticipatingMinerIDs {
     const NAME: &'static str = "F3.GetParticipatingMinerIDs";
     const PARAM_NAMES: [&'static str; 0] = [];
@@ -446,11 +457,7 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        let mut ids = F3_LEASE_MANAGER.get_active_participants();
-        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
-            ids.extend(permanent_miner_ids);
-        }
-        Ok(ids.into_iter().collect())
+        Ok(Self::run())
     }
 }
 
@@ -656,6 +663,23 @@ impl RpcMethod<0> for F3GetProgress {
         let client = get_rpc_http_client()?;
         let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
+    }
+}
+
+/// returns the list of miner addresses that are currently participating in F3 via this node.
+pub enum F3ListParticipants {}
+impl RpcMethod<0> for F3ListParticipants {
+    const NAME: &'static str = "Filecoin.F3ListParticipants";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Vec<Address>;
+
+    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+        let ids = GetParticipatingMinerIDs::run();
+        Ok(ids.into_iter().map(Address::new_id).collect())
     }
 }
 

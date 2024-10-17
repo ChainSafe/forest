@@ -77,6 +77,8 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
 	m.EC.Period = blockDelay
 	m.CatchUpAlignment = blockDelay / 2
+	m.CertificateExchange.MinimumPollInterval = blockDelay
+	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
 
 	head, err := ec.GetHead(ctx)
 	if err != nil {
@@ -150,34 +152,78 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		}
 	}()
 
+	var lastMsgToSignTimestamp time.Time
+	var lastMsgToSign *gpbft.MessageBuilder
+	lastMsgSigningMiners := make(map[uint64]struct{})
+
+	// Send the last gpbft message for each new participant,
+	// see <https://github.com/filecoin-project/lotus/pull/12577>
+	if isJwtProvided {
+		go func() {
+			for {
+				// Send only when no messages are received in the last 10s.
+				// This is to avoid a deadlock situation where everyone is waiting
+				// for the next round to participate, but we'll never get there
+				// because not enough participants acted in the current round.
+				if lastMsgToSign != nil && lastMsgToSignTimestamp.Add(10*time.Second).Before(time.Now()) {
+					if miners, err := ec.f3api.GetParticipatingMinerIDs(ctx); err == nil {
+						for _, miner := range miners {
+							if _, ok := lastMsgSigningMiners[miner]; ok {
+								continue
+							} else if err := participate(ctx, f3Module, &ec, lastMsgToSign, miner); err != nil {
+								logger.Warn(err)
+							} else {
+								lastMsgSigningMiners[miner] = struct{}{}
+							}
+						}
+					}
+				}
+
+				time.Sleep(1 * time.Second)
+			}
+		}()
+	}
+
 	for {
 		msgToSign := <-f3Module.MessagesToSign()
+		lastMsgToSignTimestamp = time.Now()
+		lastMsgToSign = msgToSign
 		miners, err := ec.f3api.GetParticipatingMinerIDs(ctx)
 		if err != nil {
 			continue
 		}
+		// Clear the map
+		clear(lastMsgSigningMiners)
 		if !isJwtProvided && len(miners) > 0 {
 			logger.Warn("Unable to sign messages, jwt for Forest RPC endpoint is not provided.")
 		}
-		if isJwtProvided {
+		if isJwtProvided && msgToSign != nil {
 			for _, miner := range miners {
-				signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
-				if err != nil {
-					if errors.Is(err, gpbft.ErrNoPower) {
-						// we don't have any power in F3, continue
-						logger.Warnf("no power to participate in F3: %+v", err)
-					} else {
-						logger.Warnf("preparing signing inputs: %+v", err)
-					}
-					continue
+				if err := participate(ctx, f3Module, &ec, msgToSign, miner); err != nil {
+					logger.Warn(err)
+				} else {
+					lastMsgSigningMiners[miner] = struct{}{}
 				}
-				payloadSig, vrfSig, err := signatureBuilder.Sign(ctx, &ec)
-				if err != nil {
-					logger.Warnf("signing message: %+v", err)
-				}
-				logger.Debugf("miner with id %d is sending message in F3", miner)
-				f3Module.Broadcast(ctx, signatureBuilder, payloadSig, vrfSig)
 			}
 		}
 	}
+}
+
+func participate(ctx context.Context, f3Module *f3.F3, signer gpbft.Signer, msgToSign *gpbft.MessageBuilder, miner uint64) error {
+	signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
+	if err != nil {
+		if errors.Is(err, gpbft.ErrNoPower) {
+			// we don't have any power in F3, continue
+			return fmt.Errorf("no power to participate in F3: %+v", err)
+		} else {
+			return fmt.Errorf("preparing signing inputs: %+v", err)
+		}
+	}
+	payloadSig, vrfSig, err := signatureBuilder.Sign(ctx, signer)
+	if err != nil {
+		logger.Warnf("signing message: %+v", err)
+	}
+	logger.Debugf("miner with id %d is sending message in F3", miner)
+	f3Module.Broadcast(ctx, signatureBuilder, payloadSig, vrfSig)
+	return nil
 }
