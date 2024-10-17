@@ -463,4 +463,21 @@ mod tests {
         let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
         assert_eq!(BASE64_STANDARD.encode(&*params).as_str(), "RUR7eINB");
     }
+
+    #[test]
+    fn test_eth_address_from_pub_key() {
+        // Uncompressed pub key secp256k1)
+        let pubkey: [u8; 65] = [
+            4, 75, 249, 118, 22, 83, 215, 249, 252, 54, 149, 27, 253, 35, 238, 15, 229, 8, 50, 228,
+            19, 137, 115, 123, 183, 243, 237, 144, 113, 41, 115, 70, 234, 174, 61, 199, 1, 81, 95,
+            143, 102, 246, 176, 220, 176, 93, 241, 139, 94, 105, 141, 153, 20, 74, 35, 52, 139,
+            137, 5, 220, 53, 194, 22, 85, 80,
+        ];
+
+        let expected_eth_address =
+            EthAddress::from_str("0xeb1d0c87b7e33d0ab44a397b675f0897295491c2").unwrap();
+
+        let result = EthAddress::eth_address_from_pub_key(&pubkey).unwrap();
+        assert_eq!(result, expected_eth_address);
+    }
 }

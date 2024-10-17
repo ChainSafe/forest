@@ -4,6 +4,8 @@
 //! This module contains the logic for EIP-1559 transaction types.
 //! Constants are taken from [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
 
+use crate::message::SignedMessage;
+use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
 use anyhow::bail;
 use anyhow::ensure;
@@ -136,6 +138,25 @@ impl EthEip1559TxArgs {
             .append_list(access_list)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
+    }
+
+    pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
+        ensure!(self.chain_id != EIP155_CHAIN_ID, "Invalid chain id");
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let message = Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.max_fee_per_gas.clone().into(),
+            gas_premium: self.max_priority_fee_per_gas.clone().into(),
+        };
+        let signature = self.signature()?;
+        Ok(SignedMessage { message, signature })
     }
 }
 

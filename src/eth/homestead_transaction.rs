@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::message::SignedMessage;
+use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
 use anyhow::{bail, ensure, Context};
 use derive_builder::Builder;
@@ -185,6 +187,24 @@ impl EthLegacyHomesteadTxArgs {
             .append(&self.input)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
+    }
+
+    pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let message = Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.gas_price.clone().into(),
+            gas_premium: self.gas_price.clone().into(),
+        };
+        let signature = self.signature()?;
+        Ok(SignedMessage { message, signature })
     }
 }
 

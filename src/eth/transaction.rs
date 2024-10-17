@@ -22,7 +22,7 @@ use super::{
     eip_1559_transaction::{EthEip1559TxArgs, EthEip1559TxArgsBuilder, EIP_1559_SIG_LEN},
     eip_155_transaction::{
         calc_valid_eip155_sig_len, EthLegacyEip155TxArgs, EthLegacyEip155TxArgsBuilder,
-        EIP155_CHAIN_ID, EIP_155_SIG_PREFIX,
+        EIP_155_SIG_PREFIX,
     },
     homestead_transaction::{
         EthLegacyHomesteadTxArgs, EthLegacyHomesteadTxArgsBuilder, HOMESTEAD_SIG_LEN,
@@ -114,62 +114,9 @@ impl EthTx {
     pub fn get_signed_message(&self) -> anyhow::Result<SignedMessage> {
         let from = self.sender()?;
         let msg = match self {
-            Self::Homestead(tx) => {
-                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
-                let message = Message {
-                    version: 0,
-                    from,
-                    to: method_info.to,
-                    sequence: tx.nonce,
-                    value: tx.value.clone().into(),
-                    method_num: method_info.method,
-                    params: method_info.params.into(),
-                    gas_limit: tx.gas_limit,
-                    gas_fee_cap: tx.gas_price.clone().into(),
-                    gas_premium: tx.gas_price.clone().into(),
-                };
-                let signature = tx.signature()?;
-                SignedMessage { message, signature }
-            }
-            Self::Eip1559(tx) => {
-                ensure!(tx.chain_id != EIP155_CHAIN_ID, "Invalid chain id");
-                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
-                let message = Message {
-                    version: 0,
-                    from,
-                    to: method_info.to,
-                    sequence: tx.nonce,
-                    value: tx.value.clone().into(),
-                    method_num: method_info.method,
-                    params: method_info.params.into(),
-                    gas_limit: tx.gas_limit,
-                    gas_fee_cap: tx.max_fee_per_gas.clone().into(),
-                    gas_premium: tx.max_priority_fee_per_gas.clone().into(),
-                };
-                let signature = tx.signature()?;
-                SignedMessage { message, signature }
-            }
-            Self::Eip155(tx) => {
-                ensure!(
-                    validate_eip155_chain_id(EIP155_CHAIN_ID, &tx.v).is_ok(),
-                    "Failed to validate EIP155 chain Id"
-                );
-                let method_info = get_filecoin_method_info(&tx.to, &tx.input)?;
-                let message = Message {
-                    version: 0,
-                    from,
-                    to: method_info.to,
-                    sequence: tx.nonce,
-                    value: tx.value.clone().into(),
-                    method_num: method_info.method,
-                    params: method_info.params.into(),
-                    gas_limit: tx.gas_limit,
-                    gas_fee_cap: tx.gas_price.clone().into(),
-                    gas_premium: tx.gas_price.clone().into(),
-                };
-                let signature = tx.signature()?;
-                SignedMessage { message, signature }
-            }
+            Self::Homestead(tx) => (*tx).get_signed_message(from)?,
+            Self::Eip1559(tx) => (*tx).get_signed_message(from)?,
+            Self::Eip155(tx) => (*tx).get_signed_message(from)?,
         };
         Ok(msg)
     }
@@ -229,7 +176,7 @@ impl EthTx {
         Ok(())
     }
 
-    pub fn sender(&self) -> anyhow::Result<Address> {
+    fn sender(&self) -> anyhow::Result<Address> {
         let hash = keccak_hash::keccak(self.rlp_unsigned_message()?);
         let sig = self.signature()?;
         let sig_data = self.to_verifiable_signature(sig.bytes().to_vec())?[..]
@@ -486,9 +433,9 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
 
 #[derive(Debug)]
 pub struct MethodInfo {
-    to: Address,
-    method: u64,
-    params: Vec<u8>,
+    pub to: Address,
+    pub method: u64,
+    pub params: Vec<u8>,
 }
 
 pub fn get_filecoin_method_info(
@@ -905,6 +852,75 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn test_pad_leading_zeros() {
+        // Case 1: Data is shorter than the target length
+        let data = vec![1, 2, 3];
+        let padded = pad_leading_zeros(&data, 5);
+        assert_eq!(padded, vec![0, 0, 1, 2, 3]);
+
+        // Case 2: Data is already the target length
+        let data = vec![4, 5, 6];
+        let padded = pad_leading_zeros(&data, 3);
+        assert_eq!(padded, vec![4, 5, 6]);
+
+        // Case 3: Data is longer than the target length (no padding should happen)
+        let data = vec![7, 8, 9, 10];
+        let padded = pad_leading_zeros(&data, 3); // length is smaller
+        assert_eq!(padded, vec![7, 8, 9, 10]); // Should return unchanged
+
+        // Case 4: Data is empty, and the target length is greater than zero
+        let data = vec![];
+        let padded = pad_leading_zeros(&data, 4);
+        assert_eq!(padded, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn test_parse_eth_transaction() {
+        // Legacy transaction
+        let raw_tx = hex::decode(
+            "f8cc04830406968419ca81cc94d0fb381fc644cdd5d694d35e1afb445527b9244b80b864d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000001518083099681a0580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796a055e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",
+        )
+        .expect("Invalid hex");
+        let eth_tx = parse_eth_transaction(&raw_tx);
+        assert!(eth_tx.is_ok());
+
+        // EIP-1559 transaction
+        let raw_tx = hex::decode(
+            "02f901368304cb2f8201e68459682f008459682f7884023b53a794eb4a9cdb9f42d3a503d580a39b6e3736eb21fffd80b8c4383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000c001a0b9f0afb3fa8821fa414bac6056e613c61a8263ca341b59539096dbbc8600f530a0114a6a032347e132f115accc7664ccc61549be28f5b844c3fc170006feb72f24",
+        )
+        .expect("Invalid hex");
+        let eth_tx = parse_eth_transaction(&raw_tx);
+        assert!(eth_tx.is_ok());
+    }
+
+    #[test]
+    fn test_derive_sender() {
+        // Legacy transaction
+        let raw_tx = hex::decode(
+            "f8cc04830406968419ca81cc94d0fb381fc644cdd5d694d35e1afb445527b9244b80b864d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd000000000000000000000000000000000000000000000000000000000000001518083099681a0580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796a055e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",
+        )
+        .expect("Invalid hex");
+        let eth_tx = parse_eth_transaction(&raw_tx).unwrap();
+        let from = eth_tx.sender().unwrap();
+        assert_eq!(
+            EthAddress::from_filecoin_address(&from).unwrap(),
+            EthAddress::from_str("0xEb1D0C87B7e33D0Ab44a397b675F0897295491C2").unwrap()
+        );
+
+        // EIP-1559 transaction
+        let raw_tx = hex::decode(
+            "02f901368304cb2f8201e68459682f008459682f7884023b53a794eb4a9cdb9f42d3a503d580a39b6e3736eb21fffd80b8c4383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000c001a0b9f0afb3fa8821fa414bac6056e613c61a8263ca341b59539096dbbc8600f530a0114a6a032347e132f115accc7664ccc61549be28f5b844c3fc170006feb72f24",
+        )
+        .expect("Invalid hex");
+        let eth_tx = parse_eth_transaction(&raw_tx).unwrap();
+        let from = eth_tx.sender().unwrap();
+        assert_eq!(
+            EthAddress::from_filecoin_address(&from).unwrap(),
+            EthAddress::from_str("0x4fda4174D5D07C906395bfB77806287cc65Fd129").unwrap()
+        );
+    }
+
+    #[test]
     fn test_parse_legacy_tx() {
         // Raw transaction hex for a Legacy transaction
         let raw_tx = hex::decode(
@@ -915,7 +931,6 @@ pub(crate) mod tests {
         let result = parse_legacy_tx(&raw_tx);
         assert!(result.is_ok());
         let txn = result.unwrap();
-        let from = txn.sender().unwrap();
 
         if let EthTx::Eip155(tx) = txn {
             assert_eq!(tx.chain_id, 314159);
@@ -925,10 +940,6 @@ pub(crate) mod tests {
             assert_eq!(
                 tx.to.unwrap(),
                 EthAddress::from_str("0xd0fb381fc644cdd5d694d35e1afb445527b9244b").unwrap()
-            );
-            assert_eq!(
-                EthAddress::from_filecoin_address(&from).unwrap(),
-                EthAddress::from_str("0xEb1D0C87B7e33D0Ab44a397b675F0897295491C2").unwrap()
             );
             assert_eq!(tx.value, BigInt::from(0));
             assert_eq!(
@@ -967,7 +978,6 @@ pub(crate) mod tests {
         assert!(result.is_ok());
 
         let txn = result.unwrap();
-        let from = txn.sender().unwrap();
 
         if let EthTx::Eip1559(tx) = txn {
             assert_eq!(tx.chain_id, 314159);
@@ -978,10 +988,6 @@ pub(crate) mod tests {
             assert_eq!(
                 tx.to.unwrap(),
                 EthAddress::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd").unwrap()
-            );
-            assert_eq!(
-                EthAddress::from_filecoin_address(&from).unwrap(),
-                EthAddress::from_str("0x4fda4174D5D07C906395bfB77806287cc65Fd129").unwrap()
             );
             assert_eq!(tx.value, BigInt::from(0));
             assert_eq!(
