@@ -8,14 +8,14 @@ use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::interpreter::{EventCache, MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::apply_block_messages;
+use crate::state_manager::{apply_block_messages, StateOutput};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_params_downloaded;
 use anyhow::{bail, Context as _};
@@ -440,6 +440,7 @@ where
         beacon,
         &MultiEngine::default(),
         tipsets,
+        EventCache::NotCached,
     )?;
 
     pb.finish_with_message("✅ verified!");
@@ -481,7 +482,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
 
     let mut message_calls = vec![];
 
-    let (state_root, _) = apply_block_messages(
+    let StateOutput { state_root, .. } = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),
@@ -505,6 +506,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
         }, // enable traces if json flag is used
+        EventCache::NotCached,
     )?;
 
     if json {

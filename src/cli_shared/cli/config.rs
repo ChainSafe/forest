@@ -52,6 +52,10 @@ impl Config {
     pub fn db_config(&self) -> &DbConfig {
         &self.parity_db
     }
+
+    pub fn chain(&self) -> &NetworkChain {
+        &self.chain
+    }
 }
 
 #[cfg(test)]
