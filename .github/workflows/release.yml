@@ -15,7 +15,7 @@ jobs:
           - os: ubuntu-24.04
             file: forest-${{ github.ref_name }}-linux-amd64.zip
           - os: macos-latest
-            file: forest-${{ github.ref_name }}-macos-amd64.zip
+            file: forest-${{ github.ref_name }}-macos-arm64.zip
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -27,16 +27,20 @@ jobs:
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Cargo Build
-        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool
-      - name: Compress Binary
         run: |
-          mkdir -p forest-${{ github.ref_name }}
-          cp -v target/release/forest target/release/forest-cli target/release/forest-tool forest-${{ github.ref_name }}
-          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
-          sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
-          sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
-          sha256sum forest-${{ github.ref_name }}/forest-tool > forest-${{ github.ref_name }}/forest-tool.sha256
+          mkdir -p release-binaries forest-${{ github.ref_name }}
+          cargo install --locked --path . --force --root release-binaries
+          mv -v release-binaries/bin/* forest-${{ github.ref_name }}
+      - name: Pack artifacts
+        run: |
+          for bin in forest-${{ github.ref_name }}/*; do
+            sha256sum $bin > $bin.sha256
+          done
+          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md forest-${{ github.ref_name }}
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2
