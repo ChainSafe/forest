@@ -4,7 +4,11 @@
 //! This module contains the logic for EIP-1559 transaction types.
 //! Constants are taken from [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
 
-use anyhow::ensure;
+use crate::message::SignedMessage;
+use crate::shim::address::Address;
+use crate::shim::crypto::SignatureType::Delegated;
+use anyhow::Context;
+use anyhow::{bail, ensure};
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
@@ -33,9 +37,40 @@ pub struct EthEip1559TxArgs {
 }
 
 impl EthEip1559TxArgs {
+    pub fn signature(&self) -> anyhow::Result<Signature> {
+        // Convert r, s, v to byte arrays
+        let r_bytes = self.r.to_bytes_be().1;
+        let s_bytes = self.s.to_bytes_be().1;
+        let v_bytes = self.v.to_bytes_be().1;
+
+        // Pad r and s to 32 bytes
+        let mut sig = pad_leading_zeros(&r_bytes, 32);
+        sig.extend(pad_leading_zeros(&s_bytes, 32));
+
+        if v_bytes.is_empty() {
+            sig.push(0);
+        } else {
+            sig.push(*v_bytes.first().context("failed to get first element")?);
+        }
+
+        // Check if signature is 65 bytes
+        if sig.len() != 65 {
+            bail!("signature is not 65 bytes");
+        }
+
+        Ok(Signature {
+            sig_type: Delegated,
+            bytes: sig,
+        })
+    }
+
+    pub fn to_verifiable_signature(&self, sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        Ok(sig)
+    }
+
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
-            signature.signature_type() == crate::shim::crypto::SignatureType::Delegated,
+            signature.signature_type() == Delegated,
             "Signature is not delegated type, is {}",
             signature.signature_type()
         );
@@ -83,6 +118,48 @@ impl EthEip1559TxArgs {
             .append(&format_bigint(&self.s)?)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
+    }
+
+    pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
+        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
+        let access_list: &[u8] = &[];
+        let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.chain_id))
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.max_priority_fee_per_gas)?)
+            .append(&format_bigint(&self.max_fee_per_gas)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_address(&self.to))
+            .append(&format_bigint(&self.value)?)
+            .append(&self.input)
+            .append_list(access_list)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+
+    pub fn get_signed_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<SignedMessage> {
+        ensure!(self.chain_id != eth_chain_id, "Invalid chain id");
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let message = Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.max_fee_per_gas.clone().into(),
+            gas_premium: self.max_priority_fee_per_gas.clone().into(),
+        };
+        let signature = self.signature()?;
+        Ok(SignedMessage { message, signature })
     }
 }
 
@@ -145,5 +222,16 @@ mod tests {
         let args = create_eip1559_tx_args();
         let signature = Signature::new(SignatureType::Delegated, vec![0u8; EIP_1559_SIG_LEN - 1]);
         assert!(args.with_signature(&signature).is_err());
+    }
+
+    #[test]
+    fn test_signature() {
+        let args = create_eip1559_tx_args();
+        let signature = Signature::new(SignatureType::Delegated, vec![0u8; EIP_1559_SIG_LEN]);
+        args.clone().with_signature(&signature).unwrap();
+
+        let sig = args.signature().unwrap();
+        assert_eq!(sig, signature);
+        assert!(args.to_verifiable_signature(sig.bytes().to_vec()).is_ok());
     }
 }
