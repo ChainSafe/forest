@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4910](https://github.com/ChainSafe/forest/issues/4910) Add support for the
+  `Filecoin.F3ListParticipants` RPC method.
+
 ### Changed
 
 ### Removed
