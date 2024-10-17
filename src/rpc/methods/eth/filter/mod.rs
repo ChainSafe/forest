@@ -998,8 +998,8 @@ mod tests {
             to_block: None,
             address: vec![],
             topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(Some(topic0.clone())),
                 EthHashList::Single(Some(topic1.clone())),
-                EthHashList::Single(Some(topic2.clone())),
                 EthHashList::Single(Some(topic3.clone())),
             ])),
             block_hash: None,
