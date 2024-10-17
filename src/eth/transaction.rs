@@ -708,7 +708,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_eth_hash_eip_1559() {
+    fn test_eip_1559() {
         let mut tx_args=EthEip1559TxArgsBuilder::default()
             .chain_id(314159_u64)
             .nonce(486_u64)
@@ -749,7 +749,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_eth_hash_legacy_eip_155() {
+    fn test_legacy_eip_155() {
         // https://calibration.filfox.info/en/message/bafy2bzacebazsfc63saveaopjjgsz3yoic3izod4k5wo3pg4fswmpdqny5zlc?t=1
         let mut tx_args = EthLegacyEip155TxArgsBuilder::default()
             .chain_id(314159_u64)
@@ -792,7 +792,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_eth_hash_legacy_homestead() {
+    fn test_legacy_homestead() {
         // https://calibration.filfox.info/en/message/bafy2bzacebazsfc63saveaopjjgsz3yoic3izod4k5wo3pg4fswmpdqny5zlc?t=1
         let mut tx_args = EthLegacyHomesteadTxArgsBuilder::default()
             .nonce(0x4_u64)
