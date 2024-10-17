@@ -240,6 +240,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::f3::F3GetF3PowerTable);
         $callback!(crate::rpc::f3::F3IsRunning);
         $callback!(crate::rpc::f3::F3GetProgress);
+        $callback!(crate::rpc::f3::F3ListParticipants);
         $callback!(crate::rpc::f3::F3GetLatestCertificate);
         $callback!(crate::rpc::f3::F3Participate);
         $callback!(crate::rpc::f3::GetHead);
