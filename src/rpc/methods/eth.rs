@@ -2463,10 +2463,12 @@ impl RpcMethod<1> for EthGetLogs {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::rpc::eth::EventEntry;
     use crate::{
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
     };
+    use fvm_shared4::event::Flags;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
@@ -2637,5 +2639,104 @@ mod test {
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
         assert!(tx_hash.is_none());
+    }
+
+    #[test]
+    fn test_eth_log_from_event() {
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t2".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert!(bytes.0.is_empty());
+        assert_eq!(hashes.len(), 2);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t2".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t3".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t4".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert!(bytes.0.is_empty());
+        assert_eq!(hashes.len(), 4);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        assert!(eth_log_from_event(&entries).is_none());
     }
 }
