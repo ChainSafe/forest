@@ -2808,5 +2808,89 @@ mod test {
             },
         ];
         assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![EventEntry {
+            flags: (Flags::FLAG_INDEXED_ALL).bits(),
+            key: "t1".into(),
+            codec: DAG_CBOR,
+            value: vec![
+                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
+                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+            ]
+            .into(),
+        }];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![EventEntry {
+            flags: (Flags::FLAG_INDEXED_ALL).bits(),
+            key: "t1".into(),
+            codec: IPLD_RAW,
+            value: vec![
+                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
+                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
+            ]
+            .into(),
+        }];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert_eq!(bytes.0.len(), 32);
+        assert_eq!(hashes.len(), 1);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+        ];
+        assert!(eth_log_from_event(&entries).is_none());
     }
 }
