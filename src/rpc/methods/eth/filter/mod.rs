@@ -661,19 +661,19 @@ mod tests {
         assert_eq!(res[0].codec, IPLD_RAW);
     }
 
-    // #[test]
-    // fn test_parse_eth_topics() {
-    //     let topics = EthTopicSpec(vec![EthHashList(vec![EthHash::default()])]);
-    //     let actual = parse_eth_topics(&topics).expect("Failed to parse topics");
+    #[test]
+    fn test_parse_eth_topics() {
+        let topics = EthTopicSpec(vec![EthHashList::List(vec![EthHash::default()])]);
+        let actual = parse_eth_topics(&topics).expect("Failed to parse topics");
 
-    //     let mut expected = HashMap::with_capacity(4);
-    //     expected.insert(
-    //         "t1".to_string(),
-    //         vec![EthHash::default().0.as_bytes().to_vec()],
-    //     );
+        let mut expected = HashMap::with_capacity(4);
+        expected.insert(
+            "t1".to_string(),
+            vec![EthHash::default().0.as_bytes().to_vec()],
+        );
 
-    //     assert_eq!(actual, expected);
-    // }
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn test_hex_str_to_epoch() {
