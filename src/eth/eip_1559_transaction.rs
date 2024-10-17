@@ -43,7 +43,7 @@ impl EthEip1559TxArgs {
         let s_bytes = self.s.to_bytes_be().1;
         let v_bytes = self.v.to_bytes_be().1;
 
-        // Convert r, s, v to padded 32-byte arrays
+        // Pad r and s to 32 bytes
         let mut sig = pad_leading_zeros(&r_bytes, 32);
         sig.extend(pad_leading_zeros(&s_bytes, 32));
 
