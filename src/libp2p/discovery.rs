@@ -1,9 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::str;
 use std::{
     cmp,
     collections::VecDeque,
+    io,
     task::{Context, Poll},
     time::Duration,
 };
@@ -94,12 +96,20 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Set custom nodes which never expire, e.g. bootstrap or reserved nodes.
-    pub fn with_user_defined(
+    pub async fn with_user_defined(
         mut self,
         user_defined: impl IntoIterator<Item = Multiaddr>,
     ) -> anyhow::Result<Self> {
         for mut addr in user_defined.into_iter() {
-            if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+            if let Some((_, Protocol::Dnsaddr(addr))) = addr
+                .iter()
+                .enumerate()
+                .find(|(_, p)| matches!(p, Protocol::Dnsaddr(_)))
+            {
+                for pair in resolve_libp2p_dnsaddr(&addr).await? {
+                    self.user_defined.push(pair)
+                }
+            } else if let Some(Protocol::P2p(peer_id)) = addr.pop() {
                 self.user_defined.push((peer_id, addr))
             } else {
                 anyhow::bail!("Failed to parse peer id from {addr}")
@@ -527,16 +537,80 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 }
 
+// Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
+// the async API and does not work inside another tokio runtime
+async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
+    use hickory_resolver::{system_conf, TokioAsyncResolver};
+
+    let (cfg, opts) = system_conf::read_system_conf()?;
+    let resolver = TokioAsyncResolver::tokio(cfg, opts);
+
+    let name = ["_dnsaddr.", name].concat();
+    let txts = resolver.txt_lookup(name).await?;
+
+    let mut pairs = vec![];
+    for txt in txts {
+        if let Some(chars) = txt.txt_data().first() {
+            match parse_dnsaddr_txt(chars) {
+                Err(e) => {
+                    // Skip over seemingly invalid entries.
+                    tracing::debug!("Invalid TXT record: {:?}", e);
+                }
+                Ok(mut addr) => {
+                    if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+                        pairs.push((peer_id, addr))
+                    } else {
+                        tracing::debug!("Failed to parse peer id from {addr}")
+                    }
+                }
+            }
+        }
+    }
+    Ok(pairs)
+}
+
+/// Parses a `<character-string>` of a `dnsaddr` `TXT` record.
+fn parse_dnsaddr_txt(txt: &[u8]) -> io::Result<Multiaddr> {
+    let s = str::from_utf8(txt).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    match s.strip_prefix("dnsaddr=") {
+        None => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Missing `dnsaddr=` prefix.",
+        )),
+        Some(a) => Ok(
+            Multiaddr::try_from(a).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use libp2p::{identity::Keypair, swarm::SwarmEvent, Swarm};
-    use libp2p_swarm_test::SwarmExt as _;
-
     use super::*;
+    use libp2p::{
+        core::transport::MemoryTransport, identity::Keypair, swarm::SwarmEvent, Swarm,
+        Transport as _,
+    };
+    use libp2p_swarm_test::SwarmExt as _;
+    use std::str::FromStr as _;
+
+    #[tokio::test]
+    async fn resolve_libp2p_dnsaddr_test() {
+        let addr = Multiaddr::from_str("/dnsaddr/bootstrap.butterfly.fildev.network").unwrap();
+        let p = addr
+            .iter()
+            .find(|p| matches!(p, Protocol::Dnsaddr(_)))
+            .unwrap();
+        if let Protocol::Dnsaddr(name) = p {
+            let pairs = resolve_libp2p_dnsaddr(&name).await.unwrap();
+            assert!(!pairs.is_empty());
+        } else {
+            panic!("No dnsaddr protocol found");
+        }
+    }
 
     #[tokio::test]
     async fn kademlia_test() {
-        fn new_discovery(
+        async fn new_discovery(
             keypair: Keypair,
             seed_peers: impl IntoIterator<Item = Multiaddr>,
         ) -> DiscoveryBehaviour {
@@ -544,13 +618,33 @@ mod tests {
                 .with_mdns(false)
                 .with_kademlia(true)
                 .with_user_defined(seed_peers)
+                .await
                 .unwrap()
                 .target_peer_count(128)
                 .finish()
                 .unwrap()
         }
 
-        let mut b = Swarm::new_ephemeral(|k| new_discovery(k, vec![]));
+        async fn new_ephemeral(seed_peers: Vec<Multiaddr>) -> Swarm<DiscoveryBehaviour> {
+            let identity = Keypair::generate_ed25519();
+            let peer_id = PeerId::from(identity.public());
+            let transport = MemoryTransport::default()
+                .or_transport(libp2p::tcp::tokio::Transport::default())
+                .upgrade(libp2p::core::upgrade::Version::V1)
+                .authenticate(libp2p::noise::Config::new(&identity).unwrap())
+                .multiplex(libp2p::yamux::Config::default())
+                .timeout(Duration::from_secs(20))
+                .boxed();
+            Swarm::new(
+                transport,
+                new_discovery(identity, seed_peers).await,
+                peer_id,
+                libp2p::swarm::Config::with_tokio_executor()
+                    .with_idle_connection_timeout(Duration::from_secs(5)),
+            )
+        }
+
+        let mut b = new_ephemeral(vec![]).await;
         b.listen().with_memory_addr_external().await;
         let b_peer_id = *b.local_peer_id();
         let b_addresses: Vec<_> = b
@@ -562,7 +656,7 @@ mod tests {
             })
             .collect();
 
-        let mut c = Swarm::new_ephemeral(|k| new_discovery(k, vec![]));
+        let mut c = new_ephemeral(vec![]).await;
         c.listen().with_memory_addr_external().await;
         let c_peer_id = *c.local_peer_id();
         if let Some(c_kad) = c.behaviour_mut().discovery.kademlia.as_mut() {
@@ -571,7 +665,7 @@ mod tests {
             }
         }
 
-        let mut a = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses));
+        let mut a = new_ephemeral(b_addresses).await;
 
         // Bootstrap `a` and `c`
         a.behaviour_mut().bootstrap().unwrap();
