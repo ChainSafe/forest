@@ -189,7 +189,7 @@ where
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
         let behaviour =
-            ForestBehaviour::new(&net_keypair, &config, network_name, peer_manager.clone())?;
+            ForestBehaviour::new(&net_keypair, &config, network_name, peer_manager.clone()).await?;
         let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
             .with_tokio()
             .with_tcp(
