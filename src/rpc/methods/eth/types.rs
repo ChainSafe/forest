@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use ethereum_types::H256;
 use libipld::error::SerdeError;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use uuid::Uuid;
@@ -332,7 +331,9 @@ impl TryFrom<EthCallMessage> for Message {
     derive_more::Into,
 )]
 #[displaydoc("{0:#x}")]
-pub struct EthHash(#[schemars(with = "String")] pub H256);
+pub struct EthHash(#[schemars(with = "String")] pub ethereum_types::H256);
+
+lotus_json_with_self!(EthHash);
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
 pub struct FilterID(EthHash);
@@ -344,12 +345,21 @@ impl FilterID {
         let raw_id = Uuid::new_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
-        Ok(FilterID(EthHash(H256::from_slice(&id))))
+        Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
-pub struct EthHashList(pub Vec<EthHash>);
+/// `EthHashList` represents a topic filter that can take one of two forms:
+/// - `List`: Matches if the hash is present in the vector.
+/// - `Single`: An optional hash, where:
+///     - `Some(hash)`: Matches exactly this hash.
+///     - `None`: Acts as a wildcard.
+#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(untagged)]
+pub enum EthHashList {
+    List(Vec<EthHash>),
+    Single(Option<EthHash>),
+}
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct EthTopicSpec(pub Vec<EthHashList>);
@@ -394,12 +404,24 @@ pub struct EthFilterSpec {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_block: Option<String>,
     pub address: Vec<EthAddress>,
-    pub topics: EthTopicSpec,
+    pub topics: Option<EthTopicSpec>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,
 }
-
 lotus_json_with_self!(EthFilterSpec);
+
+/// `EthFilterResult` represents the response from executing a filter:
+/// - A list of block hashes
+/// - A list of transaction hashes
+/// - Or a list of logs
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum EthFilterResult {
+    Blocks(Vec<EthHash>),
+    Txs(Vec<EthHash>),
+    Logs(Vec<EthLog>),
+}
+lotus_json_with_self!(EthFilterResult);
 
 #[cfg(test)]
 mod tests {
