@@ -10,6 +10,7 @@
 mod types;
 mod util;
 
+pub use self::types::F3LeaseManager;
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
     utils::misc::env::is_env_set_and_truthy,
 };
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
+use anyhow::Context;
 use fil_actor_interface::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
@@ -37,11 +38,11 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
-use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
 
-static F3_LEASE_MANAGER: Lazy<F3LeaseManager> = Lazy::new(Default::default);
+pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
@@ -437,16 +438,6 @@ impl RpcMethod<1> for ProtectPeer {
 
 pub enum GetParticipatingMinerIDs {}
 
-impl GetParticipatingMinerIDs {
-    fn run() -> Vec<u64> {
-        let mut ids = F3_LEASE_MANAGER.get_active_participants();
-        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
-            ids.extend(permanent_miner_ids);
-        }
-        ids.into_iter().collect()
-    }
-}
-
 impl RpcMethod<0> for GetParticipatingMinerIDs {
     const NAME: &'static str = "F3.GetParticipatingMinerIDs";
     const PARAM_NAMES: [&'static str; 0] = [];
@@ -457,7 +448,12 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(Self::run())
+        let participants = F3ListParticipants::run().await?;
+        let mut ids: HashSet<u64> = participants.into_iter().map(|p| p.miner_id).collect();
+        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
+            ids.extend(permanent_miner_ids);
+        }
+        Ok(ids.into_iter().collect())
     }
 }
 
@@ -682,11 +678,23 @@ impl RpcMethod<0> for F3ListParticipants {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = Vec<Address>;
+    type Ok = Vec<F3Participant>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        let ids = GetParticipatingMinerIDs::run();
-        Ok(ids.into_iter().map(Address::new_id).collect())
+        Ok(Self::run().await?)
+    }
+}
+
+impl F3ListParticipants {
+    async fn run() -> anyhow::Result<Vec<F3Participant>> {
+        Ok(F3_LEASE_MANAGER
+            .get()
+            .context("F3 lease manager is not initialized")?
+            .get_active_participants()
+            .await?
+            .values()
+            .map(F3Participant::from)
+            .collect())
     }
 }
 
@@ -707,51 +715,46 @@ impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
         (miner, previous_lease_ticket, instances): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let id = miner.id()?;
-        unimplemented!("whatever")
-        // Ok(F3_LEASE_MANAGER.upsert_defensive(
-        //     miner.id()?,
-        //     new_lease_expiration,
-        //     old_lease_expiration,
-        // )?)
+        let previous_lease = if previous_lease_ticket.is_empty() {
+            None
+        } else {
+            Some(
+                fvm_ipld_encoding::from_slice::<F3ParticipationLease>(&previous_lease_ticket)
+                    .context("the previous lease ticket is invalid")?,
+            )
+        };
+        let lease = F3_LEASE_MANAGER
+            .get()
+            .context("F3 lease manager is not initialized")?
+            .get_or_renew_participation_lease(id, previous_lease, instances)
+            .await?;
+        Ok(fvm_ipld_encoding::to_vec(&lease)?)
     }
 }
 
-/// F3Participate should be called by a storage provider to participate in signing F3 consensus.
-/// Calling this API gives the node a lease to sign in F3 on behalf of given SP.
-/// The lease should be active only on one node. The lease will expire at the newLeaseExpiration.
-/// To continue participating in F3 with the given node, call F3Participate again before the newLeaseExpiration time.
-/// newLeaseExpiration cannot be further than 5 minutes in the future.
-/// It is recommended to call F3Participate every 60 seconds with newLeaseExpiration set 2min into the future.
-/// The oldLeaseExpiration has to be set to newLeaseExpiration of the last successful call.
-/// For the first call to F3Participate, set the oldLeaseExpiration to zero value/time in the past.
-/// F3Participate will return true if the lease was accepted. The minerID has to be the ID address of the miner.
+/// enrolls a storage provider in the F3 consensus process using a
+/// provided participation ticket. This ticket grants a temporary lease that enables
+/// the provider to sign transactions as part of the F3 consensus.
 pub enum F3Participate {}
-impl RpcMethod<3> for F3Participate {
+impl RpcMethod<1> for F3Participate {
     const NAME: &'static str = "Filecoin.F3Participate";
-    const PARAM_NAMES: [&'static str; 3] = [
-        "miner_address",
-        "new_lease_expiration",
-        "old_lease_expiration",
-    ];
+    const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
 
-    type Params = (
-        Address,
-        chrono::DateTime<chrono::Utc>,
-        chrono::DateTime<chrono::Utc>,
-    );
-    type Ok = bool;
+    type Params = (Vec<u8>,);
+    type Ok = F3ParticipationLease;
 
     async fn handle(
         _: Ctx<impl Blockstore>,
-        (miner, new_lease_expiration, old_lease_expiration): Self::Params,
+        (lease_ticket,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(F3_LEASE_MANAGER.upsert_defensive(
-            miner.id()?,
-            new_lease_expiration,
-            old_lease_expiration,
-        )?)
+        let lease: F3ParticipationLease =
+            fvm_ipld_encoding::from_slice(&lease_ticket).context("invalid lease ticket")?;
+        Ok(F3_LEASE_MANAGER
+            .get()
+            .context("F3 lease manager is not initialized")?
+            .participate(lease)?)
     }
 }
 

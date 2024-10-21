@@ -4,18 +4,19 @@
 use super::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
-    lotus_json::{base64_standard, lotus_json_with_self},
+    lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson},
     networks::NetworkChain,
-    utils::clock::Clock,
 };
 use cid::{multihash::MultihashDigest as _, Cid};
+use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, marker::PhantomData};
+use serde_with::{serde_as, DisplayFromStr};
+use std::cmp::Ordering;
 
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -151,41 +152,157 @@ pub struct F3Instant {
 }
 lotus_json_with_self!(F3Instant);
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3Participant {
+    #[serde(rename = "MinerID")]
+    pub miner_id: u64,
+    pub from_instance: u64,
+    pub validity_term: u64,
+}
+lotus_json_with_self!(F3Participant);
+
+impl From<F3ParticipationLease> for F3Participant {
+    fn from(value: F3ParticipationLease) -> Self {
+        let F3ParticipationLease {
+            miner_id,
+            from_instance,
+            validity_term,
+            ..
+        } = value;
+        Self {
+            miner_id,
+            from_instance,
+            validity_term,
+        }
+    }
+}
+
+impl From<&F3ParticipationLease> for F3Participant {
+    fn from(value: &F3ParticipationLease) -> Self {
+        let &F3ParticipationLease {
+            miner_id,
+            from_instance,
+            validity_term,
+            ..
+        } = value;
+        Self {
+            miner_id,
+            from_instance,
+            validity_term,
+        }
+    }
+}
+
 /// defines the lease granted to a storage provider for
 /// participating in F3 consensus, detailing the session identifier, issuer,
 /// subject, and the expiration instance.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3ParticipationLease {
+pub struct ApiF3ParticipationLease {
     /// the name of the network this lease belongs to.
     #[schemars(with = "String")]
-    network: NetworkChain,
+    pub network: NetworkChain,
     /// the identity of the node that issued the lease.
     #[schemars(with = "String")]
-    issuer: PeerId,
+    pub issuer: PeerId,
     /// the actor ID of the miner that holds the lease.
     #[serde(rename = "MinerID")]
-    miner_id: u64,
+    pub miner_id: u64,
     /// specifies the instance ID from which this lease is valid.
-    from_instance: u64,
+    pub from_instance: u64,
     /// specifies the number of instances for which the lease remains valid from the FromInstance.
-    validity_term: u64,
+    pub validity_term: u64,
+}
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Serialize_tuple, Deserialize_tuple)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3ParticipationLease {
+    #[serde_as(as = "DisplayFromStr")]
+    pub network: NetworkChain,
+    #[serde_as(as = "DisplayFromStr")]
+    pub issuer: PeerId,
+    pub miner_id: u64,
+    pub from_instance: u64,
+    pub validity_term: u64,
+}
+
+impl HasLotusJson for F3ParticipationLease {
+    type LotusJson = ApiF3ParticipationLease;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self {
+            network,
+            issuer,
+            miner_id,
+            from_instance,
+            validity_term,
+        } = self;
+        Self::LotusJson {
+            network,
+            issuer,
+            miner_id,
+            from_instance,
+            validity_term,
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
+            network,
+            issuer,
+            miner_id,
+            from_instance,
+            validity_term,
+        } = lotus_json;
+        Self {
+            network,
+            issuer,
+            miner_id,
+            from_instance,
+            validity_term,
+        }
+    }
 }
 
 #[derive(Debug)]
-pub struct F3LeaseManager<CLOCK: Clock<chrono::Utc> = chrono::Utc>(
-    RwLock<HashMap<u64, chrono::DateTime<chrono::Utc>>>,
-    PhantomData<CLOCK>,
-);
+pub struct F3LeaseManager {
+    network: NetworkChain,
+    peer_id: PeerId,
+    leases: RwLock<HashMap<u64, F3ParticipationLease>>,
+}
 
-impl<CLOCK: Clock<chrono::Utc>> F3LeaseManager<CLOCK> {
-    pub fn get_active_participants(&self) -> HashSet<u64> {
-        let now = CLOCK::now();
-        self.0
+impl F3LeaseManager {
+    pub fn new(network: NetworkChain, peer_id: PeerId) -> Self {
+        Self {
+            network,
+            peer_id,
+            leases: Default::default(),
+        }
+    }
+
+    pub async fn get_active_participants(
+        &self,
+    ) -> anyhow::Result<HashMap<u64, F3ParticipationLease>> {
+        let current_instance = super::F3GetProgress::run().await?.id;
+        Ok(self
+            .leases
             .read()
             .iter()
-            .filter_map(|(id, expire)| if expire > &now { Some(*id) } else { None })
-            .collect()
+            .filter_map(|(id, lease)| {
+                if lease.from_instance + lease.validity_term < current_instance {
+                    Some((*id, lease.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect())
     }
 
     pub async fn get_or_renew_participation_lease(
@@ -228,131 +345,56 @@ impl<CLOCK: Clock<chrono::Utc>> F3LeaseManager<CLOCK> {
     ) -> F3ParticipationLease {
         F3ParticipationLease {
             issuer: self.peer_id,
-            network: self.network,
+            network: self.network.clone(),
             miner_id: participant,
             from_instance,
             validity_term: instances,
         }
     }
 
-    pub fn upsert_defensive(
-        &self,
-        id: u64,
-        new_lease_expiration: chrono::DateTime<chrono::Utc>,
-        old_lease_expiration: chrono::DateTime<chrono::Utc>,
-    ) -> anyhow::Result<bool> {
-        // Use a single now to avoid weird conditions
-        let now = CLOCK::now();
-        anyhow::ensure!(
-            new_lease_expiration <= now + chrono::Duration::minutes(5),
-            "F3 participation lease cannot be over 5 mins"
-        );
-        anyhow::ensure!(
-            new_lease_expiration >= now,
-            "F3 participation lease is in the past"
-        );
-
-        // if the old lease is expired just insert a new one
-        if old_lease_expiration < now {
-            self.0.write().insert(id, new_lease_expiration);
-            return Ok(true);
-        }
-
-        let Some(old_lease_expiration_in_record) = self.0.read().get(&id).cloned() else {
-            // we don't know about it, don't start a new lease
-            return Ok(false);
-        };
-        if old_lease_expiration_in_record != old_lease_expiration {
-            // the lease we know about does not match and because the old lease is not expired
-            // we should not allow for new lease
-            return Ok(false);
-        }
-        // we know about the lease, update it
-        self.0.write().insert(id, new_lease_expiration);
-
-        Ok(true)
+    pub fn participate(&self, lease: F3ParticipationLease) -> anyhow::Result<F3ParticipationLease> {
+        Ok(lease)
     }
 }
 
-impl<CLOCK: Clock<chrono::Utc>> Default for F3LeaseManager<CLOCK> {
-    fn default() -> Self {
-        Self(Default::default(), Default::default())
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
     use base64::prelude::*;
-    use parking_lot::Mutex;
 
     #[test]
-    #[ignore = "https://filecoinproject.slack.com/archives/C0556MSR945/p1729229273102949"]
-    fn decode_f3_participation_lease() {
+    fn decode_f3_participation_lease_ticket_from_lotus() {
         // ticket is generated by a Lotus ndoe by calling `Filecoin.F3GetOrRenewParticipationTicket`
-        // params: ["t01000", "", 4]
-        let ticket = "pWZJc3N1ZXJ4JgAkCAESIK/hAIdexs4svm/HOd6NO2fTemA/aNzcFyP7k3shdvwUZ01pbmVySUQZA+hnTmV0d29ya2xidXR0ZXJmbHluZXRsRnJvbUluc3RhbmNlGUr5bFZhbGlkaXR5VGVybQQ=";
+        // params: ["t01000", "", 1]
+        let ticket = "hW5jYWxpYnJhdGlvbm5ldHg0MTJEM0tvb1dKV0VxZzRLcXpxQUJMeU0yMUtBbWFKYzNqdFBzWEJrNmJNNllyN1BLSGczSxkD6AAB";
         let ticket_bytes = BASE64_STANDARD.decode(ticket).unwrap();
         let lease: F3ParticipationLease =
-            crate::utils::encoding::from_slice_with_fallback(ticket_bytes.as_slice()).unwrap();
-        println!("{lease:?}");
+            fvm_ipld_encoding::from_slice(ticket_bytes.as_slice()).unwrap();
+        assert_eq!(
+            lease,
+            F3ParticipationLease {
+                network: NetworkChain::Calibnet,
+                issuer: PeerId::from_str("12D3KooWJWEqg4KqzqABLyM21KAmaJc3jtPsXBk6bM6Yr7PKHg3K")
+                    .unwrap(),
+                miner_id: 1000,
+                from_instance: 0,
+                validity_term: 1,
+            }
+        );
     }
 
     #[test]
-    fn test_f3_lease_manager_upsert() {
-        static NOW: Lazy<Mutex<chrono::DateTime<chrono::Utc>>> =
-            Lazy::new(|| Mutex::new(chrono::Utc::now()));
-
-        // Mock the clock with a static NOW
-        #[derive(Debug, Default)]
-        struct TestClock;
-
-        impl Clock<chrono::Utc> for TestClock {
-            fn now() -> chrono::DateTime<chrono::Utc> {
-                *NOW.lock()
-            }
-        }
-
-        let lm = F3LeaseManager::<TestClock>::default();
-        // inserting a new lease
-        let timestamp0 = chrono::DateTime::from_timestamp(0, 0).unwrap();
-        let now = TestClock::now();
-        let expiration1 = now + chrono::Duration::milliseconds(100);
-        let miner = 1;
-        assert!(lm.upsert_defensive(miner, expiration1, timestamp0).unwrap());
-        // We have one active participants
-        assert_eq!(lm.get_active_participants().len(), 1);
-        // updating an existing lease
-        let expiration2 = expiration1 + chrono::Duration::milliseconds(100);
-        // failure, old lease does not match
-        assert!(!lm
-            .upsert_defensive(miner, expiration2, expiration2)
-            .unwrap());
-        // success, old lease matches
-        assert!(lm
-            .upsert_defensive(miner, expiration2, expiration1)
-            .unwrap());
-        let expiration3 = expiration2 + chrono::Duration::milliseconds(100);
-        // success, old lease has expired
-        assert!(lm.upsert_defensive(miner, expiration3, timestamp0).unwrap());
-        // we still have one active participants
-        assert_eq!(lm.get_active_participants().len(), 1);
-        // sleep for 0.5s to let all leases expire
-        *NOW.lock() += chrono::Duration::milliseconds(500);
-        // we should have no active participants
-        assert_eq!(lm.get_active_participants().len(), 0);
-        // it should fail when lease is too long
-        lm.upsert_defensive(
-            miner,
-            TestClock::now() + chrono::Duration::minutes(6),
-            timestamp0,
-        )
-        .unwrap_err();
-        // it should fail when expiration is in the past
-        lm.upsert_defensive(
-            miner,
-            TestClock::now() - chrono::Duration::minutes(1),
-            timestamp0,
-        )
-        .unwrap_err();
+    fn f3_participation_lease_ticket_serde_roundtrip() {
+        let lease = F3ParticipationLease {
+            network: NetworkChain::Calibnet,
+            issuer: PeerId::from_str("12D3KooWJWEqg4KqzqABLyM21KAmaJc3jtPsXBk6bM6Yr7PKHg3K")
+                .unwrap(),
+            miner_id: 1000,
+            from_instance: 0,
+            validity_term: 1,
+        };
+        let ticket = fvm_ipld_encoding::to_vec(&lease).unwrap();
+        let decoded: F3ParticipationLease = fvm_ipld_encoding::from_slice(&ticket).unwrap();
+        assert_eq!(lease, decoded);
     }
 }
