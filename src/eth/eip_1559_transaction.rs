@@ -94,7 +94,7 @@ impl EthEip1559TxArgs {
         Ok(self)
     }
 
-    fn rlp_message(&self) -> anyhow::Result<rlp::RlpStream> {
+    fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
         let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
         let access_list: &[u8] = &[];
@@ -114,7 +114,7 @@ impl EthEip1559TxArgs {
     }
 
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = self.rlp_message()?;
+        let mut stream = self.message_rlp_stream()?;
         stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
@@ -124,7 +124,7 @@ impl EthEip1559TxArgs {
     }
 
     pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = self.rlp_message()?;
+        let mut stream = self.message_rlp_stream()?;
         stream.finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }

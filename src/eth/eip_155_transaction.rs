@@ -192,7 +192,8 @@ impl EthLegacyEip155TxArgs {
         Ok(self)
     }
 
-    fn rlp_message(&self, stream: &mut rlp::RlpStream) -> anyhow::Result<()> {
+    fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
+        let mut stream = rlp::RlpStream::new();
         stream
             .begin_unbounded_list()
             .append(&format_u64(self.nonce))
@@ -201,12 +202,11 @@ impl EthLegacyEip155TxArgs {
             .append(&format_address(&self.to))
             .append(&format_bigint(&self.value)?)
             .append(&self.input);
-        Ok(())
+        Ok(stream)
     }
 
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = rlp::RlpStream::new();
-        self.rlp_message(&mut stream)?;
+        let mut stream = self.message_rlp_stream()?;
         stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
@@ -216,8 +216,7 @@ impl EthLegacyEip155TxArgs {
     }
 
     pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
-        let mut stream = rlp::RlpStream::new();
-        self.rlp_message(&mut stream)?;
+        let mut stream = self.message_rlp_stream()?;
         stream
             .append(&format_bigint(&BigInt::from(eth_chain_id))?)
             .append(&format_u64(0))
