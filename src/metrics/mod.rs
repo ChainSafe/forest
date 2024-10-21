@@ -18,6 +18,7 @@ use prometheus_client::{
 use std::sync::Arc;
 use std::{path::PathBuf, time::Instant};
 use tokio::net::TcpListener;
+use tower_http::compression::CompressionLayer;
 use tracing::warn;
 
 static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
@@ -91,6 +92,7 @@ where
     let app = Router::new()
         .route("/metrics", get(collect_prometheus_metrics))
         .route("/stats/db", get(collect_db_metrics::<DB>))
+        .layer(CompressionLayer::new())
         .with_state(db);
 
     // Wait for server to exit
