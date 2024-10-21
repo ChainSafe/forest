@@ -303,6 +303,7 @@ impl ActorEvent {
     }
 }
 
+/// Event with extra information stamped by the FVM.
 #[derive(Clone, Debug)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),
@@ -322,6 +323,7 @@ impl From<StampedEvent_v4> for StampedEvent {
 }
 
 impl StampedEvent {
+    /// Returns the ID of the actor that emitted this event.
     pub fn emitter(&self) -> ActorID {
         match self {
             Self::V3(v3) => v3.emitter,
@@ -329,6 +331,7 @@ impl StampedEvent {
         }
     }
 
+    /// Returns the event as emitted by the actor.
     pub fn event(&self) -> ActorEvent {
         match self {
             Self::V3(v3) => v3.event.clone().into(),
