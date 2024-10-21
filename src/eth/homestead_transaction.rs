@@ -156,8 +156,7 @@ impl EthLegacyHomesteadTxArgs {
         Ok(self)
     }
 
-    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = rlp::RlpStream::new();
+    fn rlp_message(&self, stream: &mut rlp::RlpStream) -> anyhow::Result<()> {
         stream
             .begin_unbounded_list()
             .append(&format_u64(self.nonce))
@@ -165,7 +164,14 @@ impl EthLegacyHomesteadTxArgs {
             .append(&format_u64(self.gas_limit))
             .append(&format_address(&self.to))
             .append(&format_bigint(&self.value)?)
-            .append(&self.input)
+            .append(&self.input);
+        Ok(())
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new();
+        self.rlp_message(&mut stream)?;
+        stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
@@ -175,15 +181,8 @@ impl EthLegacyHomesteadTxArgs {
 
     pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = rlp::RlpStream::new();
-        stream
-            .begin_unbounded_list()
-            .append(&format_u64(self.nonce))
-            .append(&format_bigint(&self.gas_price)?)
-            .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
-            .append(&format_bigint(&self.value)?)
-            .append(&self.input)
-            .finalize_unbounded_list();
+        self.rlp_message(&mut stream)?;
+        stream.finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }
 

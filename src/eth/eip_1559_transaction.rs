@@ -7,8 +7,8 @@
 use crate::message::SignedMessage;
 use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
+use anyhow::ensure;
 use anyhow::Context;
-use anyhow::{bail, ensure};
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
@@ -53,10 +53,7 @@ impl EthEip1559TxArgs {
             sig.push(*v_bytes.first().context("failed to get first element")?);
         }
 
-        // Check if signature is 65 bytes
-        if sig.len() != 65 {
-            bail!("signature is not 65 bytes");
-        }
+        ensure!(sig.len() == 65, "invalid signature length");
 
         Ok(Signature {
             sig_type: Delegated,
@@ -97,7 +94,7 @@ impl EthEip1559TxArgs {
         Ok(self)
     }
 
-    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+    fn rlp_message(&self) -> anyhow::Result<rlp::RlpStream> {
         // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
         let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
         let access_list: &[u8] = &[];
@@ -112,7 +109,13 @@ impl EthEip1559TxArgs {
             .append(&format_address(&self.to))
             .append(&format_bigint(&self.value)?)
             .append(&self.input)
-            .append_list(access_list)
+            .append_list(access_list);
+        Ok(stream)
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = self.rlp_message()?;
+        stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
@@ -121,21 +124,8 @@ impl EthEip1559TxArgs {
     }
 
     pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
-        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
-        let access_list: &[u8] = &[];
-        let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
-        stream
-            .begin_unbounded_list()
-            .append(&format_u64(self.chain_id))
-            .append(&format_u64(self.nonce))
-            .append(&format_bigint(&self.max_priority_fee_per_gas)?)
-            .append(&format_bigint(&self.max_fee_per_gas)?)
-            .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
-            .append(&format_bigint(&self.value)?)
-            .append(&self.input)
-            .append_list(access_list)
-            .finalize_unbounded_list();
+        let mut stream = self.rlp_message()?;
+        stream.finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }
 

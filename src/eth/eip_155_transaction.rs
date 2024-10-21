@@ -44,9 +44,7 @@ pub struct EthLegacyEip155TxArgs {
 impl EthLegacyEip155TxArgs {
     pub fn signature(&self, eth_chain_id: EthChainId) -> anyhow::Result<Signature> {
         // Validate EIP155 Chain ID
-        if let Err(err) = validate_eip155_chain_id(eth_chain_id, &self.v) {
-            bail!("failed to validate EIP155 chain id: {}", err);
-        }
+        validate_eip155_chain_id(eth_chain_id, &self.v)?;
 
         // Convert r, s, v to byte arrays
         let r_bytes = self.r.to_bytes_be().1;
@@ -194,8 +192,7 @@ impl EthLegacyEip155TxArgs {
         Ok(self)
     }
 
-    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = rlp::RlpStream::new();
+    fn rlp_message(&self, stream: &mut rlp::RlpStream) -> anyhow::Result<()> {
         stream
             .begin_unbounded_list()
             .append(&format_u64(self.nonce))
@@ -203,7 +200,14 @@ impl EthLegacyEip155TxArgs {
             .append(&format_u64(self.gas_limit))
             .append(&format_address(&self.to))
             .append(&format_bigint(&self.value)?)
-            .append(&self.input)
+            .append(&self.input);
+        Ok(())
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new();
+        self.rlp_message(&mut stream)?;
+        stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
@@ -213,14 +217,8 @@ impl EthLegacyEip155TxArgs {
 
     pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
         let mut stream = rlp::RlpStream::new();
+        self.rlp_message(&mut stream)?;
         stream
-            .begin_unbounded_list()
-            .append(&format_u64(self.nonce))
-            .append(&format_bigint(&self.gas_price)?)
-            .append(&format_u64(self.gas_limit))
-            .append(&format_address(&self.to))
-            .append(&format_bigint(&self.value)?)
-            .append(&self.input)
             .append(&format_bigint(&BigInt::from(eth_chain_id))?)
             .append(&format_u64(0))
             .append(&format_u64(0))
