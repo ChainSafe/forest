@@ -3,15 +3,7 @@
 # User Guide
 
 - [Introduction](./introduction.md)
-  - [Basic Usage](./basic_usage.md)
-  - [Command-line interface](./cli.md)
-  - [Wallet handling](./wallet.md)
-  - [Configuration](./configuration.md)
-  - [Environment Variables](./environment_variables.md)
-  - [Docker](./docker.md)
-  - [Healthcheck](./healthcheck.md)
   - [Snapshot exporting](./snapshot_export.md)
-  - [JSON-RPC API](./jsonrpc.md)
   - [Backups](./backups.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)
@@ -22,7 +14,6 @@
 
 - [Developer documentation](./developer_documentation/introduction.md)
   - [Application architecture](./developer_documentation/application_architecture.md)
-  - [Contributing](./developer_documentation/contributing.md)
   - [Database migrations](./developer_documentation/database_migrations.md)
   - [Local GH Actions](./developer_documentation/local_actions.md)
   - [Mainnet compatibility](./developer_documentation/mainnet_compatibility.md)
