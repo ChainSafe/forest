@@ -33,6 +33,7 @@ pub struct EthLegacyHomesteadTxArgs {
 }
 
 impl EthLegacyHomesteadTxArgs {
+    /// Returns legacy homestead transaction signature
     pub fn signature(&self) -> anyhow::Result<Signature> {
         // Check if v is either 27 or 28
         if self.v != BigInt::from(27) && self.v != BigInt::from(28) {
@@ -68,6 +69,7 @@ impl EthLegacyHomesteadTxArgs {
         })
     }
 
+    /// Returns a verifiable signature for legacy homestead transaction
     pub fn to_verifiable_signature(&self, mut sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         // Check if the signature length is correct
         if sig.len() != HOMESTEAD_SIG_LEN {
@@ -156,6 +158,7 @@ impl EthLegacyHomesteadTxArgs {
         Ok(self)
     }
 
+    /// Returns an RLP stream representing the legacy homestead transaction message
     fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         let mut stream = rlp::RlpStream::new();
         stream
@@ -169,6 +172,7 @@ impl EthLegacyHomesteadTxArgs {
         Ok(stream)
     }
 
+    /// Returns the signed RLP-encoded message for the legacy homestead transaction
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream
@@ -179,12 +183,14 @@ impl EthLegacyHomesteadTxArgs {
         Ok(stream.out().to_vec())
     }
 
+    /// Returns the unsigned RLP-encoded message for the legacy homestead transaction
     pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream.finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }
 
+    /// Constructs a signed message using legacy homestead transaction args
     pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
         let message = Message {

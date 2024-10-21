@@ -36,6 +36,7 @@ pub struct EthEip1559TxArgs {
 }
 
 impl EthEip1559TxArgs {
+    /// Returns EIP-1559 transaction signature
     pub fn signature(&self) -> anyhow::Result<Signature> {
         // Convert r, s, v to byte arrays
         let r_bytes = self.r.to_bytes_be().1;
@@ -60,6 +61,7 @@ impl EthEip1559TxArgs {
         })
     }
 
+    /// Returns a verifiable signature for EIP-1559 transaction
     pub fn to_verifiable_signature(&self, sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         Ok(sig)
     }
@@ -93,6 +95,7 @@ impl EthEip1559TxArgs {
         Ok(self)
     }
 
+    /// Returns an RLP stream representing the EIP-1559 transaction message
     fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
         let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
@@ -112,6 +115,7 @@ impl EthEip1559TxArgs {
         Ok(stream)
     }
 
+    /// Returns the signed RLP-encoded message for the EIP-1559 transaction
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream
@@ -122,12 +126,14 @@ impl EthEip1559TxArgs {
         Ok(stream.out().to_vec())
     }
 
+    /// Returns the unsigned RLP-encoded message for the EIP-1559 transaction
     pub fn rlp_unsigned_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream.finalize_unbounded_list();
         Ok(stream.out().to_vec())
     }
 
+    /// Constructs a signed message using EIP-1559 transaction args
     pub fn get_signed_message(
         &self,
         from: Address,

@@ -42,6 +42,7 @@ pub struct EthLegacyEip155TxArgs {
 }
 
 impl EthLegacyEip155TxArgs {
+    /// Returns legacy EIP-155 transaction signature
     pub fn signature(&self, eth_chain_id: EthChainId) -> anyhow::Result<Signature> {
         // Validate EIP155 Chain ID
         validate_eip155_chain_id(eth_chain_id, &self.v)?;
@@ -78,6 +79,7 @@ impl EthLegacyEip155TxArgs {
         })
     }
 
+    /// Returns a verifiable signature for legacy EIP-155 transaction
     pub fn to_verifiable_signature(
         &self,
         mut sig: Vec<u8>,
@@ -189,6 +191,7 @@ impl EthLegacyEip155TxArgs {
         Ok(self)
     }
 
+    /// Returns an RLP stream representing the legacy EIP-155 transaction message
     fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         let mut stream = rlp::RlpStream::new();
         stream
@@ -202,6 +205,7 @@ impl EthLegacyEip155TxArgs {
         Ok(stream)
     }
 
+    /// Returns the signed RLP-encoded message for the legacy EIP-155 transaction
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream
@@ -212,6 +216,7 @@ impl EthLegacyEip155TxArgs {
         Ok(stream.out().to_vec())
     }
 
+    /// Returns the unsigned RLP-encoded message for the Legacy EIP-155 transaction
     pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
         let mut stream = self.message_rlp_stream()?;
         stream
@@ -222,6 +227,7 @@ impl EthLegacyEip155TxArgs {
         Ok(stream.out().to_vec())
     }
 
+    /// Constructs a signed message using legacy EIP-155 transaction args
     pub fn get_signed_message(
         &self,
         from: Address,
@@ -262,6 +268,7 @@ impl EthLegacyEip155TxArgsBuilder {
     }
 }
 
+/// Validates the EIP155 chain ID by deriving it from the given `v` value
 pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow::Result<()> {
     let derived_chain_id = derive_eip_155_chain_id(v)?;
     ensure!(
@@ -275,6 +282,7 @@ pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow:
     Ok(())
 }
 
+/// Derives the EIP155 chain ID from the `V` value
 pub fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
     if v.bits() <= 64 {
         let v = v.to_u64().context("Failed to convert v to u64")?;

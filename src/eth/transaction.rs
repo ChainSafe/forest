@@ -157,6 +157,7 @@ impl EthTx {
         }
     }
 
+    /// Checks if the transaction is EIP-1559
     pub fn is_eip1559(&self) -> bool {
         matches!(self, EthTx::Eip1559(_))
     }
@@ -279,6 +280,7 @@ pub fn format_address(value: &Option<EthAddress>) -> BytesMut {
     }
 }
 
+/// Pads data with leading zeros to the specified length
 pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
     if data.len() >= length {
         return data.to_vec();
@@ -288,6 +290,7 @@ pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
     zeros
 }
 
+/// Parses raw bytes into an eth transaction
 pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
     ensure!(!data.is_empty(), "eth transaction data is empty");
 
@@ -441,6 +444,7 @@ pub struct MethodInfo {
     pub params: Vec<u8>,
 }
 
+/// Retrieves method info
 pub fn get_filecoin_method_info(
     recipient: &Option<EthAddress>,
     input: &[u8],
@@ -472,6 +476,7 @@ pub fn get_filecoin_method_info(
 
     Ok(MethodInfo { to, method, params })
 }
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
