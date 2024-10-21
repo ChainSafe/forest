@@ -1,12 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::hash::Hash;
-
 use super::*;
 use ethereum_types::H256;
 use libipld::error::SerdeError;
+use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
+use std::hash::Hash;
 use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -160,20 +160,20 @@ impl EthAddress {
     /// Returns the Ethereum address corresponding to an uncompressed secp256k1 public key.
     pub fn eth_address_from_pub_key(pubkey: &[u8]) -> anyhow::Result<Self> {
         // Check if the public key has the correct length (65 bytes)
-        if pubkey.len() != 65 {
+        if pubkey.len() != FULL_PUBLIC_KEY_SIZE {
             bail!(
-                "public key should have {} in length, but got {}",
-                65,
+                "uncompressed public key should have {} bytes, but got {}",
+                FULL_PUBLIC_KEY_SIZE,
                 pubkey.len()
             );
         }
 
         // Check if the first byte of the public key is 0x04 (uncompressed)
-        if *pubkey.first().context("failed to get value")? != 0x04 {
+        if *pubkey.first().context("failed to get pubkey prefix")? != 0x04 {
             bail!("expected first byte of secp256k1 to be 0x04 (uncompressed)");
         }
 
-        let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get value")?);
+        let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
         let addr: &[u8] = &hash[12..32];
         EthAddress::try_from(addr)
     }
@@ -467,7 +467,7 @@ mod tests {
     #[test]
     fn test_eth_address_from_pub_key() {
         // Uncompressed pub key secp256k1)
-        let pubkey: [u8; 65] = [
+        let pubkey: [u8; FULL_PUBLIC_KEY_SIZE] = [
             4, 75, 249, 118, 22, 83, 215, 249, 252, 54, 149, 27, 253, 35, 238, 15, 229, 8, 50, 228,
             19, 137, 115, 123, 183, 243, 237, 144, 113, 41, 115, 70, 234, 174, 61, 199, 1, 81, 95,
             143, 102, 246, 176, 220, 176, 93, 241, 139, 94, 105, 141, 153, 20, 74, 35, 52, 139,

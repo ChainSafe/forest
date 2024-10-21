@@ -8,7 +8,6 @@ use crate::message::SignedMessage;
 use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
 use anyhow::ensure;
-use anyhow::Context;
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
@@ -50,10 +49,10 @@ impl EthEip1559TxArgs {
         if v_bytes.is_empty() {
             sig.push(0);
         } else {
-            sig.push(*v_bytes.first().context("failed to get first element")?);
+            sig.push(*v_bytes.first().expect("failed to get first byte of V"));
         }
 
-        ensure!(sig.len() == 65, "invalid signature length");
+        ensure!(sig.len() == EIP_1559_SIG_LEN, "invalid signature length");
 
         Ok(Signature {
             sig_type: Delegated,

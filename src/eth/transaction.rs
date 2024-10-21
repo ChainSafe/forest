@@ -289,11 +289,9 @@ pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
 }
 
 pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
-    if data.is_empty() {
-        return Err(anyhow::anyhow!("empty data"));
-    }
+    ensure!(!data.is_empty(), "eth transaction data is empty");
 
-    match *data.first().context("failed to get value")? as u64 {
+    match *data.first().context("failed to get signature prefix")? as u64 {
         1 => {
             // EIP-2930
             Err(anyhow::anyhow!("EIP-2930 transaction is not supported"))
@@ -302,7 +300,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
             // EIP-1559
             parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
         }
-        _ if *data.first().context("failed to get value")? > 0x7f => {
+        _ if *data.first().context("failed to get signature prefix")? > 0x7f => {
             // Legacy transaction
             parse_legacy_tx(data)
                 .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err))
@@ -314,9 +312,10 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
 fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data, skipping the first byte (EIP_1559_TX_TYPE)
     let decoded = Rlp::new(data.get(1..).context("failed to get range of values")?);
-    if decoded.item_count()? != 12 {
-        bail!("not an EIP-1559 transaction: should have 12 elements in the rlp list");
-    }
+    ensure!(
+        decoded.item_count()? == 12,
+        "not an EIP-1559 transaction: should have 12 elements in the Rlp list"
+    );
 
     let chain_id = decoded.at(0)?.as_val::<u64>()?;
     let nonce = decoded.at(1)?.as_val::<u64>()?;

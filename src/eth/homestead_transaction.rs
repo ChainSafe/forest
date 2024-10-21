@@ -51,7 +51,7 @@ impl EthLegacyHomesteadTxArgs {
         if v_bytes.is_empty() {
             sig.push(0);
         } else {
-            sig.push(*v_bytes.first().context("failed to get value")?);
+            sig.push(*v_bytes.first().expect("failed to get first byte of V"));
         }
 
         // Prepend the one-byte legacy transaction marker
@@ -80,11 +80,11 @@ impl EthLegacyHomesteadTxArgs {
         }
 
         // Check if the first byte matches the expected signature prefix
-        if *sig.first().context("failed to get value")? != HOMESTEAD_SIG_PREFIX {
+        if *sig.first().context("failed to get signature prefix")? != HOMESTEAD_SIG_PREFIX {
             bail!(
                 "expected signature prefix 0x{:x}, but got 0x{:x}",
                 HOMESTEAD_SIG_PREFIX,
-                sig.first().context("failed to get value")?
+                sig.first().context("failed to get signature prefix")?
             );
         }
 
@@ -94,7 +94,7 @@ impl EthLegacyHomesteadTxArgs {
         // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
         let v_value = BigInt::from_bytes_be(
             num_bigint::Sign::Plus,
-            sig.get(64..).context("failed to get value")?,
+            sig.get(64..).context("failed to get v value")?,
         );
 
         // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1

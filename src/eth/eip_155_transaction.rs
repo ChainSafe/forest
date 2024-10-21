@@ -95,11 +95,11 @@ impl EthLegacyEip155TxArgs {
         }
 
         // Check if the first byte matches the expected signature prefix
-        if *sig.first().context("failed to get value")? != EIP_155_SIG_PREFIX {
+        if *sig.first().context("failed to get signature prefix")? != EIP_155_SIG_PREFIX {
             bail!(
                 "expected signature prefix 0x{:x}, but got 0x{:x}",
                 HOMESTEAD_SIG_PREFIX,
-                sig.first().context("failed to get value")?
+                sig.first().context("failed to get signature prefix")?
             );
         }
 
@@ -109,13 +109,10 @@ impl EthLegacyEip155TxArgs {
         // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
         let mut v_value = BigInt::from_bytes_be(
             num_bigint::Sign::Plus,
-            sig.get(64..).context("failed to get value")?,
+            sig.get(64..).context("failed to get v value")?,
         );
 
-        ensure!(
-            validate_eip155_chain_id(eth_chain_id, &v_value).is_ok(),
-            "Invalid chain Id"
-        );
+        validate_eip155_chain_id(eth_chain_id, &v_value)?;
 
         let chain_id_mul = BigInt::from(eth_chain_id)
             .mul(2_i32.to_bigint().context("Failed to convert 2 to BigInt")?);
