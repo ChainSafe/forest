@@ -88,17 +88,47 @@ type CidPair = (Cid, Cid);
 pub struct StateOutput {
     pub state_root: Cid,
     pub receipt_root: Cid,
-    pub events: Option<Vec<Vec<StampedEvent>>>,
+    pub events: Vec<Vec<StampedEvent>>,
+}
+
+#[derive(Clone)]
+pub struct StateOutputValue {
+    pub state_root: Cid,
+    pub receipt_root: Cid,
+}
+
+impl From<StateOutputValue> for StateOutput {
+    fn from(state_output: StateOutputValue) -> Self {
+        Self {
+            state_root: state_output.state_root,
+            receipt_root: state_output.receipt_root,
+            events: vec![],
+        }
+    }
+}
+
+impl Into<StateOutputValue> for StateOutput {
+    fn into(self) -> StateOutputValue {
+        StateOutputValue {
+            state_root: self.state_root,
+            receipt_root: self.receipt_root,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct StateEvents {
+    pub events: Vec<Vec<StampedEvent>>,
 }
 
 // Various structures for implementing the tipset state cache
 
-struct TipsetStateCacheInner {
-    values: LruCache<TipsetKey, StateOutput>,
+struct TipsetStateCacheInner<V> {
+    values: LruCache<TipsetKey, V>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
-impl Default for TipsetStateCacheInner {
+impl<V: Clone> Default for TipsetStateCacheInner<V> {
     fn default() -> Self {
         Self {
             values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
@@ -107,16 +137,16 @@ impl Default for TipsetStateCacheInner {
     }
 }
 
-struct TipsetStateCache {
-    cache: Arc<SyncMutex<TipsetStateCacheInner>>,
+struct TipsetStateCache<V> {
+    cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
 }
 
-enum Status {
-    Done(StateOutput),
+enum Status<V> {
+    Done(V),
     Empty(Arc<TokioMutex<()>>),
 }
 
-impl TipsetStateCache {
+impl<V: Clone> TipsetStateCache<V> {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
@@ -125,30 +155,19 @@ impl TipsetStateCache {
 
     fn with_inner<F, T>(&self, func: F) -> T
     where
-        F: FnOnce(&mut TipsetStateCacheInner) -> T,
+        F: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
     {
         let mut lock = self.cache.lock();
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(
-        &self,
-        key: &TipsetKey,
-        compute: F,
-    ) -> anyhow::Result<StateOutput>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
     where
         F: Fn() -> Fut,
-        Fut: core::future::Future<Output = anyhow::Result<StateOutput>>,
+        Fut: core::future::Future<Output = anyhow::Result<V>>,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => {
-                let events = v.events.clone();
-                Status::Done(StateOutput {
-                    state_root: v.state_root,
-                    receipt_root: v.receipt_root,
-                    events,
-                })
-            }
+            Some(v) => Status::Done(v.clone()),
             None => {
                 let option = inner
                     .pending
@@ -189,22 +208,22 @@ impl TipsetStateCache {
                             .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
                             .inc();
 
-                        let cid_pair = compute().await?;
+                        let value = compute().await?;
 
                         // Write back to cache, release lock and return value
-                        self.insert(key.clone(), cid_pair.clone());
-                        Ok(cid_pair)
+                        self.insert(key.clone(), value.clone());
+                        Ok(value)
                     }
                 }
             }
         }
     }
 
-    fn get(&self, key: &TipsetKey) -> Option<StateOutput> {
+    fn get(&self, key: &TipsetKey) -> Option<V> {
         self.with_inner(|inner| inner.values.get(key).cloned())
     }
 
-    fn insert(&self, key: TipsetKey, value: StateOutput) {
+    fn insert(&self, key: TipsetKey, value: V) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -234,7 +253,9 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
-    cache: TipsetStateCache,
+    cache: TipsetStateCache<StateOutputValue>,
+    /// This is a cache dedicated to tipset events.
+    events_cache: TipsetStateCache<StateEvents>,
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
@@ -263,6 +284,7 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
+            events_cache: TipsetStateCache::new(),
             beacon,
             chain_config,
             sync_config,
@@ -462,9 +484,30 @@ where
             .get_or_else(key, || async move {
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
+                    .await?
+                    .into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
+            })
+            .await
+            .map(StateOutputValue::into)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn tipset_state_events(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<StateEvents> {
+        let key = tipset.key();
+        self.events_cache
+            .get_or_else(key, || async move {
+                let ts_state = self
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
+                    .await?;
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
+                Ok(StateEvents {
+                    events: ts_state.events,
+                })
             })
             .await
     }
@@ -1653,11 +1696,7 @@ where
         return Ok(StateOutput {
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
-            events: if enable_event_caching.is_cached() {
-                Some(vec![])
-            } else {
-                None
-            },
+            events: vec![],
         });
     }
 

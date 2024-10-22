@@ -76,8 +76,7 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
-pub type ApplyBlockResult =
-    anyhow::Result<(Vec<Receipt>, Option<Vec<Vec<StampedEvent>>>), anyhow::Error>;
+pub type ApplyBlockResult = anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -437,14 +436,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((
-            receipts,
-            if enable_event_caching.is_cached() {
-                Some(events)
-            } else {
-                None
-            },
-        ))
+        Ok((receipts, events))
     }
 
     /// Applies single message through VM and returns result from execution.

@@ -35,7 +35,7 @@ use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Entry;
-use crate::state_manager::StateOutput;
+use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
@@ -251,14 +251,8 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let StateOutput { events, .. } = ctx.state_manager.tipset_state_output(tipset).await?;
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
 
-        let events = if let Some(events) = events {
-            events
-        } else {
-            tracing::warn!("No events cached");
-            return Ok(());
-        };
         ensure!(
             messages.len() == events.len(),
             "Length of messages and events do not match"
