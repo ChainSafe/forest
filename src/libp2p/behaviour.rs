@@ -65,7 +65,7 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
 }
 
 impl ForestBehaviour {
-    pub fn new(
+    pub async fn new(
         local_key: &Keypair,
         config: &Libp2pConfig,
         network_name: &str,
@@ -122,7 +122,8 @@ impl ForestBehaviour {
         let discovery = DiscoveryConfig::new(local_key.public(), network_name)
             .with_mdns(config.mdns)
             .with_kademlia(config.kademlia)
-            .with_user_defined(config.bootstrap_peers.clone())?
+            .with_user_defined(config.bootstrap_peers.clone())
+            .await?
             .target_peer_count(config.target_peer_count as u64)
             .finish()?;
 
