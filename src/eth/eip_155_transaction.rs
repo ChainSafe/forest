@@ -64,14 +64,13 @@ impl EthLegacyEip155TxArgs {
         // Check if signature length is correct
         let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
         let sig_len = sig.len();
-        if sig_len != valid_sig_len.0 as usize && sig_len != valid_sig_len.1 as usize {
-            bail!(
-                "signature is not {:#?} OR {:#?} bytes; it is {} bytes",
-                valid_sig_len.0,
-                valid_sig_len.1,
-                sig_len
-            );
-        }
+        ensure!(
+            sig_len == valid_sig_len.0 as usize || sig_len == valid_sig_len.1 as usize,
+            "signature is not {:#?} OR {:#?} bytes; it is {} bytes",
+            valid_sig_len.0,
+            valid_sig_len.1,
+            sig_len
+        );
 
         Ok(Signature {
             sig_type: Delegated,
