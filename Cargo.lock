@@ -3254,6 +3254,7 @@ dependencies = [
  "glob",
  "group",
  "hex",
+ "hickory-resolver",
  "http 1.1.0",
  "http-range-header",
  "human-repr",
