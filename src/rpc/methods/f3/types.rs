@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use std::cmp::Ordering;
 
+const MAX_LEASE_INSTANCES: u64 = 5;
+
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct F3TipSetKey(
@@ -271,6 +273,33 @@ impl HasLotusJson for F3ParticipationLease {
     }
 }
 
+impl F3ParticipationLease {
+    pub fn validate(
+        &self,
+        network: &NetworkChain,
+        issuer: &PeerId,
+        current_instance: u64,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            &self.network == network,
+            "the ticket was not issued for the current network"
+        );
+        anyhow::ensure!(
+            &self.issuer == issuer,
+            "the ticket was not issued by the current node"
+        );
+        anyhow::ensure!(
+            current_instance <= self.from_instance + self.validity_term,
+            "the ticket has been expired"
+        );
+        anyhow::ensure!(
+            self.validity_term <= MAX_LEASE_INSTANCES,
+            "validity_term is too large"
+        );
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct F3LeaseManager {
     network: NetworkChain,
@@ -311,8 +340,6 @@ impl F3LeaseManager {
         previous_lease: Option<F3ParticipationLease>,
         instances: u64,
     ) -> anyhow::Result<F3ParticipationLease> {
-        const MAX_LEASE_INSTANCES: u64 = 5;
-
         anyhow::ensure!(instances > 0, "instances should be positive");
         anyhow::ensure!(
             instances <= MAX_LEASE_INSTANCES,
@@ -352,7 +379,27 @@ impl F3LeaseManager {
         }
     }
 
-    pub fn participate(&self, lease: F3ParticipationLease) -> anyhow::Result<F3ParticipationLease> {
+    pub async fn participate(
+        &self,
+        lease: F3ParticipationLease,
+    ) -> anyhow::Result<F3ParticipationLease> {
+        let current_instance = super::F3GetProgress::run().await?.id;
+        lease.validate(&self.network, &self.peer_id, current_instance)?;
+        if let Some(old_lease) = self.leases.read().get(&lease.miner_id) {
+            // This should never happen, adding this check just for logic completeness.
+            anyhow::ensure!(
+                old_lease.network == lease.network && old_lease.issuer == lease.issuer,
+                "network or issuer mismatch"
+            );
+            // For safety, strictly require lease start instance to never decrease.
+            anyhow::ensure!(
+                lease.from_instance >= old_lease.from_instance,
+                "the from instance should never decrease"
+            );
+        } else {
+            tracing::info!("started participating in F3 for miner {}", lease.miner_id);
+        }
+        self.leases.write().insert(lease.miner_id, lease.clone());
         Ok(lease)
     }
 }

@@ -754,7 +754,8 @@ impl RpcMethod<1> for F3Participate {
         Ok(F3_LEASE_MANAGER
             .get()
             .context("F3 lease manager is not initialized")?
-            .participate(lease)?)
+            .participate(lease)
+            .await?)
     }
 }
 
