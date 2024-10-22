@@ -81,6 +81,8 @@ pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
+const DEFAULT_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
+
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
@@ -137,6 +139,15 @@ impl<V: Clone> Default for TipsetStateCacheInner<V> {
     }
 }
 
+impl<V: Clone> TipsetStateCacheInner<V> {
+    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+        Self {
+            values: LruCache::new(cache_size),
+            pending: Vec::with_capacity(8),
+        }
+    }
+}
+
 struct TipsetStateCache<V> {
     cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
 }
@@ -150,6 +161,12 @@ impl<V: Clone> TipsetStateCache<V> {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
+        }
+    }
+
+    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+        Self {
+            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(cache_size))),
         }
     }
 
@@ -284,7 +301,7 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
-            events_cache: TipsetStateCache::new(),
+            events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
             sync_config,
