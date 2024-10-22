@@ -380,7 +380,6 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     let gas_price = BigInt::from_bytes_be(Sign::Plus, decoded.at(1)?.data()?);
     let gas_limit = decoded.at(2)?.as_val::<u64>()?;
 
-    // Parse 'to' address (optional)
     let addr_data = decoded.at(3)?.data()?;
     let to = (!addr_data.is_empty())
         .then(|| EthAddress::try_from(addr_data))
