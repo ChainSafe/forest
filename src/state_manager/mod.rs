@@ -100,20 +100,20 @@ pub struct StateOutputValue {
 }
 
 impl From<StateOutputValue> for StateOutput {
-    fn from(state_output: StateOutputValue) -> Self {
+    fn from(value: StateOutputValue) -> Self {
         Self {
-            state_root: state_output.state_root,
-            receipt_root: state_output.receipt_root,
+            state_root: value.state_root,
+            receipt_root: value.receipt_root,
             events: vec![],
         }
     }
 }
 
-impl Into<StateOutputValue> for StateOutput {
-    fn into(self) -> StateOutputValue {
+impl From<StateOutput> for StateOutputValue {
+    fn from(value: StateOutput) -> Self {
         StateOutputValue {
-            state_root: self.state_root,
-            receipt_root: self.receipt_root,
+            state_root: value.state_root,
+            receipt_root: value.receipt_root,
         }
     }
 }
@@ -507,7 +507,7 @@ where
                 Ok(ts_state)
             })
             .await
-            .map(StateOutputValue::into)
+            .map(StateOutput::from)
     }
 
     #[instrument(skip(self))]
