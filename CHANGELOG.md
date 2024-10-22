@@ -43,6 +43,9 @@
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
   `Filecoin.F3Participate` RPC method to align with the spec change.
 
+- [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
+  `Filecoin.F3ListParticipants` RPC method to align with the spec change.
+
 ### Removed
 
 ### Fixed

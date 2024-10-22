@@ -455,7 +455,7 @@ mod tests {
         let lease = lm.new_participation_lease(miner, 10, 2);
         assert!(
             lm.participate(&lease, 13).is_err(),
-            "lease should be invalid when the current instance is 3"
+            "lease should be invalid when the current instance is 13"
         );
 
         // participate
