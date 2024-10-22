@@ -87,23 +87,21 @@ impl EthLegacyEip155TxArgs {
     ) -> anyhow::Result<Vec<u8>> {
         // Check if the signature length is correct
         let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
-        if sig.len() != valid_sig_len.0 as usize && sig.len() != valid_sig_len.1 as usize {
-            bail!(
-                "signature should be {} or {} bytes long (1 byte metadata and rest bytes are sig data), but got {} bytes",
-                valid_sig_len.0,
-                valid_sig_len.1,
-                sig.len()
-            );
-        }
+        ensure!(
+            sig.len() == valid_sig_len.0 as usize || sig.len() == valid_sig_len.1 as usize,
+            "signature should be {} or {} bytes long (1 byte metadata and rest bytes are sig data), but got {} bytes",
+            valid_sig_len.0,
+            valid_sig_len.1,
+            sig.len()
+        );
 
         // Check if the first byte matches the expected signature prefix
-        if *sig.first().context("failed to get signature prefix")? != EIP_155_SIG_PREFIX {
-            bail!(
-                "expected signature prefix 0x{:x}, but got 0x{:x}",
-                HOMESTEAD_SIG_PREFIX,
-                sig.first().context("failed to get signature prefix")?
-            );
-        }
+        ensure!(
+            *sig.first().context("failed to get signature prefix")? == EIP_155_SIG_PREFIX,
+            "expected EIP155 signature prefix 0x{:x}, but got 0x{:x}",
+            EIP_155_SIG_PREFIX,
+            sig.first().context("failed to get signature prefix")?
+        );
 
         // Remove the prefix byte as it's only used for legacy transaction identification
         sig.remove(0);

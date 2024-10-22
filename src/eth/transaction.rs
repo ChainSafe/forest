@@ -335,18 +335,20 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     let input = decoded.at(7)?.data()?.to_vec();
 
     // Ensure access list is empty (should be an empty list)
-    if decoded.at(8)?.item_count()? != 0 {
-        bail!("access list should be an empty list");
-    }
+    ensure!(
+        decoded.at(8)?.item_count()? == 0,
+        "access list should be an empty list"
+    );
 
     let v = BigInt::from_bytes_be(Sign::Plus, decoded.at(9)?.data()?);
     let r = BigInt::from_bytes_be(Sign::Plus, decoded.at(10)?.data()?);
     let s = BigInt::from_bytes_be(Sign::Plus, decoded.at(11)?.data()?);
 
     // EIP-1559 transactions only support 0 or 1 for v
-    if v != BigInt::from(0) && v != BigInt::from(1) {
-        bail!("EIP-1559 transactions only support 0 or 1 for v");
-    }
+    ensure!(
+        v == BigInt::from(0) || v == BigInt::from(1),
+        "EIP-1559 transactions only support 0 or 1 for v"
+    );
 
     // Construct and return the Eth1559TxArgs struct
     let tx_args = EthEip1559TxArgs {
@@ -400,12 +402,12 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Check if the transaction is a legacy Homestead transaction
     if chain_id == 0 {
         // Validate that 'v' is either 27 or 28
-        if v != BigInt::from(27) && v != BigInt::from(28) {
-            bail!(
-                "legacy homestead transactions only support 27 or 28 for v, got {}",
-                v
-            );
-        }
+        ensure!(
+            v == BigInt::from(27) || v == BigInt::from(28),
+            "legacy homestead transactions only support 27 or 28 for v, got {}",
+            v
+        );
+
         let tx_args = EthLegacyHomesteadTxArgs {
             nonce,
             gas_price,

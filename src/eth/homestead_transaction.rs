@@ -36,9 +36,10 @@ impl EthLegacyHomesteadTxArgs {
     /// Returns legacy homestead transaction signature
     pub fn signature(&self) -> anyhow::Result<Signature> {
         // Check if v is either 27 or 28
-        if self.v != BigInt::from(27) && self.v != BigInt::from(28) {
-            bail!("legacy homestead transactions only support 27 or 28 for v");
-        }
+        ensure!(
+            self.v == BigInt::from(27) || self.v == BigInt::from(28),
+            "legacy homestead transactions only support 27 or 28 for v"
+        );
 
         // Convert r, s, v to byte arrays
         let r_bytes = self.r.to_bytes_be().1;
@@ -59,9 +60,11 @@ impl EthLegacyHomesteadTxArgs {
         sig.insert(0, HOMESTEAD_SIG_PREFIX);
 
         // Check if signature length is correct
-        if sig.len() != HOMESTEAD_SIG_LEN {
-            bail!("signature is not {} bytes", HOMESTEAD_SIG_LEN);
-        }
+        ensure!(
+            sig.len() == HOMESTEAD_SIG_LEN,
+            "signature is not {} bytes",
+            HOMESTEAD_SIG_LEN
+        );
 
         Ok(Signature {
             sig_type: Delegated,
@@ -72,23 +75,21 @@ impl EthLegacyHomesteadTxArgs {
     /// Returns a verifiable signature for legacy homestead transaction
     pub fn to_verifiable_signature(&self, mut sig: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         // Check if the signature length is correct
-        if sig.len() != HOMESTEAD_SIG_LEN {
-            bail!(
-                "signature should be {} bytes long (1 byte metadata, {} bytes sig data), but got {} bytes",
-                HOMESTEAD_SIG_LEN,
-                HOMESTEAD_SIG_LEN - 1,
-                sig.len()
-            );
-        }
+        ensure!(
+            sig.len() == HOMESTEAD_SIG_LEN,
+            "signature should be {} bytes long (1 byte metadata, {} bytes sig data), but got {} bytes",
+            HOMESTEAD_SIG_LEN,
+            HOMESTEAD_SIG_LEN - 1,
+            sig.len()
+        );
 
         // Check if the first byte matches the expected signature prefix
-        if *sig.first().context("failed to get signature prefix")? != HOMESTEAD_SIG_PREFIX {
-            bail!(
-                "expected signature prefix 0x{:x}, but got 0x{:x}",
-                HOMESTEAD_SIG_PREFIX,
-                sig.first().context("failed to get signature prefix")?
-            );
-        }
+        ensure!(
+            *sig.first().context("failed to get signature prefix")? == HOMESTEAD_SIG_PREFIX,
+            "expected legacy homestead signature prefix 0x{:x}, but got 0x{:x}",
+            HOMESTEAD_SIG_PREFIX,
+            *sig.first().context("failed to get signature prefix")?
+        );
 
         // Remove the prefix byte as it's only used for legacy transaction identification
         sig.remove(0);

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use anyhow::ensure;
 use ethereum_types::H256;
 use libipld::error::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
@@ -160,18 +161,18 @@ impl EthAddress {
     /// Returns the Ethereum address corresponding to an uncompressed secp256k1 public key.
     pub fn eth_address_from_pub_key(pubkey: &[u8]) -> anyhow::Result<Self> {
         // Check if the public key has the correct length (65 bytes)
-        if pubkey.len() != FULL_PUBLIC_KEY_SIZE {
-            bail!(
-                "uncompressed public key should have {} bytes, but got {}",
-                FULL_PUBLIC_KEY_SIZE,
-                pubkey.len()
-            );
-        }
+        ensure!(
+            pubkey.len() == FULL_PUBLIC_KEY_SIZE,
+            "uncompressed public key should have {} bytes, but got {}",
+            FULL_PUBLIC_KEY_SIZE,
+            pubkey.len()
+        );
 
         // Check if the first byte of the public key is 0x04 (uncompressed)
-        if *pubkey.first().context("failed to get pubkey prefix")? != 0x04 {
-            bail!("expected first byte of secp256k1 to be 0x04 (uncompressed)");
-        }
+        ensure!(
+            *pubkey.first().context("failed to get pubkey prefix")? == 0x04,
+            "expected first byte of uncompressed secp256k1 to be 0x04"
+        );
 
         let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
         let addr: &[u8] = &hash[12..32];
