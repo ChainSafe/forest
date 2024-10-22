@@ -687,11 +687,11 @@ impl RpcMethod<0> for F3ListParticipants {
 
 impl F3ListParticipants {
     async fn run() -> anyhow::Result<Vec<F3Participant>> {
+        let current_instance = F3GetProgress::run().await?.id;
         Ok(F3_LEASE_MANAGER
             .get()
             .context("F3 lease manager is not initialized")?
-            .get_active_participants()
-            .await?
+            .get_active_participants(current_instance)
             .values()
             .map(F3Participant::from)
             .collect())
@@ -751,11 +751,12 @@ impl RpcMethod<1> for F3Participate {
     ) -> Result<Self::Ok, ServerError> {
         let lease: F3ParticipationLease =
             fvm_ipld_encoding::from_slice(&lease_ticket).context("invalid lease ticket")?;
-        Ok(F3_LEASE_MANAGER
+        let current_instance = F3GetProgress::run().await?.id;
+        F3_LEASE_MANAGER
             .get()
             .context("F3 lease manager is not initialized")?
-            .participate(lease)
-            .await?)
+            .participate(&lease, current_instance)?;
+        Ok(lease)
     }
 }
 

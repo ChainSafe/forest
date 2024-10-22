@@ -148,9 +148,9 @@ impl PartialOrd for F3PowerEntry {
 #[serde(rename_all = "PascalCase")]
 pub struct F3Instant {
     #[serde(rename = "ID")]
-    id: u64,
-    round: u64,
-    phase: u8,
+    pub id: u64,
+    pub round: u64,
+    pub phase: u8,
 }
 lotus_json_with_self!(F3Instant);
 
@@ -316,22 +316,21 @@ impl F3LeaseManager {
         }
     }
 
-    pub async fn get_active_participants(
+    pub fn get_active_participants(
         &self,
-    ) -> anyhow::Result<HashMap<u64, F3ParticipationLease>> {
-        let current_instance = super::F3GetProgress::run().await?.id;
-        Ok(self
-            .leases
+        current_instance: u64,
+    ) -> HashMap<u64, F3ParticipationLease> {
+        self.leases
             .read()
             .iter()
             .filter_map(|(id, lease)| {
-                if lease.from_instance + lease.validity_term < current_instance {
+                if lease.from_instance + lease.validity_term >= current_instance {
                     Some((*id, lease.clone()))
                 } else {
                     None
                 }
             })
-            .collect())
+            .collect()
     }
 
     pub async fn get_or_renew_participation_lease(
@@ -379,11 +378,11 @@ impl F3LeaseManager {
         }
     }
 
-    pub async fn participate(
+    pub fn participate(
         &self,
-        lease: F3ParticipationLease,
-    ) -> anyhow::Result<F3ParticipationLease> {
-        let current_instance = super::F3GetProgress::run().await?.id;
+        lease: &F3ParticipationLease,
+        current_instance: u64,
+    ) -> anyhow::Result<()> {
         lease.validate(&self.network, &self.peer_id, current_instance)?;
         if let Some(old_lease) = self.leases.read().get(&lease.miner_id) {
             // This should never happen, adding this check just for logic completeness.
@@ -400,7 +399,7 @@ impl F3LeaseManager {
             tracing::info!("started participating in F3 for miner {}", lease.miner_id);
         }
         self.leases.write().insert(lease.miner_id, lease.clone());
-        Ok(lease)
+        Ok(())
     }
 }
 
@@ -443,5 +442,41 @@ mod tests {
         let ticket = fvm_ipld_encoding::to_vec(&lease).unwrap();
         let decoded: F3ParticipationLease = fvm_ipld_encoding::from_slice(&ticket).unwrap();
         assert_eq!(lease, decoded);
+    }
+
+    #[test]
+    fn f3_lease_manager_tests() {
+        let network = NetworkChain::Calibnet;
+        let peer_id = PeerId::random();
+        let miner = 1000;
+
+        let lm = F3LeaseManager::new(network, peer_id);
+
+        let lease = lm.new_participation_lease(miner, 10, 2);
+        assert!(
+            lm.participate(&lease, 13).is_err(),
+            "lease should be invalid when the current instance is 3"
+        );
+
+        // participate
+        lm.participate(&lease, 11).unwrap();
+
+        assert!(
+            lm.participate(&lm.new_participation_lease(miner, 9, 2), 12)
+                .is_err(),
+            "from instance should never decrease"
+        );
+
+        // renew
+        lm.participate(&lm.new_participation_lease(miner, 12, 4), 12)
+            .unwrap();
+
+        // The lease should be active at instance 13
+        let active_participants = lm.get_active_participants(13);
+        assert!(active_participants.contains_key(&miner));
+
+        // The lease should be active at instance 17
+        let active_participants = lm.get_active_participants(17);
+        assert!(!active_participants.contains_key(&miner));
     }
 }
