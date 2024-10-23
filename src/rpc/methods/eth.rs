@@ -2643,6 +2643,9 @@ mod test {
 
     #[test]
     fn test_eth_log_from_event() {
+        // The value member of these event entries correspond to existing topics on Calibnet,
+        // but they could just as easily be vectors filled with random bytes.
+
         let entries = vec![
             EventEntry {
                 flags: (Flags::FLAG_INDEXED_ALL).bits(),
