@@ -161,6 +161,7 @@ pub(super) async fn start(
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
+    let p2p_peer_id = net_keypair.public().to_peer_id();
 
     let mut keystore = load_or_create_keystore(&config).await?;
 
@@ -415,7 +416,14 @@ pub(super) async fn start(
             .await
         });
 
+        // Run F3 sidecar
         services.spawn_blocking({
+            crate::rpc::f3::F3_LEASE_MANAGER
+                .set(crate::rpc::f3::F3LeaseManager::new(
+                    chain_config.network.clone(),
+                    p2p_peer_id,
+                ))
+                .expect("F3 lease manager should not have been initialized before");
             let chain_config = chain_config.clone();
             let default_f3_root = config
                 .client
