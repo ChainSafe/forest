@@ -98,7 +98,7 @@ impl EthEip1559TxArgs {
     /// Returns an RLP stream representing the EIP-1559 transaction message
     fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
-        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
+        let prefix = [EIP_1559_TX_TYPE].as_slice();
         let access_list: &[u8] = &[];
         let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
         stream
