@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
 use crate::fil_cns;
-use crate::interpreter::{BlockMessages, EventCache, VMTrace};
+use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
@@ -353,7 +353,7 @@ where
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
-                EventCache::NotCached,
+                VMEvent::NotPushed,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state_root));

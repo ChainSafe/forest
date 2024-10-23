@@ -353,7 +353,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-        enable_event_caching: EventCache,
+        enable_event_pushing: VMEvent,
     ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
@@ -387,7 +387,7 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                if enable_event_caching.is_cached() {
+                if enable_event_pushing.is_pushed() {
                     events.push(ret.events());
                 }
 
@@ -599,20 +599,19 @@ impl VMTrace {
     }
 }
 
-/// Caching events will use more memory.
-/// This controls whether we should cache or not events when a state transition is performed.
+/// This controls whether we should push or not events when applying block messages.
 #[derive(Default, Clone, Copy)]
-pub enum EventCache {
-    /// Store event in the tipset state cache
-    Cached,
-    /// Do not cache event
+pub enum VMEvent {
+    /// Push event during [`VM::apply_block_messages`]
+    Pushed,
+    /// Do not push event
     #[default]
-    NotCached,
+    NotPushed,
 }
 
-impl EventCache {
-    /// Should event be kept in cache?
-    pub fn is_cached(&self) -> bool {
-        matches!(self, EventCache::Cached)
+impl VMEvent {
+    /// Should event be pushed?
+    pub fn is_pushed(&self) -> bool {
+        matches!(self, VMEvent::Pushed)
     }
 }

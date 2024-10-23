@@ -13,7 +13,7 @@ use crate::blocks::Tipset;
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
-use crate::interpreter::EventCache;
+use crate::interpreter::VMEvent;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -1352,7 +1352,7 @@ impl RpcMethod<1> for StateCompute {
                 tipset,
                 crate::state_manager::NO_CALLBACK,
                 crate::interpreter::VMTrace::NotTraced,
-                EventCache::NotCached,
+                VMEvent::NotPushed,
             )
             .await?;
 
