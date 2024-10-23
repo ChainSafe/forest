@@ -44,8 +44,8 @@ impl EthEip1559TxArgs {
         let v_bytes = self.v.to_bytes_be().1;
 
         // Pad r and s to 32 bytes
-        let mut sig = pad_leading_zeros(&r_bytes, 32);
-        sig.extend(pad_leading_zeros(&s_bytes, 32));
+        let mut sig = pad_leading_zeros(r_bytes, 32);
+        sig.extend(pad_leading_zeros(s_bytes, 32));
 
         if v_bytes.is_empty() {
             sig.push(0);

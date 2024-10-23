@@ -10,7 +10,6 @@ use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
-use num_traits::FromPrimitive;
 
 pub const HOMESTEAD_SIG_LEN: usize = 66;
 pub const HOMESTEAD_SIG_PREFIX: u8 = 0x01;
@@ -37,7 +36,7 @@ impl EthLegacyHomesteadTxArgs {
     pub fn signature(&self) -> anyhow::Result<Signature> {
         // Check if v is either 27 or 28
         ensure!(
-            self.v == BigInt::from(27) || self.v == BigInt::from(28),
+            self.v == BigInt::from(LEGACY_V_VALUE_27) || self.v == BigInt::from(LEGACY_V_VALUE_28),
             "legacy homestead transactions only support 27 or 28 for v"
         );
 
@@ -47,8 +46,8 @@ impl EthLegacyHomesteadTxArgs {
         let v_bytes = self.v.to_bytes_be().1;
 
         // Pad r and s to 32 bytes
-        let mut sig = pad_leading_zeros(&r_bytes, 32);
-        sig.extend(pad_leading_zeros(&s_bytes, 32));
+        let mut sig = pad_leading_zeros(r_bytes, 32);
+        sig.extend(pad_leading_zeros(s_bytes, 32));
 
         if v_bytes.is_empty() {
             sig.push(0);
@@ -101,11 +100,11 @@ impl EthLegacyHomesteadTxArgs {
         );
 
         // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
-        if v_value == BigInt::from_u8(27).unwrap() {
+        if v_value == BigInt::from(LEGACY_V_VALUE_27) {
             if let Some(value) = sig.get_mut(64) {
                 *value = 0
             };
-        } else if v_value == BigInt::from_u8(28).unwrap() {
+        } else if v_value == BigInt::from(LEGACY_V_VALUE_28) {
             if let Some(value) = sig.get_mut(64) {
                 *value = 1
             };

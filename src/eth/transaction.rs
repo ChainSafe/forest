@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
+use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest;
 use anyhow::{bail, ensure, Context};
@@ -28,7 +29,7 @@ use super::{
         EthLegacyHomesteadTxArgs, EthLegacyHomesteadTxArgsBuilder, HOMESTEAD_SIG_LEN,
         HOMESTEAD_SIG_PREFIX,
     },
-    EthChainId, EIP_1559_TX_TYPE,
+    EthChainId, EIP_1559_TX_TYPE, EIP_2930_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
 #[repr(u64)]
@@ -281,12 +282,12 @@ pub fn format_address(value: &Option<EthAddress>) -> BytesMut {
 }
 
 /// Pads data with leading zeros to the specified length
-pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
+pub fn pad_leading_zeros(data: Vec<u8>, length: usize) -> Vec<u8> {
     if data.len() >= length {
-        return data.to_vec();
+        return data;
     }
     let mut zeros = vec![0; length - data.len()];
-    zeros.extend_from_slice(data);
+    zeros.extend(data);
     zeros
 }
 
@@ -294,20 +295,16 @@ pub fn pad_leading_zeros(data: &[u8], length: usize) -> Vec<u8> {
 pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
     ensure!(!data.is_empty(), "eth transaction data is empty");
 
-    match *data.first().context("failed to get signature prefix")? as u64 {
-        1 => {
+    match data.first() {
+        Some(&EIP_2930_TX_TYPE) => {
             // EIP-2930
             Err(anyhow::anyhow!("EIP-2930 transaction is not supported"))
         }
-        EIP_1559_TX_TYPE => {
-            // EIP-1559
+        Some(&EIP_1559_TX_TYPE) => {
             parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
         }
-        _ if *data.first().context("failed to get signature prefix")? > 0x7f => {
-            // Legacy transaction
-            parse_legacy_tx(data)
-                .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err))
-        }
+        Some(tx_type) if *tx_type > 0x7f => parse_legacy_tx(data)
+            .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err)),
         _ => Err(anyhow::anyhow!("unsupported transaction type")),
     }
 }
@@ -402,7 +399,7 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     if chain_id == 0 {
         // Validate that 'v' is either 27 or 28
         ensure!(
-            v == BigInt::from(27) || v == BigInt::from(28),
+            v == BigInt::from(LEGACY_V_VALUE_27) || v == BigInt::from(LEGACY_V_VALUE_28),
             "legacy homestead transactions only support 27 or 28 for v, got {}",
             v
         );
@@ -888,22 +885,22 @@ pub(crate) mod tests {
     fn test_pad_leading_zeros() {
         // Case 1: Data is shorter than the target length
         let data = vec![1, 2, 3];
-        let padded = pad_leading_zeros(&data, 5);
+        let padded = pad_leading_zeros(data, 5);
         assert_eq!(padded, vec![0, 0, 1, 2, 3]);
 
         // Case 2: Data is already the target length
         let data = vec![4, 5, 6];
-        let padded = pad_leading_zeros(&data, 3);
+        let padded = pad_leading_zeros(data, 3);
         assert_eq!(padded, vec![4, 5, 6]);
 
         // Case 3: Data is longer than the target length (no padding should happen)
         let data = vec![7, 8, 9, 10];
-        let padded = pad_leading_zeros(&data, 3); // length is smaller
+        let padded = pad_leading_zeros(data, 3); // length is smaller
         assert_eq!(padded, vec![7, 8, 9, 10]); // Should return unchanged
 
         // Case 4: Data is empty, and the target length is greater than zero
         let data = vec![];
-        let padded = pad_leading_zeros(&data, 4);
+        let padded = pad_leading_zeros(data, 4);
         assert_eq!(padded, vec![0, 0, 0, 0]);
     }
 

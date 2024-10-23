@@ -11,7 +11,6 @@ use num::{BigInt, BigUint};
 use num_bigint::Sign;
 use num_bigint::ToBigInt;
 use num_traits::cast::ToPrimitive;
-use num_traits::FromPrimitive;
 use std::ops::Mul;
 
 pub const EIP_155_SIG_PREFIX: u8 = 0x02;
@@ -52,14 +51,13 @@ impl EthLegacyEip155TxArgs {
         let s_bytes = self.s.to_bytes_be().1;
         let v_bytes = self.v.to_bytes_be().1;
 
-        // Pad r and s to 32 bytes
-        let mut sig = pad_leading_zeros(&r_bytes, 32);
-        sig.extend(pad_leading_zeros(&s_bytes, 32));
+        // Initialize signature with one-byte legacy transaction marker
+        let mut sig = vec![EIP_155_SIG_PREFIX];
 
+        // Extend signature with padded r, padded s, and v
+        sig.extend(pad_leading_zeros(r_bytes, 32));
+        sig.extend(pad_leading_zeros(s_bytes, 32));
         sig.extend(v_bytes);
-
-        // Prepend the one-byte legacy transaction marker
-        sig.insert(0, EIP_155_SIG_PREFIX);
 
         // Check if signature length is correct
         let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
@@ -119,11 +117,11 @@ impl EthLegacyEip155TxArgs {
         v_value -= BigInt::from(8);
 
         // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
-        if v_value == BigInt::from_u8(27).unwrap() {
+        if v_value == BigInt::from(LEGACY_V_VALUE_27) {
             if let Some(value) = sig.get_mut(64) {
                 *value = 0
             };
-        } else if v_value == BigInt::from_u8(28).unwrap() {
+        } else if v_value == BigInt::from(LEGACY_V_VALUE_28) {
             if let Some(value) = sig.get_mut(64) {
                 *value = 1
             };

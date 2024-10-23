@@ -990,7 +990,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         nonce: EthUint64(msg.sequence),
         chain_id: EthUint64(chain_id),
         value: msg.value.clone().into(),
-        r#type: EthUint64(EIP_1559_TX_TYPE),
+        r#type: EthUint64(EIP_1559_TX_TYPE.into()),
         gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
