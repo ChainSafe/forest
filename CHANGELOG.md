@@ -32,6 +32,9 @@
 - [#4910](https://github.com/ChainSafe/forest/issues/4910) Add support for the
   `Filecoin.F3ListParticipants` RPC method.
 
+- [#4920](https://github.com/ChainSafe/forest/issues/4920) Add support for the
+  `Filecoin.F3GetOrRenewParticipationTicket` RPC method.
+
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
 
@@ -39,6 +42,12 @@
   `Filecoin.EthSendRawTransaction` RPC method.
 
 ### Changed
+
+- [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
+  `Filecoin.F3Participate` RPC method to align with the spec change.
+
+- [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
+  `Filecoin.F3ListParticipants` RPC method to align with the spec change.
 
 ### Removed
 
