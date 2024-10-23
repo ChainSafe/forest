@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use once_cell::sync::Lazy;
 
 const F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY: &str =
     "FOREST_F3_PERMANENT_PARTICIPATING_MINER_ADDRESSES";
