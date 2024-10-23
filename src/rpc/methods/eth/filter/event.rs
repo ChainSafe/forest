@@ -1,15 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::filter::ActorEventBlock;
-use crate::rpc::eth::filter::ParsedFilter;
+use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
 use crate::rpc::eth::{filter::Filter, FilterID};
 use crate::rpc::Arc;
 use crate::shim::address::Address;
-use crate::shim::clock::ChainEpoch;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
-use cid::Cid;
 use parking_lot::RwLock;
 use std::any::Any;
 
@@ -17,9 +14,7 @@ use std::any::Any;
 #[derive(Debug, PartialEq)]
 pub struct EventFilter {
     id: FilterID,
-    min_height: ChainEpoch, // minimum epoch to apply filter
-    max_height: ChainEpoch, // maximum epoch to apply filter
-    tipset_cid: Cid,
+    tipsets: ParsedFilterTipsets,
     addresses: Vec<Address>, // list of actor addresses that are extpected to emit the event
     keys_with_codec: HashMap<String, Vec<ActorEventBlock>>, // map of key names to a list of alternate values that may match
     max_results: usize,                                     // maximum number of results to collect
@@ -41,8 +36,6 @@ impl Filter for EventFilter {
 pub struct EventFilterManager {
     filters: RwLock<HashMap<FilterID, Arc<EventFilter>>>,
     max_filter_results: usize,
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4740
-    //pub event_index: Option<Arc<EventIndex>>,
 }
 
 impl EventFilterManager {
@@ -58,9 +51,7 @@ impl EventFilterManager {
 
         let filter = Arc::new(EventFilter {
             id: id.clone(),
-            min_height: pf.min_height,
-            max_height: pf.max_height,
-            tipset_cid: pf.tipset_cid,
+            tipsets: pf.tipsets,
             addresses: pf.addresses,
             keys_with_codec: pf.keys,
             max_results: self.max_filter_results,
@@ -80,10 +71,9 @@ impl EventFilterManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::eth::filter::ParsedFilter;
+    use crate::rpc::eth::filter::{ParsedFilter, ParsedFilterTipsets};
     use crate::shim::address::Address;
-    use crate::shim::clock::ChainEpoch;
-    use cid::Cid;
+    use std::ops::RangeInclusive;
 
     #[test]
     fn test_event_filter() {
@@ -91,9 +81,7 @@ mod tests {
         let event_manager = EventFilterManager::new(max_filter_results);
 
         let parsed_filter = ParsedFilter {
-            min_height: ChainEpoch::from(0),
-            max_height: ChainEpoch::from(100),
-            tipset_cid: Cid::default(),
+            tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(0, 100)),
             addresses: vec![Address::new_id(123)],
             keys: HashMap::new(),
         };

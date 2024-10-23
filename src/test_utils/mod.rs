@@ -35,6 +35,19 @@ pub fn construct_messages() -> (Message, SignedMessage) {
     (bls_messages, secp_messages)
 }
 
+/// Returns a tuple of unsigned and BLS-signed messages used for testing
+pub fn construct_bls_messages() -> (Message, SignedMessage) {
+    let message: Message = Message_v3 {
+        to: Address::new_id(1).into(),
+        from: Address::new_id(2).into(),
+        ..Message_v3::default()
+    }
+    .into();
+
+    let bls_message = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0]));
+    (message, bls_message)
+}
+
 /// Returns a tuple of unsigned and signed messages used for testing the Ethereum mapping
 pub fn construct_eth_messages(sequence: u64) -> (Message, SignedMessage) {
     let mut bls_message: Message = Message_v3 {

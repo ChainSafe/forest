@@ -13,6 +13,7 @@ use crate::blocks::Tipset;
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
+use crate::interpreter::VMEvent;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -34,7 +35,7 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::MarketBalance;
+use crate::state_manager::{MarketBalance, StateOutput};
 use crate::utils::db::{
     car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
@@ -1345,12 +1346,13 @@ impl RpcMethod<1> for StateCompute {
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let (state_root, _) = ctx
+        let StateOutput { state_root, .. } = ctx
             .state_manager
             .compute_tipset_state(
                 tipset,
                 crate::state_manager::NO_CALLBACK,
                 crate::interpreter::VMTrace::NotTraced,
+                VMEvent::NotPushed,
             )
             .await?;
 

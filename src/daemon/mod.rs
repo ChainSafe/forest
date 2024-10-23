@@ -147,7 +147,7 @@ pub(super) async fn start(
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
+    let chain_config = Arc::new(ChainConfig::from_chain(config.chain()));
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
@@ -189,7 +189,7 @@ pub(super) async fn start(
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     if config.client.load_actors && !opts.stateless {
-        load_actor_bundles(&db, &config.chain).await?;
+        load_actor_bundles(&db, config.chain()).await?;
     }
 
     let mut services = JoinSet::new();
@@ -296,7 +296,7 @@ pub(super) async fn start(
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
-    utils::misc::display_chain_logo(&config.chain);
+    utils::misc::display_chain_logo(config.chain());
     let (tipset_sender, tipset_receiver) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
@@ -424,7 +424,10 @@ pub(super) async fn start(
                 ))
                 .expect("F3 lease manager should not have been initialized before");
             let chain_config = chain_config.clone();
-            let default_f3_root = config.client.data_dir.join(format!("f3/{}", config.chain));
+            let default_f3_root = config
+                .client
+                .data_dir
+                .join(format!("f3/{}", config.chain()));
             let crate::f3::F3Options {
                 chain_finality,
                 bootstrap_epoch,
@@ -553,7 +556,7 @@ async fn set_snapshot_path_if_needed(
     }
 
     let vendor = snapshot::TrustedVendor::default();
-    let chain = &config.chain;
+    let chain = config.chain();
 
     // What height is our chain at right now, and what network version does that correspond to?
     let network_version = chain_config.network_version(epoch);

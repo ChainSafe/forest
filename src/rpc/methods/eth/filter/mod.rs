@@ -19,20 +19,30 @@ mod mempool;
 mod store;
 mod tipset;
 
+use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;
+use super::CollectedEvent;
 use super::Predefined;
+use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
+use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::reflect::Ctx;
+use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Entry;
+use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
-use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
@@ -186,6 +196,180 @@ impl EthEventHandler {
             Ok(false)
         }
     }
+
+    fn parse_eth_filter_spec<DB: Blockstore>(
+        &self,
+        ctx: &Ctx<DB>,
+        filter_spec: &EthFilterSpec,
+    ) -> anyhow::Result<ParsedFilter> {
+        EthFilterSpec::parse_eth_filter_spec(
+            filter_spec,
+            ctx.chain_store().heaviest_tipset().epoch(),
+            self.max_filter_height_range,
+        )
+    }
+
+    fn do_match(spec: &EthFilterSpec, eth_emitter_addr: &EthAddress, entries: &[Entry]) -> bool {
+        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
+            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
+        }
+
+        let match_addr = if spec.address.is_empty() {
+            true
+        } else {
+            spec.address.iter().any(|other| other == eth_emitter_addr)
+        };
+        let match_topics = if let Some(spec) = spec.topics.as_ref() {
+            let matched = entries.iter().enumerate().all(|(i, entry)| {
+                if let Some(slice) = get_word(entry.value()) {
+                    let hash: EthHash = (*slice).into();
+                    match spec.0.get(i) {
+                        Some(EthHashList::List(vec)) => vec.contains(&hash),
+                        Some(EthHashList::Single(Some(h))) => h == &hash,
+                        _ => true, /* wildcard */
+                    }
+                } else {
+                    // Drop events with mis-sized topics
+                    false
+                }
+            });
+            matched
+        } else {
+            true
+        };
+        match_addr && match_topics
+    }
+
+    async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        spec: &EthFilterSpec,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let tipset_key = tipset.key().clone();
+        let height = tipset.epoch();
+
+        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
+
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
+
+        ensure!(
+            messages.len() == events.len(),
+            "Length of messages and events do not match"
+        );
+        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
+            for (j, event) in events.iter().enumerate() {
+                let id_addr = Address::new_id(event.emitter());
+                let result = ctx
+                    .state_manager
+                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "resolving address {} failed (EPOCH = {})",
+                            id_addr,
+                            tipset.epoch()
+                        )
+                    });
+                let resolved = if let Ok(resolved) = result {
+                    resolved
+                } else {
+                    // Skip event
+                    continue;
+                };
+
+                let event_idx = j as u64;
+
+                let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
+
+                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                // dbg!(&entries);
+
+                let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
+                tracing::debug!(
+                    "Event {} {}match filter topics",
+                    event_idx,
+                    if matched { "" } else { "do not " }
+                );
+                if matched {
+                    let entries: Vec<EventEntry> = entries
+                        .into_iter()
+                        .map(|entry| {
+                            let (flags, key, codec, value) = entry.into_parts();
+                            EventEntry {
+                                flags,
+                                key,
+                                codec,
+                                value: value.into(),
+                            }
+                        })
+                        .collect();
+
+                    let ce = CollectedEvent {
+                        entries,
+                        emitter_addr: resolved,
+                        event_idx,
+                        reverted: false,
+                        height,
+                        tipset_key: tipset_key.clone(),
+                        msg_idx: i as u64,
+                        msg_cid: message.cid(),
+                    };
+                    collected_events.push(ce);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
+        &self,
+        ctx: &Ctx<DB>,
+        spec: EthFilterSpec,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
+
+        let mut collected_events = vec![];
+        match pf.tipsets {
+            ParsedFilterTipsets::Hash(block_hash) => {
+                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+                let tipset = Arc::new(tipset);
+                Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
+            }
+            ParsedFilterTipsets::Range(range) => {
+                let max_height = if *range.end() == -1 {
+                    // heaviest tipset doesn't have events because its messages haven't been executed yet
+                    ctx.chain_store().heaviest_tipset().epoch() - 1
+                } else if *range.end() < 0 {
+                    bail!("max_height requested is less than 0")
+                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                    bail!("max_height requested is greater than the heaviest tipset");
+                } else {
+                    *range.end()
+                };
+
+                let num_tipsets = (range.end() - range.start()) as usize + 1;
+                let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
+                    max_height,
+                    ctx.chain_store().heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                for tipset in max_tipset
+                    .as_ref()
+                    .clone()
+                    .chain(&ctx.store())
+                    .take(num_tipsets)
+                {
+                    let tipset = Arc::new(tipset);
+                    Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
+                }
+            }
+        }
+
+        Ok(collected_events)
+    }
 }
 
 impl EthFilterSpec {
@@ -194,21 +378,21 @@ impl EthFilterSpec {
         chain_height: i64,
         max_filter_height_range: i64,
     ) -> Result<ParsedFilter, Error> {
-        let from_block = self.from_block.as_deref().unwrap_or("");
-        let to_block = self.to_block.as_deref().unwrap_or("");
-        let (min_height, max_height, tipset_cid) = if let Some(block_hash) = &self.block_hash {
+        let tipsets = if let Some(block_hash) = &self.block_hash {
             if self.from_block.is_some() || self.to_block.is_some() {
                 bail!("must not specify block hash and from/to block");
             }
-            (0, 0, block_hash.to_cid())
+            ParsedFilterTipsets::Hash(block_hash.clone())
         } else {
+            let from_block = self.from_block.as_deref().unwrap_or("");
+            let to_block = self.to_block.as_deref().unwrap_or("");
             let (min, max) = parse_block_range(
                 chain_height,
                 BlockNumberOrHash::from_str(from_block)?,
                 BlockNumberOrHash::from_str(to_block)?,
                 max_filter_height_range,
             )?;
-            (min, max, Cid::default())
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
         let addresses: Vec<_> = self
@@ -220,14 +404,16 @@ impl EthFilterSpec {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let keys = parse_eth_topics(&self.topics)?;
+        let keys = if let Some(topics) = &self.topics {
+            keys_to_keys_with_codec(parse_eth_topics(topics)?)
+        } else {
+            HashMap::new()
+        };
 
         Ok(ParsedFilter {
-            min_height,
-            max_height,
-            tipset_cid,
+            tipsets,
             addresses,
-            keys: keys_to_keys_with_codec(keys),
+            keys,
         })
     }
 }
@@ -301,11 +487,20 @@ fn parse_eth_topics(
     let mut keys: HashMap<String, Vec<Vec<u8>>> = HashMap::with_capacity(4); // Each eth log entry can contain up to 4 topics
 
     for (idx, eth_hash_list) in topics.iter().enumerate() {
-        let EthHashList(hashes) = eth_hash_list;
         let key = format!("t{}", idx + 1);
-        for eth_hash in hashes {
-            let EthHash(bytes) = eth_hash;
-            keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
+        match eth_hash_list {
+            EthHashList::List(hashes) => {
+                let key = format!("t{}", idx + 1);
+                for eth_hash in hashes {
+                    let EthHash(bytes) = eth_hash;
+                    keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
+                }
+            }
+            EthHashList::Single(Some(hash)) => {
+                let EthHash(bytes) = hash;
+                keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
+            }
+            EthHashList::Single(None) => {}
         }
     }
     Ok(keys)
@@ -337,16 +532,22 @@ fn keys_to_keys_with_codec(
     keys_with_codec
 }
 
+#[derive(Debug, PartialEq)]
+enum ParsedFilterTipsets {
+    Range(std::ops::RangeInclusive<ChainEpoch>),
+    Hash(EthHash),
+}
+
 struct ParsedFilter {
-    min_height: ChainEpoch,
-    max_height: ChainEpoch,
-    tipset_cid: Cid,
+    tipsets: ParsedFilterTipsets,
     addresses: Vec<Address>,
     keys: HashMap<String, Vec<ActorEventBlock>>,
 }
 
 #[cfg(test)]
 mod tests {
+    use fvm_shared4::event::Flags;
+
     use super::*;
     use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use std::str::FromStr;
@@ -359,7 +560,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -379,7 +580,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -456,7 +657,7 @@ mod tests {
 
     #[test]
     fn test_parse_eth_topics() {
-        let topics = EthTopicSpec(vec![EthHashList(vec![EthHash::default()])]);
+        let topics = EthTopicSpec(vec![EthHashList::List(vec![EthHash::default()])]);
         let actual = parse_eth_topics(&topics).expect("Failed to parse topics");
 
         let mut expected = HashMap::with_capacity(4);
@@ -496,7 +697,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -535,7 +736,7 @@ mod tests {
             address: vec![
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             ],
-            topics: EthTopicSpec(vec![]),
+            topics: None,
             block_hash: None,
         };
 
@@ -556,5 +757,248 @@ mod tests {
                 &filter_id
             );
         }
+    }
+
+    #[test]
+    fn test_do_match_address() {
+        let empty_spec = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: None,
+            block_hash: None,
+        };
+
+        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
+
+        let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
+                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
+                ],
+            ),
+        ];
+
+        // Matching an empty spec
+        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &[]));
+
+        assert!(EthEventHandler::do_match(
+            &empty_spec,
+            &eth_addr0,
+            &entries0
+        ));
+
+        // Matching the given address 0
+        let spec0 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![eth_addr0.clone()],
+            topics: None,
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &[]));
+
+        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &[]));
+
+        // Matching the given address 0 or 1
+        let spec1 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![eth_addr0.clone(), eth_addr1.clone()],
+            topics: None,
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &[]));
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &[]));
+    }
+
+    #[test]
+    fn test_do_match_topic() {
+        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
+                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
+                ],
+            ),
+        ];
+
+        let topic0 =
+            EthHash::from_str("0xe24720f45cb74f2d55f1deebb6098f50f10b511dab8a7d47c4819a08dcd0b895")
+                .unwrap();
+
+        let topic1 =
+            EthHash::from_str("0x7404e3d104ea7841c3d9e6fd20adfe99b4ad586bc08d8f3bd3afef894cf184de")
+                .unwrap();
+
+        let topic2 =
+            EthHash::from_str("0x000000000000000000000000d0fb381fc644cdd5d694d35e1afb445527b9244b")
+                .unwrap();
+
+        let topic3 =
+            EthHash::from_str("0x00000000000000000000000092c3b379c217fdf8603884770e83fded7b7410f8")
+                .unwrap();
+
+        let spec1 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(None)])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &entries0));
+
+        let spec2 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(None),
+                EthHashList::Single(None),
+            ])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+
+        let spec2 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
+                topic0.clone(),
+            ))])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+
+        let spec3 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![topic0.clone()])])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec3, &eth_addr0, &entries0));
+
+        let spec4 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
+                topic1.clone(),
+                topic0.clone(),
+            ])])),
+            block_hash: None,
+        };
+
+        assert!(EthEventHandler::do_match(&spec4, &eth_addr0, &entries0));
+
+        let spec5 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::Single(Some(
+                topic1.clone(),
+            ))])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec5, &eth_addr0, &entries0));
+
+        let spec6 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![EthHashList::List(vec![
+                topic2.clone(),
+                topic3.clone(),
+            ])])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec6, &eth_addr0, &entries0));
+
+        let spec7 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(Some(topic1.clone())),
+                EthHashList::Single(Some(topic1.clone())),
+            ])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec7, &eth_addr0, &entries0));
+
+        let spec8 = EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            address: vec![],
+            topics: Some(EthTopicSpec(vec![
+                EthHashList::Single(Some(topic0.clone())),
+                EthHashList::Single(Some(topic1.clone())),
+                EthHashList::Single(Some(topic3.clone())),
+            ])),
+            block_hash: None,
+        };
+
+        assert!(!EthEventHandler::do_match(&spec8, &eth_addr0, &entries0));
     }
 }
