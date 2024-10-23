@@ -440,7 +440,6 @@ where
         beacon,
         &MultiEngine::default(),
         tipsets,
-        EventCache::NotCached,
     )?;
 
     pb.finish_with_message("✅ verified!");

@@ -279,7 +279,6 @@ pub struct StateManager<DB> {
     chain_config: Arc<ChainConfig>,
     sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
-    enable_event_caching: EventCache,
 }
 
 #[allow(clippy::type_complexity)]
@@ -293,7 +292,6 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
-        enable_event_caching: bool,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
@@ -305,11 +303,6 @@ where
             beacon,
             chain_config,
             sync_config,
-            enable_event_caching: if enable_event_caching {
-                EventCache::Cached
-            } else {
-                EventCache::NotCached
-            },
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -329,10 +322,6 @@ where
 
     pub fn sync_config(&self) -> &Arc<SyncConfig> {
         &self.sync_config
-    }
-
-    pub fn enable_event_caching(&self) -> EventCache {
-        self.enable_event_caching
     }
 
     /// Gets the state tree
@@ -500,7 +489,12 @@ where
         self.cache
             .get_or_else(key, || async move {
                 let ts_state = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        EventCache::NotCached,
+                    )
                     .await?
                     .into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
@@ -519,7 +513,12 @@ where
         self.events_cache
             .get_or_else(key, || async move {
                 let ts_state = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        EventCache::Cached,
+                    )
                     .await?;
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(StateEvents {
@@ -721,7 +720,12 @@ where
                 _ => Ok(()), // ignored
             }
         };
-        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
+        let result = self.compute_tipset_state_blocking(
+            ts,
+            Some(callback),
+            VMTrace::Traced,
+            EventCache::NotCached,
+        );
         if let Err(error_message) = result {
             if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
@@ -812,10 +816,16 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
+        enable_event_caching: EventCache,
     ) -> Result<StateOutput, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
-            this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
+            this.compute_tipset_state_blocking(
+                tipset,
+                callback,
+                enable_tracing,
+                enable_event_caching,
+            )
         })
         .await?
     }
@@ -827,6 +837,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
+        enable_event_caching: EventCache,
     ) -> Result<StateOutput, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
@@ -837,7 +848,7 @@ where
             tipset,
             callback,
             enable_tracing,
-            self.enable_event_caching(),
+            enable_event_caching,
         )?)
     }
 
@@ -1446,7 +1457,6 @@ where
             self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
-            self.enable_event_caching(),
         )
     }
 
@@ -1558,7 +1568,6 @@ pub fn validate_tipsets<DB, T>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipsets: T,
-    enable_event_caching: EventCache,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1583,7 +1592,7 @@ where
                 parent,
                 NO_CALLBACK,
                 VMTrace::NotTraced,
-                enable_event_caching,
+                EventCache::NotCached,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;

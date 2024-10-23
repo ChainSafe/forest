@@ -66,7 +66,6 @@ pub struct Client {
     pub load_actors: bool,
     /// `TTL` to set for Ethereum `Hash` to `Cid` entries or `None` to never reclaim them.
     pub eth_mapping_ttl: Option<u32>,
-    pub enable_event_caching: bool,
 }
 
 impl Default for Client {
@@ -94,7 +93,6 @@ impl Default for Client {
             ),
             load_actors: true,
             eth_mapping_ttl: None,
-            enable_event_caching: true,
         }
     }
 }

@@ -154,9 +154,6 @@ pub struct CliOpts {
     /// Skip loading actors from the actors bundle.
     #[arg(long)]
     pub skip_load_actors: bool,
-    /// Cache events in the tipset state cache (default: true)
-    #[arg(long)]
-    pub enable_event_caching: Option<bool>,
 }
 
 impl CliOpts {
@@ -227,9 +224,6 @@ impl CliOpts {
         }
 
         cfg.client.load_actors = !self.skip_load_actors;
-        cfg.client.enable_event_caching = self
-            .enable_event_caching
-            .unwrap_or(cfg.client.enable_event_caching);
 
         Ok((cfg, path))
     }
