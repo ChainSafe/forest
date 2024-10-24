@@ -45,8 +45,10 @@ impl EthLegacyHomesteadTxArgs {
         let s_bytes = self.s.to_bytes_be().1;
         let v_bytes = self.v.to_bytes_be().1;
 
-        // Pad r and s to 32 bytes
-        let mut sig = pad_leading_zeros(r_bytes, 32);
+        // Initialize signature with one-byte homestead legacy transaction marker
+        let mut sig = vec![HOMESTEAD_SIG_PREFIX];
+        // Extend signature with padded r, padded s, and v
+        sig.extend(pad_leading_zeros(r_bytes, 32));
         sig.extend(pad_leading_zeros(s_bytes, 32));
 
         if v_bytes.is_empty() {
@@ -54,9 +56,6 @@ impl EthLegacyHomesteadTxArgs {
         } else {
             sig.push(*v_bytes.first().expect("failed to get first byte of V"));
         }
-
-        // Prepend the one-byte legacy transaction marker
-        sig.insert(0, HOMESTEAD_SIG_PREFIX);
 
         // Check if signature length is correct
         ensure!(
