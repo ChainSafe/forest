@@ -1629,6 +1629,7 @@ fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
         // using basic because 2 nodes are not garanteed to be at the same head
         RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
         RpcTest::identity(F3GetECPowerTable::request((tipset.key().into(),))?),
+        RpcTest::identity(F3GetManifest::request(())?),
     ])
 }
 

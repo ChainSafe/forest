@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-f3"
 	"github.com/filecoin-project/go-f3/certs"
 	"github.com/filecoin-project/go-f3/gpbft"
+	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -56,4 +57,8 @@ func (h *F3ServerHandler) F3IsRunning(_ context.Context) bool {
 
 func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
 	return h.f3.Progress()
+}
+
+func (h *F3ServerHandler) F3GetManifest(_ context.Context) *manifest.Manifest {
+	return h.f3.Manifest()
 }
