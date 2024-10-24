@@ -17,7 +17,7 @@ use crate::chain::{
 };
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
-    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
+    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext, VMEvent,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
@@ -32,13 +32,12 @@ use crate::shim::{
         miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
         LoadActorStateFromBlockstore,
     },
-    executor::ApplyRet,
+    executor::{ApplyRet, Receipt, StampedEvent},
 };
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
-    executor::Receipt,
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -82,17 +81,56 @@ pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
+const DEFAULT_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
+
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
+#[derive(Clone)]
+pub struct StateOutput {
+    pub state_root: Cid,
+    pub receipt_root: Cid,
+    pub events: Vec<Vec<StampedEvent>>,
+}
+
+#[derive(Clone)]
+pub struct StateOutputValue {
+    pub state_root: Cid,
+    pub receipt_root: Cid,
+}
+
+impl From<StateOutputValue> for StateOutput {
+    fn from(value: StateOutputValue) -> Self {
+        Self {
+            state_root: value.state_root,
+            receipt_root: value.receipt_root,
+            events: vec![],
+        }
+    }
+}
+
+impl From<StateOutput> for StateOutputValue {
+    fn from(value: StateOutput) -> Self {
+        StateOutputValue {
+            state_root: value.state_root,
+            receipt_root: value.receipt_root,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct StateEvents {
+    pub events: Vec<Vec<StampedEvent>>,
+}
+
 // Various structures for implementing the tipset state cache
 
-struct TipsetStateCacheInner {
-    values: LruCache<TipsetKey, CidPair>,
+struct TipsetStateCacheInner<V> {
+    values: LruCache<TipsetKey, V>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
-impl Default for TipsetStateCacheInner {
+impl<V: Clone> Default for TipsetStateCacheInner<V> {
     fn default() -> Self {
         Self {
             values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
@@ -101,37 +139,52 @@ impl Default for TipsetStateCacheInner {
     }
 }
 
-struct TipsetStateCache {
-    cache: Arc<SyncMutex<TipsetStateCacheInner>>,
+impl<V: Clone> TipsetStateCacheInner<V> {
+    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+        Self {
+            values: LruCache::new(cache_size),
+            pending: Vec::with_capacity(8),
+        }
+    }
 }
 
-enum Status {
-    Done(CidPair),
+struct TipsetStateCache<V> {
+    cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
+}
+
+enum Status<V> {
+    Done(V),
     Empty(Arc<TokioMutex<()>>),
 }
 
-impl TipsetStateCache {
+impl<V: Clone> TipsetStateCache<V> {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
         }
     }
 
+    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+        Self {
+            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(cache_size))),
+        }
+    }
+
     fn with_inner<F, T>(&self, func: F) -> T
     where
-        F: FnOnce(&mut TipsetStateCacheInner) -> T,
+        F: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
     {
         let mut lock = self.cache.lock();
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
     where
         F: Fn() -> Fut,
-        Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
+        Fut: core::future::Future<Output = anyhow::Result<V>>,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(*v),
+            Some(v) => Status::Done(v.clone()),
             None => {
                 let option = inner
                     .pending
@@ -172,22 +225,22 @@ impl TipsetStateCache {
                             .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
                             .inc();
 
-                        let cid_pair = compute().await?;
+                        let value = compute().await?;
 
                         // Write back to cache, release lock and return value
-                        self.insert(key.clone(), cid_pair);
-                        Ok(cid_pair)
+                        self.insert(key.clone(), value.clone());
+                        Ok(value)
                     }
                 }
             }
         }
     }
 
-    fn get(&self, key: &TipsetKey) -> Option<CidPair> {
-        self.with_inner(|inner| inner.values.get(key).copied())
+    fn get(&self, key: &TipsetKey) -> Option<V> {
+        self.with_inner(|inner| inner.values.get(key).cloned())
     }
 
-    fn insert(&self, key: TipsetKey, value: CidPair) {
+    fn insert(&self, key: TipsetKey, value: V) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -217,7 +270,9 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
-    cache: TipsetStateCache,
+    cache: TipsetStateCache<StateOutputValue>,
+    /// This is a cache dedicated to tipset events.
+    events_cache: TipsetStateCache<StateEvents>,
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
@@ -244,6 +299,7 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
+            events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
             sync_config,
@@ -416,14 +472,58 @@ where
     /// state for a given tipset is guaranteed not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
+        let StateOutput {
+            state_root,
+            receipt_root,
+            ..
+        } = self.tipset_state_output(tipset).await?;
+        Ok((state_root, receipt_root))
+    }
+
+    #[instrument(skip(self))]
+    pub async fn tipset_state_output(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
                 let ts_state = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        VMEvent::NotPushed,
+                    )
+                    .await?
+                    .into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
+            })
+            .await
+            .map(StateOutput::from)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn tipset_state_events(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<StateEvents> {
+        let key = tipset.key();
+        self.events_cache
+            .get_or_else(key, || async move {
+                let ts_state = self
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        VMEvent::Pushed,
+                    )
+                    .await?;
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
+                Ok(StateEvents {
+                    events: ts_state.events,
+                })
             })
             .await
     }
@@ -620,7 +720,12 @@ where
                 _ => Ok(()), // ignored
             }
         };
-        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
+        let result = self.compute_tipset_state_blocking(
+            ts,
+            Some(callback),
+            VMTrace::Traced,
+            VMEvent::NotPushed,
+        );
         if let Err(error_message) = result {
             if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
@@ -711,10 +816,16 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error> {
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
-            this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
+            this.compute_tipset_state_blocking(
+                tipset,
+                callback,
+                enable_tracing,
+                enable_event_pushing,
+            )
         })
         .await?
     }
@@ -726,7 +837,8 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error> {
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
@@ -736,6 +848,7 @@ where
             tipset,
             callback,
             enable_tracing,
+            enable_event_pushing,
         )?)
     }
 
@@ -1466,7 +1579,11 @@ where
         .par_bridge()
         .try_for_each(|(child, parent)| {
             info!(height = parent.epoch(), "compute parent state");
-            let (actual_state, actual_receipt) = apply_block_messages(
+            let StateOutput {
+                state_root: actual_state,
+                receipt_root: actual_receipt,
+                ..
+            } = apply_block_messages(
                 genesis_timestamp,
                 chain_index.clone(),
                 chain_config.clone(),
@@ -1475,6 +1592,7 @@ where
                 parent,
                 NO_CALLBACK,
                 VMTrace::NotTraced,
+                VMEvent::NotPushed,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;
@@ -1582,7 +1700,8 @@ pub fn apply_block_messages<DB>(
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-) -> Result<CidPair, anyhow::Error>
+    enable_event_pushing: VMEvent,
+) -> Result<StateOutput, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1600,7 +1719,11 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts;
-        return Ok((*tipset.parent_state(), message_receipts));
+        return Ok(StateOutput {
+            state_root: *tipset.parent_state(),
+            receipt_root: message_receipts,
+            events: vec![],
+        });
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1668,16 +1791,21 @@ where
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
     // FVM, but that introduces some constraints, and possible deadlocks.
-    stacker::grow(64 << 20, || -> anyhow::Result<(Cid, Cid)> {
+    stacker::grow(64 << 20, || -> anyhow::Result<StateOutput> {
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
-        let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
+        let (receipts, events) =
+            vm.apply_block_messages(&block_messages, epoch, callback, enable_event_pushing)?;
 
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
         let state_root = vm.flush()?;
 
-        Ok((state_root, receipt_root))
+        Ok(StateOutput {
+            state_root,
+            receipt_root,
+            events,
+        })
     })
 }

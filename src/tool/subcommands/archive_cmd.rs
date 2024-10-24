@@ -35,14 +35,14 @@ use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
-use crate::interpreter::VMTrace;
+use crate::interpreter::{VMEvent, VMTrace};
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::{apply_block_messages, NO_CALLBACK};
+use crate::state_manager::{apply_block_messages, StateOutput, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::DateTime;
 use cid::Cid;
@@ -546,7 +546,7 @@ async fn show_tipset_diff(
         ResolveNullTipset::TakeNewer,
     )?;
 
-    let (state_root, _) = apply_block_messages(
+    let StateOutput { state_root, .. } = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),
@@ -555,6 +555,7 @@ async fn show_tipset_diff(
         tipset,
         NO_CALLBACK,
         VMTrace::NotTraced,
+        VMEvent::NotPushed,
     )?;
 
     if child_tipset.parent_state() != &state_root {

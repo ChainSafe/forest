@@ -9,7 +9,7 @@ use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
@@ -22,7 +22,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
@@ -216,8 +216,6 @@ impl From<[u8; EVM_WORD_LENGTH]> for EthHash {
         Self(ethereum_types::H256(value))
     }
 }
-
-lotus_json_with_self!(EthHash);
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -519,14 +517,25 @@ impl EthTxReceipt {
 #[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthLog {
+    /// The address of the actor that produced the event log.
     address: EthAddress,
+    /// The value of the event log, excluding topics.
     data: EthBytes,
+    /// List of topics associated with the event log.
     topics: Vec<EthHash>,
+    /// Indicates whether the log was removed due to a chain reorganization.
     removed: bool,
+    /// The index of the event log in the sequence of events produced by the message execution.
+    /// (this is the index in the events AMT on the message receipt)
     log_index: EthUint64,
+    /// The index in the tipset of the transaction that produced the event log.
+    /// The index corresponds to the sequence of messages produced by `ChainGetParentMessages`
     transaction_index: EthUint64,
+    /// The hash of the RLP message that produced the event log.
     transaction_hash: EthHash,
+    /// The hash of the tipset containing the message that produced the log.
     block_hash: EthHash,
+    /// The epoch of the tipset containing the message.
     block_number: EthUint64,
 }
 lotus_json_with_self!(EthLog);
@@ -2274,9 +2283,214 @@ impl RpcMethod<1> for EthSendRawTransaction {
     }
 }
 
+#[derive(Debug)]
+pub struct CollectedEvent {
+    entries: Vec<EventEntry>,
+    emitter_addr: crate::shim::address::Address,
+    pub event_idx: u64,
+    reverted: bool,
+    height: ChainEpoch,
+    tipset_key: TipsetKey,
+    msg_idx: u64,
+    msg_cid: Cid,
+}
+
+fn match_key(key: &str) -> Option<usize> {
+    match key.get(0..2) {
+        Some("t1") => Some(0),
+        Some("t2") => Some(1),
+        Some("t3") => Some(2),
+        Some("t4") => Some(3),
+        _ => None,
+    }
+}
+
+fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
+    let mut topics_found = [false; 4];
+    let mut topics_found_count = 0;
+    let mut data_found = false;
+    let mut data: EthBytes = EthBytes::default();
+    let mut topics: Vec<EthHash> = Vec::default();
+    for entry in entries {
+        // Drop events with non-raw topics. Built-in actors emit CBOR, and anything else would be
+        // invalid anyway.
+        if entry.codec != IPLD_RAW {
+            return None;
+        }
+        // Check if the key is t1..t4
+        if let Some(idx) = match_key(&entry.key) {
+            // Drop events with mis-sized topics.
+            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
+            let bytes = if let Ok(value) = result {
+                value
+            } else {
+                tracing::warn!(
+                    "got an EVM event topic with an invalid size (key: {}, size: {})",
+                    entry.key,
+                    entry.value.0.len()
+                );
+                return None;
+            };
+            // Drop events with duplicate topics.
+            if *topics_found.get(idx).expect("Infallible") {
+                tracing::warn!("got a duplicate EVM event topic (key: {})", entry.key);
+                return None;
+            }
+            *topics_found.get_mut(idx).expect("Infallible") = true;
+            topics_found_count += 1;
+            // Extend the topics array
+            if topics.len() <= idx {
+                topics.resize(idx + 1, EthHash::default());
+            }
+            *topics.get_mut(idx).expect("Infallible") = bytes.into();
+        } else if entry.key == "d" {
+            // Drop events with duplicate data fields.
+            if data_found {
+                tracing::warn!("got duplicate EVM event data");
+                return None;
+            }
+            data_found = true;
+            data = EthBytes(entry.value.0.clone());
+        } else {
+            // Skip entries we don't understand (makes it easier to extend things).
+            // But we warn for now because we don't expect them.
+            tracing::warn!("unexpected event entry (key: {})", entry.key);
+        }
+    }
+    // Drop events with skipped topics.
+    if topics.len() != topics_found_count {
+        tracing::warn!(
+            "EVM event topic length mismatch (expected: {}, actual: {})",
+            topics.len(),
+            topics_found_count
+        );
+        return None;
+    }
+    Some((data, topics))
+}
+
+fn eth_tx_hash_from_signed_message(
+    message: &SignedMessage,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<EthHash> {
+    if message.is_delegated() {
+        let (_, tx) = eth_tx_from_signed_eth_message(message, eth_chain_id)?;
+        Ok(tx.eth_hash()?.into())
+    } else if message.is_secp256k1() {
+        Ok(message.cid().into())
+    } else {
+        Ok(message.message().cid().into())
+    }
+}
+
+fn eth_tx_hash_from_message_cid<DB: Blockstore>(
+    blockstore: &DB,
+    message_cid: &Cid,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<Option<EthHash>> {
+    if let Ok(smsg) = crate::chain::message_from_cid(blockstore, message_cid) {
+        // This is an Eth Tx, Secp message, Or BLS message in the mpool
+        return Ok(Some(eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?));
+    }
+    let result: Result<Message, _> = crate::chain::message_from_cid(blockstore, message_cid);
+    if result.is_ok() {
+        // This is a BLS message
+        let hash: EthHash = (*message_cid).into();
+        return Ok(Some(hash));
+    }
+    Ok(None)
+}
+
+fn transform_events<F>(events: &[CollectedEvent], f: F) -> anyhow::Result<Vec<EthLog>>
+where
+    F: Fn(&CollectedEvent) -> anyhow::Result<Option<EthLog>>,
+{
+    events
+        .iter()
+        .filter_map(|event| match f(event) {
+            Ok(Some(eth_log)) => Some(Ok(eth_log)),
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        })
+        .collect()
+}
+
+fn eth_filter_logs_from_events<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<Vec<EthLog>> {
+    transform_events(events, |event| {
+        let (data, topics) = if let Some((data, topics)) = eth_log_from_event(&event.entries) {
+            (data, topics)
+        } else {
+            tracing::warn!("Ignoring event");
+            return Ok(None);
+        };
+        let transaction_hash = if let Some(transaction_hash) = eth_tx_hash_from_message_cid(
+            ctx.store(),
+            &event.msg_cid,
+            ctx.state_manager.chain_config().eth_chain_id,
+        )? {
+            transaction_hash
+        } else {
+            tracing::warn!("Ignoring event");
+            return Ok(None);
+        };
+        let address = EthAddress::from_filecoin_address(&event.emitter_addr)?;
+        Ok(Some(EthLog {
+            address,
+            data,
+            topics,
+            removed: event.reverted,
+            log_index: event.event_idx.into(),
+            transaction_index: event.msg_idx.into(),
+            transaction_hash,
+            block_hash: event.tipset_key.cid()?.into(),
+            block_number: (event.height as u64).into(),
+        }))
+    })
+}
+
+fn eth_filter_result_from_events<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Logs(eth_filter_logs_from_events(
+        ctx, events,
+    )?))
+}
+
+pub enum EthGetLogs {}
+impl RpcMethod<1> for EthGetLogs {
+    const NAME: &'static str = "Filecoin.EthGetLogs";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getLogs");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["eth_filter"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthFilterSpec,);
+    type Ok = EthFilterResult;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let events = ctx
+            .eth_event_handler
+            .eth_get_events_for_filter(&ctx, eth_filter)
+            .await?;
+        Ok(eth_filter_result_from_events(&ctx, &events)?)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::rpc::eth::EventEntry;
+    use crate::{
+        db::MemoryDB,
+        test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
+    };
+    use fvm_shared4::event::Flags;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
@@ -2402,5 +2616,306 @@ mod test {
 
         let block = Block::new(true, 1);
         assert_eq!(block.transactions_root, EthHash::default());
+    }
+
+    #[test]
+    fn test_eth_tx_hash_from_signed_message() {
+        let (_, signed) = construct_eth_messages(0);
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(
+            &format!("{}", tx_hash),
+            "0xfc81dd8d9ffb045e7e2d494f925824098183263c7f402d69e18cc25e3422791b"
+        );
+
+        let (_, signed) = construct_messages();
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(tx_hash.to_cid(), signed.cid());
+
+        let (_, signed) = construct_bls_messages();
+        let tx_hash =
+            eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
+                .unwrap();
+        assert_eq!(tx_hash.to_cid(), signed.message().cid());
+    }
+
+    #[test]
+    fn test_eth_tx_hash_from_message_cid() {
+        let blockstore = Arc::new(MemoryDB::default());
+
+        let (msg0, secp0) = construct_eth_messages(0);
+        let (_msg1, secp1) = construct_eth_messages(1);
+        let (msg2, bls0) = construct_bls_messages();
+
+        crate::chain::persist_objects(&blockstore, [msg0.clone(), msg2.clone()].iter()).unwrap();
+        crate::chain::persist_objects(&blockstore, [secp0.clone(), bls0.clone()].iter()).unwrap();
+
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
+        assert!(tx_hash.is_some());
+
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &msg2.cid(), 0).unwrap();
+        assert!(tx_hash.is_some());
+
+        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
+        assert!(tx_hash.is_none());
+    }
+
+    #[test]
+    fn test_eth_log_from_event() {
+        // The value member of these event entries correspond to existing topics on Calibnet,
+        // but they could just as easily be vectors filled with random bytes.
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t2".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert!(bytes.0.is_empty());
+        assert_eq!(hashes.len(), 2);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t2".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t3".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t4".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert!(bytes.0.is_empty());
+        assert_eq!(hashes.len(), 4);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t3".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t4".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t2".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert!(bytes.0.is_empty());
+        assert_eq!(hashes.len(), 4);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t3".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ]
+                .into(),
+            },
+        ];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![EventEntry {
+            flags: (Flags::FLAG_INDEXED_ALL).bits(),
+            key: "t1".into(),
+            codec: DAG_CBOR,
+            value: vec![
+                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
+                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+            ]
+            .into(),
+        }];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![EventEntry {
+            flags: (Flags::FLAG_INDEXED_ALL).bits(),
+            key: "t1".into(),
+            codec: IPLD_RAW,
+            value: vec![
+                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
+                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
+            ]
+            .into(),
+        }];
+        assert!(eth_log_from_event(&entries).is_none());
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+        ];
+        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
+        assert_eq!(bytes.0.len(), 32);
+        assert_eq!(hashes.len(), 1);
+
+        let entries = vec![
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "t1".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+            EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec: IPLD_RAW,
+                value: vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
+                    25, 34, 116, 232, 27, 26, 248,
+                ]
+                .into(),
+            },
+        ];
+        assert!(eth_log_from_event(&entries).is_none());
     }
 }

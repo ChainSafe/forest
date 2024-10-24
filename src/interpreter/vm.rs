@@ -17,7 +17,7 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    executor::{ApplyRet, Receipt},
+    executor::{ApplyRet, Receipt, StampedEvent},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
     message::{Message, Message_v3},
@@ -75,6 +75,8 @@ type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
+
+pub type ApplyBlockResult = anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -351,8 +353,10 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-    ) -> Result<Vec<Receipt>, anyhow::Error> {
+        enable_event_pushing: VMEvent,
+    ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
+        let mut events = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
         for block in messages.iter() {
@@ -382,6 +386,10 @@ where
                 penalty += ret.penalty();
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
+
+                if enable_event_pushing.is_pushed() {
+                    events.push(ret.events());
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -428,7 +436,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok(receipts)
+        Ok((receipts, events))
     }
 
     /// Applies single message through VM and returns result from execution.
@@ -588,5 +596,22 @@ impl VMTrace {
     /// Should tracing be collected?
     pub fn is_traced(&self) -> bool {
         matches!(self, VMTrace::Traced)
+    }
+}
+
+/// This controls whether we should push or not events when applying block messages.
+#[derive(Default, Clone, Copy)]
+pub enum VMEvent {
+    /// Push event during [`VM::apply_block_messages`]
+    Pushed,
+    /// Do not push event
+    #[default]
+    NotPushed,
+}
+
+impl VMEvent {
+    /// Should event be pushed?
+    pub fn is_pushed(&self) -> bool {
+        matches!(self, VMEvent::Pushed)
     }
 }

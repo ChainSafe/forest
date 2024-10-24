@@ -154,7 +154,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
-    let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
+    let chain_config = Arc::new(ChainConfig::from_chain(config.chain()));
 
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_deref(),
@@ -173,7 +173,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
 
     let state_manager = StateManager::new(
         Arc::clone(&chain_store),
-        Arc::clone(&chain_config),
+        chain_config,
         Arc::new(config.sync.clone()),
     )?;
 

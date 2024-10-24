@@ -1343,7 +1343,7 @@ fn eth_tests() -> Vec<RpcTest> {
                         "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
                     )
                     .unwrap()],
-                    topics: EthTopicSpec(vec![]),
+                    topics: None,
                     block_hash: None,
                 },),
                 use_alias,
@@ -1520,6 +1520,16 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 BlockNumberOrHash::from_block_hash(block_hash.clone()),
                 true,
             ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                address: vec![],
+                topics: None,
+                block_hash: None,
+            },))
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),

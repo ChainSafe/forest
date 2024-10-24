@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::trace::ExecutionEvent;
-use crate::shim::{econ::TokenAmount, fvm_shared_latest::error::ExitCode};
+use crate::shim::{
+    econ::TokenAmount, fvm_shared_latest::error::ExitCode, fvm_shared_latest::ActorID,
+};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
@@ -11,7 +13,13 @@ use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
+use fvm_shared3::event::ActorEvent as ActorEvent_v3;
+use fvm_shared3::event::Entry as Entry_v3;
+use fvm_shared3::event::StampedEvent as StampedEvent_v3;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
+use fvm_shared4::event::ActorEvent as ActorEvent_v4;
+use fvm_shared4::event::Entry as Entry_v4;
+use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
 use serde::Serialize;
 
@@ -105,6 +113,14 @@ impl ApplyRet {
             ApplyRet::V4(v4) => v4.exec_trace.iter().cloned().map(Into::into).collect(),
         }
     }
+
+    pub fn events(&self) -> Vec<StampedEvent> {
+        match self {
+            ApplyRet::V2(_) => Vec::<StampedEvent>::default(),
+            ApplyRet::V3(v3) => v3.events.iter().cloned().map(Into::into).collect(),
+            ApplyRet::V4(v4) => v4.events.iter().cloned().map(Into::into).collect(),
+        }
+    }
 }
 
 // Note: it's impossible to properly derive Deserialize.
@@ -192,6 +208,135 @@ impl Receipt {
 impl From<Receipt_v3> for Receipt {
     fn from(other: Receipt_v3) -> Self {
         Receipt::V3(other)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Entry {
+    V3(Entry_v3),
+    V4(Entry_v4),
+}
+
+impl From<Entry_v3> for Entry {
+    fn from(other: Entry_v3) -> Self {
+        Self::V3(other)
+    }
+}
+
+impl From<Entry_v4> for Entry {
+    fn from(other: Entry_v4) -> Self {
+        Self::V4(other)
+    }
+}
+
+impl Entry {
+    #[cfg(test)]
+    pub fn new(
+        flags: crate::shim::fvm_shared_latest::event::Flags,
+        key: String,
+        codec: u64,
+        value: Vec<u8>,
+    ) -> Self {
+        Entry::V4(Entry_v4 {
+            flags,
+            key,
+            codec,
+            value,
+        })
+    }
+
+    pub fn into_parts(self) -> (u64, String, u64, Vec<u8>) {
+        match self {
+            Self::V3(v3) => {
+                let Entry_v3 {
+                    flags,
+                    key,
+                    codec,
+                    value,
+                } = v3;
+                (flags.bits(), key, codec, value)
+            }
+            Self::V4(v4) => {
+                let Entry_v4 {
+                    flags,
+                    key,
+                    codec,
+                    value,
+                } = v4;
+                (flags.bits(), key, codec, value)
+            }
+        }
+    }
+
+    pub fn value(&self) -> &Vec<u8> {
+        match self {
+            Self::V3(v3) => &v3.value,
+            Self::V4(v4) => &v4.value,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ActorEvent {
+    V3(ActorEvent_v3),
+    V4(ActorEvent_v4),
+}
+
+impl From<ActorEvent_v3> for ActorEvent {
+    fn from(other: ActorEvent_v3) -> Self {
+        ActorEvent::V3(other)
+    }
+}
+
+impl From<ActorEvent_v4> for ActorEvent {
+    fn from(other: ActorEvent_v4) -> Self {
+        ActorEvent::V4(other)
+    }
+}
+
+impl ActorEvent {
+    pub fn entries(&self) -> Vec<Entry> {
+        match self {
+            Self::V3(v3) => v3.entries.clone().into_iter().map(Into::into).collect(),
+            Self::V4(v4) => v4.entries.clone().into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+/// Event with extra information stamped by the FVM.
+#[derive(Clone, Debug)]
+pub enum StampedEvent {
+    V3(StampedEvent_v3),
+    V4(StampedEvent_v4),
+}
+
+impl From<StampedEvent_v3> for StampedEvent {
+    fn from(other: StampedEvent_v3) -> Self {
+        StampedEvent::V3(other)
+    }
+}
+
+impl From<StampedEvent_v4> for StampedEvent {
+    fn from(other: StampedEvent_v4) -> Self {
+        StampedEvent::V4(other)
+    }
+}
+
+impl StampedEvent {
+    /// Returns the ID of the actor that emitted this event.
+    pub fn emitter(&self) -> ActorID {
+        match self {
+            Self::V3(v3) => v3.emitter,
+            Self::V4(v4) => v4.emitter,
+        }
+    }
+
+    /// Returns the event as emitted by the actor.
+    pub fn event(&self) -> ActorEvent {
+        match self {
+            Self::V3(v3) => v3.event.clone().into(),
+            Self::V4(v4) => v4.event.clone().into(),
+        }
     }
 }
 
