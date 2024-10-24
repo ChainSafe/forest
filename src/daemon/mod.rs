@@ -246,7 +246,10 @@ pub(super) async fn start(
         genesis_header.clone(),
     )?);
 
-    if !opts.no_gc {
+    // Network Upgrade manifests are stored in the blockstore but may not be
+    // garbage collected. Until this is fixed, the GC has to be disabled.
+    // Tracking issue: https://github.com/ChainSafe/forest/issues/4926
+    if !opts.no_gc && false {
         let mut db_garbage_collector = {
             let chain_store = chain_store.clone();
             let depth = cmp::max(
