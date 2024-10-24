@@ -41,6 +41,9 @@
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
 
+- [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
+  `Filecoin.EthSendRawTransaction` RPC method.
+
 ### Changed
 
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Update

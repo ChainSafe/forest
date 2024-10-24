@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use anyhow::{ensure, Context};
+use crate::message::SignedMessage;
+use crate::shim::address::Address;
+use crate::shim::crypto::SignatureType::Delegated;
+use anyhow::{bail, ensure, Context};
 use derive_builder::Builder;
 use num::{BigInt, BigUint};
 use num_bigint::Sign;
+use num_bigint::ToBigInt;
 use num_traits::cast::ToPrimitive;
+use std::ops::Mul;
 
 pub const EIP_155_SIG_PREFIX: u8 = 0x02;
 
@@ -36,6 +41,103 @@ pub struct EthLegacyEip155TxArgs {
 }
 
 impl EthLegacyEip155TxArgs {
+    /// Returns legacy EIP-155 transaction signature
+    pub fn signature(&self, eth_chain_id: EthChainId) -> anyhow::Result<Signature> {
+        // Validate EIP155 Chain ID
+        validate_eip155_chain_id(eth_chain_id, &self.v)?;
+
+        // Convert r, s, v to byte arrays
+        let r_bytes = self.r.to_bytes_be().1;
+        let s_bytes = self.s.to_bytes_be().1;
+        let v_bytes = self.v.to_bytes_be().1;
+
+        // Initialize signature with one-byte legacy transaction marker
+        let mut sig = vec![EIP_155_SIG_PREFIX];
+
+        // Extend signature with padded r, padded s, and v
+        sig.extend(pad_leading_zeros(r_bytes, 32));
+        sig.extend(pad_leading_zeros(s_bytes, 32));
+        sig.extend(v_bytes);
+
+        // Check if signature length is correct
+        let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
+        let sig_len = sig.len();
+        ensure!(
+            sig_len == valid_sig_len.0 as usize || sig_len == valid_sig_len.1 as usize,
+            "signature is not {:#?} OR {:#?} bytes; it is {} bytes",
+            valid_sig_len.0,
+            valid_sig_len.1,
+            sig_len
+        );
+
+        Ok(Signature {
+            sig_type: Delegated,
+            bytes: sig,
+        })
+    }
+
+    /// Returns a verifiable signature for legacy EIP-155 transaction
+    pub fn to_verifiable_signature(
+        &self,
+        mut sig: Vec<u8>,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<Vec<u8>> {
+        // Check if the signature length is correct
+        let valid_sig_len = calc_valid_eip155_sig_len(self.chain_id);
+        ensure!(
+            sig.len() == valid_sig_len.0 as usize || sig.len() == valid_sig_len.1 as usize,
+            "signature should be {} or {} bytes long (1 byte metadata and rest bytes are sig data), but got {} bytes",
+            valid_sig_len.0,
+            valid_sig_len.1,
+            sig.len()
+        );
+
+        // Check if the first byte matches the expected signature prefix
+        ensure!(
+            *sig.first().context("failed to get signature prefix")? == EIP_155_SIG_PREFIX,
+            "expected EIP155 signature prefix 0x{:x}, but got 0x{:x}",
+            EIP_155_SIG_PREFIX,
+            sig.first().context("failed to get signature prefix")?
+        );
+
+        // Remove the prefix byte as it's only used for legacy transaction identification
+        sig.remove(0);
+
+        // Extract the 'v' value from the signature, which is the last byte in Ethereum signatures
+        let mut v_value = BigInt::from_bytes_be(
+            num_bigint::Sign::Plus,
+            sig.get(64..).context("failed to get v value")?,
+        );
+
+        validate_eip155_chain_id(eth_chain_id, &v_value)?;
+
+        let chain_id_mul = BigInt::from(eth_chain_id)
+            .mul(2_i32.to_bigint().context("Failed to convert 2 to BigInt")?);
+        v_value -= chain_id_mul;
+        v_value -= BigInt::from(8);
+
+        // Adjust 'v' value for compatibility with new transactions: 27 -> 0, 28 -> 1
+        if v_value == BigInt::from(LEGACY_V_VALUE_27) {
+            if let Some(value) = sig.get_mut(64) {
+                *value = 0
+            };
+        } else if v_value == BigInt::from(LEGACY_V_VALUE_28) {
+            if let Some(value) = sig.get_mut(64) {
+                *value = 1
+            };
+        } else {
+            bail!(
+                "invalid 'v' value: expected 27 or 28, got {}",
+                v_value.to_string()
+            );
+        }
+
+        Ok(sig
+            .get(..65)
+            .context("failed to get range of values")?
+            .to_vec())
+    }
+
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
             signature.signature_type() == SignatureType::Delegated,
@@ -84,7 +186,8 @@ impl EthLegacyEip155TxArgs {
         Ok(self)
     }
 
-    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+    /// Returns an RLP stream representing the legacy EIP-155 transaction message
+    fn message_rlp_stream(&self) -> anyhow::Result<rlp::RlpStream> {
         let mut stream = rlp::RlpStream::new();
         stream
             .begin_unbounded_list()
@@ -93,12 +196,57 @@ impl EthLegacyEip155TxArgs {
             .append(&format_u64(self.gas_limit))
             .append(&format_address(&self.to))
             .append(&format_bigint(&self.value)?)
-            .append(&self.input)
+            .append(&self.input);
+        Ok(stream)
+    }
+
+    /// Returns the signed RLP-encoded message for the legacy EIP-155 transaction
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = self.message_rlp_stream()?;
+        stream
             .append(&format_bigint(&self.v)?)
             .append(&format_bigint(&self.r)?)
             .append(&format_bigint(&self.s)?)
             .finalize_unbounded_list();
         Ok(stream.out().to_vec())
+    }
+
+    /// Returns the unsigned RLP-encoded message for the Legacy EIP-155 transaction
+    pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
+        let mut stream = self.message_rlp_stream()?;
+        stream
+            .append(&format_bigint(&BigInt::from(eth_chain_id))?)
+            .append(&format_u64(0))
+            .append(&format_u64(0))
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
+    }
+
+    /// Constructs a signed message using legacy EIP-155 transaction args
+    pub fn get_signed_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<SignedMessage> {
+        ensure!(
+            validate_eip155_chain_id(eth_chain_id, &self.v).is_ok(),
+            "Failed to validate EIP155 chain Id"
+        );
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        let message = Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.gas_price.clone().into(),
+            gas_premium: self.gas_price.clone().into(),
+        };
+        let signature = self.signature(eth_chain_id)?;
+        Ok(SignedMessage { message, signature })
     }
 }
 
@@ -115,7 +263,8 @@ impl EthLegacyEip155TxArgsBuilder {
     }
 }
 
-fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow::Result<()> {
+/// Validates the EIP155 chain ID by deriving it from the given `v` value
+pub fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow::Result<()> {
     let derived_chain_id = derive_eip_155_chain_id(v)?;
     ensure!(
         derived_chain_id
@@ -128,9 +277,8 @@ fn validate_eip155_chain_id(eth_chain_id: EthChainId, v: &BigInt) -> anyhow::Res
     Ok(())
 }
 
-fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
-    ensure!(v >= &35.into(), "Invalid V value for EIP155 transaction");
-
+/// Derives the EIP155 chain ID from the `V` value
+pub fn derive_eip_155_chain_id(v: &BigInt) -> anyhow::Result<BigInt> {
     if v.bits() <= 64 {
         let v = v.to_u64().context("Failed to convert v to u64")?;
         if v == 27 || v == 28 {

@@ -87,7 +87,7 @@ impl From<EthEip1559TxArgs> for ApiEthTx {
     ) -> Self {
         Self {
             chain_id: chain_id.into(),
-            r#type: EIP_1559_TX_TYPE.into(),
+            r#type: EthUint64(EIP_1559_TX_TYPE.into()),
             nonce: nonce.into(),
             gas: gas_limit.into(),
             to,

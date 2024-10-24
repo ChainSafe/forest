@@ -13,7 +13,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::eth::SAFE_EPOCH_DELAY;
+use crate::eth::{parse_eth_transaction, SAFE_EPOCH_DELAY};
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs,
@@ -999,7 +999,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         nonce: EthUint64(msg.sequence),
         chain_id: EthUint64(chain_id),
         value: msg.value.clone().into(),
-        r#type: EthUint64(EIP_1559_TX_TYPE),
+        r#type: EthUint64(EIP_1559_TX_TYPE.into()),
         gas: EthUint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
@@ -2258,6 +2258,28 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
         let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
 
         Ok(tx_receipt)
+    }
+}
+
+pub enum EthSendRawTransaction {}
+impl RpcMethod<1> for EthSendRawTransaction {
+    const NAME: &'static str = "Filecoin.EthSendRawTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_sendRawTransaction");
+    const PARAM_NAMES: [&'static str; 1] = ["raw_tx"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthBytes,);
+    type Ok = EthHash;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (raw_tx,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tx_args = parse_eth_transaction(&raw_tx.0)?;
+        let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
+        let cid = ctx.mpool.as_ref().push(smsg).await?;
+        Ok(cid.into())
     }
 }
 
