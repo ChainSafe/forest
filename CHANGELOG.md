@@ -48,6 +48,9 @@
 
 ### Removed
 
+- [#4927](https://github.com/ChainSafe/forest/pull/4927) Temporarily disable
+  garbage collection.
+
 ### Fixed
 
 ## Forest 0.21.0 "Songthaew"
