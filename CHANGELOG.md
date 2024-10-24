@@ -35,6 +35,9 @@
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Add support for the
   `Filecoin.F3GetOrRenewParticipationTicket` RPC method.
 
+- [#4924](https://github.com/ChainSafe/forest/issues/4924) Add support for the
+  `Filecoin.F3GetManifest` RPC method.
+
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
 

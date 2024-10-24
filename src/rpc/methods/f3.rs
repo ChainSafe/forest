@@ -669,6 +669,31 @@ impl RpcMethod<0> for F3GetProgress {
     }
 }
 
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#f3getmanifest>
+pub enum F3GetManifest {}
+
+impl F3GetManifest {
+    async fn run() -> anyhow::Result<serde_json::Value> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
+impl RpcMethod<0> for F3GetManifest {
+    const NAME: &'static str = "Filecoin.F3GetManifest";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(Self::run().await?)
+    }
+}
+
 /// returns the list of miner addresses that are currently participating in F3 via this node.
 pub enum F3ListParticipants {}
 impl RpcMethod<0> for F3ListParticipants {
