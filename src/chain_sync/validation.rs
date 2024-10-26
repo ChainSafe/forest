@@ -1,10 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::blocks::{Block, FullTipset, Tipset, TxMeta};
 use crate::chain::ChainStore;
@@ -41,15 +38,15 @@ pub enum TipsetValidationError {
     Encoding(EncodingError),
 }
 
-impl From<EncodingError> for Box<TipsetValidationError> {
+impl From<EncodingError> for TipsetValidationError {
     fn from(err: EncodingError) -> Self {
-        Box::new(TipsetValidationError::Encoding(err))
+        TipsetValidationError::Encoding(err)
     }
 }
 
-impl From<IpldAmtError> for Box<TipsetValidationError> {
+impl From<IpldAmtError> for TipsetValidationError {
     fn from(err: IpldAmtError) -> Self {
-        Box::new(TipsetValidationError::IpldAmt(err.to_string()))
+        TipsetValidationError::IpldAmt(err.to_string())
     }
 }
 
@@ -58,14 +55,14 @@ pub struct TipsetValidator<'a>(pub &'a FullTipset);
 impl<'a> TipsetValidator<'a> {
     pub fn validate<DB: Blockstore>(
         &self,
-        chainstore: Arc<ChainStore<DB>>,
-        bad_block_cache: Arc<BadBlockCache>,
-        genesis_tipset: Arc<Tipset>,
+        chainstore: &ChainStore<DB>,
+        bad_block_cache: Option<&BadBlockCache>,
+        genesis_tipset: &Tipset,
         block_delay: u32,
-    ) -> Result<(), Box<TipsetValidationError>> {
+    ) -> Result<(), TipsetValidationError> {
         // No empty blocks
         if self.0.blocks().is_empty() {
-            return Err(Box::new(TipsetValidationError::NoBlocks));
+            return Err(TipsetValidationError::NoBlocks);
         }
 
         // Tipset epoch must not be behind current max
@@ -77,11 +74,10 @@ impl<'a> TipsetValidator<'a> {
         // previously been seen in the bad blocks cache
         for block in self.0.blocks() {
             self.validate_msg_root(&chainstore.db, block)?;
-            if let Some(bad) = bad_block_cache.peek(block.cid()) {
-                return Err(Box::new(TipsetValidationError::InvalidBlock(
-                    *block.cid(),
-                    bad,
-                )));
+            if let Some(bad_block_cache) = bad_block_cache {
+                if let Some(bad) = bad_block_cache.peek(block.cid()) {
+                    return Err(TipsetValidationError::InvalidBlock(*block.cid(), bad));
+                }
             }
         }
 
@@ -90,9 +86,9 @@ impl<'a> TipsetValidator<'a> {
 
     pub fn validate_epoch(
         &self,
-        genesis_tipset: Arc<Tipset>,
+        genesis_tipset: &Tipset,
         block_delay: u32,
-    ) -> Result<(), Box<TipsetValidationError>> {
+    ) -> Result<(), TipsetValidationError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -101,7 +97,7 @@ impl<'a> TipsetValidator<'a> {
             ((now - genesis_tipset.min_timestamp()) / block_delay as u64) + MAX_HEIGHT_DRIFT;
         let too_far_ahead_in_time = self.0.epoch() as u64 > max_epoch;
         if too_far_ahead_in_time {
-            Err(Box::new(TipsetValidationError::EpochTooLarge))
+            Err(TipsetValidationError::EpochTooLarge)
         } else {
             Ok(())
         }
@@ -111,10 +107,10 @@ impl<'a> TipsetValidator<'a> {
         &self,
         blockstore: &DB,
         block: &Block,
-    ) -> Result<(), Box<TipsetValidationError>> {
+    ) -> Result<(), TipsetValidationError> {
         let msg_root = Self::compute_msg_root(blockstore, block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages != msg_root {
-            Err(Box::new(TipsetValidationError::InvalidRoots))
+            Err(TipsetValidationError::InvalidRoots)
         } else {
             Ok(())
         }
@@ -124,7 +120,7 @@ impl<'a> TipsetValidator<'a> {
         blockstore: &DB,
         bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],
-    ) -> Result<Cid, Box<TipsetValidationError>> {
+    ) -> Result<Cid, TipsetValidationError> {
         // Generate message CIDs
         let bls_cids = bls_msgs
             .iter()
@@ -146,7 +142,7 @@ impl<'a> TipsetValidator<'a> {
         // Store message roots and receive meta_root CID
         blockstore
             .put_cbor_default(&meta)
-            .map_err(|e| Box::new(TipsetValidationError::Blockstore(e.to_string())))
+            .map_err(|e| TipsetValidationError::Blockstore(e.to_string()))
     }
 }
 
