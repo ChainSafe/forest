@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4937](https://github.com/ChainSafe/forest/pull/4937) Added
+  `forest-cli f3 manifest` CLI command.
+
 ### Changed
 
 ### Removed
