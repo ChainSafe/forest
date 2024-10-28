@@ -1,7 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::{self, f3::F3Manifest, prelude::*};
+use crate::rpc::{
+    self,
+    f3::{F3Instant, F3Manifest},
+    prelude::*,
+};
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use sailfish::TemplateSimple;
@@ -27,6 +31,8 @@ pub enum F3Commands {
         #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
         output: F3OutputFormat,
     },
+    /// Checks the F3 status.
+    Status,
 }
 
 impl F3Commands {
@@ -43,6 +49,17 @@ impl F3Commands {
                         println!("{}", serde_json::to_string_pretty(&manifest)?);
                     }
                 }
+                Ok(())
+            }
+            Self::Status => {
+                let is_running = client.call(F3IsRunning::request(())?).await?;
+                println!("Running: {is_running}");
+                let progress = client.call(F3GetProgress::request(())?).await?;
+                let progress_template = ProgressTemplate::new(progress);
+                println!("{}", progress_template.render_once()?);
+                let manifest = client.call(F3GetManifest::request(())?).await?;
+                let manifest_template = ManifestTemplate::new(manifest);
+                println!("{}", manifest_template.render_once()?);
                 Ok(())
             }
         }
@@ -63,6 +80,18 @@ impl ManifestTemplate {
             manifest,
             is_initial_power_table_defined,
         }
+    }
+}
+
+#[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
+#[template(path = "cli/f3/progress.stpl")]
+struct ProgressTemplate {
+    progress: F3Instant,
+}
+
+impl ProgressTemplate {
+    fn new(progress: F3Instant) -> Self {
+        Self { progress }
     }
 }
 

@@ -154,6 +154,21 @@ pub struct F3Instant {
 }
 lotus_json_with_self!(F3Instant);
 
+impl F3Instant {
+    pub fn phase_string(&self) -> &'static str {
+        match self.phase {
+            0 => "INITIAL",
+            1 => "QUALITY",
+            2 => "CONVERGE",
+            3 => "PREPARE",
+            4 => "COMMIT",
+            5 => "DECIDE",
+            6 => "TERMINATED",
+            _ => "UNKNOWN",
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GpbftConfig {

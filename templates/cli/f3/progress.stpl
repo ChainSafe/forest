@@ -1,0 +1,4 @@
+Progress:
+  Instance: <%= progress.id %>
+  Round:    <%= progress.round %>
+  Phase:    <%= progress.phase_string() %>
