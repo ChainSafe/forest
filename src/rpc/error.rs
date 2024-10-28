@@ -116,6 +116,7 @@ from2internal! {
     base64::DecodeError,
     cid::multibase::Error,
     crate::chain::store::Error,
+    crate::chain_sync::TipsetValidationError,
     crate::key_management::Error,
     crate::libp2p::ParseError,
     crate::message_pool::Error,

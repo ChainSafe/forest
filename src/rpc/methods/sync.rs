@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Block, FullTipset, GossipBlock, Tipset};
+use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
@@ -100,13 +100,13 @@ impl RpcMethod<1> for SyncSubmitBlock {
             secp_messages,
         };
         let ts = FullTipset::from(block);
-        let genesis_ts = Arc::new(Tipset::from(ctx.chain_store().genesis_block_header()));
+        let genesis_ts = ctx.chain_store().genesis_tipset();
 
         TipsetValidator(&ts)
             .validate(
-                ctx.chain_store().clone(),
-                ctx.bad_blocks.clone(),
-                genesis_ts,
+                ctx.chain_store(),
+                Some(&ctx.bad_blocks),
+                &genesis_ts,
                 ctx.chain_config().block_delay_secs,
             )
             .context("failed to validate the tipset")?;
