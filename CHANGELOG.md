@@ -35,6 +35,10 @@
 - [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
   `Filecoin.EthSendRawTransaction` RPC method.
 
+- [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of
+  method aliases for `forest-tool shed openrpc` subcommand and sort all methods
+  in lexicographic order.
+
 ### Changed
 
 ### Removed
