@@ -241,6 +241,11 @@ where
             .expect("failed to load heaviest tipset")
     }
 
+    /// Returns the genesis tipset.
+    pub fn genesis_tipset(&self) -> Tipset {
+        Tipset::from(self.genesis_block_header())
+    }
+
     /// Returns a reference to the publisher of head changes.
     pub fn publisher(&self) -> &Publisher<HeadChange> {
         &self.publisher
