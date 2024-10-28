@@ -26,7 +26,10 @@ use crate::{
 /// - 1 for transactions introduced in EIP-2930
 /// - 2 for transactions introduced in EIP-1559
 pub const EIP_LEGACY_TX_TYPE: u64 = 0;
-pub const EIP_1559_TX_TYPE: u64 = 2;
+pub const EIP_2930_TX_TYPE: u8 = 1;
+pub const EIP_1559_TX_TYPE: u8 = 2;
+pub const LEGACY_V_VALUE_27: u64 = 27;
+pub const LEGACY_V_VALUE_28: u64 = 28;
 
 pub const ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID: u64 = 0;
 
