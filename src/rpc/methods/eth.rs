@@ -588,7 +588,7 @@ impl RpcMethod<0> for EthBlockNumber {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = String;
+    type Ok = EthUint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -602,14 +602,14 @@ impl RpcMethod<0> for EthBlockNumber {
         let heaviest = ctx.chain_store().heaviest_tipset();
         if heaviest.epoch() == 0 {
             // We're at genesis.
-            return Ok("0x0".to_string());
+            return Ok(EthUint64::default());
         }
         // First non-null parent.
         let effective_parent = heaviest.parents();
         if let Ok(Some(parent)) = ctx.chain_index().load_tipset(effective_parent) {
-            Ok(format!("{:#x}", parent.epoch()))
+            Ok((parent.epoch() as u64).into())
         } else {
-            Ok("0x0".to_string())
+            Ok(EthUint64::default())
         }
     }
 }
