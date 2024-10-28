@@ -246,7 +246,11 @@ pub(super) async fn start(
         genesis_header.clone(),
     )?);
 
-    if !opts.no_gc {
+    // Network Upgrade manifests are stored in the blockstore but may not be
+    // garbage collected. Until this is fixed, the GC has to be disabled.
+    // Tracking issue: https://github.com/ChainSafe/forest/issues/4926
+    // if !opts.no_gc {
+    if false {
         let mut db_garbage_collector = {
             let chain_store = chain_store.clone();
             let depth = cmp::max(
@@ -416,40 +420,42 @@ pub(super) async fn start(
         });
 
         // Run F3 sidecar
-        services.spawn_blocking({
-            crate::rpc::f3::F3_LEASE_MANAGER
-                .set(crate::rpc::f3::F3LeaseManager::new(
-                    chain_config.network.clone(),
-                    p2p_peer_id,
-                ))
-                .expect("F3 lease manager should not have been initialized before");
-            let chain_config = chain_config.clone();
-            let default_f3_root = config
-                .client
-                .data_dir
-                .join(format!("f3/{}", config.chain()));
-            let crate::f3::F3Options {
-                chain_finality,
-                bootstrap_epoch,
-                initial_power_table,
-                manifest_server,
-            } = crate::f3::get_f3_sidecar_params(&chain_config);
-            move || {
-                crate::f3::run_f3_sidecar_if_enabled(
-                    &chain_config,
-                    format!("http://{rpc_address}/rpc/v1"),
-                    admin_jwt,
-                    crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
-                    initial_power_table.to_string(),
-                    bootstrap_epoch,
+        if !opts.halt_after_import {
+            services.spawn_blocking({
+                crate::rpc::f3::F3_LEASE_MANAGER
+                    .set(crate::rpc::f3::F3LeaseManager::new(
+                        chain_config.network.clone(),
+                        p2p_peer_id,
+                    ))
+                    .expect("F3 lease manager should not have been initialized before");
+                let chain_config = chain_config.clone();
+                let default_f3_root = config
+                    .client
+                    .data_dir
+                    .join(format!("f3/{}", config.chain()));
+                let crate::f3::F3Options {
                     chain_finality,
-                    std::env::var("FOREST_F3_ROOT")
-                        .unwrap_or(default_f3_root.display().to_string()),
-                    manifest_server.map(|i| i.to_string()).unwrap_or_default(),
-                );
-                Ok(())
-            }
-        });
+                    bootstrap_epoch,
+                    initial_power_table,
+                    manifest_server,
+                } = crate::f3::get_f3_sidecar_params(&chain_config);
+                move || {
+                    crate::f3::run_f3_sidecar_if_enabled(
+                        &chain_config,
+                        format!("http://{rpc_address}/rpc/v1"),
+                        admin_jwt,
+                        crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
+                        initial_power_table.to_string(),
+                        bootstrap_epoch,
+                        chain_finality,
+                        std::env::var("FOREST_F3_ROOT")
+                            .unwrap_or(default_f3_root.display().to_string()),
+                        manifest_server.map(|i| i.to_string()).unwrap_or_default(),
+                    );
+                    Ok(())
+                }
+            });
+        }
     } else {
         debug!("RPC disabled.");
     };

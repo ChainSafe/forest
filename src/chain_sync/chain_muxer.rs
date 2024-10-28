@@ -60,7 +60,7 @@ pub enum ChainMuxerError {
     #[error("Tipset range syncer error: {0}")]
     TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset validation error: {0}")]
-    TipsetValidator(#[from] Box<TipsetValidationError>),
+    TipsetValidator(#[from] TipsetValidationError),
     #[error("Sending tipset on channel failed: {0}")]
     TipsetChannelSend(String),
     #[error("Receiving p2p network event failed: {0}")]
@@ -512,9 +512,9 @@ where
 
         // Validate tipset
         if let Err(why) = TipsetValidator(&tipset).validate(
-            chain_store.clone(),
-            bad_block_cache.clone(),
-            genesis.clone(),
+            &chain_store,
+            Some(&bad_block_cache),
+            &genesis,
             block_delay,
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();

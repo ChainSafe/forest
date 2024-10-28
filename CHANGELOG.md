@@ -29,11 +29,29 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.21.1 "Songthaew Plus"
+
+This is an optional release for calibration network node operators. It enables
+F3 by default and includes initial power table CID on calibration network.
+
+### Breaking
+
+### Added
+
 - [#4910](https://github.com/ChainSafe/forest/issues/4910) Add support for the
   `Filecoin.F3ListParticipants` RPC method.
 
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Add support for the
   `Filecoin.F3GetOrRenewParticipationTicket` RPC method.
+
+- [#4924](https://github.com/ChainSafe/forest/issues/4924) Add support for the
+  `Filecoin.F3GetManifest` RPC method.
 
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
@@ -47,6 +65,9 @@
   `Filecoin.F3ListParticipants` RPC method to align with the spec change.
 
 ### Removed
+
+- [#4927](https://github.com/ChainSafe/forest/pull/4927) Temporarily disable
+  garbage collection.
 
 ### Fixed
 

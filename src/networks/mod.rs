@@ -289,11 +289,14 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
             // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
             // (state tree of epoch 2_081_674 - 900 has to be present in the database if `f3_initial_power_table` is not set)
-            f3_enabled: false,
+            f3_enabled: true,
             f3_consensus: true,
             // 2024-10-24T13:30:00Z
             f3_bootstrap_epoch: 2_081_674,
-            f3_initial_power_table: Default::default(),
+            f3_initial_power_table:
+                "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
+                    .parse()
+                    .expect("invalid f3_initial_power_table"),
             f3_manifest_server: Some(
                 "12D3KooWS9vD9uwm8u2uPyJV32QBAhKAmPYwmziAgr3Xzk2FU1Mr"
                     .parse()

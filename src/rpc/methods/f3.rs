@@ -14,7 +14,9 @@ pub use self::types::F3LeaseManager;
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
+    blocks::Tipset,
     chain::index::ResolveNullTipset,
+    chain_sync::TipsetValidator,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
     rpc::{types::ApiTipsetKey, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
@@ -481,19 +483,13 @@ impl RpcMethod<1> for Finalize {
         let tsk = f3_tsk.try_into()?;
         let finalized_ts = match ctx.chain_index().load_tipset(&tsk)? {
             Some(ts) => ts,
-            None => {
-                let ts = ctx
-                    .sync_network_context
-                    .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
-                    .await?
-                    .first()
-                    .cloned()
-                    .with_context(|| {
-                        format!("failed to get tipset via chain exchange. tsk: {tsk}")
-                    })?;
-                ctx.chain_store().put_tipset(&ts)?;
-                ts
-            }
+            None => ctx
+                .sync_network_context
+                .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
+                .await?
+                .first()
+                .cloned()
+                .with_context(|| format!("failed to get tipset via chain exchange. tsk: {tsk}"))?,
         };
         tracing::info!(
             "F3 finalized tsk {} at epoch {}",
@@ -516,6 +512,22 @@ impl RpcMethod<1> for Finalize {
                 finalized_ts.key(),
                 finalized_ts.epoch()
             );
+            let fts = ctx
+                .sync_network_context
+                .chain_exchange_fts(None, &tsk)
+                .await?;
+            for block in fts.blocks() {
+                block.persist(ctx.store())?;
+            }
+            let validator = TipsetValidator(&fts);
+            validator.validate(
+                ctx.chain_store(),
+                None,
+                &ctx.chain_store().genesis_tipset(),
+                ctx.chain_config().block_delay_secs,
+            )?;
+            let ts = Arc::new(Tipset::from(fts));
+            ctx.chain_store().put_tipset(&ts)?;
             ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
         }
         Ok(())
@@ -663,6 +675,31 @@ impl RpcMethod<0> for F3GetProgress {
 
     type Params = ();
     type Ok = F3Instant;
+
+    async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(Self::run().await?)
+    }
+}
+
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#f3getmanifest>
+pub enum F3GetManifest {}
+
+impl F3GetManifest {
+    async fn run() -> anyhow::Result<serde_json::Value> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
+impl RpcMethod<0> for F3GetManifest {
+    const NAME: &'static str = "Filecoin.F3GetManifest";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = serde_json::Value;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
