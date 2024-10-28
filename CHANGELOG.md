@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
+  `Filecoin.EthSendRawTransaction` RPC method.
+
 ### Changed
 
 ### Removed
@@ -55,9 +58,6 @@ F3 by default and includes initial power table CID on calibration network.
 
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
-
-- [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
-  `Filecoin.EthSendRawTransaction` RPC method.
 
 ### Changed
 
