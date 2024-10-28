@@ -150,20 +150,22 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
     /// Generate a full `OpenRPC` method definition for this endpoint.
-    fn openrpc<'de>(gen: &mut SchemaGenerator, calling_convention: ParamStructure) -> Method
+    fn openrpc<'de>(
+        gen: &mut SchemaGenerator,
+        calling_convention: ParamStructure,
+        method_name: &'static str,
+    ) -> Method
     where
         <Self::Ok as HasLotusJson>::LotusJson: JsonSchema + Deserialize<'de>,
     {
         Method {
-            name: String::from(Self::NAME),
+            name: String::from(method_name),
             params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
                 .enumerate()
                 .map(|(pos, (name, (schema, nullable)))| {
                     let required = pos <= Self::N_REQUIRED_PARAMS;
                     if !required && !nullable {
-                        panic!(
-                            "Optional parameter at position {pos} should be of an optional type. method={}, param_name={name}", Self::NAME
-                        );
+                        panic!("Optional parameter at position {pos} should be of an optional type. method={method_name}, param_name={name}");
                     }
                     ReferenceOr::Item(ContentDescriptor {
                         name: String::from(name),
@@ -175,7 +177,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .collect(),
             param_structure: Some(calling_convention),
             result: Some(ReferenceOr::Item(ContentDescriptor {
-                name: format!("{}.Result", Self::NAME),
+                name: format!("{}.Result", method_name),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()

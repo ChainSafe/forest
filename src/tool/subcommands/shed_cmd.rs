@@ -123,17 +123,20 @@ impl ShedCommands {
             }
             ShedCommands::Openrpc { include, path } => {
                 let include = include.iter().map(String::as_str).collect::<Vec<_>>();
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&crate::rpc::openrpc(
-                        path,
-                        match include.is_empty() {
-                            true => None,
-                            false => Some(&include),
-                        }
-                    ))
-                    .unwrap()
+
+                let mut openrpc_doc = crate::rpc::openrpc(
+                    path,
+                    match include.is_empty() {
+                        true => None,
+                        false => Some(&include),
+                    },
                 );
+                openrpc_doc.methods.sort_by(|a, b| match (a, b) {
+                    (ReferenceOr::Item(a), ReferenceOr::Item(b)) => a.name.cmp(&b.name),
+                    _ => std::cmp::Ordering::Equal,
+                });
+
+                println!("{}", serde_json::to_string_pretty(&openrpc_doc).unwrap());
             }
         }
         Ok(())
