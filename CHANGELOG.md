@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
+  `Filecoin.EthSendRawTransaction` RPC method.
+
 ### Changed
 
 ### Removed

@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use anyhow::ensure;
 use libipld::error::SerdeError;
+use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
+use std::hash::Hash;
 use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -152,6 +155,27 @@ impl EthAddress {
         ];
 
         Self(ethereum_types::H160(payload))
+    }
+
+    /// Returns the Ethereum address corresponding to an uncompressed secp256k1 public key.
+    pub fn eth_address_from_pub_key(pubkey: &[u8]) -> anyhow::Result<Self> {
+        // Check if the public key has the correct length (65 bytes)
+        ensure!(
+            pubkey.len() == FULL_PUBLIC_KEY_SIZE,
+            "uncompressed public key should have {} bytes, but got {}",
+            FULL_PUBLIC_KEY_SIZE,
+            pubkey.len()
+        );
+
+        // Check if the first byte of the public key is 0x04 (uncompressed)
+        ensure!(
+            *pubkey.first().context("failed to get pubkey prefix")? == 0x04,
+            "expected first byte of uncompressed secp256k1 to be 0x04"
+        );
+
+        let hash = keccak_hash::keccak(pubkey.get(1..).context("failed to get pubkey data")?);
+        let addr: &[u8] = &hash[12..32];
+        EthAddress::try_from(addr)
     }
 }
 
@@ -461,5 +485,22 @@ mod tests {
         let data = EthBytes(BASE64_STANDARD.decode("RHt4g0E=").unwrap());
         let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
         assert_eq!(BASE64_STANDARD.encode(&*params).as_str(), "RUR7eINB");
+    }
+
+    #[test]
+    fn test_eth_address_from_pub_key() {
+        // Uncompressed pub key secp256k1)
+        let pubkey: [u8; FULL_PUBLIC_KEY_SIZE] = [
+            4, 75, 249, 118, 22, 83, 215, 249, 252, 54, 149, 27, 253, 35, 238, 15, 229, 8, 50, 228,
+            19, 137, 115, 123, 183, 243, 237, 144, 113, 41, 115, 70, 234, 174, 61, 199, 1, 81, 95,
+            143, 102, 246, 176, 220, 176, 93, 241, 139, 94, 105, 141, 153, 20, 74, 35, 52, 139,
+            137, 5, 220, 53, 194, 22, 85, 80,
+        ];
+
+        let expected_eth_address =
+            EthAddress::from_str("0xeb1d0c87b7e33d0ab44a397b675f0897295491c2").unwrap();
+
+        let result = EthAddress::eth_address_from_pub_key(&pubkey).unwrap();
+        assert_eq!(result, expected_eth_address);
     }
 }

@@ -2,6 +2,7 @@
 Algorand/M
 API/M
 APIs
+args
 arities
 arity
 async
@@ -40,10 +41,12 @@ destructuring
 DNS
 durations
 EIP
+EIP155
 enum
 Enum
 EOF
 Ethereum
+eth
 exa
 F3
 FFI
@@ -90,6 +93,7 @@ PoC
 pointer/SM
 PoSt
 R2
+RLP
 RPC
 schema/SM
 schemas

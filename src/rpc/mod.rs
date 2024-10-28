@@ -101,6 +101,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthUninstallFilter);
         $callback!(crate::rpc::eth::EthSyncing);
         $callback!(crate::rpc::eth::Web3ClientVersion);
+        $callback!(crate::rpc::eth::EthSendRawTransaction);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateFeeCap);
