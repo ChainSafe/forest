@@ -10,7 +10,7 @@
 mod types;
 mod util;
 
-pub use self::types::F3LeaseManager;
+pub use self::types::{F3LeaseManager, F3Manifest};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
@@ -688,7 +688,7 @@ impl RpcMethod<0> for F3GetProgress {
 pub enum F3GetManifest {}
 
 impl F3GetManifest {
-    async fn run() -> anyhow::Result<serde_json::Value> {
+    async fn run() -> anyhow::Result<F3Manifest> {
         let client = get_rpc_http_client()?;
         let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
@@ -702,7 +702,7 @@ impl RpcMethod<0> for F3GetManifest {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = serde_json::Value;
+    type Ok = F3Manifest;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)

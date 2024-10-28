@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
-    lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson},
+    lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson, LotusJson},
     networks::NetworkChain,
 };
 use cid::{multihash::MultihashDigest as _, Cid};
@@ -16,7 +16,7 @@ use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;
 
@@ -153,6 +153,82 @@ pub struct F3Instant {
     pub phase: u8,
 }
 lotus_json_with_self!(F3Instant);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct GpbftConfig {
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub delta: Duration,
+    pub delta_back_off_exponent: f64,
+    pub max_lookahead_rounds: u64,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub rebroadcast_backoff_base: Duration,
+    pub rebroadcast_backoff_exponent: f64,
+    pub rebroadcast_backoff_spread: f64,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub rebroadcast_backoff_max: Duration,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct EcConfig {
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub period: Duration,
+    pub finality: i64,
+    pub delay_multiplier: f64,
+    pub base_decision_backoff_table: Vec<f64>,
+    pub head_lookback: i64,
+    pub finalize: bool,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct CertificateExchangeConfig {
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub client_request_timeout: Duration,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub server_request_timeout: Duration,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub minimum_poll_interval: Duration,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub maximum_poll_interval: Duration,
+}
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3Manifest {
+    pub protocol_version: u64,
+    pub pause: bool,
+    pub initial_instance: u64,
+    pub bootstrap_epoch: i64,
+    pub network_name: String, // Note: NetworkChain::Calibnet.to_string() != "calibrationnet"
+    #[schemars(with = "LotusJson<Vec<F3PowerEntry>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub explicit_power: Vec<F3PowerEntry>,
+    #[serde(rename = "IgnoreECPower")]
+    pub ignore_ec_power: bool,
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub initial_power_table: Cid,
+    pub committee_lookback: u64,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub catch_up_alignment: Duration,
+    pub gpbft: GpbftConfig,
+    #[serde(rename = "EC")]
+    pub ec: EcConfig,
+    pub certificate_exchange: CertificateExchangeConfig,
+}
+lotus_json_with_self!(F3Manifest);
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -478,5 +554,59 @@ mod tests {
         // The lease should be expired at instance 17
         let active_participants = lm.get_active_participants(17);
         assert!(!active_participants.contains_key(&miner));
+    }
+
+    #[test]
+    fn f3_manifest_serde_roundtrip() {
+        // lotus f3 manifest --output json
+        let lotus_json = serde_json::json!({
+          "Pause": false,
+          "ProtocolVersion": 4,
+          "InitialInstance": 0,
+          "BootstrapEpoch": 2081674,
+          "NetworkName": "calibrationnet",
+          "ExplicitPower": null,
+          "IgnoreECPower": false,
+          "InitialPowerTable": {
+            "/": "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
+          },
+          "CommitteeLookback": 10,
+          "CatchUpAlignment": 15000000000_u64,
+          "Gpbft": {
+            "Delta": 6000000000_u64,
+            "DeltaBackOffExponent": 2_f64,
+            "MaxLookaheadRounds": 5,
+            "RebroadcastBackoffBase": 6000000000_u64,
+            "RebroadcastBackoffExponent": 1.3,
+            "RebroadcastBackoffSpread": 0.1,
+            "RebroadcastBackoffMax": 60000000000_u64
+          },
+          "EC": {
+            "Period": 30000000000_u64,
+            "Finality": 900,
+            "DelayMultiplier": 2_f64,
+            "BaseDecisionBackoffTable": [
+              1.3,
+              1.69,
+              2.2,
+              2.86,
+              3.71,
+              4.83,
+              6.27,
+              7.5
+            ],
+            "HeadLookback": 0,
+            "Finalize": true
+          },
+          "CertificateExchange": {
+            "ClientRequestTimeout": 10000000000_u64,
+            "ServerRequestTimeout": 60000000000_u64,
+            "MinimumPollInterval": 30000000000_u64,
+            "MaximumPollInterval": 120000000000_u64
+          }
+        });
+        let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
+        let serialized = serde_json::to_value(manifest.clone()).unwrap();
+        assert_eq!(lotus_json, serialized);
     }
 }
