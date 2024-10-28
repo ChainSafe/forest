@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Subcommand;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
+use openrpc_types::ReferenceOr;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
