@@ -1631,16 +1631,15 @@ fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
         RpcTest::basic(F3GetLatestCertificate::request(())?),
         RpcTest::basic(F3ListParticipants::request(())?),
         RpcTest::basic(F3GetProgress::request(())?),
-        RpcTest::identity(F3IsRunning::request(())?),
-        RpcTest::identity(F3GetCertificate::request((0,))?),
-        RpcTest::identity(F3GetCertificate::request((1000,))?),
-        RpcTest::identity(F3GetManifest::request(())?),
-        // We could switch to identity once https://github.com/filecoin-project/lotus/pull/12615 is released
         RpcTest::basic(F3GetOrRenewParticipationTicket::request((
             Address::new_id(1000),
             vec![],
             3,
         ))?),
+        RpcTest::identity(F3IsRunning::request(())?),
+        RpcTest::identity(F3GetCertificate::request((0,))?),
+        RpcTest::identity(F3GetCertificate::request((1000,))?),
+        RpcTest::identity(F3GetManifest::request(())?),
     ])
 }
 
