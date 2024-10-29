@@ -5,7 +5,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::HasLotusJson;
 use crate::message::ChainMessage;
 use crate::rpc::{self, prelude::*};
-use anyhow::bail;
+use anyhow::{bail, ensure};
 use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
@@ -24,7 +24,12 @@ pub enum ChainCommands {
     Genesis,
 
     /// Prints out the canonical head of the chain
-    Head,
+    Head {
+        /// Print the first `n` tipsets from the head (inclusive).
+        /// Tipsets are categorized by epoch in descending order.
+        #[arg(short = 'n', long, default_value = "1")]
+        tipsets: u64,
+    },
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
@@ -63,7 +68,7 @@ impl ChainCommands {
                 print_pretty_lotus_json(ChainGetBlock::call(&client, (cid,)).await?)
             }
             Self::Genesis => print_pretty_lotus_json(ChainGetGenesis::call(&client, ()).await?),
-            Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?),
+            Self::Head { tipsets } => print_chain_head(&client, tipsets).await,
             Self::Message { cid } => {
                 let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
@@ -144,4 +149,25 @@ fn maybe_confirm(no_confirm: bool, prompt: impl Into<String>) -> anyhow::Result<
         true => Ok(()),
         false => bail!("Operation cancelled by user"),
     }
+}
+
+/// Print the first `n` tipsets from the head (inclusive).
+async fn print_chain_head(client: &rpc::Client, n: u64) -> anyhow::Result<()> {
+    ensure!(n > 0, "number of tipsets must be positive");
+    let head = ChainHead::call(client, ()).await?;
+    let current_epoch = head.epoch() as u64;
+
+    // edge case for, e.g., stateless nodes.
+    if current_epoch == 0 {
+        println!("[0]");
+        print_rpc_res_cids(head)?;
+        return Ok(());
+    }
+
+    for epoch in (current_epoch.saturating_sub(n - 1)..=current_epoch).rev() {
+        let tipset = tipset_by_epoch_or_offset(client, epoch.try_into()?).await?;
+        println!("[{}]", epoch);
+        print_rpc_res_cids(tipset)?;
+    }
+    Ok(())
 }
