@@ -14,6 +14,13 @@
 !Filecoin.NetProtectList
 # Most F3 methods are not avaiable on offline Forest RPC server
 !Filecoin.F3GetManifest
+!Filecoin.F3GetLatestCertificate
+!Filecoin.F3ListParticipants
+!Filecoin.F3GetProgress
+!Filecoin.F3IsRunning
+!Filecoin.F3GetCertificate
+!Filecoin.F3GetOrRenewParticipationTicket
+!Filecoin.F3GetF3PowerTable
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateReplay
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
