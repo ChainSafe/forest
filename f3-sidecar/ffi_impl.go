@@ -18,6 +18,8 @@ func init() {
 	checkError(err)
 	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
+	err = logging.SetLogLevel("f3", "warn")
+	checkError(err)
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
 }
 

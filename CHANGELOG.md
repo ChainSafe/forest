@@ -29,6 +29,16 @@
 
 ### Added
 
+- [#4937](https://github.com/ChainSafe/forest/pull/4937) Added
+  `forest-cli f3 manifest` CLI command.
+
+- [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
+  `Filecoin.EthSendRawTransaction` RPC method.
+
+- [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of
+  method aliases for `forest-tool shed openrpc` subcommand and sort all methods
+  in lexicographic order.
+
 ### Changed
 
 ### Removed
@@ -55,6 +65,9 @@ F3 by default and includes initial power table CID on calibration network.
 
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
+
+- [#4939](https://github.com/ChainSafe/forest/issues/4939) Fix
+  `Filecoin.EthBlockNumber` RPC method return type to be an `EthUInt64`.
 
 ### Changed
 

@@ -155,6 +155,7 @@ rlimit = "0.10"
 rlp = "0.6"
 rs-car-ipfs = "0.3"
 rust2go = { version = "0.3" }
+sailfish = "0.9"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"

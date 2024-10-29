@@ -9,6 +9,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
+mod f3_cmd;
 mod healthcheck_cmd;
 mod info_cmd;
 mod mpool_cmd;
@@ -30,9 +31,9 @@ use tracing::error;
 
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
-    healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands,
+    f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
+    net_cmd::NetCommands, send_cmd::SendCommand, shutdown_cmd::ShutdownCommand,
+    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -99,6 +100,10 @@ pub enum Subcommand {
     /// Print healthcheck info
     #[command(subcommand)]
     Healthcheck(HealthcheckCommand),
+
+    /// Manages Filecoin Fast Finality (F3) interactions
+    #[command(subcommand)]
+    F3(F3Commands),
 }
 
 /// Format a vector to a prettified string

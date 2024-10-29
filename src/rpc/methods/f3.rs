@@ -10,7 +10,7 @@
 mod types;
 mod util;
 
-pub use self::types::F3LeaseManager;
+pub use self::types::{F3LeaseManager, F3Manifest};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
@@ -491,44 +491,47 @@ impl RpcMethod<1> for Finalize {
                 .cloned()
                 .with_context(|| format!("failed to get tipset via chain exchange. tsk: {tsk}"))?,
         };
-        tracing::info!(
-            "F3 finalized tsk {} at epoch {}",
-            finalized_ts.key(),
-            finalized_ts.epoch()
-        );
         let head = ctx.chain_store().heaviest_tipset();
         // When finalized_ts is not part of the current chain,
         // reset the current head to finalized_ts.
-        // Note that when finalized_ts is newer than head, we don't reset the head
-        // to allow the chain to catch up.
+        // Note that when finalized_ts is newer than head or older than head - chain_finality,
+        // we don't reset the head to allow the chain or F3 to catch up.
         if head.epoch() >= finalized_ts.epoch()
-            && !head
-                .chain_arc(ctx.store())
-                .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
-                .any(|ts| ts == finalized_ts)
+            && head.epoch() <= finalized_ts.epoch() + ctx.chain_config().policy.chain_finality
         {
             tracing::info!(
-                "F3 reset chain head to tsk {} at epoch {}",
+                "F3 finalized tsk {} at epoch {}",
                 finalized_ts.key(),
                 finalized_ts.epoch()
             );
-            let fts = ctx
-                .sync_network_context
-                .chain_exchange_fts(None, &tsk)
-                .await?;
-            for block in fts.blocks() {
-                block.persist(ctx.store())?;
+            if !head
+                .chain_arc(ctx.store())
+                .take_while(|ts| ts.epoch() >= finalized_ts.epoch())
+                .any(|ts| ts == finalized_ts)
+            {
+                tracing::info!(
+                    "F3 reset chain head to tsk {} at epoch {}",
+                    finalized_ts.key(),
+                    finalized_ts.epoch()
+                );
+                let fts = ctx
+                    .sync_network_context
+                    .chain_exchange_fts(None, &tsk)
+                    .await?;
+                for block in fts.blocks() {
+                    block.persist(ctx.store())?;
+                }
+                let validator = TipsetValidator(&fts);
+                validator.validate(
+                    ctx.chain_store(),
+                    None,
+                    &ctx.chain_store().genesis_tipset(),
+                    ctx.chain_config().block_delay_secs,
+                )?;
+                let ts = Arc::new(Tipset::from(fts));
+                ctx.chain_store().put_tipset(&ts)?;
+                ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
             }
-            let validator = TipsetValidator(&fts);
-            validator.validate(
-                ctx.chain_store(),
-                None,
-                &ctx.chain_store().genesis_tipset(),
-                ctx.chain_config().block_delay_secs,
-            )?;
-            let ts = Arc::new(Tipset::from(fts));
-            ctx.chain_store().put_tipset(&ts)?;
-            ctx.chain_store().set_heaviest_tipset(finalized_ts)?;
         }
         Ok(())
     }
@@ -685,7 +688,7 @@ impl RpcMethod<0> for F3GetProgress {
 pub enum F3GetManifest {}
 
 impl F3GetManifest {
-    async fn run() -> anyhow::Result<serde_json::Value> {
+    async fn run() -> anyhow::Result<F3Manifest> {
         let client = get_rpc_http_client()?;
         let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
@@ -699,7 +702,7 @@ impl RpcMethod<0> for F3GetManifest {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = serde_json::Value;
+    type Ok = F3Manifest;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
