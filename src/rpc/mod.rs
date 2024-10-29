@@ -592,16 +592,36 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
             if <$ty>::API_PATHS.contains(path) {
                 match include {
                     Some(include) => match include.contains(&<$ty>::NAME) {
-                        true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                            &mut gen,
-                            ParamStructure::ByPosition,
-                        ))),
+                        true => {
+                            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                                &mut gen,
+                                ParamStructure::ByPosition,
+                                &<$ty>::NAME,
+                            )));
+                            if let Some(alias) = &<$ty>::NAME_ALIAS {
+                                methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                                    &mut gen,
+                                    ParamStructure::ByPosition,
+                                    &alias,
+                                )));
+                            }
+                        }
                         false => {}
                     },
-                    None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                        &mut gen,
-                        ParamStructure::ByPosition,
-                    ))),
+                    None => {
+                        methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                            &mut gen,
+                            ParamStructure::ByPosition,
+                            &<$ty>::NAME,
+                        )));
+                        if let Some(alias) = &<$ty>::NAME_ALIAS {
+                            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                                &mut gen,
+                                ParamStructure::ByPosition,
+                                &alias,
+                            )));
+                        }
+                    }
                 }
             }
         };
