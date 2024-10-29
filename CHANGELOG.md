@@ -32,6 +32,9 @@
 - [#4937](https://github.com/ChainSafe/forest/pull/4937) Added
   `forest-cli f3 manifest` CLI command.
 
+- [#4949](https://github.com/ChainSafe/forest/pull/4949) Added
+  `forest-cli f3 status` CLI command.
+
 - [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
   `Filecoin.EthSendRawTransaction` RPC method.
 
