@@ -76,6 +76,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 
 	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
 	m.EC.Period = blockDelay
+	m.EC.HeadLookback = 4
 	m.CatchUpAlignment = blockDelay / 2
 	m.CertificateExchange.MinimumPollInterval = blockDelay
 	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
