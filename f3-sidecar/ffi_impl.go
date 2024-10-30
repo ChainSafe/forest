@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"time"
 
 	logging "github.com/ipfs/go-log/v2"
 )
@@ -26,12 +27,18 @@ type f3Impl struct {
 }
 
 func (f3 *f3Impl) run(rpc_endpoint string, jwt string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, db string, manifest_server string) bool {
-	for {
-		err := run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
+	var err error = nil
+	const MAX_RETRY int = 5
+	nRetry := 0
+	for nRetry <= MAX_RETRY {
+		err = run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
 		if err != nil {
-			logger.Errorf("Unexpected F3 failure, restarting... error=%s", err)
+			nRetry += 1
+			logger.Errorf("Unexpected F3 failure, retrying(%d) in 10s... error=%s", nRetry, err)
+			time.Sleep(10 * time.Second)
 		}
 	}
+	return err == nil
 }
 
 func checkError(err error) {
