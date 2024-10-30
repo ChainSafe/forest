@@ -27,6 +27,11 @@
 
 ### Breaking
 
+- [#4952](https://github.com/ChainSafe/forest/pull/4952) Extended the
+  `forest-cli chain head` command to allow for specifying number of last tipsets
+  to display. This change is breaking as the output now contains the epoch of
+  tipsets.
+
 ### Added
 
 - [#4937](https://github.com/ChainSafe/forest/pull/4937) Added
