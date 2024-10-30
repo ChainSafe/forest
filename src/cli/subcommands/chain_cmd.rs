@@ -154,15 +154,7 @@ fn maybe_confirm(no_confirm: bool, prompt: impl Into<String>) -> anyhow::Result<
 /// Print the first `n` tipsets from the head (inclusive).
 async fn print_chain_head(client: &rpc::Client, n: u64) -> anyhow::Result<()> {
     ensure!(n > 0, "number of tipsets must be positive");
-    let head = ChainHead::call(client, ()).await?;
-    let current_epoch = head.epoch() as u64;
-
-    // edge case for, e.g., stateless nodes.
-    if current_epoch == 0 {
-        println!("[0]");
-        print_rpc_res_cids(head)?;
-        return Ok(());
-    }
+    let current_epoch = ChainHead::call(client, ()).await?.epoch() as u64;
 
     for epoch in (current_epoch.saturating_sub(n - 1)..=current_epoch).rev() {
         let tipset = tipset_by_epoch_or_offset(client, epoch.try_into()?).await?;
