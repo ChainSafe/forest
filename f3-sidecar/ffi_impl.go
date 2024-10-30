@@ -26,8 +26,12 @@ type f3Impl struct {
 }
 
 func (f3 *f3Impl) run(rpc_endpoint string, jwt string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, db string, manifest_server string) bool {
-	err := run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
-	return err == nil
+	for {
+		err := run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
+		if err != nil {
+			logger.Errorf("Unexpected F3 failure, restarting... error=%s", err)
+		}
+	}
 }
 
 func checkError(err error) {
