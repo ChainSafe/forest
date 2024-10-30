@@ -8,10 +8,12 @@ use crate::{
     networks::NetworkChain,
 };
 use cid::{multihash::MultihashDigest as _, Cid};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;
+use num::Zero as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -21,7 +23,7 @@ use std::{cmp::Ordering, time::Duration};
 const MAX_LEASE_INSTANCES: u64 = 5;
 
 /// TipSetKey is the canonically ordered concatenation of the block CIDs in a tipset.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct F3TipSetKey(
     #[schemars(with = "String")]
     #[serde(with = "base64_standard")]
@@ -67,7 +69,7 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct F3TipSet {
     pub key: F3TipSetKey,
     /// The verifiable oracle randomness used to elect this block's author leader
@@ -110,16 +112,37 @@ impl From<Arc<Tipset>> for F3TipSet {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ECTipSet {
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub key: F3TipSetKey,
+    pub epoch: ChainEpoch,
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub power_table: Cid,
+    pub commitments: [u8; 32],
+}
+lotus_json_with_self!(ECTipSet);
+
+impl ECTipSet {
+    pub fn ec_tipset_key(&self) -> TipsetKey {
+        TipsetKey::try_from(self.key.clone()).expect("failed to convert F3TipSetKey to TipsetKey")
+    }
+}
+
 /// PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Eq, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct F3PowerEntry {
     #[serde(rename = "ID")]
     pub id: ActorID,
     #[schemars(with = "String")]
-    #[serde(rename = "Power", with = "crate::lotus_json::stringify")]
+    #[serde(with = "crate::lotus_json::stringify")]
     pub power: num::BigInt,
     #[schemars(with = "String")]
-    #[serde(rename = "PubKey", with = "base64_standard")]
+    #[serde(with = "base64_standard")]
     pub pub_key: Vec<u8>,
 }
 lotus_json_with_self!(F3PowerEntry);
@@ -244,6 +267,81 @@ pub struct F3Manifest {
     pub certificate_exchange: CertificateExchangeConfig,
 }
 lotus_json_with_self!(F3Manifest);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SupplementalData {
+    pub commitments: [u8; 32],
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub power_table: Cid,
+}
+lotus_json_with_self!(SupplementalData);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct PowerTableDelta {
+    #[serde(rename = "ParticipantID")]
+    pub participant_id: ActorID,
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::stringify")]
+    pub power_delta: num::BigInt,
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub signing_key: Vec<u8>,
+}
+lotus_json_with_self!(PowerTableDelta);
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct FinalityCertificate {
+    #[serde(rename = "GPBFTInstance")]
+    pub instance: u64,
+    #[schemars(with = "LotusJson<Vec<ECTipSet>>")]
+    #[serde(rename = "ECChain", with = "crate::lotus_json")]
+    pub ec_chain: Vec<ECTipSet>,
+    #[schemars(with = "LotusJson<SupplementalData>")]
+    #[serde(with = "crate::lotus_json")]
+    pub supplemental_data: SupplementalData,
+    #[schemars(with = "Vec<u8>")]
+    #[serde(with = "crate::lotus_json")]
+    pub signers: BitField,
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub signature: Vec<u8>,
+    #[schemars(with = "LotusJson<Vec<PowerTableDelta>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub power_table_delta: Vec<PowerTableDelta>,
+}
+lotus_json_with_self!(FinalityCertificate);
+
+impl FinalityCertificate {
+    pub fn power_table_delta_string(&self) -> String {
+        let total_diff = self
+            .power_table_delta
+            .iter()
+            .map(|i| i.power_delta.clone())
+            .fold(num::BigInt::zero(), |acc, x| acc + x);
+        if total_diff.is_zero() {
+            "None".into()
+        } else {
+            format!(
+                "Total of {total_diff} storage power across {} miner(s).",
+                self.power_table_delta.len()
+            )
+        }
+    }
+
+    pub fn chain_base(&self) -> &ECTipSet {
+        // Switch to NonEmpty and drop `.expect`
+        self.ec_chain.first().expect("ec_chain is empty")
+    }
+
+    pub fn chain_head(&self) -> &ECTipSet {
+        // Switch to NonEmpty and drop `.expect`
+        self.ec_chain.last().expect("ec_chain is empty")
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -622,6 +720,152 @@ mod tests {
         });
         let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
         let serialized = serde_json::to_value(manifest.clone()).unwrap();
+        assert_eq!(lotus_json, serialized);
+    }
+
+    #[test]
+    fn f3_certificate_serde_roundtrip() {
+        // lotus f3 c get --output json 6204
+        let lotus_json = serde_json::json!({
+            "GPBFTInstance": 6204,
+            "ECChain": [
+              {
+                "Epoch": 2088927,
+                "Key": "AXGg5AIg1NBjOnFimwUueRXQQzvPbHZO6vXbvqNA1gcomlVrq5MBcaDkAiCaOt71j85kjjq3SZF0NQq03tauEW3iwscIr4Qw0wna+g==",
+                "PowerTable": {
+                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+                },
+                "Commitments": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "Epoch": 2088928,
+                "Key": "AXGg5AIgFn9g3q/ATrgWiWzUYZLrtN/POrkNWFPmUShj/MDqZ5IBcaDkAiACwpEW4PvUCOIsZRaYhF6W+L1bgGd2TUFLOkATNxvuGgFxoOQCILlKPpFgMxXYFcq2HslyxzBN9ZZ6iPrPSBI2uwT4tUAvAXGg5AIgwYDZ217HUZ6nGnm6fnNd5lhep2C02mSYkkjJPf5pOig=",
+                "PowerTable": {
+                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+                },
+                "Commitments": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "SupplementalData": {
+              "Commitments": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "PowerTable": {
+                "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+              }
+            },
+            "Signers": [
+              0,
+              3
+            ],
+            "Signature": "uYtvw/NWm2jKQj+d99UAG4aiPnpAMSrwAWIusv0XkjsOYYR0fyU4nUM++cAQGO47E2/J8WSDjstLgL+yMVAFC+Tgao4o9ILXIlhqhxObnNZ/Ehanajthif9SaRe1AO69",
+            "PowerTableDelta": [
+              {
+                "ParticipantID": 3782,
+                "PowerDelta": "76347338653696",
+                "SigningKey": "lXSMTNEVmIdVxJV4clmW35jrlsBEfytNUGTWVih2dFlQ1k/7QQttsUGzpD5JoNaQ"
+              }
+            ]
+        });
+        let cert: FinalityCertificate = serde_json::from_value(lotus_json.clone()).unwrap();
+        let serialized = serde_json::to_value(cert.clone()).unwrap();
         assert_eq!(lotus_json, serialized);
     }
 }

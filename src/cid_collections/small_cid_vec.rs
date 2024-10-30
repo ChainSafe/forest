@@ -38,6 +38,11 @@ impl SmallCidNonEmptyVec {
     pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
         self.0.iter().map(|cid| Cid::from(cid.clone()))
     }
+
+    /// Returns the number of `CID`s
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl<'a> IntoIterator for &'a SmallCidNonEmptyVec {
