@@ -3,7 +3,7 @@
 
 use crate::rpc::{
     self,
-    f3::{F3Instant, F3Manifest},
+    f3::{F3Instant, F3Manifest, FinalityCertificate},
     prelude::*,
 };
 use cid::Cid;
@@ -33,6 +33,9 @@ pub enum F3Commands {
     },
     /// Checks the F3 status.
     Status,
+    /// Manages interactions with F3 finality certificates.
+    #[command(subcommand, visible_alias = "c")]
+    Certs(F3CertsCommands),
 }
 
 impl F3Commands {
@@ -60,6 +63,43 @@ impl F3Commands {
                 let manifest = client.call(F3GetManifest::request(())?).await?;
                 let manifest_template = ManifestTemplate::new(manifest);
                 println!("{}", manifest_template.render_once()?);
+                Ok(())
+            }
+            Self::Certs(cmd) => cmd.run(client).await,
+        }
+    }
+}
+
+/// Manages interactions with F3 finality certificates.
+#[derive(Debug, Subcommand)]
+pub enum F3CertsCommands {
+    /// Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified.
+    Get {
+        instance: Option<u64>,
+        /// The output format.
+        #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
+        output: F3OutputFormat,
+    },
+}
+
+impl F3CertsCommands {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
+        match self {
+            Self::Get { instance, output } => {
+                let cert = if let Some(instance) = instance {
+                    client.call(F3GetCertificate::request((instance,))?).await?
+                } else {
+                    client.call(F3GetLatestCertificate::request(())?).await?
+                };
+                match output {
+                    F3OutputFormat::Text => {
+                        let template = FinalityCertificateTemplate::new(cert);
+                        println!("{}", template.render_once()?);
+                    }
+                    F3OutputFormat::Json => {
+                        println!("{}", serde_json::to_string_pretty(&cert)?);
+                    }
+                }
                 Ok(())
             }
         }
@@ -92,6 +132,18 @@ struct ProgressTemplate {
 impl ProgressTemplate {
     fn new(progress: F3Instant) -> Self {
         Self { progress }
+    }
+}
+
+#[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
+#[template(path = "cli/f3/certificate.stpl")]
+struct FinalityCertificateTemplate {
+    cert: FinalityCertificate,
+}
+
+impl FinalityCertificateTemplate {
+    fn new(cert: FinalityCertificate) -> Self {
+        Self { cert }
     }
 }
 
@@ -148,8 +200,166 @@ mod tests {
             "MaximumPollInterval": 120000000000_u64
           }
         });
-        let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
+        let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();
         let template = ManifestTemplate::new(manifest);
+        println!("{}", template.render_once().unwrap());
+    }
+
+    #[test]
+    fn test_progress_template() {
+        let lotus_json = serde_json::json!({
+          "ID": 1000,
+          "Round": 0,
+          "Phase": 0
+        });
+        let progress: F3Instant = serde_json::from_value(lotus_json).unwrap();
+        let template = ProgressTemplate::new(progress);
+        println!("{}", template.render_once().unwrap());
+    }
+
+    #[test]
+    fn test_finality_certificate_template() {
+        // lotus f3 c get --output json 6204
+        let lotus_json = serde_json::json!({
+            "GPBFTInstance": 6204,
+            "ECChain": [
+              {
+                "Epoch": 2088927,
+                "Key": "AXGg5AIg1NBjOnFimwUueRXQQzvPbHZO6vXbvqNA1gcomlVrq5MBcaDkAiCaOt71j85kjjq3SZF0NQq03tauEW3iwscIr4Qw0wna+g==",
+                "PowerTable": {
+                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+                },
+                "Commitments": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              },
+              {
+                "Epoch": 2088928,
+                "Key": "AXGg5AIgFn9g3q/ATrgWiWzUYZLrtN/POrkNWFPmUShj/MDqZ5IBcaDkAiACwpEW4PvUCOIsZRaYhF6W+L1bgGd2TUFLOkATNxvuGgFxoOQCILlKPpFgMxXYFcq2HslyxzBN9ZZ6iPrPSBI2uwT4tUAvAXGg5AIgwYDZ217HUZ6nGnm6fnNd5lhep2C02mSYkkjJPf5pOig=",
+                "PowerTable": {
+                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+                },
+                "Commitments": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "SupplementalData": {
+              "Commitments": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "PowerTable": {
+                "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+              }
+            },
+            "Signers": [
+              0,
+              3
+            ],
+            "Signature": "uYtvw/NWm2jKQj+d99UAG4aiPnpAMSrwAWIusv0XkjsOYYR0fyU4nUM++cAQGO47E2/J8WSDjstLgL+yMVAFC+Tgao4o9ILXIlhqhxObnNZ/Ehanajthif9SaRe1AO69",
+            "PowerTableDelta": [
+              {
+                "ParticipantID": 3782,
+                "PowerDelta": "76347338653696",
+                "SigningKey": "lXSMTNEVmIdVxJV4clmW35jrlsBEfytNUGTWVih2dFlQ1k/7QQttsUGzpD5JoNaQ"
+              }
+            ]
+        });
+        let cert: FinalityCertificate = serde_json::from_value(lotus_json).unwrap();
+        let template = FinalityCertificateTemplate::new(cert);
         println!("{}", template.render_once().unwrap());
     }
 }
