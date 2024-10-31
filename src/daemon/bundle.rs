@@ -5,10 +5,7 @@ use crate::db::BlessedStore;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::{
-        db::{
-            car_stream::{CarBlock, CarStream},
-            car_util::load_car,
-        },
+        db::car_stream::{CarBlock, CarStream},
         net::http_get,
     },
 };
@@ -16,7 +13,6 @@ use ahash::HashSet;
 use anyhow::ensure;
 use cid::Cid;
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use fvm_ipld_blockstore::Blockstore;
 use std::mem::discriminant;
 use std::{io::Cursor, path::Path};
 use tokio::io::BufReader;
