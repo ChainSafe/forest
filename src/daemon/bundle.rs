@@ -108,6 +108,7 @@ pub async fn load_actor_bundles_from_server(
                         http_get(alt_url).await?
                     };
                     let bytes = response.bytes().await?;
+
                     let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
                     while let Some(block) = stream.try_next().await? {
                         db.put_keyed_blessed(&block.cid, &block.data)?;

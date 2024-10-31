@@ -229,6 +229,18 @@ impl BlessedStore for MemoryBlockstore {
     }
 }
 
+impl<T: BlessedStore> BlessedStore for Arc<T> {
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        BlessedStore::put_keyed_blessed(self.as_ref(), k, block)
+    }
+}
+
+impl<T: BlessedStore> BlessedStore for &Arc<T> {
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        BlessedStore::put_keyed_blessed(self.as_ref(), k, block)
+    }
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
