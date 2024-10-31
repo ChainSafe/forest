@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::db::BlessedStore;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::{
@@ -18,12 +19,13 @@ use futures::{stream::FuturesUnordered, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use std::mem::discriminant;
 use std::{io::Cursor, path::Path};
+use tokio::io::BufReader;
 use tracing::{info, warn};
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
 /// not present, it will be downloaded.
 pub async fn load_actor_bundles(
-    db: &impl Blockstore,
+    db: &impl BlessedStore,
     network: &NetworkChain,
 ) -> anyhow::Result<()> {
     if let Some(bundle_path) = match std::env::var("FOREST_ACTOR_BUNDLE_PATH") {
@@ -40,7 +42,7 @@ pub async fn load_actor_bundles(
 }
 
 pub async fn load_actor_bundles_from_path(
-    db: &impl Blockstore,
+    db: &impl BlessedStore,
     network: &NetworkChain,
     bundle_path: impl AsRef<Path>,
 ) -> anyhow::Result<()> {
@@ -70,7 +72,7 @@ pub async fn load_actor_bundles_from_path(
 
     // Load into DB
     while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed(&cid, &data)?;
+        db.put_keyed_blessed(&cid, &data)?;
     }
 
     Ok(())
@@ -78,7 +80,7 @@ pub async fn load_actor_bundles_from_path(
 
 /// Loads the missing actor bundle, returns the CIDs of the loaded bundles.
 pub async fn load_actor_bundles_from_server(
-    db: &impl Blockstore,
+    db: &impl BlessedStore,
     network: &NetworkChain,
     bundles: &[ActorBundleInfo],
 ) -> anyhow::Result<Vec<Cid>> {
@@ -106,7 +108,11 @@ pub async fn load_actor_bundles_from_server(
                         http_get(alt_url).await?
                     };
                     let bytes = response.bytes().await?;
-                    let header = load_car(db, Cursor::new(bytes)).await?;
+                    let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
+                    while let Some(block) = stream.try_next().await? {
+                        db.put_keyed_blessed(&block.cid, &block.data)?;
+                    }
+                    let header = stream.header;
                     ensure!(header.roots.len() == 1);
                     ensure!(header.roots.first() == root);
                     Ok(*header.roots.first())

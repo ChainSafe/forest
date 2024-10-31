@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cid_collections::CidHashSet;
-use crate::db::GarbageCollectable;
+use crate::db::{BlessedStore, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use ahash::HashMap;
@@ -117,6 +117,12 @@ impl Blockstore for MemoryDB {
             .write()
             .insert(k.to_bytes(), block.to_vec());
         Ok(())
+    }
+}
+
+impl BlessedStore for MemoryDB {
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.put_keyed(k, block)
     }
 }
 

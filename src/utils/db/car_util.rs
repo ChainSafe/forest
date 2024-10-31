@@ -6,6 +6,7 @@ use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
+use crate::db::BlessedStore;
 use crate::utils::db::car_stream::{CarBlock, CarHeader, CarStream};
 
 /// Stream key-value pairs from a CAR archive into a block store.

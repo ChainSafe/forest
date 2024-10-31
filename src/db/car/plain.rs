@@ -71,6 +71,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use integer_encoding::VarIntReader;
 
+use crate::db::BlessedStore;
 use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
@@ -230,6 +231,15 @@ where
         let mut index = self.index.write();
         let mut cache = self.write_cache.write();
         handle_write_cache(cache.deref_mut(), index.deref_mut(), k, block)
+    }
+}
+
+impl<ReaderT> BlessedStore for PlainCar<ReaderT>
+where
+    ReaderT: ReadAt,
+{
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.put_keyed(k, block)
     }
 }
 

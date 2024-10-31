@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use super::SettingsStore;
+use super::{BlessedStore, SettingsStore};
 
 use super::EthMappingsStore;
 
@@ -32,6 +32,10 @@ use tracing::warn;
 #[derive(Copy, Clone, Debug, Display, PartialEq, FromRepr, EnumIter)]
 #[repr(u8)]
 enum DbColumn {
+    /// Column for storing IPLD data that has to be ignored by the garbage collector.
+    /// Anything stored in this column can be considered permanent, unless manually
+    /// deleted.
+    BlessedGraph,
     /// Column for storing IPLD data with `Blake2b256` hash and `DAG_CBOR` codec.
     /// Most entries in the `blockstore` will be stored in this column.
     GraphDagCborBlake2b256,
@@ -51,11 +55,13 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 => parity_db::ColumnOptions {
-                        preimage: true,
-                        compression,
-                        ..Default::default()
-                    },
+                    DbColumn::GraphDagCborBlake2b256 | DbColumn::BlessedGraph => {
+                        parity_db::ColumnOptions {
+                            preimage: true,
+                            compression,
+                            ..Default::default()
+                        }
+                    }
                     DbColumn::GraphFull => parity_db::ColumnOptions {
                         preimage: true,
                         // This is needed for key retrieval.
@@ -245,6 +251,12 @@ impl Blockstore for ParityDb {
     }
 }
 
+impl BlessedStore for ParityDb {
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(k.to_bytes(), block, DbColumn::BlessedGraph)
+    }
+}
+
 impl BitswapStoreRead for ParityDb {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         // We need to check both columns because we don't know which one
@@ -322,6 +334,11 @@ impl ParityDb {
     /// * `value` - record contents
     pub fn set_operation(column: u8, key: Vec<u8>, value: Vec<u8>) -> Op {
         (column, Operation::Set(key, value))
+    }
+
+    // Get data from persistent graph column.
+    fn get_blessed(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(k.to_bytes(), DbColumn::BlessedGraph)
     }
 }
 

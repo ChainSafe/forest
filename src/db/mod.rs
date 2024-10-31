@@ -17,6 +17,7 @@ pub mod migration;
 use crate::rpc::eth::types::EthHash;
 use anyhow::Context as _;
 use cid::Cid;
+use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -209,6 +210,23 @@ pub trait GarbageCollectable<T> {
     ///
     /// * `keys` - A set of keys to be removed from the database.
     fn remove_keys(&self, keys: T) -> anyhow::Result<u32>;
+}
+
+/// A trait that allows for storing data that is not garbage collected.
+pub trait BlessedStore: Blockstore {
+    /// Puts a keyed block with pre-computed CID into the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `k` - The key to be stored.
+    /// * `block` - The block to be stored.
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()>;
+}
+
+impl BlessedStore for MemoryBlockstore {
+    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.put_keyed(k, block)
+    }
 }
 
 pub mod db_engine {
