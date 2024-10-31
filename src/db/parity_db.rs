@@ -216,24 +216,14 @@ impl EthMappingsStore for ParityDb {
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
-        match column {
-            DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
-                self.read_from_column(k.to_bytes(), column)
-            }
-            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
-        }
+        self.read_from_column(k.to_bytes(), column)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         let column = Self::choose_column(k);
 
-        match column {
-            // We can put the data directly into the database without any encoding.
-            DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
-                self.write_to_column(k.to_bytes(), block, column)
-            }
-            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
-        }
+        // We can put the data directly into the database without any encoding.
+        self.write_to_column(k.to_bytes(), block, column)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
