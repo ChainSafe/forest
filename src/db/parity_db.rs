@@ -222,7 +222,11 @@ impl EthMappingsStore for ParityDb {
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
-        self.read_from_column(k.to_bytes(), column)
+        let res = self.read_from_column(k.to_bytes(), column)?;
+        if res.is_some() {
+            return Ok(res);
+        }
+        self.get_blessed(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
@@ -400,8 +404,10 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 mod test {
     use cid::multihash::Code::Sha2_256;
     use cid::multihash::MultihashDigest;
+    use fil_actors_shared::v15::MapKey;
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
+    use std::ops::Deref;
 
     use crate::db::tests::db_utils::parity::TempParityDB;
 
@@ -444,6 +450,7 @@ mod test {
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
+                DbColumn::BlessedGraph => panic!("invalid column for GC enabled IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
@@ -528,6 +535,52 @@ mod test {
         for (cid, expected) in cases {
             let actual = ParityDb::choose_column(&cid);
             assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn blessed_tests() {
+        let db = TempParityDB::new();
+        let data = [
+            b"h'nglui mglw'nafh".to_vec(),
+            b"Cthulhu".to_vec(),
+            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
+        ];
+
+        let blessed_data = data
+            .clone()
+            .into_iter()
+            .map(|mut entry| {
+                entry.push(255);
+                entry
+            })
+            .collect::<Vec<Vec<u8>>>();
+
+        let cids = [
+            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+        ];
+
+        for idx in 0..3 {
+            let cid = &cids[idx];
+            let blessed_entry = &blessed_data[idx];
+            let data_entry = &data[idx];
+            db.put_keyed_blessed(cid, blessed_entry).unwrap();
+            // Check that we get blessed data if the data is otherwise absent from the GC enabled
+            // storage.
+            assert_eq!(
+                Blockstore::get(db.deref(), &cid).unwrap(),
+                Some(blessed_entry.clone())
+            );
+            assert!(db
+                .read_from_column(cid.to_bytes(), DbColumn::BlessedGraph)?
+                .is_some());
+            db.put_keyed(cid, data_entry).unwrap();
+            assert_eq!(
+                Blockstore::get(db.deref(), &cid).unwrap(),
+                Some(data_entry.clone())
+            );
         }
     }
 }
