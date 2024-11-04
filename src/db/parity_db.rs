@@ -569,7 +569,7 @@ mod test {
             // Check that we get blessed data if the data is otherwise absent from the GC enabled
             // storage.
             assert_eq!(
-                Blockstore::get(db.deref(), &cid).unwrap(),
+                Blockstore::get(db.deref(), cid).unwrap(),
                 Some(blessed_entry.clone())
             );
             assert!(db
@@ -578,7 +578,7 @@ mod test {
                 .is_some());
             db.put_keyed(cid, data_entry).unwrap();
             assert_eq!(
-                Blockstore::get(db.deref(), &cid).unwrap(),
+                Blockstore::get(db.deref(), cid).unwrap(),
                 Some(data_entry.clone())
             );
         }
