@@ -50,9 +50,9 @@ docker exec -it forest /bin/bash
 ```
 
 For more in-depth usage and sample use cases, please refer to the Forest Docker
-documentation in the [Forest Book]. Keep in mind that the `latest` tag is the latest
-stable release. If you want to use the current development build, use the `edge`
-tag.
+documentation in the [Forest Book]. Keep in mind that the `latest` tag is the
+latest stable release. If you want to use the current development build, use the
+`edge` tag.
 
 ## Dependencies
 
