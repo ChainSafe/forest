@@ -404,7 +404,6 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 mod test {
     use cid::multihash::Code::Sha2_256;
     use cid::multihash::MultihashDigest;
-    use fil_actors_shared::v15::MapKey;
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
     use std::ops::Deref;
@@ -574,7 +573,8 @@ mod test {
                 Some(blessed_entry.clone())
             );
             assert!(db
-                .read_from_column(cid.to_bytes(), DbColumn::BlessedGraph)?
+                .read_from_column(cid.to_bytes(), DbColumn::BlessedGraph)
+                .unwrap()
                 .is_some());
             db.put_keyed(cid, data_entry).unwrap();
             assert_eq!(
