@@ -5,10 +5,12 @@
 //! A `BlessedGraph` column has been introduced to allow for storage of persistent data that isn't
 //! garbage collected. The initial use-case is network upgrade manifest storage.
 
+use crate::blocks::TipsetKey;
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_21_2::paritydb_0_19_0::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
+use crate::rpc::eth::types::EthHash;
 use crate::Config;
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
@@ -80,29 +82,69 @@ impl MigrationOperation for Migration0_19_0_0_21_2 {
         for col in DbColumn::iter() {
             info!("Migrating column {}", col);
             let mut res = anyhow::Ok(());
-            if col == DbColumn::GraphDagCborBlake2b256 {
-                db.db.iter_column_while(col as u8, |val| {
-                    let hash = Blake2b256.digest(&val.value);
-                    let cid = Cid::new_v1(DAG_CBOR, hash);
-                    res = new_db
-                        .db
-                        .commit_changes([Db::set_operation(col as u8, cid.to_bytes(), val.value)])
-                        .context("failed to commit");
+            match col {
+                DbColumn::GraphDagCborBlake2b256 => {
+                    db.db.iter_column_while(col as u8, |val| {
+                        let hash = Blake2b256.digest(&val.value);
+                        let cid = Cid::new_v1(DAG_CBOR, hash);
+                        res = new_db
+                            .db
+                            .commit_changes([Db::set_operation(
+                                col as u8,
+                                cid.to_bytes(),
+                                val.value,
+                            )])
+                            .context("failed to commit");
 
-                    if res.is_err() {
-                        return false;
+                        if res.is_err() {
+                            return false;
+                        }
+
+                        true
+                    })?;
+                    res?;
+                }
+                DbColumn::EthMappings => {
+                    db.db.iter_column_while(col as u8, |val| {
+                        let tsk: Result<TipsetKey, fvm_ipld_encoding::Error> =
+                            fvm_ipld_encoding::from_slice(&val.value);
+                        if tsk.is_err() {
+                            res = Err(tsk.context("serde error").unwrap_err());
+                            return false;
+                        }
+                        let cid = tsk.unwrap().cid();
+
+                        if cid.is_err() {
+                            res = Err(cid.context("serde error").unwrap_err());
+                            return false;
+                        }
+
+                        let hash: EthHash = cid.unwrap().into();
+                        res = new_db
+                            .db
+                            .commit_changes([Db::set_operation(
+                                col as u8,
+                                hash.0.as_bytes().to_vec(),
+                                val.value,
+                            )])
+                            .context("failed to commit");
+
+                        if res.is_err() {
+                            return false;
+                        }
+
+                        true
+                    })?;
+                    res?;
+                }
+                _ => {
+                    let mut iter = db.db.iter(col as u8)?;
+                    while let Some((key, value)) = iter.next()? {
+                        new_db
+                            .db
+                            .commit_changes([Db::set_operation(col as u8, key, value)])
+                            .context("failed to commit")?;
                     }
-
-                    true
-                })?;
-                res?;
-            } else {
-                let mut iter = db.db.iter(col as u8)?;
-                while let Some((key, value)) = iter.next()? {
-                    new_db
-                        .db
-                        .commit_changes([Db::set_operation(col as u8, key, value)])
-                        .context("failed to commit")?;
                 }
             }
         }
