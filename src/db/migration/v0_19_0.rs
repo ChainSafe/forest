@@ -9,14 +9,14 @@ use crate::chain::ChainStore;
 use crate::cli_shared::chain_path;
 use crate::daemon::db_util::{load_all_forest_cars, populate_eth_mappings};
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{open_db, Db};
+use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_19_0::paritydb_0_18_0::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::networks::ChainConfig;
 use crate::state_manager::StateManager;
-use crate::Config;
+use crate::{db, Config};
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
@@ -147,9 +147,15 @@ impl MigrationOperation for Migration0_18_0_0_19_0 {
 }
 
 async fn create_state_manager_and_populate(config: Config, db_name: String) -> anyhow::Result<()> {
+    use db::parity_db::ParityDb as ParityDbCurrent;
+
     let chain_data_path = chain_path(&config);
     let db_root_dir = chain_data_path.join(db_name);
-    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
+    let db = ParityDbCurrent::wrap(
+        paritydb_0_19_0::ParityDb::open(db_root_dir.clone())?.db,
+        false,
+    );
+    let db_writer = Arc::new(db);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
