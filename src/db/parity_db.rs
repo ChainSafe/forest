@@ -93,6 +93,8 @@ impl DbColumn {
 pub struct ParityDb {
     pub db: parity_db::Db,
     statistics_enabled: bool,
+    // This is needed to maintain backwards-compatibility for pre-blessed-column migrations.
+    disable_blessed_fallback: bool,
 }
 
 impl ParityDb {
@@ -113,13 +115,15 @@ impl ParityDb {
         Ok(Self {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
+            disable_blessed_fallback: false,
         })
     }
 
-    pub fn wrap(db: parity_db::Db, stats: bool) -> Self {
+    pub fn wrap(db: parity_db::Db, stats: bool, disable_blessed: bool) -> Self {
         Self {
             db,
             statistics_enabled: stats,
+            disable_blessed_fallback: disable_blessed,
         }
     }
 
@@ -342,6 +346,9 @@ impl ParityDb {
 
     // Get data from persistent graph column.
     fn get_blessed(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        if self.disable_blessed_fallback {
+            return Ok(None);
+        }
         self.read_from_column(k.to_bytes(), DbColumn::BlessedGraph)
     }
 }

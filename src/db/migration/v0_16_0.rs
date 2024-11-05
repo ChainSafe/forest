@@ -210,7 +210,7 @@ mod paritydb_0_15_1 {
         // if it changes and then this migration should either be maintained or removed.
         pub(super) fn open(path: impl Into<PathBuf>) -> anyhow::Result<db::parity_db::ParityDb> {
             let opts = Self::to_options(path.into());
-            let db = db::parity_db::ParityDb::wrap(Db::open_or_create(&opts)?, false);
+            let db = db::parity_db::ParityDb::wrap(Db::open_or_create(&opts)?, false, false);
             Ok(db)
         }
     }

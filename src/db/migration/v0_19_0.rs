@@ -154,6 +154,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
     let db = ParityDbCurrent::wrap(
         paritydb_0_19_0::ParityDb::open(db_root_dir.clone())?.db,
         false,
+        true,
     );
     let db_writer = Arc::new(db);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
