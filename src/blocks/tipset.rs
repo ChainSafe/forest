@@ -63,6 +63,11 @@ impl TipsetKey {
     pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
         self.0.iter()
     }
+
+    /// Returns the number of `CID`s
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {

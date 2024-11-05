@@ -10,7 +10,7 @@
 mod types;
 mod util;
 
-pub use self::types::{F3Instant, F3LeaseManager, F3Manifest};
+pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, FinalityCertificate};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
@@ -566,7 +566,7 @@ impl RpcMethod<1> for F3GetCertificate {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (u64,);
-    type Ok = serde_json::Value;
+    type Ok = FinalityCertificate;
 
     async fn handle(
         _: Ctx<impl Blockstore>,
@@ -589,7 +589,7 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = serde_json::Value;
+    type Ok = FinalityCertificate;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
