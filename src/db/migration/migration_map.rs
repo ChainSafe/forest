@@ -9,6 +9,7 @@ use std::{
 
 use crate::db::migration::v0_16_0::Migration0_15_2_0_16_0;
 use crate::db::migration::v0_19_0::Migration0_18_0_0_19_0;
+use crate::db::migration::v0_21_2::Migration0_19_0_0_21_2;
 use crate::Config;
 use anyhow::bail;
 use anyhow::Context as _;
@@ -80,6 +81,7 @@ create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
     "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
     "0.18.0" -> "0.19.0" @ Migration0_18_0_0_19_0,
+    "0.19.0" -> "0.21.2" @ Migration0_19_0_0_21_2,
 );
 
 pub struct Migration {
