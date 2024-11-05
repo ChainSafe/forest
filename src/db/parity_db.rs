@@ -32,10 +32,6 @@ use tracing::warn;
 #[derive(Copy, Clone, Debug, Display, PartialEq, FromRepr, EnumIter)]
 #[repr(u8)]
 enum DbColumn {
-    /// Column for storing IPLD data that has to be ignored by the garbage collector.
-    /// Anything stored in this column can be considered permanent, unless manually
-    /// deleted.
-    BlessedGraph,
     /// Column for storing IPLD data with `Blake2b256` hash and `DAG_CBOR` codec.
     /// Most entries in the `blockstore` will be stored in this column.
     GraphDagCborBlake2b256,
@@ -48,6 +44,10 @@ enum DbColumn {
     Settings,
     /// Column for storing Ethereum mappings.
     EthMappings,
+    /// Column for storing IPLD data that has to be ignored by the garbage collector.
+    /// Anything stored in this column can be considered permanent, unless manually
+    /// deleted.
+    BlessedGraph,
 }
 
 impl DbColumn {
