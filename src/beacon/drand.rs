@@ -26,7 +26,7 @@ use url::Url;
 /// `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
-/// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
+/// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained. This is the way.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum DrandNetwork {
