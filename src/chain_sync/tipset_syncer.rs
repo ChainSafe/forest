@@ -540,6 +540,14 @@ where
                     match range_syncer.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
                             metrics::HEAD_EPOCH.set(proposed_head_epoch);
+                            let epoch = proposed_head_epoch;
+                            let timestamp = range_syncer.proposed_head.min_timestamp();
+                            let block_count = range_syncer.proposed_head.block_headers().len();
+                            let tipset_cid = range_syncer.proposed_head.key().to_string();
+                            let parent_tipset_cid =
+                                range_syncer.proposed_head.parents().to_string();
+                            println!("FIRE BLOCK {epoch} {block_count} {timestamp} {tipset_cid} {parent_tipset_cid}");
+
                             info!(
                                 "Successfully synced tipset range: [{}, {}]",
                                 current_head_epoch, proposed_head_epoch,

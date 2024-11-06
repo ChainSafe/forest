@@ -156,6 +156,7 @@ pub(super) async fn start(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    println!("FIRE INIT 1.0 sf.filecoin.type.v1.Tipset");
     maybe_increase_fd_limit()?;
 
     let start_time = chrono::Utc::now();
