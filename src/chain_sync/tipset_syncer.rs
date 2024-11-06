@@ -543,9 +543,9 @@ where
                             let epoch = proposed_head_epoch;
                             let timestamp = range_syncer.proposed_head.min_timestamp();
                             let block_count = range_syncer.proposed_head.block_headers().len();
-                            let tipset_cid = range_syncer.proposed_head.key().to_string();
+                            let tipset_cid = range_syncer.proposed_head.key().cid().expect("must not fiasco");
                             let parent_tipset_cid =
-                                range_syncer.proposed_head.parents().to_string();
+                                range_syncer.proposed_head.parents().cid().expect("must not fiasco");
                             println!("FIRE BLOCK {epoch} {block_count} {timestamp} {tipset_cid} {parent_tipset_cid}");
 
                             info!(
