@@ -7,7 +7,7 @@ fn main() {
 
     // Do not build f3-sidecar on docs.rs publishing
     // No proper version of Go compiler is available.
-    if !is_docs_rs() && is_sidecar_ffi_enabled() {
+    if false && !is_docs_rs() && is_sidecar_ffi_enabled() {
         println!("cargo:rustc-cfg=f3sidecar");
         std::env::set_var("GOWORK", "off");
         // `Netgo` is enabled for all the platforms to be consistent across different builds. It

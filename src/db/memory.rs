@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::ops::Deref;
+
 use crate::cid_collections::CidHashSet;
 use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -15,9 +17,32 @@ use super::{EthMappingsStore, SettingsStore};
 
 #[derive(Debug, Default)]
 pub struct MemoryDB {
-    blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
-    settings_db: RwLock<HashMap<String, Vec<u8>>>,
-    eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
+    pub(super) blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
+    pub(super) settings_db: RwLock<HashMap<String, Vec<u8>>>,
+    pub(super) eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
+}
+
+impl MemoryDB {
+    pub fn serialize(&self) -> anyhow::Result<Vec<u8>> {
+        let blockchain_db = self.blockchain_db.read();
+        let settings_db = self.settings_db.read();
+        let eth_mappings_db = self.eth_mappings_db.read();
+        let tuple = (
+            blockchain_db.deref(),
+            settings_db.deref(),
+            eth_mappings_db.deref(),
+        );
+        Ok(fvm_ipld_encoding::to_vec(&tuple)?)
+    }
+
+    pub fn deserialize_from(bytes: &[u8]) -> anyhow::Result<Self> {
+        let (blockchain_db, settings_db, eth_mappings_db) = fvm_ipld_encoding::from_slice(bytes)?;
+        Ok(Self {
+            blockchain_db: RwLock::new(blockchain_db),
+            settings_db: RwLock::new(settings_db),
+            eth_mappings_db: RwLock::new(eth_mappings_db),
+        })
+    }
 }
 
 impl GarbageCollectable<CidHashSet> for MemoryDB {

@@ -7,7 +7,7 @@ use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
-use crate::db::{car::ManyCar, MemoryDB};
+use crate::db::{car::ManyCar, MemoryDB, TrackingStore};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
@@ -46,7 +46,7 @@ pub async fn start_offline_server(
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
 
-    let db = Arc::new(ManyCar::new(MemoryDB::default()));
+    let db = ManyCar::new(MemoryDB::default());
 
     let snapshot_files = handle_snapshots(
         snapshot_files,
@@ -57,6 +57,7 @@ pub async fn start_offline_server(
     .await?;
 
     db.read_only_files(snapshot_files.iter().cloned())?;
+    let db = Arc::new(TrackingStore::new(db));
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header = read_genesis_header(
@@ -77,13 +78,13 @@ pub async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
+    let head_ts = Arc::new(db.inner().heaviest_tipset()?);
 
     state_manager
         .chain_store()
         .set_heaviest_tipset(head_ts.clone())?;
 
-    populate_eth_mappings(&state_manager, &head_ts)?;
+    // populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
@@ -131,6 +132,7 @@ pub async fn start_offline_server(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
     let rpc_state = RPCState {
+        tracking_store: Some(db),
         state_manager,
         keystore: Arc::new(RwLock::new(keystore)),
         mpool: Arc::new(message_pool),

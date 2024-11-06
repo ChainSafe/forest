@@ -20,6 +20,7 @@ mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
+use serde::{Deserialize, Serialize};
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -31,6 +32,7 @@ pub use jsonrpsee::core::ClientError;
 /// trait.
 ///
 /// All methods should be entered here.
+#[macro_export]
 macro_rules! for_each_method {
     ($callback:path) => {
         // auth vertical
@@ -261,6 +263,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::misc::GetActorEventsRaw);
     };
 }
+
 pub(crate) use for_each_method;
 use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
@@ -347,10 +350,12 @@ mod methods {
     pub mod wallet;
 }
 
+use crate::db::car::ManyCar;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::metrics_layer::MetricsLayer;
+use crate::utils::misc::env::is_env_truthy;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::Tipset;
@@ -385,6 +390,7 @@ const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 /// This is where you store persistent data, or at least access to stateful
 /// data.
 pub struct RPCState<DB> {
+    pub tracking_store: Option<Arc<crate::db::TrackingStore<ManyCar<crate::db::MemoryDB>>>>,
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
@@ -426,6 +432,14 @@ impl<DB: Blockstore> RPCState<DB> {
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
         self.sync_network_context.network_send()
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcCallSnapshot {
+    pub name: String,
+    pub params: Option<serde_json::Value>,
+    pub response: serde_json::Value,
+    pub db: String,
 }
 
 #[derive(Clone)]
@@ -641,6 +655,10 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
         },
         ..Default::default()
     }
+}
+
+pub fn is_rpc_snapshot_enabled() -> bool {
+    is_env_truthy("FOREST_RPC_SNAPSHOT_ENABLED")
 }
 
 #[cfg(test)]

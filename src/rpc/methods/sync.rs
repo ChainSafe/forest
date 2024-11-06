@@ -220,6 +220,7 @@ mod tests {
         let sync_network_context =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
         let state = Arc::new(RPCState {
+            tracking_store: None,
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),

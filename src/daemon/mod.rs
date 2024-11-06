@@ -20,7 +20,9 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, CAR_DB_DIR_NAME};
+use crate::db::{
+    ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, TrackingStore, CAR_DB_DIR_NAME,
+};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -184,13 +186,16 @@ pub(super) async fn start(
 
     let db_root_dir = db_root(&chain_data_path)?;
     let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
-    let db = Arc::new(ManyCar::new(db_writer.clone()));
+    let db = ManyCar::new(db_writer.clone());
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     if config.client.load_actors && !opts.stateless {
         load_actor_bundles(&db, config.chain()).await?;
     }
+
+    // HACKHACK: overriding db
+    let db = Arc::new(TrackingStore::new(db));
 
     let mut services = JoinSet::new();
 
@@ -222,9 +227,9 @@ pub(super) async fn start(
             config.client.metrics_address
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
-        let db = db.writer().clone();
+        let db_writer = db_writer.clone();
         services.spawn(async {
-            crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
+            crate::metrics::init_prometheus(prometheus_listener, db_directory, db_writer)
                 .await
                 .context("Failed to initiate prometheus server")
         });
@@ -240,8 +245,8 @@ pub(super) async fn start(
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
-        db.writer().clone(),
-        db.writer().clone(),
+        Arc::clone(&db) as _,
+        db_writer.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -261,7 +266,7 @@ pub(super) async fn start(
             let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
 
             MarkAndSweep::new(
-                db_writer,
+                db_writer.clone(),
                 get_heaviest_tipset,
                 depth,
                 Duration::from_secs(chain_config.block_delay_secs as u64),
@@ -347,7 +352,7 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(db.writer().as_ref())?,
+        MpoolConfig::load_config(&db_writer)?,
         state_manager.chain_config().clone(),
         &mut services,
     )?;
@@ -402,6 +407,7 @@ pub(super) async fn start(
         services.spawn(async move {
             start_rpc(
                 RPCState {
+                    tracking_store: None,
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
                     mpool,
@@ -487,7 +493,8 @@ pub(super) async fn start(
             let (car_db_path, ts) =
                 import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
                     .await?;
-            db.read_only_files(std::iter::once(car_db_path.clone()))?;
+            db.inner()
+                .read_only_files(std::iter::once(car_db_path.clone()))?;
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
                 .chain_store()

@@ -21,14 +21,16 @@ pub mod jsonrpc_types;
 mod parser;
 mod util;
 
-use crate::lotus_json::HasLotusJson;
+use crate::{lotus_json::HasLotusJson, rpc::RpcCallSnapshot};
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use anyhow::Context as _;
+use base64::prelude::*;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
+use once_cell::sync::Lazy;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
@@ -36,7 +38,7 @@ use serde::{
     de::{Error as _, Unexpected},
     Deserialize,
 };
-use std::{future::Future, iter, sync::Arc};
+use std::{future::Future, iter, path::PathBuf, sync::Arc};
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -149,6 +151,21 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             )),
         }
     }
+
+    fn parse_params(
+        params_raw: Option<impl AsRef<str>>,
+        calling_convention: ParamStructure,
+    ) -> anyhow::Result<Self::Params> {
+        Ok(Self::Params::parse(
+            params_raw
+                .map(|s| serde_json::from_str(s.as_ref()))
+                .transpose()?,
+            Self::PARAM_NAMES,
+            calling_convention,
+            Self::N_REQUIRED_PARAMS,
+        )?)
+    }
+
     /// Generate a full `OpenRPC` method definition for this endpoint.
     fn openrpc<'de>(
         gen: &mut SchemaGenerator,
@@ -212,20 +229,56 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             Self::NAME
         );
 
+        static GLOBAL_RPC_LOCK: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| Default::default());
+
+        let is_rpc_snapshot_enabled = crate::rpc::is_rpc_snapshot_enabled();
         module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
-            let raw = params
-                .as_str()
-                .map(serde_json::from_str)
-                .transpose()
+            let params_str = params.as_str();
+            let tracking_store = ctx.tracking_store.clone();
+            let _lock = match (is_rpc_snapshot_enabled, &tracking_store) {
+                (true, Some(s)) => {
+                    let lock = GLOBAL_RPC_LOCK.lock().await;
+                    tracing::info!("start tracking");
+                    s.start_tracking();
+                    Some(lock)
+                }
+                _ => None,
+            };
+
+            let params = Self::parse_params(params_str, calling_convention)
                 .map_err(|e| Error::invalid_params(e, None))?;
-            let params = Self::Params::parse(
-                raw,
-                Self::PARAM_NAMES,
-                calling_convention,
-                Self::N_REQUIRED_PARAMS,
-            )?;
             let ok = Self::handle(ctx, params).await?;
-            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
+            let lotus_json = ok.into_lotus_json();
+            match (is_rpc_snapshot_enabled, &tracking_store) {
+                (true, Some(s)) => {
+                    tracing::info!("stop tracking");
+                    if let Some(ms) = s.stop_tracking() {
+                        let snapshot = RpcCallSnapshot {
+                            name: Self::NAME.into(),
+                            params: params_str
+                                .map(serde_json::from_str)
+                                .transpose()
+                                .unwrap()
+                                .flatten(),
+                            response: serde_json::to_value(&lotus_json).unwrap(),
+                            db: BASE64_STANDARD.encode(ms.serialize().unwrap_or_default()),
+                        };
+                        let snapshot_dir = PathBuf::from("/var/tmp/rpc-snapshots/");
+                        if !snapshot_dir.is_dir() {
+                            std::fs::create_dir_all(&snapshot_dir).unwrap();
+                        }
+                        let path = snapshot_dir.join(format!(
+                            "{}_{}.json",
+                            snapshot.name.replace(".", "_").to_lowercase(),
+                            chrono::Utc::now().timestamp_micros()
+                        ));
+                        std::fs::write(path, serde_json::to_string_pretty(&snapshot).unwrap())
+                            .unwrap();
+                    }
+                }
+                _ => {}
+            };
+            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(lotus_json)
         })
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
