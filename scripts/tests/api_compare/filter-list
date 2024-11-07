@@ -16,3 +16,4 @@
 !Filecoin.StateSectorExpiration
 !Filecoin.StateSectorGetInfo
 !Filecoin.StateSectorPreCommitInfo
+!Filecoin.StateCirculatingSupply
