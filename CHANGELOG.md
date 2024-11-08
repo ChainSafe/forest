@@ -50,6 +50,9 @@
   method aliases for `forest-tool shed openrpc` subcommand and sort all methods
   in lexicographic order.
 
+- [#4801](https://github.com/ChainSafe/forest/issues/4801) Add support for
+  `Tuk Tuk` NV24 upgrade for mainnet
+
 ### Changed
 
 ### Removed
