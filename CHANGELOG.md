@@ -27,6 +27,24 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.22.0 "Pad Thai"
+
+Mandatory release for mainnet node operators. It sets the upgrade epoch for the
+NV24 _Tuk Tuk_ upgrade to `4_461_240` which corresponds to
+`Wed 20 Nov 23:00:00 UTC 2024`. No F3 support is planned for the NV24, see
+[this post](https://github.com/filecoin-project/core-devs/discussions/150#discussioncomment-11164504)
+for more details.
+
+### Breaking
+
 - [#4952](https://github.com/ChainSafe/forest/pull/4952) Extended the
   `forest-cli chain head` command to allow for specifying number of last tipsets
   to display. This change is breaking as the output now contains the epoch of
@@ -50,11 +68,8 @@
   method aliases for `forest-tool shed openrpc` subcommand and sort all methods
   in lexicographic order.
 
-### Changed
-
-### Removed
-
-### Fixed
+- [#4801](https://github.com/ChainSafe/forest/issues/4801) Add support for
+  `Tuk Tuk` NV24 upgrade for mainnet
 
 - [#4959](https://github.com/ChainSafe/forest/pull/4959) Re-enable garbage
   collection after implementing a "blessed" storage for manifests.
