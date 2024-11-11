@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#4959](https://github.com/ChainSafe/forest/pull/4959) Re-enable garbage
+  collection after implementing a "blessed" storage for manifests.
+
 ## Forest 0.22.0 "Pad Thai"
 
 Mandatory release for mainnet node operators. It sets the upgrade epoch for the
@@ -70,9 +73,6 @@ for more details.
 
 - [#4801](https://github.com/ChainSafe/forest/issues/4801) Add support for
   `Tuk Tuk` NV24 upgrade for mainnet
-
-- [#4959](https://github.com/ChainSafe/forest/pull/4959) Re-enable garbage
-  collection after implementing a "blessed" storage for manifests.
 
 ## Forest 0.21.1 "Songthaew Plus"
 
