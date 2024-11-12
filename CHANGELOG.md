@@ -926,19 +926,19 @@ usability improvements.
   port from 1234 to 2345.
 - [#3336](https://github.com/ChainSafe/forest/pull/3336) Moved following
   `forest-cli` subcommands to `forest-tool`
-    - `archive info`
-    - `fetch-params`
-    - `snapshot fetch`
-    - `snapshot validate`
+  - `archive info`
+  - `fetch-params`
+  - `snapshot fetch`
+  - `snapshot validate`
 - [#3355](https://github.com/ChainSafe/forest/pull/3355) Moved commands
-    - `forest-cli db stats` to `forest-tool db stats`
-    - `forest-cli db clean` to `forest-tool db destroy`
+  - `forest-cli db stats` to `forest-tool db stats`
+  - `forest-cli db clean` to `forest-tool db destroy`
 - [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
   `forest-cli wallet` subcommands to `forest-wallet`
 - [#3432](https://github.com/ChainSafe/forest/pull/3432) Moved following
   `forest-cli` subcommands to `forest-tool`
-    - `archive export`
-    - `archive checkpoints`
+  - `archive export`
+  - `archive checkpoints`
 - [#3431](https://github.com/ChainSafe/forest/pull/3431) Moved the following
   `forest-cli snapshot compress` subcommand to `forest-tool`
 - [#3435](https://github.com/ChainSafe/forest/pull/3435) Moved subcommand
@@ -1123,8 +1123,8 @@ Notable updates:
 ### Breaking
 
 - [#2873](https://github.com/ChainSafe/forest/issues/2873)
-    - remove `--compressed` from the CLI. Snapshots are now always compressed.
-    - Remove snapshot ops - snapshots fetched to the current directory by default.
+  - remove `--compressed` from the CLI. Snapshots are now always compressed.
+  - Remove snapshot ops - snapshots fetched to the current directory by default.
 
 ### Added
 
@@ -1287,10 +1287,10 @@ Notable updates:
   [#2576](https://github.com/ChainSafe/forest/issues/2576)
 - Revised how balances are displayed, defaulting to:
   [#2323](https://github.com/ChainSafe/forest/issues/2323)
-    - adding metric prefix when it's required, consequently CLI flag
-      `--fixed-unit` added to force to show in original `FIL` unit
-    - 4 significant digits, consequently CLI flag `--exact-balance` added to force
-      full accuracy.
+  - adding metric prefix when it's required, consequently CLI flag
+    `--fixed-unit` added to force to show in original `FIL` unit
+  - 4 significant digits, consequently CLI flag `--exact-balance` added to force
+    full accuracy.
 - `stats` and `compression` keys in `parity_db` section were renamed to
   `enable_statistics` and `compression_type` respectively.
   [#2433](https://github.com/ChainSafe/forest/issues/2433)
@@ -1817,8 +1817,7 @@ All initial change sets:
 - `ccf1ac11` Return Ok when validating drand beacon entries similar to how Lotus
   does as per the audit recommendation.
   ([#1206](https://github.com/ChainSafe/forest/pull/1206)) (Hunter Trujillo)
-- `f5fe14d2` [Audit fixes] FOR-03 - Inconsistent Deserialization of
-  Randomness ([#1205](https://github.com/ChainSafe/forest/pull/1205))
+- `f5fe14d2` [Audit fixes] FOR-03 - Inconsistent Deserialization of Randomness ([#1205](https://github.com/ChainSafe/forest/pull/1205))
   (Hunter Trujillo)
 - `32a9ae5f` Rest of V5 Updates
   ([#1217](https://github.com/ChainSafe/forest/pull/1217)) (Eric Tu)
@@ -1874,8 +1873,7 @@ All initial change sets:
   ([#1160](https://github.com/ChainSafe/forest/pull/1160)) (creativcoder)
 - `34799734` Wallet CLI Implementation
   ([#1128](https://github.com/ChainSafe/forest/pull/1128)) (Connor Mullett)
-- `f698ba88` [Audit fixes] FOR-02: Inconsistent Deserialization of Address
-  ID ([#1149](https://github.com/ChainSafe/forest/pull/1149))
+- `f698ba88` [Audit fixes] FOR-02: Inconsistent Deserialization of Address ID ([#1149](https://github.com/ChainSafe/forest/pull/1149))
   (Hunter Trujillo)
 - `e50d2ae8` [Audit fixes] FOR-16: Unnecessary Extensive Permissions for Private
   Keys ([#1151](https://github.com/ChainSafe/forest/pull/1151)) (Hunter Trujillo)
