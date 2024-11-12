@@ -1,14 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.19.0 to 0.22.1 version.
-//! A `BlessedGraph` column has been introduced to allow for storage of persistent data that isn't
-//! garbage collected. The initial use-case is network upgrade manifest storage.
+//! Migration logic for 0.22.0 to 0.22.1 version.
+//! A `PersistentGraph` column has been introduced to allow for storage of persistent data that
+//! isn't garbage collected. The initial use-case is network upgrade manifest storage.
 
 use crate::blocks::TipsetKey;
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
-use crate::db::migration::v0_22_1::paritydb_0_19_0::{DbColumn, ParityDb};
+use crate::db::migration::v0_22_1::paritydb_0_22_0::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::rpc::eth::types::EthHash;
 use crate::Config;
@@ -25,13 +25,13 @@ use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-pub(super) struct Migration0_19_0_0_22_1 {
+pub(super) struct Migration0_22_0_0_22_1 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.19.0 to 0.22.1
-impl MigrationOperation for Migration0_19_0_0_22_1 {
+/// Migrates the database from version 0.22.0 to 0.22.1
+impl MigrationOperation for Migration0_22_0_0_22_1 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
@@ -166,8 +166,8 @@ impl MigrationOperation for Migration0_19_0_0_22_1 {
     }
 }
 
-/// Database settings from Forest `v0.19.0`
-mod paritydb_0_19_0 {
+/// Database settings from Forest `v0.22.0`
+mod paritydb_0_22_0 {
     use parity_db::{CompressionType, Db, Options};
     use std::path::PathBuf;
     use strum::{Display, EnumIter, IntoEnumIterator};
@@ -258,7 +258,7 @@ mod paritydb_0_22_1 {
         GraphFull,
         Settings,
         EthMappings,
-        BlessedGraph,
+        PersistentGraph,
     }
 
     impl DbColumn {
@@ -266,7 +266,7 @@ mod paritydb_0_22_1 {
             DbColumn::iter()
                 .map(|col| {
                     match col {
-                        DbColumn::GraphDagCborBlake2b256 | DbColumn::BlessedGraph => {
+                        DbColumn::GraphDagCborBlake2b256 | DbColumn::PersistentGraph => {
                             parity_db::ColumnOptions {
                                 preimage: true,
                                 compression,

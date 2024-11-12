@@ -10,7 +10,7 @@
 
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::Tipset;
-use crate::db::BlessedStore;
+use crate::db::PersistentStore;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -125,15 +125,15 @@ where
     }
 }
 
-impl<ReaderT> BlessedStore for AnyCar<ReaderT>
+impl<ReaderT> PersistentStore for AnyCar<ReaderT>
 where
     ReaderT: ReadAt,
 {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         match self {
-            AnyCar::Forest(forest) => forest.put_keyed_blessed(k, block),
-            AnyCar::Plain(plain) => plain.put_keyed_blessed(k, block),
-            AnyCar::Memory(mem) => mem.put_keyed_blessed(k, block),
+            AnyCar::Forest(forest) => forest.put_keyed_persistent(k, block),
+            AnyCar::Plain(plain) => plain.put_keyed_persistent(k, block),
+            AnyCar::Memory(mem) => mem.put_keyed_persistent(k, block),
         }
     }
 }

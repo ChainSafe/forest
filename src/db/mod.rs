@@ -213,31 +213,31 @@ pub trait GarbageCollectable<T> {
 }
 
 /// A trait that allows for storing data that is not garbage collected.
-pub trait BlessedStore: Blockstore {
+pub trait PersistentStore: Blockstore {
     /// Puts a keyed block with pre-computed CID into the database.
     ///
     /// # Arguments
     ///
     /// * `k` - The key to be stored.
     /// * `block` - The block to be stored.
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()>;
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()>;
 }
 
-impl BlessedStore for MemoryBlockstore {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+impl PersistentStore for MemoryBlockstore {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.put_keyed(k, block)
     }
 }
 
-impl<T: BlessedStore> BlessedStore for Arc<T> {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        BlessedStore::put_keyed_blessed(self.as_ref(), k, block)
+impl<T: PersistentStore> PersistentStore for Arc<T> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        PersistentStore::put_keyed_persistent(self.as_ref(), k, block)
     }
 }
 
-impl<T: BlessedStore> BlessedStore for &Arc<T> {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        BlessedStore::put_keyed_blessed(self.as_ref(), k, block)
+impl<T: PersistentStore> PersistentStore for &Arc<T> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        PersistentStore::put_keyed_persistent(self.as_ref(), k, block)
     }
 }
 

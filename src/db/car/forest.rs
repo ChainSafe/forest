@@ -50,7 +50,7 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::db::car::RandomAccessFileReader;
-use crate::db::BlessedStore;
+use crate::db::PersistentStore;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -239,11 +239,11 @@ where
     }
 }
 
-impl<ReaderT> BlessedStore for ForestCar<ReaderT>
+impl<ReaderT> PersistentStore for ForestCar<ReaderT>
 where
     ReaderT: ReadAt,
 {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.put_keyed(k, block)
     }
 }

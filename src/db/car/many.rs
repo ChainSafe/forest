@@ -9,7 +9,7 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::db::{BlessedStore, EthMappingsStore, MemoryDB, SettingsStore};
+use crate::db::{EthMappingsStore, MemoryDB, PersistentStore, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
@@ -169,9 +169,9 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     }
 }
 
-impl<WriterT: BlessedStore> BlessedStore for ManyCar<WriterT> {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.writer.put_keyed_blessed(k, block)
+impl<WriterT: PersistentStore> PersistentStore for ManyCar<WriterT> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.writer.put_keyed_persistent(k, block)
     }
 }
 

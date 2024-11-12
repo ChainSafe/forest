@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::BlessedStore;
+use crate::db::PersistentStore;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::{
@@ -21,7 +21,7 @@ use tracing::{info, warn};
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
 /// not present, it will be downloaded.
 pub async fn load_actor_bundles(
-    db: &impl BlessedStore,
+    db: &impl PersistentStore,
     network: &NetworkChain,
 ) -> anyhow::Result<()> {
     if let Some(bundle_path) = match std::env::var("FOREST_ACTOR_BUNDLE_PATH") {
@@ -38,7 +38,7 @@ pub async fn load_actor_bundles(
 }
 
 pub async fn load_actor_bundles_from_path(
-    db: &impl BlessedStore,
+    db: &impl PersistentStore,
     network: &NetworkChain,
     bundle_path: impl AsRef<Path>,
 ) -> anyhow::Result<()> {
@@ -68,7 +68,7 @@ pub async fn load_actor_bundles_from_path(
 
     // Load into DB
     while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed_blessed(&cid, &data)?;
+        db.put_keyed_persistent(&cid, &data)?;
     }
 
     Ok(())
@@ -76,7 +76,7 @@ pub async fn load_actor_bundles_from_path(
 
 /// Loads the missing actor bundle, returns the CIDs of the loaded bundles.
 pub async fn load_actor_bundles_from_server(
-    db: &impl BlessedStore,
+    db: &impl PersistentStore,
     network: &NetworkChain,
     bundles: &[ActorBundleInfo],
 ) -> anyhow::Result<Vec<Cid>> {
@@ -107,7 +107,7 @@ pub async fn load_actor_bundles_from_server(
 
                     let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
                     while let Some(block) = stream.try_next().await? {
-                        db.put_keyed_blessed(&block.cid, &block.data)?;
+                        db.put_keyed_persistent(&block.cid, &block.data)?;
                     }
                     let header = stream.header;
                     ensure!(header.roots.len() == 1);

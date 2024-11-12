@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use super::{BlessedStore, SettingsStore};
+use super::{PersistentStore, SettingsStore};
 
 use super::EthMappingsStore;
 
@@ -47,7 +47,7 @@ enum DbColumn {
     /// Column for storing IPLD data that has to be ignored by the garbage collector.
     /// Anything stored in this column can be considered permanent, unless manually
     /// deleted.
-    BlessedGraph,
+    PersistentGraph,
 }
 
 impl DbColumn {
@@ -55,7 +55,7 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 | DbColumn::BlessedGraph => {
+                    DbColumn::GraphDagCborBlake2b256 | DbColumn::PersistentGraph => {
                         parity_db::ColumnOptions {
                             preimage: true,
                             compression,
@@ -93,8 +93,8 @@ impl DbColumn {
 pub struct ParityDb {
     pub db: parity_db::Db,
     statistics_enabled: bool,
-    // This is needed to maintain backwards-compatibility for pre-blessed-column migrations.
-    disable_blessed_fallback: bool,
+    // This is needed to maintain backwards-compatibility for pre-persistent-column migrations.
+    disable_persistent_fallback: bool,
 }
 
 impl ParityDb {
@@ -115,15 +115,15 @@ impl ParityDb {
         Ok(Self {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
-            disable_blessed_fallback: false,
+            disable_persistent_fallback: false,
         })
     }
 
-    pub fn wrap(db: parity_db::Db, stats: bool, disable_blessed: bool) -> Self {
+    pub fn wrap(db: parity_db::Db, stats: bool, disable_persistent: bool) -> Self {
         Self {
             db,
             statistics_enabled: stats,
-            disable_blessed_fallback: disable_blessed,
+            disable_persistent_fallback: disable_persistent,
         }
     }
 
@@ -230,7 +230,7 @@ impl Blockstore for ParityDb {
         if res.is_some() {
             return Ok(res);
         }
-        self.get_blessed(k)
+        self.get_persistent(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
@@ -259,9 +259,9 @@ impl Blockstore for ParityDb {
     }
 }
 
-impl BlessedStore for ParityDb {
-    fn put_keyed_blessed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.write_to_column(k.to_bytes(), block, DbColumn::BlessedGraph)
+impl PersistentStore for ParityDb {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(k.to_bytes(), block, DbColumn::PersistentGraph)
     }
 }
 
@@ -345,11 +345,11 @@ impl ParityDb {
     }
 
     // Get data from persistent graph column.
-    fn get_blessed(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        if self.disable_blessed_fallback {
+    fn get_persistent(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        if self.disable_persistent_fallback {
             return Ok(None);
         }
-        self.read_from_column(k.to_bytes(), DbColumn::BlessedGraph)
+        self.read_from_column(k.to_bytes(), DbColumn::PersistentGraph)
     }
 }
 
@@ -456,7 +456,7 @@ mod test {
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
-                DbColumn::BlessedGraph => panic!("invalid column for GC enabled IPLD data"),
+                DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
@@ -545,7 +545,7 @@ mod test {
     }
 
     #[test]
-    fn blessed_tests() {
+    fn persistent_tests() {
         let db = TempParityDB::new();
         let data = [
             b"h'nglui mglw'nafh".to_vec(),
@@ -553,7 +553,7 @@ mod test {
             b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
         ];
 
-        let blessed_data = data
+        let persistent_data = data
             .clone()
             .into_iter()
             .map(|mut entry| {
@@ -570,17 +570,17 @@ mod test {
 
         for idx in 0..3 {
             let cid = &cids[idx];
-            let blessed_entry = &blessed_data[idx];
+            let persistent_entry = &persistent_data[idx];
             let data_entry = &data[idx];
-            db.put_keyed_blessed(cid, blessed_entry).unwrap();
-            // Check that we get blessed data if the data is otherwise absent from the GC enabled
+            db.put_keyed_persistent(cid, persistent_entry).unwrap();
+            // Check that we get persistent data if the data is otherwise absent from the GC enabled
             // storage.
             assert_eq!(
                 Blockstore::get(db.deref(), cid).unwrap(),
-                Some(blessed_entry.clone())
+                Some(persistent_entry.clone())
             );
             assert!(db
-                .read_from_column(cid.to_bytes(), DbColumn::BlessedGraph)
+                .read_from_column(cid.to_bytes(), DbColumn::PersistentGraph)
                 .unwrap()
                 .is_some());
             db.put_keyed(cid, data_entry).unwrap();
