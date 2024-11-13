@@ -11,7 +11,6 @@ use std::{
     io::{self, ErrorKind},
     path::{Path, PathBuf},
     sync::Arc,
-    time::Duration,
 };
 
 use crate::{
@@ -22,7 +21,7 @@ use crate::{
     },
 };
 use anyhow::{bail, Context};
-use backoff::{future::retry, ExponentialBackoffBuilder};
+use backon::{ExponentialBuilder, Retryable};
 use futures::{stream::FuturesUnordered, AsyncWriteExt, TryStreamExt};
 use tokio::fs::{self};
 use tracing::{debug, info, warn};
@@ -156,16 +155,16 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
         "Fetching param file {path} from {gateway}",
         path = path.display()
     );
-    let backoff = ExponentialBackoffBuilder::default()
-        // Up to 30 minutes for downloading the file. This may be drastic,
-        // but the gateway proved to be unreliable at times and we
-        // don't want to get stuck here. Better to fail fast and retry.
-        .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
-        .build();
-    let result = retry(backoff, || async {
-        Ok(download_ipfs_file_trustlessly(&info.cid, &gateway, path).await?)
-    })
-    .await;
+    let result = (|| download_ipfs_file_trustlessly(&info.cid, &gateway, path))
+        .retry(ExponentialBuilder::default())
+        .notify(|err: &anyhow::Error, dur| {
+            debug!(
+                "retrying download_ipfs_file_trustlessly {:?} after {:?}",
+                err, dur
+            );
+        })
+        .await;
+
     debug!(
         "Done fetching param file {path} from {gateway}",
         path = path.display(),
@@ -176,13 +175,15 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
 /// Downloads the parameter file from Cloudflare R2 to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
 async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
     info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
-    let backoff = ExponentialBackoffBuilder::default()
-        .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
-        .build();
-    let result = retry(backoff, || async {
-        Ok(download_from_cloudflare(name, path).await?)
-    })
-    .await;
+    let result = (|| download_from_cloudflare(name, path))
+        .retry(ExponentialBuilder::default())
+        .notify(|err: &anyhow::Error, dur| {
+            debug!(
+                "retrying download_from_cloudflare {:?} after {:?}",
+                err, dur
+            );
+        })
+        .await;
     debug!(
         "Done fetching param file {} from Cloudflare",
         path.display()
