@@ -1259,6 +1259,48 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+pub enum EthGetBlockReceipts {}
+impl RpcMethod<1> for EthGetBlockReceipts {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthHash,);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+
+        let (_, msgs_and_receipts) = execute_tipset(&ctx, &Arc::new(ts.clone())).await?;
+
+        let _state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+
+        for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+            let message_lookup = MessageLookup {
+                receipt: receipt.clone(),
+                tipset: ts.key().clone(),
+                height: ts.epoch(),
+                message: msg.cid(),
+                return_dec: receipt.return_data().deserialize().unwrap_or(Ipld::Null),
+            };
+
+            let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
+
+            let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
+            receipts.push(tx_receipt);
+        }
+
+        Ok(receipts)
+    }
+}
+
 pub enum EthGetBlockTransactionCountByHash {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
