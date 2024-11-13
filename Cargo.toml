@@ -81,7 +81,7 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17", features = ["tokio"] }
+indicatif = { version = "0.17.9", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.13"
@@ -229,7 +229,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.241"
+ra_ap_syntax = "0.0.244"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
