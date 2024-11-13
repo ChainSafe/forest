@@ -81,7 +81,7 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17", features = ["tokio"] }
+indicatif = { version = "0.17.9", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.13"
