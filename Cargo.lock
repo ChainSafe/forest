@@ -1051,7 +1051,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40723b8fb387abc38f4f4a37c09073622e41dd12327033091ef8950659e6dc0c"
 dependencies = [
  "memchr",
- "regex-automata 0.4.8",
+ "regex-automata 0.4.9",
  "serde",
 ]
 
@@ -3259,7 +3259,7 @@ dependencies = [
  "raw_sync_2",
  "rayon",
  "regex",
- "regex-automata 0.4.8",
+ "regex-automata 0.4.9",
  "reqwest",
  "rlimit",
  "rlp",
@@ -7423,9 +7423,9 @@ dependencies = [
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.73.0"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "119bc05b5b6bc3e7f5b67ce8b8080e185da94bd83c447f91b6b3f3ecf60cbab1"
+checksum = "b64b46ae0d8f59acc32e64e0085532b831f0d6182d870a7cd86c046c2c46e722"
 dependencies = [
  "unicode-properties",
  "unicode-xid",
@@ -7433,15 +7433,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.241"
+version = "0.0.244"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9b1b7a869e1a2b68ff8490ff8d3af23b518f83ba41f93192dee0336c0af9b55"
+checksum = "c24efb51ec2a167bbba4494de7eae609d08b42ae5976ab86bc0438c791a59374"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.241"
+version = "0.0.244"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2756858e7851f05d6a9119ecb51b10b7ec85414ea06ab6e20e06fd4a0a64599"
+checksum = "24f704d5abc6849b7c2dea4750a9f5ab0eceeb801ce96eee2df66dab8c9fb959"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7451,9 +7451,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.241"
+version = "0.0.244"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e743e2c0495f0f1292865d30f7a56349a27f9ceeb61f7b743c96b6ca134e5f76"
+checksum = "a9961d9edb2d06ae1e365ea80c4ca4d292f50d43d26b33f88280765d1a04b31f"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7466,9 +7466,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.241"
+version = "0.0.244"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9754a818cc20ad5d0acdc2f316082d5ca166ee22db82f5b8d502ba2d5dcc2492"
+checksum = "2339515bc839b61229bf64c4921a9745a6bcfe7c1e06f95a9e7d3a734336a71d"
 dependencies = [
  "cov-mark",
  "either",
@@ -7477,22 +7477,11 @@ dependencies = [
  "ra-ap-rustc_lexer",
  "ra_ap_parser",
  "ra_ap_stdx",
- "ra_ap_text_edit",
  "rowan",
  "rustc-hash 2.0.0",
  "smol_str",
  "tracing",
  "triomphe",
-]
-
-[[package]]
-name = "ra_ap_text_edit"
-version = "0.0.241"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5f89e975e82f5efe2682bc2c03dda28ad57b0bfd33f64b5831674a25204072b"
-dependencies = [
- "itertools 0.12.1",
- "text-size",
 ]
 
 [[package]]
@@ -7655,7 +7644,7 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.8",
+ "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
 ]
 
@@ -7670,9 +7659,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368758f23274712b504848e9d5a6f010445cc8b87a7cdb4d7cbee666c1288da3"
+checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -8269,9 +8258,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.214"
+version = "1.0.215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f55c3193aca71c12ad7890f1785d2b73e1b9f63a0bbc353c08ef26fe03fc56b5"
+checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
 dependencies = [
  "serde_derive",
 ]
@@ -8296,9 +8285,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.214"
+version = "1.0.215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
+checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
 dependencies = [
  "proc-macro2",
  "quote",
