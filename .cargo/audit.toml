@@ -14,7 +14,11 @@ ignore = [
   "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
   # Instant is unmaintained, but there is a replacement in
   # the pipeline - see
-  # https://github.com/console-rs/indicatif/pull/666
+  # https://github.com/libp2p/rust-libp2p/pull/5674
+  # We will likele need to get rid of `backoff` dependency
+  # in favour of something that is maintained too - see
+  # https://github.com/ihrwein/backoff/pull/70. Last commit
+  # to master was 3 years ago.
   "RUSTSEC-2024-0384",
 ]
 
