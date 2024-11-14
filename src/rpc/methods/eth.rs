@@ -1266,7 +1266,6 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-
     type Params = (EthHash,);
     type Ok = Vec<EthTxReceipt>;
 
@@ -1275,27 +1274,28 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-
-        let (_, msgs_and_receipts) = execute_tipset(&ctx, &Arc::new(ts.clone())).await?;
-
+        let ts_ref = Arc::new(ts);
+        let (_, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
 
         for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
-            let return_data = receipt.return_data().clone();
+            let return_dec = receipt
+                .return_data()
+                .deserialize()
+                .unwrap_or_else(|_| Ipld::Null);
+
             let message_lookup = MessageLookup {
-                receipt: receipt,
-                tipset: ts.key().clone(),
-                height: ts.epoch(),
+                receipt,
+                tipset: ts_ref.key().clone(),
+                height: ts_ref.epoch(),
                 message: msg.cid(),
-                return_dec: return_data.deserialize().unwrap_or(Ipld::Null),
+                return_dec,
             };
 
             let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
-
             let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
             receipts.push(tx_receipt);
         }
-
         Ok(receipts)
     }
 }
