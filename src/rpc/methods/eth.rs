@@ -1278,11 +1278,9 @@ impl RpcMethod<1> for EthGetBlockReceipts {
 
         let (_, msgs_and_receipts) = execute_tipset(&ctx, &Arc::new(ts.clone())).await?;
 
-        let _state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
 
-        for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
+        for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
             let message_lookup = MessageLookup {
                 receipt: receipt.clone(),
                 tipset: ts.key().clone(),
