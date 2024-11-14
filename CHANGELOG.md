@@ -65,7 +65,7 @@ for more details.
   `Filecoin.EthSendRawTransaction` RPC method.
 
 - [#4985](https://github.com/ChainSafe/forest/pull/4985) Add support for the
-  `Filecoin.EthGetTransactionReceipt` RPC method.
+  `Filecoin.EthGetBlockReceipts` RPC method.
 
 - [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of
   method aliases for `forest-tool shed openrpc` subcommand and sort all methods
