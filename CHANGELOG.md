@@ -64,7 +64,7 @@ for more details.
 - [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
   `Filecoin.EthSendRawTransaction` RPC method.
 
-- [#4985](https://github.com/ChainSafe/forest/pull/4985) Add support for the
+- [#4839](https://github.com/ChainSafe/forest/issues/4839) Add support for the
   `Filecoin.EthGetBlockReceipts` RPC method.
 
 - [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of

@@ -1279,10 +1279,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
 
         for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
-            let return_dec = receipt
-                .return_data()
-                .deserialize()
-                .unwrap_or_else(|_| Ipld::Null);
+            let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
 
             let message_lookup = MessageLookup {
                 receipt,
