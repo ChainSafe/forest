@@ -1281,12 +1281,13 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
 
         for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+            let return_data = receipt.return_data().clone();
             let message_lookup = MessageLookup {
                 receipt: receipt,
                 tipset: ts.key().clone(),
                 height: ts.epoch(),
                 message: msg.cid(),
-                return_dec: receipt.return_data().deserialize().unwrap_or(Ipld::Null),
+                return_dec: return_data.deserialize().unwrap_or(Ipld::Null),
             };
 
             let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
