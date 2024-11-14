@@ -1282,7 +1282,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
 
         for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
             let message_lookup = MessageLookup {
-                receipt: receipt.clone(),
+                receipt: receipt,
                 tipset: ts.key().clone(),
                 height: ts.epoch(),
                 message: msg.cid(),
