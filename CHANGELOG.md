@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#4988](https://github.com/ChainSafe/forest/pull/4988) Fix the `logs` member in `EthTxReceipt`
+  that was initialized with a default value.
+
 ## Forest 0.22.0 "Pad Thai"
 
 Mandatory release for mainnet node operators. It sets the upgrade epoch for the
