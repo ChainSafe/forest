@@ -240,10 +240,10 @@ impl EthEventHandler {
         match_addr && match_topics
     }
 
-    async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
-        spec: &EthFilterSpec,
+        spec: Option<&EthFilterSpec>,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let tipset_key = tipset.key().clone();
@@ -285,12 +285,17 @@ impl EthEventHandler {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
                 // dbg!(&entries);
 
-                let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
-                tracing::debug!(
-                    "Event {} {}match filter topics",
-                    event_idx,
-                    if matched { "" } else { "do not " }
-                );
+                let matched = if let Some(spec) = spec {
+                    let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
+                    tracing::debug!(
+                        "Event {} {}match filter topics",
+                        event_idx,
+                        if matched { "" } else { "do not " }
+                    );
+                    matched
+                } else {
+                    true
+                };
                 if matched {
                     let entries: Vec<EventEntry> = entries
                         .into_iter()
@@ -334,7 +339,7 @@ impl EthEventHandler {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
                 let tipset = Arc::new(tipset);
-                Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
+                Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
@@ -363,7 +368,7 @@ impl EthEventHandler {
                     .take(num_tipsets)
                 {
                     let tipset = Arc::new(tipset);
-                    Self::collect_events(ctx, &tipset, &spec, &mut collected_events).await?;
+                    Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
                 }
             }
         }
