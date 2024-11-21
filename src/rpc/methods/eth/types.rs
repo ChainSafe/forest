@@ -447,6 +447,82 @@ pub enum EthFilterResult {
 }
 lotus_json_with_self!(EthFilterResult);
 
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallTraceAction {
+    call_type: String,
+    from: EthAddress,
+    to: EthAddress,
+    gas: EthUint64,
+    value: EthBigInt,
+    input: EthBytes,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCreateTraceAction {
+    from: EthAddress,
+    gas: EthUint64,
+    value: EthBigInt,
+    init: EthBytes,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum TraceAction {
+    Call(EthCallTraceAction),
+    Create(EthCreateTraceAction),
+}
+
+impl Default for TraceAction {
+    fn default() -> Self {
+        TraceAction::Call(EthCallTraceAction::default())
+    }
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallTraceResult {
+    gas_used: EthUint64,
+    output: EthBytes,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCreateTraceResult {
+    address: Option<EthAddress>,
+    gas_used: EthUint64,
+    code: EthBytes,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum TraceResult {
+    Call(EthCallTraceResult),
+    Create(EthCreateTraceResult),
+}
+
+impl Default for TraceResult {
+    fn default() -> Self {
+        TraceResult::Call(EthCallTraceResult::default())
+    }
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthBlockTrace {
+    r#type: String,
+    subtraces: i64,
+    trace_address: Vec<i64>,
+    action: TraceAction,
+    result: TraceResult,
+    block_hash: EthHash,
+    block_number: i64,
+    transaction_hash: EthHash,
+    transaction_position: i64,
+}
+lotus_json_with_self!(EthBlockTrace);
+
 #[cfg(test)]
 mod tests {
     use super::*;

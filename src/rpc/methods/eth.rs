@@ -22,6 +22,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::types::EthBlockTrace;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
@@ -2479,6 +2480,34 @@ impl RpcMethod<1> for EthGetLogs {
             .eth_get_events_for_filter(&ctx, eth_filter)
             .await?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
+    }
+}
+
+pub enum EthTraceBlock {}
+impl RpcMethod<1> for EthTraceBlock {
+    const NAME: &'static str = "Filecoin.EthTraceBlock";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_traceBlock");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (BlockNumberOrHash,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let _state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let tsk = ts.key();
+        let cid = tsk.cid()?;
+        let _block_hash: EthHash = cid.into();
+
+        let mut trace = vec![];
+        trace.push(EthBlockTrace::default());
+
+        Ok(trace)
     }
 }
 
