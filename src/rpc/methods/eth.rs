@@ -1275,6 +1275,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     ) -> Result<Self::Ok, ServerError> {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
         let ts_ref = Arc::new(ts);
+        let ts_key = ts_ref.key();
         let (_, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
 
@@ -1283,13 +1284,16 @@ impl RpcMethod<1> for EthGetBlockReceipts {
 
             let message_lookup = MessageLookup {
                 receipt,
-                tipset: ts_ref.key().clone(),
+                tipset: ts_key.clone(),
                 height: ts_ref.epoch(),
                 message: msg.cid(),
                 return_dec,
             };
 
-            let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
+            let mut tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
+            tx.block_hash = block_hash.clone();
+            tx.block_number = (ts_ref.epoch() as u64).into();
+
             let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
             receipts.push(tx_receipt);
         }
