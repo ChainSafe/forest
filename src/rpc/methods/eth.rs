@@ -1094,7 +1094,6 @@ fn new_eth_tx<DB: Blockstore>(
     })
 }
 
-
 async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
