@@ -1074,6 +1074,25 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     })
 }
 
+fn new_eth_tx<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    state: &StateTree<DB>,
+    block_height: ChainEpoch,
+    msg_tipset_cid: &Cid,
+    msg_cid: &Cid,
+    tx_index: u64,
+) -> Result<ApiEthTx> {
+    let smsg = get_signed_message(ctx, *msg_cid)?;
+    let tx = new_eth_tx_from_signed_message(&smsg, state, ctx.chain_config().eth_chain_id)?;
+
+    Ok(ApiEthTx {
+        block_hash: (*msg_tipset_cid).into(),
+        block_number: (block_height as u64).into(),
+        transaction_index: tx_index.into(),
+        ..tx
+    })
+}
+
 async fn new_eth_tx_receipt<DB: Blockstore>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
@@ -1276,8 +1295,10 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
         let ts_ref = Arc::new(ts);
         let ts_key = ts_ref.key();
-        let (_, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
+        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
         let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
 
         for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
             let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -1290,9 +1311,14 @@ impl RpcMethod<1> for EthGetBlockReceipts {
                 return_dec,
             };
 
-            let mut tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, Some(i as u64))?;
-            tx.block_hash = block_hash.clone();
-            tx.block_number = (ts_ref.epoch() as u64).into();
+            let tx = new_eth_tx(
+                &ctx,
+                &state,
+                ts_ref.epoch(),
+                &ts_key.cid()?,
+                &msg.cid(),
+                i as u64,
+            )?;
 
             let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
             receipts.push(tx_receipt);
