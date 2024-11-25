@@ -23,6 +23,7 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
+use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::is_evm_actor;
@@ -1093,7 +1094,8 @@ fn new_eth_tx<DB: Blockstore>(
     })
 }
 
-async fn new_eth_tx_receipt<DB: Blockstore>(
+
+async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
     message_lookup: &MessageLookup,
@@ -1151,7 +1153,9 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
         receipt.contract_address = Some(ret.eth_address.into());
     }
 
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
+    let mut events = vec![];
+    EthEventHandler::collect_events(ctx, &parent_ts, None, &mut events).await?;
+    receipt.logs = eth_filter_logs_from_events(ctx, &events)?;
 
     Ok(receipt)
 }
