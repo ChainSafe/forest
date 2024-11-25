@@ -1,15 +1,20 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::{
-    self,
-    f3::{F3Instant, F3Manifest, FinalityCertificate},
-    prelude::*,
+use crate::{
+    blocks::TipsetKey,
+    rpc::{
+        self,
+        f3::{F3Instant, F3Manifest, F3PowerEntry, FinalityCertificate},
+        prelude::*,
+    },
 };
+use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use sailfish::TemplateSimple;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 /// Output format
 #[derive(ValueEnum, Debug, Clone, Default, Serialize, Deserialize)]
@@ -36,6 +41,9 @@ pub enum F3Commands {
     /// Manages interactions with F3 finality certificates.
     #[command(subcommand, visible_alias = "c")]
     Certs(F3CertsCommands),
+    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+    #[command(subcommand, visible_alias = "pt")]
+    PowerTable(F3PowerTableCommands),
 }
 
 impl F3Commands {
@@ -66,6 +74,7 @@ impl F3Commands {
                 Ok(())
             }
             Self::Certs(cmd) => cmd.run(client).await,
+            Self::PowerTable(cmd) => cmd.run(client).await,
         }
     }
 }
@@ -104,6 +113,119 @@ impl F3CertsCommands {
             }
         }
     }
+}
+
+/// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+#[derive(Debug, Subcommand)]
+pub enum F3PowerTableCommands {
+    #[command(visible_alias = "g")]
+    Get {
+        /// instance ID. (default: latest)
+        instance: Option<u64>,
+        /// Whether to get the power table from EC. (default: false)
+        #[arg(long, default_value_t = false)]
+        ec: bool,
+    },
+}
+
+impl F3PowerTableCommands {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
+        match self {
+            Self::Get { instance, ec } => {
+                let instance = if let Some(instance) = instance {
+                    instance
+                } else {
+                    let progress = F3GetProgress::call(&client, ()).await?;
+                    progress.id
+                };
+                let (tsk, power_table_cid) =
+                    Self::get_power_table_tsk_by_instance(&client, instance).await?;
+                let power_table = if ec {
+                    F3GetECPowerTable::call(&client, (tsk.into(),)).await?
+                } else {
+                    F3GetF3PowerTable::call(&client, (tsk.into(),)).await?
+                };
+                let total = power_table
+                    .iter()
+                    .fold(num::BigInt::ZERO, |acc, entry| acc + &entry.power);
+                let mut scaled_total = 0;
+                for entry in power_table.iter() {
+                    scaled_total += scale_power(&entry.power, &total)?;
+                }
+                let result = F3PowerTableGetCommandResult {
+                    instance,
+                    from_ec: ec,
+                    power_table: F3PowerTableCliJson {
+                        cid: power_table_cid,
+                        entries: power_table,
+                        total,
+                        scaled_total,
+                    },
+                };
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            }
+        };
+
+        Ok(())
+    }
+
+    async fn get_power_table_tsk_by_instance(
+        client: &rpc::Client,
+        instance: u64,
+    ) -> anyhow::Result<(TipsetKey, Cid)> {
+        let manifest = F3GetManifest::call(client, ()).await?;
+        if instance < manifest.initial_instance + manifest.committee_lookback {
+            let epoch = manifest.bootstrap_epoch - manifest.ec.finality;
+            let ts = ChainGetTipSetByHeight::call(client, (epoch, None.into())).await?;
+            return Ok((ts.key().clone(), manifest.initial_power_table));
+        }
+
+        let previous = F3GetCertificate::call(client, (instance.saturating_sub(1),)).await?;
+        let lookback = F3GetCertificate::call(
+            client,
+            (instance.saturating_sub(manifest.committee_lookback),),
+        )
+        .await?;
+        let tsk = lookback
+            .ec_chain
+            .last()
+            .context("lookback EC chain is empty")?
+            .key
+            .clone()
+            .try_into()?;
+        Ok((tsk, previous.supplemental_data.power_table))
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3PowerTableGetCommandResult {
+    instance: u64,
+    #[serde(rename = "FromEC")]
+    from_ec: bool,
+    power_table: F3PowerTableCliJson,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3PowerTableCliJson {
+    #[serde(rename = "CID")]
+    #[serde_as(as = "DisplayFromStr")]
+    cid: Cid,
+    entries: Vec<F3PowerEntry>,
+    #[serde(with = "crate::lotus_json::stringify")]
+    total: num::BigInt,
+    scaled_total: i64,
+}
+
+fn scale_power(power: &num::BigInt, total: &num::BigInt) -> anyhow::Result<i64> {
+    const MAX_POWER: i64 = 0xffff;
+    if total < power {
+        anyhow::bail!("total power {total} is less than the power of a single participant {power}");
+    }
+    let scacled = MAX_POWER * power / total;
+    Ok(scacled.try_into()?)
 }
 
 #[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
