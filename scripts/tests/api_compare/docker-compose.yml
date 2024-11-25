@@ -114,7 +114,6 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http
-      - RUST_LOG=info,forest_filecoin::rpc=debug
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
