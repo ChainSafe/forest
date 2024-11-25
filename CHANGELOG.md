@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
+  `Filecoin.EthGetTransactionReceiptLimited` RPC method.
+
 ### Changed
 
 ### Removed
@@ -37,6 +40,8 @@
 
 - [#4959](https://github.com/ChainSafe/forest/pull/4959) Re-enable garbage
   collection after implementing a "persistent" storage for manifests.
+- [#4988](https://github.com/ChainSafe/forest/pull/4988) Fix the `logs` member
+  in `EthTxReceipt` that was initialized with a default value.
 
 ## Forest 0.22.0 "Pad Thai"
 
