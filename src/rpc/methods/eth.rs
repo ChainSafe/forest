@@ -180,9 +180,9 @@ lotus_json_with_self!(EthInt64);
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
-        use cid::multihash::MultihashDigest;
+        use multihash_codetable::{Code, MultihashDigest as _};
 
-        let mh = cid::multihash::Code::Blake2b256
+        let mh = Code::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)

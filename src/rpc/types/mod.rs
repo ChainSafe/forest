@@ -146,7 +146,7 @@ lotus_json_with_self!(MessageLookup);
 
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
-    pub multihash: Multihash,
+    pub multihash: Multihash<64>,
 }
 
 #[derive(

@@ -64,7 +64,7 @@ pub fn from_ideal_slot_ix(
 mod tests {
     use super::*;
     use crate::utils::cid::CidCborExt as _;
-    use cid::multihash::{Code, MultihashDigest as _};
+    use multihash_codetable::{Code, MultihashDigest as _};
 
     quickcheck::quickcheck! {
         fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {

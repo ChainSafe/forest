@@ -250,8 +250,8 @@ pub(crate) use static_assert_contains_matching;
 
 #[cfg(test)]
 mod test {
-    use cid::multihash::{Code::Blake2b256, MultihashDigest as _};
     use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_codetable::{Code::Blake2b256, MultihashDigest as _};
 
     use super::*;
 

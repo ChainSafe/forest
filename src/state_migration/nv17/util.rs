@@ -65,7 +65,7 @@ pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesK
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::{Multihash, MultihashDigest};
+    use cid::multihash::{Multihash, MultihashDigest as _};
     use fvm_shared2::{
         bigint::Zero,
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},

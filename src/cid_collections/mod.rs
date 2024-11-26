@@ -39,15 +39,10 @@ enum MaybeCompactedCid {
 // Hide the constructors for [`Uncompactable`] and [`CidV1DagCborBlake2b256`]
 mod imp {
     use super::MaybeCompactedCid;
-
-    use cid::{
-        multihash::{self, Multihash},
-        Cid,
-    };
+    use cid::{multihash::Multihash, Cid};
+    use multihash_codetable::{Code, MultihashDigest as _};
     #[cfg(test)]
-    use {
-        crate::utils::db::CborStoreExt as _, multihash::MultihashDigest as _, quickcheck::Arbitrary,
-    };
+    use {crate::utils::db::CborStoreExt as _, quickcheck::Arbitrary};
 
     #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
     #[repr(transparent)]
@@ -71,7 +66,7 @@ mod imp {
     #[test]
     fn width() {
         assert_eq!(
-            multihash::Code::Blake2b256.digest(&[]).size() as usize,
+            Code::Blake2b256.digest(&[]).size() as usize,
             CidV1DagCborBlake2b256::WIDTH,
         );
     }
@@ -83,9 +78,7 @@ mod imp {
             if value.version() == cid::Version::V1 && value.codec() == fvm_ipld_encoding::DAG_CBOR {
                 if let Ok(small_hash) = value.hash().resize() {
                     let (code, digest, size) = small_hash.into_inner();
-                    if code == u64::from(multihash::Code::Blake2b256)
-                        && size as usize == Self::WIDTH
-                    {
+                    if code == u64::from(Code::Blake2b256) && size as usize == Self::WIDTH {
                         return Ok(Self { digest });
                     }
                 }
@@ -99,7 +92,7 @@ mod imp {
             let CidV1DagCborBlake2b256 { digest } = value;
             Cid::new_v1(
                 fvm_ipld_encoding::DAG_CBOR,
-                Multihash::wrap(multihash::Code::Blake2b256.into(), digest.as_slice())
+                Multihash::wrap(Code::Blake2b256.into(), digest.as_slice())
                     .expect("could not round-trip compacted CID"),
             )
         }
@@ -142,7 +135,7 @@ mod imp {
         let cid = Cid::new(
             cid::Version::V1,
             fvm_ipld_encoding::DAG_CBOR,
-            multihash::Code::Blake2b256.digest("blake".as_bytes()),
+            Code::Blake2b256.digest("blake".as_bytes()),
         )
         .unwrap();
         assert!(matches!(cid.into(), MaybeCompactedCid::Compact(_)));

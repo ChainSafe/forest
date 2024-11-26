@@ -5,7 +5,7 @@ use crate::{ipld::Ipld, utils::encoding::from_slice_with_fallback};
 use cid::{
     multihash::{
         Code::{Blake2b256, Identity},
-        MultihashDigest,
+        MultihashDigest as _,
     },
     Cid,
 };

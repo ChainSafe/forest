@@ -1,11 +1,9 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use fvm_ipld_encoding::Error;
+use multihash_codetable::{Code, MultihashDigest as _};
 
 /// Extension methods for constructing `dag-cbor` [Cid]
 pub trait CidCborExt {

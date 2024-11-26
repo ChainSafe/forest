@@ -9,7 +9,7 @@ mod tests {
     use ahash::HashMap;
     use futures::StreamExt;
     use libipld::{
-        multihash::{self, MultihashDigest},
+        multihash::{self, MultihashDigest as _},
         Block, Cid,
     };
     use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};

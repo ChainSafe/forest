@@ -18,7 +18,7 @@ use crate::shim::{
 use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -682,7 +682,7 @@ mod tests {
     use cid::{
         multihash::{
             Code::{Blake2b256, Identity},
-            MultihashDigest,
+            MultihashDigest as _,
         },
         Cid,
     };

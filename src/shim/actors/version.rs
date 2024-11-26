@@ -1,8 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use cid::multihash::{Code, MultihashDigest as _};
 use cid::Cid;
 use fil_actors_shared::v11::runtime::builtins::Type;
+use multihash_codetable::{Code, MultihashDigest as _};
 use once_cell::sync::Lazy;
 use paste::paste;
 

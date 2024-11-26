@@ -1,30 +1,20 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
-
-use super::SettingsStore;
-
 use super::EthMappingsStore;
-
+use super::SettingsStore;
+use crate::cid_collections::CidHashSet;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-
 use crate::rpc::eth::types::EthHash;
 use anyhow::{anyhow, Context as _};
-use cid::multihash::Code::Blake2b256;
-
-use cid::multihash::MultihashDigest;
 use cid::Cid;
-
 use fvm_ipld_blockstore::Blockstore;
-
 use fvm_ipld_encoding::DAG_CBOR;
-
+use multihash_codetable::{Code::Blake2b256, MultihashDigest as _};
 use parity_db::{CompressionType, Db, Operation, Options};
+use std::path::PathBuf;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
-
-use crate::cid_collections::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
@@ -391,9 +381,8 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 
 #[cfg(test)]
 mod test {
-    use cid::multihash::Code::Sha2_256;
-    use cid::multihash::MultihashDigest;
     use fvm_ipld_encoding::IPLD_RAW;
+    use multihash_codetable::{Code::Sha2_256, MultihashDigest as _};
     use nom::AsBytes;
 
     use crate::db::tests::db_utils::parity::TempParityDB;
@@ -513,7 +502,7 @@ mod test {
                 DbColumn::GraphFull,
             ),
             (
-                Cid::new_v1(DAG_CBOR, cid::multihash::Code::Sha2_256.digest(&data)),
+                Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data)),
                 DbColumn::GraphFull,
             ),
         ];

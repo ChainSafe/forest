@@ -180,14 +180,11 @@ impl<'de> de::Deserialize<'de> for CidVec {
 #[cfg(test)]
 mod test {
     use crate::ipld::DfsIter;
-
     use crate::utils::encoding::extract_cids;
-    use cid::multihash::Code::Blake2b256;
-    use cid::multihash::MultihashDigest;
     use cid::Cid;
-
     use fvm_ipld_encoding::DAG_CBOR;
     use libipld_core::ipld::Ipld;
+    use multihash_codetable::{Code::Blake2b256, MultihashDigest as _};
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 

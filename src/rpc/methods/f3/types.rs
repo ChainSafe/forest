@@ -7,12 +7,13 @@ use crate::{
     lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson, LotusJson},
     networks::NetworkChain,
 };
-use cid::{multihash::MultihashDigest as _, Cid};
+use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;
+use multihash_codetable::MultihashDigest as _;
 use num::Zero as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
@@ -52,7 +53,7 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
             let buf = [0_u8; 256];
             let cid = Cid::new_v1(
                 fvm_ipld_encoding::DAG_CBOR,
-                cid::multihash::Code::Blake2b256.digest(&buf),
+                multihash_codetable::Code::Blake2b256.digest(&buf),
             );
             cid.to_bytes().len()
         });

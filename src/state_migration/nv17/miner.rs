@@ -369,7 +369,7 @@ mod tests {
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
-    use cid::multihash::{Multihash, MultihashDigest};
+    use cid::multihash::{Multihash, MultihashDigest as _};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
     use fil_actors_shared::fvm_ipld_hamt::BytesKey;
     use fvm_ipld_encoding::IPLD_RAW;

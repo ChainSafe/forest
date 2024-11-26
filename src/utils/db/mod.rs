@@ -5,13 +5,11 @@ pub mod car_stream;
 pub mod car_util;
 
 use anyhow::Context as _;
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+use multihash_codetable::{Code, MultihashDigest as _};
 
 use serde::ser::Serialize;
 
@@ -60,8 +58,8 @@ pub trait CborStoreExt: CborStore {
     /// mhType := uint64(mh.BLAKE2B_MIN + 31)
     /// // 45569 + 31 = 45600 = 0xb220
     /// ```
-    fn default_code() -> cid::multihash::Code {
-        cid::multihash::Code::Blake2b256
+    fn default_code() -> Code {
+        Code::Blake2b256
     }
 
     /// A wrapper of [`CborStore::put_cbor`] that omits code parameter to match store API in go

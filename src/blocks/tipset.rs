@@ -656,11 +656,9 @@ mod test {
     use super::*;
     use crate::blocks::VRFProof;
     use crate::shim::address::Address;
-    use cid::{
-        multihash::{Code::Identity, MultihashDigest},
-        Cid,
-    };
+    use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_codetable::{Code, MultihashDigest as _};
     use num_bigint::BigInt;
 
     use crate::blocks::{
@@ -771,12 +769,12 @@ mod test {
     fn ensure_state_roots_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
-            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            state_root: Cid::new_v1(DAG_CBOR, Code::Blake2b256.digest(&[])),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[1])),
+            state_root: Cid::new_v1(DAG_CBOR, Code::Blake2b256.digest(&[1])),
             ..Default::default()
         };
         assert_eq!(
@@ -793,7 +791,10 @@ mod test {
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            parents: TipsetKey::from(nonempty![Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            parents: TipsetKey::from(nonempty![Cid::new_v1(
+                DAG_CBOR,
+                Code::Blake2b256.digest(&[])
+            )]),
             ..Default::default()
         };
         assert_eq!(

@@ -13,7 +13,7 @@ use crate::state_migration::common::{
 use crate::{
     shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
 };
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::{multibase::Base, Cid};
 use fil_actor_miner_state::{
     v11::Deadline as DeadlineOld, v11::Deadlines as DeadlinesOld, v11::State as MinerStateOld,
@@ -293,7 +293,7 @@ mod tests {
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateTree, StateTreeVersion},
     };
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::MultihashDigest as _;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_shared2::bigint::Zero;
 

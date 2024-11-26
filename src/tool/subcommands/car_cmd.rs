@@ -128,9 +128,9 @@ mod tests {
     use crate::db::car::forest;
     use crate::networks::{calibnet, mainnet};
     use crate::utils::db::car_stream::CarBlock;
-    use cid::multihash::{Code, MultihashDigest};
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
+    use multihash_codetable::{Code, MultihashDigest as _};
     use nunny::{vec as nonempty, Vec as NonEmpty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};

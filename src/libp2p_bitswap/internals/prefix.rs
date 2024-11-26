@@ -4,7 +4,7 @@
 use std::convert::TryFrom;
 
 use libipld::cid::{
-    multihash::{Code, MultihashDigest},
+    multihash::{Code, MultihashDigest as _},
     Version,
 };
 use unsigned_varint::{decode as varint_decode, encode as varint_encode};

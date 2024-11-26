@@ -489,7 +489,7 @@ mod tests {
     // Two colliding hashes in separate zstd-frames should not affect each other.
     #[test]
     fn encode_hash_collisions() {
-        use cid::multihash::{Code::Identity, MultihashDigest};
+        use cid::multihash::{Code::Identity, MultihashDigest as _};
 
         // Distinct CIDs may map to the same hash value
         let cid_a = Cid::new_v1(0, Identity.digest(&[10]));
