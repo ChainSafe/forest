@@ -1075,6 +1075,25 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     })
 }
 
+fn new_eth_tx<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    state: &StateTree<DB>,
+    block_height: ChainEpoch,
+    msg_tipset_cid: &Cid,
+    msg_cid: &Cid,
+    tx_index: u64,
+) -> Result<ApiEthTx> {
+    let smsg = get_signed_message(ctx, *msg_cid)?;
+    let tx = new_eth_tx_from_signed_message(&smsg, state, ctx.chain_config().eth_chain_id)?;
+
+    Ok(ApiEthTx {
+        block_hash: (*msg_tipset_cid).into(),
+        block_number: (block_height as u64).into(),
+        transaction_index: tx_index.into(),
+        ..tx
+    })
+}
+
 async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
@@ -1259,6 +1278,55 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
+    }
+}
+
+pub enum EthGetBlockReceipts {}
+impl RpcMethod<1> for EthGetBlockReceipts {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash,);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+        let ts_ref = Arc::new(ts);
+        let ts_key = ts_ref.key();
+        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
+        let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+        for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+            let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+            let message_lookup = MessageLookup {
+                receipt,
+                tipset: ts_key.clone(),
+                height: ts_ref.epoch(),
+                message: msg.cid(),
+                return_dec,
+            };
+
+            let tx = new_eth_tx(
+                &ctx,
+                &state,
+                ts_ref.epoch(),
+                &ts_key.cid()?,
+                &msg.cid(),
+                i as u64,
+            )?;
+
+            let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
+            receipts.push(tx_receipt);
+        }
+        Ok(receipts)
     }
 }
 
