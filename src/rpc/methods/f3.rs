@@ -499,7 +499,7 @@ impl RpcMethod<1> for Finalize {
         if head.epoch() >= finalized_ts.epoch()
             && head.epoch() <= finalized_ts.epoch() + ctx.chain_config().policy.chain_finality
         {
-            tracing::info!(
+            tracing::debug!(
                 "F3 finalized tsk {} at epoch {}",
                 finalized_ts.key(),
                 finalized_ts.epoch()

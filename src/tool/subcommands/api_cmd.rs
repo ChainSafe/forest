@@ -1438,6 +1438,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetBlockReceipts::request((block_hash.clone(),)).unwrap()),
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
@@ -1590,7 +1591,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
                 && smsg.message.to.protocol() == Protocol::Delegated
             {
                 tests.push(
-                    RpcTest::identity(EthGetTransactionReceipt::request((tx.hash,))?)
+                    RpcTest::identity(EthGetTransactionReceipt::request((tx.hash.clone(),))?)
+                        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+                );
+                tests.push(
+                    RpcTest::identity(EthGetTransactionReceiptLimited::request((tx.hash, 800))?)
                         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
                 );
             }

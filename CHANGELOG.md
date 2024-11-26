@@ -29,11 +29,17 @@
 
 ### Added
 
+- [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
+  `Filecoin.EthGetTransactionReceiptLimited` RPC method.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#4988](https://github.com/ChainSafe/forest/pull/4988) Fix the `logs` member
+  in `EthTxReceipt` that was initialized with a default value.
 
 ## Forest 0.22.0 "Pad Thai"
 
@@ -63,6 +69,9 @@ for more details.
 
 - [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
   `Filecoin.EthSendRawTransaction` RPC method.
+
+- [#4839](https://github.com/ChainSafe/forest/issues/4839) Add support for the
+  `Filecoin.EthGetBlockReceipts` RPC method.
 
 - [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of
   method aliases for `forest-tool shed openrpc` subcommand and sort all methods

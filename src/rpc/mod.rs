@@ -80,6 +80,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetBalance);
         $callback!(crate::rpc::eth::EthGetBlockByHash);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
+        $callback!(crate::rpc::eth::EthGetBlockReceipts);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
         $callback!(crate::rpc::eth::EthGetCode);
@@ -95,6 +96,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
         $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionReceipt);
+        $callback!(crate::rpc::eth::EthGetTransactionReceiptLimited);
         $callback!(crate::rpc::eth::EthNewFilter);
         $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!(crate::rpc::eth::EthNewBlockFilter);
