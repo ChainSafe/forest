@@ -28,7 +28,7 @@ async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
 axum = "0.7"
-backoff = { version = "0.4", features = ['tokio'] }
+backon = "1"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
 blake2b_simd = "1.0"
@@ -91,7 +91,7 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17.9", features = ["tokio"] }
+indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.13"
@@ -211,7 +211,7 @@ zstd = "0.13"
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
-paste = "1.0.15"
+paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
