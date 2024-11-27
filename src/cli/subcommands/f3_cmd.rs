@@ -1,6 +1,9 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod tests;
+
 use crate::{
     blocks::TipsetKey,
     rpc::{
@@ -89,6 +92,21 @@ pub enum F3CertsCommands {
         #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
         output: F3OutputFormat,
     },
+    /// Lists a range of F3 finality certificates.
+    List {
+        /// Inclusive range of `from` and `to` instances in following notation:
+        /// `<from>..<to>`. Either `<from>` or `<to>` may be omitted, but not both.
+        range: Option<String>,
+        /// The output format.
+        #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
+        output: F3OutputFormat,
+        /// The maximum number of instances. A value less than 0 indicates no limit.
+        #[arg(long, default_value_t = 10)]
+        limit: i64,
+        /// Reverses the default order of output.
+        #[arg(long, default_value_t = false)]
+        reverse: bool,
+    },
 }
 
 impl F3CertsCommands {
@@ -109,8 +127,71 @@ impl F3CertsCommands {
                         println!("{}", serde_json::to_string_pretty(&cert)?);
                     }
                 }
-                Ok(())
             }
+            Self::List {
+                range,
+                output,
+                limit,
+                reverse,
+            } => {
+                let (from, to_opt) = if let Some(range) = range {
+                    let (from_opt, to_opt) = Self::parse_range_unvalidated(&range)?;
+                    (from_opt.unwrap_or_default(), to_opt)
+                } else {
+                    (0, None)
+                };
+                let to = if let Some(i) = to_opt {
+                    i
+                } else {
+                    F3GetLatestCertificate::call(&client, ()).await?.instance
+                };
+                anyhow::ensure!(
+                    to >= from,
+                    "ERROR: invalid range: 'from' cannot exceed 'to':  {from} > {to}"
+                );
+                let limit = if limit < 0 {
+                    usize::MAX
+                } else {
+                    limit as usize
+                };
+                let range: Box<dyn Iterator<Item = u64>> = if reverse {
+                    Box::new((from..=to).into_iter().take(limit))
+                } else {
+                    Box::new((from..=to).into_iter().rev().take(limit))
+                };
+                for i in range {
+                    let cert = F3GetCertificate::call(&client, (i,)).await?;
+                    match output {
+                        F3OutputFormat::Text => {
+                            let template = FinalityCertificateTemplate::new(cert);
+                            println!("{}", template.render_once()?);
+                        }
+                        F3OutputFormat::Json => {
+                            println!("{}", serde_json::to_string_pretty(&cert)?);
+                        }
+                    }
+                    println!();
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parse range without validating `to >= from`
+    fn parse_range_unvalidated(range: &str) -> anyhow::Result<(Option<u64>, Option<u64>)> {
+        let pattern = lazy_regex::regex!(r#"^(?P<from>\d+)?\.\.(?P<to>\d+)?$"#);
+        if let Some(captures) = pattern.captures(range) {
+            let from = captures
+                .name("from")
+                .map(|i| i.as_str().parse().expect("Infallible"));
+            let to = captures
+                .name("to")
+                .map(|i| i.as_str().parse().expect("Infallible"));
+            anyhow::ensure!(from.is_some() || to.is_some(), "invalid range `{range}`");
+            Ok((from, to))
+        } else {
+            anyhow::bail!("invalid range `{range}`");
         }
     }
 }
@@ -266,222 +347,5 @@ struct FinalityCertificateTemplate {
 impl FinalityCertificateTemplate {
     fn new(cert: FinalityCertificate) -> Self {
         Self { cert }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_manifest_template() {
-        // lotus f3 manifest --output json
-        let lotus_json = serde_json::json!({
-          "Pause": false,
-          "ProtocolVersion": 4,
-          "InitialInstance": 0,
-          "BootstrapEpoch": 2081674,
-          "NetworkName": "calibrationnet",
-          "ExplicitPower": null,
-          "IgnoreECPower": false,
-          "InitialPowerTable": {
-            "/": "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
-          },
-          "CommitteeLookback": 10,
-          "CatchUpAlignment": 15000000000_u64,
-          "Gpbft": {
-            "Delta": 6000000000_u64,
-            "DeltaBackOffExponent": 2_f64,
-            "MaxLookaheadRounds": 5,
-            "RebroadcastBackoffBase": 6000000000_u64,
-            "RebroadcastBackoffExponent": 1.3,
-            "RebroadcastBackoffSpread": 0.1,
-            "RebroadcastBackoffMax": 60000000000_u64
-          },
-          "EC": {
-            "Period": 30000000000_u64,
-            "Finality": 900,
-            "DelayMultiplier": 2_f64,
-            "BaseDecisionBackoffTable": [
-              1.3,
-              1.69,
-              2.2,
-              2.86,
-              3.71,
-              4.83,
-              6.27,
-              7.5
-            ],
-            "HeadLookback": 0,
-            "Finalize": true
-          },
-          "CertificateExchange": {
-            "ClientRequestTimeout": 10000000000_u64,
-            "ServerRequestTimeout": 60000000000_u64,
-            "MinimumPollInterval": 30000000000_u64,
-            "MaximumPollInterval": 120000000000_u64
-          }
-        });
-        let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();
-        let template = ManifestTemplate::new(manifest);
-        println!("{}", template.render_once().unwrap());
-    }
-
-    #[test]
-    fn test_progress_template() {
-        let lotus_json = serde_json::json!({
-          "ID": 1000,
-          "Round": 0,
-          "Phase": 0
-        });
-        let progress: F3Instant = serde_json::from_value(lotus_json).unwrap();
-        let template = ProgressTemplate::new(progress);
-        println!("{}", template.render_once().unwrap());
-    }
-
-    #[test]
-    fn test_finality_certificate_template() {
-        // lotus f3 c get --output json 6204
-        let lotus_json = serde_json::json!({
-            "GPBFTInstance": 6204,
-            "ECChain": [
-              {
-                "Epoch": 2088927,
-                "Key": "AXGg5AIg1NBjOnFimwUueRXQQzvPbHZO6vXbvqNA1gcomlVrq5MBcaDkAiCaOt71j85kjjq3SZF0NQq03tauEW3iwscIr4Qw0wna+g==",
-                "PowerTable": {
-                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
-                },
-                "Commitments": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
-                ]
-              },
-              {
-                "Epoch": 2088928,
-                "Key": "AXGg5AIgFn9g3q/ATrgWiWzUYZLrtN/POrkNWFPmUShj/MDqZ5IBcaDkAiACwpEW4PvUCOIsZRaYhF6W+L1bgGd2TUFLOkATNxvuGgFxoOQCILlKPpFgMxXYFcq2HslyxzBN9ZZ6iPrPSBI2uwT4tUAvAXGg5AIgwYDZ217HUZ6nGnm6fnNd5lhep2C02mSYkkjJPf5pOig=",
-                "PowerTable": {
-                  "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
-                },
-                "Commitments": [
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0
-                ]
-              }
-            ],
-            "SupplementalData": {
-              "Commitments": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
-              ],
-              "PowerTable": {
-                "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
-              }
-            },
-            "Signers": [
-              0,
-              3
-            ],
-            "Signature": "uYtvw/NWm2jKQj+d99UAG4aiPnpAMSrwAWIusv0XkjsOYYR0fyU4nUM++cAQGO47E2/J8WSDjstLgL+yMVAFC+Tgao4o9ILXIlhqhxObnNZ/Ehanajthif9SaRe1AO69",
-            "PowerTableDelta": [
-              {
-                "ParticipantID": 3782,
-                "PowerDelta": "76347338653696",
-                "SigningKey": "lXSMTNEVmIdVxJV4clmW35jrlsBEfytNUGTWVih2dFlQ1k/7QQttsUGzpD5JoNaQ"
-              }
-            ]
-        });
-        let cert: FinalityCertificate = serde_json::from_value(lotus_json).unwrap();
-        let template = FinalityCertificateTemplate::new(cert);
-        println!("{}", template.render_once().unwrap());
     }
 }
