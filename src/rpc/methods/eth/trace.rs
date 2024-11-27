@@ -7,7 +7,7 @@ use anyhow::{bail, Context};
 use cid::Cid;
 use fil_actor_evm_state::v15 as code;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared3::error::ExitCode as ExitCodeV3;
+use fvm_shared4::error::ExitCode as ExitCodeV4;
 
 pub fn decode_payload(payload: &[u8], codec: u64) -> anyhow::Result<EthBytes> {
     todo!()
@@ -65,7 +65,7 @@ pub fn trace_err_msg(trace: &ExecutionTrace) -> String {
     }
 
     // EVM tools often expect this literal string.
-    if code == ExitCodeV3::SYS_OUT_OF_GAS.into() {
+    if code == ExitCodeV4::SYS_OUT_OF_GAS.into() {
         return "out of gas".into();
     }
 
