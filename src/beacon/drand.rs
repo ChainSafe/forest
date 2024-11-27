@@ -383,7 +383,10 @@ impl Beacon for DrandBeacon {
                 Ok((|| fetch_entry(urls.iter().cloned()))
                     .retry(ExponentialBuilder::default())
                     .notify(|err, dur| {
-                        debug!("retrying fetch_entry {err} after {}", humantime::format_duration(dur));
+                        debug!(
+                            "retrying fetch_entry {err} after {}",
+                            humantime::format_duration(dur)
+                        );
                     })
                     .await?)
             }
