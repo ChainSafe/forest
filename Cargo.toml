@@ -89,6 +89,7 @@ jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
+lazy-regex = "3"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
