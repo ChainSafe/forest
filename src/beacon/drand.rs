@@ -382,8 +382,8 @@ impl Beacon for DrandBeacon {
                     .try_collect()?;
                 Ok((|| fetch_entry(urls.iter().cloned()))
                     .retry(ExponentialBuilder::default())
-                    .notify(|err: &anyhow::Error, dur| {
-                        debug!("retrying fetch_entry {:?} after {:?}", err, dur);
+                    .notify(|err, dur| {
+                        debug!("retrying fetch_entry {err} after {}", humantime::format_duration(dur));
                     })
                     .await?)
             }

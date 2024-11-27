@@ -157,10 +157,10 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
     );
     let result = (|| download_ipfs_file_trustlessly(&info.cid, &gateway, path))
         .retry(ExponentialBuilder::default())
-        .notify(|err: &anyhow::Error, dur| {
+        .notify(|err, dur| {
             debug!(
-                "retrying download_ipfs_file_trustlessly {:?} after {:?}",
-                err, dur
+                "retrying download_ipfs_file_trustlessly {err} after {}",
+                humantime::format_duration(dur)
             );
         })
         .await;
@@ -177,10 +177,10 @@ async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> 
     info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
     let result = (|| download_from_cloudflare(name, path))
         .retry(ExponentialBuilder::default())
-        .notify(|err: &anyhow::Error, dur| {
+        .notify(|err, dur| {
             debug!(
-                "retrying download_from_cloudflare {:?} after {:?}",
-                err, dur
+                "retrying download_from_cloudflare {err} after {}",
+                humantime::format_duration(dur)
             );
         })
         .await;
