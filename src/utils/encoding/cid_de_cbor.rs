@@ -19,8 +19,8 @@ pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
 /// vector of [`Cid`].
 struct CidVec(Vec<Cid>);
 
-/// [`FilterCids`] traverses an [`libipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
-/// This is much faster than constructing an [`libipld_core::ipld::Ipld`] tree and then performing the filtering.
+/// [`FilterCids`] traverses an [`ipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
+/// This is much faster than constructing an [`ipld_core::ipld::Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut Vec<Cid>);
 
 impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
@@ -187,7 +187,7 @@ mod test {
     use cid::Cid;
 
     use fvm_ipld_encoding::DAG_CBOR;
-    use libipld_core::ipld::Ipld;
+    use ipld_core::ipld::Ipld;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 
@@ -204,14 +204,14 @@ mod test {
                 match ipld {
                     // [`Cid`]s have to be valid in order to be decodable.
                     Ipld::Link(cid) => {
-                        *cid = Cid::new_v1(
+                        *cid = crate::utils::cid::cid_10_to_11(&Cid::new_v1(
                             DAG_CBOR,
                             Blake2b256.digest(&[
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
                             ]),
-                        )
+                        ))
                     }
                     Ipld::Map(map) => map.values_mut().for_each(|val| cleanup_ipld(val, g)),
                     Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
@@ -238,7 +238,7 @@ mod test {
     fn deserialize_various_blobs(ipld: IpldWrapper) {
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
-                return Some(cid);
+                return Some(crate::utils::cid::cid_11_to_10(&cid));
             }
             None
         };

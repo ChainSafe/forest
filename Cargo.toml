@@ -44,6 +44,7 @@ cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { workspace = true }
+cid_0_11 = { package = "cid", version = "0.11", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "2.0"
 crypto_secretbox = "0.1"
@@ -93,6 +94,7 @@ humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17.9", features = ["tokio"] }
 integer-encoding = "4.0"
+ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.13"
 jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
@@ -100,9 +102,6 @@ jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
 lazy-regex = "3"
-libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
-libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
-libipld-macro = "0.16"
 libp2p = { workspace = true, features = [
   'autonat',
   'gossipsub',
@@ -171,7 +170,7 @@ schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
-serde_ipld_dagcbor = "0.4"
+serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }

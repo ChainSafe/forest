@@ -6,7 +6,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::DAG_CBOR;
-use libipld_core::ipld::Ipld;
+use ipld_core::ipld::Ipld;
 
 /// Resolves link to recursively resolved [`Ipld`] with no hash links.
 pub fn resolve_cids_recursive<BS>(
@@ -47,7 +47,7 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == DAG_CBOR {
-                if let Some(mut x) = bs.get_cbor(cid)? {
+                if let Some(mut x) = bs.get_cbor(&crate::utils::cid::cid_11_to_10(cid))? {
                     resolve_ipld(bs, &mut x, depth)?;
                     *ipld = x;
                 }
