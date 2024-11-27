@@ -511,15 +511,15 @@ impl Default for TraceResult {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthBlockTrace {
-    r#type: String,
-    subtraces: i64,
-    trace_address: Vec<i64>,
-    action: TraceAction,
-    result: TraceResult,
-    block_hash: EthHash,
-    block_number: i64,
-    transaction_hash: EthHash,
-    transaction_position: i64,
+    pub r#type: String,
+    pub subtraces: i64,
+    pub trace_address: Vec<i64>,
+    pub action: TraceAction,
+    pub result: TraceResult,
+    pub block_hash: EthHash,
+    pub block_number: i64,
+    pub transaction_hash: EthHash,
+    pub transaction_position: i64,
 }
 lotus_json_with_self!(EthBlockTrace);
 

@@ -1,9 +1,12 @@
 use super::types::{EthAddress, EthBlockTrace, EthBytes};
+use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace, ReturnTrace};
 use crate::rpc::state::ActorTrace;
-use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::shim::{address::Address, clock::ChainEpoch, error::ExitCode, state_tree::StateTree};
+use anyhow::{bail, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared3::error::ExitCode as ExitCodeV3;
 
 pub fn decode_payload(payload: &[u8], codec: u64) -> anyhow::Result<EthBytes> {
     todo!()
@@ -17,33 +20,75 @@ pub fn decode_return() -> anyhow::Result<ReturnTrace> {
     todo!()
 }
 
+#[derive(Default)]
 pub struct Environment {
     caller: EthAddress,
     is_evm: bool,
     subtrace_count: i64,
-    traces: Vec<EthBlockTrace>,
+    pub traces: Vec<EthBlockTrace>,
     last_byte_code: EthAddress,
 }
 
 pub fn base_environment<BS: Blockstore + Send + Sync>(
-    state: StateTree<BS>,
-    from: &EthAddress,
+    state: &StateTree<BS>,
+    from: &Address,
 ) -> anyhow::Result<Environment> {
-    todo!()
+    let sender = lookup_eth_address(from, state)?
+        .with_context(|| format!("top-level message sender {} s could not be found", from))?;
+    Ok(Environment {
+        caller: sender,
+        ..Environment::default()
+    })
 }
 
 pub fn trace_to_address(trace: &ActorTrace) -> EthAddress {
-    todo!()
+    if let Some(addr) = trace.state.delegated_address {
+        if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into()) {
+            return eth_addr;
+        }
+    }
+    EthAddress::from_actor_id(trace.id)
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
 pub fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
-    todo!()
+    true
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
 pub fn trace_err_msg(trace: &ExecutionTrace) -> String {
-    todo!()
+    let code = trace.msg_rct.exit_code;
+
+    if code.is_success() {
+        return "".into();
+    }
+
+    // EVM tools often expect this literal string.
+    if code == ExitCodeV3::SYS_OUT_OF_GAS.into() {
+        return "out of gas".into();
+    }
+
+    // indicate when we have a "system" error.
+    if code.value() < ExitCode::FIRST_ACTOR_ERROR_CODE {
+        return format!("vm error: {}", code.value());
+    }
+
+    // handle special exit codes from the EVM/EAM.
+    if trace_is_evm_or_eam(trace) {
+        match code {
+            ExitCode::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
+            ExitCode::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
+            ExitCode::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
+            ExitCode::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
+            ExitCode::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
+            ExitCode::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
+            ExitCode::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
+            ExitCode::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
+            _ => (),
+        }
+    }
+    // everything else...
+    format!("actor error: {}", code.value())
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls
@@ -61,7 +106,7 @@ pub fn build_traces(
 pub fn build_trace(
     env: &mut Environment,
     address: &[i64],
-    trace: &ExecutionTrace,
+    trace: &Option<ExecutionTrace>,
 ) -> anyhow::Result<ExecutionTrace> {
     todo!()
 }

@@ -821,7 +821,7 @@ pub fn eth_tx_from_signed_eth_message(
     Ok((from, tx))
 }
 
-fn lookup_eth_address<DB: Blockstore>(
+pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
     state: &StateTree<DB>,
 ) -> Result<Option<EthAddress>> {
@@ -2596,21 +2596,49 @@ impl RpcMethod<1> for EthTraceBlock {
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
-        let _state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
         let (cid, trace) = ctx.state_manager.execution_trace(&ts)?;
-        dbg!(&cid.to_string());
-        for t in trace {
-            dbg!(t.execution_trace);
+
+        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let cid = ts.key().cid()?;
+
+        let block_hash: EthHash = cid.into();
+
+        let mut all_traces = vec![];
+        for (msg_idx, ir) in trace.iter().enumerate() {
+            // ignore messages from system actor
+            if ir.msg.from == fil_actor_interface::system::ADDRESS.into() {
+                continue;
+            }
+
+            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+
+            let tx_hash = tx_hash
+                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+
+            let mut env = trace::base_environment(&state, &ir.msg.from)
+                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+
+            trace::build_trace(&mut env, &[], &ir.execution_trace)?;
+
+            for trace in env.traces {
+                all_traces.push(EthBlockTrace {
+                    r#type: trace.r#type,
+                    subtraces: trace.subtraces,
+                    trace_address: trace.trace_address,
+                    action: trace.action,
+                    result: trace.result,
+
+                    block_hash: block_hash.clone(),
+                    block_number: ts.epoch().into(),
+                    transaction_hash: tx_hash.clone(),
+                    transaction_position: msg_idx as i64,
+                });
+            }
         }
 
-        let tsk = ts.key();
-        let cid = tsk.cid()?;
-        let _block_hash: EthHash = cid.into();
-
-        let mut trace = vec![];
-        trace.push(EthBlockTrace::default());
-
-        Ok(trace)
+        Ok(all_traces)
     }
 }
 
