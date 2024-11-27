@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use super::SettingsStore;
+use super::{PersistentStore, SettingsStore};
 
 use super::EthMappingsStore;
 
@@ -44,6 +44,10 @@ enum DbColumn {
     Settings,
     /// Column for storing Ethereum mappings.
     EthMappings,
+    /// Column for storing IPLD data that has to be ignored by the garbage collector.
+    /// Anything stored in this column can be considered permanent, unless manually
+    /// deleted.
+    PersistentGraph,
 }
 
 impl DbColumn {
@@ -51,11 +55,13 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 => parity_db::ColumnOptions {
-                        preimage: true,
-                        compression,
-                        ..Default::default()
-                    },
+                    DbColumn::GraphDagCborBlake2b256 | DbColumn::PersistentGraph => {
+                        parity_db::ColumnOptions {
+                            preimage: true,
+                            compression,
+                            ..Default::default()
+                        }
+                    }
                     DbColumn::GraphFull => parity_db::ColumnOptions {
                         preimage: true,
                         // This is needed for key retrieval.
@@ -87,6 +93,8 @@ impl DbColumn {
 pub struct ParityDb {
     pub db: parity_db::Db,
     statistics_enabled: bool,
+    // This is needed to maintain backwards-compatibility for pre-persistent-column migrations.
+    disable_persistent_fallback: bool,
 }
 
 impl ParityDb {
@@ -107,13 +115,15 @@ impl ParityDb {
         Ok(Self {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
+            disable_persistent_fallback: false,
         })
     }
 
-    pub fn wrap(db: parity_db::Db, stats: bool) -> Self {
+    pub fn wrap(db: parity_db::Db, stats: bool, disable_persistent: bool) -> Self {
         Self {
             db,
             statistics_enabled: stats,
+            disable_persistent_fallback: disable_persistent,
         }
     }
 
@@ -216,24 +226,18 @@ impl EthMappingsStore for ParityDb {
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
-        match column {
-            DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
-                self.read_from_column(k.to_bytes(), column)
-            }
-            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
+        let res = self.read_from_column(k.to_bytes(), column)?;
+        if res.is_some() {
+            return Ok(res);
         }
+        self.get_persistent(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         let column = Self::choose_column(k);
 
-        match column {
-            // We can put the data directly into the database without any encoding.
-            DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
-                self.write_to_column(k.to_bytes(), block, column)
-            }
-            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
-        }
+        // We can put the data directly into the database without any encoding.
+        self.write_to_column(k.to_bytes(), block, column)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -252,6 +256,12 @@ impl Blockstore for ParityDb {
         self.db
             .commit_changes(tx)
             .map_err(|e| anyhow!("error bulk writing: {e}"))
+    }
+}
+
+impl PersistentStore for ParityDb {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(k.to_bytes(), block, DbColumn::PersistentGraph)
     }
 }
 
@@ -333,6 +343,14 @@ impl ParityDb {
     pub fn set_operation(column: u8, key: Vec<u8>, value: Vec<u8>) -> Op {
         (column, Operation::Set(key, value))
     }
+
+    // Get data from persistent graph column.
+    fn get_persistent(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        if self.disable_persistent_fallback {
+            return Ok(None);
+        }
+        self.read_from_column(k.to_bytes(), DbColumn::PersistentGraph)
+    }
 }
 
 impl GarbageCollectable<CidHashSet> for ParityDb {
@@ -395,6 +413,7 @@ mod test {
     use cid::multihash::MultihashDigest;
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
+    use std::ops::Deref;
 
     use crate::db::tests::db_utils::parity::TempParityDB;
 
@@ -437,6 +456,7 @@ mod test {
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
+                DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
@@ -521,6 +541,53 @@ mod test {
         for (cid, expected) in cases {
             let actual = ParityDb::choose_column(&cid);
             assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn persistent_tests() {
+        let db = TempParityDB::new();
+        let data = [
+            b"h'nglui mglw'nafh".to_vec(),
+            b"Cthulhu".to_vec(),
+            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
+        ];
+
+        let persistent_data = data
+            .clone()
+            .into_iter()
+            .map(|mut entry| {
+                entry.push(255);
+                entry
+            })
+            .collect::<Vec<Vec<u8>>>();
+
+        let cids = [
+            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+        ];
+
+        for idx in 0..3 {
+            let cid = &cids[idx];
+            let persistent_entry = &persistent_data[idx];
+            let data_entry = &data[idx];
+            db.put_keyed_persistent(cid, persistent_entry).unwrap();
+            // Check that we get persistent data if the data is otherwise absent from the GC enabled
+            // storage.
+            assert_eq!(
+                Blockstore::get(db.deref(), cid).unwrap(),
+                Some(persistent_entry.clone())
+            );
+            assert!(db
+                .read_from_column(cid.to_bytes(), DbColumn::PersistentGraph)
+                .unwrap()
+                .is_some());
+            db.put_keyed(cid, data_entry).unwrap();
+            assert_eq!(
+                Blockstore::get(db.deref(), cid).unwrap(),
+                Some(data_entry.clone())
+            );
         }
     }
 }

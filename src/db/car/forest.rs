@@ -50,6 +50,7 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::db::car::RandomAccessFileReader;
+use crate::db::PersistentStore;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -73,6 +74,7 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 use unsigned_varint::codec::UviBytes;
+
 #[cfg(feature = "benchmark-private")]
 pub mod index;
 #[cfg(not(feature = "benchmark-private"))]
@@ -234,6 +236,15 @@ where
         .valid());
         self.write_cache.write().insert(*k, Vec::from(block));
         Ok(())
+    }
+}
+
+impl<ReaderT> PersistentStore for ForestCar<ReaderT>
+where
+    ReaderT: ReadAt,
+{
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.put_keyed(k, block)
     }
 }
 

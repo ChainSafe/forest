@@ -238,7 +238,7 @@ mod test {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::{ChainEpochDelta, ChainStore};
 
-    use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB};
+    use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB, PersistentStore};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
     use crate::networks::ChainConfig;
 
@@ -247,7 +247,11 @@ mod test {
     use core::time::Duration;
 
     use crate::shim::clock::ChainEpoch;
+    use cid::multihash::Code::Identity;
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
     use fvm_ipld_blockstore::Blockstore;
+    use fvm_ipld_encoding::DAG_CBOR;
     use std::sync::Arc;
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
@@ -471,6 +475,45 @@ mod test {
             tester.db.get_keys().unwrap().len() as i64,
             // `Current epoch + genesis block + twice the depth.`
             current_epoch + 1 + depth * 2
+        );
+    }
+
+    #[tokio::test]
+    async fn persistent_data_resilient_to_gc() {
+        let depth = 5 as ChainEpochDelta;
+        let current_epoch = 0 as ChainEpochDelta;
+
+        let tester = GCTester::new();
+        let mut gc = MarkAndSweep::new(
+            tester.db.clone(),
+            tester.get_heaviest_tipset_fn(),
+            depth,
+            ZERO_DURATION,
+        );
+
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
+
+        let persistent_data = [1, 55];
+        let persistent_cid = Cid::new_v1(DAG_CBOR, Identity.digest(&persistent_data));
+
+        // Make sure we run enough epochs to initiate GC.
+        tester.run_epochs(current_epoch);
+        tester.run_epochs(depth);
+        tester
+            .db
+            .put_keyed_persistent(&persistent_cid, &persistent_data)
+            .unwrap();
+        // Mark.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        tester.run_epochs(depth);
+        // Sweep.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+
+        // Make sure persistent data stays.
+        assert_eq!(
+            tester.db.get(&persistent_cid).unwrap(),
+            Some(persistent_data.to_vec())
         );
     }
 }
