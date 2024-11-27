@@ -155,9 +155,9 @@ impl F3CertsCommands {
                     limit as usize
                 };
                 let range: Box<dyn Iterator<Item = u64>> = if reverse {
-                    Box::new((from..=to).into_iter().take(limit))
+                    Box::new((from..=to).take(limit))
                 } else {
-                    Box::new((from..=to).into_iter().rev().take(limit))
+                    Box::new((from..=to).rev().take(limit))
                 };
                 for i in range {
                     let cert = F3GetCertificate::call(&client, (i,)).await?;
