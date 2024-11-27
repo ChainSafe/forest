@@ -10,7 +10,7 @@
 mod types;
 mod util;
 
-pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, FinalityCertificate};
+pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::{
@@ -625,7 +625,7 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
-    type Ok = serde_json::Value;
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,

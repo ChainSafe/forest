@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.22.0"
+version = "0.22.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -91,6 +91,7 @@ jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
+lazy-regex = "3"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
@@ -232,7 +233,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.245"
+ra_ap_syntax = "0.0.246"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

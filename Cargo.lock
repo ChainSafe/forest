@@ -898,9 +898,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d82033247fd8e890df8f740e407ad4d038debb9eb1f40533fffb32e7d17dc6f7"
+checksum = "b8ee0c1824c4dea5b5f81736aff91bae041d2c07ee1192bec91054e10e3e601e"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.6",
@@ -2966,7 +2966,7 @@ checksum = "f81ec6369c545a7d40e4589b5597581fa1c441fe1cce96dd1de43159910a36a2"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "ahash",
  "anes 0.2.0",
@@ -3058,6 +3058,7 @@ dependencies = [
  "jsonwebtoken",
  "keccak-hash",
  "kubert-prometheus-process",
+ "lazy-regex",
  "libipld",
  "libipld-core",
  "libipld-macro",
@@ -4793,9 +4794,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "540654e97a3f4470a492cd30ff187bc95d89557a903a2bbf112e2fae98104ef2"
+checksum = "d75a2a4b1b190afb6f5425f10f6a8f959d2ea0b9c2b1d79553551850539e4674"
 
 [[package]]
 name = "itoap"
@@ -5043,6 +5044,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "lazy-regex"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d8e41c97e6bc7ecb552016274b99fbb5d035e8de288c582d9b933af6677bfda"
+dependencies = [
+ "lazy-regex-proc_macros",
+ "once_cell",
+ "regex",
+]
+
+[[package]]
+name = "lazy-regex-proc_macros"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76e1d8b05d672c53cb9c7b920bbba8783845ae4f0b076e02a3db1d02c81b4163"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.89",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5059,9 +5083,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.164"
+version = "0.2.166"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "433bfe06b8c75da9b2e3fbea6e5329ff87748f0b144ef75306e674c3f6f7c13f"
+checksum = "c2ccc108bbc0b1331bd061864e7cd823c0cab660bbe6970e66e2c0614decde36"
 
 [[package]]
 name = "libipld"
@@ -6680,9 +6704,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pathdiff"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61c5ce1153ab5b689d0c074c4e7fc613e942dfb7dd9eea5ab202d2ad91fe361"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pathfinding"
@@ -7295,15 +7319,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.245"
+version = "0.0.246"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7405226af7c2173bdb3a5055ff4a493f8a38cc242d2ce16134aad19f80f2628"
+checksum = "6cd6d6ec37c4b2f983ac2d3dc7d176d4f3986ac1712d5bd3c1f271abc9e7a112"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.245"
+version = "0.0.246"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb0d10e7716a0601dee8c87626efe5987265dd91b5f0af0be5010075577a9f61"
+checksum = "07c45158cfc5d28d2f5859146c6056471b3c6a02b39d2b265bc353130cc00564"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7313,9 +7337,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.245"
+version = "0.0.246"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "668a4f0e49c42cf897a84c7cf4d4e85a3077d41a683bbfcb5287aec6d379cd4d"
+checksum = "60589ec34ff3a249528ebce494e573e77d295fac2b20b1d2db619192e8a1da08"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7328,9 +7352,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.245"
+version = "0.0.246"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbe74019af2836234726a63924d445450774d82462dbcbb18565743a73950db9"
+checksum = "b0d119855a79ce49d812b0d8097a4f77c7277a1c310788e2c99c3c77dd296da6"
 dependencies = [
  "cov-mark",
  "either",
@@ -9469,9 +9493,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
+checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9491,9 +9515,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.32"
+version = "0.1.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
+checksum = "e672c95779cf947c5311f83787af4fa8fffd12fb27e4993211a84bdfd9610f9c"
 dependencies = [
  "once_cell",
  "valuable",
