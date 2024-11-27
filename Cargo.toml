@@ -18,7 +18,7 @@ async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
 axum = "0.7"
-backoff = { version = "0.4", features = ['tokio'] }
+backon = "1.2.0"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
 blake2b_simd = "1.0"
