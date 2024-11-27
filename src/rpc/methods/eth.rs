@@ -3,6 +3,7 @@
 
 mod eth_tx;
 pub mod filter;
+mod trace;
 pub mod types;
 
 use self::eth_tx::*;
@@ -2596,6 +2597,11 @@ impl RpcMethod<1> for EthTraceBlock {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let _state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let (cid, trace) = ctx.state_manager.execution_trace(&ts)?;
+        dbg!(&cid.to_string());
+        for t in trace {
+            dbg!(t.execution_trace);
+        }
 
         let tsk = ts.key();
         let cid = tsk.cid()?;
