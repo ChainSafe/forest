@@ -2629,6 +2629,7 @@ impl RpcMethod<1> for EthTraceBlock {
                     trace_address: trace.trace_address,
                     action: trace.action,
                     result: trace.result,
+                    error: trace.error,
 
                     block_hash: block_hash.clone(),
                     block_number: ts.epoch().into(),

@@ -450,12 +450,12 @@ lotus_json_with_self!(EthFilterResult);
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceAction {
-    call_type: String,
-    from: EthAddress,
-    to: EthAddress,
-    gas: EthUint64,
-    value: EthBigInt,
-    input: EthBytes,
+    pub call_type: String,
+    pub from: EthAddress,
+    pub to: EthAddress,
+    pub gas: EthUint64,
+    pub value: EthBigInt,
+    pub input: EthBytes,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -483,8 +483,8 @@ impl Default for TraceAction {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceResult {
-    gas_used: EthUint64,
-    output: EthBytes,
+    pub gas_used: EthUint64,
+    pub output: EthBytes,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -516,6 +516,7 @@ pub struct EthBlockTrace {
     pub trace_address: Vec<i64>,
     pub action: TraceAction,
     pub result: TraceResult,
+    pub error: String,
     pub block_hash: EthHash,
     pub block_number: i64,
     pub transaction_hash: EthHash,

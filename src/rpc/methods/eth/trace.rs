@@ -1,17 +1,20 @@
-use super::types::{EthAddress, EthBlockTrace, EthBytes};
+use super::types::{
+    EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
+};
+use super::{
+    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
+    EthCallTraceResult,
+};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace, ReturnTrace};
 use crate::rpc::state::ActorTrace;
 use crate::shim::{address::Address, clock::ChainEpoch, error::ExitCode, state_tree::StateTree};
 use anyhow::{bail, Context};
-use cid::Cid;
 use fil_actor_evm_state::v15 as code;
+use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
-
-pub fn decode_payload(payload: &[u8], codec: u64) -> anyhow::Result<EthBytes> {
-    todo!()
-}
+use fvm_shared4::METHOD_CONSTRUCTOR;
 
 pub fn decode_params() -> anyhow::Result<MessageTrace> {
     todo!()
@@ -117,8 +120,40 @@ pub fn trace_call(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
+    input: EthBytes,
+    output: EthBytes,
 ) -> anyhow::Result<EthBlockTrace> {
-    todo!()
+    if let Some(invoked_actor) = &trace.invoked_actor {
+        let to = trace_to_address(invoked_actor);
+        let call_type: String = if trace.msg.read_only.unwrap_or_default() {
+            "staticcall"
+        } else {
+            "call"
+        }
+        .into();
+
+        let default = EthBlockTrace::default();
+        Ok(EthBlockTrace {
+            r#type: "call".into(),
+            action: TraceAction::Call(EthCallTraceAction {
+                call_type,
+                from: env.caller.clone(),
+                to,
+                gas: trace.msg.gas_limit.unwrap_or_default().into(),
+                value: trace.msg.value.clone().into(),
+                input,
+            }),
+            result: TraceResult::Call(EthCallTraceResult {
+                gas_used: 0.into(),
+                output,
+            }),
+            trace_address: Vec::from(address),
+            error: trace_err_msg(trace),
+            ..default
+        })
+    } else {
+        bail!("no invoked actor")
+    }
 }
 
 // Build an EthTrace for a "call", parsing the inputs & outputs as a "native" FVM call.
@@ -127,7 +162,17 @@ pub fn trace_native_call(
     address: &[i64],
     trace: &ExecutionTrace,
 ) -> anyhow::Result<EthBlockTrace> {
-    todo!()
+    trace_call(
+        env,
+        address,
+        trace,
+        encode_filecoin_params_as_abi(trace.msg.method, trace.msg.params_codec, &trace.msg.params)?,
+        EthBytes(encode_filecoin_returns_as_abi(
+            trace.msg_rct.exit_code.value().into(),
+            trace.msg_rct.return_codec,
+            &trace.msg_rct.r#return,
+        )),
+    )
 }
 
 // Build an EthTrace for a "call", parsing the inputs & outputs as an EVM call (falling back on
@@ -135,9 +180,13 @@ pub fn trace_native_call(
 pub fn trace_evm_call(
     env: &mut Environment,
     address: &[i64],
-    trace: &ExecutionTrace,
+    trace: ExecutionTrace,
 ) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
-    todo!()
+    let input = decode_payload(&trace.msg.params, trace.msg.params_codec)?;
+    let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)?;
+    // TODO(elmattic): add debug logs
+
+    Ok((trace_call(env, address, &trace, input, output)?, trace))
 }
 
 // Build an EthTrace for a native "create" operation. This should only be called with an
@@ -145,9 +194,68 @@ pub fn trace_evm_call(
 pub fn trace_native_create(
     env: &mut Environment,
     address: &[i64],
-    trace: &ExecutionTrace,
-) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
-    todo!()
+    trace: ExecutionTrace,
+) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+    if trace.msg.read_only.unwrap_or_default() {
+        // "create" isn't valid in a staticcall, so we just skip this trace
+        // (couldn't have created an actor anyways).
+        // This mimic's the EVM: it doesn't trace CREATE calls when in
+        // read-only mode.
+        return Ok((None, None));
+    }
+
+    let sub_trace = trace
+        .subcalls
+        .iter()
+        .find(|c| c.msg.method == (METHOD_CONSTRUCTOR as u64));
+
+    if let Some(sub_trace) = sub_trace {
+        // If we succeed in calling Exec/Exec4 but don't even try to construct
+        // something, we have a bug in our tracing logic or a mismatch between our
+        // tracing logic and the actors.
+        if trace.msg_rct.exit_code.is_success() {
+            bail!("successful Exec/Exec4 call failed to call a constructor");
+        }
+        // Otherwise, this can happen if creation fails early (bad params,
+        // out of gas, contract already exists, etc.). The EVM wouldn't
+        // trace such cases, so we don't either.
+        //
+        // NOTE: It's actually impossible to run out of gas before calling
+        // initcode in the EVM (without running out of gas in the calling
+        // contract), but this is an equivalent edge-case to InvokedActor
+        // being nil, so we treat it the same way and skip the entire
+        // operation.
+        return Ok((None, None));
+    }
+
+    // Native actors that aren't the EAM can attempt to call Exec4, but such
+    // call should fail immediately without ever attempting to construct an
+    // actor. I'm catching this here because it likely means that there's a bug
+    // in our trace-conversion logic.
+    if trace.msg.method == (InitMethod::Exec4 as u64) {
+        bail!("direct call to Exec4 successfully called a constructor!");
+    }
+
+    let mut output = EthBytes::default();
+    let mut create_addr = EthAddress::default();
+    if trace.msg_rct.exit_code.is_success() {
+        // We're supposed to put the "installed bytecode" here. But this
+        // isn't an EVM actor, so we just put some invalid bytecode (this is
+        // the answer you'd get if you called EXTCODECOPY on a native
+        // non-account actor, anyways).
+        output = EthBytes(vec![0xFE]);
+
+        // Extract the address of the created actor from the return value.
+        todo!()
+    }
+
+    Ok((
+        Some(EthBlockTrace {
+            r#type: "create".into(),
+            ..EthBlockTrace::default()
+        }),
+        Some(trace),
+    ))
 }
 
 // Decode the parameters and return value of an EVM smart contract creation through the EAM. This
