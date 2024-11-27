@@ -26,7 +26,7 @@ install-with-mimalloc:
 
 install-lint-tools:
 	cargo install --locked taplo-cli
-	cargo install --locked cargo-audit
+	cargo install --locked cargo-deny
 	cargo install --locked cargo-spellcheck
 
 install-lint-tools-ci:
@@ -34,16 +34,16 @@ install-lint-tools-ci:
 	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
 	cp cargo-binstall ~/.cargo/bin/cargo-binstall
 
-	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-audit
+	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny
 
 clean:
 	cargo clean
 
 # Lints with everything we have in our CI arsenal
-lint-all: lint audit spellcheck
+lint-all: lint deny spellcheck
 
-audit:
-	cargo audit || (echo "See .config/audit.toml"; false)
+deny:
+	cargo deny check || (echo "See deny.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)

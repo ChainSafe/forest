@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cid_collections::CidHashSet;
-use crate::db::GarbageCollectable;
+use crate::db::{GarbageCollectable, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use ahash::HashMap;
@@ -16,6 +16,7 @@ use super::{EthMappingsStore, SettingsStore};
 #[derive(Debug, Default)]
 pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
+    blockchain_persistent_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
 }
@@ -109,11 +110,29 @@ impl EthMappingsStore for MemoryDB {
 
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Ok(self.blockchain_db.read().get(&k.to_bytes()).cloned())
+        Ok(self
+            .blockchain_db
+            .read()
+            .get(&k.to_bytes())
+            .cloned()
+            .or(self
+                .blockchain_persistent_db
+                .read()
+                .get(&k.to_bytes())
+                .cloned()))
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.blockchain_db
+            .write()
+            .insert(k.to_bytes(), block.to_vec());
+        Ok(())
+    }
+}
+
+impl PersistentStore for MemoryDB {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.blockchain_persistent_db
             .write()
             .insert(k.to_bytes(), block.to_vec());
         Ok(())
