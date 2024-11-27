@@ -15,11 +15,13 @@ use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use itertools::Itertools as _;
 use lru::LruCache;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
+use tracing::debug;
 use url::Url;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
@@ -378,12 +380,15 @@ impl Beacon for DrandBeacon {
                         anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?)
                     })
                     .try_collect()?;
-                Ok(
-                    backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
-                        Ok(fetch_entry(urls.iter().cloned()).await?)
+                Ok((|| fetch_entry(urls.iter().cloned()))
+                    .retry(ExponentialBuilder::default())
+                    .notify(|err, dur| {
+                        debug!(
+                            "retrying fetch_entry {err} after {}",
+                            humantime::format_duration(dur)
+                        );
                     })
-                    .await?,
-                )
+                    .await?)
             }
         }
     }
