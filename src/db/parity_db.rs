@@ -6,11 +6,11 @@ use crate::cid_collections::CidHashSet;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
+use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
-use multihash_codetable::{Code::Blake2b256, MultihashDigest as _};
 use parity_db::{CompressionType, Db, Operation, Options};
 use std::path::PathBuf;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
@@ -120,7 +120,7 @@ impl ParityDb {
     /// in the Cid.
     fn choose_column(cid: &Cid) -> DbColumn {
         match cid.codec() {
-            DAG_CBOR if cid.hash().code() == u64::from(Blake2b256) => {
+            DAG_CBOR if cid.hash().code() == u64::from(MultihashCode::Blake2b256) => {
                 DbColumn::GraphDagCborBlake2b256
             }
             _ => DbColumn::GraphFull,
@@ -280,11 +280,9 @@ impl BitswapStoreRead for ParityDb {
 }
 
 impl BitswapStoreReadWrite for ParityDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
-    /// [`libipld::DefaultParams`] under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
+    type Hashes = MultihashCode;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
     }
 }
@@ -355,7 +353,7 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = Blake2b256.digest(&val.value);
+                let hash = MultihashCode::Blake2b256.digest(&val.value);
                 let cid = Cid::new_v1(DAG_CBOR, hash);
                 set.insert(cid);
                 true
@@ -379,7 +377,7 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = Blake2b256.digest(&val.value);
+                let hash = MultihashCode::Blake2b256.digest(&val.value);
                 let cid = Cid::new_v1(DAG_CBOR, hash);
 
                 if keys.contains(&cid) {
@@ -398,14 +396,11 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::db::tests::db_utils::parity::TempParityDB;
     use fvm_ipld_encoding::IPLD_RAW;
-    use multihash_codetable::{Code::Sha2_256, MultihashDigest as _};
     use nom::AsBytes;
     use std::ops::Deref;
-
-    use crate::db::tests::db_utils::parity::TempParityDB;
-
-    use super::*;
 
     #[test]
     fn write_read_different_columns_test() {
@@ -416,9 +411,9 @@ mod test {
             b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
         ];
         let cids = [
-            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
-            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
-            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
         let cases = [
@@ -480,9 +475,9 @@ mod test {
             b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
         ];
         let cids = [
-            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
-            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
-            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
         let cases = [
@@ -513,15 +508,18 @@ mod test {
         let data = [0u8; 32];
         let cases = [
             (
-                Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data)),
+                Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data)),
                 DbColumn::GraphDagCborBlake2b256,
             ),
             (
-                Cid::new_v1(fvm_ipld_encoding::CBOR, Blake2b256.digest(&data)),
+                Cid::new_v1(
+                    fvm_ipld_encoding::CBOR,
+                    MultihashCode::Blake2b256.digest(&data),
+                ),
                 DbColumn::GraphFull,
             ),
             (
-                Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data)),
+                Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data)),
                 DbColumn::GraphFull,
             ),
         ];
@@ -551,9 +549,9 @@ mod test {
             .collect::<Vec<Vec<u8>>>();
 
         let cids = [
-            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
-            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
-            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
         ];
 
         for idx in 0..3 {

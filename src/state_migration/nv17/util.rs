@@ -71,6 +71,7 @@ mod tests {
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,
     };
+    use multihash_codetable::Multihash;
 
     // Go parity test
     //

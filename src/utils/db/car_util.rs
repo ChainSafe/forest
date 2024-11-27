@@ -42,6 +42,7 @@ mod tests {
     use super::*;
     use crate::block_on;
     use crate::utils::db::car_stream::CarWriter;
+    use crate::utils::multihash::prelude::*;
     use ahash::HashSet;
     use async_compression::tokio::write::ZstdEncoder;
     use cid::Cid;
@@ -49,7 +50,6 @@ mod tests {
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
-    use multihash_codetable::{Code, MultihashDigest as _};
     use nunny::{vec as nonempty, Vec as NonEmpty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
@@ -101,7 +101,7 @@ mod tests {
             for _ in 0..n {
                 // use small len here to increase the chance of duplication
                 let data = [u8::arbitrary(g), u8::arbitrary(g)];
-                let cid = Cid::new_v1(DAG_CBOR, Code::Blake2b256.digest(&data));
+                let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data));
                 let block = CarBlock {
                     cid,
                     data: data.to_vec(),

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use std::sync::Arc;
+use multihash_derive::MultihashDigest;
+use std::ops::Deref;
+use std::{marker::PhantomData, sync::Arc};
 
 /// Trait implemented by a block store for reading.
 pub trait BitswapStoreRead {
@@ -15,11 +17,11 @@ pub trait BitswapStoreRead {
 
 /// Trait implemented by a block store for reading and writing.
 pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
-    /// The store parameters.
-    type Params: StoreParams;
+    /// The hashes parameters.
+    type Hashes: MultihashDigest<64>;
 
     /// A block response needs to insert the block into the store.
-    fn insert(&self, block: &Block<Self::Params>) -> anyhow::Result<()>;
+    fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()>;
 }
 
 impl<T: BitswapStoreRead> BitswapStoreRead for Arc<T> {
@@ -33,41 +35,71 @@ impl<T: BitswapStoreRead> BitswapStoreRead for Arc<T> {
 }
 
 impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for Arc<T> {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
-    /// [`libipld::DefaultParams`] under feature `dag-cbor`
-    type Params = <T as BitswapStoreReadWrite>::Params;
+    type Hashes = <T as BitswapStoreReadWrite>::Hashes;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()> {
         BitswapStoreReadWrite::insert(self.as_ref(), block)
     }
 }
 
+pub type Block64<H> = Block<H, 64>;
+
 /// Block
-#[derive(Clone)]
-pub struct Block<S> {
-    _marker: PhantomData<S>,
+#[derive(Clone, Debug)]
+pub struct Block<H, const S: usize> {
     /// Content identifier.
     cid: Cid,
     /// Binary data.
     data: Vec<u8>,
+    _pd: PhantomData<H>,
 }
 
-// /// The store parameters.
-// pub trait BitswapStoreParams: std::fmt::Debug + Clone + Send + Sync + Unpin + 'static {
-//     /// The multihash type of the store.
-//     type Hashes: MultihashDigest<64>;
-//     /// The codec type of the store.
-//     type Codecs: Codec;
-//     /// The maximum block size supported by the store.
-//     const MAX_BLOCK_SIZE: usize;
-// }
+impl<H, const S: usize> Deref for Block<H, S> {
+    type Target = Cid;
 
-// /// Default store parameters.
-// #[derive(Clone, Debug, Default)]
-// pub struct DefaultBitswapStoreParams;
+    fn deref(&self) -> &Self::Target {
+        &self.cid
+    }
+}
 
-// impl BitswapStoreParams for DefaultBitswapStoreParams {
-//     const MAX_BLOCK_SIZE: usize = 1_048_576;
-//     type Codecs = libipld::IpldCodec;
-//     type Hashes = multihash_codetable::Code;
-// }
+impl<H, const S: usize> PartialEq for Block<H, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cid == other.cid
+    }
+}
+
+impl<H, const S: usize> Eq for Block<H, S> {}
+
+impl<H: MultihashDigest<S>, const S: usize> Block<H, S> {
+    /// Creates a new block. Returns an error if the hash doesn't match
+    /// the data.
+    pub fn new(cid: Cid, data: Vec<u8>) -> anyhow::Result<Self> {
+        Self::verify_cid(&cid, &data)?;
+        Ok(Self {
+            cid,
+            data,
+            _pd: Default::default(),
+        })
+    }
+
+    /// Returns the [`Cid`].
+    pub fn cid(&self) -> &Cid {
+        &self.cid
+    }
+
+    /// Returns the payload.
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn verify_cid(cid: &Cid, payload: &[u8]) -> anyhow::Result<()> {
+        let code = cid.hash().code();
+        let mh = H::try_from(code)
+            .map_err(|_| anyhow::anyhow!("unsupported multihash code {code}"))?
+            .digest(payload);
+        if mh.digest() != cid.hash().digest() {
+            anyhow::bail!("invalid multihash digest");
+        }
+        Ok(())
+    }
+}

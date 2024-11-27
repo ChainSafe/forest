@@ -27,17 +27,15 @@ pub struct HelloResponse {
 
 #[cfg(test)]
 mod tests {
-    use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-    use multihash_codetable::{Code, MultihashDigest as _};
-
-    use crate::utils::encoding::from_slice_with_fallback;
-
     use super::*;
+    use crate::utils::encoding::from_slice_with_fallback;
+    use crate::utils::multihash::prelude::*;
+    use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 
     #[test]
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
-            genesis_cid: Cid::new_v1(DAG_CBOR, Code::Blake2b256.digest(&[])),
+            genesis_cid: Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[])),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
             heaviest_tip_set: NonEmpty::of(Default::default()),

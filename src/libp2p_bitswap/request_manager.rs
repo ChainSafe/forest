@@ -11,9 +11,9 @@ use std::{
 
 use crate::cid_collections::CidHashMap;
 use ahash::{HashSet, HashSetExt};
+use cid::Cid;
 use flume::TryRecvError;
 use futures::StreamExt;
-use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
 

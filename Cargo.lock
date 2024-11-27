@@ -662,16 +662,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "backoff"
-version = "0.4.0"
+name = "backon"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
+checksum = "ba5289ec98f68f28dd809fd601059e6aa908bb8f6108620930828283d4ee23d7"
 dependencies = [
- "futures-core",
- "getrandom",
- "instant",
- "pin-project-lite",
- "rand",
+ "fastrand 2.2.0",
+ "gloo-timers",
  "tokio",
 ]
 
@@ -1278,14 +1275,10 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd94671561e36e4e7de75f753f577edafb0e7c05d6e4547229fdf7938fbcd2c3"
 dependencies = [
- "arbitrary",
  "core2",
  "multibase",
  "multihash 0.18.1",
- "quickcheck",
- "rand",
  "serde",
- "serde_bytes",
  "unsigned-varint 0.7.2",
 ]
 
@@ -2979,7 +2972,7 @@ dependencies = [
  "async-trait",
  "asynchronous-codec",
  "axum",
- "backoff",
+ "backon",
  "base64 0.22.1",
  "bigdecimal",
  "bimap",
@@ -3059,9 +3052,6 @@ dependencies = [
  "keccak-hash",
  "kubert-prometheus-process",
  "lazy-regex",
- "libipld",
- "libipld-core",
- "libipld-macro",
  "libp2p",
  "libp2p-swarm-test",
  "libsecp256k1",
@@ -3117,7 +3107,7 @@ dependencies = [
  "scopeguard",
  "semver",
  "serde",
- "serde_ipld_dagcbor 0.4.2",
+ "serde_ipld_dagcbor",
  "serde_json",
  "serde_tuple 1.1.0",
  "serde_with",
@@ -3166,12 +3156,13 @@ name = "forest-interop-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cid 0.11.1",
  "flume 0.11.1",
  "forest-filecoin",
  "futures",
- "libipld",
  "libp2p",
  "libp2p-swarm-test",
+ "multihash-codetable",
  "rust2go",
  "tokio",
 ]
@@ -3653,7 +3644,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "multihash-codetable",
  "serde",
- "serde_ipld_dagcbor 0.6.1",
+ "serde_ipld_dagcbor",
  "serde_repr",
  "serde_tuple 0.5.0",
  "thiserror 1.0.69",
@@ -5096,9 +5087,7 @@ checksum = "f1ccd6b8ffb3afee7081fcaec00e1b099fd1c7ccf35ba5729d88538fcc3b4599"
 dependencies = [
  "fnv",
  "libipld-cbor",
- "libipld-cbor-derive",
  "libipld-core",
- "libipld-json",
  "libipld-macro",
  "log",
  "multihash 0.18.1",
@@ -5117,19 +5106,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libipld-cbor-derive"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5ba3a729b72973e456a1812b0afe2e176a376c1836cc1528e9fc98ae8cb838"
-dependencies = [
- "proc-macro-crate 1.3.1",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "synstructure 0.12.6",
-]
-
-[[package]]
 name = "libipld-core"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5140,21 +5116,7 @@ dependencies = [
  "core2",
  "multibase",
  "multihash 0.18.1",
- "quickcheck",
- "serde",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "libipld-json"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25856def940047b07b25c33d4e66d248597049ab0202085215dc4dca0487731c"
-dependencies = [
- "libipld-core",
- "multihash 0.18.1",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -6065,19 +6027,8 @@ version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfd8a792c1694c6da4f68db0a9d707c72bd260994da179e6030a5dcee00bb815"
 dependencies = [
- "arbitrary",
- "blake2b_simd",
- "blake2s_simd 1.0.2",
- "blake3",
  "core2",
- "digest 0.10.7",
  "multihash-derive 0.8.0",
- "quickcheck",
- "rand",
- "serde",
- "serde-big-array",
- "sha2 0.10.8",
- "sha3",
  "unsigned-varint 0.7.2",
 ]
 
@@ -6918,9 +6869,9 @@ dependencies = [
 
 [[package]]
 name = "postcard"
-version = "1.0.10"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7f0a8d620d71c457dd1d47df76bb18960378da56af4527aaa10f515eee732e"
+checksum = "f63d01def49fc815900a83e7a4a5083d2abc81b7ddd569a3fa0477778ae9b3ec"
 dependencies = [
  "cobs",
  "embedded-io 0.4.0",
@@ -7868,9 +7819,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.18"
+version = "0.23.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9cc1d47e243d655ace55ed38201c19ae02c148ae56412ab8750e8f0166ab7f"
+checksum = "934b404430bb06b3fae2cba809eb45a1ab1aecd64491213d7c3301b88393f8d1"
 dependencies = [
  "log",
  "once_cell",
@@ -8146,15 +8097,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8183,18 +8125,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
-]
-
-[[package]]
-name = "serde_ipld_dagcbor"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e880e0b1f9c7a8db874642c1217f7e19b29e325f24ab9f0fcb11818adec7f01"
-dependencies = [
- "cbor4ii",
- "cid 0.10.1",
- "scopeguard",
- "serde",
 ]
 
 [[package]]
@@ -9470,9 +9400,9 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracing"
-version = "0.1.40"
+version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
+checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
  "log",
  "pin-project-lite",

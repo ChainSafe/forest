@@ -4,8 +4,6 @@
 //! This module contains the migration logic for the `NV21` upgrade for the
 //! Miner actor.
 
-use std::sync::Arc;
-
 use crate::shim::econ::TokenAmount;
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -23,6 +21,7 @@ use fil_actors_shared::fvm_ipld_amt;
 use fil_actors_shared::v11::{runtime::Policy as PolicyOld, Array as ArrayOld};
 use fil_actors_shared::v12::{runtime::Policy as PolicyNew, Array as ArrayNew};
 use fvm_ipld_blockstore::Blockstore;
+use std::sync::Arc;
 
 pub struct MinerMigrator {
     empty_deadline_v11: Cid,
@@ -293,7 +292,7 @@ mod tests {
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateTree, StateTreeVersion},
     };
-    use cid::multihash::MultihashDigest as _;
+    use crate::utils::multihash::prelude::*;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_shared2::bigint::Zero;
 
@@ -454,7 +453,7 @@ mod tests {
             "verifiedregistry",
             "datacap",
         ] {
-            let hash = cid::multihash::Code::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let hash = MultihashCodeLegacy::Identity.digest(format!("{prefix}{name}").as_bytes());
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }

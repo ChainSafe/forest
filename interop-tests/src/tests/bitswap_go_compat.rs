@@ -2,20 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::go_ffi::*;
-
-use std::time::Duration;
-
+use cid::Cid;
 use forest_filecoin::interop_tests_private::libp2p_bitswap::{
     BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
-};
-use libipld::{
-    multihash::{self, MultihashDigest as _},
-    Cid,
 };
 use libp2p::{
     futures::StreamExt as _, noise, request_response, swarm::SwarmEvent, tcp, yamux, Multiaddr,
     Swarm, SwarmBuilder,
 };
+use multihash_codetable::{Code, MultihashDigest as _};
+use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_secs(60);
 const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
@@ -30,9 +26,8 @@ async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
 
     let expected_inbound_request_cid_str = "bitswap_request_from_go";
     let expected_inbound_request_cid =
-        Cid::new_v0(multihash::Code::Sha2_256.digest(expected_inbound_request_cid_str.as_bytes()))?;
-    let outbound_request_cid =
-        Cid::new_v0(multihash::Code::Sha2_256.digest(b"bitswap_request_from_rust"))?;
+        Cid::new_v0(Code::Sha2_256.digest(expected_inbound_request_cid_str.as_bytes()))?;
+    let outbound_request_cid = Cid::new_v0(Code::Sha2_256.digest(b"bitswap_request_from_rust"))?;
     let (inbound_request_tx, inbound_request_rx) = flume::unbounded();
     let (inbound_response_tx, inbound_response_rx) = flume::unbounded();
     tokio::spawn(async move {

@@ -381,6 +381,7 @@ mod tests {
         },
         piece::PaddedPieceSize,
     };
+    use multihash_codetable::Multihash;
 
     #[test]
     fn test_nv17_miner_migration() {

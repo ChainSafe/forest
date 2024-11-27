@@ -27,7 +27,7 @@ use fil_actor_interface::{
     reward::State as RewardState, system::State as SystemState,
 };
 use fvm_ipld_blockstore::Blockstore;
-use libipld_core::ipld::Ipld;
+use ipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};

@@ -1,9 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
+use super::{
+    index::{ChainIndex, ResolveNullTipset},
+    tipset_tracker::TipsetTracker,
+    Error,
+};
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
+use crate::db::setting_keys::HEAD_KEY;
+use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -27,16 +32,9 @@ use itertools::Itertools;
 use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
+use std::sync::Arc;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, info, trace, warn};
-
-use super::{
-    index::{ChainIndex, ResolveNullTipset},
-    tipset_tracker::TipsetTracker,
-    Error,
-};
-use crate::db::setting_keys::HEAD_KEY;
-use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -100,9 +98,9 @@ impl<DB> BitswapStoreReadWrite for ChainStore<DB>
 where
     DB: BitswapStoreReadWrite,
 {
-    type Params = <DB as BitswapStoreReadWrite>::Params;
+    type Hashes = <DB as BitswapStoreReadWrite>::Hashes;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.db.insert(block)
     }
 }
@@ -678,17 +676,11 @@ pub mod headchange_json {
 
 #[cfg(test)]
 mod tests {
-    use crate::{blocks::RawBlockHeader, shim::address::Address};
-    use cid::{
-        multihash::{
-            Code::{Blake2b256, Identity},
-            MultihashDigest as _,
-        },
-        Cid,
-    };
-    use fvm_ipld_encoding::DAG_CBOR;
-
     use super::*;
+    use crate::utils::multihash::prelude::*;
+    use crate::{blocks::RawBlockHeader, shim::address::Address};
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]
     fn genesis_test() {
@@ -697,11 +689,11 @@ mod tests {
 
         let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
-            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
             epoch: 1,
             weight: 2u32.into(),
-            messages: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
-            message_receipts: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            messages: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
+            message_receipts: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
             ..Default::default()
         });
         let cs =
@@ -721,7 +713,7 @@ mod tests {
 
         let cs = ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap();
 
-        let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+        let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));
 
         cs.mark_block_as_validated(&cid);

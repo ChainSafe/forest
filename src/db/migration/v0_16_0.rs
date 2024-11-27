@@ -9,12 +9,12 @@ use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_16_0::paritydb_0_15_1::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
+use crate::utils::multihash::prelude::*;
 use crate::Config;
 use anyhow::Context as _;
 use cid::Cid;
 use fs_extra::dir::CopyOptions;
 use fvm_ipld_encoding::DAG_CBOR;
-use multihash_codetable::{Code::Blake2b256, MultihashDigest as _};
 use semver::Version;
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
@@ -93,7 +93,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
                 let mut res = anyhow::Ok(());
                 if col == DbColumn::GraphDagCborBlake2b256 {
                     db.db.iter_column_while(col as u8, |val| {
-                        let hash = Blake2b256.digest(&val.value);
+                        let hash = MultihashCode::Blake2b256.digest(&val.value);
                         let cid = Cid::new_v1(DAG_CBOR, hash);
                         res = new_db
                             .db

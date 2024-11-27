@@ -9,7 +9,7 @@
 
 pub mod prelude {
     pub use super::MultihashCodeLegacy;
-    pub use multihash_codetable::{Multihash, Code as MultihashCode, MultihashDigest as _};
+    pub use multihash_codetable::{Code as MultihashCode, MultihashDigest as _};
 }
 
 use multihash_derive::MultihashDigest;

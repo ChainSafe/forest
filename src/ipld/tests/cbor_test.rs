@@ -1,14 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    ipld::Ipld,
-    utils::{encoding::from_slice_with_fallback, multihash::prelude::*},
-};
+use crate::utils::{encoding::from_slice_with_fallback, multihash::prelude::*};
 use cid::Cid;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use libipld_core::serde::to_ipld;
-use libipld_macro::ipld;
+use ipld_core::{ipld, ipld::Ipld, serde::to_ipld};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]

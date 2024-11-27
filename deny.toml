@@ -79,10 +79,6 @@ ignore = [
   # Instant is unmaintained, but there is a replacement in
   # the pipeline - see
   # https://github.com/libp2p/rust-libp2p/pull/5674
-  # We will likele need to get rid of `backoff` dependency
-  # in favour of something that is maintained too - see
-  # https://github.com/ihrwein/backoff/pull/70. Last commit
-  # to master was 3 years ago.
   "RUSTSEC-2024-0384",
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
