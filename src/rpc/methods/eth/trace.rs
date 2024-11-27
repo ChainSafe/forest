@@ -5,6 +5,7 @@ use crate::rpc::state::ActorTrace;
 use crate::shim::{address::Address, clock::ChainEpoch, error::ExitCode, state_tree::StateTree};
 use anyhow::{bail, Context};
 use cid::Cid;
+use fil_actor_evm_state::v15 as code;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 
@@ -75,15 +76,15 @@ pub fn trace_err_msg(trace: &ExecutionTrace) -> String {
 
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
-        match code {
-            ExitCode::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
-            ExitCode::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
-            ExitCode::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
-            ExitCode::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
-            ExitCode::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
-            ExitCode::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
-            ExitCode::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
-            ExitCode::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
+        match code.into() {
+            code::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
+            code::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
+            code::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
+            code::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
+            code::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
+            code::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
+            code::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
+            code::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
             _ => (),
         }
     }

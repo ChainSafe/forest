@@ -3152,6 +3152,7 @@ dependencies = [
  "fil_actor_account_state",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
+ "fil_actor_evm_state",
  "fil_actor_init_state",
  "fil_actor_interface",
  "fil_actor_market_state",

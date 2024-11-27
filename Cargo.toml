@@ -51,6 +51,7 @@ ez-jsonrpc-types = "0.3"
 fil_actor_account_state = { version = "17.0.3" }
 fil_actor_cron_state = { version = "17.0.3" }
 fil_actor_datacap_state = { version = "17.0.3" }
+fil_actor_evm_state = { version = "17.0.3" }
 fil_actor_init_state = { version = "17.0.3" }
 fil_actor_interface = { version = "17.0.3" }
 fil_actor_market_state = { version = "17.0.3" }
