@@ -3071,6 +3071,7 @@ dependencies = [
  "mimalloc",
  "multiaddr",
  "multihash-codetable",
+ "multihash-derive 0.9.1",
  "multimap",
  "nom",
  "nonzero_ext",

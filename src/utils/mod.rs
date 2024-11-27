@@ -8,6 +8,7 @@ pub mod flume;
 pub mod io;
 pub mod misc;
 pub mod monitoring;
+pub mod multihash;
 pub mod net;
 pub mod p2p;
 pub mod proofs_api;

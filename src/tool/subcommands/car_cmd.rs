@@ -128,9 +128,9 @@ mod tests {
     use crate::db::car::forest;
     use crate::networks::{calibnet, mainnet};
     use crate::utils::db::car_stream::CarBlock;
+    use crate::utils::multihash::prelude::*;
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
-    use multihash_codetable::{Code, MultihashDigest as _};
     use nunny::{vec as nonempty, Vec as NonEmpty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};
@@ -174,13 +174,13 @@ mod tests {
     fn valid_block(msg: &str) -> CarBlock {
         let data = msg.as_bytes().to_vec();
         CarBlock {
-            cid: Cid::new_v1(0, Code::Blake2b256.digest(&data)),
+            cid: Cid::new_v1(0, MultihashCode::Blake2b256.digest(&data)),
             data,
         }
     }
 
     fn invalid_block(msg: &str) -> CarBlock {
-        let cid = Cid::new_v1(0, Code::Identity.digest(&[]));
+        let cid = Cid::new_v1(0, MultihashCodeLegacy::Identity.digest(&[]));
         let data = msg.as_bytes().to_vec();
         CarBlock { cid, data }
     }

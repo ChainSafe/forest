@@ -11,7 +11,7 @@ exclude = [".config", ".github", ".maintain", "documentation", "scripts", "inter
 [dependencies]
 ahash = "0.8"
 anes = "0.2"
-anyhow = "1.0"
+anyhow = "1"
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
@@ -21,7 +21,7 @@ axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
-blake2b_simd = "1.0"
+blake2b_simd = "1"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
   "blst-portable",
@@ -82,7 +82,7 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17.9", features = ["tokio"] }
+indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ['arb', 'serde'] }
 is-terminal = "0.4"
@@ -124,6 +124,7 @@ memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
 multihash-codetable = "0.1"
+multihash-derive = "0.9"
 multimap = "0.10"
 nom = "7"
 nonzero_ext = "0.3"
@@ -165,15 +166,15 @@ scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.4"
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde_json = { version = "1", features = ["raw_value"] }
 serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }
 shared_memory = "0.12"
 similar = "2"
-slotmap = "1.0"
-smallvec = "1.13"
+slotmap = "1"
+smallvec = "1"
 smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
@@ -204,7 +205,7 @@ zstd = "0.13"
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
-paste = "1.0.15"
+paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }

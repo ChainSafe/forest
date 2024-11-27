@@ -63,8 +63,7 @@ pub fn from_ideal_slot_ix(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::cid::CidCborExt as _;
-    use multihash_codetable::{Code, MultihashDigest as _};
+    use crate::utils::{cid::CidCborExt as _, multihash::prelude::*};
 
     quickcheck::quickcheck! {
         fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
@@ -124,10 +123,19 @@ mod tests {
                 Cid::from_cbor_blake2b256(&"haskell").unwrap(),
                 10392497608425502268,
             ),
-            (Cid::new_v1(0xAB, Code::Identity.digest(&[])), 170),
-            (Cid::new_v1(0xAC, Code::Identity.digest(&[1, 2, 3, 4])), 171),
             (
-                Cid::new_v1(0xAD, Code::Identity.digest(&[1, 2, 3, 4, 5, 6, 7, 8])),
+                Cid::new_v1(0xAB, MultihashCodeLegacy::Identity.digest(&[])),
+                170,
+            ),
+            (
+                Cid::new_v1(0xAC, MultihashCodeLegacy::Identity.digest(&[1, 2, 3, 4])),
+                171,
+            ),
+            (
+                Cid::new_v1(
+                    0xAD,
+                    MultihashCodeLegacy::Identity.digest(&[1, 2, 3, 4, 5, 6, 7, 8]),
+                ),
                 578437695752307371,
             ),
         ] {

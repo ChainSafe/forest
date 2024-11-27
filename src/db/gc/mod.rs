@@ -237,22 +237,17 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
 mod test {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::{ChainEpochDelta, ChainStore};
-
     use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB, PersistentStore};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
     use crate::networks::ChainConfig;
-
-    use crate::utils::db::CborStoreExt;
-
-    use core::time::Duration;
-
     use crate::shim::clock::ChainEpoch;
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
+    use crate::utils::db::CborStoreExt;
+    use crate::utils::multihash::prelude::*;
     use cid::Cid;
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding::DAG_CBOR;
     use std::sync::Arc;
+    use std::time::Duration;
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
 
@@ -495,7 +490,10 @@ mod test {
         let current_epoch = current_epoch as ChainEpochDelta;
 
         let persistent_data = [1, 55];
-        let persistent_cid = Cid::new_v1(DAG_CBOR, Identity.digest(&persistent_data));
+        let persistent_cid = Cid::new_v1(
+            DAG_CBOR,
+            MultihashCodeLegacy::Identity.digest(&persistent_data),
+        );
 
         // Make sure we run enough epochs to initiate GC.
         tester.run_epochs(current_epoch);

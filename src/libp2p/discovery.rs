@@ -1,11 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::str;
 use std::{
     cmp,
     collections::VecDeque,
-    io,
+    io, str,
     task::{Context, Poll},
     time::Duration,
 };
