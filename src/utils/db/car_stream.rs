@@ -245,7 +245,7 @@ mod tests {
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1207);
         for block in blocks {
-            assert!(block.valid());
+            block.validate().unwrap();
         }
     }
 
@@ -255,7 +255,7 @@ mod tests {
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1222);
         for block in blocks {
-            assert!(block.valid());
+            block.validate().unwrap();
         }
     }
 }
