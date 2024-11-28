@@ -1281,7 +1281,6 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
-// First add the shared function that both methods will use
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_hash: EthHash,
