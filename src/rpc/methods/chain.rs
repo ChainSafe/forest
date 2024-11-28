@@ -28,9 +28,9 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
+use ipld_core::ipld::Ipld;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
-use libipld::Ipld;
 use num::BigInt;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
@@ -319,7 +319,7 @@ impl RpcMethod<2> for ChainStatObj {
                         {
                             for ipld in DfsIter::new(ipld) {
                                 if let Ipld::Link(cid) = ipld {
-                                    queue.push_back(cid);
+                                    queue.push_back(crate::utils::cid::cid_11_to_10(&cid));
                                 }
                             }
                         }

@@ -107,8 +107,8 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
-    use libipld::Ipld;
+    use ipld_core::ipld::Ipld;
+    use itertools::Itertools as _;
     use rand::Rng;
     use serde::{Deserialize, Serialize};
     use serde_ipld_dagcbor::to_vec;
@@ -147,9 +147,10 @@ mod tests {
             inner: vec![0; BYTE_ARRAY_MAX_LEN + 1],
         };
 
+        let err = serde_ipld_dagcbor::to_vec(&bytes).unwrap_err();
         assert!(
-            format!("{}", serde_ipld_dagcbor::to_vec(&bytes).err().unwrap())
-                .contains("Array exceed max length")
+            format!("{}", err).contains("Struct value cannot be serialized."),
+            "{err}"
         );
     }
 

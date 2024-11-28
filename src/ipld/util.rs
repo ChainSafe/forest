@@ -81,7 +81,7 @@ impl DfsIter {
 
 impl From<Cid> for DfsIter {
     fn from(cid: Cid) -> Self {
-        DfsIter::new(Ipld::Link(cid))
+        DfsIter::new(Ipld::Link(crate::utils::cid::cid_10_to_11(&cid)))
     }
 }
 
@@ -181,7 +181,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
-                return Some(cid);
+                return Some(crate::utils::cid::cid_11_to_10(&cid));
             }
             None
         };
