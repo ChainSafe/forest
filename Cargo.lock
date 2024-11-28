@@ -2512,7 +2512,8 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2526,7 +2527,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
@@ -2539,7 +2541,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2557,7 +2560,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2575,7 +2579,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2594,7 +2599,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2624,7 +2630,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2650,7 +2657,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
@@ -2679,7 +2687,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2701,7 +2710,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2723,7 +2733,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "fil_actor_miner_state",
  "fil_actors_shared",
@@ -2739,7 +2750,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2755,7 +2767,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2775,7 +2788,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "17.0.3"
+version = "18.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
