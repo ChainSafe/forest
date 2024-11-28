@@ -2513,7 +2513,8 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "287f481e1301b533b71775affe5773fd7cbdc288ad05da3b95f1942bf1a1c017"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2528,7 +2529,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12c18e8014c532184b8453163c7dafc9e709d1b0d2d172e82a34a3a0adbe54e1"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
@@ -2542,7 +2544,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4f5c117f6d7d23525500b8a6b27be410bb214c52c237354181a442883aef2ee"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2561,7 +2564,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "994253045c8eaac64b5fd475b1b9556015c54ed59da4570f90caebe78efc3c18"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2580,7 +2584,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "880f31c00db9add20fd8676f939e9a6c23e8578497a6ea02e28158018f0ed291"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2600,7 +2605,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c07096883a9407fa30c2849225bce10f25ec1af071159468f0ffb5ebc072959f"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2631,7 +2637,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89301400ba0609642d294eb5b1522693555f785244d0747973fae382772f29e2"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2658,7 +2665,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e33ad244aa0ba9d351734bd1ba5738951838eddc90ed54fa32b8e55a400cebe"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
@@ -2688,7 +2696,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32fe7837d6e26c0dcf8daeb3e1fe994cfe4e507f71948bb5e1f9ee0f44e25360"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2711,7 +2720,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ff863dbd6eb1b321a27125d844baa46a8cf19fec7a8971eafa6e81613f96ac2"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2734,7 +2744,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d1f21670f417f59be23b5fc5a0e4c32505d92c9c96b815fadca1c5a4fda7c4"
 dependencies = [
  "fil_actor_miner_state",
  "fil_actors_shared",
@@ -2751,7 +2762,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4fe8c0796876f159fbb7254f0f15d027d6c31b6e59e60d23795c9dc0adedc97"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2768,7 +2780,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84f870f5eaa308f51098c201c982e3d64dfab6e744db0b09c6963b0fa1bc05cf"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2789,7 +2802,8 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a51ca7c221b976213cc80d92593132e15cee542e8866c6bb508ba9267c3a6e"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -4061,7 +4075,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "thiserror 1.0.69",
  "tinyvec",
  "tokio",
@@ -4258,7 +4272,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -4331,7 +4345,7 @@ dependencies = [
  "http-body 1.0.1",
  "hyper 1.5.1",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -4721,7 +4735,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "widestring",
  "windows-sys 0.48.0",
  "winreg",
@@ -5424,7 +5438,7 @@ dependencies = [
  "libp2p-swarm",
  "rand",
  "smallvec",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tracing",
  "void",
@@ -5527,7 +5541,7 @@ dependencies = [
  "rand",
  "ring 0.17.8",
  "rustls",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -5622,7 +5636,7 @@ dependencies = [
  "libc",
  "libp2p-core",
  "libp2p-identity",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tracing",
 ]
@@ -7246,7 +7260,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.0.0",
  "rustls",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "thiserror 2.0.3",
  "tokio",
  "tracing",
@@ -7281,7 +7295,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -8580,9 +8594,9 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.7"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
+checksum = "c970269d99b64e60ec3bd6ad27270092a5394c4e309314b18ae3fe575695fbe8"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
@@ -9216,7 +9230,7 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio-macros",
  "tracing",
  "windows-sys 0.52.0",
@@ -9358,7 +9372,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "prost 0.13.3",
- "socket2 0.5.7",
+ "socket2 0.5.8",
  "tokio",
  "tokio-stream",
  "tower 0.4.13",
