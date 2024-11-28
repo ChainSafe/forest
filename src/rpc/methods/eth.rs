@@ -1381,8 +1381,6 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     }
 }
 
-
-
 pub enum EthGetBlockTransactionCountByHash {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";

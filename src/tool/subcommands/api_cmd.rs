@@ -1441,6 +1441,9 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         ),
         RpcTest::identity(EthGetBlockReceipts::request((block_hash.clone(),)).unwrap()),
         RpcTest::identity(
+            EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockReceiptsLimited::request((block_hash.clone(), EthUint64(800))).unwrap(),
         ),
         RpcTest::identity(
