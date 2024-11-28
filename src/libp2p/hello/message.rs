@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
-            genesis_cid: Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[])),
+            genesis_cid: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
             heaviest_tip_set: NonEmpty::of(Default::default()),
