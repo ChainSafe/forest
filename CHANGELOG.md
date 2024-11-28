@@ -44,6 +44,8 @@
 
 ### Fixed
 
+- [#5006](https://github.com/ChainSafe/forest/pull/5006) Filter logs for only the block being queried
+
 - [#4959](https://github.com/ChainSafe/forest/pull/4959) Re-enable garbage
   collection after implementing a "persistent" storage for manifests.
 
