@@ -1281,6 +1281,52 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+// First add the shared function that both methods will use
+async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block_hash: EthHash,
+    limit: Option<u64>,
+) -> Result<Vec<EthTxReceipt>, ServerError> {
+    let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+    let ts_ref = Arc::new(ts);
+    let ts_key = ts_ref.key();
+    let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
+
+    let msgs_and_receipts = if let Some(limit) = limit {
+        msgs_and_receipts.into_iter().take(limit as usize).collect()
+    } else {
+        msgs_and_receipts
+    };
+
+    let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+    for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+        let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: ts_key.clone(),
+            height: ts_ref.epoch(),
+            message: msg.cid(),
+            return_dec,
+        };
+
+        let tx = new_eth_tx(
+            ctx,
+            &state,
+            ts_ref.epoch(),
+            &ts_key.cid()?,
+            &msg.cid(),
+            i as u64,
+        )?;
+
+        let tx_receipt = new_eth_tx_receipt(ctx, &tx, &message_lookup).await?;
+        receipts.push(tx_receipt);
+    }
+    Ok(receipts)
+}
+
 pub enum EthGetBlockReceipts {}
 impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
@@ -1295,38 +1341,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-        let ts_ref = Arc::new(ts);
-        let ts_key = ts_ref.key();
-        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
-        let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-
-        for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
-            let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-
-            let message_lookup = MessageLookup {
-                receipt,
-                tipset: ts_key.clone(),
-                height: ts_ref.epoch(),
-                message: msg.cid(),
-                return_dec,
-            };
-
-            let tx = new_eth_tx(
-                &ctx,
-                &state,
-                ts_ref.epoch(),
-                &ts_key.cid()?,
-                &msg.cid(),
-                i as u64,
-            )?;
-
-            let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
-            receipts.push(tx_receipt);
-        }
-        Ok(receipts)
+        get_block_receipts(&ctx, block_hash, None).await
     }
 }
 
@@ -1344,40 +1359,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, EthUint64(limit)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-        let ts_ref = Arc::new(ts);
-        let ts_key = ts_ref.key();
-        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
-
-        let msgs_and_receipts = msgs_and_receipts.into_iter().take(limit as usize);
-
-        let mut receipts = Vec::new();
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-
-        for (i, (msg, receipt)) in msgs_and_receipts.enumerate() {
-            let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-
-            let message_lookup = MessageLookup {
-                receipt,
-                tipset: ts_key.clone(),
-                height: ts_ref.epoch(),
-                message: msg.cid(),
-                return_dec,
-            };
-
-            let tx = new_eth_tx(
-                &ctx,
-                &state,
-                ts_ref.epoch(),
-                &ts_key.cid()?,
-                &msg.cid(),
-                i as u64,
-            )?;
-
-            let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
-            receipts.push(tx_receipt);
-        }
-        Ok(receipts)
+        get_block_receipts(&ctx, block_hash, Some(limit)).await
     }
 }
 
