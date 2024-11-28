@@ -150,9 +150,9 @@ impl BitswapStoreRead for MemoryDB {
 }
 
 impl BitswapStoreReadWrite for MemoryDB {
-    type Params = libipld::DefaultParams;
+    type Hashes = cid::multihash::Code;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
     }
 }

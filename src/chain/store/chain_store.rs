@@ -100,9 +100,9 @@ impl<DB> BitswapStoreReadWrite for ChainStore<DB>
 where
     DB: BitswapStoreReadWrite,
 {
-    type Params = <DB as BitswapStoreReadWrite>::Params;
+    type Hashes = <DB as BitswapStoreReadWrite>::Hashes;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.db.insert(block)
     }
 }
