@@ -767,12 +767,12 @@ mod test {
     fn ensure_state_roots_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
-            state_root: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            state_root: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[1])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[1])),
             ..Default::default()
         };
         assert_eq!(
@@ -791,7 +791,7 @@ mod test {
             miner_address: Address::new_id(1),
             parents: TipsetKey::from(nonempty![Cid::new_v1(
                 DAG_CBOR,
-                MultihashCodeLegacy::Identity.digest(&[])
+                MultihashCode::Identity.digest(&[])
             )]),
             ..Default::default()
         };

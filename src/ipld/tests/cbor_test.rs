@@ -55,7 +55,7 @@ fn cid_conversions_ipld() {
     assert_eq!(to_ipld(cid).unwrap(), Ipld::Link(cid));
 
     // Test with identity hash (different length prefix for cbor)
-    let cid = Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[1, 2]));
+    let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[1, 2]));
     let ipld = ipld!(Ipld::Link(cid));
     let ipld2 = to_ipld(cid).unwrap();
     assert_eq!(ipld, ipld2);

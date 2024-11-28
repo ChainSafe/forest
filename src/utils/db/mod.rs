@@ -4,12 +4,13 @@
 pub mod car_stream;
 pub mod car_util;
 
+use crate::utils::multihash::prelude::*;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use multihash_codetable::{Code, MultihashDigest as _};
+use multihash_codetable::Code;
 
 use serde::ser::Serialize;
 

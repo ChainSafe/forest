@@ -24,7 +24,7 @@ static [<$actor:upper _ACTOR_CIDS>]: Lazy<Vec<(u64, Cid)>> = Lazy::new(|| {
 
     // we need to add manually init actors for V0.
     if Type::$actor_type == Type::Init {
-        let init = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, MultihashCodeLegacy::Identity.digest(b"fil/1/init"));
+        let init = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, MultihashCode::Identity.digest(b"fil/1/init"));
         actors.push((0, init));
     }
     actors

@@ -689,11 +689,11 @@ mod tests {
 
         let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
-            state_root: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             epoch: 1,
             weight: 2u32.into(),
-            messages: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
-            message_receipts: Cid::new_v1(DAG_CBOR, MultihashCodeLegacy::Identity.digest(&[])),
+            messages: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
+            message_receipts: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         });
         let cs =

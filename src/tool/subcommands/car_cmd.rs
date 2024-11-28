@@ -180,7 +180,7 @@ mod tests {
     }
 
     fn invalid_block(msg: &str) -> CarBlock {
-        let cid = Cid::new_v1(0, MultihashCodeLegacy::Identity.digest(&[]));
+        let cid = Cid::new_v1(0, MultihashCode::Identity.digest(&[]));
         let data = msg.as_bytes().to_vec();
         CarBlock { cid, data }
     }

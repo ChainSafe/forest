@@ -503,8 +503,8 @@ mod tests {
         use crate::utils::multihash::prelude::*;
 
         // Distinct CIDs may map to the same hash value
-        let cid_a = Cid::new_v1(0, MultihashCodeLegacy::Identity.digest(&[10]));
-        let cid_b = Cid::new_v1(0, MultihashCodeLegacy::Identity.digest(&[0]));
+        let cid_a = Cid::new_v1(0, MultihashCode::Identity.digest(&[10]));
+        let cid_b = Cid::new_v1(0, MultihashCode::Identity.digest(&[0]));
         // A and B are _not_ the same...
         assert_ne!(cid_a, cid_b);
         // ... but they map to the same hash:

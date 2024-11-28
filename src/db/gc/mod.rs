@@ -490,10 +490,8 @@ mod test {
         let current_epoch = current_epoch as ChainEpochDelta;
 
         let persistent_data = [1, 55];
-        let persistent_cid = Cid::new_v1(
-            DAG_CBOR,
-            MultihashCodeLegacy::Identity.digest(&persistent_data),
-        );
+        let persistent_cid =
+            Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&persistent_data));
 
         // Make sure we run enough epochs to initiate GC.
         tester.run_epochs(current_epoch);

@@ -453,7 +453,7 @@ mod tests {
             "verifiedregistry",
             "datacap",
         ] {
-            let hash = MultihashCodeLegacy::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let hash = MultihashCode::Identity.digest(format!("{prefix}{name}").as_bytes());
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }

@@ -123,18 +123,15 @@ mod tests {
                 Cid::from_cbor_blake2b256(&"haskell").unwrap(),
                 10392497608425502268,
             ),
+            (Cid::new_v1(0xAB, MultihashCode::Identity.digest(&[])), 170),
             (
-                Cid::new_v1(0xAB, MultihashCodeLegacy::Identity.digest(&[])),
-                170,
-            ),
-            (
-                Cid::new_v1(0xAC, MultihashCodeLegacy::Identity.digest(&[1, 2, 3, 4])),
+                Cid::new_v1(0xAC, MultihashCode::Identity.digest(&[1, 2, 3, 4])),
                 171,
             ),
             (
                 Cid::new_v1(
                     0xAD,
-                    MultihashCodeLegacy::Identity.digest(&[1, 2, 3, 4, 5, 6, 7, 8]),
+                    MultihashCode::Identity.digest(&[1, 2, 3, 4, 5, 6, 7, 8]),
                 ),
                 578437695752307371,
             ),
