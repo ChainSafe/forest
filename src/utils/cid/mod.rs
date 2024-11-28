@@ -1,10 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
+use crate::utils::multihash::prelude::*;
+use cid::Cid;
 use fvm_ipld_encoding::Error;
 
 /// Extension methods for constructing `dag-cbor` [Cid]
@@ -19,21 +17,15 @@ pub trait CidCborExt {
         let bytes = fvm_ipld_encoding::to_vec(obj)?;
         Ok(Cid::new_v1(
             fvm_ipld_encoding::DAG_CBOR,
-            Code::Blake2b256.digest(&bytes),
+            MultihashCode::Blake2b256.digest(&bytes),
         ))
     }
 }
 
 impl CidCborExt for Cid {}
 
-/// A temporary utility for converting [`cid::Cid`] to [`cid_0_11::Cid`]
-pub fn cid_10_to_11(cid: &cid::Cid) -> cid_0_11::Cid {
+/// A temporary utility for converting [`cid::Cid`] to [`cid_0_10::Cid`]
+pub fn cid_11_to_10(cid: &cid::Cid) -> cid_0_10::Cid {
     let bytes = cid.to_bytes();
-    cid_0_11::Cid::read_bytes(bytes.as_slice()).unwrap()
-}
-
-/// A temporary utility for converting [`cid_0_11::Cid`] to [`cid::Cid`]
-pub fn cid_11_to_10(cid: &cid_0_11::Cid) -> cid::Cid {
-    let bytes = cid.to_bytes();
-    cid::Cid::read_bytes(bytes.as_slice()).unwrap()
+    cid_0_10::Cid::read_bytes(bytes.as_slice()).unwrap()
 }

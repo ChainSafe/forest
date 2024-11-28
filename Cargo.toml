@@ -10,11 +10,12 @@ exclude = [".config", ".github", ".maintain", "documentation", "scripts", "inter
 
 [workspace.dependencies]
 anyhow = "1"
-cid = { version = "0.10", default-features = false, features = ["std"] }
+cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.11"
 futures = "0.3"
 libp2p = { version = "0.54", default-features = false }
 libp2p-swarm-test = "0.4"
+multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.3"
 tokio = "1"
 
@@ -31,7 +32,7 @@ axum = "0.7"
 backon = "1"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
-blake2b_simd = "1.0"
+blake2b_simd = "1"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
   "blst-portable",
@@ -44,7 +45,7 @@ cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { workspace = true }
-cid_0_11 = { package = "cid", version = "0.11", default-features = false, features = ["std"] }
+cid_0_10 = { package = "cid", version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "2.0"
 crypto_secretbox = "0.1"
@@ -58,30 +59,30 @@ digest = "0.10"
 directories = "5"
 displaydoc = "0.2"
 ethereum-types = "0.15"
-ez-jsonrpc-types = "0.3"
-fil_actor_account_state = { version = "17.0.3" }
-fil_actor_cron_state = { version = "17.0.3" }
-fil_actor_datacap_state = { version = "17.0.3" }
-fil_actor_init_state = { version = "17.0.3" }
-fil_actor_interface = { version = "17.0.3" }
-fil_actor_market_state = { version = "17.0.3" }
-fil_actor_miner_state = { version = "17.0.3" }
-fil_actor_power_state = { version = "17.0.3" }
-fil_actor_reward_state = { version = "17.0.3" }
-fil_actor_system_state = { version = "17.0.3" }
-fil_actor_verifreg_state = { version = "17.0.3" }
-fil_actors_shared = { version = "17.0.3", features = ["json"] }
+ez-jsonrpc-types = "0.5"
+fil_actor_account_state = { version = "18" }
+fil_actor_cron_state = { version = "18" }
+fil_actor_datacap_state = { version = "18" }
+fil_actor_init_state = { version = "18" }
+fil_actor_interface = { version = "18" }
+fil_actor_market_state = { version = "18" }
+fil_actor_miner_state = { version = "18" }
+fil_actor_power_state = { version = "18" }
+fil_actor_reward_state = { version = "18" }
+fil_actor_system_state = { version = "18" }
+fil_actor_verifreg_state = { version = "18" }
+fil_actors_shared = { version = "18", features = ["json"] }
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
-fvm2 = { package = "fvm", version = "~2.9", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.11", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.3.3", features = ["arb", "verify-signature"] }
-fvm_ipld_blockstore = "0.2"
-fvm_ipld_encoding = "0.4"
-fvm_shared2 = { package = "fvm_shared", version = "~2.9" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.11", features = ["arb", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3.3", features = ["arb", "proofs"] }
+fvm2 = { package = "fvm", version = "~2.10", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.12", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.5", features = ["arb", "verify-signature"] }
+fvm_ipld_blockstore = "0.3"
+fvm_ipld_encoding = "0.5"
+fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs"] }
 gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
@@ -130,6 +131,8 @@ lru = "0.12"
 memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
+multihash-codetable = { workspace = true }
+multihash-derive = "0.9"
 multimap = "0.10"
 nom = "7"
 nonzero_ext = "0.3"
@@ -171,22 +174,22 @@ scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.6"
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde_json = { version = "1", features = ["raw_value"] }
 serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }
 shared_memory = "0.12"
 similar = "2"
-slotmap = "1.0"
-smallvec = "1.13"
+slotmap = "1"
+smallvec = "1"
 smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.17"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-tabled = "0.16"
+tabled = "0.17"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -226,8 +229,8 @@ cargo_metadata = "0.18"
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
-fvm_shared3 = { package = "fvm_shared", version = "~3.11", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3.3", features = ["arb", "proofs", "testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }

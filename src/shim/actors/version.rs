@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use cid::multihash::{Code, MultihashDigest as _};
+use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use fil_actors_shared::v11::runtime::builtins::Type;
 use once_cell::sync::Lazy;
@@ -24,7 +24,7 @@ static [<$actor:upper _ACTOR_CIDS>]: Lazy<Vec<(u64, Cid)>> = Lazy::new(|| {
 
     // we need to add manually init actors for V0.
     if Type::$actor_type == Type::Init {
-        let init = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, Code::Identity.digest(b"fil/1/init"));
+        let init = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, MultihashCode::Identity.digest(b"fil/1/init"));
         actors.push((0, init));
     }
     actors

@@ -31,6 +31,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libp2p-swarm-test = { workspace = true }
+multihash-codetable = { workspace = true }
 rust2go = { workspace = true }
 tokio = { workspace = true, features = ['full'] }
 

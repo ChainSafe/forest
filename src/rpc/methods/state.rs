@@ -1219,14 +1219,7 @@ impl RpcMethod<2> for StateFetchRoot {
 
         // When walking an Ipld graph, we're only interested in the DAG_CBOR encoded nodes.
         let mut get_ipld_link = |ipld: &Ipld| match ipld {
-            &Ipld::Link(cid) if cid.codec() == DAG_CBOR => {
-                let cid = crate::utils::cid::cid_11_to_10(&cid);
-                if seen.insert(cid) {
-                    Some(cid)
-                } else {
-                    None
-                }
-            }
+            &Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid) => Some(cid),
             _ => None,
         };
 
@@ -1235,9 +1228,7 @@ impl RpcMethod<2> for StateFetchRoot {
         // depth-first-search pauses until one of the work tasks returns. The memory usage of this
         // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
         // more than 1000 elements (even when walking tens of millions of nodes).
-        let dfs = Arc::new(Mutex::new(vec![Ipld::Link(
-            crate::utils::cid::cid_10_to_11(&root_cid),
-        )]));
+        let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
         let mut to_be_fetched = vec![];
 
         // Loop until: No more items in `dfs` AND no running worker tasks.
@@ -1505,7 +1496,7 @@ impl RpcMethod<2> for StateReadState {
             balance: actor.balance.clone().into(),
             code: actor.code,
             state: crate::rpc::types::ApiState {
-                builtin_actors: Ipld::Link(crate::utils::cid::cid_10_to_11(&state)),
+                builtin_actors: Ipld::Link(state),
             },
         })
     }

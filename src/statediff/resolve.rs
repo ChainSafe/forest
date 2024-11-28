@@ -47,7 +47,7 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == DAG_CBOR {
-                if let Some(mut x) = bs.get_cbor(&crate::utils::cid::cid_11_to_10(cid))? {
+                if let Some(mut x) = bs.get_cbor(cid)? {
                     resolve_ipld(bs, &mut x, depth)?;
                     *ipld = x;
                 }

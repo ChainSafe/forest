@@ -16,10 +16,9 @@ use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::networks::ChainConfig;
 use crate::state_manager::StateManager;
+use crate::utils::multihash::prelude::*;
 use crate::{db, Config};
-use anyhow::Context;
-use cid::multihash::Code::Blake2b256;
-use cid::multihash::MultihashDigest;
+use anyhow::Context as _;
 use cid::Cid;
 use fs_extra::dir::CopyOptions;
 use fvm_ipld_encoding::DAG_CBOR;
@@ -90,7 +89,7 @@ impl MigrationOperation for Migration0_18_0_0_19_0 {
             let mut res = anyhow::Ok(());
             if col == DbColumn::GraphDagCborBlake2b256 {
                 db.db.iter_column_while(col as u8, |val| {
-                    let hash = Blake2b256.digest(&val.value);
+                    let hash = MultihashCode::Blake2b256.digest(&val.value);
                     let cid = Cid::new_v1(DAG_CBOR, hash);
                     res = new_db
                         .db

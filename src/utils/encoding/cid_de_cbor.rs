@@ -4,9 +4,9 @@
 use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
-use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
+use std::fmt;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
@@ -180,12 +180,9 @@ impl<'de> de::Deserialize<'de> for CidVec {
 #[cfg(test)]
 mod test {
     use crate::ipld::DfsIter;
-
     use crate::utils::encoding::extract_cids;
-    use cid::multihash::Code::Blake2b256;
-    use cid::multihash::MultihashDigest;
+    use crate::utils::multihash::prelude::*;
     use cid::Cid;
-
     use fvm_ipld_encoding::DAG_CBOR;
     use ipld_core::ipld::Ipld;
     use quickcheck::{Arbitrary, Gen};
@@ -204,14 +201,14 @@ mod test {
                 match ipld {
                     // [`Cid`]s have to be valid in order to be decodable.
                     Ipld::Link(cid) => {
-                        *cid = crate::utils::cid::cid_10_to_11(&Cid::new_v1(
+                        *cid = Cid::new_v1(
                             DAG_CBOR,
-                            Blake2b256.digest(&[
+                            MultihashCode::Blake2b256.digest(&[
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
                             ]),
-                        ))
+                        )
                     }
                     Ipld::Map(map) => map.values_mut().for_each(|val| cleanup_ipld(val, g)),
                     Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
@@ -238,9 +235,10 @@ mod test {
     fn deserialize_various_blobs(ipld: IpldWrapper) {
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
-                return Some(crate::utils::cid::cid_11_to_10(&cid));
+                Some(cid)
+            } else {
+                None
             }
-            None
         };
 
         let blob = serde_ipld_dagcbor::to_vec(&ipld.inner).unwrap();

@@ -369,7 +369,7 @@ mod tests {
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
-    use cid::multihash::{Multihash, MultihashDigest};
+    use crate::utils::multihash::prelude::*;
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
     use fil_actors_shared::fvm_ipld_hamt::BytesKey;
     use fvm_ipld_encoding::IPLD_RAW;
@@ -381,6 +381,7 @@ mod tests {
         },
         piece::PaddedPieceSize,
     };
+    use multihash_codetable::Multihash;
 
     #[test]
     fn test_nv17_miner_migration() {
@@ -899,7 +900,7 @@ mod tests {
             "verifiedregistry",
             "datacap",
         ] {
-            let hash = cid::multihash::Code::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let hash = MultihashCode::Identity.digest(format!("{prefix}{name}").as_bytes());
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }
@@ -944,13 +945,13 @@ mod tests {
     }
 
     fn make_piece_cid(data: &[u8]) -> Cid {
-        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = MultihashCode::Sha2_256.digest(data);
         let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest()).unwrap();
         Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash)
     }
 
     fn make_sealed_cid(data: &[u8]) -> Cid {
-        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = MultihashCode::Sha2_256.digest(data);
         let hash = Multihash::wrap(POSEIDON_BLS12_381_A1_FC1, hash.digest()).unwrap();
         Cid::new_v1(FIL_COMMITMENT_SEALED, hash)
     }

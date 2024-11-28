@@ -201,11 +201,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     blocks.dedup();
 
     for block in blocks.iter() {
-        ensure!(
-            block.valid(),
-            "sources contain an invalid block, cid {}",
-            block.cid
-        )
+        block.validate()?;
     }
 
     stream::iter(blocks)
