@@ -1292,7 +1292,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
 
     let msgs_and_receipts = if let Some(limit) = limit {
-        msgs_and_receipts.into_iter().take(limit as usize).collect()
+        msgs_and_receipts.into_iter().take(limit).collect()
     } else {
         msgs_and_receipts
     };
