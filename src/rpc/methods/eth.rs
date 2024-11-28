@@ -1284,7 +1284,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_hash: EthHash,
-    limit: Option<u64>,
+    limit: Option<usize>,
 ) -> Result<Vec<EthTxReceipt>, ServerError> {
     let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
     let ts_ref = Arc::new(ts);
