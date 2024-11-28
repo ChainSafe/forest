@@ -1159,7 +1159,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     events.retain(|event| {
         if let Ok(block_hash) = event.tipset_key.cid() {
             let event_block_hash: EthHash = block_hash.into();
-            event_block_hash == *current_block_hash
+            &event_block_hash == current_block_hash
         } else {
             false
         }
