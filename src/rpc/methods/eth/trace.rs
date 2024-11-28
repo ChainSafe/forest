@@ -9,6 +9,7 @@ use crate::eth::EAMMethod;
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
+use crate::shim::actors::is_evm_actor;
 use crate::shim::{address::Address, error::ExitCode, state_tree::StateTree};
 use anyhow::{bail, Context};
 use fil_actor_eam_state::v12 as eam12;
@@ -55,7 +56,12 @@ pub fn trace_to_address(trace: &ActorTrace) -> EthAddress {
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
 pub fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
-    true
+    if let Some(invoked_actor) = &trace.invoked_actor {
+        is_evm_actor(&invoked_actor.state.code)
+            || invoked_actor.id != Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+    } else {
+        false
+    }
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
