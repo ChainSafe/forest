@@ -24,6 +24,7 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::eth::types::EthBlockTrace;
+use crate::rpc::state::ReturnTrace;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -53,6 +54,7 @@ use itertools::Itertools;
 use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
+use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
@@ -930,6 +932,19 @@ fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<E
         }
         IPLD_RAW => Ok(EthBytes(payload.to_vec())),
         _ => bail!("decode_payload: unsupported codec {codec}"),
+    }
+}
+
+/// Decodes the return bytes using the trace codec.
+pub fn decode_return<'a, T>(trace: &'a ReturnTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.return_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(trace.r#return.bytes())
+            .map_err(|e| anyhow::anyhow!("failed to decode return value: {}", e)),
+        _ => bail!("ethod returned an unexpected codec {codec}"),
     }
 }
 
@@ -2597,7 +2612,7 @@ impl RpcMethod<1> for EthTraceBlock {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
 
-        let (cid, trace) = ctx.state_manager.execution_trace(&ts)?;
+        let (_cid, trace) = ctx.state_manager.execution_trace(&ts)?;
 
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
 

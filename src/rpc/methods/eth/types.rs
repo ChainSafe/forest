@@ -461,10 +461,10 @@ pub struct EthCallTraceAction {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceAction {
-    from: EthAddress,
-    gas: EthUint64,
-    value: EthBigInt,
-    init: EthBytes,
+    pub from: EthAddress,
+    pub gas: EthUint64,
+    pub value: EthBigInt,
+    pub init: EthBytes,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -490,9 +490,9 @@ pub struct EthCallTraceResult {
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceResult {
-    address: Option<EthAddress>,
-    gas_used: EthUint64,
-    code: EthBytes,
+    pub address: Option<EthAddress>,
+    pub gas_used: EthUint64,
+    pub code: EthBytes,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]

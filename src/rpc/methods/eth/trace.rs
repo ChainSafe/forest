@@ -2,25 +2,22 @@ use super::types::{
     EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
 };
 use super::{
-    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
-    EthCallTraceResult,
+    decode_payload, decode_return, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
+    EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
 };
 use crate::rpc::methods::eth::lookup_eth_address;
-use crate::rpc::methods::state::{ExecutionTrace, MessageTrace, ReturnTrace};
+use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
-use crate::shim::{address::Address, clock::ChainEpoch, error::ExitCode, state_tree::StateTree};
+use crate::shim::{address::Address, error::ExitCode, state_tree::StateTree};
 use anyhow::{bail, Context};
 use fil_actor_evm_state::v15 as code;
+use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
 use fvm_shared4::METHOD_CONSTRUCTOR;
 
 pub fn decode_params() -> anyhow::Result<MessageTrace> {
-    todo!()
-}
-
-pub fn decode_return() -> anyhow::Result<ReturnTrace> {
     todo!()
 }
 
@@ -209,7 +206,9 @@ pub fn trace_native_create(
         .iter()
         .find(|c| c.msg.method == (METHOD_CONSTRUCTOR as u64));
 
-    if let Some(sub_trace) = sub_trace {
+    let sub_trace = if let Some(sub_trace) = sub_trace {
+        sub_trace
+    } else {
         // If we succeed in calling Exec/Exec4 but don't even try to construct
         // something, we have a bug in our tracing logic or a mismatch between our
         // tracing logic and the actors.
@@ -226,7 +225,7 @@ pub fn trace_native_create(
         // being nil, so we treat it the same way and skip the entire
         // operation.
         return Ok((None, None));
-    }
+    };
 
     // Native actors that aren't the EAM can attempt to call Exec4, but such
     // call should fail immediately without ever attempting to construct an
@@ -246,15 +245,34 @@ pub fn trace_native_create(
         output = EthBytes(vec![0xFE]);
 
         // Extract the address of the created actor from the return value.
-        todo!()
+        let init_return: ExecReturn = decode_return(&trace.msg_rct)?;
+        let actor_id = init_return.id_address.id()?;
+        let eth_addr = EthAddress::from_actor_id(actor_id);
+        create_addr = eth_addr;
     }
 
     Ok((
         Some(EthBlockTrace {
             r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from: env.caller.clone(),
+                gas: trace.msg.gas_limit.unwrap_or_default().into(),
+                value: trace.msg.value.clone().into(),
+                // If we get here, this isn't a native EVM create. Those always go through
+                // the EAM. So we have no "real" initcode and must use the sentinel value
+                // for "invalid" initcode.
+                init: EthBytes(vec![0xFE]),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: 0.into(),
+                address: Some(create_addr),
+                code: output,
+            }),
+            trace_address: Vec::from(address),
+            error: trace_err_msg(&trace),
             ..EthBlockTrace::default()
         }),
-        Some(trace),
+        Some(sub_trace.clone()),
     ))
 }
 
