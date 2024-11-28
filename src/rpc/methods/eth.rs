@@ -1358,7 +1358,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash, EthUint64(limit)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_hash, Some(limit)).await
+        get_block_receipts(&ctx, block_hash, Some(limit as usize)).await
     }
 }
 
