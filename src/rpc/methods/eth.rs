@@ -24,7 +24,7 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::eth::types::EthBlockTrace;
-use crate::rpc::state::ReturnTrace;
+use crate::rpc::state::{MessageTrace, ReturnTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -935,6 +935,19 @@ fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<E
     }
 }
 
+/// Decodes the message trace params using the message trace codec.
+pub fn decode_params<'a, T>(trace: &'a MessageTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.params_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(&trace.params)
+            .map_err(|e| anyhow::anyhow!("failed to decode params: {}", e)),
+        _ => bail!("Method called an unexpected codec {codec}"),
+    }
+}
+
 /// Decodes the return bytes using the trace codec.
 pub fn decode_return<'a, T>(trace: &'a ReturnTrace) -> anyhow::Result<T>
 where
@@ -944,7 +957,7 @@ where
     match codec {
         DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(trace.r#return.bytes())
             .map_err(|e| anyhow::anyhow!("failed to decode return value: {}", e)),
-        _ => bail!("ethod returned an unexpected codec {codec}"),
+        _ => bail!("Method returned an unexpected codec {codec}"),
     }
 }
 

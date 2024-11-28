@@ -5,11 +5,13 @@ use super::{
     decode_payload, decode_return, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
     EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
 };
+use crate::eth::EAMMethod;
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
 use crate::shim::{address::Address, error::ExitCode, state_tree::StateTree};
 use anyhow::{bail, Context};
+use fil_actor_eam_state::v12 as eam12;
 use fil_actor_evm_state::v15 as code;
 use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
@@ -280,7 +282,24 @@ pub fn trace_native_create(
 // should only be called with an ExecutionTrace for a Create, Create2, or CreateExternal method
 // invocation on the EAM.
 pub fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
-    todo!()
+    let method: EAMMethod = EAMMethod::from_repr(trace.msg.method)
+        .with_context(|| format!("unexpected CREATE method {}", trace.msg.method))?;
+
+    let init_code = match method {
+        EAMMethod::Create => {
+            todo!()
+        }
+        EAMMethod::Create2 => {
+            todo!()
+        }
+        EAMMethod::CreateExternal => {
+            todo!()
+        }
+        _ => bail!("unexpected CREATE method {}", trace.msg.method),
+    };
+    // let ret = decode_return(&trace.msg_rct)?;
+
+    Ok((init_code, todo!()))
 }
 
 // Build an EthTrace for an EVM "create" operation. This should only be called with an

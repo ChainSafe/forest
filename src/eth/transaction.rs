@@ -12,6 +12,7 @@ use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
 use num::{bigint::Sign, BigInt, Signed as _};
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
+use strum_macros::FromRepr;
 
 use crate::{
     message::{Message as _, SignedMessage},
@@ -32,8 +33,12 @@ use super::{
     EthChainId, EIP_1559_TX_TYPE, EIP_2930_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
+#[derive(Debug, FromRepr)]
 #[repr(u64)]
 pub enum EAMMethod {
+    Constructor = 1,
+    Create = 2,
+    Create2 = 3,
     CreateExternal = 4,
 }
 
