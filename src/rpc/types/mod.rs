@@ -35,7 +35,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;
-use libipld_core::ipld::Ipld;
+use ipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;

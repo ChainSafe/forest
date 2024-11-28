@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::go_ffi::*;
-
-use std::time::Duration;
-
-use forest_filecoin::interop_tests_private::libp2p_bitswap::{
-    BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
-};
-use libipld::{
+use cid::{
     multihash::{self, MultihashDigest as _},
     Cid,
+};
+use forest_filecoin::interop_tests_private::libp2p_bitswap::{
+    BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
 };
 use libp2p::{
     futures::StreamExt as _, noise, request_response, swarm::SwarmEvent, tcp, yamux, Multiaddr,
     Swarm, SwarmBuilder,
 };
+use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_secs(60);
 const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";

@@ -27,7 +27,7 @@ use fil_actor_interface::{
     reward::State as RewardState, system::State as SystemState,
 };
 use fvm_ipld_blockstore::Blockstore;
-use libipld_core::ipld::Ipld;
+use ipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
@@ -47,8 +47,8 @@ fn actor_to_resolved(
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
-    let resolved =
-        resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
+    let resolved = resolve_cids_recursive(bs, &actor.state, depth)
+        .unwrap_or(Ipld::Link(crate::utils::cid::cid_10_to_11(&actor.state)));
     ActorStateResolved {
         state: resolved,
         code: actor.code,

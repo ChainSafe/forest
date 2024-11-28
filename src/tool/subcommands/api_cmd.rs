@@ -39,6 +39,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
@@ -1946,8 +1947,6 @@ fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)
 }
 
 fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
-    use libipld_core::ipld::Ipld;
-
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
