@@ -1154,6 +1154,17 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
     let mut events = vec![];
     EthEventHandler::collect_events(ctx, &parent_ts, None, &mut events).await?;
+
+    let current_block_hash = receipt.block_hash.clone();
+    events.retain(|event| {
+        if let Ok(block_hash) = event.tipset_key.cid() {
+            let event_block_hash: EthHash = block_hash.into();
+            event_block_hash == current_block_hash
+        } else {
+            false
+        }
+    });
+
     receipt.logs = eth_filter_logs_from_events(ctx, &events)?;
 
     Ok(receipt)
