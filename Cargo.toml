@@ -191,7 +191,7 @@ static_assertions = "1"
 statrs = "0.17"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-tabled = "0.16"
+tabled = "0.17"
 tap = "1"
 tar = "0.4"
 tempfile = "3"

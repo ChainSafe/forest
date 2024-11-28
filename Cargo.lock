@@ -237,7 +237,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44055e597c674aef7cb903b2b9f6e4cba1277ed0d2d61dae7cd52d7ffa81f8e2"
 dependencies = [
- "unicode-width 0.1.11",
+ "unicode-width 0.1.14",
  "yansi",
 ]
 
@@ -1425,7 +1425,7 @@ dependencies = [
  "encode_unicode",
  "lazy_static",
  "libc",
- "unicode-width 0.1.11",
+ "unicode-width 0.1.14",
  "windows-sys 0.52.0",
 ]
 
@@ -2513,7 +2513,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2528,7 +2528,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
@@ -2542,7 +2542,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2561,7 +2561,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2574,13 +2574,13 @@ dependencies = [
  "num-derive",
  "num-traits",
  "serde",
- "uint 0.9.5",
+ "uint 0.10.0",
 ]
 
 [[package]]
 name = "fil_actor_init_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2600,7 +2600,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2631,7 +2631,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2658,7 +2658,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
@@ -2688,7 +2688,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2711,7 +2711,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2734,7 +2734,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "fil_actor_miner_state",
  "fil_actors_shared",
@@ -2751,7 +2751,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "cid 0.11.1",
  "fil_actors_shared",
@@ -2768,7 +2768,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -2789,7 +2789,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "18.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#018757b1933e71644839ccef0de76ac338770a7f"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm/upgrade-cid#b0a1c4d32eed3c9b0281aaa0652107e6785f222a"
 dependencies = [
  "anyhow",
  "cid 0.11.1",
@@ -6539,13 +6539,13 @@ dependencies = [
 
 [[package]]
 name = "papergrid"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7419ad52a7de9b60d33e11085a0fe3df1fbd5926aa3f93d3dd53afbc9e86725"
+checksum = "d2b0f8def1f117e13c895f3eda65a7b5650688da29d6ad04635f61bc7b92eebd"
 dependencies = [
  "bytecount",
  "fnv",
- "unicode-width 0.1.11",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -7021,6 +7021,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "proc-macro-error2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+dependencies = [
+ "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -8924,9 +8946,9 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c9303ee60b9bedf722012ea29ae3711ba13a67c9b9ae28993838b63057cb1b"
+checksum = "c6709222f3973137427ce50559cd564dc187a95b9cfe01613d2f4e93610e510a"
 dependencies = [
  "papergrid",
  "tabled_derive",
@@ -8934,12 +8956,12 @@ dependencies = [
 
 [[package]]
 name = "tabled_derive"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf0fb8bfdc709786c154e24a66777493fb63ae97e3036d914c8666774c477069"
+checksum = "931be476627d4c54070a1f3a9739ccbfec9b36b39815106a20cce2243bbcefe1"
 dependencies = [
  "heck 0.4.1",
- "proc-macro-error",
+ "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -9631,9 +9653,9 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.11"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51733f11c9c4f72aa0c160008246859e340b00807569a0da0e7a1079b27ba85"
+checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "unicode-width"
