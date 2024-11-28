@@ -4,11 +4,9 @@
 #[cfg(test)]
 mod tests {
     use crate::libp2p_bitswap::*;
+    use crate::utils::multihash::prelude::*;
     use ahash::HashMap;
-    use cid::{
-        multihash::{Code, MultihashDigest as _},
-        Cid,
-    };
+    use cid::Cid;
     use futures::StreamExt;
     use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
     use libp2p_swarm_test::SwarmExt as _;
@@ -146,7 +144,7 @@ mod tests {
         // 100KB
         let mut data = vec![0; 100 * 1024];
         OsRng.fill(&mut data[..]);
-        let cid = Cid::new_v0(Code::Sha2_256.digest(data.as_slice()))?;
+        let cid = Cid::new_v0(MultihashCode::Sha2_256.digest(data.as_slice()))?;
         Block::new(cid, data)
     }
 
@@ -166,7 +164,7 @@ mod tests {
     }
 
     impl BitswapStoreReadWrite for TestStoreInner {
-        type Hashes = cid::multihash::Code;
+        type Hashes = MultihashCode;
 
         fn insert(&self, block: &Block<Self::Hashes, 64>) -> anyhow::Result<()> {
             self.0

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use cid::multihash::MultihashDigest;
+use multihash_derive::MultihashDigest;
 use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -18,7 +18,7 @@ pub trait BitswapStoreRead {
 /// Trait implemented by a block store for reading and writing.
 pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
     /// The hashes parameters.
-    type Hashes: cid::multihash::MultihashDigest<64>;
+    type Hashes: MultihashDigest<64>;
 
     /// A block response needs to insert the block into the store.
     fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()>;

@@ -11,10 +11,9 @@ use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_22_1::paritydb_0_22_0::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::rpc::eth::types::EthHash;
+use crate::utils::multihash::prelude::*;
 use crate::Config;
 use anyhow::Context;
-use cid::multihash::Code::Blake2b256;
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fs_extra::dir::CopyOptions;
 use fvm_ipld_encoding::DAG_CBOR;
@@ -85,7 +84,7 @@ impl MigrationOperation for Migration0_22_0_0_22_1 {
             match col {
                 DbColumn::GraphDagCborBlake2b256 => {
                     db.db.iter_column_while(col as u8, |val| {
-                        let hash = Blake2b256.digest(&val.value);
+                        let hash = MultihashCode::Blake2b256.digest(&val.value);
                         let cid = Cid::new_v1(DAG_CBOR, hash);
                         res = new_db
                             .db

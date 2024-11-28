@@ -319,7 +319,7 @@ impl RpcMethod<2> for ChainStatObj {
                         {
                             for ipld in DfsIter::new(ipld) {
                                 if let Ipld::Link(cid) = ipld {
-                                    queue.push_back(crate::utils::cid::cid_11_to_10(&cid));
+                                    queue.push_back(cid);
                                 }
                             }
                         }

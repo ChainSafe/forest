@@ -41,6 +41,7 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
@@ -180,9 +181,7 @@ lotus_json_with_self!(EthInt64);
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
-        use cid::multihash::MultihashDigest;
-
-        let mh = cid::multihash::Code::Blake2b256
+        let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)

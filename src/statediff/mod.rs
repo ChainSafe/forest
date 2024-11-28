@@ -47,8 +47,8 @@ fn actor_to_resolved(
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
-    let resolved = resolve_cids_recursive(bs, &actor.state, depth)
-        .unwrap_or(Ipld::Link(crate::utils::cid::cid_10_to_11(&actor.state)));
+    let resolved =
+        resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
     ActorStateResolved {
         state: resolved,
         code: actor.code,

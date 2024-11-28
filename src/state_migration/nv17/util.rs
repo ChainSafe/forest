@@ -65,12 +65,13 @@ pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesK
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::{Multihash, MultihashDigest};
+    use crate::utils::multihash::prelude::*;
     use fvm_shared2::{
         bigint::Zero,
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,
     };
+    use multihash_codetable::Multihash;
 
     // Go parity test
     //
@@ -206,7 +207,7 @@ mod tests {
     }
 
     fn make_piece_cid(data: &[u8]) -> Cid {
-        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = MultihashCode::Sha2_256.digest(data);
         let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest()).unwrap();
         Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash)
     }

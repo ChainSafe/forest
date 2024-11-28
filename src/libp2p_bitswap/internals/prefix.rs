@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p_bitswap::*;
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Version,
-};
+use crate::utils::multihash::prelude::*;
+use cid::Version;
 use std::convert::TryFrom;
 use unsigned_varint::{decode as varint_decode, encode as varint_encode};
 
@@ -58,7 +56,7 @@ impl Prefix {
 
     /// Create a CID out of the prefix and some data that will be hashed
     pub fn to_cid(&self, data: &[u8]) -> anyhow::Result<Cid> {
-        let mh = Code::try_from(self.mh_type)?.digest(data);
+        let mh = MultihashCode::try_from(self.mh_type)?.digest(data);
         Ok(Cid::new(self.version, self.codec, mh)?)
     }
 }
