@@ -63,12 +63,26 @@ impl CarBlock {
     }
 
     pub fn valid(&self) -> bool {
-        if let Ok(code) = MultihashCode::try_from(self.cid.hash().code()) {
-            let actual = Cid::new_v1(self.cid.codec(), code.digest(&self.data));
-            actual == self.cid
-        } else {
-            false
-        }
+        self.validate().is_ok()
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let actual = match self.cid.hash().code() {
+            0 => {
+                let code = MultihashCodeLegacy::try_from(0)?;
+                Cid::new_v1(self.cid.codec(), code.digest(&self.data))
+            }
+            hash_code => {
+                let code = MultihashCode::try_from(hash_code)?;
+                Cid::new_v1(self.cid.codec(), code.digest(&self.data))
+            }
+        };
+        anyhow::ensure!(
+            actual == self.cid,
+            "CID/Block mismatch for block {}, actual: {actual}",
+            self.cid
+        );
+        Ok(())
     }
 }
 

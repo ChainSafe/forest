@@ -112,8 +112,8 @@ async fn validate(
 
     let mut stream = CarStream::new(file).await?;
     while let Some(block) = stream.try_next().await? {
-        if !ignore_block_validity && !block.valid() {
-            anyhow::ensure!(block.valid(), "CID/Block mismatch for block: {}", block.cid);
+        if !ignore_block_validity {
+            block.validate()?;
         }
         if let Some(ref db) = optional_db {
             anyhow::ensure!(db.get(&block.cid).ok().flatten() == Some(block.data));
@@ -166,9 +166,9 @@ mod tests {
     async fn validate_calibnet_genesis() {
         let mut temp_path = tempfile::Builder::new().tempfile().unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, true)
+        validate(&temp_path.into_temp_path(), false, true)
             .await
-            .is_ok());
+            .unwrap();
     }
 
     fn valid_block(msg: &str) -> CarBlock {

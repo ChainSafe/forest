@@ -56,7 +56,11 @@ impl Prefix {
 
     /// Create a CID out of the prefix and some data that will be hashed
     pub fn to_cid(&self, data: &[u8]) -> anyhow::Result<Cid> {
-        let mh = MultihashCode::try_from(self.mh_type)?.digest(data);
+        let mh = if self.mh_type == 0 {
+            MultihashCodeLegacy::try_from(self.mh_type)?.digest(data)
+        } else {
+            MultihashCode::try_from(self.mh_type)?.digest(data)
+        };
         Ok(Cid::new(self.version, self.codec, mh)?)
     }
 }
