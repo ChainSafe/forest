@@ -2051,16 +2051,14 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 
         let EthUint64(index) = tx_index;
-        if (index as usize) >= messages.len() {
-            return Err(anyhow::anyhow!(
+        let msg = messages.get(index as usize).ok_or_else(|| {
+            anyhow::anyhow!(
                 "index {} out of range: tipset contains {} messages",
                 index,
                 messages.len()
             )
-            .into());
-        }
+        })?;
 
-        let msg = &messages[index as usize];
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
 
         let tx = new_eth_tx(
