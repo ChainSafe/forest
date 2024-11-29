@@ -1280,6 +1280,51 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block_hash: EthHash,
+    limit: Option<usize>,
+) -> Result<Vec<EthTxReceipt>, ServerError> {
+    let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+    let ts_ref = Arc::new(ts);
+    let ts_key = ts_ref.key();
+    let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
+
+    let msgs_and_receipts = if let Some(limit) = limit {
+        msgs_and_receipts.into_iter().take(limit).collect()
+    } else {
+        msgs_and_receipts
+    };
+
+    let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+    for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+        let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: ts_key.clone(),
+            height: ts_ref.epoch(),
+            message: msg.cid(),
+            return_dec,
+        };
+
+        let tx = new_eth_tx(
+            ctx,
+            &state,
+            ts_ref.epoch(),
+            &ts_key.cid()?,
+            &msg.cid(),
+            i as u64,
+        )?;
+
+        let tx_receipt = new_eth_tx_receipt(ctx, &tx, &message_lookup).await?;
+        receipts.push(tx_receipt);
+    }
+    Ok(receipts)
+}
+
 pub enum EthGetBlockReceipts {}
 impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
@@ -1294,38 +1339,25 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-        let ts_ref = Arc::new(ts);
-        let ts_key = ts_ref.key();
-        let (state_root, msgs_and_receipts) = execute_tipset(&ctx, &ts_ref).await?;
-        let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+        get_block_receipts(&ctx, block_hash, None).await
+    }
+}
 
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+pub enum EthGetBlockReceiptsLimited {}
+impl RpcMethod<2> for EthGetBlockReceiptsLimited {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "limit"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash, EthUint64);
+    type Ok = Vec<EthTxReceipt>;
 
-        for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
-            let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-
-            let message_lookup = MessageLookup {
-                receipt,
-                tipset: ts_key.clone(),
-                height: ts_ref.epoch(),
-                message: msg.cid(),
-                return_dec,
-            };
-
-            let tx = new_eth_tx(
-                &ctx,
-                &state,
-                ts_ref.epoch(),
-                &ts_key.cid()?,
-                &msg.cid(),
-                i as u64,
-            )?;
-
-            let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
-            receipts.push(tx_receipt);
-        }
-        Ok(receipts)
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash, EthUint64(limit)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_block_receipts(&ctx, block_hash, Some(limit as usize)).await
     }
 }
 
