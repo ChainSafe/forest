@@ -2,8 +2,8 @@ use super::types::{
     EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
 };
 use super::{
-    decode_payload, decode_return, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
-    EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
+    decode_params, decode_payload, decode_return, encode_filecoin_params_as_abi,
+    encode_filecoin_returns_as_abi, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
 };
 use crate::eth::EAMMethod;
 use crate::rpc::methods::eth::lookup_eth_address;
@@ -19,10 +19,6 @@ use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
 use fvm_shared4::METHOD_CONSTRUCTOR;
-
-pub fn decode_params() -> anyhow::Result<MessageTrace> {
-    todo!()
-}
 
 #[derive(Default)]
 pub struct Environment {
@@ -314,8 +310,88 @@ pub fn trace_eth_create(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
-    todo!()
+) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+    // Same as the Init actor case above, see the comment there.
+    if trace.msg.read_only.unwrap_or_default() {
+        return Ok((None, None));
+    }
+
+    // Look for a call to either a constructor or the EVM's resurrect method.
+    let sub_trace = trace
+        .subcalls
+        .iter()
+        .filter_map(|et| {
+            if et.msg.to == Address::INIT_ACTOR {
+                et.subcalls.iter().find(|et| {
+                    if et.msg.method == (METHOD_CONSTRUCTOR as u64) {
+                        true
+                    } else {
+                        false
+                    }
+                })
+            } else {
+                // TODO(elmattic): use EVMMethod::Resurrect
+                if et.msg.method == 4 {
+                    Some(et)
+                } else {
+                    None
+                }
+            }
+        })
+        .next();
+
+    // Same as the Init actor case above, see the comment there.
+    let sub_trace = if let Some(sub_trace) = sub_trace {
+        sub_trace
+    } else {
+        if trace.msg_rct.exit_code.is_success() {
+            bail!("successful Create/Create2 call failed to call a constructor");
+        }
+        return Ok((None, None));
+    };
+
+    // Decode inputs & determine create type.
+    let (init_code, create_addr) = decode_create_via_eam(&trace)?;
+
+    // Handle the output.
+    let output = match trace.msg_rct.exit_code.value() {
+        0 => {
+            // success
+            // We're _supposed_ to include the contracts bytecode here, but we
+            // can't do that reliably (e.g., if some part of the trace reverts).
+            // So we don't try and include a sentinel "impossible bytecode"
+            // value (the value specified by EIP-3541).
+            EthBytes(vec![0xFE])
+        }
+        33 => {
+            // Reverted, parse the revert message.
+            // If we managed to call the constructor, parse/return its revert message. If we
+            // fail, we just return no output.
+            decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec)?
+        }
+        _ => EthBytes::default(),
+    };
+
+    Ok((
+        Some(EthBlockTrace {
+            r#type: "create".into(),
+            action: TraceAction::Create(EthCreateTraceAction {
+                from: env.caller.clone(),
+                gas: trace.msg.gas_limit.unwrap_or_default().into(),
+                value: trace.msg.value.clone().into(),
+                init: init_code.into(),
+            }),
+            result: TraceResult::Create(EthCreateTraceResult {
+                gas_used: 0.into(),
+                address: Some(create_addr),
+                code: output,
+            }),
+            trace_address: Vec::from(address),
+            error: trace_err_msg(trace),
+            ..EthBlockTrace::default()
+        }),
+        Some(sub_trace.clone()),
+    ))
 }
 
 // Build an EthTrace for a "private" method invocation from the EVM. This should only be called with
