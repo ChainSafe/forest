@@ -5,7 +5,7 @@ use super::*;
 use fil_actor_interface::market::BalanceTable;
 use fvm_ipld_blockstore::Blockstore;
 
-impl<'bs, BS: Blockstore> BalanceTableExt for BalanceTable<'bs, BS> {
+impl<BS: Blockstore> BalanceTableExt for BalanceTable<'_, BS> {
     fn for_each<F>(&self, mut f: F) -> anyhow::Result<()>
     where
         F: FnMut(&Address, &TokenAmount) -> anyhow::Result<()>,
