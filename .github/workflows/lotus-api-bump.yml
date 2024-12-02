@@ -5,7 +5,7 @@ name: Update Lotus version in API tests
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '0 7 * * *'
+    - cron: "0 7 * * *"
 
 jobs:
   update-lotus:
@@ -31,9 +31,10 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-            token: ${{ secrets.ACTIONS_PAT }}
-            commit-message: Update Lotus dependency
-            title: "[automated] Update Lotus version in API tests"
-            body: |
-              ### Changes
-              - Updates Lotus version in the JSON-RPC API tests to the latest release.
+          base: main
+          token: ${{ secrets.ACTIONS_PAT }}
+          commit-message: Update Lotus dependency
+          title: "[automated] Update Lotus version in API tests"
+          body: |
+            ### Changes
+            - Updates Lotus version in the JSON-RPC API tests to the latest release.
