@@ -149,7 +149,7 @@ pub struct OccupiedEntry<'a, V> {
     inner: OccupiedEntryInner<'a, V>,
 }
 
-impl<'a, V> OccupiedEntry<'a, V> {
+impl<V> OccupiedEntry<'_, V> {
     /// Gets a reference to the value in the entry.
     ///
     /// See also [`std::collections::hash_map::OccupiedEntry::get`].
@@ -316,7 +316,7 @@ pub struct Keys<'a, V> {
 }
 
 #[cfg(test)]
-impl<'a, V> Iterator for Keys<'a, V> {
+impl<V> Iterator for Keys<'_, V> {
     type Item = Cid;
 
     fn next(&mut self) -> Option<Self::Item> {

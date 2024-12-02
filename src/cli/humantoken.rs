@@ -192,7 +192,7 @@ mod parse {
     }
 
     /// Take an [si::Prefix] from the front of `input`
-    fn si_scale<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, si::Prefix, E> {
+    fn si_scale<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, si::Prefix, E> {
         // Try the longest matches first, so we don't e.g match `a` instead of `atto`,
         // leaving `tto`.
 
@@ -219,7 +219,7 @@ mod parse {
     }
 
     /// Take a float from the front of `input`
-    fn bigdecimal<'a, E>(input: &'a str) -> IResult<&str, BigDecimal, E>
+    fn bigdecimal<'a, E>(input: &'a str) -> IResult<&'a str, BigDecimal, E>
     where
         E: ParseError<&'a str> + FromExternalError<&'a str, ParseBigDecimalError>,
     {

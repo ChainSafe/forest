@@ -23,7 +23,7 @@ struct CidVec(Vec<Cid>);
 /// This is much faster than constructing an [`ipld_core::ipld::Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut Vec<Cid>);
 
-impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
+impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
     type Value = ();
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -32,7 +32,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
     {
         struct FilterCidsVisitor<'a>(&'a mut Vec<Cid>);
 
-        impl<'de, 'a> Visitor<'de> for FilterCidsVisitor<'a> {
+        impl<'de> Visitor<'de> for FilterCidsVisitor<'_> {
             type Value = ();
 
             fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {

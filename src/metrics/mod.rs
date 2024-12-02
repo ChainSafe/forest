@@ -183,7 +183,7 @@ pub struct HistogramTimer<'a> {
     start: Instant,
 }
 
-impl<'a> Drop for HistogramTimer<'a> {
+impl Drop for HistogramTimer<'_> {
     fn drop(&mut self) {
         let duration = Instant::now() - self.start;
         self.histogram.observe(duration.as_secs_f64());
