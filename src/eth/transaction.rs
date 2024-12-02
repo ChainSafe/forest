@@ -42,8 +42,15 @@ pub enum EAMMethod {
     CreateExternal = 4,
 }
 
+#[derive(Debug, FromRepr)]
 #[repr(u64)]
 pub enum EVMMethod {
+    Constructor = 1,
+    Resurrect = 2,
+    GetBytecode = 3,
+    GetBytecodeHash = 4,
+    GetStorageAt = 5,
+    InvokeContractDelegate = 6,
     // As per `ref-fvm`:
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.

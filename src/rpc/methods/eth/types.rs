@@ -452,7 +452,7 @@ lotus_json_with_self!(EthFilterResult);
 pub struct EthCallTraceAction {
     pub call_type: String,
     pub from: EthAddress,
-    pub to: EthAddress,
+    pub to: Option<EthAddress>,
     pub gas: EthUint64,
     pub value: EthBigInt,
     pub input: EthBytes,

@@ -5,7 +5,7 @@ use super::{
     decode_params, decode_payload, decode_return, encode_filecoin_params_as_abi,
     encode_filecoin_returns_as_abi, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
 };
-use crate::eth::EAMMethod;
+use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
@@ -26,7 +26,7 @@ pub struct Environment {
     is_evm: bool,
     subtrace_count: i64,
     pub traces: Vec<EthBlockTrace>,
-    last_byte_code: EthAddress,
+    last_byte_code: Option<EthAddress>,
 }
 
 pub fn base_environment<BS: Blockstore + Send + Sync>(
@@ -139,7 +139,7 @@ pub fn trace_call(
             action: TraceAction::Call(EthCallTraceAction {
                 call_type,
                 from: env.caller.clone(),
-                to,
+                to: Some(to),
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
                 value: trace.msg.value.clone().into(),
                 input,
@@ -400,6 +400,93 @@ pub fn trace_evm_private(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
-    todo!()
+) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+    // The EVM actor implements DELEGATECALL by:
+    //
+    // 1. Asking the callee for its bytecode by calling it on the GetBytecode method.
+    // 2. Recursively invoking the currently executing contract on the
+    //    InvokeContractDelegate method.
+    //
+    // The code below "reconstructs" that delegate call by:
+    //
+    // 1. Remembering the last contract on which we called GetBytecode.
+    // 2. Treating the contract invoked in step 1 as the DELEGATECALL receiver.
+    //
+    // Note, however: GetBytecode will be called, e.g., if the user invokes the
+    // EXTCODECOPY instruction. It's not an error to see multiple GetBytecode calls
+    // before we see an InvokeContractDelegate.
+    match EVMMethod::from_repr(trace.msg.method) {
+        Some(EVMMethod::GetBytecode) => {
+            // NOTE: I'm not checking anything about the receiver here. The EVM won't
+            // DELEGATECALL any non-EVM actor, but there's no need to encode that fact
+            // here in case we decide to loosen this up in the future.
+            env.last_byte_code = None;
+            if trace.msg_rct.exit_code.is_success() {
+                if let Option::Some(actor_trace) = &trace.invoked_actor {
+                    let to = trace_to_address(actor_trace);
+                    env.last_byte_code = Some(to);
+                }
+            }
+            Ok((None, None))
+        }
+        Some(EVMMethod::InvokeContractDelegate) => {
+            // NOTE: We return errors in all the failure cases below instead of trying
+            // to continue because the caller is an EVM actor. If something goes wrong
+            // here, there's a bug in our EVM implementation.
+
+            // Handle delegate calls
+            //
+            // 1) Look for trace from an EVM actor to itself on InvokeContractDelegate,
+            //    method 6.
+            // 2) Check that the previous trace calls another actor on method 3
+            //    (GetByteCode) and they are at the same level (same parent)
+            // 3) Treat this as a delegate call to actor A.
+            if env.last_byte_code.is_none() {
+                bail!("unknown bytecode for delegate call");
+            }
+
+            if let Option::Some(actor_trace) = &trace.invoked_actor {
+                let to = trace_to_address(actor_trace);
+                if env.caller != to {
+                    bail!(
+                        "delegate-call not from address to self: {:?} != {:?}",
+                        env.caller,
+                        to
+                    );
+                }
+            }
+
+            // let dp = todo!();
+
+            let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)
+                .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {}", e))?;
+
+            Ok((
+                Some(EthBlockTrace {
+                    r#type: "call".into(),
+                    action: TraceAction::Call(EthCallTraceAction {
+                        call_type: "delegatecall".into(),
+                        from: env.caller.clone(),
+                        to: env.last_byte_code.clone(),
+                        gas: trace.msg.gas_limit.unwrap_or_default().into(),
+                        value: trace.msg.value.clone().into(),
+                        input: EthBytes::default(),
+                    }),
+                    result: TraceResult::Call(EthCallTraceResult {
+                        gas_used: 0.into(),
+                        output,
+                    }),
+                    trace_address: Vec::from(address),
+                    error: trace_err_msg(trace),
+                    ..EthBlockTrace::default()
+                }),
+                Some(trace.clone()),
+            ))
+        }
+        _ => {
+            // We drop all other "private" calls from FEVM. We _forbid_ explicit calls between 0 and
+            // 1024 (exclusive), so any calls in this range must be implementation details.
+            Ok((None, None))
+        }
+    }
 }
