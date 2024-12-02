@@ -119,9 +119,9 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
 
-        if !settings
+        if settings
             .read_obj::<TipsetKey>(HEAD_KEY)?
-            .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
+            .is_none_or(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_err())
         {
             let tipset_keys = TipsetKey::from(nonempty![*genesis_block_header.cid()]);
             settings.write_obj(HEAD_KEY, &tipset_keys)?;

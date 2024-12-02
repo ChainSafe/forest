@@ -361,8 +361,63 @@ mod parse {
         Ok(t)
     }
 
-    #[test]
-    fn test_serialization() {
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_serialization() {
+            for (text, value) in [
+                (
+                    "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
+                    ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, false),
+                ),
+                (
+                    "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
+                    ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, false),
+                ),
+                (
+                    "forest_snapshot_mainnet_2023-05-30_height_2905376.forest.car.zst",
+                    ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, true),
+                ),
+                (
+                    "forest_snapshot_calibnet_2023-05-30_height_604419.forest.car.zst",
+                    ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, true),
+                ),
+                (
+                    "2905920_2023_05_30T22_00_00Z.car.zst",
+                    ParsedFilename::short(2905920, 2023, 5, 30, 22, 0, 0),
+                ),
+                (
+                    "605520_2023_05_31T00_13_00Z.car.zst",
+                    ParsedFilename::short(605520, 2023, 5, 31, 0, 13, 0),
+                ),
+                (
+                    "filecoin_snapshot_calibnet_2023-06-13_height_643680.car.zst",
+                    ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, false),
+                ),
+                (
+                    "venus_snapshot_pineconenet_2045-01-01_height_2.car.zst",
+                    ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, false),
+                ),
+                (
+                    "filecoin_snapshot_calibnet_2023-06-13_height_643680.forest.car.zst",
+                    ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, true),
+                ),
+                (
+                    "venus_snapshot_pineconenet_2045-01-01_height_2.forest.car.zst",
+                    ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, true),
+                ),
+            ] {
+                assert_eq!(
+                    value,
+                    ParsedFilename::parse_str(text).unwrap(),
+                    "mismatch in deserialize"
+                );
+                assert_eq!(value.to_string(), text, "mismatch in serialize");
+            }
+        }
+
         impl ParsedFilename<'static> {
             /// # Panics
             /// - If `ymd`/`hms` aren't valid
@@ -403,56 +458,6 @@ mod parse {
                     forest_format,
                 }
             }
-        }
-
-        for (text, value) in [
-            (
-                "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
-                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, false),
-            ),
-            (
-                "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
-                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, false),
-            ),
-            (
-                "forest_snapshot_mainnet_2023-05-30_height_2905376.forest.car.zst",
-                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, true),
-            ),
-            (
-                "forest_snapshot_calibnet_2023-05-30_height_604419.forest.car.zst",
-                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, true),
-            ),
-            (
-                "2905920_2023_05_30T22_00_00Z.car.zst",
-                ParsedFilename::short(2905920, 2023, 5, 30, 22, 0, 0),
-            ),
-            (
-                "605520_2023_05_31T00_13_00Z.car.zst",
-                ParsedFilename::short(605520, 2023, 5, 31, 0, 13, 0),
-            ),
-            (
-                "filecoin_snapshot_calibnet_2023-06-13_height_643680.car.zst",
-                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, false),
-            ),
-            (
-                "venus_snapshot_pineconenet_2045-01-01_height_2.car.zst",
-                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, false),
-            ),
-            (
-                "filecoin_snapshot_calibnet_2023-06-13_height_643680.forest.car.zst",
-                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, true),
-            ),
-            (
-                "venus_snapshot_pineconenet_2045-01-01_height_2.forest.car.zst",
-                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, true),
-            ),
-        ] {
-            assert_eq!(
-                value,
-                ParsedFilename::parse_str(text).unwrap(),
-                "mismatch in deserialize"
-            );
-            assert_eq!(value.to_string(), text, "mismatch in serialize");
         }
     }
 }
