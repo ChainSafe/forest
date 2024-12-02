@@ -2051,8 +2051,8 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 
         let EthUint64(index) = tx_index;
-        let msg = messages.get(index as usize).ok_or_else(|| {
-            anyhow::anyhow!(
+        let msg = messages.get(index as usize).with_context(|| {
+            format!(
                 "index {} out of range: tipset contains {} messages",
                 index,
                 messages.len()
