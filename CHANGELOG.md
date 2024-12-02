@@ -82,6 +82,9 @@ for more details.
 - [#4839](https://github.com/ChainSafe/forest/issues/4839) Add support for the
   `Filecoin.EthGetBlockReceipts` RPC method.
 
+- [#5017](https://github.com/ChainSafe/forest/issues/5017) Add support for the
+  `Filecoin.EthGetBlockReceiptsLimited` RPC method.
+
 - [#4943](https://github.com/ChainSafe/forest/pull/4943) Add generation of
   method aliases for `forest-tool shed openrpc` subcommand and sort all methods
   in lexicographic order.
