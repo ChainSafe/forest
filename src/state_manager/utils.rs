@@ -146,7 +146,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 
     // Only allow such actors to send if their delegated address is in the EAM's
     // namespace.
-    return if let Payload::Delegated(address) = actor
+    if let Payload::Delegated(address) = actor
         .delegated_address
         .as_ref()
         .expect("unfallible")
@@ -155,7 +155,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
         address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
     } else {
         false
-    };
+    }
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.

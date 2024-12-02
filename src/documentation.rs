@@ -111,7 +111,7 @@
 /// which is a representation of all Filecoin state at a point in time.
 /// For each actor, the `StateTree` holds the CID for its state: [`ActorState.state`](fvm4::state_tree::ActorState::state).
 ///
-/// Actor state is serialized and stored as  [`Ipld`](libipld::Ipld).
+/// Actor state is serialized and stored as  [`Ipld`](ipld_core::ipld::Ipld).
 /// Think of this as "JSON with links ([`Cid`](cid::Cid)s)".
 /// So the `cron` actor's state mentioned above will be ultimately serialized into `Ipld`
 /// and stored in the `StateStore`, per
@@ -169,7 +169,7 @@
 ///
 /// With respect to a particular IPLD [`Blockstore`](fvm_ipld_blockstore::Blockstore):
 /// - An item such a list is _fully inhabited_ if all its recursive
-///   [`Ipld::Link`](libipld::Ipld::Link)s exist in the blockstore.
+///   [`Ipld::Link`](ipld_core::ipld::Ipld::Link)s exist in the blockstore.
 /// - Otherwise, an item is only _partially inhabited_.
 ///   The links are said to be "dead links".
 ///

@@ -4,9 +4,9 @@
 use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
-use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
+use std::fmt;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
@@ -19,11 +19,11 @@ pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
 /// vector of [`Cid`].
 struct CidVec(Vec<Cid>);
 
-/// [`FilterCids`] traverses an [`libipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
-/// This is much faster than constructing an [`libipld_core::ipld::Ipld`] tree and then performing the filtering.
+/// [`FilterCids`] traverses an [`ipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
+/// This is much faster than constructing an [`ipld_core::ipld::Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut Vec<Cid>);
 
-impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
+impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
     type Value = ();
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -32,7 +32,7 @@ impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
     {
         struct FilterCidsVisitor<'a>(&'a mut Vec<Cid>);
 
-        impl<'de, 'a> Visitor<'de> for FilterCidsVisitor<'a> {
+        impl<'de> Visitor<'de> for FilterCidsVisitor<'_> {
             type Value = ();
 
             fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -180,14 +180,11 @@ impl<'de> de::Deserialize<'de> for CidVec {
 #[cfg(test)]
 mod test {
     use crate::ipld::DfsIter;
-
     use crate::utils::encoding::extract_cids;
-    use cid::multihash::Code::Blake2b256;
-    use cid::multihash::MultihashDigest;
+    use crate::utils::multihash::prelude::*;
     use cid::Cid;
-
     use fvm_ipld_encoding::DAG_CBOR;
-    use libipld_core::ipld::Ipld;
+    use ipld_core::ipld::Ipld;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 
@@ -206,7 +203,7 @@ mod test {
                     Ipld::Link(cid) => {
                         *cid = Cid::new_v1(
                             DAG_CBOR,
-                            Blake2b256.digest(&[
+                            MultihashCode::Blake2b256.digest(&[
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
                                 u8::arbitrary(g),
@@ -238,9 +235,10 @@ mod test {
     fn deserialize_various_blobs(ipld: IpldWrapper) {
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
-                return Some(cid);
+                Some(cid)
+            } else {
+                None
             }
-            None
         };
 
         let blob = serde_ipld_dagcbor::to_vec(&ipld.inner).unwrap();

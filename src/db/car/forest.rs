@@ -500,11 +500,11 @@ mod tests {
     // Two colliding hashes in separate zstd-frames should not affect each other.
     #[test]
     fn encode_hash_collisions() {
-        use cid::multihash::{Code::Identity, MultihashDigest};
+        use crate::utils::multihash::prelude::*;
 
         // Distinct CIDs may map to the same hash value
-        let cid_a = Cid::new_v1(0, Identity.digest(&[10]));
-        let cid_b = Cid::new_v1(0, Identity.digest(&[0]));
+        let cid_a = Cid::new_v1(0, MultihashCode::Identity.digest(&[10]));
+        let cid_b = Cid::new_v1(0, MultihashCode::Identity.digest(&[0]));
         // A and B are _not_ the same...
         assert_ne!(cid_a, cid_b);
         // ... but they map to the same hash:

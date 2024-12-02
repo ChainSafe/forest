@@ -11,12 +11,12 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
-anyhow = "1"
-flume = "0.11"
+anyhow = { workspace = true }
+cid = { workspace = true }
+flume = { workspace = true }
 forest-filecoin = { path = "../", default-features = false, features = ["interop-tests-private", "no-f3-sidecar"] }
-futures = "0.3"
-libipld = { version = "0.16", default-features = false }
-libp2p = { version = "0.54", default-features = false, features = [
+futures = { workspace = true }
+libp2p = { workspace = true, features = [
   'kad',
   'identify',
   'noise',
@@ -30,9 +30,10 @@ libp2p = { version = "0.54", default-features = false, features = [
   'ed25519',
   'secp256k1',
 ] }
-libp2p-swarm-test = "0.4"
-rust2go = { version = "0.3" }
-tokio = { version = "1", features = ['full'] }
+libp2p-swarm-test = { workspace = true }
+multihash-codetable = { workspace = true }
+rust2go = { workspace = true }
+tokio = { workspace = true, features = ['full'] }
 
 [build-dependencies]
-rust2go = { version = "0.3", features = ["build"] }
+rust2go = { workspace = true, features = ["build"] }

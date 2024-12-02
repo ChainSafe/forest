@@ -9,6 +9,7 @@ fn main() {
     // No proper version of Go compiler is available.
     if !is_docs_rs() && is_sidecar_ffi_enabled() {
         println!("cargo:rustc-cfg=f3sidecar");
+        println!("cargo::rerun-if-changed=f3-sidecar");
         std::env::set_var("GOWORK", "off");
         // `Netgo` is enabled for all the platforms to be consistent across different builds. It
         // is using pure Go implementation for functionality like name resolution. In the case of

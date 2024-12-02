@@ -13,10 +13,10 @@ use cbor4ii::core::types::BadStr;
 use cbor4ii::core::utils::IoReader;
 use cbor4ii::core::{major, types, utils::SliceReader};
 use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
-use core::convert::Infallible;
 use serde::de::{self, Visitor};
 use serde_ipld_dagcbor::DecodeError;
 use std::borrow::Cow;
+use std::convert::Infallible;
 
 // This module refers to the file:
 // https://github.com/ipld/serde_ipld_dagcbor/blob/379581691d82a68a774f87deb9462091ec3c8cb6/src/cbor4ii_nonpub.rs

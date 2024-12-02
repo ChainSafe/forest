@@ -5,6 +5,7 @@ use crate::utils::io::WithProgress;
 use crate::utils::reqwest_resume;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
+use once_cell::sync::Lazy;
 use reqwest::Response;
 use std::path::Path;
 use tap::Pipe;
@@ -15,8 +16,6 @@ use tokio_util::{
 };
 use tracing::info;
 use url::Url;
-
-use once_cell::sync::Lazy;
 
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
@@ -42,7 +41,8 @@ pub async fn download_ipfs_file_trustlessly(
     {
         let mut reader = reader(url.as_str()).await?.compat();
         let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
+        let cid_v10 = crate::utils::cid::cid_11_to_10(cid);
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(&cid_v10))
             .await?;
         writer.flush().await?;
         writer.close().await?;

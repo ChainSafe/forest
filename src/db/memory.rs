@@ -5,6 +5,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::{GarbageCollectable, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
+use crate::utils::multihash::prelude::*;
 use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -150,9 +151,9 @@ impl BitswapStoreRead for MemoryDB {
 }
 
 impl BitswapStoreReadWrite for MemoryDB {
-    type Params = libipld::DefaultParams;
+    type Hashes = MultihashCode;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
     }
 }

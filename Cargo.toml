@@ -8,20 +8,31 @@ license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
 exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
 
+[workspace.dependencies]
+anyhow = "1"
+cid = { version = "0.11", default-features = false, features = ["std"] }
+flume = "0.11"
+futures = "0.3"
+libp2p = { version = "0.54", default-features = false }
+libp2p-swarm-test = "0.4"
+multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
+rust2go = "0.3"
+tokio = "1"
+
 [dependencies]
 ahash = "0.8"
 anes = "0.2"
-anyhow = "1.0"
+anyhow = { workspace = true }
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
 axum = "0.7"
-backoff = { version = "0.4", features = ['tokio'] }
+backon = "1"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
-blake2b_simd = "1.0"
+blake2b_simd = "1"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
   "blst-portable",
@@ -33,7 +44,8 @@ cbor4ii = { version = "0.2", default-features = false, features = ["use_alloc", 
 cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-cid = { version = "0.10", default-features = false, features = ["std"] }
+cid = { workspace = true }
+cid_0_10 = { package = "cid", version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "2.0"
 crypto_secretbox = "0.1"
@@ -47,32 +59,32 @@ digest = "0.10"
 directories = "5"
 displaydoc = "0.2"
 ethereum-types = "0.15"
-ez-jsonrpc-types = "0.3"
-fil_actor_account_state = { version = "17.0.3" }
-fil_actor_cron_state = { version = "17.0.3" }
-fil_actor_datacap_state = { version = "17.0.3" }
-fil_actor_eam_state = { version = "17.0.3" }
-fil_actor_evm_state = { version = "17.0.3" }
-fil_actor_init_state = { version = "17.0.3" }
-fil_actor_interface = { version = "17.0.3" }
-fil_actor_market_state = { version = "17.0.3" }
-fil_actor_miner_state = { version = "17.0.3" }
-fil_actor_power_state = { version = "17.0.3" }
-fil_actor_reward_state = { version = "17.0.3" }
-fil_actor_system_state = { version = "17.0.3" }
-fil_actor_verifreg_state = { version = "17.0.3" }
-fil_actors_shared = { version = "17.0.3", features = ["json"] }
-flume = "0.11"
+ez-jsonrpc-types = "0.5"
+fil_actor_account_state = { version = "18" }
+fil_actor_cron_state = { version = "18" }
+fil_actor_datacap_state = { version = "18" }
+fil_actor_eam_state = { version = "18" }
+fil_actor_evm_state = { version = "18" }
+fil_actor_init_state = { version = "18" }
+fil_actor_interface = { version = "18" }
+fil_actor_market_state = { version = "18" }
+fil_actor_miner_state = { version = "18" }
+fil_actor_power_state = { version = "18" }
+fil_actor_reward_state = { version = "18" }
+fil_actor_system_state = { version = "18" }
+fil_actor_verifreg_state = { version = "18" }
+fil_actors_shared = { version = "18", features = ["json"] }
+flume = { workspace = true }
 fs_extra = "1"
-futures = "0.3"
-fvm2 = { package = "fvm", version = "~2.9", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.11", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.3.3", features = ["arb", "verify-signature"] }
-fvm_ipld_blockstore = "0.2"
-fvm_ipld_encoding = "0.4"
-fvm_shared2 = { package = "fvm_shared", version = "~2.9" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.11", features = ["arb", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3.3", features = ["arb", "proofs"] }
+futures = { workspace = true }
+fvm2 = { package = "fvm", version = "~2.10", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.12", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.5", features = ["arb", "verify-signature"] }
+fvm_ipld_blockstore = "0.3"
+fvm_ipld_encoding = "0.5"
+fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs"] }
 gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
@@ -83,18 +95,17 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17.9", features = ["tokio"] }
+indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
+ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.13"
 jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
-libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
-libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
-libipld-macro = "0.16"
-libp2p = { version = "0.54", default-features = false, features = [
+lazy-regex = "3"
+libp2p = { workspace = true, features = [
   'autonat',
   'gossipsub',
   'kad',
@@ -122,6 +133,8 @@ lru = "0.12"
 memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
+multihash-codetable = { workspace = true }
+multihash-derive = "0.9"
 multimap = "0.10"
 nom = "7"
 nonzero_ext = "0.3"
@@ -156,29 +169,29 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10"
 rlp = "0.6"
 rs-car-ipfs = "0.3"
-rust2go = { version = "0.3" }
+rust2go = { workspace = true }
 sailfish = "0.9"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
-serde_ipld_dagcbor = "0.4"
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde_ipld_dagcbor = "0.6"
+serde_json = { version = "1", features = ["raw_value"] }
 serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }
 shared_memory = "0.12"
 similar = "2"
-slotmap = "1.0"
-smallvec = "1.13"
+slotmap = "1"
+smallvec = "1"
 smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.17"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
-tabled = "0.16"
+tabled = "0.17"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -202,7 +215,7 @@ zstd = "0.13"
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
-paste = "1.0.15"
+paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -218,12 +231,12 @@ cargo_metadata = "0.18"
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
-fvm_shared3 = { package = "fvm_shared", version = "~3.11", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3.3", features = ["arb", "proofs", "testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
-libp2p-swarm-test = "0.4"
+libp2p-swarm-test = { workspace = true }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6"
 predicates = "3"
@@ -237,7 +250,7 @@ syn = { version = "2", default-features = false, features = ["full", "parsing", 
 tokio-test = "0.4"
 
 [build-dependencies]
-rust2go = { version = "0.3", features = ["build"] }
+rust2go = { workspace = true, features = ["build"] }
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can

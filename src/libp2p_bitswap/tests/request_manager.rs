@@ -3,19 +3,16 @@
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
-
     use crate::libp2p_bitswap::*;
+    use crate::utils::multihash::prelude::*;
     use ahash::HashMap;
+    use cid::Cid;
     use futures::StreamExt;
-    use libipld::{
-        multihash::{self, MultihashDigest},
-        Block, Cid,
-    };
     use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
     use libp2p_swarm_test::SwarmExt as _;
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
+    use std::{sync::Arc, time::Duration};
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
@@ -142,11 +139,12 @@ mod tests {
         Ok(())
     }
 
-    fn new_random_block() -> anyhow::Result<libipld::Block<libipld::DefaultParams>> {
+    fn new_random_block(
+    ) -> anyhow::Result<Block<<TestStoreInner as BitswapStoreReadWrite>::Hashes, 64>> {
         // 100KB
         let mut data = vec![0; 100 * 1024];
         OsRng.fill(&mut data[..]);
-        let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(data.as_slice()))?;
+        let cid = Cid::new_v0(MultihashCode::Sha2_256.digest(data.as_slice()))?;
         Block::new(cid, data)
     }
 
@@ -156,19 +154,19 @@ mod tests {
     type TestStore = Arc<TestStoreInner>;
 
     impl BitswapStoreRead for TestStoreInner {
-        fn contains(&self, cid: &libipld::Cid) -> anyhow::Result<bool> {
+        fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
             Ok(self.0.read().contains_key(&cid.to_bytes()))
         }
 
-        fn get(&self, cid: &libipld::Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(self.0.read().get(&cid.to_bytes()).cloned())
         }
     }
 
     impl BitswapStoreReadWrite for TestStoreInner {
-        type Params = libipld::DefaultParams;
+        type Hashes = MultihashCode;
 
-        fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        fn insert(&self, block: &Block<Self::Hashes, 64>) -> anyhow::Result<()> {
             self.0
                 .write()
                 .insert(block.cid().to_bytes(), block.data().to_vec());
