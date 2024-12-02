@@ -100,9 +100,46 @@ pub fn trace_err_msg(trace: &ExecutionTrace) -> String {
 pub fn build_traces(
     env: &mut Environment,
     address: &[i64],
-    trace: &ExecutionTrace,
+    trace: &Option<ExecutionTrace>,
 ) -> anyhow::Result<()> {
-    todo!()
+    let (mut trace, recurse_into) = build_trace(env, address, trace)?;
+
+    if let Some(trace) = &trace {
+        env.traces.push(trace.clone());
+        env.subtrace_count += 1;
+    }
+
+    // Skip if there's nothing more to do and/or `build_trace` told us to skip this one.
+    let (recurse_into, invoked_actor) = if let Some(ref trace) = recurse_into {
+        if let Some(ref invoked_actor) = trace.invoked_actor {
+            (trace, invoked_actor)
+        } else {
+            return Ok(());
+        }
+    } else {
+        return Ok(());
+    };
+
+    let mut sub_env = Environment {
+        caller: trace_to_address(&invoked_actor),
+        is_evm: is_evm_actor(&invoked_actor.state.code),
+        traces: env.traces.clone(),
+        ..Environment::default()
+    };
+    // Set capacity to the length so each `push` below creates a new slice. Otherwise, we'll
+    // end up repeatedly mutating previous paths.
+    // TODO(elmattic): understand slicing logic
+    for subcall in recurse_into.subcalls.iter() {
+        let mut new_address = address.to_vec();
+        new_address.push(sub_env.subtrace_count);
+        build_traces(&mut sub_env, &new_address, &Some(subcall.clone()))?;
+    }
+    if let Some(trace) = &mut trace {
+        trace.subtraces = sub_env.subtrace_count;
+    }
+    env.traces = sub_env.traces;
+
+    Ok(())
 }
 
 // buildTrace processes the passed execution trace and updates the environment, if necessary.
@@ -112,7 +149,7 @@ pub fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: &Option<ExecutionTrace>,
-) -> anyhow::Result<ExecutionTrace> {
+) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
     todo!()
 }
 
