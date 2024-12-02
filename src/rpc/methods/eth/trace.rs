@@ -19,6 +19,7 @@ use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
 use fvm_shared4::METHOD_CONSTRUCTOR;
+use num::FromPrimitive;
 
 #[derive(Default)]
 pub struct Environment {
@@ -142,15 +143,110 @@ pub fn build_traces(
     Ok(())
 }
 
-// buildTrace processes the passed execution trace and updates the environment, if necessary.
+// `build_trace` processes the passed execution trace and updates the environment, if necessary.
 //
-// On success, it returns a trace to add (or nil to skip) and the trace recurse into (or nil to skip).
+// On success, it returns a trace to add (or `None` to skip) and the trace to recurse into (or `None` to skip).
 pub fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: &Option<ExecutionTrace>,
 ) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
-    todo!()
+    // This function first assumes that the call is a "native" call, then handles all the "not
+    // native" cases. If we get any unexpected results in any of these special cases, we just
+    // keep the "native" interpretation and move on.
+    //
+    // 1. If we're invoking a contract (even if the caller is a native account/actor), we
+    //    attempt to decode the params/return value as a contract invocation.
+    // 2. If we're calling the EAM and/or init actor, we try to treat the call as a CREATE.
+    // 3. Finally, if the caller is an EVM smart contract and it's calling a "private" (1-1023)
+    //    method, we know something special is going on. We look for calls related to
+    //    DELEGATECALL and drop everything else (everything else includes calls triggered by,
+    //    e.g., EXTCODEHASH).
+
+    // If we don't have sufficient funds, or we have a fatal error, or we have some
+    // other syscall error: skip the entire trace to mimic Ethereum (Ethereum records
+    // traces _after_ checking things like this).
+    //
+    // NOTE: The FFI currently folds all unknown syscall errors into "sys assertion
+    // failed" which is turned into SysErrFatal.
+    if !address.is_empty() {
+        if let Some(trace) = trace {
+            match trace.msg_rct.exit_code.into() {
+                ExitCodeV4::SYS_INSUFFICIENT_FUNDS => return Ok((None, None)),
+                _ => (),
+            }
+        }
+    }
+
+    // We may fail before we can even invoke the actor. In that case, we have no 100% reliable
+    // way of getting its address (e.g., due to reverts) so we're just going to drop the entire
+    // trace. This is OK (ish) because the call never really "happened".
+    let (trace, _invoked_actor) = if let Some(ref trace) = trace {
+        if let Some(ref invoked_actor) = trace.invoked_actor {
+            (trace, invoked_actor)
+        } else {
+            return Ok((None, None));
+        }
+    } else {
+        // TODO(elmattic): can we do that?
+        return Ok((None, None));
+    };
+
+    // Step 2: Decode as a contract invocation
+    //
+    // Normal EVM calls. We don't care if the caller/receiver are actually EVM actors, we only
+    // care if the call _looks_ like an EVM call. If we fail to decode it as an EVM call, we
+    // fallback on interpreting it as a native call.
+    let method = EVMMethod::from_repr(trace.msg.method);
+    match method {
+        Some(EVMMethod::InvokeContract) => {
+            let (trace, exec_trace) = trace_evm_call(env, address, trace.clone())?;
+            return Ok((Some(trace), Some(exec_trace)));
+        }
+        _ => (),
+    }
+
+    // Step 3: Decode as a contract deployment
+    match trace.msg.to {
+        Address::INIT_ACTOR => {
+            let method = InitMethod::from_u64(trace.msg.method);
+            match method {
+                Some(InitMethod::Exec) | Some(InitMethod::Exec4) => {
+                    let trace = trace_native_call(env, address, trace)?;
+                    return Ok((Some(trace), None));
+                }
+                _ => (),
+            }
+        }
+        Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+            let method = EAMMethod::from_u64(trace.msg.method);
+            match method {
+                Some(EAMMethod::Create)
+                | Some(EAMMethod::Create2)
+                | Some(EAMMethod::CreateExternal) => {
+                    return trace_eth_create(env, address, trace);
+                }
+                _ => (),
+            }
+        }
+        _ => (),
+    }
+
+    // Step 4: Handle DELEGATECALL
+    //
+    // EVM contracts cannot call methods in the range 1-1023, only the EVM itself can. So, if we
+    // see a call in this range, we know it's an implementation detail of the EVM and not an
+    // explicit call by the user.
+    //
+    // While the EVM calls several methods in this range (some we've already handled above with
+    // respect to the EAM), we only care about the ones relevant DELEGATECALL and can _ignore_
+    // all the others.
+    if env.is_evm && trace.msg.method > 0 && trace.msg.method < 1024 {
+        return trace_evm_private(env, address, trace);
+    }
+
+    let trace = trace_native_call(env, address, trace)?;
+    Ok((Some(trace), None))
 }
 
 // Build an EthTrace for a "call" with the given input & output.
@@ -321,7 +417,7 @@ pub fn trace_native_create(
 // should only be called with an ExecutionTrace for a Create, Create2, or CreateExternal method
 // invocation on the EAM.
 pub fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
-    let method: EAMMethod = EAMMethod::from_repr(trace.msg.method)
+    let method: EAMMethod = EAMMethod::from_u64(trace.msg.method)
         .with_context(|| format!("unexpected CREATE method {}", trace.msg.method))?;
 
     let init_code = match method {

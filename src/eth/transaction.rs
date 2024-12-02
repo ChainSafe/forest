@@ -10,6 +10,7 @@ use bytes::BufMut;
 use bytes::BytesMut;
 use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
 use num::{bigint::Sign, BigInt, Signed as _};
+use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
 use strum_macros::FromRepr;
@@ -33,7 +34,7 @@ use super::{
     EthChainId, EIP_1559_TX_TYPE, EIP_2930_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
-#[derive(Debug, FromRepr)]
+#[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum EAMMethod {
     Constructor = 1,
