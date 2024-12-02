@@ -5,7 +5,7 @@ name: Update Lotus version in API tests
 on:
   workflow_dispatch:
   schedule:
-    - cron:  '0 7 * * *'
+    - cron: "0 7 * * *"
 
 jobs:
   update-lotus:
@@ -20,7 +20,7 @@ jobs:
           # If the the latest tag reported by the API is greater than the one we are currently using, update it.
           # This avoids PRs when a new tag is of lower major/minor version than the current one. We still need to follow the
           # largest version for calibration network compatibility.
-          if [ "$(printf '%s\n' "$TAG" "$CURRENT_TAG" | sort -V | tail -n1)" != "$CURRENT_TAG" ]; then
+          if [[ "$(printf '%s\n' "$TAG" "$CURRENT_TAG" | sort -V | tail -n1)" != "$CURRENT_TAG" || "$CURRENT_TAG" == "$TAG"* ]]; then
             echo "Updating Lotus version to $TAG"
             sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/api_compare/.env
             sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/bootstrapper/.env
@@ -31,9 +31,10 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-            token: ${{ secrets.ACTIONS_PAT }}
-            commit-message: Update Lotus dependency
-            title: "[automated] Update Lotus version in API tests"
-            body: |
-              ### Changes
-              - Updates Lotus version in the JSON-RPC API tests to the latest release.
+          base: main
+          token: ${{ secrets.ACTIONS_PAT }}
+          commit-message: Update Lotus dependency
+          title: "[automated] Update Lotus version in API tests"
+          body: |
+            ### Changes
+            - Updates Lotus version in the JSON-RPC API tests to the latest release.
