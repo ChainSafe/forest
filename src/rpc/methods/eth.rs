@@ -2065,7 +2065,7 @@ pub enum EthGetTransactionByBlockHashAndIndex {}
 impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
-    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "tx_index"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2073,11 +2073,34 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (_p1, _p2): Self::Params,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        // Lotus doesn't support this method (v1.29.0), so do we.
-        Err(ServerError::unsupported_method())
+        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+
+        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
+
+        let EthUint64(index) = tx_index;
+        let msg = messages.get(index as usize).with_context(|| {
+            format!(
+                "index {} out of range: tipset contains {} messages",
+                index,
+                messages.len()
+            )
+        })?;
+
+        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let tx = new_eth_tx(
+            &ctx,
+            &state,
+            ts.epoch(),
+            &ts.key().cid()?,
+            &msg.cid(),
+            index,
+        )?;
+
+        Ok(Some(tx))
     }
 }
 

@@ -38,6 +38,9 @@
 - [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
   `Filecoin.EthGetTransactionReceiptLimited` RPC method.
 
+- [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
+  `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
+
 ### Changed
 
 ### Removed
