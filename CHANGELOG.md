@@ -41,6 +41,9 @@
 - [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
   `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
 
+- [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
+  `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
+
 ### Changed
 
 ### Removed
