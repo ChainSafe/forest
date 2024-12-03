@@ -457,19 +457,13 @@ pub fn trace_eth_create(
         .iter()
         .filter_map(|et| {
             if et.msg.to == Address::INIT_ACTOR {
-                et.subcalls.iter().find(|et| {
-                    if et.msg.method == (METHOD_CONSTRUCTOR as u64) {
-                        true
-                    } else {
-                        false
-                    }
-                })
+                et.subcalls
+                    .iter()
+                    .find(|et| et.msg.method == METHOD_CONSTRUCTOR)
             } else {
-                // TODO(elmattic): use EVMMethod::Resurrect
-                if et.msg.method == 4 {
-                    Some(et)
-                } else {
-                    None
+                match EVMMethod::from_u64(et.msg.method) {
+                    Some(EVMMethod::Resurrect) => Some(et),
+                    _ => None,
                 }
             }
         })
