@@ -1,3 +1,6 @@
+// Copyright 2019-2024 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::types::{
     EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
 };
@@ -9,16 +12,15 @@ use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
-use crate::shim::actors::is_evm_actor;
-use crate::shim::{address::Address, error::ExitCode, state_tree::StateTree};
-use anyhow::{bail, Context};
+use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use fil_actor_eam_state::v12 as eam12;
 use fil_actor_evm_state::v15 as code;
 use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared4::error::ExitCode as ExitCodeV4;
-use fvm_shared4::METHOD_CONSTRUCTOR;
+use fvm_shared4::{error::ExitCode as ExitCodeV4, METHOD_CONSTRUCTOR};
+
+use anyhow::{bail, Context};
 use num::FromPrimitive;
 
 #[derive(Default)]
@@ -341,7 +343,7 @@ pub fn trace_native_create(
     let sub_trace = trace
         .subcalls
         .iter()
-        .find(|c| c.msg.method == (METHOD_CONSTRUCTOR as u64));
+        .find(|c| c.msg.method == METHOD_CONSTRUCTOR);
 
     let sub_trace = if let Some(sub_trace) = sub_trace {
         sub_trace
