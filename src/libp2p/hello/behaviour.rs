@@ -199,7 +199,7 @@ impl NetworkBehaviour for HelloBehaviour {
         {
             self.pending_inbound_hello_peers.remove(&peer_to_disconnect);
             if !self.peer_manager.is_peer_protected(&peer_to_disconnect) {
-                tracing::warn!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
+                tracing::debug!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
                 return Poll::Ready(ToSwarm::CloseConnection {
                     peer_id: peer_to_disconnect,
                     connection: CloseConnection::All,
