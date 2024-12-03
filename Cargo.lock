@@ -6585,29 +6585,28 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.7.0"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8be4817d39f3272f69c59fe05d0535ae6456c2dc2fa1ba02910296c7e0a5c590"
+checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
 dependencies = [
  "arrayvec 0.7.6",
  "bitvec",
  "byte-slice-cast",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
- "rustversion",
  "serde",
 ]
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.7.0"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8781a75c6205af67215f382092b6e0a4ff3734798523e69073d4bcd294ec767b"
+checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
 dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.90",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -7311,9 +7310,9 @@ dependencies = [
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.76.0"
+version = "0.80.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b64b46ae0d8f59acc32e64e0085532b831f0d6182d870a7cd86c046c2c46e722"
+checksum = "5a2cf8e48b69af3ecc29ed3449892e8a999111d2f75212a78aa242e117cf1711"
 dependencies = [
  "unicode-properties",
  "unicode-xid",
@@ -7321,15 +7320,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.246"
+version = "0.0.247"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cd6d6ec37c4b2f983ac2d3dc7d176d4f3986ac1712d5bd3c1f271abc9e7a112"
+checksum = "bb4ec71e782592b39293cb465ccdd260b4f1b9e5ba07f5ec230c74ab778e2394"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.246"
+version = "0.0.247"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07c45158cfc5d28d2f5859146c6056471b3c6a02b39d2b265bc353130cc00564"
+checksum = "5b3b4c1a3ea11ab3cb46cb8fdd7ddca9a522129ab8da7f1744ec64167a29ae96"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7339,9 +7338,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.246"
+version = "0.0.247"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60589ec34ff3a249528ebce494e573e77d295fac2b20b1d2db619192e8a1da08"
+checksum = "3b719cbf3741f1e2ff78e7ee63c72aa6e15e70dc7f9504045441e041ae81a56b"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7354,9 +7353,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.246"
+version = "0.0.247"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0d119855a79ce49d812b0d8097a4f77c7277a1c310788e2c99c3c77dd296da6"
+checksum = "7259a11bb9bf5842c484fe187a30fd81a2ffd27aa2ca5808bc89f8ccae2e497c"
 dependencies = [
  "cov-mark",
  "either",
@@ -8604,9 +8603,9 @@ dependencies = [
 
 [[package]]
 name = "soketto"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37468c595637c10857701c990f93a40ce0e357cedb0953d1c26c8d8027f9bb53"
+checksum = "2e859df029d160cb88608f5d7df7fb4753fd20fdfb4de5644f3d8b8440841721"
 dependencies = [
  "base64 0.22.1",
  "bytes",
