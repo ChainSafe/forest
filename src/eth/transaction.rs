@@ -9,11 +9,11 @@ use anyhow::{bail, ensure, Context};
 use bytes::BufMut;
 use bytes::BytesMut;
 use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
+use fvm_shared4::METHOD_CONSTRUCTOR;
 use num::{bigint::Sign, BigInt, Signed as _};
 use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
-use strum_macros::FromRepr;
 
 use crate::{
     message::{Message as _, SignedMessage},
@@ -37,16 +37,16 @@ use super::{
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum EAMMethod {
-    Constructor = 1,
+    Constructor = METHOD_CONSTRUCTOR,
     Create = 2,
     Create2 = 3,
     CreateExternal = 4,
 }
 
-#[derive(Debug, FromRepr)]
+#[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum EVMMethod {
-    Constructor = 1,
+    Constructor = METHOD_CONSTRUCTOR,
     Resurrect = 2,
     GetBytecode = 3,
     GetBytecodeHash = 4,

@@ -197,7 +197,7 @@ pub fn build_trace(
     // Normal EVM calls. We don't care if the caller/receiver are actually EVM actors, we only
     // care if the call _looks_ like an EVM call. If we fail to decode it as an EVM call, we
     // fallback on interpreting it as a native call.
-    let method = EVMMethod::from_repr(trace.msg.method);
+    let method = EVMMethod::from_u64(trace.msg.method);
     match method {
         Some(EVMMethod::InvokeContract) => {
             let (trace, exec_trace) = trace_evm_call(env, address, trace.clone())?;
@@ -548,7 +548,7 @@ pub fn trace_evm_private(
     // Note, however: GetBytecode will be called, e.g., if the user invokes the
     // EXTCODECOPY instruction. It's not an error to see multiple GetBytecode calls
     // before we see an InvokeContractDelegate.
-    match EVMMethod::from_repr(trace.msg.method) {
+    match EVMMethod::from_u64(trace.msg.method) {
         Some(EVMMethod::GetBytecode) => {
             // NOTE: I'm not checking anything about the receiver here. The EVM won't
             // DELEGATECALL any non-EVM actor, but there's no need to encode that fact
