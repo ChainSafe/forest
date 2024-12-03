@@ -947,7 +947,7 @@ where
     }
 }
 
-/// Decodes the return bytes using the trace codec.
+/// Decodes the return bytes using the return trace codec.
 pub fn decode_return<'a, T>(trace: &'a ReturnTrace) -> anyhow::Result<T>
 where
     T: de::Deserialize<'a>,
@@ -2656,9 +2656,9 @@ impl RpcMethod<1> for EthTraceBlock {
     ) -> Result<Self::Ok, ServerError> {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
 
-        let (_cid, trace) = ctx.state_manager.execution_trace(&ts)?;
+        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
 
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
 
         let cid = ts.key().cid()?;
 

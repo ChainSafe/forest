@@ -1596,7 +1596,7 @@ where
             VMEvent::NotPushed,
         )?;
 
-        Ok((Cid::default(), invoc_trace))
+        Ok((state_root, invoc_trace))
     }
 }
 
