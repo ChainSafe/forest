@@ -19,6 +19,7 @@ use crate::rpc::{
     eth::{types::*, *},
 };
 use crate::rpc::{prelude::*, Permission};
+use crate::shim::actors::market;
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
@@ -34,7 +35,6 @@ use anyhow::{bail, ensure};
 use bls_signatures::Serialize as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
-use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};

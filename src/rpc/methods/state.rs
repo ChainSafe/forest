@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use fil_actor_interface::init;
+use crate::shim::actors::init;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
@@ -17,13 +17,20 @@ use crate::interpreter::VMEvent;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::shim::actors::market::MarketStateExt as _;
+use crate::shim::actors::market::ext::MarketStateExt as _;
+use crate::shim::actors::market::DealState;
 use crate::shim::actors::state_load::*;
-use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
+use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::{
-    market::BalanceTableExt as _,
-    miner::{MinerStateExt as _, PartitionExt as _},
-    power::PowerStateExt as _,
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+    power, reward, verifreg,
+};
+use crate::shim::actors::{
+    market::ext::BalanceTableExt as _,
+    miner::ext::{MinerStateExt as _, PartitionExt as _},
+    power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
@@ -48,13 +55,6 @@ use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
-use fil_actor_interface::market::DealState;
-use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
-use fil_actor_interface::{
-    market, miner,
-    miner::{MinerInfo, MinerPower},
-    power, reward, verifreg,
-};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;

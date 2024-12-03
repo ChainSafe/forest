@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::shim::actors::account;
 use anyhow::{anyhow, bail, Context as _};
 use cid::Cid;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
@@ -364,8 +365,7 @@ where
                     }
                 }
 
-                let account_state =
-                    fil_actor_interface::account::State::load(store, actor.code, actor.state)?;
+                let account_state = account::State::load(store, actor.code, actor.state)?;
                 Ok(account_state.pubkey_address().into())
             }
         }
@@ -539,8 +539,8 @@ mod tests {
     use crate::blocks::CachingBlockHeader;
     use crate::db::car::AnyCar;
     use crate::networks::{calibnet, mainnet};
+    use crate::shim::actors::init;
     use cid::Cid;
-    use fil_actor_interface::init;
     use std::sync::Arc;
 
     // refactored from `StateManager::get_network_name`
