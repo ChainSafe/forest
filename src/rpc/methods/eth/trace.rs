@@ -214,8 +214,7 @@ fn build_trace(
             let method = InitMethod::from_u64(trace.msg.method);
             match method {
                 Some(InitMethod::Exec) | Some(InitMethod::Exec4) => {
-                    let trace = trace_native_call(env, address, trace)?;
-                    return Ok((Some(trace), None));
+                    return trace_native_create(env, address, trace);
                 }
                 _ => (),
             }
@@ -331,7 +330,7 @@ fn trace_evm_call(
 fn trace_native_create(
     env: &mut Environment,
     address: &[i64],
-    trace: ExecutionTrace,
+    trace: &ExecutionTrace,
 ) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
     if trace.msg.read_only.unwrap_or_default() {
         // "create" isn't valid in a staticcall, so we just skip this trace
