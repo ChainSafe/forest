@@ -44,7 +44,7 @@ pub fn base_environment<BS: Blockstore + Send + Sync>(
     })
 }
 
-pub fn trace_to_address(trace: &ActorTrace) -> EthAddress {
+fn trace_to_address(trace: &ActorTrace) -> EthAddress {
     if let Some(addr) = trace.state.delegated_address {
         if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into()) {
             return eth_addr;
@@ -54,7 +54,7 @@ pub fn trace_to_address(trace: &ActorTrace) -> EthAddress {
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
-pub fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
+fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
     if let Some(invoked_actor) = &trace.invoked_actor {
         is_evm_actor(&invoked_actor.state.code)
             || invoked_actor.id != Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
@@ -64,7 +64,7 @@ pub fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
-pub fn trace_err_msg(trace: &ExecutionTrace) -> String {
+fn trace_err_msg(trace: &ExecutionTrace) -> String {
     let code = trace.msg_rct.exit_code;
 
     if code.is_success() {
@@ -148,7 +148,7 @@ pub fn build_traces(
 // `build_trace` processes the passed execution trace and updates the environment, if necessary.
 //
 // On success, it returns a trace to add (or `None` to skip) and the trace to recurse into (or `None` to skip).
-pub fn build_trace(
+fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: &Option<ExecutionTrace>,
@@ -252,7 +252,7 @@ pub fn build_trace(
 }
 
 // Build an EthTrace for a "call" with the given input & output.
-pub fn trace_call(
+fn trace_call(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
@@ -293,7 +293,7 @@ pub fn trace_call(
 }
 
 // Build an EthTrace for a "call", parsing the inputs & outputs as a "native" FVM call.
-pub fn trace_native_call(
+fn trace_native_call(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
@@ -313,7 +313,7 @@ pub fn trace_native_call(
 
 // Build an EthTrace for a "call", parsing the inputs & outputs as an EVM call (falling back on
 // treating it as a native call).
-pub fn trace_evm_call(
+fn trace_evm_call(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
@@ -327,7 +327,8 @@ pub fn trace_evm_call(
 
 // Build an EthTrace for a native "create" operation. This should only be called with an
 // ExecutionTrace is an Exec or Exec4 method invocation on the Init actor.
-pub fn trace_native_create(
+
+fn trace_native_create(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
@@ -418,18 +419,15 @@ pub fn trace_native_create(
 // Decode the parameters and return value of an EVM smart contract creation through the EAM. This
 // should only be called with an ExecutionTrace for a Create, Create2, or CreateExternal method
 // invocation on the EAM.
-pub fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
-    let method: EAMMethod = EAMMethod::from_u64(trace.msg.method)
-        .with_context(|| format!("unexpected CREATE method {}", trace.msg.method))?;
-
-    let init_code = match method {
-        EAMMethod::Create => {
+fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
+    let init_code = match EAMMethod::from_u64(trace.msg.method) {
+        Some(EAMMethod::Create) => {
             todo!()
         }
-        EAMMethod::Create2 => {
+        Some(EAMMethod::Create2) => {
             todo!()
         }
-        EAMMethod::CreateExternal => {
+        Some(EAMMethod::CreateExternal) => {
             todo!()
         }
         _ => bail!("unexpected CREATE method {}", trace.msg.method),
@@ -441,7 +439,7 @@ pub fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>,
 
 // Build an EthTrace for an EVM "create" operation. This should only be called with an
 // ExecutionTrace for a Create, Create2, or CreateExternal method invocation on the EAM.
-pub fn trace_eth_create(
+fn trace_eth_create(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
@@ -525,7 +523,7 @@ pub fn trace_eth_create(
 
 // Build an EthTrace for a "private" method invocation from the EVM. This should only be called with
 // an ExecutionTrace from an EVM instance and on a method between 1 and 1023 inclusive.
-pub fn trace_evm_private(
+fn trace_evm_private(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
