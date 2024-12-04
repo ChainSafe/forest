@@ -152,6 +152,7 @@ pub fn build_traces(
 fn build_trace(
     env: &mut Environment,
     address: &[i64],
+    // TODO(elmattic): check that we always have some existing trace
     trace: &Option<ExecutionTrace>,
 ) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
     // This function first assumes that the call is a "native" call, then handles all the "not
@@ -184,14 +185,13 @@ fn build_trace(
     // We may fail before we can even invoke the actor. In that case, we have no 100% reliable
     // way of getting its address (e.g., due to reverts) so we're just going to drop the entire
     // trace. This is OK (ish) because the call never really "happened".
-    let (trace, _invoked_actor) = if let Some(ref trace) = trace {
-        if let Some(ref invoked_actor) = trace.invoked_actor {
-            (trace, invoked_actor)
-        } else {
+    let trace = if let Some(ref trace) = trace {
+        if trace.invoked_actor.is_none() {
             return Ok((None, None));
+        } else {
+            trace
         }
     } else {
-        // TODO(elmattic): can we do that?
         return Ok((None, None));
     };
 
