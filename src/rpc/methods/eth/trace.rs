@@ -22,6 +22,7 @@ use fvm_shared4::{error::ExitCode as ExitCodeV4, METHOD_CONSTRUCTOR};
 
 use anyhow::{bail, Context};
 use num::FromPrimitive;
+use tracing::debug;
 
 #[derive(Default)]
 pub struct Environment {
@@ -317,10 +318,20 @@ fn trace_evm_call(
     address: &[i64],
     trace: ExecutionTrace,
 ) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
-    let input = decode_payload(&trace.msg.params, trace.msg.params_codec)?;
-    let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)?;
-    // TODO(elmattic): add debug logs
-
+    let input = match decode_payload(&trace.msg.params, trace.msg.params_codec) {
+        Ok(value) => value,
+        Err(err) => {
+            debug!("failed to decode contract invocation payload: {err}");
+            return Ok((trace_native_call(env, address, &trace)?, trace));
+        }
+    };
+    let output = match decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec) {
+        Ok(value) => value,
+        Err(err) => {
+            debug!("failed to decode contract invocation return: {err}");
+            return Ok((trace_native_call(env, address, &trace)?, trace));
+        }
+    };
     Ok((trace_call(env, address, &trace, input, output)?, trace))
 }
 
