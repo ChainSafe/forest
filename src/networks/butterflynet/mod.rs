@@ -102,6 +102,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Phoenix, i64::MIN),
         make_height!(Waffle, -26, get_bundle_cid("v14.0.0-rc.1")),
         make_height!(TukTuk, 360, get_bundle_cid("v15.0.0-rc1")),
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/5039
+        make_height!(Teep, i64::MAX, get_bundle_cid("v15.0.0-rc1")),
     ])
 });
 
