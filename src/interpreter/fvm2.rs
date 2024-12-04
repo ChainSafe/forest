@@ -9,6 +9,7 @@ use crate::chain::{index::ChainIndex, store::ChainStore};
 use crate::interpreter::errors::Error;
 use crate::interpreter::resolve_to_key_addr;
 use crate::networks::ChainConfig;
+use crate::shim::actors::miner;
 use crate::shim::{
     actors::MinerActorStateLoad as _,
     gas::{price_list_by_network_version, Gas, GasTracker},
@@ -18,7 +19,6 @@ use crate::shim::{
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::bail;
 use cid::Cid;
-use fil_actor_interface::miner;
 use fvm2::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},

@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::actors::miner;
 use crate::shim::{
     actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
     address::{Address, Payload},
@@ -11,7 +12,6 @@ use crate::shim::{
 };
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
-use fil_actor_interface::miner;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;

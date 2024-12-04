@@ -287,6 +287,7 @@ mod tests {
     use super::*;
     use crate::make_calibnet_policy;
     use crate::networks::{ChainConfig, Height};
+    use crate::shim::actors::*;
     use crate::shim::{
         econ::TokenAmount,
         machine::{BuiltinActor, BuiltinActorManifest},
@@ -301,7 +302,7 @@ mod tests {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store);
         let system_actor_old = state_tree_old
-            .get_required_actor(&fil_actor_interface::system::ADDRESS.into())
+            .get_required_actor(&system::ADDRESS.into())
             .unwrap();
         let system_state_old: fil_actor_system_state::v11::State =
             store.get_cbor_required(&system_actor_old.state).unwrap();
@@ -405,7 +406,7 @@ mod tests {
             &mut tree,
             system_state_cid,
             system_cid,
-            &fil_actor_interface::system::ADDRESS.into(),
+            &system::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -417,7 +418,7 @@ mod tests {
             &mut tree,
             init_state_cid,
             init_cid,
-            &fil_actor_interface::init::ADDRESS.into(),
+            &init::ADDRESS.into(),
             Zero::zero(),
         );
 

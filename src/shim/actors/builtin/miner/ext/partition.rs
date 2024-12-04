@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fil_actor_interface::miner::Partition;
+use crate::shim::actors::miner::Partition;
 
 impl PartitionExt for Partition<'_> {
     fn terminated(&self) -> &BitField {

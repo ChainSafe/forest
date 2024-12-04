@@ -47,7 +47,7 @@ pub enum F3Commands {
     #[command(subcommand, visible_alias = "c")]
     Certs(F3CertsCommands),
     /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
-    #[command(subcommand, visible_alias = "pt")]
+    #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
 }
 

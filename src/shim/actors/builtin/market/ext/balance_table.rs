@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fil_actor_interface::market::BalanceTable;
+use crate::shim::actors::market::BalanceTable;
 use fvm_ipld_blockstore::Blockstore;
 
 impl<BS: Blockstore> BalanceTableExt for BalanceTable<'_, BS> {

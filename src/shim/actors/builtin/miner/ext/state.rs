@@ -1,8 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::actors::{convert::*, Policy};
 use anyhow::Context as _;
-use fil_actor_interface::{convert::*, Policy};
 
 use crate::shim::clock::ChainEpoch;
 
