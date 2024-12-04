@@ -73,142 +73,63 @@ fn test_progress_template() {
 fn test_finality_certificate_template() {
     // lotus f3 c get --output json 6204
     let lotus_json = serde_json::json!({
-        "GPBFTInstance": 6204,
-        "ECChain": [
-          {
-            "Epoch": 2088927,
-            "Key": "AXGg5AIg1NBjOnFimwUueRXQQzvPbHZO6vXbvqNA1gcomlVrq5MBcaDkAiCaOt71j85kjjq3SZF0NQq03tauEW3iwscIr4Qw0wna+g==",
-            "PowerTable": {
-              "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+      "GPBFTInstance": 6204,
+      "ECChain": [
+        {
+          "Key": [
+            {
+              "/": "bafy2bzacedknayz2ofrjwbjopek5aqz3z5whmtxk6xn35i2a2ydsrgsvnovzg"
             },
-            "Commitments": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ]
-          },
-          {
-            "Epoch": 2088928,
-            "Key": "AXGg5AIgFn9g3q/ATrgWiWzUYZLrtN/POrkNWFPmUShj/MDqZ5IBcaDkAiACwpEW4PvUCOIsZRaYhF6W+L1bgGd2TUFLOkATNxvuGgFxoOQCILlKPpFgMxXYFcq2HslyxzBN9ZZ6iPrPSBI2uwT4tUAvAXGg5AIgwYDZ217HUZ6nGnm6fnNd5lhep2C02mSYkkjJPf5pOig=",
-            "PowerTable": {
-              "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
-            },
-            "Commitments": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ]
-          }
-        ],
-        "SupplementalData": {
-          "Commitments": [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
+            {
+              "/": "bafy2bzacecndvxxvr7hgjdr2w5ezc5bvbk2n5vvocfw6fqwhbcxyimgtbhnpu"
+            }
           ],
+          "Commitments": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "Epoch": 2088927,
           "PowerTable": {
             "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
           }
         },
-        "Signers": [
-          0,
-          3
-        ],
-        "Signature": "uYtvw/NWm2jKQj+d99UAG4aiPnpAMSrwAWIusv0XkjsOYYR0fyU4nUM++cAQGO47E2/J8WSDjstLgL+yMVAFC+Tgao4o9ILXIlhqhxObnNZ/Ehanajthif9SaRe1AO69",
-        "PowerTableDelta": [
-          {
-            "ParticipantID": 3782,
-            "PowerDelta": "76347338653696",
-            "SigningKey": "lXSMTNEVmIdVxJV4clmW35jrlsBEfytNUGTWVih2dFlQ1k/7QQttsUGzpD5JoNaQ"
+        {
+          "Key": [
+            {
+              "/": "bafy2bzacealh6yg6v7ae5oawrfwniyms5o2n7tz2xegvqu7gkeugh7ga5jtze"
+            },
+            {
+              "/": "bafy2bzaceabmfeiw4d55ichcfrsrngeel2lprpk3qbtxmtkbjm5eaezxdpxbu"
+            },
+            {
+              "/": "bafy2bzacec4uupurmazrlwavzk3b5slsy4ye35mwpkepvt2ici3lwbhywvac6"
+            },
+            {
+              "/": "bafy2bzacedaybwo3l3dvdhvhdj43u7ttlxtfqxvhmc2nuzeysjemspp6ne5cq"
+            }
+          ],
+          "Commitments": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "Epoch": 2088928,
+          "PowerTable": {
+            "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
           }
-        ]
+        }
+      ],
+      "SupplementalData": {
+        "Commitments": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PowerTable": {
+          "/": "bafy2bzaceazjn2promafvtkaquebfgc3xvhoavdbxwns4i54ilgnzch7pkgua"
+        }
+      },
+      "Signers": [
+        0,
+        3
+      ],
+      "Signature": "uYtvw/NWm2jKQj+d99UAG4aiPnpAMSrwAWIusv0XkjsOYYR0fyU4nUM++cAQGO47E2/J8WSDjstLgL+yMVAFC+Tgao4o9ILXIlhqhxObnNZ/Ehanajthif9SaRe1AO69",
+      "PowerTableDelta": [
+        {
+          "ParticipantID": 3782,
+          "PowerDelta": "76347338653696",
+          "SigningKey": "lXSMTNEVmIdVxJV4clmW35jrlsBEfytNUGTWVih2dFlQ1k/7QQttsUGzpD5JoNaQ"
+        }
+      ]
     });
     let cert: FinalityCertificate = serde_json::from_value(lotus_json).unwrap();
     let template = FinalityCertificateTemplate::new(cert);
