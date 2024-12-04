@@ -2015,27 +2015,18 @@ pub enum EthGetTransactionByBlockNumberAndIndex {}
 impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
-    const PARAM_NAMES: [&'static str; 2] = ["block_number", "tx_index"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "tx_index"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (EthUint64, EthUint64);
+    type Params = (BlockNumberOrHash, EthUint64);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_number, tx_index): Self::Params,
+        (block_param, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let height = block_number.0 as ChainEpoch;
-        let head = ctx.chain_store().heaviest_tipset();
-
-        if height > head.epoch() {
-            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
-        }
-
-        let ts = ctx
-            .chain_index()
-            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
 
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 
