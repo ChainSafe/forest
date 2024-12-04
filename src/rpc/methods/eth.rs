@@ -2042,7 +2042,8 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
         let EthUint64(index) = tx_index;
         let msg = messages.get(index as usize).with_context(|| {
             format!(
-                "index {} out of range: tipset contains {} messages",
+                "failed to get transaction at index {}: index {} out of range: tipset contains {} messages",
+                index,
                 index,
                 messages.len()
             )
