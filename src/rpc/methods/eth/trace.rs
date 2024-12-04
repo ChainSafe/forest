@@ -14,7 +14,7 @@ use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
 use crate::rpc::state::ActorTrace;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use fil_actor_eam_state::v12 as eam12;
-use fil_actor_evm_state::v15 as code;
+use fil_actor_evm_state::v15 as evm12;
 use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
@@ -84,14 +84,14 @@ fn trace_err_msg(trace: &ExecutionTrace) -> String {
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            code::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
-            code::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
-            code::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
-            code::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
-            code::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
-            code::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
-            code::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
-            code::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
+            evm12::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
+            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
+            evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
+            evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
+            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
             _ => (),
         }
     }
@@ -582,7 +582,7 @@ fn trace_evm_private(
                 }
             }
 
-            // let dp = todo!();
+            let dp = decode_params::<evm12::DelegateCallParams>(&trace.msg)?;
 
             let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)
                 .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {}", e))?;
@@ -596,7 +596,7 @@ fn trace_evm_private(
                         to: env.last_byte_code.clone(),
                         gas: trace.msg.gas_limit.unwrap_or_default().into(),
                         value: trace.msg.value.clone().into(),
-                        input: EthBytes::default(),
+                        input: dp.input.into(),
                     }),
                     result: TraceResult::Call(EthCallTraceResult {
                         gas_used: 0.into(),
