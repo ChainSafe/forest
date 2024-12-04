@@ -2562,6 +2562,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_eam_state"
+version = "18.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcae1e54df0d8bc6221b26e4db7744708a1ba7b983b936967253e12e385b864"
+dependencies = [
+ "fvm_shared 3.12.0",
+ "fvm_shared 4.5.2",
+ "num-derive",
+ "num-traits",
+]
+
+[[package]]
 name = "fil_actor_evm_state"
 version = "18.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3037,6 +3049,8 @@ dependencies = [
  "fil_actor_account_state",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
+ "fil_actor_eam_state",
+ "fil_actor_evm_state",
  "fil_actor_init_state",
  "fil_actor_interface",
  "fil_actor_market_state",

@@ -22,11 +22,12 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
-pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV3);
+pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV4);
 
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
-    pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;
+    pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV4::FIRST_USER_EXIT_CODE;
+    pub const FIRST_ACTOR_ERROR_CODE: u32 = 32;
 
     pub fn value(&self) -> u32 {
         self.0.value()
@@ -39,19 +40,19 @@ impl ExitCode {
 
 impl From<u32> for ExitCode {
     fn from(value: u32) -> Self {
-        Self(ExitCodeV3::new(value))
+        Self(ExitCodeV4::new(value))
     }
 }
 
 impl From<ExitCodeV4> for ExitCode {
     fn from(value: ExitCodeV4) -> Self {
-        value.value().into()
+        Self(value)
     }
 }
 
 impl From<ExitCodeV3> for ExitCode {
     fn from(value: ExitCodeV3) -> Self {
-        Self(value)
+        value.value().into()
     }
 }
 
@@ -69,12 +70,12 @@ impl From<ExitCode> for ExitCodeV2 {
 
 impl From<ExitCode> for ExitCodeV3 {
     fn from(value: ExitCode) -> Self {
-        value.0
+        Self::new(value.0.value())
     }
 }
 
 impl From<ExitCode> for ExitCodeV4 {
     fn from(value: ExitCode) -> Self {
-        Self::new(value.0.value())
+        value.0
     }
 }
