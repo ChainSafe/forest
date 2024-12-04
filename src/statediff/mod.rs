@@ -9,6 +9,12 @@ use std::{
     sync::Arc,
 };
 
+use crate::shim::actors::{
+    account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
+    evm::State as EvmState, init::State as InitState, market::State as MarketState,
+    miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
+    reward::State as RewardState, system::State as SystemState,
+};
 use crate::{
     lotus_json::HasLotusJson as _,
     shim::{
@@ -20,12 +26,6 @@ use crate::{
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
-use fil_actor_interface::{
-    account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
-    evm::State as EvmState, init::State as InitState, market::State as MarketState,
-    miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
-    reward::State as RewardState, system::State as SystemState,
-};
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;

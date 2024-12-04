@@ -1,7 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+use crate::shim::actors::power::State;
 use crate::shim::clock::ChainEpoch;
-use fil_actor_interface::power::State;
 
 pub trait PowerStateExt {
     /// `FIP0081` activation epoch. Should be same as `TukTuk` epoch.
