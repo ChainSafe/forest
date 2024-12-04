@@ -49,7 +49,7 @@ thread_local! {
 ///
 /// The thread-local network variable is initialized to the value of the global network. This global
 /// network variable is set once when Forest has figured out which network it is using.
-pub struct CurrentNetwork();
+pub struct CurrentNetwork;
 impl CurrentNetwork {
     pub fn get() -> Network {
         FromPrimitive::from_u8(LOCAL_NETWORK.with(|ident| ident.load(Ordering::Acquire)))

@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod test_snapshot;
+
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::db::car::ManyCar;
 use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
@@ -149,6 +151,10 @@ pub enum ApiCommands {
         #[arg(long)]
         include_ignored: bool,
     },
+    Test {
+        #[arg(num_args = 1.., required = true)]
+        files: Vec<PathBuf>,
+    },
 }
 
 impl ApiCommands {
@@ -253,6 +259,13 @@ impl ApiCommands {
                     };
                     serde_json::to_writer(io::stdout(), &dialogue)?;
                     println!();
+                }
+            }
+            Self::Test { files } => {
+                for path in files {
+                    print!("Running RPC test with snapshot {} ...", path.display());
+                    test_snapshot::run_test_from_snapshot(&path).await?;
+                    println!("  Success");
                 }
             }
         }
