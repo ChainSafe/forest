@@ -7,12 +7,12 @@ pub mod fvm3;
 mod fvm4;
 mod vm;
 
+use crate::shim::actors::account;
 use crate::shim::actors::AccountActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
     state_tree::StateTree,
 };
-use fil_actor_interface::account;
 use fvm_ipld_blockstore::Blockstore;
 
 pub use self::vm::*;

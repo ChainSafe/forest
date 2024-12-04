@@ -3,7 +3,7 @@
 
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::types::ClaimLotusJson;
-use fil_actor_interface::verifreg::Claim;
+use crate::shim::actors::verifreg::Claim;
 
 impl HasLotusJson for Claim {
     type LotusJson = ClaimLotusJson;
