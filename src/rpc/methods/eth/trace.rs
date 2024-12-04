@@ -488,7 +488,7 @@ fn trace_eth_create(
     };
 
     // Decode inputs & determine create type.
-    let (init_code, create_addr) = decode_create_via_eam(&trace)?;
+    let (init_code, create_addr) = decode_create_via_eam(trace)?;
 
     // Handle the output.
     let output = match trace.msg_rct.exit_code.value() {

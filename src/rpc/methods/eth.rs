@@ -2714,7 +2714,7 @@ impl RpcMethod<1> for EthTraceBlock {
                     error: trace.error,
 
                     block_hash: block_hash.clone(),
-                    block_number: ts.epoch().into(),
+                    block_number: ts.epoch(),
                     transaction_hash: tx_hash.clone(),
                     transaction_position: msg_idx as i64,
                 });
