@@ -59,6 +59,9 @@
 - [#4988](https://github.com/ChainSafe/forest/pull/4988) Fix the `logs` member
   in `EthTxReceipt` that was initialized with a default value.
 
+- [#5043](https://github.com/ChainSafe/forest/pull/5043) Added missing entry for
+  `TukTuk` upgrade in the `Filecoin.StateGetNetworkParams` RPC method.
+
 ## Forest 0.22.0 "Pad Thai"
 
 Mandatory release for mainnet node operators. It sets the upgrade epoch for the
