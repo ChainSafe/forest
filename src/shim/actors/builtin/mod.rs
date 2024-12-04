@@ -4,6 +4,7 @@
 pub mod account;
 pub mod cron;
 pub mod datacap;
+pub mod eam;
 pub mod evm;
 pub mod init;
 pub mod market;
