@@ -35,6 +35,9 @@
 - [#4995](https://github.com/ChainSafe/forest/pull/4995) Added
   `forest-cli f3 powertable get` CLI command.
 
+- [#5028](https://github.com/ChainSafe/forest/pull/5028) Added
+  `forest-cli f3 powertable get-proportion` CLI command.
+
 - [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
   `Filecoin.EthGetTransactionReceiptLimited` RPC method.
 
