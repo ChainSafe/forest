@@ -10,7 +10,7 @@ use super::{
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
-use crate::rpc::methods::state::{ExecutionTrace, MessageTrace};
+use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use fil_actor_eam_state::v12 as eam12;
@@ -280,7 +280,7 @@ fn trace_call(
                 input,
             }),
             result: TraceResult::Call(EthCallTraceResult {
-                gas_used: 0.into(),
+                gas_used: trace.sum_gas().total_gas.into(),
                 output,
             }),
             trace_address: Vec::from(address),
@@ -414,7 +414,7 @@ fn trace_native_create(
                 init: EthBytes(vec![0xFE]),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
-                gas_used: 0.into(),
+                gas_used: trace.sum_gas().total_gas.into(),
                 address: Some(create_addr),
                 code: output,
             }),
@@ -519,7 +519,7 @@ fn trace_eth_create(
                 init: init_code.into(),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
-                gas_used: 0.into(),
+                gas_used: trace.sum_gas().total_gas.into(),
                 address: Some(create_addr),
                 code: output,
             }),
@@ -610,7 +610,7 @@ fn trace_evm_private(
                         input: dp.input.into(),
                     }),
                     result: TraceResult::Call(EthCallTraceResult {
-                        gas_used: 0.into(),
+                        gas_used: trace.sum_gas().total_gas.into(),
                         output,
                     }),
                     trace_address: Vec::from(address),
