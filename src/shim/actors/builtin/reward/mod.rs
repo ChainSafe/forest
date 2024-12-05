@@ -3,7 +3,7 @@
 
 use crate::shim::actors::convert::{
     from_padded_piece_size_v2_to_v3, from_padded_piece_size_v2_to_v4, from_policy_v13_to_v11,
-    from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15, from_token_v2_to_v3,
+    from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16, from_token_v2_to_v3,
     from_token_v2_to_v4, from_token_v3_to_v2, from_token_v4_to_v2,
 };
 use fil_actor_market_state::v11::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v11;
