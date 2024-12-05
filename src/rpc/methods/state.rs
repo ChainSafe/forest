@@ -2686,6 +2686,7 @@ pub struct ForkUpgradeParams {
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
     upgrade_waffle_height: ChainEpoch,
+    upgrade_tuktuk_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2730,8 +2731,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
             upgrade_waffle_height: get_height(Waffle)?,
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/4800
-            // upgrade_tuktuk_height: get_height(TukTuk)?,
+            upgrade_tuktuk_height: get_height(TukTuk)?,
         })
     }
 }
