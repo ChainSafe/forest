@@ -16,7 +16,8 @@ use super::wallet::WalletSign;
 use crate::shim::actors::{
     convert::{
         from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9, from_policy_v13_to_v16
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
+        from_policy_v13_to_v9,
     },
     miner, power,
 };

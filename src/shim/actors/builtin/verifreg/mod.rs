@@ -9,8 +9,7 @@ use fil_actor_verifreg_state::{
     v10::state::get_claim as get_claim_v10, v11::state::get_claim as get_claim_v11,
     v12::state::get_claim as get_claim_v12, v13::state::get_claim as get_claim_v13,
     v14::state::get_claim as get_claim_v14, v15::state::get_claim as get_claim_v15,
-    v16::state::get_claim as get_claim_v16,
-    v9::state::get_claim as get_claim_v9,
+    v16::state::get_claim as get_claim_v16, v9::state::get_claim as get_claim_v9,
 };
 use fil_actors_shared::v8::{make_map_with_root_and_bitwidth, HAMT_BIT_WIDTH};
 use fil_actors_shared::v9::Keyer;
