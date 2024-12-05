@@ -22,4 +22,5 @@ pub enum State {
     V13(fil_actor_system_state::v13::State),
     V14(fil_actor_system_state::v14::State),
     V15(fil_actor_system_state::v15::State),
+    V16(fil_actor_system_state::v16::State),
 }
