@@ -19,7 +19,7 @@
 //! compatible, we cannot switch to `libipld-json`.
 //!
 //! # Tech debt
-//! - The real way to do this is to implement [`libipld::codec`] bits appropriately,
+//! - The real way to do this is to implement [`ipld_core::codec::Codec`] bits appropriately,
 //!   or embrace using our own struct.
 
 use std::{collections::BTreeMap, fmt};
@@ -27,7 +27,7 @@ use std::{collections::BTreeMap, fmt};
 use super::*;
 
 use ::cid::multibase;
-use libipld::{ipld, Ipld};
+use ipld_core::{ipld, ipld::Ipld};
 use serde::de;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -313,7 +313,7 @@ quickcheck::quickcheck! {
 /// Error: "called `Result::unwrap()` on an `Err` value: Error(\"Input too short\", line: 1, column: 52)"',
 /// ```
 /// The actual error message is a little ambiguous with regards to the cause
-/// because [`libipld` has a custom debug implementation][unhelpful]
+/// because [`ipld_core`] has a custom debug implementation [unhelpful]
 ///
 /// Here's what the minimal test case (or simply another bug) is after trying to understand the above.
 ///

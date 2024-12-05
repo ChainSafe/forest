@@ -13,7 +13,7 @@ use crate::shim::{
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::utils::db::CborStoreExt as _;
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 
 use fvm_ipld_blockstore::Blockstore;

@@ -27,9 +27,13 @@ use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
+use crate::shim::actors::init::{self, State};
+use crate::shim::actors::miner::{MinerInfo, MinerPower, Partition};
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
+use crate::shim::actors::*;
 use crate::shim::{
     actors::{
-        miner::MinerStateExt as _, state_load::*, verifreg::VerifiedRegistryStateExt as _,
+        miner::ext::MinerStateExt as _, verifreg::ext::VerifiedRegistryStateExt as _,
         LoadActorStateFromBlockstore,
     },
     executor::{ApplyRet, Receipt, StampedEvent},
@@ -51,10 +55,6 @@ use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
 pub use circulating_supply::GenesisInfo;
-use fil_actor_interface::init::{self, State};
-use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
-use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
-use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;

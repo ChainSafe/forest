@@ -23,8 +23,10 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
+use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
+use crate::shim::actors::evm;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
@@ -40,14 +42,15 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use cbor4ii::core::dec::Decode as _;
 use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
+use ipld_core::ipld::Ipld;
 use itertools::Itertools;
-use libipld_core::ipld::Ipld;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -179,9 +182,7 @@ lotus_json_with_self!(EthInt64);
 impl EthHash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
-        use cid::multihash::MultihashDigest;
-
-        let mh = cid::multihash::Code::Blake2b256
+        let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
@@ -881,7 +882,7 @@ fn encode_filecoin_returns_as_abi(
 
 /// Round to the next multiple of `EVM` word length.
 fn round_up_word(value: usize) -> usize {
-    ((value + (EVM_WORD_LENGTH - 1)) / EVM_WORD_LENGTH) * EVM_WORD_LENGTH
+    value.div_ceil(EVM_WORD_LENGTH) * EVM_WORD_LENGTH
 }
 
 /// Format two numbers followed by an arbitrary byte array as solidity ABI.
@@ -1074,7 +1075,26 @@ fn new_eth_tx_from_message_lookup<DB: Blockstore>(
     })
 }
 
-async fn new_eth_tx_receipt<DB: Blockstore>(
+fn new_eth_tx<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    state: &StateTree<DB>,
+    block_height: ChainEpoch,
+    msg_tipset_cid: &Cid,
+    msg_cid: &Cid,
+    tx_index: u64,
+) -> Result<ApiEthTx> {
+    let smsg = get_signed_message(ctx, *msg_cid)?;
+    let tx = new_eth_tx_from_signed_message(&smsg, state, ctx.chain_config().eth_chain_id)?;
+
+    Ok(ApiEthTx {
+        block_hash: (*msg_tipset_cid).into(),
+        block_number: (block_height as u64).into(),
+        transaction_index: tx_index.into(),
+        ..tx
+    })
+}
+
+async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tx: &ApiEthTx,
     message_lookup: &MessageLookup,
@@ -1132,7 +1152,9 @@ async fn new_eth_tx_receipt<DB: Blockstore>(
         receipt.contract_address = Some(ret.eth_address.into());
     }
 
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
+    let mut events = vec![];
+    EthEventHandler::collect_events(ctx, &parent_ts, None, &mut events).await?;
+    receipt.logs = eth_filter_logs_from_events(ctx, &events)?;
 
     Ok(receipt)
 }
@@ -1256,6 +1278,87 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
+    }
+}
+
+async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    block_hash: EthHash,
+    limit: Option<usize>,
+) -> Result<Vec<EthTxReceipt>, ServerError> {
+    let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+    let ts_ref = Arc::new(ts);
+    let ts_key = ts_ref.key();
+    let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
+
+    let msgs_and_receipts = if let Some(limit) = limit {
+        msgs_and_receipts.into_iter().take(limit).collect()
+    } else {
+        msgs_and_receipts
+    };
+
+    let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+    for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
+        let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+        let message_lookup = MessageLookup {
+            receipt,
+            tipset: ts_key.clone(),
+            height: ts_ref.epoch(),
+            message: msg.cid(),
+            return_dec,
+        };
+
+        let tx = new_eth_tx(
+            ctx,
+            &state,
+            ts_ref.epoch(),
+            &ts_key.cid()?,
+            &msg.cid(),
+            i as u64,
+        )?;
+
+        let tx_receipt = new_eth_tx_receipt(ctx, &tx, &message_lookup).await?;
+        receipts.push(tx_receipt);
+    }
+    Ok(receipts)
+}
+
+pub enum EthGetBlockReceipts {}
+impl RpcMethod<1> for EthGetBlockReceipts {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash,);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_block_receipts(&ctx, block_hash, None).await
+    }
+}
+
+pub enum EthGetBlockReceiptsLimited {}
+impl RpcMethod<2> for EthGetBlockReceiptsLimited {
+    const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "limit"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash, EthUint64);
+    type Ok = Vec<EthTxReceipt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash, EthUint64(limit)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_block_receipts(&ctx, block_hash, Some(limit as usize)).await
     }
 }
 
@@ -1853,8 +1956,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
         if is_evm_actor(&actor.code) {
-            let evm_state =
-                fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
+            let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {
                 return Ok(EthUint64(0));
             }
@@ -1933,7 +2035,7 @@ pub enum EthGetTransactionByBlockHashAndIndex {}
 impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
-    const PARAM_NAMES: [&'static str; 2] = ["p1", "p2"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "tx_index"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1941,11 +2043,34 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
-        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (_p1, _p2): Self::Params,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        // Lotus doesn't support this method (v1.29.0), so do we.
-        Err(ServerError::unsupported_method())
+        let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+
+        let messages = ctx.chain_store().messages_for_tipset(&ts)?;
+
+        let EthUint64(index) = tx_index;
+        let msg = messages.get(index as usize).with_context(|| {
+            format!(
+                "index {} out of range: tipset contains {} messages",
+                index,
+                messages.len()
+            )
+        })?;
+
+        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let tx = new_eth_tx(
+            &ctx,
+            &state,
+            ts.epoch(),
+            &ts.key().cid()?,
+            &msg.cid(),
+            index,
+        )?;
+
+        Ok(Some(tx))
     }
 }
 
@@ -2213,6 +2338,44 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     }
 }
 
+async fn get_eth_transaction_receipt(
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: EthHash,
+    limit: Option<ChainEpoch>,
+) -> Result<EthTxReceipt, ServerError> {
+    let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+        tracing::debug!(
+            "could not find transaction hash {} in Ethereum mapping",
+            tx_hash
+        );
+        // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
+        tx_hash.to_cid()
+    });
+
+    let option = ctx
+        .state_manager
+        .search_for_message(None, msg_cid, limit, Some(true))
+        .await
+        .with_context(|| format!("failed to lookup Eth Txn {} as {}", tx_hash, msg_cid))?;
+
+    let (tipset, receipt) = option.context("not indexed")?;
+    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+    let message_lookup = MessageLookup {
+        receipt,
+        tipset: tipset.key().clone(),
+        height: tipset.epoch(),
+        message: msg_cid,
+        return_dec: ipld,
+    };
+
+    let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
+        .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
+
+    let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
+
+    Ok(tx_receipt)
+}
+
 pub enum EthGetTransactionReceipt {}
 impl RpcMethod<1> for EthGetTransactionReceipt {
     const NAME: &'static str = "Filecoin.EthGetTransactionReceipt";
@@ -2227,37 +2390,25 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let msg_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
-            tracing::debug!(
-                "could not find transaction hash {} in Ethereum mapping",
-                tx_hash
-            );
-            // This isn't an eth transaction we have the mapping for, so let's look it up as a filecoin message
-            tx_hash.to_cid()
-        });
+        get_eth_transaction_receipt(ctx, tx_hash, None).await
+    }
+}
 
-        let option = ctx
-            .state_manager
-            .search_for_message(None, msg_cid, None, Some(true))
-            .await
-            .with_context(|| format!("failed to lookup Eth Txn {} as {}", tx_hash, msg_cid))?;
-
-        let (tipset, receipt) = option.context("not indexed")?;
-        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        let message_lookup = MessageLookup {
-            receipt,
-            tipset: tipset.key().clone(),
-            height: tipset.epoch(),
-            message: msg_cid,
-            return_dec: ipld,
-        };
-
-        let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
-            .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
-
-        let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
-
-        Ok(tx_receipt)
+pub enum EthGetTransactionReceiptLimited {}
+impl RpcMethod<2> for EthGetTransactionReceiptLimited {
+    const NAME: &'static str = "Filecoin.EthGetTransactionReceiptLimited";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceiptLimited");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["tx_hash", "limit"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthHash, ChainEpoch);
+    type Ok = EthTxReceipt;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash, limit): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        get_eth_transaction_receipt(ctx, tx_hash, Some(limit)).await
     }
 }
 

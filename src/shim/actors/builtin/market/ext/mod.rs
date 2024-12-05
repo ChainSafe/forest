@@ -4,11 +4,11 @@
 mod balance_table;
 mod state;
 
+use crate::shim::actors::{market, verifreg::AllocationID};
 use crate::shim::address::Address;
 use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use ahash::HashMap;
-use fil_actor_interface::{market, verifreg::AllocationID};
 use fvm_ipld_blockstore::Blockstore;
 
 pub trait MarketStateExt {

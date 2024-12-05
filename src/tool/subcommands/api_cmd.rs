@@ -21,6 +21,7 @@ use crate::rpc::{
     eth::{types::*, *},
 };
 use crate::rpc::{prelude::*, Permission};
+use crate::shim::actors::market;
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::{
     address::{Address, Protocol},
@@ -36,11 +37,11 @@ use anyhow::{bail, ensure};
 use bls_signatures::Serialize as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
-use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
@@ -1448,8 +1449,12 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetBlockReceipts::request((block_hash.clone(),)).unwrap()),
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((block_hash.clone(), EthUint64(800))).unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
@@ -1597,7 +1602,11 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
                 && smsg.message.to.protocol() == Protocol::Delegated
             {
                 tests.push(
-                    RpcTest::identity(EthGetTransactionReceipt::request((tx.hash,))?)
+                    RpcTest::identity(EthGetTransactionReceipt::request((tx.hash.clone(),))?)
+                        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+                );
+                tests.push(
+                    RpcTest::identity(EthGetTransactionReceiptLimited::request((tx.hash, 800))?)
                         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
                 );
             }
@@ -1951,8 +1960,6 @@ fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)
 }
 
 fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
-    use libipld_core::ipld::Ipld;
-
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;

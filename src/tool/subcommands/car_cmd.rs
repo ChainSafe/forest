@@ -112,8 +112,8 @@ async fn validate(
 
     let mut stream = CarStream::new(file).await?;
     while let Some(block) = stream.try_next().await? {
-        if !ignore_block_validity && !block.valid() {
-            anyhow::ensure!(block.valid(), "CID/Block mismatch for block: {}", block.cid);
+        if !ignore_block_validity {
+            block.validate()?;
         }
         if let Some(ref db) = optional_db {
             anyhow::ensure!(db.get(&block.cid).ok().flatten() == Some(block.data));
@@ -128,7 +128,7 @@ mod tests {
     use crate::db::car::forest;
     use crate::networks::{calibnet, mainnet};
     use crate::utils::db::car_stream::CarBlock;
-    use cid::multihash::{Code, MultihashDigest};
+    use crate::utils::multihash::prelude::*;
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
     use nunny::{vec as nonempty, Vec as NonEmpty};
@@ -166,21 +166,21 @@ mod tests {
     async fn validate_calibnet_genesis() {
         let mut temp_path = tempfile::Builder::new().tempfile().unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, true)
+        validate(&temp_path.into_temp_path(), false, true)
             .await
-            .is_ok());
+            .unwrap();
     }
 
     fn valid_block(msg: &str) -> CarBlock {
         let data = msg.as_bytes().to_vec();
         CarBlock {
-            cid: Cid::new_v1(0, Code::Blake2b256.digest(&data)),
+            cid: Cid::new_v1(0, MultihashCode::Blake2b256.digest(&data)),
             data,
         }
     }
 
     fn invalid_block(msg: &str) -> CarBlock {
-        let cid = Cid::new_v1(0, Code::Identity.digest(&[]));
+        let cid = Cid::new_v1(0, MultihashCode::Identity.digest(&[]));
         let data = msg.as_bytes().to_vec();
         CarBlock { cid, data }
     }

@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
         names: &'a [&'a str],
         calling_convention: ParamStructure,
         n_required: usize,
-    ) -> Result<Self, ParseError> {
+    ) -> Result<Self, ParseError<'a>> {
         let params = match (params, calling_convention) {
             // ignore the calling convention if there are no arguments to parse
             (None, _) => None,

@@ -363,14 +363,15 @@ fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
 mod tests {
     use super::*;
     use crate::networks::{ChainConfig, Height};
+    use crate::shim::actors::BURNT_FUNDS_ACTOR_ADDR;
+    use crate::shim::actors::*;
     use crate::shim::bigint::BigInt;
     use crate::shim::{
         econ::TokenAmount,
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
-    use cid::multihash::{Multihash, MultihashDigest};
-    use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
+    use crate::utils::multihash::prelude::*;
     use fil_actors_shared::fvm_ipld_hamt::BytesKey;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_shared2::{
@@ -381,13 +382,14 @@ mod tests {
         },
         piece::PaddedPieceSize,
     };
+    use multihash_codetable::Multihash;
 
     #[test]
     fn test_nv17_miner_migration() {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store);
         let system_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::system::ADDRESS.into())
+            .get_actor(&system::ADDRESS.into())
             .unwrap()
             .unwrap();
         let system_state_old: fil_actor_system_state::v9::State =
@@ -405,7 +407,7 @@ mod tests {
 
         // create 3 deal proposals
         let mut market_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::market::ADDRESS.into())
+            .get_actor(&market::ADDRESS.into())
             .unwrap()
             .unwrap();
         let mut market_state_old: fil_actor_market_state::v8::State =
@@ -480,10 +482,7 @@ mod tests {
         let market_state_cid_old = store.put_cbor_default(&market_state_old).unwrap();
         market_actor_old.state = market_state_cid_old;
         state_tree_old
-            .set_actor(
-                &fil_actor_interface::market::ADDRESS.into(),
-                market_actor_old,
-            )
+            .set_actor(&market::ADDRESS.into(), market_actor_old)
             .unwrap();
 
         // base stuff to create miners
@@ -680,7 +679,7 @@ mod tests {
             &mut tree,
             system_state_cid,
             system_cid,
-            &fil_actor_interface::system::ADDRESS.into(),
+            &system::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -698,7 +697,7 @@ mod tests {
             &mut tree,
             init_state_cid,
             init_cid,
-            &fil_actor_interface::init::ADDRESS.into(),
+            &init::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -714,7 +713,7 @@ mod tests {
             &mut tree,
             reward_state_cid,
             reward_cid,
-            &fil_actor_interface::reward::ADDRESS.into(),
+            &reward::ADDRESS.into(),
             TokenAmount::from_whole(1_100_000_000),
         );
 
@@ -723,12 +722,12 @@ mod tests {
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::power::ADDRESS,
-                    method_num: fil_actor_interface::power::Method::OnEpochTickEnd as u64,
+                    receiver: crate::shim::actors::power::ADDRESS,
+                    method_num: crate::shim::actors::power::Method::OnEpochTickEnd as u64,
                 },
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::market::ADDRESS,
-                    method_num: fil_actor_interface::market::Method::CronTick as u64,
+                    receiver: crate::shim::actors::market::ADDRESS,
+                    method_num: crate::shim::actors::market::Method::CronTick as u64,
                 },
             ],
         };
@@ -741,7 +740,7 @@ mod tests {
             &mut tree,
             cron_state_cid,
             cron_cid,
-            &fil_actor_interface::cron::ADDRESS.into(),
+            &cron::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -760,7 +759,7 @@ mod tests {
             &mut tree,
             power_state_cid,
             power_cid,
-            &fil_actor_interface::power::ADDRESS.into(),
+            &power::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -779,7 +778,7 @@ mod tests {
             &mut tree,
             market_state_cid,
             market_cid,
-            &fil_actor_interface::market::ADDRESS.into(),
+            &market::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -899,7 +898,7 @@ mod tests {
             "verifiedregistry",
             "datacap",
         ] {
-            let hash = cid::multihash::Code::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let hash = MultihashCode::Identity.digest(format!("{prefix}{name}").as_bytes());
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }
@@ -944,13 +943,13 @@ mod tests {
     }
 
     fn make_piece_cid(data: &[u8]) -> Cid {
-        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = MultihashCode::Sha2_256.digest(data);
         let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest()).unwrap();
         Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash)
     }
 
     fn make_sealed_cid(data: &[u8]) -> Cid {
-        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = MultihashCode::Sha2_256.digest(data);
         let hash = Multihash::wrap(POSEIDON_BLS12_381_A1_FC1, hash.digest()).unwrap();
         Cid::new_v1(FIL_COMMITMENT_SEALED, hash)
     }

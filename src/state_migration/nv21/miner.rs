@@ -4,8 +4,6 @@
 //! This module contains the migration logic for the `NV21` upgrade for the
 //! Miner actor.
 
-use std::sync::Arc;
-
 use crate::shim::econ::TokenAmount;
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -13,7 +11,7 @@ use crate::state_migration::common::{
 use crate::{
     shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
 };
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::{multibase::Base, Cid};
 use fil_actor_miner_state::{
     v11::Deadline as DeadlineOld, v11::Deadlines as DeadlinesOld, v11::State as MinerStateOld,
@@ -23,6 +21,7 @@ use fil_actors_shared::fvm_ipld_amt;
 use fil_actors_shared::v11::{runtime::Policy as PolicyOld, Array as ArrayOld};
 use fil_actors_shared::v12::{runtime::Policy as PolicyNew, Array as ArrayNew};
 use fvm_ipld_blockstore::Blockstore;
+use std::sync::Arc;
 
 pub struct MinerMigrator {
     empty_deadline_v11: Cid,
@@ -288,12 +287,13 @@ mod tests {
     use super::*;
     use crate::make_calibnet_policy;
     use crate::networks::{ChainConfig, Height};
+    use crate::shim::actors::*;
     use crate::shim::{
         econ::TokenAmount,
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateTree, StateTreeVersion},
     };
-    use cid::multihash::MultihashDigest;
+    use crate::utils::multihash::prelude::*;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_shared2::bigint::Zero;
 
@@ -302,7 +302,7 @@ mod tests {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store);
         let system_actor_old = state_tree_old
-            .get_required_actor(&fil_actor_interface::system::ADDRESS.into())
+            .get_required_actor(&system::ADDRESS.into())
             .unwrap();
         let system_state_old: fil_actor_system_state::v11::State =
             store.get_cbor_required(&system_actor_old.state).unwrap();
@@ -406,7 +406,7 @@ mod tests {
             &mut tree,
             system_state_cid,
             system_cid,
-            &fil_actor_interface::system::ADDRESS.into(),
+            &system::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -418,7 +418,7 @@ mod tests {
             &mut tree,
             init_state_cid,
             init_cid,
-            &fil_actor_interface::init::ADDRESS.into(),
+            &init::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -454,7 +454,7 @@ mod tests {
             "verifiedregistry",
             "datacap",
         ] {
-            let hash = cid::multihash::Code::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let hash = MultihashCode::Identity.digest(format!("{prefix}{name}").as_bytes());
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }

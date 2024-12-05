@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::shim::actors::power;
 use crate::shim::state_tree::StateTree;
-use fil_actor_interface::power;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;

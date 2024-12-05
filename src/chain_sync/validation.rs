@@ -52,7 +52,7 @@ impl From<IpldAmtError> for TipsetValidationError {
 
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
-impl<'a> TipsetValidator<'a> {
+impl TipsetValidator<'_> {
     pub fn validate<DB: Blockstore>(
         &self,
         chainstore: &ChainStore<DB>,

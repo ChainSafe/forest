@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64};
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 
@@ -87,9 +87,9 @@ impl<T: BitswapStoreRead> BitswapStoreRead for TrackingStore<T> {
 }
 
 impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for TrackingStore<T> {
-    type Params = <T as BitswapStoreReadWrite>::Params;
+    type Hashes = <T as BitswapStoreReadWrite>::Hashes;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &Block64<Self::Hashes>) -> anyhow::Result<()> {
         self.inner.insert(block)
     }
 }

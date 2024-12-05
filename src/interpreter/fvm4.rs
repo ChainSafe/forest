@@ -11,6 +11,7 @@ use crate::chain::{
 };
 use crate::interpreter::errors::Error;
 use crate::networks::{ChainConfig, Height, NetworkChain};
+use crate::shim::actors::miner;
 use crate::shim::actors::MinerActorStateLoad as _;
 use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
@@ -97,7 +98,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
 
         let tbs = TrackingBlockstore::new(&self.chain_index.db);
 
-        let ms = fil_actor_interface::miner::State::load(&tbs, actor.code, actor.state)?;
+        let ms = miner::State::load(&tbs, actor.code, actor.state)?;
 
         let worker = ms.info(&tbs)?.worker.into();
 

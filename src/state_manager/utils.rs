@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::actors::miner;
 use crate::shim::{
     actors::{is_account_actor, is_ethaccount_actor, is_placeholder_actor},
     address::{Address, Payload},
@@ -11,7 +12,6 @@ use crate::shim::{
 };
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
-use fil_actor_interface::miner;
 use fil_actors_shared::filecoin_proofs_api::post;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
@@ -146,7 +146,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 
     // Only allow such actors to send if their delegated address is in the EAM's
     // namespace.
-    return if let Payload::Delegated(address) = actor
+    if let Payload::Delegated(address) = actor
         .delegated_address
         .as_ref()
         .expect("unfallible")
@@ -155,7 +155,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
         address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
     } else {
         false
-    };
+    }
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.

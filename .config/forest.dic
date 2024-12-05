@@ -32,8 +32,10 @@ codebase
 codec
 cron
 crypto
+CurrentEpoch
 daemon
 daemonize
+Datacap
 devnet
 DB/S
 deserialize/D
@@ -48,6 +50,7 @@ EOF
 Ethereum
 eth
 exa
+EVM
 F3
 FFI
 FIL
@@ -62,6 +65,7 @@ hasher
 healthcheck
 implementor/SM
 IPFS
+ip
 IPLD
 JSON
 JWT
@@ -81,6 +85,7 @@ multiaddr/SM
 multihash
 multisig
 mutex
+Open
 OpenRPC
 overallocation
 P2P
@@ -92,6 +97,7 @@ performant
 PoC
 pointer/SM
 PoSt
+precommit
 R2
 RLP
 RPC
@@ -126,8 +132,10 @@ UUID
 validator/S
 varint
 verifier
+verifreg
 VM/SM
 VRF
 WebAssembly
 WebSocket
+WPoStProvingPeriodDeadlines
 zstd

@@ -10,9 +10,16 @@
 mod types;
 mod util;
 
-pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, FinalityCertificate};
+pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
+use crate::shim::actors::{
+    convert::{
+        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
+    },
+    miner, power,
+};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
@@ -28,14 +35,7 @@ use crate::{
     utils::misc::env::is_env_set_and_truthy,
 };
 use ahash::{HashMap, HashSet};
-use anyhow::Context;
-use fil_actor_interface::{
-    convert::{
-        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
-    },
-    miner, power,
-};
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
@@ -499,7 +499,7 @@ impl RpcMethod<1> for Finalize {
         if head.epoch() >= finalized_ts.epoch()
             && head.epoch() <= finalized_ts.epoch() + ctx.chain_config().policy.chain_finality
         {
-            tracing::info!(
+            tracing::debug!(
                 "F3 finalized tsk {} at epoch {}",
                 finalized_ts.key(),
                 finalized_ts.epoch()
@@ -625,7 +625,7 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
-    type Ok = serde_json::Value;
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,

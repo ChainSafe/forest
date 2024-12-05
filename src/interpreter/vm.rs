@@ -14,6 +14,7 @@ use crate::interpreter::{
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::{cron, reward, AwardBlockRewardParams};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -27,7 +28,6 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::bail;
 use cid::Cid;
-use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use fvm2::{
     executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
     machine::{

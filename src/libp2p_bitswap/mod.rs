@@ -23,7 +23,7 @@
 
 use std::io::Result as IOResult;
 
-use libipld::{cid::Cid, prelude::*};
+use cid::Cid;
 use tracing::*;
 
 mod bitswap_pb;

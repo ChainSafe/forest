@@ -1,11 +1,9 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use crate::utils::multihash::prelude::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use futures::ready;
 use futures::{sink::Sink, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
@@ -65,12 +63,20 @@ impl CarBlock {
     }
 
     pub fn valid(&self) -> bool {
-        if let Ok(code) = Code::try_from(self.cid.hash().code()) {
-            let actual = Cid::new_v1(self.cid.codec(), code.digest(&self.data));
-            actual == self.cid
-        } else {
-            false
-        }
+        self.validate().is_ok()
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let actual = {
+            let code = MultihashCode::try_from(self.cid.hash().code())?;
+            Cid::new_v1(self.cid.codec(), code.digest(&self.data))
+        };
+        anyhow::ensure!(
+            actual == self.cid,
+            "CID/Block mismatch for block {}, actual: {actual}",
+            self.cid
+        );
+        Ok(())
     }
 }
 
@@ -219,7 +225,9 @@ mod tests {
                     fvm_ipld_encoding::IPLD_RAW,
                 ])
                 .unwrap();
-            let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
+            let code = g
+                .choose(&[MultihashCode::Blake2b256, MultihashCode::Sha2_256])
+                .unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
             CarBlock { cid, data }
         }
@@ -231,7 +239,7 @@ mod tests {
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1207);
         for block in blocks {
-            assert!(block.valid());
+            block.validate().unwrap();
         }
     }
 
@@ -241,7 +249,7 @@ mod tests {
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1222);
         for block in blocks {
-            assert!(block.valid());
+            block.validate().unwrap();
         }
     }
 }

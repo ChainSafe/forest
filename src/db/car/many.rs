@@ -9,11 +9,12 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::db::{EthMappingsStore, MemoryDB, SettingsStore};
+use crate::db::{EthMappingsStore, MemoryDB, PersistentStore, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
+use crate::utils::multihash::prelude::*;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context as _;
 use cid::Cid;
@@ -169,6 +170,12 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     }
 }
 
+impl<WriterT: PersistentStore> PersistentStore for ManyCar<WriterT> {
+    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.writer.put_keyed_persistent(k, block)
+    }
+}
+
 impl<WriterT: BitswapStoreRead + Blockstore> BitswapStoreRead for ManyCar<WriterT> {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Blockstore::has(self, cid)
@@ -180,10 +187,10 @@ impl<WriterT: BitswapStoreRead + Blockstore> BitswapStoreRead for ManyCar<Writer
 }
 
 impl<WriterT: BitswapStoreReadWrite + Blockstore> BitswapStoreReadWrite for ManyCar<WriterT> {
-    type Params = libipld::DefaultParams;
+    type Hashes = MultihashCode;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        Blockstore::put_keyed(self, block.cid(), block.data())
+    fn insert(&self, block: &crate::libp2p_bitswap::Block64<Self::Hashes>) -> anyhow::Result<()> {
+        self.put_keyed(block.cid(), block.data())
     }
 }
 

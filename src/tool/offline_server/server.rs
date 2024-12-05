@@ -84,7 +84,7 @@ pub async fn start_offline_server(
         .chain_store()
         .set_heaviest_tipset(head_ts.clone())?;
 
-    // populate_eth_mappings(&state_manager, &head_ts)?;
+    populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);

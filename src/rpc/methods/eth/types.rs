@@ -3,7 +3,7 @@
 
 use super::*;
 use anyhow::ensure;
-use libipld::error::SerdeError;
+use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use std::hash::Hash;

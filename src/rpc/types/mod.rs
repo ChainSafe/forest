@@ -17,6 +17,9 @@ use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::shim::actors::market::AllocationID;
+use crate::shim::actors::market::{DealProposal, DealState};
+use crate::shim::actors::miner::DeadlineInfo;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -28,14 +31,11 @@ use crate::shim::{
     sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, StoragePower},
 };
 use cid::Cid;
-use fil_actor_interface::market::AllocationID;
-use fil_actor_interface::market::{DealProposal, DealState};
-use fil_actor_interface::miner::DeadlineInfo;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;
-use libipld_core::ipld::Ipld;
+use ipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
@@ -146,7 +146,7 @@ lotus_json_with_self!(MessageLookup);
 
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
-    pub multihash: Multihash,
+    pub multihash: Multihash<64>,
 }
 
 #[derive(

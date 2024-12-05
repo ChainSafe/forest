@@ -4,7 +4,7 @@
 mod state;
 
 use crate::rpc::types::MsigVesting;
-use fil_actor_interface::multisig::State;
+use crate::shim::actors::multisig::State;
 
 pub trait MultisigExt {
     fn get_vesting_schedule(&self) -> anyhow::Result<MsigVesting>;

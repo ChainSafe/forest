@@ -4,7 +4,7 @@
 pub mod selector;
 pub mod util;
 
-pub use libipld_core::ipld::Ipld;
+pub use ipld_core::ipld::Ipld;
 pub use util::*;
 
 #[cfg(test)]

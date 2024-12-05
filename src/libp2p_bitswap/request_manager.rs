@@ -11,9 +11,9 @@ use std::{
 
 use crate::cid_collections::CidHashMap;
 use ahash::{HashSet, HashSetExt};
+use cid::Cid;
 use flume::TryRecvError;
 use futures::StreamExt;
-use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
 
@@ -151,7 +151,7 @@ impl BitswapRequestManager {
 
             if let Some(responder) = responder {
                 if let Err(e) = responder.send_async(success).await {
-                    warn!("{e}");
+                    debug!("{e}");
                 }
             }
 
@@ -198,7 +198,7 @@ impl BitswapRequestManager {
 
         for peer in selected_peers {
             if let Err(e) = self.outbound_have_request_tx.send((peer, cid)) {
-                warn!("{e}");
+                debug!("{e}");
             }
         }
 
@@ -292,7 +292,7 @@ impl BitswapRequestManager {
                     // node no longer wants those blocks.
                     for &peer in self.peers.read().iter() {
                         if let Err(e) = self.outbound_cancel_request_tx.send((peer, cid)) {
-                            warn!("{e}");
+                            debug!("{e}");
                         }
                     }
                 } else {

@@ -1,25 +1,24 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::DerefMut;
-use std::{collections::VecDeque, mem, sync::Arc};
-
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
+use crate::utils::multihash::prelude::*;
 use anyhow::Context as _;
 use cid::Cid;
+use flume::TryRecvError;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-
-use flume::TryRecvError;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
+use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::{collections::VecDeque, mem, sync::Arc};
 use tokio::task;
 use tokio::task::{JoinHandle, JoinSet};
 
@@ -29,7 +28,7 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.
-    if cid.hash().code() == u64::from(cid::multihash::Code::Identity) {
+    if cid.hash().code() == u64::from(MultihashCode::Identity) {
         false
     } else {
         matches!(

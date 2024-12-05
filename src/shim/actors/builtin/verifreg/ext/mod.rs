@@ -3,9 +3,9 @@
 
 mod state;
 
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim, State};
 use crate::shim::address::Address;
 use ahash::HashMap;
-use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim, State};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fvm_ipld_blockstore::Blockstore;
 

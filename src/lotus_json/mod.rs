@@ -121,8 +121,8 @@
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
 //! - use a derive macro for simple compound structs
 
+use crate::shim::actors::miner::DeadlineInfo;
 use derive_more::From;
-use fil_actor_interface::miner::DeadlineInfo;
 use fvm_shared4::piece::PaddedPieceSize;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -225,11 +225,11 @@ mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::
 mod hash_map;
 mod ipld; // NaN != NaN
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
-mod miner_power; // fil_actor_interface::miner::MinerInfo: !quickcheck::Arbitrary
+mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
-mod power_claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
+mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type

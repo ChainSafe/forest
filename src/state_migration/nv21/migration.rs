@@ -15,7 +15,7 @@ use crate::shim::{
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 use crate::utils::db::CborStoreExt as _;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 

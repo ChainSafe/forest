@@ -4,11 +4,11 @@
 mod partition;
 mod state;
 
-use cid::Cid;
-use fil_actor_interface::{
+use crate::shim::actors::{
     miner::{DeadlineInfo, State},
     Policy,
 };
+use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 

@@ -16,7 +16,7 @@ mod load_actor_state_trait_impl {
 
     macro_rules! impl_for {
         ($actor:ident $(, $addr:expr)?) => {
-            impl LoadActorStateFromBlockstore for fil_actor_interface::$actor::State {
+            impl LoadActorStateFromBlockstore for crate::shim::actors::$actor::State {
                 $(const ACTOR: Option<Address> = Some($addr);)?
                 fn load_from_blockstore(store: &impl Blockstore, actor: &ActorState) -> anyhow::Result<Self> {
                     Self::load(store, actor.code, actor.state)

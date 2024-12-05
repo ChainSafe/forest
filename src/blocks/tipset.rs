@@ -651,21 +651,17 @@ mod lotus_json {
 
 #[cfg(test)]
 mod test {
-    use std::iter;
-
     use super::*;
     use crate::blocks::VRFProof;
-    use crate::shim::address::Address;
-    use cid::{
-        multihash::{Code::Identity, MultihashDigest},
-        Cid,
-    };
-    use fvm_ipld_encoding::DAG_CBOR;
-    use num_bigint::BigInt;
-
     use crate::blocks::{
         header::RawBlockHeader, CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey,
     };
+    use crate::shim::address::Address;
+    use crate::utils::multihash::prelude::*;
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use num_bigint::BigInt;
+    use std::iter;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
         let addr = Address::new_id(id);
@@ -771,12 +767,12 @@ mod test {
     fn ensure_state_roots_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
-            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[1])),
+            state_root: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[1])),
             ..Default::default()
         };
         assert_eq!(
@@ -793,7 +789,10 @@ mod test {
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            parents: TipsetKey::from(nonempty![Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            parents: TipsetKey::from(nonempty![Cid::new_v1(
+                DAG_CBOR,
+                MultihashCode::Identity.digest(&[])
+            )]),
             ..Default::default()
         };
         assert_eq!(

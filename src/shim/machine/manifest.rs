@@ -250,14 +250,14 @@ pub(crate) use static_assert_contains_matching;
 
 #[cfg(test)]
 mod test {
-    use cid::multihash::{Code::Blake2b256, MultihashDigest as _};
+    use crate::utils::multihash::prelude::*;
     use fvm_ipld_encoding::DAG_CBOR;
 
     use super::*;
 
     fn create_random_cid() -> Cid {
         let data = rand::random::<[u8; 32]>();
-        Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data))
+        Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data))
     }
 
     fn create_manifest() -> BuiltinActorManifest {

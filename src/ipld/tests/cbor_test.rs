@@ -1,17 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ipld::Ipld, utils::encoding::from_slice_with_fallback};
-use cid::{
-    multihash::{
-        Code::{Blake2b256, Identity},
-        MultihashDigest,
-    },
-    Cid,
-};
+use crate::utils::{encoding::from_slice_with_fallback, multihash::prelude::*};
+use cid::Cid;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use libipld_core::serde::to_ipld;
-use libipld_macro::ipld;
+use ipld_core::{ipld, ipld::Ipld, serde::to_ipld};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -22,7 +15,7 @@ struct TestStruct {
 
 #[test]
 fn encode_new_type() {
-    let details = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+    let details = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1, 2, 3]));
     let name = "Test".to_string();
     let t_struct = TestStruct {
         name: name.clone(),
@@ -45,7 +38,7 @@ fn encode_new_type() {
 
 #[test]
 fn cid_conversions_ipld() {
-    let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+    let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[1, 2, 3]));
     let m_s = TestStruct {
         name: "s".to_owned(),
         details: cid,
@@ -62,7 +55,7 @@ fn cid_conversions_ipld() {
     assert_eq!(to_ipld(cid).unwrap(), Ipld::Link(cid));
 
     // Test with identity hash (different length prefix for cbor)
-    let cid = Cid::new_v1(DAG_CBOR, Identity.digest(&[1, 2]));
+    let cid = Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[1, 2]));
     let ipld = ipld!(Ipld::Link(cid));
     let ipld2 = to_ipld(cid).unwrap();
     assert_eq!(ipld, ipld2);

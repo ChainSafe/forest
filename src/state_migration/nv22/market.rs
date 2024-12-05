@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::shim::econ::TokenAmount;
 use crate::utils::db::CborStoreExt;
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_market_state::v12::{
     DealProposal, DealState as DealStateOld, State as MarketStateOld,
