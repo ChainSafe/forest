@@ -353,7 +353,7 @@ impl ChainConfig {
             ),
             f3_enabled: true,
             f3_consensus: true,
-            f3_bootstrap_epoch: 2760,
+            f3_bootstrap_epoch: 1000,
             f3_initial_power_table: Default::default(),
             f3_manifest_server: Some(
                 "12D3KooWJr9jy4ngtJNR7JC1xgLFra3DjEtyxskRYWvBK9TC3Yn6"
