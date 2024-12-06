@@ -3,19 +3,21 @@
 
 use crate::shim::actors::convert::{
     from_padded_piece_size_v2_to_v3, from_padded_piece_size_v2_to_v4, from_policy_v13_to_v11,
-    from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15, from_token_v2_to_v3,
-    from_token_v2_to_v4, from_token_v3_to_v2, from_token_v4_to_v2,
+    from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
+    from_token_v2_to_v3, from_token_v2_to_v4, from_token_v3_to_v2, from_token_v4_to_v2,
 };
 use fil_actor_market_state::v11::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v11;
 use fil_actor_market_state::v12::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v12;
 use fil_actor_market_state::v13::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v13;
 use fil_actor_market_state::v14::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v14;
 use fil_actor_market_state::v15::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v15;
+use fil_actor_market_state::v16::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v16;
 use fil_actor_miner_state::v11::initial_pledge_for_power as initial_pledge_for_power_v11;
 use fil_actor_miner_state::v12::initial_pledge_for_power as initial_pledge_for_power_v12;
 use fil_actor_miner_state::v13::initial_pledge_for_power as initial_pledge_for_power_v13;
 use fil_actor_miner_state::v14::initial_pledge_for_power as initial_pledge_for_power_v14;
 use fil_actor_miner_state::v15::initial_pledge_for_power as initial_pledge_for_power_v15;
+use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_power_v16;
 use fvm_shared2::address::Address;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::sector::StoragePower;
@@ -45,6 +47,7 @@ pub enum State {
     V13(fil_actor_reward_state::v13::State),
     V14(fil_actor_reward_state::v14::State),
     V15(fil_actor_reward_state::v15::State),
+    V16(fil_actor_reward_state::v16::State),
 }
 
 impl State {
@@ -59,6 +62,7 @@ impl State {
             State::V13(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
             State::V14(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
             State::V15(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
+            State::V16(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
         }
     }
 
@@ -73,6 +77,7 @@ impl State {
             State::V13(st) => &st.this_epoch_baseline_power,
             State::V14(st) => &st.this_epoch_baseline_power,
             State::V15(st) => &st.this_epoch_baseline_power,
+            State::V16(st) => &st.this_epoch_baseline_power,
         }
     }
 
@@ -120,6 +125,14 @@ impl State {
             State::V15(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
                 &st.this_epoch_reward_smoothed,
                 &fil_actors_shared::v15::reward::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                &sector_weight,
+            ))),
+            State::V16(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &fil_actors_shared::v16::reward::FilterEstimate {
                     position: network_qa_power.position,
                     velocity: network_qa_power.velocity,
                 },
@@ -237,6 +250,16 @@ impl State {
                 );
                 (from_token_v4_to_v2(&min), from_token_v4_to_v2(&max))
             }
+            State::V16(_) => {
+                let (min, max) = deal_provider_collateral_bounds_v16(
+                    &from_policy_v13_to_v16(policy),
+                    from_padded_piece_size_v2_to_v4(size),
+                    raw_byte_power,
+                    baseline_power,
+                    &from_token_v2_to_v4(network_circulating_supply),
+                );
+                (from_token_v4_to_v2(&min), from_token_v4_to_v2(&max))
+            }
         }
     }
 
@@ -317,6 +340,24 @@ impl State {
                         velocity: st.this_epoch_reward_smoothed.velocity.clone(),
                     },
                     &fil_actors_shared::v15::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &from_token_v2_to_v4(circ_supply),
+                    epochs_since_ramp_start,
+                    ramp_duration_epochs,
+                );
+                Ok(from_token_v4_to_v2(&pledge))
+            }
+            State::V16(st) => {
+                let pledge = initial_pledge_for_power_v16(
+                    qa_power,
+                    &st.this_epoch_baseline_power,
+                    &fil_actors_shared::v16::reward::FilterEstimate {
+                        position: st.this_epoch_reward_smoothed.position.clone(),
+                        velocity: st.this_epoch_reward_smoothed.velocity.clone(),
+                    },
+                    &fil_actors_shared::v16::reward::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },

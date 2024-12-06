@@ -135,6 +135,7 @@ from2internal! {
     fil_actors_shared::v13::ActorError,
     fil_actors_shared::v14::ActorError,
     fil_actors_shared::v15::ActorError,
+    fil_actors_shared::v16::ActorError,
     serde_json::Error,
     jsonrpsee::core::client::error::Error,
 }

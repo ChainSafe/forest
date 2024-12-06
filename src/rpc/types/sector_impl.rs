@@ -193,6 +193,28 @@ impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
     }
 }
 
+impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v16::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deprecated_deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: info.flags.bits(),
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.power_base_epoch,
+        }
+    }
+}
+
 impl From<fil_actor_miner_state::v8::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v8::SectorPreCommitOnChainInfo) -> Self {
         Self {
@@ -265,6 +287,16 @@ impl From<fil_actor_miner_state::v14::SectorPreCommitOnChainInfo> for SectorPreC
 
 impl From<fil_actor_miner_state::v15::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v15::SectorPreCommitOnChainInfo) -> Self {
+        Self {
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
+            pre_commit_epoch: i.pre_commit_epoch,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v16::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
+    fn from(i: fil_actor_miner_state::v16::SectorPreCommitOnChainInfo) -> Self {
         Self {
             info: i.info.into(),
             pre_commit_deposit: i.pre_commit_deposit.into(),
@@ -373,6 +405,20 @@ impl From<fil_actor_miner_state::v14::SectorPreCommitInfo> for SectorPreCommitIn
 
 impl From<fil_actor_miner_state::v15::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v15::SectorPreCommitInfo) -> Self {
+        Self {
+            seal_proof: i.seal_proof.into(),
+            sector_number: i.sector_number,
+            sealed_cid: i.sealed_cid,
+            seal_rand_epoch: i.seal_rand_epoch,
+            deal_ids: i.deal_ids,
+            expiration: i.expiration,
+            unsealed_cid: i.unsealed_cid.0,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v16::SectorPreCommitInfo> for SectorPreCommitInfo {
+    fn from(i: fil_actor_miner_state::v16::SectorPreCommitInfo) -> Self {
         Self {
             seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,

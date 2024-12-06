@@ -109,6 +109,14 @@ impl VerifiedRegistryStateExt for State {
                     Ok(())
                 })?;
             }
+            State::V16(state) => {
+                let mut map = state.load_allocs(store)?;
+                map.for_each_in(address_id, |k, v| {
+                    let allocation_id = fil_actors_shared::v16::parse_uint_key(k)?;
+                    result.insert(allocation_id, v.into());
+                    Ok(())
+                })?;
+            }
         };
         Ok(result)
     }
@@ -127,6 +135,7 @@ impl VerifiedRegistryStateExt for State {
             State::V13(state) => list_all_inner!(state, store, v13, load_allocs, result),
             State::V14(state) => list_all_inner!(state, store, v14, load_allocs, result),
             State::V15(state) => list_all_inner!(state, store, v15, load_allocs, result),
+            State::V16(state) => list_all_inner!(state, store, v16, load_allocs, result),
         };
         Ok(result)
     }
@@ -198,6 +207,14 @@ impl VerifiedRegistryStateExt for State {
                     Ok(())
                 })?;
             }
+            Self::V16(s) => {
+                let mut claims = s.load_claims(store)?;
+                claims.for_each_in(provider_id, |k, v| {
+                    let claim_id = fil_actors_shared::v16::parse_uint_key(k)?;
+                    result.insert(claim_id, v.into());
+                    Ok(())
+                })?;
+            }
         };
         Ok(result)
     }
@@ -216,6 +233,7 @@ impl VerifiedRegistryStateExt for State {
             State::V13(state) => list_all_inner!(state, store, v13, load_claims, result),
             State::V14(state) => list_all_inner!(state, store, v14, load_claims, result),
             State::V15(state) => list_all_inner!(state, store, v15, load_claims, result),
+            State::V16(state) => list_all_inner!(state, store, v16, load_claims, result),
         };
         Ok(result)
     }
@@ -230,6 +248,7 @@ impl VerifiedRegistryStateExt for State {
             State::V13(s) => s.root_key.into(),
             State::V14(s) => s.root_key.into(),
             State::V15(s) => s.root_key.into(),
+            State::V16(s) => s.root_key.into(),
         }
     }
 }

@@ -15,6 +15,7 @@ impl PartitionExt for Partition<'_> {
             Partition::V13(dl) => &dl.terminated,
             Partition::V14(dl) => &dl.terminated,
             Partition::V15(dl) => &dl.terminated,
+            Partition::V16(dl) => &dl.terminated,
         }
     }
 
@@ -28,6 +29,7 @@ impl PartitionExt for Partition<'_> {
             Partition::V13(dl) => dl.expirations_epochs,
             Partition::V14(dl) => dl.expirations_epochs,
             Partition::V15(dl) => dl.expirations_epochs,
+            Partition::V16(dl) => dl.expirations_epochs,
         }
     }
 }
