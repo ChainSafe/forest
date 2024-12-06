@@ -47,6 +47,9 @@
 - [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
   `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
 
+- [#5051](https://github.com/ChainSafe/forest/pull/5051) Integrate v19
+  fil-actor-states
+
 ### Changed
 
 ### Removed
