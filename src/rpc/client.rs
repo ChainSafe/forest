@@ -79,7 +79,7 @@ impl Client {
             timeout,
             ..
         } = req;
-
+        let method_name = method_name.as_ref();
         let client = self.get_or_init_client(api_paths).await?;
         let span = tracing::debug_span!("request", method = %method_name, url = %client.url);
         let work = async {
