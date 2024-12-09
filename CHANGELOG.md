@@ -50,6 +50,9 @@
 - [#5053](https://github.com/ChainSafe/forest/pull/5053) Added support for the
   NV25 _Teep_ network upgrade for `2k` and `butterflynet` networks.
 
+- [#5040](https://github.com/ChainSafe/forest/issues/5040) Added support for the
+  NV25 _Teep_ network upgrade for `calibration` network.
+
 ### Changed
 
 ### Removed
