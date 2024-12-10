@@ -406,7 +406,7 @@ where
                         network.clone(),
                         chain_store.clone(),
                         source,
-                        TipsetKey::from(nunny::vec![b.header.cid().clone()]),
+                        TipsetKey::from(nunny::vec![*b.header.cid()]),
                     )
                     .await?;
                     (tipset, source)
