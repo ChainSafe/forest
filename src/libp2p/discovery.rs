@@ -539,10 +539,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
 // the async API and does not work inside another tokio runtime
 async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
-    use hickory_resolver::{system_conf, TokioAsyncResolver};
+    use hickory_resolver::{system_conf, TokioResolver};
 
     let (cfg, opts) = system_conf::read_system_conf()?;
-    let resolver = TokioAsyncResolver::tokio(cfg, opts);
+    let resolver = TokioResolver::tokio(cfg, opts);
 
     let name = ["_dnsaddr.", name].concat();
     let txts = resolver.txt_lookup(name).await?;
