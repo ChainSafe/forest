@@ -79,6 +79,8 @@ ignore = [
   # the pipeline - see
   # https://github.com/libp2p/rust-libp2p/pull/5674
   "RUSTSEC-2024-0384",
+  # `idna` 0.5.0 and earlier accepts Punycode labels that do not produce any non-ASCII output
+  "RUSTSEC-2024-0421",
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
@@ -102,7 +104,6 @@ allow = [
   "ISC",
   "MIT",
   "Unicode-3.0",
-  "Unicode-DFS-2016",
   "Unlicense",
   "Zlib",
 ]
