@@ -38,6 +38,7 @@ pub enum State {
     V13(fil_actor_miner_state::v13::State),
     V14(fil_actor_miner_state::v14::State),
     V15(fil_actor_miner_state::v15::State),
+    V16(fil_actor_miner_state::v16::State),
 }
 
 impl State {
@@ -51,6 +52,7 @@ impl State {
             State::V13(st) => Ok(st.get_info(store)?.into()),
             State::V14(st) => Ok(st.get_info(store)?.into()),
             State::V15(st) => Ok(st.get_info(store)?.into()),
+            State::V16(st) => Ok(st.get_info(store)?.into()),
         }
     }
 
@@ -94,6 +96,9 @@ impl State {
             State::V15(st) => st
                 .load_deadlines(store)?
                 .for_each(store, |idx, dl| f(idx, Deadline::V15(dl))),
+            State::V16(st) => st
+                .load_deadlines(store)?
+                .for_each(store, |idx, dl| f(idx, Deadline::V16(dl))),
         }
     }
 
@@ -137,6 +142,10 @@ impl State {
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
                 .map(Deadline::V15)?),
+            State::V16(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(store, idx)
+                .map(Deadline::V16)?),
         }
     }
 
@@ -284,6 +293,23 @@ impl State {
                     Ok(infos)
                 }
             }
+            State::V16(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_state::v16::Sectors::load(&store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 
@@ -303,6 +329,7 @@ impl State {
             State::V13(st) => st.find_sector(store, sector_number),
             State::V14(st) => st.find_sector(store, sector_number),
             State::V15(st) => st.find_sector(store, sector_number),
+            State::V16(st) => st.find_sector(store, sector_number),
         }
     }
 
@@ -317,6 +344,7 @@ impl State {
             State::V13(st) => from_token_v4_to_v2(&st.fee_debt),
             State::V14(st) => from_token_v4_to_v2(&st.fee_debt),
             State::V15(st) => from_token_v4_to_v2(&st.fee_debt),
+            State::V16(st) => from_token_v4_to_v2(&st.fee_debt),
         }
     }
 
@@ -334,6 +362,7 @@ impl State {
             State::V13(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
             State::V14(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
             State::V15(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
+            State::V16(st) => Ok(from_token_v4_to_v2(&st.get_available_balance(&balance_v4)?)),
         }
     }
 
@@ -361,6 +390,9 @@ impl State {
                 .into(),
             State::V15(st) => st
                 .deadline_info(&from_policy_v13_to_v15(policy), current_epoch)
+                .into(),
+            State::V16(st) => st
+                .deadline_info(&from_policy_v13_to_v16(policy), current_epoch)
                 .into(),
         }
     }
@@ -710,6 +742,50 @@ impl From<fil_actor_miner_state::v15::MinerInfo> for MinerInfo {
     }
 }
 
+impl From<fil_actor_miner_state::v16::MinerInfo> for MinerInfo {
+    fn from(info: fil_actor_miner_state::v16::MinerInfo) -> Self {
+        MinerInfo {
+            owner: from_address_v4_to_v2(info.owner),
+            worker: from_address_v4_to_v2(info.worker),
+            control_addresses: info
+                .control_addresses
+                .into_iter()
+                .map(from_address_v4_to_v2)
+                .collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| from_address_v4_to_v2(k.new_worker)),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id: info.peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: from_reg_post_proof_v4_to_v2(info.window_post_proof_type),
+            sector_size: from_sector_size_v4_to_v2(info.sector_size),
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+            pending_owner_address: info.pending_owner_address.map(from_address_v4_to_v2),
+            beneficiary: from_address_v4_to_v2(info.beneficiary),
+            beneficiary_term: BeneficiaryTerm {
+                quota: info.beneficiary_term.quota,
+                used_quota: info.beneficiary_term.used_quota,
+                expiration: info.beneficiary_term.expiration,
+            },
+            pending_beneficiary_term: info.pending_beneficiary_term.map(|change| {
+                PendingBeneficiaryChange {
+                    new_beneficiary: change.new_beneficiary,
+                    new_quota: change.new_quota,
+                    new_expiration: change.new_expiration,
+                    approved_by_beneficiary: change.approved_by_beneficiary,
+                    approved_by_nominee: change.approved_by_nominee,
+                }
+            }),
+        }
+    }
+}
+
 impl MinerInfo {
     pub fn worker(&self) -> Address {
         self.worker
@@ -737,6 +813,7 @@ pub enum Deadline {
     V13(fil_actor_miner_state::v13::Deadline),
     V14(fil_actor_miner_state::v14::Deadline),
     V15(fil_actor_miner_state::v15::Deadline),
+    V16(fil_actor_miner_state::v16::Deadline),
 }
 
 impl Deadline {
@@ -771,6 +848,9 @@ impl Deadline {
             Deadline::V15(dl) => dl.for_each(&store, |idx, part| {
                 f(idx, Partition::V15(Cow::Borrowed(part)))
             }),
+            Deadline::V16(dl) => dl.for_each(&store, |idx, part| {
+                f(idx, Partition::V16(Cow::Borrowed(part)))
+            }),
         }
     }
 
@@ -785,6 +865,7 @@ impl Deadline {
             Deadline::V13(dl) => dl.partitions_posted.clone(),
             Deadline::V14(dl) => dl.partitions_posted.clone(),
             Deadline::V15(dl) => dl.partitions_posted.clone(),
+            Deadline::V16(dl) => dl.partitions_posted.clone(),
         }
     }
 
@@ -799,6 +880,7 @@ impl Deadline {
             Deadline::V13(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
             Deadline::V14(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
             Deadline::V15(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
+            Deadline::V16(dl) => Ok(dl.optimistic_proofs_snapshot_amt(store)?.count()),
         }
     }
 }
@@ -814,6 +896,7 @@ pub enum Partition<'a> {
     V13(Cow<'a, fil_actor_miner_state::v13::Partition>),
     V14(Cow<'a, fil_actor_miner_state::v14::Partition>),
     V15(Cow<'a, fil_actor_miner_state::v15::Partition>),
+    V16(Cow<'a, fil_actor_miner_state::v16::Partition>),
 }
 
 impl Partition<'_> {
@@ -827,6 +910,7 @@ impl Partition<'_> {
             Partition::V13(dl) => &dl.sectors,
             Partition::V14(dl) => &dl.sectors,
             Partition::V15(dl) => &dl.sectors,
+            Partition::V16(dl) => &dl.sectors,
         }
     }
     pub fn faulty_sectors(&self) -> &BitField {
@@ -839,6 +923,7 @@ impl Partition<'_> {
             Partition::V13(dl) => &dl.faults,
             Partition::V14(dl) => &dl.faults,
             Partition::V15(dl) => &dl.faults,
+            Partition::V16(dl) => &dl.faults,
         }
     }
     pub fn live_sectors(&self) -> BitField {
@@ -851,6 +936,7 @@ impl Partition<'_> {
             Partition::V13(dl) => dl.live_sectors(),
             Partition::V14(dl) => dl.live_sectors(),
             Partition::V15(dl) => dl.live_sectors(),
+            Partition::V16(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
@@ -863,6 +949,7 @@ impl Partition<'_> {
             Partition::V13(dl) => dl.active_sectors(),
             Partition::V14(dl) => dl.active_sectors(),
             Partition::V15(dl) => dl.active_sectors(),
+            Partition::V16(dl) => dl.active_sectors(),
         }
     }
     pub fn recovering_sectors(&self) -> &BitField {
@@ -875,6 +962,7 @@ impl Partition<'_> {
             Partition::V13(dl) => &dl.recoveries,
             Partition::V14(dl) => &dl.recoveries,
             Partition::V15(dl) => &dl.recoveries,
+            Partition::V16(dl) => &dl.recoveries,
         }
     }
 }
@@ -1070,6 +1158,28 @@ impl From<fil_actor_miner_state::v14::SectorOnChainInfo> for SectorOnChainInfo {
 
 impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_state::v15::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: from_reg_seal_proof_v4_to_v2(info.seal_proof),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deprecated_deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
+            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
+            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            replaced_sector_age: ChainEpoch::default(),
+            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            sector_key_cid: info.sector_key_cid,
+            simple_qa_power: bool::default(),
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v16::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: from_reg_seal_proof_v4_to_v2(info.seal_proof),
@@ -1480,6 +1590,39 @@ impl From<fil_actor_miner_state::v14::DeadlineInfo> for DeadlineInfo {
 impl From<fil_actor_miner_state::v15::DeadlineInfo> for DeadlineInfo {
     fn from(info: fil_actor_miner_state::v15::DeadlineInfo) -> Self {
         let fil_actor_miner_state::v15::DeadlineInfo {
+            current_epoch,
+            period_start,
+            index,
+            open,
+            close,
+            challenge,
+            fault_cutoff,
+            w_post_period_deadlines,
+            w_post_proving_period,
+            w_post_challenge_window,
+            w_post_challenge_lookback,
+            fault_declaration_cutoff,
+        } = info;
+        DeadlineInfo {
+            current_epoch,
+            period_start,
+            index,
+            open,
+            close,
+            challenge,
+            fault_cutoff,
+            w_post_period_deadlines,
+            w_post_proving_period,
+            w_post_challenge_window,
+            w_post_challenge_lookback,
+            fault_declaration_cutoff,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v16::DeadlineInfo> for DeadlineInfo {
+    fn from(info: fil_actor_miner_state::v16::DeadlineInfo) -> Self {
+        let fil_actor_miner_state::v16::DeadlineInfo {
             current_epoch,
             period_start,
             index,

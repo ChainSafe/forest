@@ -47,6 +47,12 @@
 - [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
   `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
 
+- [#5053](https://github.com/ChainSafe/forest/pull/5053) Added support for the
+  NV25 _Teep_ network upgrade for `2k` and `butterflynet` networks.
+
+- [#5040](https://github.com/ChainSafe/forest/issues/5040) Added support for the
+  NV25 _Teep_ network upgrade for `calibration` network.
+
 ### Changed
 
 ### Removed
@@ -58,6 +64,9 @@
 
 - [#4988](https://github.com/ChainSafe/forest/pull/4988) Fix the `logs` member
   in `EthTxReceipt` that was initialized with a default value.
+
+- [#5043](https://github.com/ChainSafe/forest/pull/5043) Added missing entry for
+  `TukTuk` upgrade in the `Filecoin.StateGetNetworkParams` RPC method.
 
 ## Forest 0.22.0 "Pad Thai"
 
