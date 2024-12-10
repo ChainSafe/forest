@@ -90,54 +90,66 @@ impl State {
             State::V8(_st) => anyhow::bail!("unimplemented"),
             State::V9(_st) => anyhow::bail!("unimplemented"),
             State::V10(_st) => anyhow::bail!("unimplemented"),
-            State::V11(st) => Ok(from_token_v3_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fvm_shared3::smooth::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
-            State::V12(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fvm_shared4::smooth::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
-            State::V13(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fvm_shared4::smooth::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
-            State::V14(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fil_actors_shared::v14::reward::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
-            State::V15(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fil_actors_shared::v15::reward::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
-            State::V16(st) => Ok(from_token_v4_to_v2(&st.pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &fil_actors_shared::v16::reward::FilterEstimate {
-                    position: network_qa_power.position,
-                    velocity: network_qa_power.velocity,
-                },
-                &sector_weight,
-            ))),
+            State::V11(st) => Ok(from_token_v3_to_v2(
+                &fil_actor_miner_state::v11::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fvm_shared3::smooth::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V12(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v12::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fvm_shared4::smooth::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V13(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v13::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fvm_shared4::smooth::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V14(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v14::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fil_actors_shared::v14::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V15(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v15::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fil_actors_shared::v15::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V16(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v16::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fil_actors_shared::v16::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
         }
     }
 
