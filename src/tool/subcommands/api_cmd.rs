@@ -1881,27 +1881,25 @@ async fn run_tests(
             }
             _ => false,
         };
-        if success {
-            if let Some(dump_dir) = &dump_dir {
-                if let Some(test_dump) = &test_result.test_dump {
-                    let dir = dump_dir.join(if success { "valid" } else { "invalid" });
-                    if !dir.is_dir() {
-                        std::fs::create_dir_all(&dir)?;
-                    }
-                    let filename = format!(
-                        "{}_{}.json",
-                        test_dump
-                            .request
-                            .method_name
-                            .as_ref()
-                            .replace(".", "_")
-                            .to_lowercase(),
-                        chrono::Utc::now().timestamp_micros()
-                    );
-                    std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
-                }
+
+        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+            let dir = dump_dir.join(if success { "valid" } else { "invalid" });
+            if !dir.is_dir() {
+                std::fs::create_dir_all(&dir)?;
             }
+            let filename = format!(
+                "{}_{}.json",
+                test_dump
+                    .request
+                    .method_name
+                    .as_ref()
+                    .replace(".", "_")
+                    .to_lowercase(),
+                chrono::Utc::now().timestamp_micros()
+            );
+            std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
         }
+
         let result_entry = (method_name, forest_status, lotus_status);
         if success {
             success_results
