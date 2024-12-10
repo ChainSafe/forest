@@ -1,0 +1,53 @@
+/* Colours selected from Forest logo using https://docusaurus.io/docs/styling-layout#styling-your-site-with-infima */
+/* Note: Dark mode is forced in the config, lightmode colours here are not currently used. */
+
+:root {
+  --ifm-color-primary: #2e8555;
+  --ifm-color-primary-dark: #29784c;
+  --ifm-color-primary-darker: #277148;
+  --ifm-color-primary-darkest: #205d3b;
+  --ifm-color-primary-light: #2e8555;
+  --ifm-color-primary-lighter: #2e8555;
+  --ifm-color-primary-lightest: #2e8555;
+}
+
+:root[data-theme="dark"] {
+  --ifm-color-primary: #63c355;
+  --ifm-color-primary-dark: #51ba42;
+  --ifm-color-primary-darker: #4db03e;
+  --ifm-color-primary-darkest: #449b37;
+  --ifm-color-primary-light: #76ca6a;
+  --ifm-color-primary-lighter: #7fce74;
+  --ifm-color-primary-lightest: #9cd993;
+  --ifm-background-color: #111111;
+}
+
+/* Increase the font size and spacing */
+@media screen and (max-width: 996px) {
+  :root {
+    --ifm-font-size-base: 18px;
+  }
+  article header h1 {
+    font-size: 1.5rem !important;
+  }
+  .hero .hero__title {
+    font-size: 2.5rem;
+  }
+}
+@media screen and (min-width: 997px) {
+  :root {
+    --ifm-font-size-base: 17px;
+  }
+  article header h1 {
+    font-size: 2rem !important;
+  }
+}
+
+.footer {
+  background-color: #242526;
+}
+
+/* Hide JSON RPC interactive box **/
+#interactive-box {
+  display: none;
+}
