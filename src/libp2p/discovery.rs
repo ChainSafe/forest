@@ -226,7 +226,7 @@ pub struct DiscoveryBehaviour {
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
     /// Keeps hash map of peers and their information.
-    peer_info: HashMap<PeerId, PeerInfo>,
+    pub(crate) peer_info: HashMap<PeerId, PeerInfo>,
     /// Number of connected peers to pause discovery on.
     target_peer_count: u64,
     /// Seed peers
