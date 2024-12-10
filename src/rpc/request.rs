@@ -3,16 +3,20 @@
 
 use super::ApiPaths;
 use jsonrpsee::core::traits::ToRpcParams;
+use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, time::Duration};
 
 /// An at-rest description of a remote procedure call, created using
 /// [`rpc::RpcMethodExt`](crate::rpc::RpcMethodExt::request), and called using [`rpc::Client::call`](crate::rpc::Client::call).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request<T = serde_json::Value> {
-    pub method_name: &'static str,
+    pub method_name: std::borrow::Cow<'static, str>,
     pub params: serde_json::Value,
+    #[serde(skip)]
     pub result_type: PhantomData<T>,
+    #[serde(skip)]
     pub api_paths: ApiPaths,
+    #[serde(skip)]
     pub timeout: Duration,
 }
 
