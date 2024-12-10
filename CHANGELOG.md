@@ -53,6 +53,9 @@ methods, fixes (notably to the garbage collection), and other improvements.
 - [#5028](https://github.com/ChainSafe/forest/pull/5028) Added
   `forest-cli f3 powertable get-proportion` CLI command.
 
+- [#5054](https://github.com/ChainSafe/forest/pull/5054) Added `--dump-dir`
+  option to `forest-tool api compare` CLI command.
+
 - [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
   `Filecoin.EthGetTransactionReceiptLimited` RPC method.
 
