@@ -402,22 +402,13 @@ where
                         return Ok(None);
                     }
                     // Assemble full tipset from block only in stateful mode
-                    // let tipset =
-                    //     Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
-                    let tipset = match Self::get_full_tipset(
+                    let tipset = Self::get_full_tipset(
                         network.clone(),
                         chain_store.clone(),
                         source,
                         TipsetKey::from(nunny::vec![b.header.cid().clone()]),
                     )
-                    .await
-                    {
-                        Ok(tipset) => tipset,
-                        Err(why) => {
-                            debug!("Querying full tipset failed: {}", why);
-                            return Err(why);
-                        }
-                    };
+                    .await?;
                     (tipset, source)
                 }
                 PubsubMessage::Message(m) => {
