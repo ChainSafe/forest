@@ -97,15 +97,15 @@ impl State {
         BS: Blockstore,
     {
         Ok(match self {
-            Self::V8(s) => s.locked_table(store)?.into(),
-            Self::V9(s) => s.locked_table(store)?.into(),
-            Self::V10(s) => s.locked_table(store)?.into(),
-            Self::V11(s) => s.locked_table(store)?.into(),
-            Self::V12(s) => s.locked_table(store)?.into(),
-            Self::V13(s) => s.locked_table(store)?.into(),
-            Self::V14(s) => s.locked_table(store)?.into(),
-            Self::V15(s) => s.locked_table(store)?.into(),
-            Self::V16(s) => s.locked_table(store)?.into(),
+            Self::V8(s) => V8BalanceTable::from_root(store, &s.locked_table)?.into(),
+            Self::V9(s) => V9BalanceTable::from_root(store, &s.locked_table)?.into(),
+            Self::V10(s) => V10BalanceTable::from_root(store, &s.locked_table)?.into(),
+            Self::V11(s) => V11BalanceTable::from_root(store, &s.locked_table)?.into(),
+            Self::V12(s) => V12BalanceTable::from_root(store, &s.locked_table, "locked table")?.into(),
+            Self::V13(s) => V13BalanceTable::from_root(store, &s.locked_table, "locked table")?.into(),
+            Self::V14(s) => V14BalanceTable::from_root(store, &s.locked_table, "locked table")?.into(),
+            Self::V15(s) => V15BalanceTable::from_root(store, &s.locked_table, "locked table")?.into(),
+            Self::V16(s) => V16BalanceTable::from_root(store, &s.locked_table, "locked table")?.into(),
         })
     }
 
