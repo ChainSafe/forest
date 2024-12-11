@@ -214,7 +214,7 @@ where
     async fn get_full_tipset(
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
-        peer_id: PeerId,
+        peer_id: Option<PeerId>,
         tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
@@ -223,7 +223,7 @@ where
         }
         // Load from the network
         network
-            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
+            .chain_exchange_fts(peer_id, &tipset_keys.clone())
             .await
             .map_err(ChainMuxerError::ChainExchange)
     }
@@ -320,7 +320,7 @@ where
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u32,
         stateless_mode: bool,
-    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
+    ) -> Result<Option<FullTipset>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -344,7 +344,7 @@ where
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
-                    source,
+                    Some(source),
                     tipset_keys,
                 )
                 .await
@@ -405,7 +405,7 @@ where
                     let tipset = Self::get_full_tipset(
                         network.clone(),
                         chain_store.clone(),
-                        source,
+                        None,
                         TipsetKey::from(nunny::vec![*b.header.cid()]),
                     )
                     .await?;
@@ -486,7 +486,7 @@ where
         // This is needed for the Ethereum mapping
         chain_store.put_tipset_key(tipset.key())?;
 
-        Ok(Some((tipset, source)))
+        Ok(Some(tipset))
     }
 
     fn stateless_node(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
@@ -575,7 +575,7 @@ where
                     }
                 };
 
-                let (tipset, _) = match Self::process_gossipsub_event(
+                let tipset = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -588,7 +588,7 @@ where
                 )
                 .await
                 {
-                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(Some(tipset)) => tipset,
                     Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
@@ -714,7 +714,7 @@ where
                     }
                 };
 
-                let (_tipset, _) = match Self::process_gossipsub_event(
+                let _tipset = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -727,7 +727,7 @@ where
                 )
                 .await
                 {
-                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(Some(tipset)) => tipset,
                     Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
@@ -818,7 +818,7 @@ where
                         }
                     };
 
-                    let (tipset, _) = match Self::process_gossipsub_event(
+                    let tipset = match Self::process_gossipsub_event(
                         event,
                         network.clone(),
                         chain_store.clone(),
@@ -831,7 +831,7 @@ where
                     )
                     .await
                     {
-                        Ok(Some((tipset, source))) => (tipset, source),
+                        Ok(Some(tipset)) => tipset,
                         Ok(None) => continue,
                         Err(why) => {
                             debug!("Processing GossipSub event failed: {:?}", why);
