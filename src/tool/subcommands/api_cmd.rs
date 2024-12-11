@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod generate_test_snapshot;
+
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::db::car::ManyCar;
 use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
@@ -143,6 +145,16 @@ pub enum ApiCommands {
         #[arg(long)]
         dump_dir: Option<PathBuf>,
     },
+    GenerateTestSnapshot {
+        #[arg(num_args = 1.., required = true)]
+        test_dump_files: Vec<PathBuf>,
+        /// Path to the database folder that powers a Forest node
+        #[arg(long, required = true)]
+        db: PathBuf,
+        /// Filecoin network chain
+        #[arg(long, required = true)]
+        chain: NetworkChain,
+    },
     DumpTests {
         #[command(flatten)]
         create_tests_args: CreateTestsArgs,
@@ -217,6 +229,23 @@ impl ApiCommands {
                     .await?;
                 }
             }
+            Self::GenerateTestSnapshot {
+                test_dump_files,
+                db,
+                chain,
+            } => {
+                std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+                for test_dump_file in test_dump_files {
+                    let test_dump = serde_json::from_reader(std::fs::File::open(&test_dump_file)?)?;
+                    print!(
+                        "Running RPC test with snapshot {} ...",
+                        test_dump_file.display()
+                    );
+                    generate_test_snapshot::run_test_with_dump(&test_dump, &db, &chain).await?;
+                    println!(" Success");
+                }
+            }
+
             Self::DumpTests {
                 create_tests_args,
                 path,

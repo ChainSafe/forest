@@ -7,6 +7,7 @@ use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use lru::LruCache;
@@ -47,11 +48,13 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
-        if let Some(ts) = self.ts_cache.lock().get(tsk) {
-            metrics::LRU_CACHE_HIT
-                .get_or_create(&metrics::values::TIPSET)
-                .inc();
-            return Ok(Some(ts.clone()));
+        if !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED") {
+            if let Some(ts) = self.ts_cache.lock().get(tsk) {
+                metrics::LRU_CACHE_HIT
+                    .get_or_create(&metrics::values::TIPSET)
+                    .inc();
+                return Ok(Some(ts.clone()));
+            }
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
