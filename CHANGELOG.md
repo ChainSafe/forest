@@ -29,6 +29,28 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.23.1 "Lappe"
+
+### Fixed
+
+- [#5071](https://github.com/ChainSafe/forest/pull/5071) Fix issue that caused
+  Forest to temporarily drift out of sync.
+
+## Forest v0.23.0 "Saenchai"
+
+This is a mandatory release for the calibration network. It includes the NV25
+_Teep_ network upgrade at epoch `2_235_454` which corresponds to
+`Mon 16 Dec 23:00:00 UTC 2024`. This release also includes a number of new RPC
+methods, fixes (notably to the garbage collection), and other improvements.
+
+### Added
+
 - [#5010](https://github.com/ChainSafe/forest/pull/5010) Added
   `forest-cli f3 certs list` CLI command.
 
@@ -37,6 +59,9 @@
 
 - [#5028](https://github.com/ChainSafe/forest/pull/5028) Added
   `forest-cli f3 powertable get-proportion` CLI command.
+
+- [#5054](https://github.com/ChainSafe/forest/pull/5054) Added `--dump-dir`
+  option to `forest-tool api compare` CLI command.
 
 - [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
   `Filecoin.EthGetTransactionReceiptLimited` RPC method.
@@ -52,10 +77,6 @@
 
 - [#5040](https://github.com/ChainSafe/forest/issues/5040) Added support for the
   NV25 _Teep_ network upgrade for `calibration` network.
-
-### Changed
-
-### Removed
 
 ### Fixed
 

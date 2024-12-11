@@ -9,17 +9,16 @@ use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::networks::NetworkChain;
+use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::eth::types::{EthAddress, EthBytes};
+use crate::rpc::eth::{
+    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, EthUint64, Predefined,
+};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{
-    self,
-    eth::{types::*, *},
-};
 use crate::rpc::{prelude::*, Permission};
 use crate::shim::actors::market;
 use crate::shim::actors::MarketActorStateLoad as _;
@@ -49,8 +48,9 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
-use std::io;
 use std::{
+    borrow::Cow,
+    io,
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
@@ -59,7 +59,6 @@ use std::{
 use tabled::{builder::Builder, settings::Style};
 use tokio::sync::Semaphore;
 use tracing::debug;
-use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
@@ -141,6 +140,10 @@ pub enum ApiCommands {
 
         #[command(flatten)]
         create_tests_args: CreateTestsArgs,
+
+        /// Specify a directory to which the RPC tests are dumped
+        #[arg(long)]
+        dump_dir: Option<PathBuf>,
     },
     DumpTests {
         #[command(flatten)]
@@ -197,6 +200,7 @@ impl ApiCommands {
                 run_ignored,
                 max_concurrent_requests,
                 create_tests_args,
+                dump_dir,
             } => {
                 let forest = Arc::new(rpc::Client::from_url(forest));
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
@@ -214,6 +218,7 @@ impl ApiCommands {
                         filter.clone(),
                         run_ignored,
                         fail_fast,
+                        dump_dir.clone(),
                     )
                     .await?;
                 }
@@ -357,19 +362,28 @@ impl TestSummary {
 }
 
 /// Data about a failed test. Used for debugging.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct TestDump {
     request: rpc::Request,
-    forest_response: Option<String>,
-    lotus_response: Option<String>,
+    forest_response: Result<serde_json::Value, String>,
+    lotus_response: Result<serde_json::Value, String>,
 }
 
 impl std::fmt::Display for TestDump {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Request dump: {:?}", self.request)?;
         writeln!(f, "Request params JSON: {}", self.request.params)?;
-        if let (Some(forest_response), Some(lotus_response)) =
-            (&self.forest_response, &self.lotus_response)
-        {
+        let (forest_response, lotus_response) = (
+            self.forest_response
+                .as_ref()
+                .ok()
+                .and_then(|v| serde_json::to_string_pretty(v).ok()),
+            self.lotus_response
+                .as_ref()
+                .ok()
+                .and_then(|v| serde_json::to_string_pretty(v).ok()),
+        );
+        if let (Some(forest_response), Some(lotus_response)) = (&forest_response, &lotus_response) {
             let diff = TextDiff::from_lines(forest_response, lotus_response);
             let mut print_diff = Vec::new();
             for change in diff.iter_all_changes() {
@@ -384,10 +398,10 @@ impl std::fmt::Display for TestDump {
             writeln!(f, "Lotus response: {}", lotus_response)?;
             writeln!(f, "Diff: {}", print_diff.join("\n"))?;
         } else {
-            if let Some(forest_response) = &self.forest_response {
+            if let Some(forest_response) = &forest_response {
                 writeln!(f, "Forest response: {}", forest_response)?;
             }
-            if let Some(lotus_response) = &self.lotus_response {
+            if let Some(lotus_response) = &lotus_response {
                 writeln!(f, "Lotus response: {}", lotus_response)?;
             }
         };
@@ -512,19 +526,9 @@ impl RpcTest {
 
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
         let forest_resp = forest.call(self.request.clone()).await;
+        let forest_response = forest_resp.as_ref().map_err(|e| e.to_string()).cloned();
         let lotus_resp = lotus.call(self.request.clone()).await;
-
-        let forest_json_str = if let Ok(forest_resp) = forest_resp.as_ref() {
-            serde_json::to_string_pretty(forest_resp).ok()
-        } else {
-            None
-        };
-
-        let lotus_json_str = if let Ok(lotus_resp) = lotus_resp.as_ref() {
-            serde_json::to_string_pretty(lotus_resp).ok()
-        } else {
-            None
-        };
+        let lotus_response = lotus_resp.as_ref().map_err(|e| e.to_string()).cloned();
 
         let (forest_status, lotus_status) = match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -563,22 +567,14 @@ impl RpcTest {
             }
         };
 
-        if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
-            TestResult {
-                forest_status,
-                lotus_status,
-                test_dump: None,
-            }
-        } else {
-            TestResult {
-                forest_status,
-                lotus_status,
-                test_dump: Some(TestDump {
-                    request: self.request.clone(),
-                    forest_response: forest_json_str,
-                    lotus_response: lotus_json_str,
-                }),
-            }
+        TestResult {
+            forest_status,
+            lotus_status,
+            test_dump: Some(TestDump {
+                request: self.request.clone(),
+                forest_response,
+                lotus_response,
+            }),
         }
     }
 }
@@ -1782,7 +1778,7 @@ fn create_tests(
             eth_chain_id,
         )?);
     }
-    tests.sort_by_key(|test| test.request.method_name);
+    tests.sort_by_key(|test| test.request.method_name.clone());
     Ok(tests)
 }
 
@@ -1812,6 +1808,7 @@ async fn run_tests(
     filter: String,
     run_ignored: RunIgnored,
     fail_fast: bool,
+    dump_dir: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
@@ -1836,7 +1833,14 @@ async fn run_tests(
                  },
              ignore,
              ..
-         }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
+         }| {
+            (
+                method_name.clone(),
+                params.clone(),
+                *api_paths,
+                ignore.is_some(),
+            )
+        },
     ) {
         // By default, do not run ignored tests.
         if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
@@ -1847,7 +1851,7 @@ async fn run_tests(
             continue;
         }
 
-        if !filter_list.authorize(test.request.method_name) {
+        if !filter_list.authorize(&test.request.method_name) {
             continue;
         }
 
@@ -1890,6 +1894,25 @@ async fn run_tests(
             }
             _ => false,
         };
+
+        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+            let dir = dump_dir.join(if success { "valid" } else { "invalid" });
+            if !dir.is_dir() {
+                std::fs::create_dir_all(&dir)?;
+            }
+            let filename = format!(
+                "{}_{}.json",
+                test_dump
+                    .request
+                    .method_name
+                    .as_ref()
+                    .replace(".", "_")
+                    .to_lowercase(),
+                chrono::Utc::now().timestamp_micros()
+            );
+            std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
+        }
+
         let result_entry = (method_name, forest_status, lotus_status);
         if success {
             success_results
@@ -1897,8 +1920,8 @@ async fn run_tests(
                 .and_modify(|v| *v += 1)
                 .or_insert(1u32);
         } else {
-            if let Some(test_result) = test_result.test_dump {
-                fail_details.push(test_result);
+            if let Some(test_dump) = test_result.test_dump {
+                fail_details.push(test_dump);
             }
             failed_results
                 .entry(result_entry)
@@ -1927,8 +1950,8 @@ fn print_error_details(fail_details: &[TestDump]) {
 }
 
 fn print_test_results(
-    success_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
-    failed_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
+    success_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
+    failed_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
 ) {
     // Combine all results
     let mut combined_results = success_results.clone();
@@ -1942,7 +1965,8 @@ fn print_test_results(
     println!("{}", format_as_markdown(&results));
 }
 
-fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)]) -> String {
+#[allow(clippy::type_complexity)]
+fn format_as_markdown(results: &[((Cow<'static, str>, TestSummary, TestSummary), u32)]) -> String {
     let mut builder = Builder::default();
 
     builder.push_record(["RPC Method", "Forest", "Lotus"]);
@@ -1986,7 +2010,8 @@ impl FilterList {
 
     /// Authorize (or not) an RPC method based on its name.
     /// If the allow list is empty, all methods are authorized, unless they are rejected.
-    fn authorize(&self, entry: &str) -> bool {
+    fn authorize(&self, entry: impl AsRef<str>) -> bool {
+        let entry = entry.as_ref();
         (self.allow.is_empty() || self.allow.iter().any(|a| entry.contains(a)))
             && !self.reject.iter().any(|r| entry.contains(r))
     }

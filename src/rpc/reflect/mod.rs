@@ -96,11 +96,12 @@ pub enum Permission {
 /// Which paths should this method be exposed on?
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Default, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ApiPaths {
     /// Only expose this method on `/rpc/v0`
     V0,
     /// Only expose this method on `/rpc/v1`
+    #[default]
     V1,
     /// Expose this method on both `/rpc/v0` and `/rpc/v1`
     #[allow(dead_code)]
@@ -239,7 +240,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         // hardcode calling convention because lotus is by-position only
         let params = Self::request_params(params)?;
         Ok(crate::rpc::Request {
-            method_name: Self::NAME,
+            method_name: Self::NAME.into(),
             params,
             result_type: std::marker::PhantomData,
             api_paths: Self::API_PATHS,
@@ -281,7 +282,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         };
 
         Ok(crate::rpc::Request {
-            method_name: name,
+            method_name: name.into(),
             params,
             result_type: std::marker::PhantomData,
             api_paths: Self::API_PATHS,
