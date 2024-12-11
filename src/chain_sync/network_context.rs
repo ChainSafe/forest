@@ -20,7 +20,7 @@ use crate::{
         },
         hello::{HelloRequest, HelloResponse},
         rpc::RequestResponseError,
-        NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+        NetworkMessage, PeerId, PeerManager,
     },
     utils::{
         misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
@@ -28,12 +28,9 @@ use crate::{
     },
 };
 use anyhow::Context as _;
-use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -230,47 +227,6 @@ where
             ));
         }
         Ok(fts.remove(0))
-    }
-
-    /// Requests that some content with a particular `Cid` get fetched over
-    /// `Bitswap` if it doesn't exist in the `BlockStore`.
-    pub async fn bitswap_get<TMessage: DeserializeOwned>(
-        &self,
-        content: Cid,
-        epoch: Option<i64>,
-    ) -> Result<TMessage, String> {
-        // Check if what we are fetching over Bitswap already exists in the
-        // database. If it does, return it, else fetch over the network.
-        if let Some(b) = self.db.get_cbor(&content).map_err(|e| e.to_string())? {
-            return Ok(b);
-        }
-
-        let (tx, rx) = flume::bounded(1);
-
-        self.network_send
-            .send_async(NetworkMessage::BitswapRequest {
-                cid: content,
-                response_channel: tx,
-                epoch,
-            })
-            .await
-            .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-
-        let success = tokio::task::spawn_blocking(move || {
-            rx.recv_timeout(BITSWAP_TIMEOUT).unwrap_or_default()
-        })
-        .await
-        .is_ok();
-
-        match self.db.get_cbor(&content) {
-            Ok(Some(b)) => Ok(b),
-            Ok(None) => Err(format!(
-                "Not found in db, bitswap. success: {success} cid, {content:?}"
-            )),
-            Err(e) => Err(format!(
-                "Error retrieving from db. success: {success} cid, {content:?}, {e}"
-            )),
-        }
     }
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
