@@ -62,6 +62,9 @@
 - [#5043](https://github.com/ChainSafe/forest/pull/5043) Added missing entry for
   `TukTuk` upgrade in the `Filecoin.StateGetNetworkParams` RPC method.
 
+- [#5071](https://github.com/ChainSafe/forest/pull/5071) Fix issue that caused
+  Forest to temporarily drift out of sync.
+
 ## Forest 0.22.0 "Pad Thai"
 
 Mandatory release for mainnet node operators. It sets the upgrade epoch for the
