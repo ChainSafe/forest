@@ -24,18 +24,14 @@ use crate::libp2p::{
 };
 use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
-use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
+use crate::shim::clock::SECONDS_IN_DAY;
 use crate::state_manager::StateManager;
 use crate::{
-    blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey},
+    blocks::{Block, CreateTipsetError, FullTipset, Tipset, TipsetKey},
     networks::calculate_expected_epoch,
 };
 use cid::Cid;
-use futures::{
-    future::{try_join_all, Future},
-    stream::FuturesUnordered,
-    try_join, StreamExt,
-};
+use futures::{future::Future, stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::{Either, Itertools};
 use parking_lot::RwLock;
@@ -69,8 +65,6 @@ pub enum ChainMuxerError {
     ChainStore(#[from] ChainStoreError),
     #[error("Chain exchange: {0}")]
     ChainExchange(String),
-    #[error("Bitswap: {0}")]
-    Bitswap(String),
     #[error("Block error: {0}")]
     Block(#[from] CreateTipsetError),
     #[error("Following network unexpectedly failed: {0}")]
@@ -220,7 +214,7 @@ where
     async fn get_full_tipset(
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
-        peer_id: PeerId,
+        peer_id: Option<PeerId>,
         tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
@@ -229,7 +223,7 @@ where
         }
         // Load from the network
         network
-            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
+            .chain_exchange_fts(peer_id, &tipset_keys.clone())
             .await
             .map_err(ChainMuxerError::ChainExchange)
     }
@@ -306,52 +300,6 @@ where
         network.peer_manager().unmark_peer_bad(&peer_id);
     }
 
-    async fn gossipsub_block_to_full_tipset(
-        block: GossipBlock,
-        source: PeerId,
-        network: SyncNetworkContext<DB>,
-    ) -> Result<FullTipset, ChainMuxerError> {
-        debug!(
-            "Received block over GossipSub: {} height {} from {}",
-            block.header.cid(),
-            block.header.epoch,
-            source,
-        );
-
-        let epoch = block.header.epoch;
-
-        debug!(
-            "Getting messages of gossipblock, epoch: {epoch}, block: {}",
-            block.header.cid()
-        );
-        // Get bls_message in the store or over Bitswap
-        let bls_messages: Vec<_> = block
-            .bls_messages
-            .into_iter()
-            .map(|m| network.bitswap_get::<Message>(m, Some(epoch)))
-            .collect();
-
-        // Get secp_messages in the store or over Bitswap
-        let secp_messages: Vec<_> = block
-            .secpk_messages
-            .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(m, Some(epoch)))
-            .collect();
-
-        let (bls_messages, secp_messages) =
-            match try_join!(try_join_all(bls_messages), try_join_all(secp_messages)) {
-                Ok(msgs) => msgs,
-                Err(e) => return Err(ChainMuxerError::Bitswap(e)),
-            };
-
-        let block = Block {
-            header: block.header,
-            bls_messages,
-            secp_messages,
-        };
-        Ok(FullTipset::from(block))
-    }
-
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
         if let Err(why) = mem_pool.add(message) {
             debug!(
@@ -372,7 +320,7 @@ where
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u32,
         stateless_mode: bool,
-    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
+    ) -> Result<Option<FullTipset>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -396,7 +344,7 @@ where
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
-                    source,
+                    Some(source),
                     tipset_keys,
                 )
                 .await
@@ -454,8 +402,13 @@ where
                         return Ok(None);
                     }
                     // Assemble full tipset from block only in stateful mode
-                    let tipset =
-                        Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
+                    let tipset = Self::get_full_tipset(
+                        network.clone(),
+                        chain_store.clone(),
+                        None,
+                        TipsetKey::from(nunny::vec![*b.header.cid()]),
+                    )
+                    .await?;
                     (tipset, source)
                 }
                 PubsubMessage::Message(m) => {
@@ -533,7 +486,7 @@ where
         // This is needed for the Ethereum mapping
         chain_store.put_tipset_key(tipset.key())?;
 
-        Ok(Some((tipset, source)))
+        Ok(Some(tipset))
     }
 
     fn stateless_node(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
@@ -622,7 +575,7 @@ where
                     }
                 };
 
-                let (tipset, _) = match Self::process_gossipsub_event(
+                let tipset = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -635,7 +588,7 @@ where
                 )
                 .await
                 {
-                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(Some(tipset)) => tipset,
                     Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
@@ -761,7 +714,7 @@ where
                     }
                 };
 
-                let (_tipset, _) = match Self::process_gossipsub_event(
+                let _tipset = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -774,7 +727,7 @@ where
                 )
                 .await
                 {
-                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(Some(tipset)) => tipset,
                     Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
@@ -865,7 +818,7 @@ where
                         }
                     };
 
-                    let (tipset, _) = match Self::process_gossipsub_event(
+                    let tipset = match Self::process_gossipsub_event(
                         event,
                         network.clone(),
                         chain_store.clone(),
@@ -878,7 +831,7 @@ where
                     )
                     .await
                     {
-                        Ok(Some((tipset, source))) => (tipset, source),
+                        Ok(Some(tipset)) => tipset,
                         Ok(None) => continue,
                         Err(why) => {
                             debug!("Processing GossipSub event failed: {:?}", why);

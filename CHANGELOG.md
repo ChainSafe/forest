@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#5071](https://github.com/ChainSafe/forest/pull/5071) Fix issue that caused
+  Forest to temporarily drift out of sync.
+
 ## Forest v0.23.0 "Saenchai"
 
 This is a mandatory release for the calibration network. It includes the NV25
