@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.22.1"
+version = "0.23.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -88,7 +88,7 @@ gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
-hickory-resolver = { version = "0.24", default-features = false, features = ["system-config"] }
+hickory-resolver = { version = "0.25.0-alpha", default-features = false, features = ["system-config", "tokio-runtime"] }
 http = "1"
 human-repr = "1"
 human_bytes = "0.4"
@@ -243,7 +243,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.247"
+ra_ap_syntax = "0.0.248"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

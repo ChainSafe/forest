@@ -407,10 +407,12 @@ where
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
                     RequestResponseError::UnsupportedProtocols => {
+                        // refactor this into Networkevent if user agent logging is critical here
                         peer_manager
                             .ban_peer_with_default_duration(
                                 peer_id,
                                 "ChainExchange protocol unsupported",
+                                |_| None,
                             )
                             .await;
                     }

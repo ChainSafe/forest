@@ -18,7 +18,7 @@ use super::{
     DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V23;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V24;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -40,12 +40,12 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzacedgcrrsfkdi5dcdfuj6b6zsuenzd3bzeeirvffhoiecddco4ahoni").unwrap()
+    Cid::from_str("bafy2bzacedz7udmigfoijokj3tnvw66bviygircxak7or2zrxzde2zsaouypi").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacedgcrrsfkdi5dcdfuj6b6zsuenzd3bzeeirvffhoiecddco4ahoni.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacedz7udmigfoijokj3tnvw66bviygircxak7or2zrxzde2zsaouypi.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
@@ -55,7 +55,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 /// The genesis file does not live on the `master` branch, currently on `butterfly/v24` branch.
 /// `<https://github.com/filecoin-project/lotus/commit/36e6a639fd8411dd69048c95ac478468f2755b8d>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/36e6a639fd8411dd69048c95ac478468f2755b8d/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/35052f6d1502d838ed36539996df9e70fe5a8fc4/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -98,12 +98,11 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Lightning, -22),
         make_height!(Thunder, -23),
         make_height!(Watermelon, -24),
-        make_height!(Dragon, -25, get_bundle_cid("v13.0.0")),
+        make_height!(Dragon, -25),
         make_height!(Phoenix, i64::MIN),
-        make_height!(Waffle, -26, get_bundle_cid("v14.0.0-rc.1")),
-        make_height!(TukTuk, 360, get_bundle_cid("v15.0.0-rc1")),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/5039
-        make_height!(Teep, i64::MAX, get_bundle_cid("v15.0.0-rc1")),
+        make_height!(Waffle, -26),
+        make_height!(TukTuk, -27, get_bundle_cid("v15.0.0-rc1")),
+        make_height!(Teep, 300, get_bundle_cid("v16.0.0-dev")),
     ])
 });
 
