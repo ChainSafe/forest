@@ -35,6 +35,10 @@
 
 ### Fixed
 
+## Forest v0.23.1 "Lappe"
+
+### Fixed
+
 - [#5071](https://github.com/ChainSafe/forest/pull/5071) Fix issue that caused
   Forest to temporarily drift out of sync.
 
