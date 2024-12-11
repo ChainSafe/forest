@@ -33,6 +33,7 @@ jobs:
         with:
           cache: yarn
           node-version: 18
+      - run: corepack enable
       - run: make format-spellcheck-dictionary-check
       - run: yarn install --frozen-lockfile
       - run: yarn typecheck
