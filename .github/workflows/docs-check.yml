@@ -1,0 +1,41 @@
+name: Docs
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '/docs/**.md'
+      - '.github/workflows/docs-check.yml'
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '/docs/**.md'
+      - '.github/workflows/docs-check.yml'
+
+jobs:
+  docs-check:
+    name: Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: yarn
+          node-version: 22
+      - run: make format-spellcheck-dictionary-check
+      - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+      - run: yarn spellcheck
+      - run: yarn format-check
+      - run: yarn build
