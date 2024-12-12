@@ -33,7 +33,7 @@ use crate::shim::{
 use crate::tool::offline_server::start_offline_server;
 use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
-use anyhow::{bail, ensure};
+use anyhow::{bail, ensure, Context as _};
 use bls_signatures::Serialize as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
@@ -58,6 +58,7 @@ use std::{
     time::Duration,
 };
 use tabled::{builder::Builder, settings::Style};
+use test_snapshot::RpcTestSnapshot;
 use tokio::sync::Semaphore;
 use tracing::debug;
 
@@ -155,6 +156,9 @@ pub enum ApiCommands {
         /// Filecoin network chain
         #[arg(long, required = true)]
         chain: NetworkChain,
+        #[arg(long, required = true)]
+        /// Folder into which test snapshots are dumped
+        out_dir: PathBuf,
     },
     DumpTests {
         #[command(flatten)]
@@ -238,19 +242,59 @@ impl ApiCommands {
                 test_dump_files,
                 db,
                 chain,
+                out_dir,
             } => {
                 std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+                if !out_dir.is_dir() {
+                    std::fs::create_dir_all(&out_dir)?;
+                }
+                let tracking_db = generate_test_snapshot::load_db(&db)?;
                 for test_dump_file in test_dump_files {
+                    let out_path = out_dir
+                        .join(test_dump_file.file_name().context("Infallible")?)
+                        .with_extension("rpcsnap.json");
                     let test_dump = serde_json::from_reader(std::fs::File::open(&test_dump_file)?)?;
-                    print!(
-                        "Running RPC test with snapshot {} ...",
-                        test_dump_file.display()
-                    );
-                    generate_test_snapshot::run_test_with_dump(&test_dump, &db, &chain).await?;
-                    println!(" Success");
+                    print!("Generating RPC snapshot at {} ...", out_path.display());
+                    match generate_test_snapshot::run_test_with_dump(
+                        &test_dump,
+                        tracking_db.clone(),
+                        &chain,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            let snapshot = {
+                                let db = tracking_db.tracker.serialize()?;
+                                RpcTestSnapshot {
+                                    name: test_dump.request.method_name.to_string(),
+                                    params: test_dump.request.params,
+                                    response: test_dump.forest_response,
+                                    db,
+                                }
+                            };
+
+                            std::fs::write(&out_path, serde_json::to_string_pretty(&snapshot)?)?;
+                            println!(" Succeeded");
+                        }
+                        Err(e) => {
+                            println!(" Failed: {e}");
+                        }
+                    };
                 }
             }
-
+            Self::Test { files } => {
+                for path in files {
+                    print!("Running RPC test with snapshot {} ...", path.display());
+                    match test_snapshot::run_test_from_snapshot(&path).await {
+                        Ok(_) => {
+                            println!("  Succeeded");
+                        }
+                        Err(e) => {
+                            println!(" Failed: {e}");
+                        }
+                    };
+                }
+            }
             Self::DumpTests {
                 create_tests_args,
                 path,
@@ -292,13 +336,6 @@ impl ApiCommands {
                     };
                     serde_json::to_writer(io::stdout(), &dialogue)?;
                     println!();
-                }
-            }
-            Self::Test { files } => {
-                for path in files {
-                    print!("Running RPC test with snapshot {} ...", path.display());
-                    test_snapshot::run_test_from_snapshot(&path).await?;
-                    println!("  Success");
                 }
             }
         }

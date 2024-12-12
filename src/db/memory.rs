@@ -16,8 +16,8 @@ use std::ops::Deref;
 
 #[derive(Debug, Default)]
 pub struct MemoryDB {
-    blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
-    blockchain_persistent_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
+    blockchain_db: RwLock<HashMap<Cid, Vec<u8>>>,
+    blockchain_persistent_db: RwLock<HashMap<Cid, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
 }
@@ -52,9 +52,8 @@ impl MemoryDB {
 impl GarbageCollectable<CidHashSet> for MemoryDB {
     fn get_keys(&self) -> anyhow::Result<CidHashSet> {
         let mut set = CidHashSet::new();
-        for key in self.blockchain_db.read().keys() {
-            let cid = Cid::try_from(key.as_slice())?;
-            set.insert(cid);
+        for &key in self.blockchain_db.read().keys() {
+            set.insert(key);
         }
         Ok(set)
     }
@@ -63,17 +62,11 @@ impl GarbageCollectable<CidHashSet> for MemoryDB {
         let mut db = self.blockchain_db.write();
         let mut deleted = 0;
         db.retain(|key, _| {
-            let cid = Cid::try_from(key.as_slice());
-            match cid {
-                Ok(cid) => {
-                    let retain = !keys.contains(&cid);
-                    if !retain {
-                        deleted += 1;
-                    }
-                    retain
-                }
-                _ => true,
+            let retain = !keys.contains(key);
+            if !retain {
+                deleted += 1;
             }
+            retain
         });
         Ok(deleted)
     }
@@ -138,22 +131,15 @@ impl EthMappingsStore for MemoryDB {
 
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Ok(self
-            .blockchain_db
+        Ok(self.blockchain_db.read().get(k).cloned().or(self
+            .blockchain_persistent_db
             .read()
-            .get(&k.to_bytes())
-            .cloned()
-            .or(self
-                .blockchain_persistent_db
-                .read()
-                .get(&k.to_bytes())
-                .cloned()))
+            .get(k)
+            .cloned()))
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.blockchain_db
-            .write()
-            .insert(k.to_bytes(), block.to_vec());
+        self.blockchain_db.write().insert(*k, block.to_vec());
         Ok(())
     }
 }
@@ -162,14 +148,14 @@ impl PersistentStore for MemoryDB {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.blockchain_persistent_db
             .write()
-            .insert(k.to_bytes(), block.to_vec());
+            .insert(*k, block.to_vec());
         Ok(())
     }
 }
 
 impl BitswapStoreRead for MemoryDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        Ok(self.blockchain_db.read().contains_key(&cid.to_bytes()))
+        Ok(self.blockchain_db.read().contains_key(cid))
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {

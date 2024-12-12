@@ -10,18 +10,25 @@ use crate::{
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::ChainConfig,
-    rpc::{
-        eth::filter::EthEventHandler, RPCState, RpcCallSnapshot, RpcMethod as _, RpcMethodExt as _,
-    },
+    rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
 };
-use base64::prelude::*;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc};
 use tokio::{sync::mpsc, task::JoinSet};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcTestSnapshot {
+    pub name: String,
+    pub params: serde_json::Value,
+    pub response: Result<serde_json::Value, String>,
+    #[serde(with = "crate::lotus_json::base64_standard")]
+    pub db: Vec<u8>,
+}
 
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     CurrentNetwork::set_global(Network::Testnet);
@@ -32,23 +39,24 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     } else {
         snapshot_bytes
     };
-    let snapshot: RpcCallSnapshot = serde_json::from_slice(snapshot_bytes.as_slice())?;
-    let db_bytes = BASE64_STANDARD.decode(&snapshot.db)?;
-    let db = Arc::new(MemoryDB::deserialize_from(db_bytes.as_slice())?);
+    let snapshot: RpcTestSnapshot = serde_json::from_slice(snapshot_bytes.as_slice())?;
+    let db = Arc::new(MemoryDB::deserialize_from(snapshot.db.as_slice())?);
     let chain_config = Arc::new(ChainConfig::calibnet());
     let (ctx, _, _) = ctx(db, chain_config).await?;
-    let params_raw = if let Some(params) = &snapshot.params {
-        Some(serde_json::to_string(params)?)
-    } else {
-        None
+    let params_raw = match serde_json::to_string(&snapshot.params)? {
+        s if s.is_empty() => None,
+        s => Some(s),
     };
 
     macro_rules! run_test {
         ($ty:ty) => {
             if snapshot.name.as_str() == <$ty>::NAME {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
-                let result = <$ty>::handle(ctx.clone(), params).await?;
-                assert_eq!(snapshot.response, result.into_lotus_json_value()?);
+                let result = <$ty>::handle(ctx.clone(), params)
+                    .await
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
+                assert_eq!(snapshot.response, result);
                 run = true;
             }
         };

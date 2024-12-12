@@ -27,18 +27,16 @@ use tokio::{sync::mpsc, task::JoinSet};
 
 pub async fn run_test_with_dump(
     test_dump: &TestDump,
-    db_root: &Path,
+    db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain: &NetworkChain,
-) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
+) -> anyhow::Result<()> {
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
     let mut run = false;
     let chain_config = Arc::new(ChainConfig::calibnet());
-    let db = load_db(db_root)?;
-    let (ctx, _, _) = ctx(db.clone(), chain_config).await?;
+    let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = Some(serde_json::to_string(&test_dump.request.params)?);
-
     macro_rules! run_test {
         ($ty:ty) => {
             if test_dump.request.method_name.as_ref() == <$ty>::NAME {
@@ -52,15 +50,14 @@ pub async fn run_test_with_dump(
             }
         };
     }
-
     crate::for_each_method!(run_test);
-
     anyhow::ensure!(run, "RPC method not found");
-
-    Ok(db)
+    Ok(())
 }
 
-fn load_db(db_root: &Path) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
+pub(super) fn load_db(
+    db_root: &Path,
+) -> anyhow::Result<Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>> {
     let db_writer = open_db(db_root.into(), Default::default())?;
     let db = ManyCar::new(db_writer);
     let forest_car_db_dir = db_root.join(CAR_DB_DIR_NAME);
@@ -131,14 +128,14 @@ async fn ctx(
 /// A [`Blockstore`] wrapper that tracks read operations to the inner [`Blockstore`] with an [`MemoryDB`]
 pub struct ReadOpsTrackingStore<T> {
     inner: T,
-    pub tracked: Arc<MemoryDB>,
+    pub tracker: Arc<MemoryDB>,
 }
 
 impl<T> ReadOpsTrackingStore<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
-            tracked: Arc::new(Default::default()),
+            tracker: Arc::new(Default::default()),
         }
     }
 }
@@ -147,7 +144,7 @@ impl<T: Blockstore> Blockstore for ReadOpsTrackingStore<T> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.get(k)?;
         if let Some(v) = &result {
-            self.tracked.put_keyed(k, v.as_slice())?;
+            self.tracker.put_keyed(k, v.as_slice())?;
         }
         Ok(result)
     }
@@ -161,7 +158,7 @@ impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
         let result = self.inner.read_bin(key)?;
         if let Some(v) = &result {
-            SettingsStore::write_bin(&self.tracked, key, v.as_slice())?;
+            SettingsStore::write_bin(&self.tracker, key, v.as_slice())?;
         }
         Ok(result)
     }
@@ -173,7 +170,7 @@ impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
     fn exists(&self, key: &str) -> anyhow::Result<bool> {
         let result = self.inner.read_bin(key)?;
         if let Some(v) = &result {
-            SettingsStore::write_bin(&self.tracked, key, v.as_slice())?;
+            SettingsStore::write_bin(&self.tracker, key, v.as_slice())?;
         }
         Ok(result.is_some())
     }
