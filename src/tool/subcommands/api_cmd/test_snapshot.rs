@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::filter::EthEventHandler;
 use crate::{
     chain::ChainStore,
     chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
@@ -11,7 +10,9 @@ use crate::{
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::ChainConfig,
-    rpc::{RPCState, RpcCallSnapshot, RpcMethod as _, RpcMethodExt as _},
+    rpc::{
+        eth::filter::EthEventHandler, RPCState, RpcCallSnapshot, RpcMethod as _, RpcMethodExt as _,
+    },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
