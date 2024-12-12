@@ -11,9 +11,13 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      '**/*.rs'
   push:
     branches:
       - main
+    paths:
+      - '**/*.rs'
   schedule:
     - cron: "0 0 * * *"
 

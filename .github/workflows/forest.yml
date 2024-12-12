@@ -8,9 +8,13 @@ concurrency:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/'
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/'
   schedule:
     - cron: 0 0 * * *
 env:
