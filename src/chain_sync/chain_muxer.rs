@@ -295,7 +295,7 @@ where
         }
     }
 
-    async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
+    fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
         network.peer_manager().remove_peer(&peer_id);
         network.peer_manager().unmark_peer_bad(&peer_id);
     }
@@ -378,11 +378,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
-                // Spawn and immediately move on to the next event
-                tokio::task::spawn(Self::handle_peer_disconnected_event(
-                    network.clone(),
-                    peer_id,
-                ));
+                Self::handle_peer_disconnected_event(network.clone(), peer_id);
                 return Ok(None);
             }
             NetworkEvent::PubsubMessage { message } => match message {
