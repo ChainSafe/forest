@@ -38,16 +38,6 @@ pub static BAD_PEERS: Lazy<Gauge> = Lazy::new(|| {
     metric
 });
 
-pub static PEER_TIPSET_EPOCH: Lazy<Family<PeerLabel, Gauge>> = Lazy::new(|| {
-    let metric = Family::default();
-    crate::metrics::default_registry().register(
-        "peer_tipset_epoch",
-        "peer tipset epoch",
-        metric.clone(),
-    );
-    metric
-});
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PeerLabel(PeerId);
 
