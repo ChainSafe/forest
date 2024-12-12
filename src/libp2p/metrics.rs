@@ -5,7 +5,7 @@ use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use prometheus_client::{
     encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
-    metrics::{counter::Counter, family::Family, gauge::Gauge},
+    metrics::{counter::Counter, gauge::Gauge},
 };
 
 pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
