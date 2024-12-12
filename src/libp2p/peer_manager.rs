@@ -85,6 +85,11 @@ impl PeerManager {
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
+    pub fn touch_peer(&self, peer_id: &PeerId) {
+        let mut peers = self.peers.write();
+        peers.full_peers.entry(*peer_id).or_default();
+    }
+
     /// Sort peers based on a score function with the success rate and latency
     /// of requests.
     pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {

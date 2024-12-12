@@ -196,6 +196,7 @@ mod test {
         // instrument the state so that the live requirements are met
         sync_state.write().set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
+        peer_manager.touch_peer(&peer);
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -272,6 +273,7 @@ mod test {
         sync_state.write().set_epoch(i64::MAX);
         sync_state.write().set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
+        peer_manager.touch_peer(&peer);
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
