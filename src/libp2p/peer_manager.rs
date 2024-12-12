@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    cmp::Ordering,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -109,7 +108,7 @@ impl PeerManager {
             .collect();
 
         // Unstable sort because hashmap iter order doesn't need to be preserved.
-        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap_or(Ordering::Equal));
+        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.total_cmp(v2));
 
         peers.into_iter().map(|(peer, _)| peer).collect()
     }
