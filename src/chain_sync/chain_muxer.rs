@@ -333,21 +333,14 @@ where
                     .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
                     .inc();
                 let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
-                let tipset = match Self::get_full_tipset(
+                Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
                     Some(source),
                     tipset_keys,
                 )
                 .await
-                {
-                    Ok(tipset) => tipset,
-                    Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
-                        return Err(why);
-                    }
-                };
-                tipset
+                .inspect_err(|e| debug!("Querying full tipset failed: {}", e))?
             }
             NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -390,14 +383,13 @@ where
                         return Ok(None);
                     }
                     // Assemble full tipset from block only in stateful mode
-                    let tipset = Self::get_full_tipset(
+                    Self::get_full_tipset(
                         network.clone(),
                         chain_store.clone(),
                         None,
                         TipsetKey::from(nunny::vec![*b.header.cid()]),
                     )
-                    .await?;
-                    tipset
+                    .await?
                 }
                 PubsubMessage::Message(m) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
