@@ -203,8 +203,11 @@ impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for ReadOpsTrackingStore<T>
 
 impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        // HACKHACK: may need some care
-        self.inner.read_bin(key)
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
+        Ok(result)
     }
 
     fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
@@ -212,8 +215,11 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     }
 
     fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
-        // HACKHACK: may need some care
-        self.inner.exists(key)
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
+        Ok(result.is_some())
     }
 
     fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
