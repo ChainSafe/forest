@@ -20,6 +20,7 @@ mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
+use serde::{Deserialize, Serialize};
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -430,6 +431,14 @@ impl<DB: Blockstore> RPCState<DB> {
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
         self.sync_network_context.network_send()
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RpcCallSnapshot {
+    pub name: String,
+    pub params: Option<serde_json::Value>,
+    pub response: serde_json::Value,
+    pub db: String,
 }
 
 #[derive(Clone)]

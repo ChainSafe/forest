@@ -141,10 +141,6 @@ impl<T> ReadOpsTrackingStore<T> {
             tracked: Arc::new(Default::default()),
         }
     }
-
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
 }
 
 impl<T: Blockstore> Blockstore for ReadOpsTrackingStore<T> {
