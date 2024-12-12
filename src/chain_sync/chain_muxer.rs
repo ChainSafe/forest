@@ -321,7 +321,7 @@ where
         block_delay: u32,
         stateless_mode: bool,
     ) -> Result<Option<FullTipset>, ChainMuxerError> {
-        let (tipset, source) = match event {
+        let tipset = match event {
             NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
@@ -347,7 +347,7 @@ where
                         return Err(why);
                     }
                 };
-                (tipset, source)
+                tipset
             }
             NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -385,7 +385,7 @@ where
                 ));
                 return Ok(None);
             }
-            NetworkEvent::PubsubMessage { source, message } => match message {
+            NetworkEvent::PubsubMessage { message } => match message {
                 PubsubMessage::Block(b) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
                         .get_or_create(&metrics::values::PUBSUB_BLOCK)
@@ -401,7 +401,7 @@ where
                         TipsetKey::from(nunny::vec![*b.header.cid()]),
                     )
                     .await?;
-                    (tipset, source)
+                    tipset
                 }
                 PubsubMessage::Message(m) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
@@ -443,7 +443,7 @@ where
             < chain_store.heaviest_tipset().epoch()
         {
             debug!(
-                "Skip processing tipset at epoch {} from {source} that is too old",
+                "Skip processing tipset at epoch {} that is too old",
                 tipset.epoch()
             );
             return Ok(None);

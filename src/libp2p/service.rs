@@ -90,7 +90,6 @@ pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
-        source: PeerId,
         message: PubsubMessage,
     },
     HelloRequestInbound,
@@ -628,7 +627,6 @@ async fn handle_gossip_event(
                     emit_event(
                         network_sender_out,
                         NetworkEvent::PubsubMessage {
-                            source,
                             message: PubsubMessage::Block(b),
                         },
                     )
@@ -644,7 +642,6 @@ async fn handle_gossip_event(
                     emit_event(
                         network_sender_out,
                         NetworkEvent::PubsubMessage {
-                            source,
                             message: PubsubMessage::Message(m),
                         },
                     )
