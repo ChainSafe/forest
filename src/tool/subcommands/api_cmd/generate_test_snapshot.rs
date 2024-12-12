@@ -50,7 +50,7 @@ pub async fn run_test_with_dump(
             }
         };
     }
-    crate::for_each_method!(run_test);
+    crate::for_each_rpc_method!(run_test);
     anyhow::ensure!(run, "RPC method not found");
     Ok(())
 }

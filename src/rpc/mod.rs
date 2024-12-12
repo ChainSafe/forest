@@ -32,7 +32,7 @@ pub use jsonrpsee::core::ClientError;
 ///
 /// All methods should be entered here.
 #[macro_export]
-macro_rules! for_each_method {
+macro_rules! for_each_rpc_method {
     ($callback:path) => {
         // auth vertical
         $callback!($crate::rpc::auth::AuthNew);
@@ -265,7 +265,7 @@ macro_rules! for_each_method {
         $callback!($crate::rpc::misc::GetActorEventsRaw);
     };
 }
-pub(crate) use for_each_method;
+pub(crate) use for_each_rpc_method;
 use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
@@ -292,7 +292,7 @@ pub mod prelude {
         };
     }
 
-    for_each_method!(export);
+    for_each_rpc_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -578,7 +578,7 @@ where
             <$ty>::register_alias(&mut module).unwrap();
         };
     }
-    for_each_method!(register);
+    for_each_rpc_method!(register);
     module
 }
 
@@ -630,7 +630,7 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
             }
         };
     }
-    for_each_method!(callback);
+    for_each_rpc_method!(callback);
     openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {

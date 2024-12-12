@@ -62,7 +62,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         };
     }
 
-    crate::for_each_method!(run_test);
+    crate::for_each_rpc_method!(run_test);
 
     assert!(run, "RPC method not found");
 
