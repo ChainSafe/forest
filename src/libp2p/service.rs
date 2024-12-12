@@ -11,8 +11,7 @@ use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
     libp2p_bitswap::{
-        request_manager::{BitswapRequestManager, ValidatePeerCallback},
-        BitswapStoreRead, BitswapStoreReadWrite,
+        request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
     },
     utils::flume::FlumeSenderExt as _,
 };
@@ -139,7 +138,6 @@ pub enum NetworkMessage {
     BitswapRequest {
         cid: Cid,
         response_channel: flume::Sender<bool>,
-        epoch: Option<i64>,
     },
     JSONRPCRequest {
         method: NetRPCMethods,
@@ -469,26 +467,13 @@ async fn handle_network_message(
         NetworkMessage::BitswapRequest {
             cid,
             response_channel,
-            epoch,
         } => {
-            let peer_validator: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
-                let peer_manager = Arc::clone(peer_manager);
-                Some(Arc::new(move |peer| {
-                    peer_manager
-                        .get_peer_head_epoch(&peer)
-                        .map(|peer_head_epoch| peer_head_epoch >= epoch)
-                        .unwrap_or_default()
-                }))
-            } else {
-                None
-            };
-
             bitswap_request_manager.get_block(
                 store,
                 cid,
                 BITSWAP_TIMEOUT,
                 Some(response_channel),
-                peer_validator,
+                None,
             );
         }
         NetworkMessage::JSONRPCRequest { method } => {
