@@ -1,0 +1,33 @@
+name: Docs Deploy (Cloudflare)
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+jobs:
+  docs-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: yarn
+          node-version: "18"
+      - run: yarn install --frozen-lockfile
+      - run: yarn run build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_PAGES_ACCOUNT_ID }}
+          command: pages deploy ./build --project-name=forest-docs
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
