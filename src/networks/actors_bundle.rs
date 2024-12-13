@@ -82,7 +82,6 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs" @ "v13.0.0" for "calibrationnet",
         "bafy2bzacebq3hncszqpojglh2dkwekybq4zn6qpc4gceqbx36wndps5qehtau" @ "v14.0.0-rc.1" for "calibrationnet",
         "bafy2bzaceax5zkysst7vtyup4whdxwzlpnaya3qp34rnoi6gyt4pongps7obw" @ "v15.0.0-rc1" for "calibrationnet",
-        "bafy2bzacecnhy2ffkabgzkvbjh26ne7ssi6w4ze5wivs5xvblzjeoolwt7cik" @ "v16.0.0-rc1" for "calibrationnet",
         "bafy2bzacearjal5rsmzloz3ny7aoju2rgw66wgxdrydgg27thcsazbmf5qihq" @ "v15.0.0-rc1" for "butterflynet",
         "bafy2bzaced3uzaynkdi7wiqiwbje7l3lllpwbokuf7slak627gx7bk5pryjpa" @ "v16.0.0-dev" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",

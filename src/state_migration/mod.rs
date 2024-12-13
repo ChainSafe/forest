@@ -64,7 +64,7 @@ where
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::DragonFix, nv22fix::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
+                (Height::TukTuk, nv24::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
