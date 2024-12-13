@@ -35,6 +35,14 @@
 
 ### Fixed
 
+## Forest v.0.23.2 "Feint"
+
+Mandatory release for calibnet node operators. It removes the NV25 _Teep_ network upgrade from the schedule. Read more [here](https://github.com/filecoin-project/community/discussions/74#discussioncomment-11549619).
+
+### Changed
+
+- [#5079](https://github.com/ChainSafe/forest/pull/5079) Removed the NV25 _Teep_ network upgrade for calibnet from the schedule. It is postponed to a later date.
+
 ## Forest v0.23.1 "Lappe"
 
 ### Fixed
