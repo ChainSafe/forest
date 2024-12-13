@@ -85,6 +85,8 @@ impl PeerManager {
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
+    /// Mark peer as active even if we haven't communicated with it yet.
+    #[cfg(test)]
     pub fn touch_peer(&self, peer_id: &PeerId) {
         let mut peers = self.peers.write();
         peers.full_peers.entry(*peer_id).or_default();
