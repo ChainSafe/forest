@@ -1,4 +1,4 @@
-name: Docs Deploy (Cloudflare)
+name: Docs Deploy
 on:
   push:
     branches:
@@ -14,7 +14,11 @@ permissions:
 
 jobs:
   docs-deploy:
+    name: Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./docs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
