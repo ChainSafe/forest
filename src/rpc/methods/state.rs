@@ -1302,7 +1302,6 @@ impl RpcMethod<2> for StateFetchRoot {
                             network_send.send(NetworkMessage::BitswapRequest {
                                 cid,
                                 response_channel: tx,
-                                epoch: None,
                             })?;
                             // Bitswap requests do not fail. They are just ignored if no-one has
                             // the requested data. Here we arbitrary decide to only wait for
