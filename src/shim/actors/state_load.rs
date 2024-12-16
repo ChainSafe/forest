@@ -22,7 +22,7 @@ macro_rules! actor_state_load_trait {
         $(
 paste! {
     pub trait [< $actor ActorStateLoad >] {
-        fn load<BS: fvm_ipld_blockstore::Blockstore>(store: &BS, code: Cid, state: Cid) -> anyhow::Result<fil_actor_interface::[< $actor:lower >]::State>;
+        fn load<BS: fvm_ipld_blockstore::Blockstore>(store: &BS, code: Cid, state: Cid) -> anyhow::Result<crate::shim::actors::[< $actor:lower >]::State>;
     }
 }
         )*
@@ -38,13 +38,13 @@ actor_state_load_trait!(
 macro_rules! actor_state_load_impl {
     ($actor:ident, $($version:literal, $version_ident:ident),*) => {
         paste! {
-        impl [< $actor ActorStateLoad >] for fil_actor_interface::[< $actor:lower >]::State {
-            fn load<BS: fvm_ipld_blockstore::Blockstore>(store: &BS, code: Cid, state: Cid) -> anyhow::Result<fil_actor_interface::[< $actor:lower >]::State> {
+        impl [< $actor ActorStateLoad >] for crate::shim::actors::[< $actor:lower >]::State {
+            fn load<BS: fvm_ipld_blockstore::Blockstore>(store: &BS, code: Cid, state: Cid) -> anyhow::Result<crate::shim::actors::[< $actor:lower >]::State> {
                 use anyhow::Context as _;
                 $(
                     if [< is_ $actor:lower _cid_version >](&code, $version) {
                         return get_obj(store, &state)?
-                            .map(fil_actor_interface::[< $actor:lower >]::State::[< $version_ident >])
+                            .map(crate::shim::actors::[< $actor:lower >]::State::[< $version_ident >])
                             .context("Actor state doesn't exist in store");
                     }
                 )*
@@ -55,21 +55,37 @@ macro_rules! actor_state_load_impl {
     };
 }
 
-actor_state_load_impl!(Account, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
-actor_state_load_impl!(Cron, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
-actor_state_load_impl!(DataCap, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
-actor_state_load_impl!(EVM, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
 actor_state_load_impl!(
-    Init, 0, V0, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15
+    Account, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
 );
-actor_state_load_impl!(Market, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
-actor_state_load_impl!(Miner, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
 actor_state_load_impl!(
-    Multisig, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15
+    Cron, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
 );
-actor_state_load_impl!(Power, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
-actor_state_load_impl!(System, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
 actor_state_load_impl!(
-    Verifreg, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15
+    DataCap, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
 );
-actor_state_load_impl!(Reward, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15);
+actor_state_load_impl!(EVM, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16);
+actor_state_load_impl!(
+    Init, 0, V0, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Market, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Miner, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Multisig, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Power, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    System, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Verifreg, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Reward, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);

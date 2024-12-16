@@ -26,6 +26,7 @@ use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
+use crate::shim::actors::evm;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
@@ -1955,8 +1956,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
         if is_evm_actor(&actor.code) {
-            let evm_state =
-                fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
+            let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {
                 return Ok(EthUint64(0));
             }

@@ -12,9 +12,11 @@ use crate::{
         prelude::*,
     },
 };
+use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
+use itertools::Itertools as _;
 use sailfish::TemplateSimple;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -45,7 +47,7 @@ pub enum F3Commands {
     #[command(subcommand, visible_alias = "c")]
     Certs(F3CertsCommands),
     /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
-    #[command(subcommand, visible_alias = "pt")]
+    #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
 }
 
@@ -196,9 +198,9 @@ impl F3CertsCommands {
     }
 }
 
-/// Gets F3 power table at a specific instance ID or latest instance if none is specified.
 #[derive(Debug, Subcommand)]
 pub enum F3PowerTableCommands {
+    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
     #[command(visible_alias = "g")]
     Get {
         /// instance ID. (default: latest)
@@ -207,25 +209,25 @@ pub enum F3PowerTableCommands {
         #[arg(long, default_value_t = false)]
         ec: bool,
     },
+    /// Gets the total proportion of power for a list of actors at a given instance.
+    #[command(visible_alias = "gp")]
+    GetProportion {
+        actor_ids: Vec<u64>,
+        /// instance ID. (default: latest)
+        #[arg(long, required = false)]
+        instance: Option<u64>,
+        /// Whether to get the power table from EC. (default: false)
+        #[arg(long, required = false, default_value_t = false)]
+        ec: bool,
+    },
 }
 
 impl F3PowerTableCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Get { instance, ec } => {
-                let instance = if let Some(instance) = instance {
-                    instance
-                } else {
-                    let progress = F3GetProgress::call(&client, ()).await?;
-                    progress.id
-                };
-                let (tsk, power_table_cid) =
-                    Self::get_power_table_tsk_by_instance(&client, instance).await?;
-                let power_table = if ec {
-                    F3GetECPowerTable::call(&client, (tsk.into(),)).await?
-                } else {
-                    F3GetF3PowerTable::call(&client, (tsk.into(),)).await?
-                };
+                let (instance, power_table_cid, power_table) =
+                    Self::get_power_table(&client, instance, ec).await?;
                 let total = power_table
                     .iter()
                     .fold(num::BigInt::ZERO, |acc, entry| acc + &entry.power);
@@ -245,9 +247,73 @@ impl F3PowerTableCommands {
                 };
                 println!("{}", serde_json::to_string_pretty(&result)?);
             }
+            Self::GetProportion {
+                actor_ids,
+                instance,
+                ec,
+            } => {
+                anyhow::ensure!(
+                    !actor_ids.is_empty(),
+                    "at least one actor ID must be specified"
+                );
+                let (instance, power_table_cid, power_table) =
+                    Self::get_power_table(&client, instance, ec).await?;
+                let total = power_table
+                    .iter()
+                    .fold(num::BigInt::ZERO, |acc, entry| acc + &entry.power);
+                let mut scaled_total = 0;
+                let mut scaled_sum = 0;
+                let mut actor_id_set = HashSet::from_iter(actor_ids);
+                for entry in power_table.iter() {
+                    let scaled_power = scale_power(&entry.power, &total)?;
+                    scaled_total += scaled_power;
+                    if actor_id_set.remove(&entry.id) {
+                        scaled_sum += scaled_power;
+                    }
+                }
+
+                anyhow::ensure!(
+                    actor_id_set.is_empty(),
+                    "actor ID {} not found in power table",
+                    actor_id_set.into_iter().map(|i| i.to_string()).join(",")
+                );
+
+                let result = F3PowerTableGetProportionCommandResult {
+                    instance,
+                    from_ec: ec,
+                    power_table: F3PowerTableCliMinimalJson {
+                        cid: power_table_cid,
+                        scaled_total,
+                    },
+                    scaled_sum,
+                    proportion: (scaled_sum as f64) / (scaled_total as f64),
+                };
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            }
         };
 
         Ok(())
+    }
+
+    async fn get_power_table(
+        client: &rpc::Client,
+        instance: Option<u64>,
+        ec: bool,
+    ) -> anyhow::Result<(u64, Cid, Vec<F3PowerEntry>)> {
+        let instance = if let Some(instance) = instance {
+            instance
+        } else {
+            let progress = F3GetProgress::call(client, ()).await?;
+            progress.id
+        };
+        let (tsk, power_table_cid) =
+            Self::get_power_table_tsk_by_instance(client, instance).await?;
+        let power_table = if ec {
+            F3GetECPowerTable::call(client, (tsk.into(),)).await?
+        } else {
+            F3GetF3PowerTable::call(client, (tsk.into(),)).await?
+        };
+        Ok((instance, power_table_cid, power_table))
     }
 
     async fn get_power_table_tsk_by_instance(
@@ -272,8 +338,7 @@ impl F3PowerTableCommands {
             .last()
             .context("lookback EC chain is empty")?
             .key
-            .clone()
-            .try_into()?;
+            .clone();
         Ok((tsk, previous.supplemental_data.power_table))
     }
 }
@@ -297,6 +362,27 @@ pub struct F3PowerTableCliJson {
     entries: Vec<F3PowerEntry>,
     #[serde(with = "crate::lotus_json::stringify")]
     total: num::BigInt,
+    scaled_total: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3PowerTableGetProportionCommandResult {
+    instance: u64,
+    #[serde(rename = "FromEC")]
+    from_ec: bool,
+    power_table: F3PowerTableCliMinimalJson,
+    scaled_sum: i64,
+    proportion: f64,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct F3PowerTableCliMinimalJson {
+    #[serde(rename = "CID")]
+    #[serde_as(as = "DisplayFromStr")]
+    cid: Cid,
     scaled_total: i64,
 }
 

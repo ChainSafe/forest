@@ -3,11 +3,11 @@
 
 use super::*;
 
+use crate::shim::actors::miner::MinerInfo;
 use crate::{
     rpc::types::AddressOrEmpty,
     shim::{address::Address, clock::ChainEpoch, sector::SectorSize},
 };
-use fil_actor_interface::miner::MinerInfo;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fvm_ipld_encoding::BytesDe;
 use libp2p::PeerId;

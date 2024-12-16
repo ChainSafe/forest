@@ -23,6 +23,8 @@ services:
       - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c" ]
@@ -70,6 +72,7 @@ services:
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -111,6 +114,7 @@ services:
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -147,6 +151,7 @@ services:
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     entrypoint: ["/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -193,6 +198,7 @@ services:
       - FOREST_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - FOREST_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - FOREST_TEEP_HEIGHT=${TEEP_HEIGHT}
     networks:
       - devnet
     ports:
@@ -240,6 +246,7 @@ services:
       - FOREST_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - FOREST_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - FOREST_TEEP_HEIGHT=${TEEP_HEIGHT}
     networks:
       - devnet
     ports:

@@ -11,6 +11,7 @@ use crate::shim::actors::{
     is_paymentchannel_actor, is_placeholder_actor, MarketActorStateLoad as _,
     MinerActorStateLoad as _, MultisigActorStateLoad as _, PowerActorStateLoad as _,
 };
+use crate::shim::actors::{market, miner, multisig, power, reward};
 use crate::shim::version::NetworkVersion;
 use crate::shim::{
     address::Address,
@@ -20,7 +21,6 @@ use crate::shim::{
 };
 use anyhow::{bail, Context as _};
 use cid::Cid;
-use fil_actor_interface::{market, miner, multisig, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 

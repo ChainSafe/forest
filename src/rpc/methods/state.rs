@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use fil_actor_interface::init;
+use crate::shim::actors::init;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
@@ -17,13 +17,20 @@ use crate::interpreter::VMEvent;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::shim::actors::market::MarketStateExt as _;
+use crate::shim::actors::market::ext::MarketStateExt as _;
+use crate::shim::actors::market::DealState;
 use crate::shim::actors::state_load::*;
-use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
+use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::{
-    market::BalanceTableExt as _,
-    miner::{MinerStateExt as _, PartitionExt as _},
-    power::PowerStateExt as _,
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+    power, reward, verifreg,
+};
+use crate::shim::actors::{
+    market::ext::BalanceTableExt as _,
+    miner::ext::{MinerStateExt as _, PartitionExt as _},
+    power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
 use crate::shim::message::Message;
@@ -48,13 +55,6 @@ use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
-use fil_actor_interface::market::DealState;
-use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
-use fil_actor_interface::{
-    market, miner,
-    miner::{MinerInfo, MinerPower},
-    power, reward, verifreg,
-};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -375,6 +375,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         &store,
                         &state.address_map,
                         fil_actors_shared::v15::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
+                init::State::V16(state) => {
+                    let map = fil_actor_init_state::v16::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v16::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )
                     .context("Failed to load address map")?;
@@ -814,6 +832,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V16(s) => (
+                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V15(s) => (
                 s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -1944,6 +1966,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V16(s) => {
+                let precommitted = fil_actor_miner_state::v16::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v16::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -2049,6 +2085,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v15::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V16(s) => {
+                let precommitted = fil_actor_miner_state::v16::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v16::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -2479,6 +2529,18 @@ impl StateGetAllocations {
                         Ok(())
                     })?;
                 }
+                init::State::V16(s) => {
+                    let map = fil_actor_init_state::v16::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v16::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
             };
         }
 
@@ -2686,6 +2748,8 @@ pub struct ForkUpgradeParams {
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
     upgrade_waffle_height: ChainEpoch,
+    upgrade_tuktuk_height: ChainEpoch,
+    //upgrade_teep_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2730,8 +2794,8 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
             upgrade_waffle_height: get_height(Waffle)?,
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/4800
-            // upgrade_tuktuk_height: get_height(TukTuk)?,
+            upgrade_tuktuk_height: get_height(TukTuk)?,
+            //upgrade_teep_height: get_height(Teep)?,
         })
     }
 }

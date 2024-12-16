@@ -11,9 +11,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - '**/*.rs'
+      - '.github/workflows/rust-lint.yml'
   push:
     branches:
       - main
+    paths:
+      - '**/*.rs'
+      - '.github/workflows/rust-lint.yml'
   schedule:
     - cron: "0 0 * * *"
 

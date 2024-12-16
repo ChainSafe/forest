@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actor_interface::power::Claim;
+use crate::shim::actors::power::Claim;
 
 use super::*;
 

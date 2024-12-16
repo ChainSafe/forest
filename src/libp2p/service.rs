@@ -40,7 +40,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
-    discovery::DerivedDiscoveryBehaviourEvent,
+    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
 };
 use crate::libp2p::{
@@ -405,10 +405,15 @@ fn handle_peer_ops(
 ) {
     use PeerOperation::*;
     match peer_ops {
-        Ban(peer, reason) => {
+        Ban {
+            peer,
+            user_agent,
+            reason,
+        } => {
             // Do not ban bootstrap nodes
             if !bootstrap_peers.contains_key(&peer) {
-                debug!(%peer, %reason, "Banning peer");
+                let user_agent = user_agent.unwrap_or_default();
+                debug!(%peer, %user_agent, %reason, "Banning peer");
                 swarm.behaviour_mut().blocked_peers.block_peer(peer);
             }
         }
@@ -572,6 +577,7 @@ async fn handle_network_message(
 }
 
 async fn handle_discovery_event(
+    peer_info_map: &HashMap<PeerId, PeerInfo>,
     discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
     peer_manager: &PeerManager,
@@ -596,13 +602,18 @@ async fn handle_discovery_event(
                 let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
                 if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
                     peer_manager
-                        .ban_peer_with_default_duration(*peer_id, "hello protocol unsupported")
+                        .ban_peer_with_default_duration(
+                            *peer_id,
+                            "hello protocol unsupported",
+                            |p| get_user_agent(peer_info_map, p),
+                        )
                         .await;
                 } else if !protocols.contains(super::chain_exchange::CHAIN_EXCHANGE_PROTOCOL_NAME) {
                     peer_manager
                         .ban_peer_with_default_duration(
                             *peer_id,
                             "chain exchange protocol unsupported",
+                            |p| get_user_agent(peer_info_map, p),
                         )
                         .await;
                 }
@@ -667,6 +678,7 @@ async fn handle_gossip_event(
 }
 
 async fn handle_hello_event(
+    peer_info_map: &HashMap<PeerId, PeerInfo>,
     hello: &mut HelloBehaviour,
     event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
     peer_manager: &PeerManager,
@@ -698,6 +710,7 @@ async fn handle_hello_event(
                                 "Genesis hash mismatch: {} received, {genesis_cid} expected",
                                 request.genesis_cid
                             ),
+                            |p| get_user_agent(peer_info_map, p),
                         )
                         .await;
                 } else {
@@ -741,7 +754,9 @@ async fn handle_hello_event(
             match error {
                 request_response::OutboundFailure::UnsupportedProtocols => {
                     peer_manager
-                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported")
+                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported", |p| {
+                            get_user_agent(peer_info_map, p)
+                        })
                         .await;
                 }
                 _ => {
@@ -877,14 +892,22 @@ async fn handle_forest_behaviour_event<DB>(
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
-            handle_discovery_event(discovery_out, network_sender_out, peer_manager).await
+            handle_discovery_event(
+                &swarm.behaviour().discovery.peer_info,
+                discovery_out,
+                network_sender_out,
+                peer_manager,
+            )
+            .await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
             handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
         }
         ForestBehaviourEvent::Hello(rr_event) => {
+            let behaviour_mut = swarm.behaviour_mut();
             handle_hello_event(
-                &mut swarm.behaviour_mut().hello,
+                &behaviour_mut.discovery.peer_info,
+                &mut behaviour_mut.hello,
                 rr_event,
                 peer_manager,
                 genesis_cid,
@@ -921,4 +944,11 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
+}
+
+fn get_user_agent(peer_info_map: &HashMap<PeerId, PeerInfo>, peer: &PeerId) -> Option<String> {
+    peer_info_map
+        .get(peer)
+        .and_then(|i| i.identify_info.as_ref())
+        .map(|i| i.agent_version.clone())
 }

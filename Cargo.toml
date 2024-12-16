@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.22.1"
+version = "0.23.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -60,34 +60,35 @@ directories = "5"
 displaydoc = "0.2"
 ethereum-types = "0.15"
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { version = "18" }
-fil_actor_cron_state = { version = "18" }
-fil_actor_datacap_state = { version = "18" }
-fil_actor_init_state = { version = "18" }
-fil_actor_interface = { version = "18" }
-fil_actor_market_state = { version = "18" }
-fil_actor_miner_state = { version = "18" }
-fil_actor_power_state = { version = "18" }
-fil_actor_reward_state = { version = "18" }
-fil_actor_system_state = { version = "18" }
-fil_actor_verifreg_state = { version = "18" }
-fil_actors_shared = { version = "18", features = ["json"] }
+fil_actor_account_state = { version = "19" }
+fil_actor_cron_state = { version = "19" }
+fil_actor_datacap_state = { version = "19" }
+fil_actor_evm_state = { version = "19" }
+fil_actor_init_state = { version = "19" }
+fil_actor_market_state = { version = "19" }
+fil_actor_miner_state = { version = "19" }
+fil_actor_multisig_state = { version = "19" }
+fil_actor_power_state = { version = "19" }
+fil_actor_reward_state = { version = "19" }
+fil_actor_system_state = { version = "19" }
+fil_actor_verifreg_state = { version = "19" }
+fil_actors_shared = { version = "19", features = ["json"] }
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.10", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.12", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.5", features = ["arb", "verify-signature"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.5.3", features = ["arb", "verify-signature"] }
 fvm_ipld_blockstore = "0.3"
 fvm_ipld_encoding = "0.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs"] }
 gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
-hickory-resolver = { version = "0.24", default-features = false, features = ["system-config"] }
+hickory-resolver = { version = "0.25.0-alpha", default-features = false, features = ["system-config", "tokio-runtime"] }
 http = "1"
 human-repr = "1"
 human_bytes = "0.4"
@@ -230,7 +231,7 @@ criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.5", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
@@ -242,7 +243,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.247"
+ra_ap_syntax = "0.0.248"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
