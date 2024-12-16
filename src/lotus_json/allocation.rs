@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::actors::verifreg::Allocation;
 use ::cid::Cid;
-use fil_actor_interface::verifreg::Allocation;
 use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;

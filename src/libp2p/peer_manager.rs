@@ -286,15 +286,21 @@ impl PeerManager {
         peer: PeerId,
         reason: impl Into<String>,
         duration: Option<Duration>,
+        get_user_agent: impl Fn(&PeerId) -> Option<String>,
     ) {
         if self.is_peer_protected(&peer) {
             return;
         }
         let mut locked = self.peer_ban_list.write().await;
         locked.insert(peer, duration.and_then(|d| Instant::now().checked_add(d)));
+        let user_agent = get_user_agent(&peer);
         if let Err(e) = self
             .peer_ops_tx
-            .send_async(PeerOperation::Ban(peer, reason.into()))
+            .send_async(PeerOperation::Ban {
+                peer,
+                user_agent,
+                reason: reason.into(),
+            })
             .await
         {
             warn!("ban_peer err: {e}");
@@ -302,9 +308,15 @@ impl PeerManager {
     }
 
     /// Bans a peer with the default duration(`1h`)
-    pub async fn ban_peer_with_default_duration(&self, peer: PeerId, reason: impl Into<String>) {
+    pub async fn ban_peer_with_default_duration(
+        &self,
+        peer: PeerId,
+        reason: impl Into<String>,
+        get_user_agent: impl Fn(&PeerId) -> Option<String>,
+    ) {
         const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
-        self.ban_peer(peer, reason, Some(BAN_PEER_DURATION)).await
+        self.ban_peer(peer, reason, Some(BAN_PEER_DURATION), get_user_agent)
+            .await
     }
 
     pub async fn peer_operation_event_loop_task(self: Arc<Self>) -> anyhow::Result<()> {
@@ -385,6 +397,10 @@ fn log_time(info: &mut PeerInfo, dur: Duration) {
 }
 
 pub enum PeerOperation {
-    Ban(PeerId, String),
+    Ban {
+        peer: PeerId,
+        user_agent: Option<String>,
+        reason: String,
+    },
     Unban(PeerId),
 }

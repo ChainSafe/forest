@@ -9,6 +9,7 @@ use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
+use crate::shim::actors::power;
 use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::crypto::{
     cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
@@ -23,7 +24,6 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
-use fil_actor_interface::power;
 use fil_actors_shared::filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;

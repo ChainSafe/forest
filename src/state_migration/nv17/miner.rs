@@ -363,6 +363,8 @@ fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
 mod tests {
     use super::*;
     use crate::networks::{ChainConfig, Height};
+    use crate::shim::actors::BURNT_FUNDS_ACTOR_ADDR;
+    use crate::shim::actors::*;
     use crate::shim::bigint::BigInt;
     use crate::shim::{
         econ::TokenAmount,
@@ -370,7 +372,6 @@ mod tests {
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
     use crate::utils::multihash::prelude::*;
-    use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
     use fil_actors_shared::fvm_ipld_hamt::BytesKey;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_shared2::{
@@ -388,7 +389,7 @@ mod tests {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store);
         let system_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::system::ADDRESS.into())
+            .get_actor(&system::ADDRESS.into())
             .unwrap()
             .unwrap();
         let system_state_old: fil_actor_system_state::v9::State =
@@ -406,7 +407,7 @@ mod tests {
 
         // create 3 deal proposals
         let mut market_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::market::ADDRESS.into())
+            .get_actor(&market::ADDRESS.into())
             .unwrap()
             .unwrap();
         let mut market_state_old: fil_actor_market_state::v8::State =
@@ -481,10 +482,7 @@ mod tests {
         let market_state_cid_old = store.put_cbor_default(&market_state_old).unwrap();
         market_actor_old.state = market_state_cid_old;
         state_tree_old
-            .set_actor(
-                &fil_actor_interface::market::ADDRESS.into(),
-                market_actor_old,
-            )
+            .set_actor(&market::ADDRESS.into(), market_actor_old)
             .unwrap();
 
         // base stuff to create miners
@@ -681,7 +679,7 @@ mod tests {
             &mut tree,
             system_state_cid,
             system_cid,
-            &fil_actor_interface::system::ADDRESS.into(),
+            &system::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -699,7 +697,7 @@ mod tests {
             &mut tree,
             init_state_cid,
             init_cid,
-            &fil_actor_interface::init::ADDRESS.into(),
+            &init::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -715,7 +713,7 @@ mod tests {
             &mut tree,
             reward_state_cid,
             reward_cid,
-            &fil_actor_interface::reward::ADDRESS.into(),
+            &reward::ADDRESS.into(),
             TokenAmount::from_whole(1_100_000_000),
         );
 
@@ -724,12 +722,12 @@ mod tests {
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::power::ADDRESS,
-                    method_num: fil_actor_interface::power::Method::OnEpochTickEnd as u64,
+                    receiver: crate::shim::actors::power::ADDRESS,
+                    method_num: crate::shim::actors::power::Method::OnEpochTickEnd as u64,
                 },
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::market::ADDRESS,
-                    method_num: fil_actor_interface::market::Method::CronTick as u64,
+                    receiver: crate::shim::actors::market::ADDRESS,
+                    method_num: crate::shim::actors::market::Method::CronTick as u64,
                 },
             ],
         };
@@ -742,7 +740,7 @@ mod tests {
             &mut tree,
             cron_state_cid,
             cron_cid,
-            &fil_actor_interface::cron::ADDRESS.into(),
+            &cron::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -761,7 +759,7 @@ mod tests {
             &mut tree,
             power_state_cid,
             power_cid,
-            &fil_actor_interface::power::ADDRESS.into(),
+            &power::ADDRESS.into(),
             Zero::zero(),
         );
 
@@ -780,7 +778,7 @@ mod tests {
             &mut tree,
             market_state_cid,
             market_cid,
-            &fil_actor_interface::market::ADDRESS.into(),
+            &market::ADDRESS.into(),
             Zero::zero(),
         );
 

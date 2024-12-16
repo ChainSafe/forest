@@ -5,10 +5,10 @@ use crate::rpc::error::ServerError;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::types::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
-use crate::shim::actors::multisig::MultisigExt;
+use crate::shim::actors::multisig;
+use crate::shim::actors::multisig::ext::MultisigExt;
 use crate::shim::actors::MultisigActorStateLoad as _;
 use crate::shim::{address::Address, econ::TokenAmount};
-use fil_actor_interface::multisig;
 use fvm_ipld_blockstore::Blockstore;
 use num_bigint::BigInt;
 

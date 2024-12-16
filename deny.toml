@@ -102,7 +102,6 @@ allow = [
   "ISC",
   "MIT",
   "Unicode-3.0",
-  "Unicode-DFS-2016",
   "Unlicense",
   "Zlib",
 ]
@@ -160,7 +159,7 @@ registries = [
 # https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
 [bans]
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
+multiple-versions = "allow"
 # Lint level for when a crate version requirement is `*`
 wildcards = "allow"
 # The graph highlighting used when creating dotgraphs for crates

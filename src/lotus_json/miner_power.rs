@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fil_actor_interface::miner::MinerPower;
-use fil_actor_interface::power::Claim;
+use crate::shim::actors::miner::MinerPower;
+use crate::shim::actors::power::Claim;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

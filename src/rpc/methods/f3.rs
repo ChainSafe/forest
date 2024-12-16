@@ -13,6 +13,14 @@ mod util;
 pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate};
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
+use crate::shim::actors::{
+    convert::{
+        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
+        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
+        from_policy_v13_to_v9,
+    },
+    miner, power,
+};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
@@ -29,13 +37,6 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
-use fil_actor_interface::{
-    convert::{
-        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v9,
-    },
-    miner, power,
-};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
@@ -392,6 +393,15 @@ impl RpcMethod<1> for GetPowerTable {
                     &ts,
                     s,
                     &from_policy_v13_to_v15(&ctx.chain_config().policy)
+                );
+            }
+            power::State::V16(s) => {
+                handle_miner_state_v12_on!(
+                    v16,
+                    id_power_worker_mappings,
+                    &ts,
+                    s,
+                    &from_policy_v13_to_v16(&ctx.chain_config().policy)
                 );
             }
         }

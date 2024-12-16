@@ -24,6 +24,8 @@ services:
       - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: [ "/bin/bash", "-c" ]
@@ -35,8 +37,6 @@ services:
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new ${LOTUS_DATA_DIR}/localnet.json
-          cp ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${DUMMY_MINER_ACTOR_ADDRESS}.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
-          cp ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${DUMMY_MINER_ACTOR_ADDRESS}.key ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
           touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
         fi
@@ -70,6 +70,8 @@ services:
       - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -111,6 +113,8 @@ services:
       - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -146,6 +150,8 @@ services:
       - LOTUS_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - LOTUS_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     entrypoint: [ "/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -191,6 +197,8 @@ services:
       - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
       - FOREST_DRAGON_HEIGHT=${DRAGON_HEIGHT}
       - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
+      - FOREST_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
+      - FOREST_TEEP_HEIGHT=${TEEP_HEIGHT}
     networks:
       - devnet
     ports:

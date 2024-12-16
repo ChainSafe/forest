@@ -338,8 +338,7 @@ impl F3PowerTableCommands {
             .last()
             .context("lookback EC chain is empty")?
             .key
-            .clone()
-            .try_into()?;
+            .clone();
         Ok((tsk, previous.supplemental_data.power_table))
     }
 }
