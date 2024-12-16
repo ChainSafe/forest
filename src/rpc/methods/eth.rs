@@ -31,6 +31,7 @@ use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::evm;
 use crate::shim::actors::is_evm_actor;
+use crate::shim::actors::system;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
@@ -2690,9 +2691,9 @@ impl RpcMethod<1> for EthTraceBlock {
         let mut all_traces = vec![];
         for (msg_idx, ir) in trace.iter().enumerate() {
             // ignore messages from system actor
-            // if ir.msg.from == fil_actor_interface::system::ADDRESS.into() {
-            //     continue;
-            // }
+            if ir.msg.from == system::ADDRESS.into() {
+                continue;
+            }
 
             let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
 
