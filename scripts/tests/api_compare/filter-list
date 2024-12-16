@@ -11,6 +11,8 @@
 # TODO: https://github.com/ChainSafe/forest/issues/4996
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.EthGetTransactionReceiptLimited
-!Filecoin.EthGetTransactionByBlockNumberAndIndex
 # TODO: https://github.com/ChainSafe/forest/issues/5006
 !Filecoin.EthGetBlockReceipts
+# TODO: https://github.com/ChainSafe/forest/issues/5085
+!Filecoin.StateMarketDeals
+!Filecoin.StateMarketStorageDeal

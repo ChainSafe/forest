@@ -11,8 +11,7 @@ use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
     libp2p_bitswap::{
-        request_manager::{BitswapRequestManager, ValidatePeerCallback},
-        BitswapStoreRead, BitswapStoreReadWrite,
+        request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
     },
     utils::flume::FlumeSenderExt as _,
 };
@@ -91,7 +90,6 @@ pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
-        source: PeerId,
         message: PubsubMessage,
     },
     HelloRequestInbound,
@@ -139,7 +137,6 @@ pub enum NetworkMessage {
     BitswapRequest {
         cid: Cid,
         response_channel: flume::Sender<bool>,
-        epoch: Option<i64>,
     },
     JSONRPCRequest {
         method: NetRPCMethods,
@@ -469,26 +466,13 @@ async fn handle_network_message(
         NetworkMessage::BitswapRequest {
             cid,
             response_channel,
-            epoch,
         } => {
-            let peer_validator: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
-                let peer_manager = Arc::clone(peer_manager);
-                Some(Arc::new(move |peer| {
-                    peer_manager
-                        .get_peer_head_epoch(&peer)
-                        .map(|peer_head_epoch| peer_head_epoch >= epoch)
-                        .unwrap_or_default()
-                }))
-            } else {
-                None
-            };
-
             bitswap_request_manager.get_block(
                 store,
                 cid,
                 BITSWAP_TIMEOUT,
                 Some(response_channel),
-                peer_validator,
+                None,
             );
         }
         NetworkMessage::JSONRPCRequest { method } => {
@@ -589,8 +573,6 @@ async fn handle_discovery_event(
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
             trace!("Peer disconnected, {peer_id}");
-            // Remove peer id labels for disconnected peers
-            super::metrics::PEER_TIPSET_EPOCH.remove(&super::metrics::PeerLabel::new(peer_id));
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
         DiscoveryEvent::Discovery(discovery_event) => match &*discovery_event {
@@ -645,7 +627,6 @@ async fn handle_gossip_event(
                     emit_event(
                         network_sender_out,
                         NetworkEvent::PubsubMessage {
-                            source,
                             message: PubsubMessage::Block(b),
                         },
                     )
@@ -661,7 +642,6 @@ async fn handle_gossip_event(
                     emit_event(
                         network_sender_out,
                         NetworkEvent::PubsubMessage {
-                            source,
                             message: PubsubMessage::Message(m),
                         },
                     )
