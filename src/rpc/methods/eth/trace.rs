@@ -125,7 +125,7 @@ pub fn build_traces(
     };
 
     let mut sub_env = Environment {
-        caller: trace_to_address(&invoked_actor),
+        caller: trace_to_address(invoked_actor),
         is_evm: is_evm_actor(&invoked_actor.state.code),
         traces: env.traces.clone(),
         ..Environment::default()
@@ -175,9 +175,10 @@ fn build_trace(
     // failed" which is turned into SysErrFatal.
     if !address.is_empty() {
         if let Some(trace) = trace {
-            match trace.msg_rct.exit_code.into() {
-                ExitCodeV4::SYS_INSUFFICIENT_FUNDS => return Ok((None, None)),
-                _ => (),
+            if Into::<ExitCodeV4>::into(trace.msg_rct.exit_code)
+                == ExitCodeV4::SYS_INSUFFICIENT_FUNDS
+            {
+                return Ok((None, None));
             }
         }
     }
@@ -201,12 +202,9 @@ fn build_trace(
     // care if the call _looks_ like an EVM call. If we fail to decode it as an EVM call, we
     // fallback on interpreting it as a native call.
     let method = EVMMethod::from_u64(trace.msg.method);
-    match method {
-        Some(EVMMethod::InvokeContract) => {
-            let (trace, exec_trace) = trace_evm_call(env, address, trace.clone())?;
-            return Ok((Some(trace), Some(exec_trace)));
-        }
-        _ => (),
+    if let Some(EVMMethod::InvokeContract) = method {
+        let (trace, exec_trace) = trace_evm_call(env, address, trace.clone())?;
+        return Ok((Some(trace), Some(exec_trace)));
     }
 
     // Step 3: Decode as a contract deployment
@@ -419,7 +417,7 @@ fn trace_native_create(
                 code: output,
             }),
             trace_address: Vec::from(address),
-            error: trace_err_msg(&trace),
+            error: trace_err_msg(trace),
             ..EthBlockTrace::default()
         }),
         Some(sub_trace.clone()),
