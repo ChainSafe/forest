@@ -516,7 +516,8 @@ pub struct EthBlockTrace {
     pub trace_address: Vec<i64>,
     pub action: TraceAction,
     pub result: TraceResult,
-    pub error: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
     pub block_hash: EthHash,
     pub block_number: i64,
     pub transaction_hash: EthHash,

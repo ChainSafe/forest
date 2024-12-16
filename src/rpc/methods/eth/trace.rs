@@ -65,39 +65,43 @@ fn trace_is_evm_or_eam(trace: &ExecutionTrace) -> bool {
 }
 
 /// Returns true if the trace is a call to an EVM or EAM actor.
-fn trace_err_msg(trace: &ExecutionTrace) -> String {
+fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     let code = trace.msg_rct.exit_code;
 
     if code.is_success() {
-        return "".into();
+        return None;
     }
 
     // EVM tools often expect this literal string.
     if code == ExitCodeV4::SYS_OUT_OF_GAS.into() {
-        return "out of gas".into();
+        return Some("out of gas".into());
     }
 
     // indicate when we have a "system" error.
     if code.value() < ExitCode::FIRST_ACTOR_ERROR_CODE {
-        return format!("vm error: {}", code.value());
+        return Some(format!("vm error: {}", code.value()));
     }
 
     // handle special exit codes from the EVM/EAM.
     if trace_is_evm_or_eam(trace) {
         match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return "Reverted".into(), // capitalized for compatibility
-            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return "invalid instruction".into(),
-            evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => return "undefined instruction".into(),
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return "stack underflow".into(),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return "stack overflow".into(),
-            evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => return "illegal memory access".into(),
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return "invalid jump destination".into(),
-            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return "self destruct failed".into(),
+            evm12::EVM_CONTRACT_REVERTED => return Some("Reverted".into()), // capitalized for compatibility
+            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some("invalid instruction".into()),
+            evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
+                return Some("undefined instruction".into())
+            }
+            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some("stack underflow".into()),
+            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some("stack overflow".into()),
+            evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
+                return Some("illegal memory access".into())
+            }
+            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some("invalid jump destination".into()),
+            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some("self destruct failed".into()),
             _ => (),
         }
     }
     // everything else...
-    format!("actor error: {}", code.value())
+    Some(format!("actor error: {}", code.value()))
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls
