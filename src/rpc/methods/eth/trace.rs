@@ -432,19 +432,21 @@ fn trace_native_create(
 fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, EthAddress)> {
     let init_code = match EAMMethod::from_u64(trace.msg.method) {
         Some(EAMMethod::Create) => {
-            todo!()
+            let params = decode_params::<eam12::CreateParams>(&trace.msg)?;
+            params.initcode
         }
         Some(EAMMethod::Create2) => {
-            todo!()
+            let params = decode_params::<eam12::Create2Params>(&trace.msg)?;
+            params.initcode
         }
         Some(EAMMethod::CreateExternal) => {
-            todo!()
+            decode_payload(&trace.msg.params, trace.msg.params_codec)?.into()
         }
         _ => bail!("unexpected CREATE method {}", trace.msg.method),
     };
-    // let ret = decode_return(&trace.msg_rct)?;
+    let ret = decode_return::<eam12::CreateReturn>(&trace.msg_rct)?;
 
-    Ok((init_code, todo!()))
+    Ok((init_code, ret.eth_address.0.into()))
 }
 
 // Build an EthTrace for an EVM "create" operation. This should only be called with an
