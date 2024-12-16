@@ -84,6 +84,7 @@ methods, fixes (notably to the garbage collection), and other improvements.
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
 
 ### Changed
+
 - [#5053](https://github.com/ChainSafe/forest/pull/5053) Added support for the
   NV25 _Teep_ network upgrade for `2k` and `butterflynet` networks.
 
