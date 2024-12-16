@@ -1535,7 +1535,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
-            EthTraceBlock::request((BlockNumberOrHash::from_block_number(2161775),)).unwrap(),
+            EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
+                .unwrap(),
         ),
     ];
 
