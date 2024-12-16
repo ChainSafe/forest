@@ -2,18 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    cmp::Ordering,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use crate::{
-    blocks::{Tipset, TipsetKey},
-    shim::clock::ChainEpoch,
-};
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
-use itertools::Either;
 use parking_lot::RwLock;
 use rand::seq::SliceRandom;
 use tracing::{debug, trace, warn};
@@ -31,35 +25,15 @@ const LOCAL_INV_ALPHA: u32 = 5;
 /// Global duration multiplier, affects duration delta change.
 const GLOBAL_INV_ALPHA: u32 = 20;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// Contains info about the peer's head [Tipset], as well as the request stats.
 struct PeerInfo {
-    /// Head tipset key received from hello message or gossip sub message.
-    head: Either<TipsetKey, Arc<Tipset>>,
     /// Number of successful requests.
     successes: u32,
     /// Number of failed requests.
     failures: u32,
     /// Average response time for the peer.
     average_time: Duration,
-}
-
-impl PeerInfo {
-    fn new(head: Either<TipsetKey, Arc<Tipset>>) -> Self {
-        Self {
-            head,
-            successes: 0,
-            failures: 0,
-            average_time: Default::default(),
-        }
-    }
-
-    fn head_epoch(&self) -> Option<ChainEpoch> {
-        match &self.head {
-            Either::Left(_) => None,
-            Either::Right(ts) => Some(ts.epoch()),
-        }
-    }
 }
 
 /// Peer tracking sets, these are handled together to avoid race conditions or
@@ -105,36 +79,17 @@ impl Default for PeerManager {
 }
 
 impl PeerManager {
-    /// Updates peer's heaviest tipset. If the peer does not exist in the set, a
-    /// new `PeerInfo` will be generated.
-    pub fn update_peer_head(&self, peer_id: PeerId, head: Either<TipsetKey, Arc<Tipset>>) {
-        let mut peers = self.peers.write();
-        trace!("Updating head for PeerId {}", &peer_id);
-        let head_epoch = if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
-            pi.head = head;
-            pi.head_epoch()
-        } else {
-            let pi = PeerInfo::new(head);
-            let head_epoch = pi.head_epoch();
-            peers.full_peers.insert(peer_id, pi);
-            metrics::FULL_PEERS.set(peers.full_peers.len() as _);
-            head_epoch
-        };
-        metrics::PEER_TIPSET_EPOCH
-            .get_or_create(&metrics::PeerLabel::new(peer_id))
-            .set(head_epoch.unwrap_or(-1));
-    }
-
-    /// Gets the head epoch of a peer
-    pub fn get_peer_head_epoch(&self, peer_id: &PeerId) -> Option<i64> {
-        let peers = self.peers.read();
-        peers.full_peers.get(peer_id).and_then(|pi| pi.head_epoch())
-    }
-
     /// Returns true if peer is not marked as bad or not already in set.
     pub fn is_peer_new(&self, peer_id: &PeerId) -> bool {
         let peers = self.peers.read();
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
+    }
+
+    /// Mark peer as active even if we haven't communicated with it yet.
+    #[cfg(test)]
+    pub fn touch_peer(&self, peer_id: &PeerId) {
+        let mut peers = self.peers.write();
+        peers.full_peers.entry(*peer_id).or_default();
     }
 
     /// Sort peers based on a score function with the success rate and latency
@@ -142,16 +97,10 @@ impl PeerManager {
     pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {
         let peer_lk = self.peers.read();
         let average_time = self.avg_global_time.read();
-        let mut n_stateful = 0;
         let mut peers: Vec<_> = peer_lk
             .full_peers
             .iter()
             .map(|(&p, info)| {
-                let is_stateful = info.head_epoch() != Some(0);
-                if is_stateful {
-                    n_stateful += 1;
-                }
-
                 let cost = if info.successes + info.failures > 0 {
                     // Calculate cost based on fail rate and latency
                     // Note that when `success` is zero, the result is `inf`
@@ -161,32 +110,14 @@ impl PeerManager {
                     // There have been no failures or successes
                     average_time.as_secs_f64() * NEW_PEER_MUL
                 };
-                (p, is_stateful, cost)
+                (p, cost)
             })
             .collect();
 
         // Unstable sort because hashmap iter order doesn't need to be preserved.
-        peers.sort_unstable_by(|(_, _, v1), (_, _, v2)| {
-            v1.partial_cmp(v2).unwrap_or(Ordering::Equal)
-        });
+        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.total_cmp(v2));
 
-        // Filter out nodes that are stateless when `n_stateful > 0`
-        if n_stateful > 0 {
-            peers
-                .into_iter()
-                .filter_map(
-                    |(peer, is_stateful, _)| {
-                        if is_stateful {
-                            Some(peer)
-                        } else {
-                            None
-                        }
-                    },
-                )
-                .collect()
-        } else {
-            peers.into_iter().map(|(peer, _, _)| peer).collect()
-        }
+        peers.into_iter().map(|(peer, _)| peer).collect()
     }
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering
@@ -228,10 +159,9 @@ impl PeerManager {
         if peers.bad_peers.remove(peer) {
             metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         };
-        if let Some(peer_stats) = peers.full_peers.get_mut(peer) {
-            peer_stats.successes += 1;
-            log_time(peer_stats, dur);
-        }
+        let peer_stats = peers.full_peers.entry(*peer).or_default();
+        peer_stats.successes += 1;
+        log_time(peer_stats, dur);
     }
 
     /// Logs a failure for the given peer, and updates the average request
@@ -241,10 +171,9 @@ impl PeerManager {
         let mut peers = self.peers.write();
         if !peers.bad_peers.contains(peer) {
             metrics::PEER_FAILURE_TOTAL.inc();
-            if let Some(peer_stats) = peers.full_peers.get_mut(peer) {
-                peer_stats.failures += 1;
-                log_time(peer_stats, dur);
-            }
+            let peer_stats = peers.full_peers.entry(*peer).or_default();
+            peer_stats.failures += 1;
+            log_time(peer_stats, dur);
         }
     }
 

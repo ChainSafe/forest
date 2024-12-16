@@ -36,6 +36,9 @@
 
 ### Removed
 
+- [#5077](https://github.com/ChainSafe/forest/pull/5077) Remove
+  `peer_tipset_epoch` from the metrics.
+
 ### Fixed
 
 ## Forest v.0.23.2 "Feint"
