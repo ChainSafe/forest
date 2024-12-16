@@ -264,7 +264,9 @@ impl ApiCommands {
                     {
                         Ok(_) => {
                             let snapshot = {
-                                let db = tracking_db.tracker.serialize()?;
+                                tracking_db.ensure_chain_head_is_tracked()?;
+                                let mut db = vec![];
+                                tracking_db.export_forest_car(&mut db).await?;
                                 RpcTestSnapshot {
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,

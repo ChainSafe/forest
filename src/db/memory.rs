@@ -1,18 +1,20 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EthMappingsStore, SettingsStore};
+use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
+use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::db::{GarbageCollectable, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
+use crate::utils::db::car_stream::CarBlock;
 use crate::utils::multihash::prelude::*;
 use ahash::HashMap;
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use parking_lot::RwLock;
-use std::ops::Deref;
 
 #[derive(Debug, Default)]
 pub struct MemoryDB {
@@ -23,29 +25,31 @@ pub struct MemoryDB {
 }
 
 impl MemoryDB {
-    pub fn serialize(&self) -> anyhow::Result<Vec<u8>> {
-        let blockchain_db = self.blockchain_db.read();
-        let blockchain_persistent_db = self.blockchain_persistent_db.read();
-        let settings_db = self.settings_db.read();
-        let eth_mappings_db = self.eth_mappings_db.read();
-        let tuple = (
-            blockchain_db.deref(),
-            blockchain_persistent_db.deref(),
-            settings_db.deref(),
-            eth_mappings_db.deref(),
-        );
-        Ok(fvm_ipld_encoding::to_vec(&tuple)?)
-    }
-
-    pub fn deserialize_from(bytes: &[u8]) -> anyhow::Result<Self> {
-        let (blockchain_db, blockchain_persistent_db, settings_db, eth_mappings_db) =
-            fvm_ipld_encoding::from_slice(bytes)?;
-        Ok(Self {
-            blockchain_db: RwLock::new(blockchain_db),
-            blockchain_persistent_db: RwLock::new(blockchain_persistent_db),
-            settings_db: RwLock::new(settings_db),
-            eth_mappings_db: RwLock::new(eth_mappings_db),
-        })
+    pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
+        &self,
+        writer: &mut W,
+    ) -> anyhow::Result<()> {
+        let roots =
+            SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
+                .context("chain head is not tracked and cannot be exported")?
+                .into_cids();
+        let blocks = {
+            let blockchain_db = self.blockchain_db.read();
+            let blockchain_persistent_db = self.blockchain_persistent_db.read();
+            blockchain_db
+                .iter()
+                .chain(blockchain_persistent_db.iter())
+                .map(|(&cid, data)| {
+                    anyhow::Ok(CarBlock {
+                        cid,
+                        data: data.clone(),
+                    })
+                })
+                .collect_vec()
+        };
+        let frames =
+            crate::db::car::forest::Encoder::compress_stream_default(futures::stream::iter(blocks));
+        crate::db::car::forest::Encoder::write(writer, roots, frames).await
     }
 }
 

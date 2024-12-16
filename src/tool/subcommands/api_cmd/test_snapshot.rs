@@ -4,7 +4,10 @@
 use crate::{
     chain::ChainStore,
     chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
-    db::MemoryDB,
+    db::{
+        car::{AnyCar, ManyCar},
+        MemoryDB,
+    },
     genesis::{get_network_name_from_genesis, read_genesis_header},
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
@@ -39,24 +42,29 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     } else {
         snapshot_bytes
     };
-    let snapshot: RpcTestSnapshot = serde_json::from_slice(snapshot_bytes.as_slice())?;
-    let db = Arc::new(MemoryDB::deserialize_from(snapshot.db.as_slice())?);
+    let RpcTestSnapshot {
+        name: method_name,
+        params,
+        db: db_bytes,
+        response: expected_response,
+    } = serde_json::from_slice(snapshot_bytes.as_slice())?;
+    let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
     let chain_config = Arc::new(ChainConfig::calibnet());
     let (ctx, _, _) = ctx(db, chain_config).await?;
-    let params_raw = match serde_json::to_string(&snapshot.params)? {
+    let params_raw = match serde_json::to_string(&params)? {
         s if s.is_empty() => None,
         s => Some(s),
     };
 
     macro_rules! run_test {
         ($ty:ty) => {
-            if snapshot.name.as_str() == <$ty>::NAME {
+            if method_name.as_str() == <$ty>::NAME {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await
                     .map_err(|e| e.to_string())
                     .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
-                assert_eq!(snapshot.response, result);
+                assert_eq!(expected_response, result);
                 run = true;
             }
         };
@@ -70,10 +78,10 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
 }
 
 async fn ctx(
-    db: Arc<MemoryDB>,
+    db: Arc<ManyCar<MemoryDB>>,
     chain_config: Arc<ChainConfig>,
 ) -> anyhow::Result<(
-    Arc<RPCState<MemoryDB>>,
+    Arc<RPCState<ManyCar<MemoryDB>>>,
     flume::Receiver<NetworkMessage>,
     tokio::sync::mpsc::Receiver<()>,
 )> {
@@ -143,10 +151,8 @@ mod tests {
             .split("\n")
             .filter_map(|n| {
                 Url::parse(
-                    format!(
-                        "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
-                    )
-                    .as_str(),
+                    format!("https://forest-snapshots.fra1.digitaloceanspaces.com/rpc_test/{n}")
+                        .as_str(),
                 )
                 .ok()
             })
