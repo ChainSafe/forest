@@ -2689,11 +2689,14 @@ impl RpcMethod<1> for EthTraceBlock {
         let block_hash: EthHash = cid.into();
 
         let mut all_traces = vec![];
-        for (msg_idx, ir) in trace.iter().enumerate() {
+        let mut msg_idx = 0;
+        for ir in trace.into_iter() {
             // ignore messages from system actor
             if ir.msg.from == system::ADDRESS.into() {
                 continue;
             }
+
+            msg_idx += 1;
 
             let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
 
