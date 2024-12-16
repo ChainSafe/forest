@@ -2019,14 +2019,14 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (BlockNumberOrHash, EthUint64);
+    type Params = (BlockNumberOrPredefined, EthUint64);
     type Ok = Option<ApiEthTx>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param.into())?;
 
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 

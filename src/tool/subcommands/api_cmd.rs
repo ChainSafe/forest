@@ -1503,7 +1503,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         ),
         RpcTest::identity(
             EthGetTransactionByBlockNumberAndIndex::request((
-                (shared_tipset.epoch() as u64).into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
                 0.into(),
             ))
             .unwrap(),
