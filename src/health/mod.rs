@@ -63,13 +63,8 @@ mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use crate::db::SettingsExt;
-    use crate::{
-        blocks::{CachingBlockHeader, Tipset},
-        chain_sync::SyncStage,
-        Client,
-    };
+    use crate::{chain_sync::SyncStage, Client};
 
-    use itertools::Either;
     use reqwest::StatusCode;
 
     use super::*;
@@ -201,12 +196,7 @@ mod test {
         // instrument the state so that the live requirements are met
         sync_state.write().set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
-        peer_manager.update_peer_head(
-            peer,
-            Either::Right(Arc::new(
-                Tipset::new(vec![CachingBlockHeader::default()]).unwrap(),
-            )),
-        );
+        peer_manager.touch_peer(&peer);
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -283,12 +273,7 @@ mod test {
         sync_state.write().set_epoch(i64::MAX);
         sync_state.write().set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
-        peer_manager.update_peer_head(
-            peer,
-            Either::Right(Arc::new(
-                Tipset::new(vec![CachingBlockHeader::default()]).unwrap(),
-            )),
-        );
+        peer_manager.touch_peer(&peer);
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
