@@ -33,7 +33,7 @@ use crate::{
 use cid::Cid;
 use futures::{future::Future, stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use itertools::{Either, Itertools};
+use itertools::Itertools;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -295,7 +295,7 @@ where
         }
     }
 
-    async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
+    fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
         network.peer_manager().remove_peer(&peer_id);
         network.peer_manager().unmark_peer_bad(&peer_id);
     }
@@ -321,7 +321,7 @@ where
         block_delay: u32,
         stateless_mode: bool,
     ) -> Result<Option<FullTipset>, ChainMuxerError> {
-        let (tipset, source) = match event {
+        let tipset = match event {
             NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
@@ -333,29 +333,14 @@ where
                     .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
                     .inc();
                 let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
-                network.peer_manager().update_peer_head(
-                    source,
-                    if let Ok(Some(ts)) = Tipset::load(chain_store.blockstore(), &tipset_keys) {
-                        Either::Right(Arc::new(ts))
-                    } else {
-                        Either::Left(tipset_keys.clone())
-                    },
-                );
-                let tipset = match Self::get_full_tipset(
+                Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
                     Some(source),
                     tipset_keys,
                 )
                 .await
-                {
-                    Ok(tipset) => tipset,
-                    Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
-                        return Err(why);
-                    }
-                };
-                (tipset, source)
+                .inspect_err(|e| debug!("Querying full tipset failed: {}", e))?
             }
             NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -386,14 +371,10 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
-                // Spawn and immediately move on to the next event
-                tokio::task::spawn(Self::handle_peer_disconnected_event(
-                    network.clone(),
-                    peer_id,
-                ));
+                Self::handle_peer_disconnected_event(network.clone(), peer_id);
                 return Ok(None);
             }
-            NetworkEvent::PubsubMessage { source, message } => match message {
+            NetworkEvent::PubsubMessage { message } => match message {
                 PubsubMessage::Block(b) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
                         .get_or_create(&metrics::values::PUBSUB_BLOCK)
@@ -402,14 +383,13 @@ where
                         return Ok(None);
                     }
                     // Assemble full tipset from block only in stateful mode
-                    let tipset = Self::get_full_tipset(
+                    Self::get_full_tipset(
                         network.clone(),
                         chain_store.clone(),
                         None,
                         TipsetKey::from(nunny::vec![*b.header.cid()]),
                     )
-                    .await?;
-                    (tipset, source)
+                    .await?
                 }
                 PubsubMessage::Message(m) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
@@ -447,17 +427,11 @@ where
             }
         };
 
-        // Update the peer head
-        network.peer_manager().update_peer_head(
-            source,
-            Either::Right(Arc::new(tipset.clone().into_tipset())),
-        );
-
         if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
             < chain_store.heaviest_tipset().epoch()
         {
             debug!(
-                "Skip processing tipset at epoch {} from {source} that is too old",
+                "Skip processing tipset at epoch {} that is too old",
                 tipset.epoch()
             );
             return Ok(None);
