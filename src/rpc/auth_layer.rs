@@ -32,7 +32,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
             }
         };
     }
-    super::for_each_method!(insert);
+    super::for_each_rpc_method!(insert);
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);
