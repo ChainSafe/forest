@@ -43,5 +43,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_PAGES_ACCOUNT_ID }}
-          command: pages deploy ./build --project-name=forest-docs
+          command: pages deploy ./docs/build --project-name=forest-docs
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
