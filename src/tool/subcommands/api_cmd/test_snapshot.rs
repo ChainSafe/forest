@@ -90,18 +90,17 @@ async fn ctx(
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-
     let chain_store = Arc::new(
         ChainStore::new(
             db.clone(),
             db.clone(),
-            db,
+            db.clone(),
             chain_config.clone(),
             genesis_header.clone(),
         )
         .unwrap(),
     );
-
+    chain_store.set_heaviest_tipset(db.heaviest_tipset()?.into())?;
     let state_manager =
         Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
