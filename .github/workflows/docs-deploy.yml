@@ -1,11 +1,21 @@
 name: Docs Deploy
+
 on:
   push:
     branches:
       - main
+    paths:
+      - '/docs'
+      - '.github/workflows/docs.yml'
+      - '.github/workflows/docs-deploy.yml'
+  merge_group:
   pull_request:
     branches:
-      - "**"
+      - main
+    paths:
+      - '/docs'
+      - '.github/workflows/docs.yml'
+      - '.github/workflows/docs-deploy.yml'
 
 permissions:
   contents: read
