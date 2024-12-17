@@ -465,6 +465,7 @@ impl RpcMethod<1> for StateMarketDeals {
                 last_updated_epoch: -1,
                 slash_epoch: -1,
                 verified_claim: 0,
+                sector_number: 0,
             });
             out.insert(
                 deal_id.to_string(),
