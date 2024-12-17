@@ -110,12 +110,16 @@ pub fn build_traces(
     address: &[i64],
     trace: &Option<ExecutionTrace>,
 ) -> anyhow::Result<()> {
-    let (mut trace, recurse_into) = build_trace(env, address, trace)?;
+    let (trace, recurse_into) = build_trace(env, address, trace)?;
 
-    if let Some(trace) = &trace {
+    let last_trace_idx = if let Some(trace) = &trace {
+        let len = env.traces.len();
         env.traces.push(trace.clone());
         env.subtrace_count += 1;
-    }
+        Some(len)
+    } else {
+        None
+    };
 
     // Skip if there's nothing more to do and/or `build_trace` told us to skip this one.
     let (recurse_into, invoked_actor) = if let Some(ref trace) = recurse_into {
@@ -134,18 +138,15 @@ pub fn build_traces(
         traces: env.traces.clone(),
         ..Environment::default()
     };
-    // Set capacity to the length so each `push` below creates a new slice. Otherwise, we'll
-    // end up repeatedly mutating previous paths.
-    // TODO(elmattic): understand slicing logic
     for subcall in recurse_into.subcalls.iter() {
         let mut new_address = address.to_vec();
         new_address.push(sub_env.subtrace_count);
         build_traces(&mut sub_env, &new_address, &Some(subcall.clone()))?;
     }
-    if let Some(trace) = &mut trace {
-        trace.subtraces = sub_env.subtrace_count;
-    }
     env.traces = sub_env.traces;
+    if let Some(idx) = last_trace_idx {
+        env.traces.get_mut(idx).expect("Infallible").subtraces = sub_env.subtrace_count;
+    }
 
     Ok(())
 }
