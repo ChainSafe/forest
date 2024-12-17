@@ -434,7 +434,10 @@ impl TryFrom<&fil_actor_market_state::v9::DealProposal> for DealProposal {
             provider: deal_proposal.provider,
             label: match &deal_proposal.label {
                 fil_actor_market_state::v9::Label::String(s) => s.clone(),
-                fil_actor_market_state::v9::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v9::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v9::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -459,7 +462,10 @@ impl TryFrom<&fil_actor_market_state::v10::DealProposal> for DealProposal {
             provider: from_address_v3_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v10::Label::String(s) => s.clone(),
-                fil_actor_market_state::v10::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v10::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v10::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -484,7 +490,10 @@ impl TryFrom<&fil_actor_market_state::v11::DealProposal> for DealProposal {
             provider: from_address_v3_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v11::Label::String(s) => s.clone(),
-                fil_actor_market_state::v11::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v11::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v11::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -509,7 +518,10 @@ impl TryFrom<&fil_actor_market_state::v12::DealProposal> for DealProposal {
             provider: from_address_v4_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v12::Label::String(s) => s.clone(),
-                fil_actor_market_state::v12::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v12::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v12::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -534,7 +546,10 @@ impl TryFrom<&fil_actor_market_state::v13::DealProposal> for DealProposal {
             provider: from_address_v4_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v13::Label::String(s) => s.clone(),
-                fil_actor_market_state::v13::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v13::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v13::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -559,7 +574,10 @@ impl TryFrom<&fil_actor_market_state::v14::DealProposal> for DealProposal {
             provider: from_address_v4_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v14::Label::String(s) => s.clone(),
-                fil_actor_market_state::v14::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v14::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v14::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -584,7 +602,10 @@ impl TryFrom<&fil_actor_market_state::v15::DealProposal> for DealProposal {
             provider: from_address_v4_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v15::Label::String(s) => s.clone(),
-                fil_actor_market_state::v15::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v15::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v15::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -609,7 +630,10 @@ impl TryFrom<&fil_actor_market_state::v16::DealProposal> for DealProposal {
             provider: from_address_v4_to_v2(deal_proposal.provider),
             label: match &deal_proposal.label {
                 fil_actor_market_state::v16::Label::String(s) => s.clone(),
-                fil_actor_market_state::v16::Label::Bytes(b) => String::from_utf8(b.clone())?,
+                fil_actor_market_state::v16::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v16::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
             },
             start_epoch: deal_proposal.start_epoch,
             end_epoch: deal_proposal.end_epoch,
@@ -643,54 +667,63 @@ where
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: deal_state.verified_claim,
+                sector_number: 0,
             })),
             DealStates::V9(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: deal_state.verified_claim,
+                sector_number: 0,
             })),
             DealStates::V10(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: deal_state.verified_claim,
+                sector_number: 0,
             })),
             DealStates::V11(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: deal_state.verified_claim,
+                sector_number: 0,
             })),
             DealStates::V12(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: deal_state.verified_claim,
+                sector_number: 0,
             })),
             DealStates::V13(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: 0,
+                sector_number: deal_state.sector_number,
             })),
             DealStates::V14(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: 0,
+                sector_number: deal_state.sector_number,
             })),
             DealStates::V15(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: 0,
+                sector_number: deal_state.sector_number,
             })),
             DealStates::V16(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
                 sector_start_epoch: deal_state.sector_start_epoch,
                 last_updated_epoch: deal_state.last_updated_epoch,
                 slash_epoch: deal_state.slash_epoch,
                 verified_claim: 0,
+                sector_number: deal_state.sector_number,
             })),
         }
     }
@@ -703,6 +736,7 @@ pub struct DealState {
     pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
     pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
     pub verified_claim: AllocationID, // ID of the verified registry allocation/claim for this deal's data (0 if none).
+    pub sector_number: u64, // 0 if not yet included in proven sector (0 is also a valid sector number)
 }
 
 impl DealState {
@@ -713,6 +747,7 @@ impl DealState {
             last_updated_epoch: -1,
             slash_epoch: -1,
             verified_claim: 0,
+            sector_number: 0,
         }
     }
 }
