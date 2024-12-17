@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
+  `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
+
 ### Changed
 
 ### Removed
@@ -82,6 +85,8 @@ methods, fixes (notably to the garbage collection), and other improvements.
 
 - [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
   `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
+
+### Changed
 
 - [#5053](https://github.com/ChainSafe/forest/pull/5053) Added support for the
   NV25 _Teep_ network upgrade for `2k` and `butterflynet` networks.
