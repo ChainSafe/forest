@@ -249,8 +249,10 @@ fn build_trace(
         return trace_evm_private(env, address, trace);
     }
 
-    let trace = trace_native_call(env, address, trace)?;
-    Ok((Some(trace), None))
+    Ok((
+        Some(trace_native_call(env, address, trace)?),
+        Some(trace.clone()),
+    ))
 }
 
 // Build an EthTrace for a "call" with the given input & output.
