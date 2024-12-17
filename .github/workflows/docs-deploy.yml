@@ -1,0 +1,47 @@
+name: Docs Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '/docs'
+      - '.github/workflows/docs-deploy.yml'
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '/docs'
+      - '.github/workflows/docs-deploy.yml'
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+jobs:
+  docs-deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+        # See https://github.com/actions/setup-node/issues/1027
+        # cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - run: yarn run build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_PAGES_ACCOUNT_ID }}
+          command: pages deploy ./docs/build --project-name=forest-docs
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
