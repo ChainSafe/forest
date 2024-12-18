@@ -45,7 +45,6 @@ jobs:
         with:
           title: Link Checker Report
           content-filepath: ./lychee-report.md
-          labels: automated issue
 
       - name: Fail job on error
         if: env.lychee_exit_code != 0 && github.event_name != 'schedule'

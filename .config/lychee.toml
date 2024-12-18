@@ -4,11 +4,15 @@
 
 verbose = "debug"
 no_progress = true
-exclude_path = ["./node_modules", "./docs/node_modules", "./documentation", "./target"]
+exclude_path = [
+    "./node_modules",
+    "./docs/node_modules",
+    "./documentation",
+    "./target"
+]
 exclude = [
-#    "open-rpc.org",
+    # Avoid Github rate limits
     "github.com/ChainSafe/forest",
-#    "twitter.com",
     # Requires CAPTCHA verification
     "faucet.calibnet.chainsafe-fil.io/funds.html"
 ]
