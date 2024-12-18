@@ -22,7 +22,7 @@ on:
 
 jobs:
   docs-check:
-    name: Lint & Build
+    name: Check
     runs-on: ubuntu-latest
     defaults:
       run:
