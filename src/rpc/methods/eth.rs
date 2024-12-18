@@ -94,6 +94,9 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
+// TODO(elmattic): move this to ref-fvm for consistency
+pub const IDENTITY: u64 = 0x00;
+
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
@@ -924,6 +927,9 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 /// Decodes the payload using the given codec.
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
+        IDENTITY => {
+            return Ok(EthBytes::default());
+        }
         DAG_CBOR | CBOR => {
             let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
             match Value::decode(&mut reader) {
