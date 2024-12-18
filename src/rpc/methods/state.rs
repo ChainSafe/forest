@@ -2801,8 +2801,17 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
     }
 }
 
-pub enum StateMinerInitialPledgeForSector {}
+fn sector_size_to_bytes(sector_size: SectorSize) -> u64 {
+    match sector_size {
+        SectorSize::_2KiB => 2 * 1024,
+        SectorSize::_8MiB => 8 * 1024 * 1024,
+        SectorSize::_512MiB => 512 * 1024 * 1024,
+        SectorSize::_32GiB => 32 * 1024 * 1024 * 1024,
+        SectorSize::_64GiB => 64 * 1024 * 1024 * 1024,
+    }
+}
 
+pub enum StateMinerInitialPledgeForSector {}
 impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
     const PARAM_NAMES: [&'static str; 4] = [
@@ -2824,19 +2833,13 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         if sector_duration <= 0 {
             return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
         }
-        let sec_size: u64 = match sector_size {
-            SectorSize::_2KiB => 2 * 1024,
-            SectorSize::_8MiB => 8 * 1024 * 1024,
-            SectorSize::_512MiB => 512 * 1024 * 1024,
-            SectorSize::_32GiB => 32 * 1024 * 1024 * 1024,
-            SectorSize::_64GiB => 64 * 1024 * 1024 * 1024,
-        };
 
+        let sec_size = sector_size_to_bytes(sector_size);
         if sec_size == 0 {
             return Err(anyhow::anyhow!("sector size must be non-zero").into());
         }
 
-        if sec_size < verified_size {
+        if verified_size > sec_size {
             return Err(
                 anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
             );
@@ -2847,6 +2850,8 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
         let pledge_collateral = power_state.total_locked();
+        let ramp_start_epoch = power_state.ramp_start_epoch();
+        let ramp_duration_epochs = power_state.ramp_duration_epochs();
 
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
 
@@ -2872,8 +2877,8 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
-                power_state.ramp_start_epoch(),
-                power_state.ramp_duration_epochs(),
+                ramp_start_epoch,
+                ramp_duration_epochs,
             )?
             .into();
 
