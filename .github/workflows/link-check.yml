@@ -37,7 +37,7 @@ jobs:
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config './.config/lychee.toml'  '**/*.{md,mdx,html}'
+          args: "--config ./.config/lychee.toml  **/*.{md,mdx,html}"
 
       - name: Create Issue From File
         if: env.lychee_exit_code != 0 && github.event_name == 'schedule'
