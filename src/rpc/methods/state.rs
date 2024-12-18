@@ -2821,6 +2821,27 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (sector_duration, sector_size, verified_size, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        if sector_duration <= 0 {
+            return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
+        }
+        let sec_size: u64 = match sector_size {
+            SectorSize::_2KiB => 2 * 1024,
+            SectorSize::_8MiB => 8 * 1024 * 1024,
+            SectorSize::_512MiB => 512 * 1024 * 1024,
+            SectorSize::_32GiB => 32 * 1024 * 1024 * 1024,
+            SectorSize::_64GiB => 64 * 1024 * 1024 * 1024,
+        };
+
+        if sec_size == 0 {
+            return Err(anyhow::anyhow!("sector size must be non-zero").into());
+        }
+
+        if sec_size < verified_size {
+            return Err(
+                anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
+            );
+        }
+
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
