@@ -2,9 +2,18 @@
 # See the github actions workflows to see the inputs
 # https://github.com/lycheeverse/lychee/blob/2109470dc380eaf66944b6bcfa86230e0a58e58f/lychee-bin/src/options.rs#L152
 
-verbose = "debug"
-no_progress = true
-exclude = ["twitter.com"]
+verbose = "trace"
+no_progress = false
+exclude_path = ["./node_modules", "./docs/node_modules", "./documentation", "./target"]
+exclude = [
+    "open-rpc.org",
+    "github.com",
+    "twitter.com",
+    # Requires CAPTCHA verification
+    "faucet.calibnet.chainsafe-fil.io/funds.html"
+]
 timeout = 60
 max_retries = 6
 retry_wait_time = 10
+
+output = "lychee-report.md"
