@@ -20,6 +20,7 @@ use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, Permission};
 use crate::shim::actors::market;
 use crate::shim::actors::MarketActorStateLoad as _;
+use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -810,6 +811,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
     let mut tests = vec![
         RpcTest::identity(StateNetworkName::request(())?),
         RpcTest::identity(StateGetNetworkParams::request(())?),
+        RpcTest::identity(StateMinerInitialPledgeForSector::request((
+            1,
+            SectorSize::_2KiB,
+            1024,
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),

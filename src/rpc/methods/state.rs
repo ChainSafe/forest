@@ -2800,3 +2800,63 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
         })
     }
 }
+
+pub enum StateMinerInitialPledgeForSector {}
+
+impl RpcMethod<4> for StateMinerInitialPledgeForSector {
+    const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
+    const PARAM_NAMES: [&'static str; 4] = [
+        "sector_duration",
+        "sector_size",
+        "verified_size",
+        "tipset_key",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
+    type Ok = TokenAmount;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sector_duration, sector_size, verified_size, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let power_smoothed = power_state.total_power_smoothed();
+        let pledge_collateral = power_state.total_locked();
+
+        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
+        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
+            ts.epoch(),
+            &ctx.store_owned(),
+            ts.parent_state(),
+        )?;
+
+        let deal_weight = BigInt::from(0);
+        let verified_deal_weight = BigInt::from(verified_size) * sector_duration;
+        let sector_weight = qa_power_for_weight(
+            sector_size.into(),
+            sector_duration,
+            &deal_weight,
+            &verified_deal_weight,
+        );
+
+        let initial_pledge: TokenAmount = reward_state
+            .initial_pledge_for_power(
+                &sector_weight,
+                pledge_collateral,
+                power_smoothed,
+                &circ_supply.fil_circulating.into(),
+                power_state.ramp_start_epoch(),
+                power_state.ramp_duration_epochs(),
+            )?
+            .into();
+
+        let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(value)
+    }
+}
