@@ -927,9 +927,7 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 /// Decodes the payload using the given codec.
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
-        IDENTITY => {
-            return Ok(EthBytes::default());
-        }
+        IDENTITY => Ok(EthBytes::default()),
         DAG_CBOR | CBOR => {
             let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
             match Value::decode(&mut reader) {
