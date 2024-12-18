@@ -1169,9 +1169,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         &gas_premium.0.into(),
     );
 
-    let total_spent: BigInt =
-        (gas_outputs.base_fee_burn + gas_outputs.miner_tip + gas_outputs.over_estimation_burn)
-            .into();
+    let total_spent: BigInt = gas_outputs.total_spent().into();
 
     let mut effective_gas_price = EthBigInt::default();
     if message_lookup.receipt.gas_used() > 0 {
