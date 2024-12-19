@@ -2801,16 +2801,6 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
     }
 }
 
-fn sector_size_to_bytes(sector_size: SectorSize) -> u64 {
-    match sector_size {
-        SectorSize::_2KiB => 2 * 1024,
-        SectorSize::_8MiB => 8 * 1024 * 1024,
-        SectorSize::_512MiB => 512 * 1024 * 1024,
-        SectorSize::_32GiB => 32 * 1024 * 1024 * 1024,
-        SectorSize::_64GiB => 64 * 1024 * 1024 * 1024,
-    }
-}
-
 pub enum StateMinerInitialPledgeForSector {}
 impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
@@ -2834,10 +2824,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
         }
 
-        let sec_size = sector_size_to_bytes(sector_size);
-        if sec_size == 0 {
-            return Err(anyhow::anyhow!("sector size must be non-zero").into());
-        }
+        let sec_size: u64 = sector_size as u64;
 
         if verified_size > sec_size {
             return Err(
@@ -2847,11 +2834,11 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
+        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts).await?;
+
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
         let pledge_collateral = power_state.total_locked();
-        let ramp_start_epoch = power_state.ramp_start_epoch();
-        let ramp_duration_epochs = power_state.ramp_duration_epochs();
 
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
 
@@ -2877,12 +2864,33 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
                 pledge_collateral,
                 power_smoothed,
                 &circ_supply.fil_circulating.into(),
-                ramp_start_epoch,
-                ramp_duration_epochs,
+                epochs_since_start,
+                duration,
             )?
             .into();
 
         let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
+    }
+}
+
+async fn get_pledge_ramp_params(
+    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    height: ChainEpoch,
+    ts: &Tipset,
+) -> Result<(i64, u64), anyhow::Error> {
+    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+
+    let power_state: power::State = state_tree
+        .get_actor_state()
+        .map_err(|e| anyhow::anyhow!("loading power actor state: {e}"))?;
+
+    if power_state.ramp_start_epoch() > 0 {
+        Ok((
+            height - power_state.ramp_start_epoch(),
+            power_state.ramp_duration_epochs(),
+        ))
+    } else {
+        Ok((0, 0))
     }
 }
