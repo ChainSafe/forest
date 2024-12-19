@@ -18,7 +18,7 @@ use fvm_ipld_encoding::RawBytes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -50,7 +50,7 @@ impl PartialEq for ApiInvocResult {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
@@ -108,6 +108,18 @@ pub struct ExecutionTrace {
     pub subcalls: Vec<ExecutionTrace>,
 }
 
+impl ExecutionTrace {
+    pub fn sum_gas(&self) -> GasTrace {
+        let mut out: GasTrace = GasTrace::default();
+        for gc in self.gas_charges.iter() {
+            out.total_gas += gc.total_gas;
+            out.compute_gas += gc.compute_gas;
+            out.storage_gas += gc.storage_gas;
+        }
+        out
+    }
+}
+
 lotus_json_with_self!(ExecutionTrace);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -156,7 +168,7 @@ pub struct ReturnTrace {
 
 lotus_json_with_self!(ReturnTrace);
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GasTrace {
     pub name: String,
