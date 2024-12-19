@@ -2732,7 +2732,7 @@ impl RpcMethod<1> for EthTraceBlock {
             let mut env = trace::base_environment(&state, &ir.msg.from)
                 .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
 
-            trace::build_traces(&mut env, &[], &ir.execution_trace)?;
+            trace::build_traces(&mut env, &[], ir.execution_trace)?;
 
             for trace in env.traces {
                 all_traces.push(EthBlockTrace {

@@ -108,13 +108,13 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 pub fn build_traces(
     env: &mut Environment,
     address: &[i64],
-    trace: &Option<ExecutionTrace>,
+    trace: Option<ExecutionTrace>,
 ) -> anyhow::Result<()> {
     let (trace, recurse_into) = build_trace(env, address, trace)?;
 
-    let last_trace_idx = if let Some(trace) = &trace {
+    let last_trace_idx = if let Some(trace) = trace {
         let len = env.traces.len();
-        env.traces.push(trace.clone());
+        env.traces.push(trace);
         env.subtrace_count += 1;
         Some(len)
     } else {
@@ -122,8 +122,9 @@ pub fn build_traces(
     };
 
     // Skip if there's nothing more to do and/or `build_trace` told us to skip this one.
-    let (recurse_into, invoked_actor) = if let Some(ref trace) = recurse_into {
-        if let Some(ref invoked_actor) = trace.invoked_actor {
+    let (recurse_into, invoked_actor) = if let Some(trace) = recurse_into {
+        if let Some(invoked_actor) = &trace.invoked_actor {
+            let invoked_actor = invoked_actor.clone();
             (trace, invoked_actor)
         } else {
             return Ok(());
@@ -133,15 +134,15 @@ pub fn build_traces(
     };
 
     let mut sub_env = Environment {
-        caller: trace_to_address(invoked_actor),
+        caller: trace_to_address(&invoked_actor),
         is_evm: is_evm_actor(&invoked_actor.state.code),
         traces: env.traces.clone(),
         ..Environment::default()
     };
-    for subcall in recurse_into.subcalls.iter() {
+    for subcall in recurse_into.subcalls.into_iter() {
         let mut new_address = address.to_vec();
         new_address.push(sub_env.subtrace_count);
-        build_traces(&mut sub_env, &new_address, &Some(subcall.clone()))?;
+        build_traces(&mut sub_env, &new_address, Some(subcall))?;
     }
     env.traces = sub_env.traces;
     if let Some(idx) = last_trace_idx {
@@ -158,7 +159,7 @@ fn build_trace(
     env: &mut Environment,
     address: &[i64],
     // TODO(elmattic): check that we always have some existing trace
-    trace: &Option<ExecutionTrace>,
+    trace: Option<ExecutionTrace>,
 ) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
     // This function first assumes that the call is a "native" call, then handles all the "not
     // native" cases. If we get any unexpected results in any of these special cases, we just
@@ -179,7 +180,7 @@ fn build_trace(
     // NOTE: The FFI currently folds all unknown syscall errors into "sys assertion
     // failed" which is turned into SysErrFatal.
     if !address.is_empty() {
-        if let Some(trace) = trace {
+        if let Some(trace) = &trace {
             if Into::<ExitCodeV4>::into(trace.msg_rct.exit_code)
                 == ExitCodeV4::SYS_INSUFFICIENT_FUNDS
             {
@@ -191,7 +192,7 @@ fn build_trace(
     // We may fail before we can even invoke the actor. In that case, we have no 100% reliable
     // way of getting its address (e.g., due to reverts) so we're just going to drop the entire
     // trace. This is OK (ish) because the call never really "happened".
-    let trace = if let Some(ref trace) = trace {
+    let trace = if let Some(trace) = trace {
         if trace.invoked_actor.is_none() {
             return Ok((None, None));
         } else {
@@ -208,7 +209,7 @@ fn build_trace(
     // fallback on interpreting it as a native call.
     let method = EVMMethod::from_u64(trace.msg.method);
     if let Some(EVMMethod::InvokeContract) = method {
-        let (trace, exec_trace) = trace_evm_call(env, address, trace.clone())?;
+        let (trace, exec_trace) = trace_evm_call(env, address, trace)?;
         return Ok((Some(trace), Some(exec_trace)));
     }
 
@@ -218,7 +219,7 @@ fn build_trace(
             let method = InitMethod::from_u64(trace.msg.method);
             match method {
                 Some(InitMethod::Exec) | Some(InitMethod::Exec4) => {
-                    return trace_native_create(env, address, trace);
+                    return trace_native_create(env, address, &trace);
                 }
                 _ => (),
             }
@@ -229,7 +230,7 @@ fn build_trace(
                 Some(EAMMethod::Create)
                 | Some(EAMMethod::Create2)
                 | Some(EAMMethod::CreateExternal) => {
-                    return trace_eth_create(env, address, trace);
+                    return trace_eth_create(env, address, &trace);
                 }
                 _ => (),
             }
@@ -247,13 +248,10 @@ fn build_trace(
     // respect to the EAM), we only care about the ones relevant DELEGATECALL and can _ignore_
     // all the others.
     if env.is_evm && trace.msg.method > 0 && trace.msg.method < 1024 {
-        return trace_evm_private(env, address, trace);
+        return trace_evm_private(env, address, &trace);
     }
 
-    Ok((
-        Some(trace_native_call(env, address, trace)?),
-        Some(trace.clone()),
-    ))
+    Ok((Some(trace_native_call(env, address, &trace)?), Some(trace)))
 }
 
 // Build an EthTrace for a "call" with the given input & output.
