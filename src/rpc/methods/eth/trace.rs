@@ -79,7 +79,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 
     // indicate when we have a "system" error.
     if code < ExitCode::FIRST_ACTOR_ERROR_CODE.into() {
-        return Some(format!("vm error: {}", code.value()));
+        return Some(format!("vm error: {}", code));
     }
 
     // handle special exit codes from the EVM/EAM.
@@ -101,7 +101,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
         }
     }
     // everything else...
-    Some(format!("actor error: {}", code.value()))
+    Some(format!("actor error: {}", code))
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls

@@ -3,9 +3,11 @@
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
+use fvm_shared4::error::ExitCode as ExitCode_latest;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::fmt;
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
 ///
@@ -28,6 +30,48 @@ pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV4);
 impl PartialOrd for ExitCode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.value().cmp(&other.value()))
+    }
+}
+
+impl fmt::Display for ExitCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self.0 {
+            ExitCode_latest::SYS_SENDER_INVALID => Some("SysErrSenderInvalid"),
+            ExitCode_latest::SYS_SENDER_STATE_INVALID => Some("SysErrSenderStateInvalid"),
+            ExitCode_latest::SYS_ILLEGAL_INSTRUCTION => Some("SysErrIllegalInstruction"),
+            ExitCode_latest::SYS_INVALID_RECEIVER => Some("SysErrInvalidReceiver"),
+            ExitCode_latest::SYS_INSUFFICIENT_FUNDS => Some("SysErrInsufficientFunds"),
+            ExitCode_latest::SYS_OUT_OF_GAS => Some("SysErrOutOfGas"),
+            ExitCode_latest::SYS_ILLEGAL_EXIT_CODE => Some("SysErrIllegalExitCode"),
+            ExitCode_latest::SYS_ASSERTION_FAILED => Some("SysFatal"),
+            ExitCode_latest::SYS_MISSING_RETURN => Some("SysErrMissingReturn"),
+
+            ExitCode_latest::USR_ILLEGAL_ARGUMENT => Some("ErrIllegalArgument"),
+            ExitCode_latest::USR_NOT_FOUND => Some("ErrNotFound"),
+            ExitCode_latest::USR_FORBIDDEN => Some("ErrForbidden"),
+            ExitCode_latest::USR_INSUFFICIENT_FUNDS => Some("ErrInsufficientFunds"),
+            ExitCode_latest::USR_ILLEGAL_STATE => Some("ErrIllegalState"),
+            ExitCode_latest::USR_SERIALIZATION => Some("ErrSerialization"),
+            ExitCode_latest::USR_UNHANDLED_MESSAGE => Some("ErrUnhandledMessage"),
+            ExitCode_latest::USR_UNSPECIFIED => Some("ErrUnspecified"),
+            ExitCode_latest::USR_ASSERTION_FAILED => Some("ErrAssertionFailed"),
+            ExitCode_latest::USR_READ_ONLY => Some("ErrReadOnly"),
+            ExitCode_latest::USR_NOT_PAYABLE => Some("ErrNotPayable"),
+
+            _ => None,
+        };
+        if let Some(name) = name {
+            write!(f, "{}({})", name, self.value())
+        } else {
+            match self.value() {
+                code if code > ExitCode_latest::SYS_MISSING_RETURN.value()
+                    && code < ExitCode_latest::FIRST_USER_EXIT_CODE =>
+                {
+                    write!(f, "SysErrReserved{}({})", code - 10, code)
+                }
+                _ => write!(f, "{}", self.value()),
+            }
+        }
     }
 }
 
