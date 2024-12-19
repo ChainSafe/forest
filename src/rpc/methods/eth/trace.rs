@@ -78,7 +78,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     }
 
     // indicate when we have a "system" error.
-    if code.value() < ExitCode::FIRST_ACTOR_ERROR_CODE {
+    if code < ExitCode::FIRST_ACTOR_ERROR_CODE.into() {
         return Some(format!("vm error: {}", code.value()));
     }
 
