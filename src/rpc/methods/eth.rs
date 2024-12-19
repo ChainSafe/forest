@@ -3,6 +3,7 @@
 
 mod eth_tx;
 pub mod filter;
+mod trace;
 pub mod types;
 
 use self::eth_tx::*;
@@ -22,12 +23,15 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::types::EthBlockTrace;
+use crate::rpc::state::{MessageTrace, ReturnTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::eam;
 use crate::shim::actors::evm;
 use crate::shim::actors::is_evm_actor;
+use crate::shim::actors::system;
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
@@ -53,6 +57,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
+use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
@@ -88,6 +93,9 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+
+/// The Identity multicodec code.
+pub const IDENTITY: u64 = 0x00;
 
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
@@ -819,7 +827,7 @@ pub fn eth_tx_from_signed_eth_message(
     Ok((from, tx))
 }
 
-fn lookup_eth_address<DB: Blockstore>(
+pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
     state: &StateTree<DB>,
 ) -> Result<Option<EthAddress>> {
@@ -919,6 +927,7 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 /// Decodes the payload using the given codec.
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
+        IDENTITY => Ok(EthBytes::default()),
         DAG_CBOR | CBOR => {
             let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
             match Value::decode(&mut reader) {
@@ -928,6 +937,32 @@ fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<E
         }
         IPLD_RAW => Ok(EthBytes(payload.to_vec())),
         _ => bail!("decode_payload: unsupported codec {codec}"),
+    }
+}
+
+/// Decodes the message trace params using the message trace codec.
+pub fn decode_params<'a, T>(trace: &'a MessageTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.params_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(&trace.params)
+            .map_err(|e| anyhow::anyhow!("failed to decode params: {}", e)),
+        _ => bail!("Method called an unexpected codec {codec}"),
+    }
+}
+
+/// Decodes the return bytes using the return trace codec.
+pub fn decode_return<'a, T>(trace: &'a ReturnTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.return_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(trace.r#return.bytes())
+            .map_err(|e| anyhow::anyhow!("failed to decode return value: {}", e)),
+        _ => bail!("Method returned an unexpected codec {codec}"),
     }
 }
 
@@ -2652,6 +2687,71 @@ impl RpcMethod<1> for EthGetLogs {
             .eth_get_events_for_filter(&ctx, eth_filter)
             .await?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
+    }
+}
+
+pub enum EthTraceBlock {}
+impl RpcMethod<1> for EthTraceBlock {
+    const NAME: &'static str = "Filecoin.EthTraceBlock";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_traceBlock");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (BlockNumberOrHash,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+
+        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+        let cid = ts.key().cid()?;
+
+        let block_hash: EthHash = cid.into();
+
+        let mut all_traces = vec![];
+        let mut msg_idx = 0;
+        for ir in trace.into_iter() {
+            // ignore messages from system actor
+            if ir.msg.from == system::ADDRESS.into() {
+                continue;
+            }
+
+            msg_idx += 1;
+
+            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+
+            let tx_hash = tx_hash
+                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+
+            let mut env = trace::base_environment(&state, &ir.msg.from)
+                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+
+            trace::build_traces(&mut env, &[], ir.execution_trace)?;
+
+            for trace in env.traces {
+                all_traces.push(EthBlockTrace {
+                    r#type: trace.r#type,
+                    subtraces: trace.subtraces,
+                    trace_address: trace.trace_address,
+                    action: trace.action,
+                    result: trace.result,
+                    error: trace.error,
+
+                    block_hash: block_hash.clone(),
+                    block_number: ts.epoch(),
+                    transaction_hash: tx_hash.clone(),
+                    transaction_position: msg_idx as i64,
+                });
+            }
+        }
+
+        Ok(all_traces)
     }
 }
 

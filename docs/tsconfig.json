@@ -3,7 +3,8 @@
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
     "baseUrl": ".",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "module": "Node16"
   }
 }
 
