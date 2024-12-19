@@ -2,6 +2,7 @@
   "name": "root",
   "private": true,
   "devDependencies": {
+    "@docusaurus/tsconfig": "^3.6.3",
     "prettier": "^3.3.3"
   },
   "scripts": {
