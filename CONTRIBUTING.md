@@ -37,7 +37,7 @@ forward to your contributions. 🎉
 ## I Have a Question
 
 > If you want to ask a question, we assume that you have read the available
-> [Documentation](https://forest-docs-v2.pages.dev/).
+> [Documentation](https://docs.forest.chainsafe.io/).
 
 Before you ask a question, it is best to search for existing
 [Issues](https://github.com/ChainSafe/forest/issues) or
@@ -82,7 +82,7 @@ steps in advance to help us fix any potential bug as fast as possible.
 - Make sure that you are using the latest version.
 - Determine if your bug is really a bug and not an error on your side e.g. using
   incompatible environment components/versions (Make sure that you have read the
-  [documentation](https://forest-docs-v2.pages.dev/). If you are looking for
+  [documentation](https://docs.forest.chainsafe.io/). If you are looking for
   support, you might want to check [this section](#i-have-a-question)).
 - To see if other users have experienced (and potentially already solved) the
   same issue you are having, check if there is not already a bug report existing
@@ -143,7 +143,7 @@ community to understand your suggestion and find related suggestions.
 #### 🎯 Before Submitting an Enhancement
 
 - Make sure that you are using the latest version.
-- Read the [documentation](https://forest-docs-v2.pages.dev/) carefully and find
+- Read the [documentation](https://docs.forest.chainsafe.io/) carefully and find
   out if the functionality is already covered, maybe by an individual
   configuration.
 - Perform a [search](https://github.com/ChainSafe/forest/issues) to see if the
@@ -225,7 +225,7 @@ eternally grateful and hope you will continue to contribute to the project.
 ### 📚 Improving The Documentation
 
 The documentation is currently hosted on
-[forest-docs-v2.pages.dev](https://forest-docs-v2.pages.dev/). If you find any
+[docs.forest.chainsafe.io](https://docs.forest.chainsafe.io/). If you find any
 issues with the documentation, please create an issue as the repository is not
 public yet.
 
