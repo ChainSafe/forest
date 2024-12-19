@@ -4,7 +4,20 @@
 
 verbose = "debug"
 no_progress = true
-exclude = ["twitter.com"]
-timeout = 60
+exclude_path = [
+    "./node_modules",
+    "./docs/node_modules",
+    "./documentation",
+    "./target"
+]
+exclude = [
+    # Avoid Github rate limits
+    "github.com/ChainSafe/forest",
+    # Requires CAPTCHA verification
+    "faucet.calibnet.chainsafe-fil.io/funds.html"
+]
+timeout = 30
 max_retries = 6
 retry_wait_time = 10
+
+output = "lychee-report.md"
