@@ -11,6 +11,7 @@ on:
       - main
     paths:
       - '**.md'
+      - '/docs'
       - '.github/workflows/docs-check.yml'
   merge_group:
   pull_request:
@@ -18,6 +19,7 @@ on:
       - main
     paths:
       - '**.md'
+      - '/docs'
       - '.github/workflows/docs-check.yml'
 
 jobs:

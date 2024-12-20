@@ -10,12 +10,14 @@ impl From<DealState> for ApiDealState {
             last_updated_epoch,
             slash_epoch,
             verified_claim,
+            sector_number,
         } = s;
         Self {
             sector_start_epoch,
             last_updated_epoch,
             slash_epoch,
             verified_claim,
+            sector_number,
         }
     }
 }
