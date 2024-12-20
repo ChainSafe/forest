@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.6.3",
-    "@tsconfig/docusaurus": "^1.0.6",
+    "@docusaurus/tsconfig": "^3.6.0",
     "spellchecker-cli": "^6.1.0",
     "typescript": "^5.7.2"
   },
