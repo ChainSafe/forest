@@ -2824,17 +2824,13 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
         }
 
-        let sec_size: u64 = sector_size as u64;
-
-        if verified_size > sec_size {
+        if verified_size > sector_size as u64 {
             return Err(
                 anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
             );
         }
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-
-        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts).await?;
 
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let power_smoothed = power_state.total_power_smoothed();
@@ -2858,6 +2854,8 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             &verified_deal_weight,
         );
 
+        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts)?;
+
         let initial_pledge: TokenAmount = reward_state
             .initial_pledge_for_power(
                 &sector_weight,
@@ -2874,11 +2872,11 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
     }
 }
 
-async fn get_pledge_ramp_params(
+fn get_pledge_ramp_params(
     ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     height: ChainEpoch,
     ts: &Tipset,
-) -> Result<(i64, u64), anyhow::Error> {
+) -> Result<(ChainEpoch, u64), anyhow::Error> { 
     let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     let power_state: power::State = state_tree
@@ -2888,7 +2886,7 @@ async fn get_pledge_ramp_params(
     if power_state.ramp_start_epoch() > 0 {
         Ok((
             height - power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
+            power_state.ramp_duration_epochs() as u64,
         ))
     } else {
         Ok((0, 0))
