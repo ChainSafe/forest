@@ -108,7 +108,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 pub fn build_traces(
     env: &mut Environment,
     address: &[i64],
-    trace: Option<ExecutionTrace>,
+    trace: ExecutionTrace,
 ) -> anyhow::Result<()> {
     let (trace, recurse_into) = build_trace(env, address, trace)?;
 
@@ -142,7 +142,7 @@ pub fn build_traces(
     for subcall in recurse_into.subcalls.into_iter() {
         let mut new_address = address.to_vec();
         new_address.push(sub_env.subtrace_count);
-        build_traces(&mut sub_env, &new_address, Some(subcall))?;
+        build_traces(&mut sub_env, &new_address, subcall)?;
     }
     env.traces = sub_env.traces;
     if let Some(idx) = last_trace_idx {
@@ -158,8 +158,7 @@ pub fn build_traces(
 fn build_trace(
     env: &mut Environment,
     address: &[i64],
-    // TODO(elmattic): check that we always have some existing trace
-    trace: Option<ExecutionTrace>,
+    trace: ExecutionTrace,
 ) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
     // This function first assumes that the call is a "native" call, then handles all the "not
     // native" cases. If we get any unexpected results in any of these special cases, we just
@@ -180,27 +179,17 @@ fn build_trace(
     // NOTE: The FFI currently folds all unknown syscall errors into "sys assertion
     // failed" which is turned into SysErrFatal.
     if !address.is_empty() {
-        if let Some(trace) = &trace {
-            if Into::<ExitCodeV4>::into(trace.msg_rct.exit_code)
-                == ExitCodeV4::SYS_INSUFFICIENT_FUNDS
-            {
-                return Ok((None, None));
-            }
+        if Into::<ExitCodeV4>::into(trace.msg_rct.exit_code) == ExitCodeV4::SYS_INSUFFICIENT_FUNDS {
+            return Ok((None, None));
         }
     }
 
     // We may fail before we can even invoke the actor. In that case, we have no 100% reliable
     // way of getting its address (e.g., due to reverts) so we're just going to drop the entire
     // trace. This is OK (ish) because the call never really "happened".
-    let trace = if let Some(trace) = trace {
-        if trace.invoked_actor.is_none() {
-            return Ok((None, None));
-        } else {
-            trace
-        }
-    } else {
+    if trace.invoked_actor.is_none() {
         return Ok((None, None));
-    };
+    }
 
     // Step 2: Decode as a contract invocation
     //
