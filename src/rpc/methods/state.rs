@@ -2876,7 +2876,7 @@ fn get_pledge_ramp_params(
     ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
     height: ChainEpoch,
     ts: &Tipset,
-) -> Result<(ChainEpoch, u64), anyhow::Error> { 
+) -> Result<(ChainEpoch, u64), anyhow::Error> {
     let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
     let power_state: power::State = state_tree
