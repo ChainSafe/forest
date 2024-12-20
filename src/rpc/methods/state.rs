@@ -2886,7 +2886,7 @@ fn get_pledge_ramp_params(
     if power_state.ramp_start_epoch() > 0 {
         Ok((
             height - power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs() as u64,
+            power_state.ramp_duration_epochs(),
         ))
     } else {
         Ok((0, 0))
