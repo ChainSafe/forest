@@ -32,6 +32,9 @@
 - [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
 
+- [#4907](https://github.com/ChainSafe/forest/issues/4907) Add support for the
+  `Filecoin.StateMinerInitialPledgeForSector` RPC method.
+
 ### Changed
 
 ### Removed

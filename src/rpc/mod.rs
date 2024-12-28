@@ -217,6 +217,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateWaitMsgV0);
+        $callback!(crate::rpc::state::StateMinerInitialPledgeForSector);
 
         // sync vertical
         $callback!(crate::rpc::sync::SyncCheckBad);
