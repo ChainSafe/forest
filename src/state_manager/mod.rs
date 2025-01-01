@@ -1559,6 +1559,45 @@ where
             }
         }
     }
+
+    pub fn execution_trace(&self, tipset: &Tipset) -> anyhow::Result<(Cid, Vec<ApiInvocResult>)> {
+        let mut invoc_trace = vec![];
+
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+
+        let callback = |ctx: MessageCallbackCtx<'_>| {
+            match ctx.at {
+                CalledAt::Applied | CalledAt::Reward => {
+                    invoc_trace.push(ApiInvocResult {
+                        msg_cid: ctx.message.cid(),
+                        msg: ctx.message.message().clone(),
+                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                            .unwrap_or_default(),
+                    });
+                    Ok(())
+                }
+                _ => Ok(()), // ignored
+            }
+        };
+
+        let StateOutput { state_root, .. } = apply_block_messages(
+            genesis_timestamp,
+            self.chain_store().chain_index.clone(),
+            self.chain_config().clone(),
+            self.beacon_schedule().clone(),
+            &self.engine,
+            Arc::new(tipset.clone()),
+            Some(callback),
+            VMTrace::Traced,
+            VMEvent::NotPushed,
+        )?;
+
+        Ok((state_root, invoc_trace))
+    }
 }
 
 pub fn validate_tipsets<DB, T>(
