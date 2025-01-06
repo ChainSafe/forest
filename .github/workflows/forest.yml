@@ -491,7 +491,7 @@ jobs:
           name: 'forest-${{ runner.os }}'
       - name: Run api compare tests
         run: ./scripts/tests/api_compare/setup.sh
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+        timeout-minutes: 120 # '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2

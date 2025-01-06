@@ -4,17 +4,12 @@
 
 verbose = "debug"
 no_progress = true
-exclude_path = [
-    "./node_modules",
-    "./docs/node_modules",
-    "./documentation",
-    "./target"
-]
+exclude_path = ["./node_modules", "./docs/node_modules", "./documentation", "./target"]
 exclude = [
-    # Avoid Github rate limits
-    "github.com/ChainSafe/forest",
-    # Requires CAPTCHA verification
-    "faucet.calibnet.chainsafe-fil.io/funds.html"
+  # Avoid Github rate limits
+  "github.com/ChainSafe/forest",
+  # Requires CAPTCHA verification
+  "faucet.calibnet.chainsafe-fil.io/funds.html",
 ]
 timeout = 30
 max_retries = 6
