@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::types::EthAddress;
+use crate::rpc::state::{MessageTrace, ReturnTrace};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::state_tree::StateTree;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::{CBOR, DAG_CBOR};
+use serde::de;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -46,4 +49,30 @@ pub fn lookup_eth_address<DB: Blockstore>(
 
     // Otherwise, use the masked address.
     Ok(Some(EthAddress::from_actor_id(id_addr)))
+}
+
+/// Decodes the message trace params using the message trace codec.
+pub fn decode_params<'a, T>(trace: &'a MessageTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.params_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(&trace.params)
+            .map_err(|e| anyhow::anyhow!("failed to decode params: {}", e)),
+        _ => bail!("Method called an unexpected codec {codec}"),
+    }
+}
+
+/// Decodes the return bytes using the return trace codec.
+pub fn decode_return<'a, T>(trace: &'a ReturnTrace) -> anyhow::Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let codec = trace.return_codec;
+    match codec {
+        DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(trace.r#return.bytes())
+            .map_err(|e| anyhow::anyhow!("failed to decode return value: {}", e)),
+        _ => bail!("Method returned an unexpected codec {codec}"),
+    }
 }

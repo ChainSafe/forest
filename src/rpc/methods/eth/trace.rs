@@ -4,9 +4,10 @@
 use super::types::{
     EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
 };
+use super::utils::{decode_params, decode_return};
 use super::{
-    decode_params, decode_payload, decode_return, encode_filecoin_params_as_abi,
-    encode_filecoin_returns_as_abi, EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
+    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
+    EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
