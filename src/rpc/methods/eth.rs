@@ -5,6 +5,7 @@ mod eth_tx;
 pub mod filter;
 mod trace;
 pub mod types;
+mod utils;
 
 use self::eth_tx::*;
 use self::filter::hex_str_to_epoch;
@@ -61,6 +62,7 @@ use serde::de;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
+use utils::lookup_eth_address;
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -825,47 +827,6 @@ pub fn eth_tx_from_signed_eth_message(
     let from = EthAddress::from_filecoin_address(&from)?;
     let tx = EthTx::from_signed_message(chain_id, smsg)?;
     Ok((from, tx))
-}
-
-pub fn lookup_eth_address<DB: Blockstore>(
-    addr: &FilecoinAddress,
-    state: &StateTree<DB>,
-) -> Result<Option<EthAddress>> {
-    // Attempt to convert directly, if it's an f4 address.
-    if let Ok(eth_addr) = EthAddress::from_filecoin_address(addr) {
-        if !eth_addr.is_masked_id() {
-            return Ok(Some(eth_addr));
-        }
-    }
-
-    // Otherwise, resolve the ID addr.
-    let id_addr = match state.lookup_id(addr)? {
-        Some(id) => id,
-        _ => return Ok(None),
-    };
-
-    // Lookup on the target actor and try to get an f410 address.
-    let result = state.get_actor(addr);
-    if let Ok(Some(actor_state)) = result {
-        if let Some(addr) = actor_state.delegated_address {
-            if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into()) {
-                if !eth_addr.is_masked_id() {
-                    // Conversable into an eth address, use it.
-                    return Ok(Some(eth_addr));
-                }
-            }
-        } else {
-            // No delegated address -> use a masked ID address
-        }
-    } else if let Ok(None) = result {
-        // Not found -> use a masked ID address
-    } else {
-        // Any other error -> fail.
-        result?;
-    }
-
-    // Otherwise, use the masked address.
-    Ok(Some(EthAddress::from_actor_id(id_addr)))
 }
 
 /// See <https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector-and-argument-encoding>
