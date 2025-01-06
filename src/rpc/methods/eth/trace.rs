@@ -178,10 +178,10 @@ fn build_trace(
     //
     // NOTE: The FFI currently folds all unknown syscall errors into "sys assertion
     // failed" which is turned into SysErrFatal.
-    if !address.is_empty() {
-        if Into::<ExitCodeV4>::into(trace.msg_rct.exit_code) == ExitCodeV4::SYS_INSUFFICIENT_FUNDS {
-            return Ok((None, None));
-        }
+    if !address.is_empty()
+        && Into::<ExitCodeV4>::into(trace.msg_rct.exit_code) == ExitCodeV4::SYS_INSUFFICIENT_FUNDS
+    {
+        return Ok((None, None));
     }
 
     // We may fail before we can even invoke the actor. In that case, we have no 100% reliable
