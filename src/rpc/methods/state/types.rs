@@ -18,7 +18,7 @@ use fvm_ipld_encoding::RawBytes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -50,7 +50,7 @@ impl PartialEq for ApiInvocResult {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
