@@ -1,14 +1,20 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::EthAddress;
+use super::types::{EthAddress, EthBytes};
 use crate::rpc::state::{MessageTrace, ReturnTrace};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::state_tree::StateTree;
+
 use anyhow::{bail, Result};
+use cbor4ii::core::dec::Decode as _;
+use cbor4ii::core::Value;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{CBOR, DAG_CBOR};
+use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use serde::de;
+
+/// The Identity multicodec code.
+pub const IDENTITY: u64 = 0x00;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -49,6 +55,22 @@ pub fn lookup_eth_address<DB: Blockstore>(
 
     // Otherwise, use the masked address.
     Ok(Some(EthAddress::from_actor_id(id_addr)))
+}
+
+/// Decodes the payload using the given codec.
+pub fn decode_payload(payload: &RawBytes, codec: u64) -> Result<EthBytes> {
+    match codec {
+        IDENTITY => Ok(EthBytes::default()),
+        DAG_CBOR | CBOR => {
+            let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
+            match Value::decode(&mut reader) {
+                Ok(Value::Bytes(bytes)) => Ok(EthBytes(bytes)),
+                _ => bail!("failed to read params byte array"),
+            }
+        }
+        IPLD_RAW => Ok(EthBytes(payload.to_vec())),
+        _ => bail!("decode_payload: unsupported codec {codec}"),
+    }
 }
 
 /// Decodes the message trace params using the message trace codec.

@@ -48,8 +48,6 @@ use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
-use cbor4ii::core::dec::Decode as _;
-use cbor4ii::core::Value;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
@@ -60,7 +58,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
-use utils::lookup_eth_address;
+use utils::{decode_payload, lookup_eth_address};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -93,9 +91,6 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
-
-/// The Identity multicodec code.
-pub const IDENTITY: u64 = 0x00;
 
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
@@ -193,7 +188,7 @@ impl EthHash {
         let mh = MultihashCode::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
-        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+        Cid::new_v1(DAG_CBOR, mh)
     }
 
     pub fn empty_uncles() -> Self {
@@ -881,22 +876,6 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
         .collect();
 
     buf
-}
-
-/// Decodes the payload using the given codec.
-fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
-    match codec {
-        IDENTITY => Ok(EthBytes::default()),
-        DAG_CBOR | CBOR => {
-            let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
-            match Value::decode(&mut reader) {
-                Ok(Value::Bytes(bytes)) => Ok(EthBytes(bytes)),
-                _ => bail!("failed to read params byte array"),
-            }
-        }
-        IPLD_RAW => Ok(EthBytes(payload.to_vec())),
-        _ => bail!("decode_payload: unsupported codec {codec}"),
-    }
 }
 
 /// Convert a native message to an eth transaction.
