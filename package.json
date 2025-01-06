@@ -3,12 +3,12 @@
   "private": true,
   "devDependencies": {
     "@docusaurus/tsconfig": "^3.6.3",
-    "prettier": "^3.3.3"
+    "prettier": "^3.4.2"
   },
   "scripts": {
     "prettier-version": "prettier --version",
     "md-fmt": "prettier --write '**/*.md'",
     "md-check": "prettier --check '**/*.md'"
   },
-  "packageManager": "yarn@4.5.0"
+  "packageManager": "yarn@4.5.3"
 }
