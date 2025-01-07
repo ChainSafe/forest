@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! Another libp2p
 //! bitswap([SPEC](https://github.com/ipfs/specs/blob/main/BITSWAP.md))
