@@ -62,6 +62,7 @@ pub struct ApiDealState {
     pub slash_epoch: ChainEpoch,
     #[serde(skip)]
     pub verified_claim: AllocationID,
+    pub sector_number: u64,
 }
 
 lotus_json_with_self!(ApiDealState);

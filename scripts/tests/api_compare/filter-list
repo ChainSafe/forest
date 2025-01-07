@@ -6,13 +6,10 @@
 !Filecoin.StateReplay
 # TODO(elmattic): https://github.com/ChainSafe/forest/issues/4851
 !Filecoin.EthGetLogs
-# TODO: https://github.com/ChainSafe/forest/issues/4968
-!Filecoin.StateCirculatingSupply
 # TODO: https://github.com/ChainSafe/forest/issues/4996
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.EthGetTransactionReceiptLimited
 # TODO: https://github.com/ChainSafe/forest/issues/5006
 !Filecoin.EthGetBlockReceipts
-# TODO: https://github.com/ChainSafe/forest/issues/5085
-!Filecoin.StateMarketDeals
-!Filecoin.StateMarketStorageDeal
+# TODO: https://github.com/ChainSafe/forest/issues/5100
+!Filecoin.StateMinerSectors

@@ -465,6 +465,7 @@ impl RpcMethod<1> for StateMarketDeals {
                 last_updated_epoch: -1,
                 slash_epoch: -1,
                 verified_claim: 0,
+                sector_number: 0,
             });
             out.insert(
                 deal_id.to_string(),
@@ -1542,7 +1543,8 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let height = ts.epoch();
         let root = ts.parent_state();
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let supply = genesis_info.get_state_circulating_supply(height, &ctx.store_owned(), root)?;
+        let supply =
+            genesis_info.get_state_circulating_supply(height - 1, &ctx.store_owned(), root)?;
         Ok(supply)
     }
 }

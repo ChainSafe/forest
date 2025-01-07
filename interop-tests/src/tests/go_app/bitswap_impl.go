@@ -51,9 +51,9 @@ func (impl *bitswapImpl) connect(multiaddr string) {
 	impl.node.host.Peerstore().AddAddrs(target.ID, target.Addrs, peerstore.PermanentAddrTTL)
 
 	router := NewRouter(*target)
-	network := bsnet.NewFromIpfsHost(impl.node.host, router, bsnet.Prefix("/test"))
+	network := bsnet.NewFromIpfsHost(impl.node.host, bsnet.Prefix("/test"))
 	bstore := blockstore.NewBlockstore(ds.NewMapDatastore())
-	exchange := bitswap.New(impl.ctx, network, bstore)
+	exchange := bitswap.New(impl.ctx, network, router, bstore)
 	impl.node.exchange = exchange
 }
 

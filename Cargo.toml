@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.23.2"
+version = "0.23.3"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -223,7 +223,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.4"
+ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.19"

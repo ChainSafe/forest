@@ -29,6 +29,20 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v.0.23.3 "Plumber"
+
+Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
+
+### Breaking
+
+### Added
+
 - [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
 
@@ -40,6 +54,8 @@
   `peer_tipset_epoch` from the metrics.
 
 ### Fixed
+
+- [#5109](https://github.com/ChainSafe/forest/pull/5109) Fix a calibnet sync error at epoch 2281645.
 
 ## Forest v.0.23.2 "Feint"
 
