@@ -5,9 +5,10 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" --save-token ./admin_token &
+$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --save-token ./admin_token --exit-after-init
+$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
 FOREST_NODE_PID=$!
-sleep 10s # to allow admin_token being saved
+
 FULLNODE_API_INFO="$(cat admin_token):/ip4/127.0.0.1/tcp/2345/http"
 export FULLNODE_API_INFO
 
@@ -21,4 +22,4 @@ until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -g
     sleep 1s;
 done
 kill -KILL $FOREST_NODE_PID
-sleep 5s
+wait $FOREST_NODE_PID || true
