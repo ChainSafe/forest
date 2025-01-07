@@ -100,6 +100,7 @@ pub fn run_f3_sidecar_if_enabled(
     if is_sidecar_ffi_enabled(chain_config) {
         #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
+            tracing::info!("Starting F3 sidecar service ...");
             GoF3NodeImpl::run(
                 _rpc_endpoint,
                 _jwt,

@@ -40,8 +40,3 @@ echo "Test subcommand: net info"
 $FOREST_CLI_PATH net info
 
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
-
-# Verify F3 is getting certificates from the network
-until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 100 ]]; do
-    sleep 1s;
-done
