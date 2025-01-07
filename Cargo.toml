@@ -28,7 +28,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
-axum = "0.7"
+axum = "0.8"
 backon = "1"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
@@ -98,7 +98,7 @@ indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
-itertools = "0.13"
+itertools = "0.14"
 jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
@@ -237,13 +237,13 @@ http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-petgraph = "0.6"
+petgraph = "0.7"
 predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.248"
+ra_ap_syntax = "0.0.252"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
