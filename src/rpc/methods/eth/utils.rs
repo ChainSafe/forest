@@ -14,7 +14,7 @@ use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use serde::de;
 
 /// The Identity multicodec code.
-pub const IDENTITY: u64 = 0x00;
+pub const IDENTITY: u64 = 0x0;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -102,11 +102,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use cbor4ii::core::utils::BufWriter;
+    use cbor4ii::core::{enc::Encode, utils::BufWriter};
     use cbor4ii::serde::Serializer;
-    // use serde::Serializer as _;
-
-    use cbor4ii::core::enc::Encode;
 
     #[test]
     fn test_decode_payload() {
