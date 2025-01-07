@@ -13,3 +13,8 @@ export FULLNODE_API_INFO
 until $FOREST_CLI_PATH net peers | grep "calib"; do
     sleep 1s;
 done
+
+# Verify F3 is getting certificates from the network
+until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 100 ]]; do
+    sleep 1s;
+done

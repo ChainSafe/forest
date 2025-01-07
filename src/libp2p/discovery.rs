@@ -35,6 +35,8 @@ use crate::utils::version::FOREST_VERSION_STRING;
 pub struct DerivedDiscoveryBehaviour {
     /// Kademlia discovery.
     kademlia: Toggle<kad::Behaviour<kad::store::MemoryStore>>,
+    /// Kademlia discovery for bootstrapping F3 sidecar when the main Kademlia is disabled.
+    kademlia_f3_sidecar: kad::Behaviour<kad::store::MemoryStore>,
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,
     /// [`identify::Behaviour`] needs to be manually hooked up with [`kad::Behaviour`] to make discovery work. See <https://docs.rs/libp2p/latest/libp2p/kad/index.html#important-discrepancies>
@@ -158,6 +160,12 @@ impl<'a> DiscoveryConfig<'a> {
         } else {
             None
         };
+        let kademlia_f3_sidecar = new_kademlia(
+            local_peer_id,
+            StreamProtocol::try_from_owned(format!(
+                "/fil/kad/f3-sidecar/{network_name}/kad/1.0.0"
+            ))?,
+        );
 
         let mdns_opt = if enable_mdns {
             Some(Mdns::new(Default::default(), local_peer_id).expect("Could not start mDNS"))
@@ -168,6 +176,7 @@ impl<'a> DiscoveryConfig<'a> {
         Ok(DiscoveryBehaviour {
             discovery: DerivedDiscoveryBehaviour {
                 kademlia: kademlia_opt.into(),
+                kademlia_f3_sidecar,
                 mdns: mdns_opt.into(),
                 identify: identify::Behaviour::new(
                     identify::Config::new("ipfs/0.1.0".into(), local_public_key)
@@ -441,6 +450,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                                         kademlia.add_address(peer_id, address.clone());
                                     }
                                 }
+                                for address in &info.listen_addrs {
+                                    self.discovery
+                                        .kademlia_f3_sidecar
+                                        .add_address(peer_id, address.clone());
+                                }
                             }
                         }
                         DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
@@ -470,6 +484,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                                 trace!("Libp2p => Unhandled Kademlia event: {:?}", other)
                             }
                         },
+                        DerivedDiscoveryBehaviourEvent::KademliaF3Sidecar(_) => {}
                         DerivedDiscoveryBehaviourEvent::Mdns(ev) => match ev {
                             MdnsEvent::Discovered(list) => {
                                 if self.n_node_connected >= self.target_peer_count {
