@@ -11,14 +11,14 @@ on:
     tags:
       - "*"
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
   merge_group:
   pull_request:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
 
 env:
   CI: 1
