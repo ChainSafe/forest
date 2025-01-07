@@ -98,3 +98,71 @@ where
         _ => bail!("Method returned an unexpected codec {codec}"),
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cbor4ii::core::utils::BufWriter;
+    use cbor4ii::serde::Serializer;
+    // use serde::Serializer as _;
+
+    use cbor4ii::core::enc::Encode;
+
+    #[test]
+    fn test_decode_payload() {
+        // empty
+        let result = decode_payload(&RawBytes::default(), 0);
+        assert!(result.unwrap().0.is_empty());
+
+        // raw empty
+        let result = decode_payload(&RawBytes::default(), IPLD_RAW);
+        assert!(result.unwrap().0.is_empty());
+
+        // raw non-empty
+        let result = decode_payload(&RawBytes::new(vec![1]), IPLD_RAW);
+        assert_eq!(result.unwrap(), EthBytes(vec![1]));
+
+        // invalid cbor bytes
+        let result = decode_payload(&RawBytes::default(), DAG_CBOR);
+        assert!(result.is_err());
+
+        // valid cbor bytes
+        let mut writer = BufWriter::new(Vec::new());
+        Value::Bytes(vec![1]).encode(&mut writer).unwrap();
+        let serializer = Serializer::new(writer);
+        let encoded = serializer.into_inner().into_inner();
+
+        let result = decode_payload(&RawBytes::new(encoded.clone()), DAG_CBOR);
+        assert_eq!(result.unwrap(), EthBytes(vec![1]));
+
+        // regular cbor also works
+        let result = decode_payload(&RawBytes::new(encoded), CBOR);
+        assert_eq!(result.unwrap(), EthBytes(vec![1]));
+
+        // random codec should fail
+        let result = decode_payload(&RawBytes::default(), 42);
+        assert!(result.is_err());
+
+        // some payload taken from calibnet
+        assert_eq!(
+            decode_payload(
+                &RawBytes::new(
+                    hex::decode(
+                        "58200000000000000000000000000000000000000000000000000000000000002710"
+                    )
+                    .unwrap(),
+                ),
+                CBOR
+            )
+            .unwrap(),
+            EthBytes(vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 39, 16,
+            ])
+        );
+
+        // identity
+        let result = decode_payload(&RawBytes::new(vec![1]), IDENTITY);
+        assert!(result.unwrap().0.is_empty());
+    }
+}
