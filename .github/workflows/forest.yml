@@ -9,12 +9,12 @@ concurrency:
     branches:
       - main
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
   push:
     branches:
       - main
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
   schedule:
     - cron: 0 0 * * *
 env:
