@@ -2824,7 +2824,9 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
         }
         if verified_size > sector_size as u64 {
-            return Err(anyhow::anyhow!("verified deal size cannot be larger than sector size").into());
+            return Err(
+                anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
+            );
         }
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
