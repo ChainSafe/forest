@@ -2823,11 +2823,8 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         if sector_duration <= 0 {
             return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
         }
-
         if verified_size > sector_size as u64 {
-            return Err(
-                anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
-            );
+            return Err(anyhow::anyhow!("verified deal size cannot be larger than sector size").into());
         }
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
@@ -2881,7 +2878,7 @@ fn get_pledge_ramp_params(
 
     let power_state: power::State = state_tree
         .get_actor_state()
-        .map_err(|e| anyhow::anyhow!("loading power actor state: {e}"))?;
+        .context("loading power actor state")?;
 
     if power_state.ramp_start_epoch() > 0 {
         Ok((

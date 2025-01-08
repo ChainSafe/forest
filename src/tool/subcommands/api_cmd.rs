@@ -813,7 +813,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateGetNetworkParams::request(())?),
         RpcTest::identity(StateMinerInitialPledgeForSector::request((
             1,
-            SectorSize::_2KiB,
+            SectorSize::_32GiB,
             1024,
             tipset.key().into(),
         ))?),
