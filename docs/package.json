@@ -18,10 +18,10 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@docusaurus/core": "^3.6.3",
-    "@docusaurus/preset-classic": "^3.6.3",
-    "@docusaurus/theme-mermaid": "^3.6.3",
-    "@easyops-cn/docusaurus-search-local": "^0.46.1",
+    "@docusaurus/core": "^3.7.0",
+    "@docusaurus/preset-classic": "^3.7.0",
+    "@docusaurus/theme-mermaid": "^3.7.0",
+    "@easyops-cn/docusaurus-search-local": "^0.47.0",
     "@metamask/docusaurus-openrpc": "^0.4.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.4.1",
@@ -31,8 +31,8 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.6.3",
-    "@docusaurus/tsconfig": "^3.6.3",
+    "@docusaurus/module-type-aliases": "^3.7.0",
+    "@docusaurus/tsconfig": "^3.7.0",
     "spellchecker-cli": "^7.0.0",
     "typescript": "^5.7.2"
   },

@@ -1,5 +1,5 @@
-# Created by https://www.toptal.com/developers/gitignore/api/node,yarn,docusaurus
-# Edit at https://www.toptal.com/developers/gitignore?templates=node,yarn,docusaurus
+# Created by https://www.toptal.com/developers/gitignore/api/node,yarn,docusaurus,osx
+# Edit at https://www.toptal.com/developers/gitignore?templates=node,yarn,docusaurus,osx
 
 ### Docusaurus ###
 # Docusaurus cache and generated files
@@ -219,6 +219,35 @@ dist
 # SvelteKit build / generate output
 .svelte-kit
 
+### OSX ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
 ### yarn ###
 # https://yarnpkg.com/getting-started/qa#which-files-should-be-gitignored
 
@@ -236,4 +265,4 @@ dist
 # and uncomment the following lines
 # .pnp.*
 
-# End of https://www.toptal.com/developers/gitignore/api/node,yarn,docusaurus
+# End of https://www.toptal.com/developers/gitignore/api/node,yarn,docusaurus,osx
