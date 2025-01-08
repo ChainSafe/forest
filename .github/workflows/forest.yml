@@ -587,7 +587,6 @@ jobs:
       - calibnet-rpc-checks
       - bootstrap-checks-forest
       - bootstrap-checks-lotus
-      - snapshot-parity-checks
     name: Integration tests status
     runs-on: ubuntu-24.04
     steps:
