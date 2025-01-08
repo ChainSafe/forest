@@ -35,7 +35,7 @@ jobs:
         # See https://github.com/actions/setup-node/issues/1027
         # cache: yarn
       - run: corepack enable
-      - run: yarn install --frozen-lockfile
+      - run: yarn --immutable
       - run: yarn run build
 
       - name: Deploy

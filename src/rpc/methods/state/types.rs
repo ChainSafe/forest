@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::{lotus_json_with_self, LotusJson};

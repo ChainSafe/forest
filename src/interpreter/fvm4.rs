@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,6 +10,7 @@ use crate::chain::{
     ChainStore,
 };
 use crate::interpreter::errors::Error;
+use crate::interpreter::resolve_to_key_addr;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::actors::miner;
 use crate::shim::actors::MinerActorStateLoad as _;
@@ -32,9 +33,6 @@ use fvm_shared4::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
-use tracing::error;
-
-use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
@@ -83,9 +81,8 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
     ) -> anyhow::Result<(Address, i64)> {
         if height < self.epoch - self.chain_config.policy.chain_finality {
             bail!(
-                "cannot get worker key (current epoch: {}, height: {})",
+                "cannot get worker key (current epoch: {}, height: {height}, miner address: {miner_addr})",
                 self.epoch,
-                height
             );
         }
 
@@ -271,14 +268,6 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
             Some(fault_type) => {
                 // (4) expensive final checks
 
-                let bail = |err| {
-                    // When a lookup error occurs we should just bail terminating all the
-                    // computations.
-                    error!("database lookup error: {err}");
-                    self.bail.store(true, Ordering::Relaxed);
-                    Err(err)
-                };
-
                 // check blocks are properly signed by their respective miner
                 // note we do not need to check extra's: it is a parent to block b
                 // which itself is signed, so it was willingly included by the miner
@@ -287,7 +276,7 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
                     match res {
                         // invalid consensus fault: cannot verify block header signature
                         Err(Error::Signature(_)) => return Ok((None, total_gas)),
-                        Err(Error::Lookup(err)) => return bail(err),
+                        Err(Error::Lookup(_)) => return Ok((None, total_gas)),
                         Ok(gas_used) => total_gas += gas_used,
                     }
                 }
