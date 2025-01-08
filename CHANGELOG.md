@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#5111](https://github.com/ChainSafe/forest/issues/5111) Make F3 work when the node Kademlia is disabled.
+
 ## Forest v.0.23.3 "Plumber"
 
 Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
