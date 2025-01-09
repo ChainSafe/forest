@@ -27,9 +27,10 @@
 //! footprint.
 //!
 //! ## GC Workflow
-//! 1. Mark: traverse all the blocks, generating integer hash representations for each identifier
-//!    and storing those in a set.
-//! 2. Wait at least `chain finality` blocks.
+//! 1.a. Mark(full GC): traverse all the blocks, generating integer hash representations for each identifier and storing those in a set.
+//! 1.b. Mark(lite GC): traverse reachable blocks starting at the tipset at epoch `current_epoch - chain_finality` and storing those in a set.
+//! 2.a. Wait(Full GC) at least `chain finality` blocks.
+//! 2.b. Waiting(Lite GC) is not needed.
 //! 3. Traverse reachable blocks starting at the current heaviest tipset and remove those from the
 //!    marked set, leaving only unreachable entries that are older than `chain finality`.
 //! 4. Sweep, removing all the remaining marked entries from the database.
