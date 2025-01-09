@@ -67,7 +67,14 @@ impl fmt::Display for ExitCode {
                 code if code > ExitCode_latest::SYS_MISSING_RETURN.value()
                     && code < ExitCode_latest::FIRST_USER_EXIT_CODE =>
                 {
-                    write!(f, "SysErrReserved{}({})", code - 10, code)
+                    // We want to match Lotus display exit codes
+                    // See <https://github.com/filecoin-project/go-state-types/blob/v0.15.0/exitcode/names.go#L16-L21>
+                    write!(
+                        f,
+                        "SysErrReserved{}({})",
+                        code - (ExitCode_latest::SYS_ASSERTION_FAILED.value()),
+                        code
+                    )
                 }
                 _ => write!(f, "{}", self.value()),
             }
