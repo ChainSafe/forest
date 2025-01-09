@@ -86,7 +86,7 @@ impl ExitCode {
     /// The lowest exit code that an actor may abort with.
     pub const FIRST_USER_EXIT_CODE: u32 = ExitCode_latest::FIRST_USER_EXIT_CODE;
 
-    /// Message execution (including subcalls) used more gas than the specified limit.
+    /// Message execution (including sub-calls) used more gas than the specified limit.
     pub const SYS_OUT_OF_GAS: Self = Self::new(ExitCode_latest::SYS_OUT_OF_GAS);
 
     /// The message sender didn't have the requisite funds.
