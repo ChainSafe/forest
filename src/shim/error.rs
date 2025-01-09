@@ -84,7 +84,13 @@ impl fmt::Display for ExitCode {
 
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
-    pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV4::FIRST_USER_EXIT_CODE;
+    pub const FIRST_USER_EXIT_CODE: u32 = ExitCode_latest::FIRST_USER_EXIT_CODE;
+
+    /// Message execution (including subcalls) used more gas than the specified limit.
+    pub const SYS_OUT_OF_GAS: Self = Self::new(ExitCode_latest::SYS_OUT_OF_GAS);
+
+    /// The message sender didn't have the requisite funds.
+    pub const SYS_INSUFFICIENT_FUNDS: Self = Self::new(ExitCode_latest::SYS_INSUFFICIENT_FUNDS);
 
     /// The initial range of exit codes is reserved for system errors.
     /// Actors may define codes starting with this one.
@@ -96,6 +102,10 @@ impl ExitCode {
 
     pub fn is_success(&self) -> bool {
         self.0.is_success()
+    }
+
+    pub const fn new(value: ExitCode_latest) -> Self {
+        Self(value)
     }
 }
 

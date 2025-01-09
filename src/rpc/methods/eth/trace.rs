@@ -13,13 +13,13 @@ use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
 use crate::rpc::methods::state::ExecutionTrace;
 use crate::rpc::state::ActorTrace;
+use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use fil_actor_eam_state::v12 as eam12;
 use fil_actor_evm_state::v15 as evm12;
 use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared4::{error::ExitCode as ExitCodeV4, METHOD_CONSTRUCTOR};
 
 use anyhow::{bail, Context};
 use num::FromPrimitive;
@@ -74,7 +74,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
     }
 
     // EVM tools often expect this literal string.
-    if code == ExitCodeV4::SYS_OUT_OF_GAS.into() {
+    if code == ExitCode::SYS_OUT_OF_GAS {
         return Some("out of gas".into());
     }
 
@@ -180,7 +180,7 @@ fn build_trace(
     // NOTE: The FFI currently folds all unknown syscall errors into "sys assertion
     // failed" which is turned into SysErrFatal.
     if !address.is_empty()
-        && Into::<ExitCodeV4>::into(trace.msg_rct.exit_code) == ExitCodeV4::SYS_INSUFFICIENT_FUNDS
+        && Into::<ExitCode>::into(trace.msg_rct.exit_code) == ExitCode::SYS_INSUFFICIENT_FUNDS
     {
         return Ok((None, None));
     }
