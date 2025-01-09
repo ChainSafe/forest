@@ -14,9 +14,10 @@ import (
 const ListenAddr = "/ip4/127.0.0.1/tcp/0"
 
 type P2PHost struct {
-	Host   host.Host
-	DHT    *dht.IpfsDHT
-	PubSub *pubsub.PubSub
+	Host      host.Host
+	DHT       *dht.IpfsDHT
+	BackupDHT *dht.IpfsDHT
+	PubSub    *pubsub.PubSub
 }
 
 func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
@@ -36,6 +37,17 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		return nil, err
 	}
 
+	backupDthOpts := []dht.Option{
+		dht.Mode(dht.ModeAutoServer),
+		dht.ProtocolPrefix(protocol.ID(fmt.Sprintf("/fil/kad/f3-sidecar/%s", networkName))),
+		dht.DisableProviders(),
+		dht.DisableValues(),
+	}
+	backupHostDHT, err := dht.New(ctx, host, backupDthOpts...)
+	if err != nil {
+		return nil, err
+	}
+
 	ps, err := pubsub.NewGossipSub(ctx, host,
 		pubsub.WithPeerExchange(true),
 		pubsub.WithFloodPublish(true),
@@ -44,5 +56,5 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		return nil, err
 	}
 
-	return &P2PHost{host, hostDHT, ps}, nil
+	return &P2PHost{host, hostDHT, backupHostDHT, ps}, nil
 }

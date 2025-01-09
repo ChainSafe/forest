@@ -29,11 +29,18 @@
 
 ### Added
 
+- [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
+  `Filecoin.EthTraceBlock` RPC method.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#5111](https://github.com/ChainSafe/forest/issues/5111) Make F3 work when the node Kademlia is disabled.
+
+- [#5122](https://github.com/ChainSafe/forest/issues/5122) Fix a bug in database garbage collection flow.
 
 ## Forest v.0.23.3 "Plumber"
 
@@ -45,6 +52,9 @@ Mandatory release for calibnet node operators. It fixes a sync error at epoch 22
 
 - [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
   `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
+
+- [#4907](https://github.com/ChainSafe/forest/issues/4907) Add support for the
+  `Filecoin.StateMinerInitialPledgeForSector` RPC method.
 
 ### Changed
 

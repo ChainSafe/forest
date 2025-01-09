@@ -104,6 +104,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthNewBlockFilter);
         $callback!($crate::rpc::eth::EthUninstallFilter);
         $callback!($crate::rpc::eth::EthSyncing);
+        $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
 
@@ -218,6 +219,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!($crate::rpc::state::StateWaitMsg);
         $callback!($crate::rpc::state::StateWaitMsgV0);
+        $callback!($crate::rpc::state::StateMinerInitialPledgeForSector);
 
         // sync vertical
         $callback!($crate::rpc::sync::SyncCheckBad);

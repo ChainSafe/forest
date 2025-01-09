@@ -5,14 +5,14 @@ on:
     branches:
       - main
     paths:
-      - '/docs'
+      - 'docs/**'
       - '.github/workflows/docs-deploy.yml'
   merge_group:
   pull_request:
     branches:
       - main
     paths:
-      - '/docs'
+      - 'docs/**'
       - '.github/workflows/docs-deploy.yml'
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
         # See https://github.com/actions/setup-node/issues/1027
         # cache: yarn
       - run: corepack enable
-      - run: yarn install --frozen-lockfile
+      - run: yarn --immutable
       - run: yarn run build
 
       - name: Deploy

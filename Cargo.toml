@@ -63,6 +63,7 @@ ez-jsonrpc-types = "0.5"
 fil_actor_account_state = { version = "19" }
 fil_actor_cron_state = { version = "19" }
 fil_actor_datacap_state = { version = "19" }
+fil_actor_eam_state = { version = "19" }
 fil_actor_evm_state = { version = "19" }
 fil_actor_init_state = { version = "19" }
 fil_actor_market_state = { version = "19" }
@@ -227,6 +228,7 @@ ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.19"
+cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
