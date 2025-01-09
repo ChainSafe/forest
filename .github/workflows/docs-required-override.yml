@@ -15,16 +15,14 @@ on:
     paths:
       - '**.md'
       - 'docs/**'
-      - '.github/workflows/docs-check.yml'
-      - '.github/workflows/docs-required-override.yml'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
     paths:
       - '**.md'
       - 'docs/**'
-      - '.github/workflows/docs-check.yml'
-      - '.github/workflows/docs-required-override.yml'
+      - '.github/workflows/docs-*.yml'
 
 jobs:
   # We need this because merge groups dont support path filters
@@ -42,8 +40,7 @@ jobs:
             changesFound:
                     - 'docs/**'
                     - '**.md'
-                    - '.github/workflows/docs-check.yml'
-                    - '.github/workflows/docs-required-override.yml'
+                    - '.github/workflows/docs-*.yml'
   changes-not-docs:
     runs-on: ubuntu-latest
     outputs:
@@ -59,8 +56,7 @@ jobs:
                     - '**'
                     - '!docs/**'
                     - '!**.md'
-                    - '!.github/workflows/docs-check.yml'
-                    - '!.github/workflows/docs-required-override.yml'
+                    - '!.github/workflows/docs-*.yml'
 
   override_integration_tests:
     name: Integration tests status
