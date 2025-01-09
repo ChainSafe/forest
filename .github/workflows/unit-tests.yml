@@ -16,11 +16,13 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
     paths-ignore:
       - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   schedule:
     - cron: "0 0 * * *"
 

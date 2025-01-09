@@ -1541,6 +1541,10 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         ),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
+        RpcTest::identity(
+            EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
+                .unwrap(),
+        ),
     ];
 
     for block in shared_tipset.block_headers() {
