@@ -4,6 +4,7 @@
 use super::types::{EthAddress, EthBytes};
 use crate::rpc::state::{MessageTrace, ReturnTrace};
 use crate::shim::address::Address as FilecoinAddress;
+use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::StateTree;
 
 use anyhow::{bail, Result};
@@ -12,9 +13,6 @@ use cbor4ii::core::Value;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use serde::de;
-
-/// The Identity multicodec code.
-pub const IDENTITY: u64 = 0x0;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -60,7 +58,7 @@ pub fn lookup_eth_address<DB: Blockstore>(
 /// Decodes the payload using the given codec.
 pub fn decode_payload(payload: &RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
-        IDENTITY => Ok(EthBytes::default()),
+        IDENTITY_HASH => Ok(EthBytes::default()),
         DAG_CBOR | CBOR => {
             let mut reader = cbor4ii::core::utils::SliceReader::new(payload.bytes());
             match Value::decode(&mut reader) {
@@ -159,7 +157,7 @@ mod test {
         );
 
         // identity
-        let result = decode_payload(&RawBytes::new(vec![1]), IDENTITY);
+        let result = decode_payload(&RawBytes::new(vec![1]), IDENTITY_HASH);
         assert!(result.unwrap().0.is_empty());
     }
 }
