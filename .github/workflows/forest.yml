@@ -10,11 +10,13 @@ concurrency:
       - main
     paths-ignore:
       - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
     paths-ignore:
       - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   schedule:
     - cron: 0 0 * * *
 env:
