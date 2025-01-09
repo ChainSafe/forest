@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
+  `Filecoin.EthTraceBlock` RPC method.
+
 ### Changed
 
 ### Removed

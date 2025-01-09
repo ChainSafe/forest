@@ -447,6 +447,84 @@ pub enum EthFilterResult {
 }
 lotus_json_with_self!(EthFilterResult);
 
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallTraceAction {
+    pub call_type: String,
+    pub from: EthAddress,
+    pub to: Option<EthAddress>,
+    pub gas: EthUint64,
+    pub value: EthBigInt,
+    pub input: EthBytes,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCreateTraceAction {
+    pub from: EthAddress,
+    pub gas: EthUint64,
+    pub value: EthBigInt,
+    pub init: EthBytes,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum TraceAction {
+    Call(EthCallTraceAction),
+    Create(EthCreateTraceAction),
+}
+
+impl Default for TraceAction {
+    fn default() -> Self {
+        TraceAction::Call(EthCallTraceAction::default())
+    }
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallTraceResult {
+    pub gas_used: EthUint64,
+    pub output: EthBytes,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCreateTraceResult {
+    pub address: Option<EthAddress>,
+    pub gas_used: EthUint64,
+    pub code: EthBytes,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum TraceResult {
+    Call(EthCallTraceResult),
+    Create(EthCreateTraceResult),
+}
+
+impl Default for TraceResult {
+    fn default() -> Self {
+        TraceResult::Call(EthCallTraceResult::default())
+    }
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthBlockTrace {
+    pub r#type: String,
+    pub subtraces: i64,
+    pub trace_address: Vec<i64>,
+    pub action: TraceAction,
+    pub result: TraceResult,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub block_hash: EthHash,
+    pub block_number: i64,
+    pub transaction_hash: EthHash,
+    pub transaction_position: i64,
+}
+lotus_json_with_self!(EthBlockTrace);
+
 #[cfg(test)]
 mod tests {
     use super::*;
