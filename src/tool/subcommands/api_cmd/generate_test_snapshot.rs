@@ -35,7 +35,7 @@ pub async fn run_test_with_dump(
         CurrentNetwork::set_global(Network::Testnet);
     }
     let mut run = false;
-    let chain_config = Arc::new(ChainConfig::calibnet());
+    let chain_config = Arc::new(ChainConfig::from_chain(chain));
     let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = Some(serde_json::to_string(&test_dump.request.params)?);
     macro_rules! run_test {

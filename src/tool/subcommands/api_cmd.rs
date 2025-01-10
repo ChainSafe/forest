@@ -269,6 +269,7 @@ impl ApiCommands {
                                 let mut db = vec![];
                                 tracking_db.export_forest_car(&mut db).await?;
                                 RpcTestSnapshot {
+                                    chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
                                     response: test_dump.forest_response,

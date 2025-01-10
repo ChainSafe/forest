@@ -12,7 +12,7 @@ use crate::{
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
-    networks::ChainConfig,
+    networks::{ChainConfig, NetworkChain},
     rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
@@ -26,6 +26,7 @@ use tokio::{sync::mpsc, task::JoinSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcTestSnapshot {
+    pub chain: NetworkChain,
     pub name: String,
     pub params: serde_json::Value,
     pub response: Result<serde_json::Value, String>,
@@ -34,7 +35,6 @@ pub struct RpcTestSnapshot {
 }
 
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
-    CurrentNetwork::set_global(Network::Testnet);
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;
     let snapshot_bytes = if let Ok(bytes) = zstd::decode_all(snapshot_bytes.as_slice()) {
@@ -43,13 +43,17 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         snapshot_bytes
     };
     let RpcTestSnapshot {
+        chain,
         name: method_name,
         params,
         db: db_bytes,
         response: expected_response,
     } = serde_json::from_slice(snapshot_bytes.as_slice())?;
+    if chain.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
-    let chain_config = Arc::new(ChainConfig::calibnet());
+    let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = match serde_json::to_string(&params)? {
         s if s.is_empty() => None,
