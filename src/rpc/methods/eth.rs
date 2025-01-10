@@ -293,9 +293,6 @@ impl BlockNumberOrHash {
         match s {
             "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
             "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
-            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
-            "safe" => Ok(BlockNumberOrHash::from_predefined(Predefined::Safe)),
-            "finalized" => Ok(BlockNumberOrHash::from_predefined(Predefined::Finalized)),
             hex if hex.starts_with("0x") => {
                 let epoch = hex_str_to_epoch(hex)?;
                 Ok(BlockNumberOrHash::from_block_number(epoch))
@@ -696,6 +693,8 @@ fn get_tipset_from_hash<DB: Blockstore>(
     let tsk = chain_store.get_required_tipset_key(block_hash)?;
     Tipset::load_required(chain_store.blockstore(), &tsk)
 }
+
+// getTipsetByEthBlockNumberOrHash
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
