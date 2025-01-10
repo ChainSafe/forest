@@ -208,20 +208,25 @@ impl<T: SettingsStore> SettingsStore for ReadOpsTrackingStore<T> {
     }
 
     fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
-        // HACKHACK: may need some care
         self.inner.setting_keys()
     }
 }
 
 impl<T: BitswapStoreRead> BitswapStoreRead for ReadOpsTrackingStore<T> {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        // HACKHACK: may need some care
-        self.inner.contains(cid)
+        let result = self.inner.get(cid)?;
+        if let Some(v) = &result {
+            Blockstore::put_keyed(&self.tracker, cid, v.as_slice())?;
+        }
+        Ok(result.is_some())
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        // HACKHACK: may need some care
-        self.inner.get(cid)
+        let result = self.inner.get(cid)?;
+        if let Some(v) = &result {
+            Blockstore::put_keyed(&self.tracker, cid, v.as_slice())?;
+        }
+        Ok(result)
     }
 }
 
@@ -235,11 +240,7 @@ impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for ReadOpsTrackingStore<T>
 
 impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
-        let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
-            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
-        }
-        Ok(result)
+        self.inner.read_bin(key)
     }
 
     fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()> {
@@ -247,15 +248,10 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     }
 
     fn exists(&self, key: &EthHash) -> anyhow::Result<bool> {
-        let result = self.inner.read_bin(key)?;
-        if let Some(v) = &result {
-            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
-        }
-        Ok(result.is_some())
+        self.inner.exists(key)
     }
 
     fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
-        // HACKHACK: may need some care
         self.inner.get_message_cids()
     }
 
