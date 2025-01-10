@@ -248,7 +248,6 @@ pub struct BlockHash {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum BlockNumberOrHash {
-    #[schemars(with = "String")]
     PredefinedBlock(Predefined),
     BlockNumber(EthInt64),
     BlockHash(EthHash),
@@ -294,6 +293,9 @@ impl BlockNumberOrHash {
         match s {
             "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
             "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
+            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
+            "safe" => Ok(BlockNumberOrHash::from_predefined(Predefined::Safe)),
+            "finalized" => Ok(BlockNumberOrHash::from_predefined(Predefined::Finalized)),
             hex if hex.starts_with("0x") => {
                 let epoch = hex_str_to_epoch(hex)?;
                 Ok(BlockNumberOrHash::from_block_number(epoch))
