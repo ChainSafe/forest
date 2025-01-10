@@ -174,3 +174,43 @@ impl BitswapStoreReadWrite for MemoryDB {
         self.put_keyed(block.cid(), block.data())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::{car::ForestCar, setting_keys::HEAD_KEY};
+    use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_codetable::Code::Blake2b256;
+    use nunny::vec as nonempty;
+
+    #[tokio::test]
+    async fn test_export_forest_car() {
+        let db = MemoryDB::default();
+        let record1 = b"non-persistent";
+        let key1 = Cid::new_v1(DAG_CBOR, Blake2b256.digest(record1.as_slice()));
+        db.put_keyed(&key1, record1.as_slice()).unwrap();
+
+        let record2 = b"persistent";
+        let key2 = Cid::new_v1(DAG_CBOR, Blake2b256.digest(record2.as_slice()));
+        db.put_keyed_persistent(&key2, record2.as_slice()).unwrap();
+
+        let mut car_db_bytes = vec![];
+        assert!(db
+            .export_forest_car(&mut car_db_bytes)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("chain head is not tracked and cannot be exported"));
+
+        db.write_obj(HEAD_KEY, &TipsetKey::from(nonempty![key1]))
+            .unwrap();
+
+        car_db_bytes.clear();
+        db.export_forest_car(&mut car_db_bytes).await.unwrap();
+
+        let car = ForestCar::new(car_db_bytes).unwrap();
+        assert_eq!(car.roots(), &nonempty![key1]);
+        assert!(car.has(&key1).unwrap());
+        assert!(car.has(&key2).unwrap());
+    }
+}
