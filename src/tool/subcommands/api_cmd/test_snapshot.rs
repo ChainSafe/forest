@@ -146,6 +146,7 @@ mod tests {
     use crate::{daemon::db_util::download_to, utils::net::global_http_client};
     use directories::ProjectDirs;
     use itertools::Itertools as _;
+    use md5::{Digest as _, Md5};
     use url::Url;
 
     #[tokio::test]
@@ -200,8 +201,11 @@ mod tests {
     }
 
     fn get_file_md5_etag(path: &Path) -> Option<String> {
-        std::fs::read(path)
-            .ok()
-            .map(|bytes| format!("{:x}", md5::compute(bytes.as_slice())))
+        std::fs::read(path).ok().map(|bytes| {
+            let mut hasher = Md5::new();
+            hasher.update(bytes.as_slice());
+            let hash = hasher.finalize();
+            format!("{hash:x}")
+        })
     }
 }
