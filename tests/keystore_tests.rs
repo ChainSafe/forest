@@ -3,8 +3,8 @@
 
 pub mod common;
 
-use forest_filecoin::{verify_token, JWT_IDENTIFIER};
-use forest_filecoin::{
+use forest::{verify_token, JWT_IDENTIFIER};
+use forest::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 

@@ -14,7 +14,10 @@ publish = false
 anyhow = { workspace = true }
 cid = { workspace = true }
 flume = { workspace = true }
-forest-filecoin = { path = "../", default-features = false, features = ["interop-tests-private", "no-f3-sidecar"] }
+forest = { package = "forest-filecoin", path = "../", default-features = false, features = [
+  "interop-tests-private",
+  "no-f3-sidecar",
+] }
 futures = { workspace = true }
 libp2p = { workspace = true, features = [
   'kad',

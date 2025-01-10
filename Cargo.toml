@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
 exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
 
+[lib]
+name = "forest"
+
 [workspace.dependencies]
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }

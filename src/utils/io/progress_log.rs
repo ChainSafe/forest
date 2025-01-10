@@ -19,7 +19,7 @@
 //! ```
 //! use tokio_test::block_on;
 //! use tokio::io::AsyncBufReadExt;
-//! use forest_filecoin::doctest_private::WithProgress;
+//! use forest::doctest_private::WithProgress;
 //! block_on(async {
 //!     let data: String = "some very big string".into();
 //!     let mut reader = tokio::io::BufReader::new(data.as_bytes());
