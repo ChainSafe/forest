@@ -143,7 +143,8 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::daemon::db_util::download_to;
+    use crate::{daemon::db_util::download_to, utils::net::global_http_client};
+    use directories::ProjectDirs;
     use itertools::Itertools as _;
     use url::Url;
 
@@ -158,19 +159,49 @@ mod tests {
                         .as_str(),
                 )
                 .ok()
+                .map(|url| (n, url))
             })
             .collect_vec();
-        for url in urls {
-            print!("Testing {url} ...");
-            let tmp_dir = tempfile::tempdir().unwrap();
-            let tmp = tempfile::NamedTempFile::new_in(&tmp_dir)
-                .unwrap()
-                .into_temp_path();
-            println!("start downloading at {}", tmp.display());
-            download_to(&url, &tmp).await.unwrap();
-            println!("done downloading {}", tmp.display());
-            run_test_from_snapshot(&tmp).await.unwrap();
+        let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
+        let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
+        for (filename, url) in urls {
+            let cache_file_path = cache_dir.join(filename);
+            let is_file_cached = match get_file_md5_etag(&cache_file_path) {
+                Some(file_etag) => {
+                    let url_etag = get_digital_ocean_space_url_etag(url.clone()).await.unwrap();
+                    if Some(&file_etag) == url_etag.as_ref() {
+                        true
+                    } else {
+                        println!(
+                            "etag mismatch, file: {filename}, local: {file_etag}, remote: {}",
+                            url_etag.unwrap_or_default()
+                        );
+                        false
+                    }
+                }
+                None => false,
+            };
+            if !is_file_cached {
+                println!("Downloading from {url} to {}", cache_file_path.display());
+                download_to(&url, &cache_file_path).await.unwrap();
+            }
+            print!("Testing {filename} ...");
+            run_test_from_snapshot(&cache_file_path).await.unwrap();
             println!("  succeeded.");
         }
+    }
+
+    async fn get_digital_ocean_space_url_etag(url: Url) -> anyhow::Result<Option<String>> {
+        let response = global_http_client().head(url).send().await?;
+        Ok(response
+            .headers()
+            .get("etag")
+            .and_then(|v| v.to_str().ok().map(|v| v.replace('"', "").to_string())))
+    }
+
+    fn get_file_md5_etag(path: &Path) -> Option<String> {
+        std::fs::read(path)
+            .ok()
+            .map(|bytes| format!("{:x}", md5::compute(bytes.as_slice())))
     }
 }
