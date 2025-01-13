@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use forest_filecoin::benchmark_private::{
+use forest::benchmark_private::{
     cid::CidCborExt as _,
     forest::index::{self, hash, NonMaximalU64},
 };

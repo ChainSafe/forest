@@ -13,7 +13,7 @@ use std::fmt;
 ///
 /// # Examples
 /// ```
-/// # use forest_filecoin::doctest_private::ExitCode;
+/// # use forest::doctest_private::ExitCode;
 /// let fvm2_success = fvm_shared2::error::ExitCode::new(0);
 /// let fvm3_success = fvm_shared3::error::ExitCode::new(0);
 ///

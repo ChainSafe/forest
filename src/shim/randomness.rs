@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
-/// # use forest_filecoin::doctest_private::Randomness;
+/// # use forest::doctest_private::Randomness;
 ///
 /// // Create FVM2 Randomness normally
 /// let fvm2_rand = fvm_shared2::randomness::Randomness(vec![]);

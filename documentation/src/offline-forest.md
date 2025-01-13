@@ -41,13 +41,13 @@ height: 1859736.
 
 ```bash
 ❯ forest-tool api serve --chain calibnet ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
-2024-08-12T12:29:16.624698Z  INFO forest_filecoin::tool::offline_server::server: Configuring Offline RPC Server
-2024-08-12T12:29:16.640402Z  INFO forest_filecoin::tool::offline_server::server: Using chain config for calibnet
-2024-08-12T12:29:16.641654Z  INFO forest_filecoin::genesis: Initialized genesis: bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4
-2024-08-12T12:29:16.643263Z  INFO forest_filecoin::daemon::db_util: Populating column EthMappings from range: [322354, 1859736]
+2024-08-12T12:29:16.624698Z  INFO forest::tool::offline_server::server: Configuring Offline RPC Server
+2024-08-12T12:29:16.640402Z  INFO forest::tool::offline_server::server: Using chain config for calibnet
+2024-08-12T12:29:16.641654Z  INFO forest::genesis: Initialized genesis: bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4
+2024-08-12T12:29:16.643263Z  INFO forest::daemon::db_util: Populating column EthMappings from range: [322354, 1859736]
 ...
-2024-08-12T12:29:44.218675Z  INFO forest_filecoin::tool::offline_server::server: Starting offline RPC Server
-2024-08-12T12:29:44.218804Z  INFO forest_filecoin::rpc: Ready for RPC connections
+2024-08-12T12:29:44.218675Z  INFO forest::tool::offline_server::server: Starting offline RPC Server
+2024-08-12T12:29:44.218804Z  INFO forest::rpc: Ready for RPC connections
 ```
 
 The server can then be queried using `forest-cli` or raw requests.

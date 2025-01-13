@@ -376,7 +376,7 @@ where
 ///
 /// # Examples
 /// ```
-/// # use forest_filecoin::doctest_private::ActorState;
+/// # use forest::doctest_private::ActorState;
 /// use cid::Cid;
 ///
 /// // Create FVM2 ActorState normally

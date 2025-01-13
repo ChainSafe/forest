@@ -184,7 +184,7 @@ services:
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - RUST_LOG=info,forest_filecoin::blocks::header=trace
+      - RUST_LOG=info,forest::blocks::header=trace
       - FOREST_F3_SIDECAR_FFI_ENABLED=1
       - FOREST_F3_FINALITY=${F3_FINALITY}
       - FOREST_F3_PERMANENT_PARTICIPATING_MINER_ADDRESSES=${MINER_ACTOR_ADDRESS}

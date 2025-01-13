@@ -1264,7 +1264,7 @@ impl RpcMethod<2> for StateFetchRoot {
                     for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                         counter += 1;
                         if counter % 1_000 == 0 {
-                            // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
+                            // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(), task_set.len()

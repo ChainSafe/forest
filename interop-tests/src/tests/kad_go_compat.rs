@@ -3,7 +3,7 @@
 
 use super::go_ffi::*;
 
-use forest_filecoin::interop_tests_private::libp2p::discovery::new_kademlia;
+use forest::interop_tests_private::libp2p::discovery::new_kademlia;
 use futures::StreamExt as _;
 use libp2p::{
     identify, identity, kad, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, StreamProtocol,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::io::Write;
 
-use forest_filecoin::{Client, Config};
+use forest::{Client, Config};
 use tempfile::TempDir;
 
 pub mod common;

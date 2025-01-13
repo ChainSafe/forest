@@ -30,12 +30,12 @@ Technically, tokens have an expiration date, the default is 100 years, so there'
 
 ```bash
 ❯ forest --chain calibnet --encrypt-keystore=false
-2024-08-21T11:26:37.608429Z  INFO forest_filecoin::daemon::main: Using default calibnet config
-2024-08-21T11:26:37.611063Z  INFO forest_filecoin::daemon: Starting Forest daemon, version 0.19.2+git.76266421b1e
-2024-08-21T11:26:37.611140Z  WARN forest_filecoin::daemon: Forest has encryption disabled
+2024-08-21T11:26:37.608429Z  INFO forest::daemon::main: Using default calibnet config
+2024-08-21T11:26:37.611063Z  INFO forest::daemon: Starting Forest daemon, version 0.19.2+git.76266421b1e
+2024-08-21T11:26:37.611140Z  WARN forest::daemon: Forest has encryption disabled
 ### Admin token is printed here
-2024-08-21T11:26:37.611185Z  INFO forest_filecoin::daemon: Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjo0ODc3ODM5NTk3fQ.lnlboKjZhidbH177hWAD8m61MGwCu6w9AYCWaUZoepM
-2024-08-21T11:26:37.611211Z  INFO forest_filecoin::db::migration::db_migration: No database migration required
+2024-08-21T11:26:37.611185Z  INFO forest::daemon: Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjo0ODc3ODM5NTk3fQ.lnlboKjZhidbH177hWAD8m61MGwCu6w9AYCWaUZoepM
+2024-08-21T11:26:37.611211Z  INFO forest::db::migration::db_migration: No database migration required
 ```
 
 Alternative, with `--save-token <PATH>`:

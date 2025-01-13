@@ -198,7 +198,7 @@ services:
     networks:
       - api-tests
     environment:
-      - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
+      - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
@@ -229,7 +229,7 @@ services:
     networks:
       - api-tests
     environment:
-      - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
+      - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
