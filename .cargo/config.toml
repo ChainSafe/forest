@@ -21,7 +21,7 @@ retry = 5
 protocol = "sparse"
 
 [env]
-# Diable exponential formatting in `bigdecimal`
+# Disable exponential formatting in `bigdecimal`
 # as a workaround for https://github.com/ChainSafe/forest/issues/4035
 RUST_BIGDECIMAL_FMT_EXPONENTIAL_THRESHOLD = { value = "100", force = true }       # 0.4.3
 RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD = { value = "100", force = true } # 0.4.7
