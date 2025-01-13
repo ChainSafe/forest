@@ -241,6 +241,7 @@ glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
+md5 = { package = "md-5", version = "0.10" }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.7"
 predicates = "3"

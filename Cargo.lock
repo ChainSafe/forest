@@ -3097,6 +3097,7 @@ dependencies = [
  "libp2p-swarm-test",
  "libsecp256k1",
  "lru",
+ "md-5",
  "memmap2 0.9.5",
  "memory-stats",
  "mimalloc",
@@ -5937,6 +5938,16 @@ checksum = "9380b911e3e96d10c1f415da0876389aaf1b56759054eeb0de7df940c456ba1a"
 dependencies = [
  "autocfg",
  "rawpointer",
+]
+
+[[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest 0.10.7",
 ]
 
 [[package]]

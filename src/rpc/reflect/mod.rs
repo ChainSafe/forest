@@ -150,6 +150,21 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             )),
         }
     }
+
+    fn parse_params(
+        params_raw: Option<impl AsRef<str>>,
+        calling_convention: ParamStructure,
+    ) -> anyhow::Result<Self::Params> {
+        Ok(Self::Params::parse(
+            params_raw
+                .map(|s| serde_json::from_str(s.as_ref()))
+                .transpose()?,
+            Self::PARAM_NAMES,
+            calling_convention,
+            Self::N_REQUIRED_PARAMS,
+        )?)
+    }
+
     /// Generate a full `OpenRPC` method definition for this endpoint.
     fn openrpc<'de>(
         gen: &mut SchemaGenerator,
@@ -214,17 +229,8 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         );
 
         module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
-            let raw = params
-                .as_str()
-                .map(serde_json::from_str)
-                .transpose()
+            let params = Self::parse_params(params.as_str(), calling_convention)
                 .map_err(|e| Error::invalid_params(e, None))?;
-            let params = Self::Params::parse(
-                raw,
-                Self::PARAM_NAMES,
-                calling_convention,
-                Self::N_REQUIRED_PARAMS,
-            )?;
             let ok = Self::handle(ctx, params).await?;
             Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
