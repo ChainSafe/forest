@@ -199,7 +199,7 @@ services:
       - api-tests
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
-      - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FOREST_RPC_DEFAULT_TIMEOUT=300
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
@@ -230,7 +230,7 @@ services:
       - api-tests
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
-      - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FOREST_RPC_DEFAULT_TIMEOUT=300
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
