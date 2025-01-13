@@ -10,7 +10,7 @@ import TabItem from "@theme/TabItem";
   <TabItem value="binaries" label="Binaries" default>
 
 To install Forest from pre-compiled binaries, please refer to the
-[releases page](https://github.com/ChainSafe/forest/releases), or consider using
+[releases page](https://GitHub.com/ChainSafe/forest/releases), or consider using
 Docker.
 
   </TabItem>
@@ -18,7 +18,7 @@ Docker.
 
 <h3>Images</h3>
 
-Images are available via Github Container Registry:
+Images are available via GitHub Container Registry:
 
 ```shell
 ghcr.io/chainsafe/forest
@@ -31,7 +31,7 @@ You will find tagged images following these conventions:
 - `edge` - latest development build of the `main` branch
 - `date-digest` (e.g., `2023-02-17-5f27a62`) - all builds that landed on the `main` branch
 
-A list of available images can be found here: https://github.com/ChainSafe/forest/pkgs/container/forest
+A list of available images can be found here: https://GitHub.com/ChainSafe/forest/pkgs/container/forest
 
 <h3>Basic Usage</h3>
 
@@ -74,7 +74,7 @@ cargo install forest-filecoin
 
 ```shell
 # Clone the Forest repository
-git clone --depth 1 https://github.com/ChainSafe/forest.git && cd forest
+git clone --depth 1 https://GitHub.com/ChainSafe/forest.git && cd forest
 make install
 ```
 
