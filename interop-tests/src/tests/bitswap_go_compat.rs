@@ -3,7 +3,7 @@
 
 use super::go_ffi::*;
 use cid::Cid;
-use forest_filecoin::interop_tests_private::libp2p_bitswap::{
+use forest::interop_tests_private::libp2p_bitswap::{
     BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
 };
 use libp2p::{

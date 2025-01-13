@@ -289,8 +289,8 @@ While the migration itself should succeed, there will be a state mismatch
 afterwards. This is not an issue.
 
 ```
-2023-12-05T15:46:37.988136Z  INFO forest_filecoin::state_migration: State migration at height Watermelon(epoch 3411547) was successful, Previous state: bafy2bzacedqswtcnhub5ea6upcjp4s7ghba5lgxri7ckezgsdxbkgnh6oyz3w, new state: bafy2bzacecxvz7jl3pt3ki4cirp4arfbmdxxcdb2ni4mzhkbbxqaug5z747gu, new state actors: bafy2bzaceb53kdtubm74czvthzah5inpejrrw7tdueajuhp3n7pbirzjwpqok. Took: 349.9679s.
-2023-12-05T15:46:42.438174Z ERROR forest_filecoin::state_manager: state mismatch height=3411549 expected_state=Cid(bafy2bzacecr6ll3w6kb5cyvcsl2e5z6wqrbhaxntzaabkbqikmhuj5a7ukbxk) expected_receipt=Cid(bafy2bzacebhp2zlhpabxgquiht7cu5rqug5sxtxyfadkiijdpaxmcrhdyfs3s) actual_state=Cid(bafy2bzacecjb4tc4hub2yytxdsr7kpozdabufgsvdixqkkllg3yqv7zxujs2g) actual_receipt=Cid(bafy2bzaceaqdlwllmddokd5izwvf7isqlzglueqcw62ttyn5j3nx2hzk4ecwg)
+2023-12-05T15:46:37.988136Z  INFO forest::state_migration: State migration at height Watermelon(epoch 3411547) was successful, Previous state: bafy2bzacedqswtcnhub5ea6upcjp4s7ghba5lgxri7ckezgsdxbkgnh6oyz3w, new state: bafy2bzacecxvz7jl3pt3ki4cirp4arfbmdxxcdb2ni4mzhkbbxqaug5z747gu, new state actors: bafy2bzaceb53kdtubm74czvthzah5inpejrrw7tdueajuhp3n7pbirzjwpqok. Took: 349.9679s.
+2023-12-05T15:46:42.438174Z ERROR forest::state_manager: state mismatch height=3411549 expected_state=Cid(bafy2bzacecr6ll3w6kb5cyvcsl2e5z6wqrbhaxntzaabkbqikmhuj5a7ukbxk) expected_receipt=Cid(bafy2bzacebhp2zlhpabxgquiht7cu5rqug5sxtxyfadkiijdpaxmcrhdyfs3s) actual_state=Cid(bafy2bzacecjb4tc4hub2yytxdsr7kpozdabufgsvdixqkkllg3yqv7zxujs2g) actual_receipt=Cid(bafy2bzaceaqdlwllmddokd5izwvf7isqlzglueqcw62ttyn5j3nx2hzk4ecwg)
 ```
 
 While the resulting state might be incorrect (not matching what Lotus

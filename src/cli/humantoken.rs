@@ -121,7 +121,7 @@ mod parse {
 
     /// Parse token amounts as floats with SI prefixed-units.
     /// ```
-    /// # use forest_filecoin::doctest_private::{TokenAmount, parse};
+    /// # use forest::doctest_private::{TokenAmount, parse};
     /// fn assert_attos(input: &str, attos: u64) {
     ///     let expected = TokenAmount::from_atto(attos);
     ///     let actual = parse(input).unwrap();
@@ -408,7 +408,7 @@ mod print {
         /// - `{:.#4}`: both
         ///
         /// ```
-        /// # use forest_filecoin::doctest_private::{TokenAmountPretty as _, TokenAmount};
+        /// # use forest::doctest_private::{TokenAmountPretty as _, TokenAmount};
         ///
         /// let amount = TokenAmount::from_nano(1500);
         ///
