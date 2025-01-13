@@ -34,7 +34,7 @@ asynchronous-codec = "0.7"
 axum = "0.8"
 backon = "1"
 base64 = "0.22"
-bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
+bigdecimal = "0.4"
 blake2b_simd = "1"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
