@@ -6,7 +6,7 @@ We run spellchecks using
 It delegates to a program called
 [`Hunspell`](https://github.com/hunspell/hunspell).
 
-Hunspell accepts uses `dictionary` files for words and `affix` files to define
+Hunspell accept use `dictionary` files for words and `affix` files to define
 acceptable modifications to those words.
 
 Note that cargo-spellcheck comes with
