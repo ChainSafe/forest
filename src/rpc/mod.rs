@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod auth_layer;
@@ -31,240 +31,243 @@ pub use jsonrpsee::core::ClientError;
 /// trait.
 ///
 /// All methods should be entered here.
-macro_rules! for_each_method {
+#[macro_export]
+macro_rules! for_each_rpc_method {
     ($callback:path) => {
         // auth vertical
-        $callback!(crate::rpc::auth::AuthNew);
-        $callback!(crate::rpc::auth::AuthVerify);
+        $callback!($crate::rpc::auth::AuthNew);
+        $callback!($crate::rpc::auth::AuthVerify);
 
         // beacon vertical
-        $callback!(crate::rpc::beacon::BeaconGetEntry);
+        $callback!($crate::rpc::beacon::BeaconGetEntry);
 
         // chain vertical
-        $callback!(crate::rpc::chain::ChainExport);
-        $callback!(crate::rpc::chain::ChainGetBlock);
-        $callback!(crate::rpc::chain::ChainGetBlockMessages);
-        $callback!(crate::rpc::chain::ChainGetEvents);
-        $callback!(crate::rpc::chain::ChainGetGenesis);
-        $callback!(crate::rpc::chain::ChainGetMessage);
-        $callback!(crate::rpc::chain::ChainGetMessagesInTipset);
-        $callback!(crate::rpc::chain::ChainGetMinBaseFee);
-        $callback!(crate::rpc::chain::ChainGetParentMessages);
-        $callback!(crate::rpc::chain::ChainGetParentReceipts);
-        $callback!(crate::rpc::chain::ChainGetPath);
-        $callback!(crate::rpc::chain::ChainGetTipSet);
-        $callback!(crate::rpc::chain::ChainGetTipSetAfterHeight);
-        $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
-        $callback!(crate::rpc::chain::ChainHasObj);
-        $callback!(crate::rpc::chain::ChainHead);
-        $callback!(crate::rpc::chain::ChainReadObj);
-        $callback!(crate::rpc::chain::ChainSetHead);
-        $callback!(crate::rpc::chain::ChainStatObj);
-        $callback!(crate::rpc::chain::ChainTipSetWeight);
+        $callback!($crate::rpc::chain::ChainExport);
+        $callback!($crate::rpc::chain::ChainGetBlock);
+        $callback!($crate::rpc::chain::ChainGetBlockMessages);
+        $callback!($crate::rpc::chain::ChainGetEvents);
+        $callback!($crate::rpc::chain::ChainGetGenesis);
+        $callback!($crate::rpc::chain::ChainGetMessage);
+        $callback!($crate::rpc::chain::ChainGetMessagesInTipset);
+        $callback!($crate::rpc::chain::ChainGetMinBaseFee);
+        $callback!($crate::rpc::chain::ChainGetParentMessages);
+        $callback!($crate::rpc::chain::ChainGetParentReceipts);
+        $callback!($crate::rpc::chain::ChainGetPath);
+        $callback!($crate::rpc::chain::ChainGetTipSet);
+        $callback!($crate::rpc::chain::ChainGetTipSetAfterHeight);
+        $callback!($crate::rpc::chain::ChainGetTipSetByHeight);
+        $callback!($crate::rpc::chain::ChainHasObj);
+        $callback!($crate::rpc::chain::ChainHead);
+        $callback!($crate::rpc::chain::ChainReadObj);
+        $callback!($crate::rpc::chain::ChainSetHead);
+        $callback!($crate::rpc::chain::ChainStatObj);
+        $callback!($crate::rpc::chain::ChainTipSetWeight);
 
         // common vertical
-        $callback!(crate::rpc::common::Session);
-        $callback!(crate::rpc::common::Shutdown);
-        $callback!(crate::rpc::common::StartTime);
-        $callback!(crate::rpc::common::Version);
+        $callback!($crate::rpc::common::Session);
+        $callback!($crate::rpc::common::Shutdown);
+        $callback!($crate::rpc::common::StartTime);
+        $callback!($crate::rpc::common::Version);
 
         // eth vertical
-        $callback!(crate::rpc::eth::EthAccounts);
-        $callback!(crate::rpc::eth::EthAddressToFilecoinAddress);
-        $callback!(crate::rpc::eth::EthBlockNumber);
-        $callback!(crate::rpc::eth::EthCall);
-        $callback!(crate::rpc::eth::EthChainId);
-        $callback!(crate::rpc::eth::EthEstimateGas);
-        $callback!(crate::rpc::eth::EthFeeHistory);
-        $callback!(crate::rpc::eth::EthGasPrice);
-        $callback!(crate::rpc::eth::EthGetBalance);
-        $callback!(crate::rpc::eth::EthGetBlockByHash);
-        $callback!(crate::rpc::eth::EthGetBlockByNumber);
-        $callback!(crate::rpc::eth::EthGetBlockReceipts);
-        $callback!(crate::rpc::eth::EthGetBlockReceiptsLimited);
-        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByHash);
-        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
-        $callback!(crate::rpc::eth::EthGetCode);
-        $callback!(crate::rpc::eth::EthGetLogs);
-        $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
-        $callback!(crate::rpc::eth::EthGetStorageAt);
-        $callback!(crate::rpc::eth::EthGetTransactionByHash);
-        $callback!(crate::rpc::eth::EthGetTransactionByHashLimited);
-        $callback!(crate::rpc::eth::EthGetTransactionCount);
-        $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
-        $callback!(crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
-        $callback!(crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
-        $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
-        $callback!(crate::rpc::eth::EthProtocolVersion);
-        $callback!(crate::rpc::eth::EthGetTransactionReceipt);
-        $callback!(crate::rpc::eth::EthGetTransactionReceiptLimited);
-        $callback!(crate::rpc::eth::EthNewFilter);
-        $callback!(crate::rpc::eth::EthNewPendingTransactionFilter);
-        $callback!(crate::rpc::eth::EthNewBlockFilter);
-        $callback!(crate::rpc::eth::EthUninstallFilter);
-        $callback!(crate::rpc::eth::EthSyncing);
-        $callback!(crate::rpc::eth::Web3ClientVersion);
-        $callback!(crate::rpc::eth::EthSendRawTransaction);
+        $callback!($crate::rpc::eth::EthAccounts);
+        $callback!($crate::rpc::eth::EthAddressToFilecoinAddress);
+        $callback!($crate::rpc::eth::EthBlockNumber);
+        $callback!($crate::rpc::eth::EthCall);
+        $callback!($crate::rpc::eth::EthChainId);
+        $callback!($crate::rpc::eth::EthEstimateGas);
+        $callback!($crate::rpc::eth::EthFeeHistory);
+        $callback!($crate::rpc::eth::EthGasPrice);
+        $callback!($crate::rpc::eth::EthGetBalance);
+        $callback!($crate::rpc::eth::EthGetBlockByHash);
+        $callback!($crate::rpc::eth::EthGetBlockByNumber);
+        $callback!($crate::rpc::eth::EthGetBlockReceipts);
+        $callback!($crate::rpc::eth::EthGetBlockReceiptsLimited);
+        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByHash);
+        $callback!($crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!($crate::rpc::eth::EthGetCode);
+        $callback!($crate::rpc::eth::EthGetLogs);
+        $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
+        $callback!($crate::rpc::eth::EthGetStorageAt);
+        $callback!($crate::rpc::eth::EthGetTransactionByHash);
+        $callback!($crate::rpc::eth::EthGetTransactionByHashLimited);
+        $callback!($crate::rpc::eth::EthGetTransactionCount);
+        $callback!($crate::rpc::eth::EthGetTransactionHashByCid);
+        $callback!($crate::rpc::eth::EthGetTransactionByBlockNumberAndIndex);
+        $callback!($crate::rpc::eth::EthGetTransactionByBlockHashAndIndex);
+        $callback!($crate::rpc::eth::EthMaxPriorityFeePerGas);
+        $callback!($crate::rpc::eth::EthProtocolVersion);
+        $callback!($crate::rpc::eth::EthGetTransactionReceipt);
+        $callback!($crate::rpc::eth::EthGetTransactionReceiptLimited);
+        $callback!($crate::rpc::eth::EthNewFilter);
+        $callback!($crate::rpc::eth::EthNewPendingTransactionFilter);
+        $callback!($crate::rpc::eth::EthNewBlockFilter);
+        $callback!($crate::rpc::eth::EthUninstallFilter);
+        $callback!($crate::rpc::eth::EthSyncing);
+        $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::Web3ClientVersion);
+        $callback!($crate::rpc::eth::EthSendRawTransaction);
 
         // gas vertical
-        $callback!(crate::rpc::gas::GasEstimateFeeCap);
-        $callback!(crate::rpc::gas::GasEstimateGasLimit);
-        $callback!(crate::rpc::gas::GasEstimateGasPremium);
-        $callback!(crate::rpc::gas::GasEstimateMessageGas);
+        $callback!($crate::rpc::gas::GasEstimateFeeCap);
+        $callback!($crate::rpc::gas::GasEstimateGasLimit);
+        $callback!($crate::rpc::gas::GasEstimateGasPremium);
+        $callback!($crate::rpc::gas::GasEstimateMessageGas);
 
         // market vertical
-        $callback!(crate::rpc::market::MarketAddBalance);
+        $callback!($crate::rpc::market::MarketAddBalance);
 
         // miner vertical
-        $callback!(crate::rpc::miner::MinerCreateBlock);
-        $callback!(crate::rpc::miner::MinerGetBaseInfo);
+        $callback!($crate::rpc::miner::MinerCreateBlock);
+        $callback!($crate::rpc::miner::MinerGetBaseInfo);
 
         // mpool vertical
-        $callback!(crate::rpc::mpool::MpoolBatchPush);
-        $callback!(crate::rpc::mpool::MpoolBatchPushUntrusted);
-        $callback!(crate::rpc::mpool::MpoolGetNonce);
-        $callback!(crate::rpc::mpool::MpoolPending);
-        $callback!(crate::rpc::mpool::MpoolPush);
-        $callback!(crate::rpc::mpool::MpoolPushMessage);
-        $callback!(crate::rpc::mpool::MpoolPushUntrusted);
-        $callback!(crate::rpc::mpool::MpoolSelect);
+        $callback!($crate::rpc::mpool::MpoolBatchPush);
+        $callback!($crate::rpc::mpool::MpoolBatchPushUntrusted);
+        $callback!($crate::rpc::mpool::MpoolGetNonce);
+        $callback!($crate::rpc::mpool::MpoolPending);
+        $callback!($crate::rpc::mpool::MpoolPush);
+        $callback!($crate::rpc::mpool::MpoolPushMessage);
+        $callback!($crate::rpc::mpool::MpoolPushUntrusted);
+        $callback!($crate::rpc::mpool::MpoolSelect);
 
         // msig vertical
-        $callback!(crate::rpc::msig::MsigGetAvailableBalance);
-        $callback!(crate::rpc::msig::MsigGetPending);
-        $callback!(crate::rpc::msig::MsigGetVested);
-        $callback!(crate::rpc::msig::MsigGetVestingSchedule);
+        $callback!($crate::rpc::msig::MsigGetAvailableBalance);
+        $callback!($crate::rpc::msig::MsigGetPending);
+        $callback!($crate::rpc::msig::MsigGetVested);
+        $callback!($crate::rpc::msig::MsigGetVestingSchedule);
 
         // net vertical
-        $callback!(crate::rpc::net::NetAddrsListen);
-        $callback!(crate::rpc::net::NetAgentVersion);
-        $callback!(crate::rpc::net::NetAutoNatStatus);
-        $callback!(crate::rpc::net::NetConnect);
-        $callback!(crate::rpc::net::NetDisconnect);
-        $callback!(crate::rpc::net::NetFindPeer);
-        $callback!(crate::rpc::net::NetInfo);
-        $callback!(crate::rpc::net::NetListening);
-        $callback!(crate::rpc::net::NetPeers);
-        $callback!(crate::rpc::net::NetProtectAdd);
-        $callback!(crate::rpc::net::NetProtectList);
-        $callback!(crate::rpc::net::NetProtectRemove);
-        $callback!(crate::rpc::net::NetVersion);
+        $callback!($crate::rpc::net::NetAddrsListen);
+        $callback!($crate::rpc::net::NetAgentVersion);
+        $callback!($crate::rpc::net::NetAutoNatStatus);
+        $callback!($crate::rpc::net::NetConnect);
+        $callback!($crate::rpc::net::NetDisconnect);
+        $callback!($crate::rpc::net::NetFindPeer);
+        $callback!($crate::rpc::net::NetInfo);
+        $callback!($crate::rpc::net::NetListening);
+        $callback!($crate::rpc::net::NetPeers);
+        $callback!($crate::rpc::net::NetProtectAdd);
+        $callback!($crate::rpc::net::NetProtectList);
+        $callback!($crate::rpc::net::NetProtectRemove);
+        $callback!($crate::rpc::net::NetVersion);
 
         // node vertical
-        $callback!(crate::rpc::node::NodeStatus);
+        $callback!($crate::rpc::node::NodeStatus);
 
         // state vertical
-        $callback!(crate::rpc::state::StateAccountKey);
-        $callback!(crate::rpc::state::StateCall);
-        $callback!(crate::rpc::state::StateCirculatingSupply);
-        $callback!(crate::rpc::state::StateCompute);
-        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
-        $callback!(crate::rpc::state::StateFetchRoot);
-        $callback!(crate::rpc::state::StateGetActor);
-        $callback!(crate::rpc::state::StateGetAllAllocations);
-        $callback!(crate::rpc::state::StateGetAllClaims);
-        $callback!(crate::rpc::state::StateGetAllocation);
-        $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
-        $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
-        $callback!(crate::rpc::state::StateGetAllocations);
-        $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateGetClaim);
-        $callback!(crate::rpc::state::StateGetClaims);
-        $callback!(crate::rpc::state::StateGetNetworkParams);
-        $callback!(crate::rpc::state::StateGetRandomnessDigestFromBeacon);
-        $callback!(crate::rpc::state::StateGetRandomnessDigestFromTickets);
-        $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
-        $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
-        $callback!(crate::rpc::state::StateGetReceipt);
-        $callback!(crate::rpc::state::StateListActors);
-        $callback!(crate::rpc::state::StateListMessages);
-        $callback!(crate::rpc::state::StateListMiners);
-        $callback!(crate::rpc::state::StateLookupID);
-        $callback!(crate::rpc::state::StateLookupRobustAddress);
-        $callback!(crate::rpc::state::StateMarketBalance);
-        $callback!(crate::rpc::state::StateMarketDeals);
-        $callback!(crate::rpc::state::StateMarketParticipants);
-        $callback!(crate::rpc::state::StateMarketStorageDeal);
-        $callback!(crate::rpc::state::StateMinerActiveSectors);
-        $callback!(crate::rpc::state::StateMinerAllocated);
-        $callback!(crate::rpc::state::StateMinerAvailableBalance);
-        $callback!(crate::rpc::state::StateMinerDeadlines);
-        $callback!(crate::rpc::state::StateMinerFaults);
-        $callback!(crate::rpc::state::StateMinerInfo);
-        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
-        $callback!(crate::rpc::state::StateMinerPartitions);
-        $callback!(crate::rpc::state::StateMinerPower);
-        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
-        $callback!(crate::rpc::state::StateMinerProvingDeadline);
-        $callback!(crate::rpc::state::StateMinerRecoveries);
-        $callback!(crate::rpc::state::StateMinerSectorAllocated);
-        $callback!(crate::rpc::state::StateMinerSectorCount);
-        $callback!(crate::rpc::state::StateMinerSectors);
-        $callback!(crate::rpc::state::StateNetworkName);
-        $callback!(crate::rpc::state::StateNetworkVersion);
-        $callback!(crate::rpc::state::StateReadState);
-        $callback!(crate::rpc::state::StateReplay);
-        $callback!(crate::rpc::state::StateSearchMsg);
-        $callback!(crate::rpc::state::StateSearchMsgLimited);
-        $callback!(crate::rpc::state::StateSectorExpiration);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
-        $callback!(crate::rpc::state::StateSectorPartition);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
-        $callback!(crate::rpc::state::StateVerifiedClientStatus);
-        $callback!(crate::rpc::state::StateVerifiedRegistryRootKey);
-        $callback!(crate::rpc::state::StateVerifierStatus);
-        $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
-        $callback!(crate::rpc::state::StateWaitMsg);
-        $callback!(crate::rpc::state::StateWaitMsgV0);
+        $callback!($crate::rpc::state::StateAccountKey);
+        $callback!($crate::rpc::state::StateCall);
+        $callback!($crate::rpc::state::StateCirculatingSupply);
+        $callback!($crate::rpc::state::StateCompute);
+        $callback!($crate::rpc::state::StateDealProviderCollateralBounds);
+        $callback!($crate::rpc::state::StateFetchRoot);
+        $callback!($crate::rpc::state::StateGetActor);
+        $callback!($crate::rpc::state::StateGetAllAllocations);
+        $callback!($crate::rpc::state::StateGetAllClaims);
+        $callback!($crate::rpc::state::StateGetAllocation);
+        $callback!($crate::rpc::state::StateGetAllocationForPendingDeal);
+        $callback!($crate::rpc::state::StateGetAllocationIdForPendingDeal);
+        $callback!($crate::rpc::state::StateGetAllocations);
+        $callback!($crate::rpc::state::StateGetBeaconEntry);
+        $callback!($crate::rpc::state::StateGetClaim);
+        $callback!($crate::rpc::state::StateGetClaims);
+        $callback!($crate::rpc::state::StateGetNetworkParams);
+        $callback!($crate::rpc::state::StateGetRandomnessDigestFromBeacon);
+        $callback!($crate::rpc::state::StateGetRandomnessDigestFromTickets);
+        $callback!($crate::rpc::state::StateGetRandomnessFromBeacon);
+        $callback!($crate::rpc::state::StateGetRandomnessFromTickets);
+        $callback!($crate::rpc::state::StateGetReceipt);
+        $callback!($crate::rpc::state::StateListActors);
+        $callback!($crate::rpc::state::StateListMessages);
+        $callback!($crate::rpc::state::StateListMiners);
+        $callback!($crate::rpc::state::StateLookupID);
+        $callback!($crate::rpc::state::StateLookupRobustAddress);
+        $callback!($crate::rpc::state::StateMarketBalance);
+        $callback!($crate::rpc::state::StateMarketDeals);
+        $callback!($crate::rpc::state::StateMarketParticipants);
+        $callback!($crate::rpc::state::StateMarketStorageDeal);
+        $callback!($crate::rpc::state::StateMinerActiveSectors);
+        $callback!($crate::rpc::state::StateMinerAllocated);
+        $callback!($crate::rpc::state::StateMinerAvailableBalance);
+        $callback!($crate::rpc::state::StateMinerDeadlines);
+        $callback!($crate::rpc::state::StateMinerFaults);
+        $callback!($crate::rpc::state::StateMinerInfo);
+        $callback!($crate::rpc::state::StateMinerInitialPledgeCollateral);
+        $callback!($crate::rpc::state::StateMinerPartitions);
+        $callback!($crate::rpc::state::StateMinerPower);
+        $callback!($crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!($crate::rpc::state::StateMinerProvingDeadline);
+        $callback!($crate::rpc::state::StateMinerRecoveries);
+        $callback!($crate::rpc::state::StateMinerSectorAllocated);
+        $callback!($crate::rpc::state::StateMinerSectorCount);
+        $callback!($crate::rpc::state::StateMinerSectors);
+        $callback!($crate::rpc::state::StateNetworkName);
+        $callback!($crate::rpc::state::StateNetworkVersion);
+        $callback!($crate::rpc::state::StateReadState);
+        $callback!($crate::rpc::state::StateReplay);
+        $callback!($crate::rpc::state::StateSearchMsg);
+        $callback!($crate::rpc::state::StateSearchMsgLimited);
+        $callback!($crate::rpc::state::StateSectorExpiration);
+        $callback!($crate::rpc::state::StateSectorGetInfo);
+        $callback!($crate::rpc::state::StateSectorPartition);
+        $callback!($crate::rpc::state::StateSectorPreCommitInfo);
+        $callback!($crate::rpc::state::StateSectorPreCommitInfoV0);
+        $callback!($crate::rpc::state::StateVerifiedClientStatus);
+        $callback!($crate::rpc::state::StateVerifiedRegistryRootKey);
+        $callback!($crate::rpc::state::StateVerifierStatus);
+        $callback!($crate::rpc::state::StateVMCirculatingSupplyInternal);
+        $callback!($crate::rpc::state::StateWaitMsg);
+        $callback!($crate::rpc::state::StateWaitMsgV0);
+        $callback!($crate::rpc::state::StateMinerInitialPledgeForSector);
 
         // sync vertical
-        $callback!(crate::rpc::sync::SyncCheckBad);
-        $callback!(crate::rpc::sync::SyncMarkBad);
-        $callback!(crate::rpc::sync::SyncState);
-        $callback!(crate::rpc::sync::SyncSubmitBlock);
+        $callback!($crate::rpc::sync::SyncCheckBad);
+        $callback!($crate::rpc::sync::SyncMarkBad);
+        $callback!($crate::rpc::sync::SyncState);
+        $callback!($crate::rpc::sync::SyncSubmitBlock);
 
         // wallet vertical
-        $callback!(crate::rpc::wallet::WalletBalance);
-        $callback!(crate::rpc::wallet::WalletDefaultAddress);
-        $callback!(crate::rpc::wallet::WalletDelete);
-        $callback!(crate::rpc::wallet::WalletExport);
-        $callback!(crate::rpc::wallet::WalletHas);
-        $callback!(crate::rpc::wallet::WalletImport);
-        $callback!(crate::rpc::wallet::WalletList);
-        $callback!(crate::rpc::wallet::WalletNew);
-        $callback!(crate::rpc::wallet::WalletSetDefault);
-        $callback!(crate::rpc::wallet::WalletSign);
-        $callback!(crate::rpc::wallet::WalletSignMessage);
-        $callback!(crate::rpc::wallet::WalletValidateAddress);
-        $callback!(crate::rpc::wallet::WalletVerify);
+        $callback!($crate::rpc::wallet::WalletBalance);
+        $callback!($crate::rpc::wallet::WalletDefaultAddress);
+        $callback!($crate::rpc::wallet::WalletDelete);
+        $callback!($crate::rpc::wallet::WalletExport);
+        $callback!($crate::rpc::wallet::WalletHas);
+        $callback!($crate::rpc::wallet::WalletImport);
+        $callback!($crate::rpc::wallet::WalletList);
+        $callback!($crate::rpc::wallet::WalletNew);
+        $callback!($crate::rpc::wallet::WalletSetDefault);
+        $callback!($crate::rpc::wallet::WalletSign);
+        $callback!($crate::rpc::wallet::WalletSignMessage);
+        $callback!($crate::rpc::wallet::WalletValidateAddress);
+        $callback!($crate::rpc::wallet::WalletVerify);
 
         // f3
-        $callback!(crate::rpc::f3::F3GetCertificate);
-        $callback!(crate::rpc::f3::F3GetECPowerTable);
-        $callback!(crate::rpc::f3::F3GetF3PowerTable);
-        $callback!(crate::rpc::f3::F3IsRunning);
-        $callback!(crate::rpc::f3::F3GetProgress);
-        $callback!(crate::rpc::f3::F3GetManifest);
-        $callback!(crate::rpc::f3::F3ListParticipants);
-        $callback!(crate::rpc::f3::F3GetLatestCertificate);
-        $callback!(crate::rpc::f3::F3GetOrRenewParticipationTicket);
-        $callback!(crate::rpc::f3::F3Participate);
-        $callback!(crate::rpc::f3::GetHead);
-        $callback!(crate::rpc::f3::GetParent);
-        $callback!(crate::rpc::f3::GetParticipatingMinerIDs);
-        $callback!(crate::rpc::f3::GetPowerTable);
-        $callback!(crate::rpc::f3::GetTipset);
-        $callback!(crate::rpc::f3::GetTipsetByEpoch);
-        $callback!(crate::rpc::f3::Finalize);
-        $callback!(crate::rpc::f3::ProtectPeer);
-        $callback!(crate::rpc::f3::SignMessage);
+        $callback!($crate::rpc::f3::F3GetCertificate);
+        $callback!($crate::rpc::f3::F3GetECPowerTable);
+        $callback!($crate::rpc::f3::F3GetF3PowerTable);
+        $callback!($crate::rpc::f3::F3IsRunning);
+        $callback!($crate::rpc::f3::F3GetProgress);
+        $callback!($crate::rpc::f3::F3GetManifest);
+        $callback!($crate::rpc::f3::F3ListParticipants);
+        $callback!($crate::rpc::f3::F3GetLatestCertificate);
+        $callback!($crate::rpc::f3::F3GetOrRenewParticipationTicket);
+        $callback!($crate::rpc::f3::F3Participate);
+        $callback!($crate::rpc::f3::GetHead);
+        $callback!($crate::rpc::f3::GetParent);
+        $callback!($crate::rpc::f3::GetParticipatingMinerIDs);
+        $callback!($crate::rpc::f3::GetPowerTable);
+        $callback!($crate::rpc::f3::GetTipset);
+        $callback!($crate::rpc::f3::GetTipsetByEpoch);
+        $callback!($crate::rpc::f3::Finalize);
+        $callback!($crate::rpc::f3::ProtectPeer);
+        $callback!($crate::rpc::f3::SignMessage);
 
         // misc
-        $callback!(crate::rpc::misc::GetActorEventsRaw);
+        $callback!($crate::rpc::misc::GetActorEventsRaw);
     };
 }
-pub(crate) use for_each_method;
+pub(crate) use for_each_rpc_method;
 use tower_http::compression::CompressionLayer;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
 
@@ -291,7 +294,7 @@ pub mod prelude {
         };
     }
 
-    for_each_method!(export);
+    for_each_rpc_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -577,7 +580,7 @@ where
             <$ty>::register_alias(&mut module).unwrap();
         };
     }
-    for_each_method!(register);
+    for_each_rpc_method!(register);
     module
 }
 
@@ -629,7 +632,7 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
             }
         };
     }
-    for_each_method!(callback);
+    for_each_rpc_method!(callback);
     openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {

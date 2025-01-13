@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
@@ -465,6 +465,7 @@ impl RpcMethod<1> for StateMarketDeals {
                 last_updated_epoch: -1,
                 slash_epoch: -1,
                 verified_claim: 0,
+                sector_number: 0,
             });
             out.insert(
                 deal_id.to_string(),
@@ -1263,7 +1264,7 @@ impl RpcMethod<2> for StateFetchRoot {
                     for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                         counter += 1;
                         if counter % 1_000 == 0 {
-                            // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
+                            // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(), task_set.len()
@@ -1542,7 +1543,8 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let height = ts.epoch();
         let root = ts.parent_state();
         let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let supply = genesis_info.get_state_circulating_supply(height, &ctx.store_owned(), root)?;
+        let supply =
+            genesis_info.get_state_circulating_supply(height - 1, &ctx.store_owned(), root)?;
         Ok(supply)
     }
 }
@@ -2796,5 +2798,96 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_tuktuk_height: get_height(TukTuk)?,
             //upgrade_teep_height: get_height(Teep)?,
         })
+    }
+}
+
+pub enum StateMinerInitialPledgeForSector {}
+impl RpcMethod<4> for StateMinerInitialPledgeForSector {
+    const NAME: &'static str = "Filecoin.StateMinerInitialPledgeForSector";
+    const PARAM_NAMES: [&'static str; 4] = [
+        "sector_duration",
+        "sector_size",
+        "verified_size",
+        "tipset_key",
+    ];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
+    type Ok = TokenAmount;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sector_duration, sector_size, verified_size, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if sector_duration <= 0 {
+            return Err(anyhow::anyhow!("sector duration must be greater than 0").into());
+        }
+        if verified_size > sector_size as u64 {
+            return Err(
+                anyhow::anyhow!("verified deal size cannot be larger than sector size").into(),
+            );
+        }
+
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let power_smoothed = power_state.total_power_smoothed();
+        let pledge_collateral = power_state.total_locked();
+
+        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+
+        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
+        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
+            ts.epoch(),
+            &ctx.store_owned(),
+            ts.parent_state(),
+        )?;
+
+        let deal_weight = BigInt::from(0);
+        let verified_deal_weight = BigInt::from(verified_size) * sector_duration;
+        let sector_weight = qa_power_for_weight(
+            sector_size.into(),
+            sector_duration,
+            &deal_weight,
+            &verified_deal_weight,
+        );
+
+        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts)?;
+
+        let initial_pledge: TokenAmount = reward_state
+            .initial_pledge_for_power(
+                &sector_weight,
+                pledge_collateral,
+                power_smoothed,
+                &circ_supply.fil_circulating.into(),
+                epochs_since_start,
+                duration,
+            )?
+            .into();
+
+        let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(value)
+    }
+}
+
+fn get_pledge_ramp_params(
+    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    height: ChainEpoch,
+    ts: &Tipset,
+) -> Result<(ChainEpoch, u64), anyhow::Error> {
+    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+
+    let power_state: power::State = state_tree
+        .get_actor_state()
+        .context("loading power actor state")?;
+
+    if power_state.ramp_start_epoch() > 0 {
+        Ok((
+            height - power_state.ramp_start_epoch(),
+            power_state.ramp_duration_epochs(),
+        ))
+    } else {
+        Ok((0, 0))
     }
 }

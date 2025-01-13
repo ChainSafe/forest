@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
@@ -137,8 +137,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = stream_graph(self.db.clone(), (*tipset).clone().chain(&self.db), depth);
-
+        let mut stream = stream_graph(self.db.clone(), tipset.chain_arc(&self.db), depth);
         while let Some(block) = stream.next().await {
             let block = block?;
             self.marked.remove(&block.cid);
@@ -189,9 +188,8 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     // next step.
     async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
-        let tipset = (self.get_heaviest_tipset)();
-
-        let mut current_epoch = tipset.epoch();
+        let mut current_tipset = (self.get_heaviest_tipset)();
+        let mut current_epoch = current_tipset.epoch();
         let last_gc_run = self.fetch_last_gc_run()?;
         // Don't run the GC if there aren't enough state-roots yet or if we're too close to the last
         // GC run. Sleep and yield to the main loop in order to refresh the heaviest tipset value.
@@ -205,8 +203,9 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
             // Make sure we don't run the GC too often.
             time::sleep(interval).await;
 
-            // Refresh `current_epoch` after sleeping.
-            current_epoch = (self.get_heaviest_tipset)().epoch();
+            // Refresh `current_tipset` and `current_epoch` after sleeping.
+            current_tipset = (self.get_heaviest_tipset)();
+            current_epoch = current_tipset.epoch();
 
             info!("populate keys for GC");
             self.populate()?;
@@ -222,7 +221,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
         }
 
         info!("filter keys for GC");
-        self.filter(tipset, depth).await?;
+        self.filter(current_tipset, depth).await?;
 
         info!("GC sweep");
         let deleted = self.sweep()?;

@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
@@ -108,6 +108,18 @@ pub struct ExecutionTrace {
     pub subcalls: Vec<ExecutionTrace>,
 }
 
+impl ExecutionTrace {
+    pub fn sum_gas(&self) -> GasTrace {
+        let mut out: GasTrace = GasTrace::default();
+        for gc in self.gas_charges.iter() {
+            out.total_gas += gc.total_gas;
+            out.compute_gas += gc.compute_gas;
+            out.storage_gas += gc.storage_gas;
+        }
+        out
+    }
+}
+
 lotus_json_with_self!(ExecutionTrace);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -156,7 +168,7 @@ pub struct ReturnTrace {
 
 lotus_json_with_self!(ReturnTrace);
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GasTrace {
     pub name: String,

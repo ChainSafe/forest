@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::net::global_http_client;
@@ -21,7 +21,7 @@ use std::{str::FromStr, sync::Arc};
 #[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() {
-    // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
+    // forest::state_migration: State migration at height Shark(epoch 16800) was successful,
     // Previous state: bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg,
     // new state: bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4.
     //

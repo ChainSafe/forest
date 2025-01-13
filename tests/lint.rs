@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! # Custom lints
 //!
@@ -134,7 +134,7 @@ impl LintRunner {
         }
         let num_violations = all_violations.len();
         let auto = Utf8PathBuf::new(); // ariadne figures out the file label if it doesn't have one
-        let mut builder = ariadne::Report::build(ReportKind::Error, &auto, 0)
+        let mut builder = ariadne::Report::build(ReportKind::Error, (&auto, 0..1))
             .with_labels(all_violations)
             .with_message(T::DESCRIPTION);
         if let Some(help) = T::HELP {
@@ -229,7 +229,7 @@ impl LintRunner {
         }
         let num_violations = all_violations.len();
         let auto = Utf8PathBuf::new(); // ariadne figures out the file label if it doesn't have one
-        let builder = ariadne::Report::build(ReportKind::Error, &auto, 0)
+        let builder = ariadne::Report::build(ReportKind::Error, (&auto, 0..1))
             .with_labels(all_violations)
             .with_message("TODOs must have owners and tracking issues")
             .with_help("Change these to be `TODO(<owner>): https://github.com/ChainSafe/forest/issues/<issue>");

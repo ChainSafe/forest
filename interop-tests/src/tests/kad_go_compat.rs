@@ -1,9 +1,9 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::go_ffi::*;
 
-use forest_filecoin::interop_tests_private::libp2p::discovery::new_kademlia;
+use forest::interop_tests_private::libp2p::discovery::new_kademlia;
 use futures::StreamExt as _;
 use libp2p::{
     identify, identity, kad, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, StreamProtocol,

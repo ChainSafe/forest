@@ -1,10 +1,10 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod common;
 
-use forest_filecoin::{verify_token, JWT_IDENTIFIER};
-use forest_filecoin::{
+use forest::{verify_token, JWT_IDENTIFIER};
+use forest::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 

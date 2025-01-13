@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Types that are shared _between_ APIs.
@@ -62,6 +62,7 @@ pub struct ApiDealState {
     pub slash_epoch: ChainEpoch,
     #[serde(skip)]
     pub verified_claim: AllocationID,
+    pub sector_number: u64,
 }
 
 lotus_json_with_self!(ApiDealState);

@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -10,12 +10,14 @@ impl From<DealState> for ApiDealState {
             last_updated_epoch,
             slash_epoch,
             verified_claim,
+            sector_number,
         } = s;
         Self {
             sector_start_epoch,
             last_updated_epoch,
             slash_epoch,
             verified_claim,
+            sector_number,
         }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -134,6 +134,9 @@ fn parse_content_disposition(value: &reqwest::header::HeaderValue) -> Option<Str
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
 async fn download_http(url: &Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
+    if !directory.is_dir() {
+        std::fs::create_dir_all(directory)?;
+    }
     let dst_path = directory.join(filename);
     let destination = dst_path.display();
     event!(target: "forest::snapshot", tracing::Level::INFO, %url, %destination, "downloading snapshot");

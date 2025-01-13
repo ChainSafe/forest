@@ -9,12 +9,14 @@ concurrency:
     branches:
       - main
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   schedule:
     - cron: 0 0 * * *
 env:
@@ -46,7 +48,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -73,7 +75,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -96,7 +98,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
@@ -565,3 +567,29 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
+  # Umbrella job to aggregate all integration tests and get their status
+  integration-tests-status:
+    needs:
+      - build-macos
+      - build-ubuntu
+      - cargo-publish-dry-run
+      - forest-cli-check
+      - calibnet-check
+      - calibnet-stateless-mode-check
+      - state-migrations-check
+      - calibnet-wallet-check
+      - calibnet-export-check
+      - calibnet-no-discovery-checks
+      - calibnet-kademlia-checks
+      - calibnet-eth-mapping-check
+      - db-migration-checks
+      - db-migration-checks-car-db  
+      - local-devnet-check
+      - local-devnet-curio-check
+      - calibnet-rpc-checks
+      - bootstrap-checks-forest
+      - bootstrap-checks-lotus
+    name: Integration tests status
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "All integration tests passed."

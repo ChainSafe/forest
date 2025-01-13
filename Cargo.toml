@@ -1,12 +1,15 @@
 [package]
 name = "forest-filecoin"
-version = "0.23.2"
+version = "0.23.3"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
 exclude = [".config", ".github", ".maintain", "documentation", "scripts", "interop-tests", "go.work*"]
+
+[lib]
+name = "forest"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -28,7 +31,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
 asynchronous-codec = "0.7"
-axum = "0.7"
+axum = "0.8"
 backon = "1"
 base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(forest): https://github.com/ChainSafe/forest/issues/4035
@@ -63,6 +66,7 @@ ez-jsonrpc-types = "0.5"
 fil_actor_account_state = { version = "19" }
 fil_actor_cron_state = { version = "19" }
 fil_actor_datacap_state = { version = "19" }
+fil_actor_eam_state = { version = "19" }
 fil_actor_evm_state = { version = "19" }
 fil_actor_init_state = { version = "19" }
 fil_actor_market_state = { version = "19" }
@@ -98,7 +102,7 @@ indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
-itertools = "0.13"
+itertools = "0.14"
 jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
@@ -187,14 +191,14 @@ smallvec = "1"
 smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
-statrs = "0.17"
+statrs = "0.18"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
 tabled = "0.17"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
-thiserror = "1"
+thiserror = "2"
 ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
@@ -223,10 +227,11 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.4"
+ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.18"
+cargo_metadata = "0.19"
+cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
@@ -236,14 +241,15 @@ glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
+md5 = { package = "md-5", version = "0.10" }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-petgraph = "0.6"
+petgraph = "0.7"
 predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.248"
+ra_ap_syntax = "0.0.252"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

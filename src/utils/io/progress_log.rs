@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! It can often take time to perform some operations in Forest and we would like to have a way for logging progress.
@@ -19,7 +19,7 @@
 //! ```
 //! use tokio_test::block_on;
 //! use tokio::io::AsyncBufReadExt;
-//! use forest_filecoin::doctest_private::WithProgress;
+//! use forest::doctest_private::WithProgress;
 //! block_on(async {
 //!     let data: String = "some very big string".into();
 //!     let mut reader = tokio::io::BufReader::new(data.as_bytes());

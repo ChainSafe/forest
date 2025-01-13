@@ -15,12 +15,14 @@ on:
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   schedule:
     - cron: "0 0 * * *"
 
@@ -45,7 +47,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -70,7 +72,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v5

@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
@@ -9,7 +9,9 @@ use anyhow::{bail, ensure, Context};
 use bytes::BufMut;
 use bytes::BytesMut;
 use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
+use fvm_shared4::METHOD_CONSTRUCTOR;
 use num::{bigint::Sign, BigInt, Signed as _};
+use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
 
@@ -32,13 +34,24 @@ use super::{
     EthChainId, EIP_1559_TX_TYPE, EIP_2930_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
+#[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum EAMMethod {
+    Constructor = METHOD_CONSTRUCTOR,
+    Create = 2,
+    Create2 = 3,
     CreateExternal = 4,
 }
 
+#[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum EVMMethod {
+    Constructor = METHOD_CONSTRUCTOR,
+    Resurrect = 2,
+    GetBytecode = 3,
+    GetBytecodeHash = 4,
+    GetStorageAt = 5,
+    InvokeContractDelegate = 6,
     // As per `ref-fvm`:
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.

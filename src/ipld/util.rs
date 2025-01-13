@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
@@ -15,6 +15,7 @@ use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
+use std::borrow::Borrow;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -139,11 +140,11 @@ impl<DB, T> ChainStream<DB, T> {
 /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets,
 ///   in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
 ///   is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
     db: DB,
-    tipset_iter: T,
+    tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> ChainStream<DB, T> {
+) -> ChainStream<DB, ITER> {
     ChainStream {
         tipset_iter,
         db,
@@ -156,11 +157,11 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 
 // Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
 // are ignored.
-pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
     db: DB,
-    tipset_iter: T,
+    tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> ChainStream<DB, T> {
+) -> ChainStream<DB, ITER> {
     ChainStream {
         tipset_iter,
         db,
@@ -171,7 +172,9 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     }
 }
 
-impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
+impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
+    for ChainStream<DB, ITER>
+{
     type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -233,7 +236,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_block_headers().into_iter() {
+                for block in tipset.borrow().block_headers() {
                     if this.seen.insert(*block.cid()) {
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(*block.cid()));
@@ -318,17 +321,18 @@ impl<DB, T> UnorderedChainStream<DB, T> {
 #[allow(dead_code)]
 pub fn unordered_stream_chain<
     DB: Blockstore + Sync + Send + 'static,
-    T: Iterator<Item = Tipset> + Unpin + Send + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin + Send + 'static,
 >(
     db: Arc<DB>,
-    tipset_iter: T,
+    tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> UnorderedChainStream<DB, T> {
+) -> UnorderedChainStream<DB, ITER> {
     let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
     let (extract_sender, extract_receiver) = flume::unbounded();
     let fail_on_dead_links = true;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, T>::start_workers(
+    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
         db.clone(),
         sender.clone(),
         extract_receiver,
@@ -353,17 +357,18 @@ pub fn unordered_stream_chain<
 // are ignored.
 pub fn unordered_stream_graph<
     DB: Blockstore + Sync + Send + 'static,
-    T: Iterator<Item = Tipset> + Unpin + Send + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin + Send + 'static,
 >(
     db: Arc<DB>,
-    tipset_iter: T,
+    tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> UnorderedChainStream<DB, T> {
+) -> UnorderedChainStream<DB, ITER> {
     let (sender, receiver) = flume::bounded(2048);
     let (extract_sender, extract_receiver) = flume::unbounded();
     let fail_on_dead_links = false;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, T>::start_workers(
+    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
         db.clone(),
         sender.clone(),
         extract_receiver,
@@ -384,8 +389,11 @@ pub fn unordered_stream_graph<
     }
 }
 
-impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
-    UnorderedChainStream<DB, T>
+impl<
+        DB: Blockstore + Send + Sync + 'static,
+        T: Borrow<Tipset>,
+        ITER: Iterator<Item = T> + Unpin,
+    > UnorderedChainStream<DB, ITER>
 {
     fn start_workers(
         db: Arc<DB>,

@@ -29,6 +29,33 @@
 
 ### Added
 
+- [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
+  `Filecoin.EthTraceBlock` RPC method.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#5111](https://github.com/ChainSafe/forest/issues/5111) Make F3 work when the node Kademlia is disabled.
+
+- [#5122](https://github.com/ChainSafe/forest/issues/5122) Fix a bug in database garbage collection flow.
+
+## Forest v.0.23.3 "Plumber"
+
+Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
+
+### Breaking
+
+### Added
+
+- [#5020](https://github.com/ChainSafe/forest/issues/5020) Add support for the
+  `Filecoin.EthGetTransactionByBlockNumberAndIndex` RPC method.
+
+- [#4907](https://github.com/ChainSafe/forest/issues/4907) Add support for the
+  `Filecoin.StateMinerInitialPledgeForSector` RPC method.
+
 ### Changed
 
 ### Removed
@@ -37,6 +64,8 @@
   `peer_tipset_epoch` from the metrics.
 
 ### Fixed
+
+- [#5109](https://github.com/ChainSafe/forest/pull/5109) Fix a calibnet sync error at epoch 2281645.
 
 ## Forest v.0.23.2 "Feint"
 
@@ -82,6 +111,8 @@ methods, fixes (notably to the garbage collection), and other improvements.
 
 - [#4701](https://github.com/ChainSafe/forest/issues/4701) Add support for the
   `Filecoin.EthGetTransactionByBlockHashAndIndex` RPC method.
+
+### Changed
 
 - [#5053](https://github.com/ChainSafe/forest/pull/5053) Added support for the
   NV25 _Teep_ network upgrade for `2k` and `butterflynet` networks.

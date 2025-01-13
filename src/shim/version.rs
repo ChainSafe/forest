@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
-/// # use forest_filecoin::doctest_private::NetworkVersion;
+/// # use forest::doctest_private::NetworkVersion;
 /// let v0 = NetworkVersion::V0;
 ///
 /// // dereference to convert to FVM4

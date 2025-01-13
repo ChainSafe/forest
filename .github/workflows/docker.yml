@@ -11,14 +11,16 @@ on:
     tags:
       - "*"
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   merge_group:
   pull_request:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - 'docs/'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
 
 env:
   CI: 1
@@ -54,7 +56,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -98,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.6
+        uses: mozilla-actions/sccache-action@v0.0.7
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true

@@ -1,0 +1,99 @@
+# This workflow is triggered by changes on the documentation. Normally, if only documentation is modified, the required Forest checks are not triggered which makes it impossible to merge the PR. See <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks>. The workaround is to provide no-op jobs that are triggered by the same events as the docs-check job. This way, the "required checks" are passing and the PR can be merged.
+# We check that changes affect only the documentation and that no other changes are present. If this is the case, we trigger the no-op jobs.
+
+name: Docs Required Override
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: '${{ github.ref != ''refs/heads/main'' }}'
+
+on:
+  workflow_dispatch:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
+
+jobs:
+  # We need this because merge groups dont support path filters
+  # https://github.com/community/community/discussions/45899
+  changes-docs:
+    runs-on: ubuntu-latest
+    outputs:
+      changesFound: ${{ steps.filter.outputs.changesFound }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changesFound:
+                    - 'docs/**'
+                    - '**.md'
+                    - '.github/workflows/docs-*.yml'
+  changes-not-docs:
+    runs-on: ubuntu-latest
+    outputs:
+      otherChangesFound: ${{ steps.filter.outputs.otherChangesFound }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          predicate-quantifier: every
+          filters: |
+            otherChangesFound:
+                    - '**'
+                    - '!docs/**'
+                    - '!**.md'
+                    - '!.github/workflows/docs-*.yml'
+
+  override_integration_tests:
+    name: Integration tests status
+    runs-on: ubuntu-latest
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
+
+  override_unit_tests:
+    name: tests
+    runs-on: ubuntu-latest
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
+
+  override_unit_tests_release:
+    name: tests-release
+    runs-on: ubuntu-latest
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
+
+  override_docker_build:
+    name: Build images and push to GHCR
+    runs-on: ubuntu-latest
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."

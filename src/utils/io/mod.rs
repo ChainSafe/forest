@@ -1,4 +1,4 @@
-// Copyright 2019-2024 ChainSafe Systems
+// Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod mmap;
@@ -49,7 +49,7 @@ pub fn create_new_sensitive_file(path: &Path) -> Result<File> {
 /// # Example
 /// ```
 /// use serde::Deserialize;
-/// use forest_filecoin::doctest_private::read_toml;
+/// use forest::doctest_private::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {
