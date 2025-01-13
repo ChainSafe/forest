@@ -42,6 +42,8 @@
 
 - [#5122](https://github.com/ChainSafe/forest/issues/5122) Fix a bug in database garbage collection flow.
 
+- [#5131](https://github.com/ChainSafe/forest/pull/5131) Fix incorrect data deserialization in the `Filecoin.EthGetBlockReceipts` RPC method. This caused the method to return an error on some blocks.
+
 ## Forest v.0.23.3 "Plumber"
 
 Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
