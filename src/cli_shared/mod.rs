@@ -11,10 +11,14 @@ use crate::networks::NetworkChain;
 use crate::utils::io::read_toml;
 use std::path::PathBuf;
 
-#[cfg(feature = "mimalloc")]
-pub use mimalloc;
-#[cfg(feature = "jemalloc")]
-pub use tikv_jemallocator;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustalloc")] {
+    } else if #[cfg(feature = "mimalloc")] {
+        pub use mimalloc;
+    } else if #[cfg(feature = "jemalloc")] {
+        pub use tikv_jemallocator;
+    }
+}
 
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
