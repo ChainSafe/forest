@@ -1094,7 +1094,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         let ret: eam::CreateExternalReturn =
             from_slice_with_fallback(message_lookup.receipt.return_data().bytes())?;
 
-        receipt.contract_address = Some(ret.eth_address.into());
+        receipt.contract_address = Some(ret.eth_address.0.into());
     }
 
     let mut events = vec![];
