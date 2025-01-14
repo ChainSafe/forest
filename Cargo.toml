@@ -50,7 +50,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { workspace = true }
 cid_0_10 = { package = "cid", version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
-colored = "2.0"
+colored = "3"
 crypto_secretbox = "0.1"
 daemonize-me = "2"
 data-encoding = "2"
@@ -59,7 +59,7 @@ derive_builder = "0.20"
 derive_more = { version = "1", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
-directories = "5"
+directories = "6"
 displaydoc = "0.2"
 ethereum-types = "0.15"
 ez-jsonrpc-types = "0.5"
@@ -249,7 +249,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.252"
+ra_ap_syntax = "0.0.258"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
