@@ -1,0 +1,10 @@
+# Template for .cargo/config.toml
+
+[alias]
+# Permits `cargo cli --chain calibnet ...`
+cli = "run --bin forest-cli --"
+daemon = "run --bin forest --"
+forest-tool = "run --bin forest-tool --release --"
+
+[build]
+incremental = true
