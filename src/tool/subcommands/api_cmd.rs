@@ -14,7 +14,7 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, EthUint64, Predefined,
+    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, Predefined,
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
