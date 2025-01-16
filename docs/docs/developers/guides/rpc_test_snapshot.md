@@ -9,7 +9,7 @@ This document describes how to generate and use RPC test snapshots. An RPC test 
 
 An RPC test dump contains the name of the RPC method, the request payload, and the response of an RPC call. It is used to dump a minimal database snapshot and replay the request in a subsequent process.
 
-To generate test dumps, add `--dump-dir [PATH]` to `forest-tool api compare` command. e.g., `forest-tool api compare forest_snapshot_calibnet_2025-01-15_height_2320334.forest.car.zst --dump-dir /var/tmp/rpc-dump`
+To generate test dumps, add `--dump-dir [PATH]` to `forest-tool api compare` command. e.g., `forest-tool api compare forest_snapshot_calibnet_2025-01-15_height_2320334.forest.car.zst --dump-dir /var/tmp/rpc-dump`. Note that a running instance of each Forest and Lotus is required. (Refer to `scripts/tests/api_compare/docker-compose.yml` to setup Lotus with extra environment variables)
 
 ### Generate RPC test snapshots
 
