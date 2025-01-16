@@ -91,7 +91,7 @@ mod tests {
     }
 
     async fn create_swarm() -> anyhow::Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
-        let mut swarm = Swarm::new_ephemeral(|_| {
+        let mut swarm = Swarm::new_ephemeral_tokio(|_| {
             BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
         });
         let peer_id = *swarm.local_peer_id();

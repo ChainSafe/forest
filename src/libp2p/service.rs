@@ -615,7 +615,7 @@ async fn handle_gossip_event(
     if let gossipsub::Event::Message {
         propagation_source: source,
         message,
-        message_id: _,
+        ..
     } = e
     {
         let topic = message.topic.as_str();
@@ -666,11 +666,9 @@ async fn handle_hello_event(
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match event {
-        request_response::Event::Message { peer, message } => match message {
+        request_response::Event::Message { peer, message, .. } => match message {
             request_response::Message::Request {
-                request,
-                channel,
-                request_id: _,
+                request, channel, ..
             } => {
                 emit_event(network_sender_out, NetworkEvent::HelloRequestInbound).await;
 
@@ -729,6 +727,7 @@ async fn handle_hello_event(
             request_id,
             peer,
             error,
+            ..
         } => {
             hello.on_outbound_failure(&request_id);
             match error {
@@ -784,7 +783,7 @@ async fn handle_chain_exchange_event<DB>(
     DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
-        request_response::Event::Message { peer, message } => match message {
+        request_response::Event::Message { peer, message, .. } => match message {
             request_response::Message::Request {
                 request,
                 channel,
@@ -825,17 +824,11 @@ async fn handle_chain_exchange_event<DB>(
             }
         },
         request_response::Event::OutboundFailure {
-            peer: _,
-            request_id,
-            error,
+            request_id, error, ..
         } => {
             chain_exchange.on_outbound_error(&request_id, error);
         }
-        request_response::Event::InboundFailure {
-            peer,
-            error,
-            request_id: _,
-        } => {
+        request_response::Event::InboundFailure { peer, error, .. } => {
             debug!(
                 "ChainExchange inbound error (peer: {:?}): {:?}",
                 peer, error
