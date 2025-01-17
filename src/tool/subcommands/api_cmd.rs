@@ -820,13 +820,10 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests() -> Vec<RpcTest> {
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
-    // Blocked by Lotus.
-    //vec![
-    //    RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
-    //    RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
-    //]
-    vec![]
+    vec![
+        RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+        RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    ]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
