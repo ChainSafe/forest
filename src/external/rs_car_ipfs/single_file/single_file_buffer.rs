@@ -70,7 +70,6 @@ pub async fn read_single_file_buffer<R: AsyncRead + Send + Unpin, W: AsyncWrite 
                 }
             }
 
-            // TODO: Is it possible to prevent having to clone here?
             nodes.insert(cid, UnixFsNode::Data(data.to_vec()));
         } else {
             // Intermediary node (links)

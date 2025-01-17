@@ -71,7 +71,6 @@ async fn read_multihash<R: AsyncRead + Unpin>(
     let mut digest = [0; DIGEST_SIZE];
     r.read_exact(&mut digest[..size as usize]).await?;
 
-    // TODO: Sad, copies the digest (again)..
     // Multihash does not expose a way to construct Self without some decoding or copying
     // unwrap: multihash must be valid since it's constructed manually
     let mh = Multihash::wrap(code, &digest[..size as usize]).unwrap();
@@ -81,7 +80,6 @@ async fn read_multihash<R: AsyncRead + Unpin>(
 
 pub(crate) fn assert_block_cid(cid: &Cid, block: &[u8]) -> Result<(), CarDecodeError> {
     let (hash_fn_name, block_digest) = match cid.hash().code() {
-        // TODO: Remove need to copy on .to_vec()
         CODE_IDENTITY => ("identity", block.to_vec()),
         CODE_SHA2_256 => ("sha2-256", hash_sha2_256(block).to_vec()),
         CODE_BLAKE2B_256 => ("blake2b-256", hash_blake2b_256(block).to_vec()),

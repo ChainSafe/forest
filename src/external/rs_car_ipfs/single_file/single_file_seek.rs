@@ -138,7 +138,6 @@ impl<T: PartialEq + Clone> SortedLinks<T> {
     }
 
     fn find(&self, item: T) -> FindResult {
-        // TODO: Optimize with a Set if necessary
         match self
             .sorted_items
             .iter()

@@ -23,7 +23,6 @@ pub(crate) async fn read_varint_u64<R: AsyncRead + Unpin>(
         }
     }
 
-    // TODO: Return error
     Ok(None)
 }
 
