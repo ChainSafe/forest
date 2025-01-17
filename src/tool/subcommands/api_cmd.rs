@@ -149,7 +149,7 @@ pub enum ApiCommands {
         dump_dir: Option<PathBuf>,
 
         /// Additional overrides to modify success criteria for tests
-        #[arg(long, num_args = 0.., default_values_t = [TestCriteriaOverride::TimeoutAndTimeout])]
+        #[arg(long, num_args = 0.., use_value_delimiter = true, value_delimiter = ',', default_values_t = [TestCriteriaOverride::TimeoutAndTimeout])]
         test_criteria_overrides: Vec<TestCriteriaOverride>,
     },
     GenerateTestSnapshot {
