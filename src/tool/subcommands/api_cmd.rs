@@ -149,7 +149,7 @@ pub enum ApiCommands {
         dump_dir: Option<PathBuf>,
 
         /// Additional overrides to modify success criteria for tests
-        #[arg(long, num_args = 0.., use_value_delimiter = true, value_delimiter = ',', default_values_t = [TestCriteriaOverride::TimeoutAndTimeout])]
+        #[arg(long, value_enum, num_args = 0.., use_value_delimiter = true, value_delimiter = ',', default_values_t = [TestCriteriaOverride::TimeoutAndTimeout])]
         test_criteria_overrides: Vec<TestCriteriaOverride>,
     },
     GenerateTestSnapshot {
@@ -373,7 +373,7 @@ pub struct CreateTestsArgs {
     snapshot_files: Vec<PathBuf>,
 }
 
-#[derive(ValueEnum, Debug, Copy, Clone, strum_macros::Display, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, ValueEnum)]
 pub enum TestCriteriaOverride {
     /// Test pass when first endpoint returns a valid result and the second one timeout
     ValidAndTimeout,
