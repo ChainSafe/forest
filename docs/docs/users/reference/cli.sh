@@ -78,6 +78,14 @@ generate_markdown_section "forest-cli" "healthcheck"
 generate_markdown_section "forest-cli" "healthcheck ready"
 
 generate_markdown_section "forest-cli" "f3"
+generate_markdown_section "forest-cli" "f3 manifest"
+generate_markdown_section "forest-cli" "f3 status"
+generate_markdown_section "forest-cli" "f3 certs"
+generate_markdown_section "forest-cli" "f3 certs get"
+generate_markdown_section "forest-cli" "f3 certs list"
+generate_markdown_section "forest-cli" "f3 powertable"
+generate_markdown_section "forest-cli" "f3 powertable get"
+generate_markdown_section "forest-cli" "f3 powertable get-proportion"
 
 generate_markdown_section "forest-tool" ""
 

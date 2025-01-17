@@ -805,6 +805,159 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-cli f3 manifest`
+
+```
+Gets the current manifest used by F3
+
+Usage: forest-cli f3 manifest [OPTIONS]
+
+Options:
+      --output <OUTPUT>
+          The output format
+
+          [default: text]
+
+          Possible values:
+          - text: Text
+          - json: JSON
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+### `forest-cli f3 status`
+
+```
+Checks the F3 status
+
+Usage: forest-cli f3 status
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli f3 certs`
+
+```
+Manages interactions with F3 finality certificates
+
+Usage: forest-cli f3 certs <COMMAND>
+
+Commands:
+  get   Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
+  list  Lists a range of F3 finality certificates
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli f3 certs get`
+
+```
+Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
+
+Usage: forest-cli f3 certs get [OPTIONS] [INSTANCE]
+
+Arguments:
+  [INSTANCE]
+
+
+Options:
+      --output <OUTPUT>
+          The output format
+
+          [default: text]
+
+          Possible values:
+          - text: Text
+          - json: JSON
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+### `forest-cli f3 certs list`
+
+```
+Lists a range of F3 finality certificates
+
+Usage: forest-cli f3 certs list [OPTIONS] [RANGE]
+
+Arguments:
+  [RANGE]
+          Inclusive range of `from` and `to` instances in following notation: `<from>..<to>`. Either `<from>` or `<to>` may be omitted, but not both
+
+Options:
+      --output <OUTPUT>
+          The output format
+
+          [default: text]
+
+          Possible values:
+          - text: Text
+          - json: JSON
+
+      --limit <LIMIT>
+          The maximum number of instances. A value less than 0 indicates no limit
+
+          [default: 10]
+
+      --reverse
+          Reverses the default order of output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+### `forest-cli f3 powertable`
+
+```
+Gets F3 power table at a specific instance ID or latest instance if none is specified
+
+Usage: forest-cli f3 powertable <COMMAND>
+
+Commands:
+  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: g]
+  get-proportion  Gets the total proportion of power for a list of actors at a given instance [aliases: gp]
+  help            Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli f3 powertable get`
+
+```
+Gets F3 power table at a specific instance ID or latest instance if none is specified
+
+Usage: forest-cli f3 powertable get [OPTIONS] [INSTANCE]
+
+Arguments:
+  [INSTANCE]  instance ID. (default: latest)
+
+Options:
+      --ec    Whether to get the power table from EC. (default: false)
+  -h, --help  Print help
+```
+
+### `forest-cli f3 powertable get-proportion`
+
+```
+Gets the total proportion of power for a list of actors at a given instance
+
+Usage: forest-cli f3 powertable get-proportion [OPTIONS] [ACTOR_IDS]...
+
+Arguments:
+  [ACTOR_IDS]...
+
+Options:
+      --instance <INSTANCE>  instance ID. (default: latest)
+      --ec                   Whether to get the power table from EC. (default: false)
+  -h, --help                 Print help
+```
+
 ## `forest-tool`
 
 ```
