@@ -25,6 +25,7 @@ CBOR
 CID/SM
 CIDs
 ChainSafe/M
+chunked
 CLI
 Cloudflare
 clonable
@@ -98,6 +99,7 @@ PoC
 pointer/SM
 PoSt
 precommit
+pragma
 R2
 RLP
 RPC
@@ -125,6 +127,7 @@ trie
 truthy
 TTY
 uncompress
+unixfs
 unrepresentable
 untrusted
 URL

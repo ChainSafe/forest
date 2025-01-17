@@ -74,7 +74,6 @@ ignore = [
   # compatability/consensus reasons - see
   # https://github.com/filecoin-project/ref-fvm/issues/1843
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
-  "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
   # Instant is unmaintained, but there is a replacement in
   # the pipeline - see
   # https://github.com/libp2p/rust-libp2p/pull/5674
