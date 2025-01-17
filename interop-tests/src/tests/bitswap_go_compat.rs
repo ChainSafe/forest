@@ -34,7 +34,7 @@ async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
         loop {
             // Swarm event loop
             match swarm.select_next_some().await {
-                SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message }) => {
+                SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message, .. }) => {
                     let bitswap = &mut swarm.behaviour_mut();
                     match message {
                         request_response::Message::Request {
