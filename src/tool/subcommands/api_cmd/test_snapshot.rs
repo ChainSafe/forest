@@ -145,6 +145,7 @@ mod tests {
     use super::*;
     use crate::{daemon::db_util::download_to, utils::net::global_http_client};
     use directories::ProjectDirs;
+    use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
     use md5::{Digest as _, Md5};
     use url::Url;
@@ -156,7 +157,7 @@ mod tests {
             .split("\n")
             .filter_map(|n| {
                 Url::parse(
-                    format!("https://forest-snapshots.fra1.digitaloceanspaces.com/rpc_test/{n}")
+                    format!("https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}")
                         .as_str(),
                 )
                 .ok()
@@ -165,29 +166,35 @@ mod tests {
             .collect_vec();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
-        for (filename, url) in urls {
-            let cache_file_path = cache_dir.join(filename);
-            let is_file_cached = match get_file_md5_etag(&cache_file_path) {
-                Some(file_etag) => {
-                    let url_etag = get_digital_ocean_space_url_etag(url.clone()).await.unwrap();
-                    if Some(&file_etag) == url_etag.as_ref() {
-                        true
-                    } else {
-                        println!(
-                            "etag mismatch, file: {filename}, local: {file_etag}, remote: {}",
-                            url_etag.unwrap_or_default()
-                        );
-                        false
+        let mut tasks = FuturesUnordered::from_iter(urls.iter().map(|(filename, url)| {
+            let cached_file_path = cache_dir.join(filename);
+            async move {
+                let is_file_cached = match get_file_md5_etag(&cached_file_path) {
+                    Some(file_etag) => {
+                        let url_etag = get_digital_ocean_space_url_etag(url.clone()).await.unwrap();
+                        if Some(&file_etag) == url_etag.as_ref() {
+                            true
+                        } else {
+                            println!(
+                                "etag mismatch, file: {filename}, local: {file_etag}, remote: {}",
+                                url_etag.unwrap_or_default()
+                            );
+                            false
+                        }
                     }
+                    None => false,
+                };
+                if !is_file_cached {
+                    println!("Downloading from {url} to {}", cached_file_path.display());
+                    download_to(url, &cached_file_path).await.unwrap();
                 }
-                None => false,
-            };
-            if !is_file_cached {
-                println!("Downloading from {url} to {}", cache_file_path.display());
-                download_to(&url, &cache_file_path).await.unwrap();
+                (filename, cached_file_path)
             }
+        }));
+
+        while let Some((filename, cached_file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
-            run_test_from_snapshot(&cache_file_path).await.unwrap();
+            run_test_from_snapshot(&cached_file_path).await.unwrap();
             println!("  succeeded.");
         }
     }
