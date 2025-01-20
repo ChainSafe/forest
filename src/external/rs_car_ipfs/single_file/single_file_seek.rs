@@ -16,7 +16,7 @@ use super::{
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use rs_car_ipfs::{Cid, single_file::read_single_file_seek};
 /// use futures::io::Cursor;
 ///

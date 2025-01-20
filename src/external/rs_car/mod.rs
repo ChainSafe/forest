@@ -53,7 +53,7 @@ where
     /// blocks. The CAR header is available in [`CarReader.header`].
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// use rs_car::{CarReader, CarDecodeError};
     /// use futures::StreamExt;
     ///
@@ -90,7 +90,7 @@ where
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use rs_car::car_read_all;
 ///
 /// #[async_std::main]
