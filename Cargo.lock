@@ -7079,21 +7079,21 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7cc6633305d878cafb4a4482e7e7002d1a5d7b15fa837728b6613ff5336f8a4"
+checksum = "d71383317d5f157444917eadb61557c43b7aa4f8d54d1abf5ce636e77299cc11"
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90d8a2aecbd488cf79b430bd5abe6650da44ae58b31cd6052c909dbd3f5d5926"
+checksum = "5904eb539cdc53a9e25d16f6577b122f5befb509687c5a41d0de668852628f56"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f499b6c33a588d60ed9722d057954a21ec01913b97a5693ff40ba4828ffa7b9"
+checksum = "973097eaf7f9959754041d6b96bd23e39de9a16aef14b7c5bb341c00d60592d4"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7104,9 +7104,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4016934faae8413b4ad3f1bf063c7ffccdcfdf3f67ff32f4a79a197a3c1cb0da"
+checksum = "f4ee1da549d09f358b99d22516b1bcda59e616cc204c0a87656815aaabf6be2f"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7114,14 +7114,14 @@ dependencies = [
  "jod-thread",
  "libc",
  "miow",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8e381d21d166d12b11906171f82382473d60abfead0c4acc6d7d07150f87f73"
+checksum = "66dcf6e164c9eb956cb3ce27af00fdf8d6778278d2fd4678670ba24eb10d1dea"
 dependencies = [
  "cov-mark",
  "either",
