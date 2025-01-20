@@ -157,8 +157,10 @@ mod tests {
             .split("\n")
             .filter_map(|n| {
                 Url::parse(
-                    format!("https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}")
-                        .as_str(),
+                    format!(
+                        "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
+                    )
+                    .as_str(),
                 )
                 .ok()
                 .map(|url| (n, url))
