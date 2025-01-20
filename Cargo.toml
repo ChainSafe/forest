@@ -16,8 +16,8 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.11"
 futures = "0.3"
-libp2p = { version = "0.54", default-features = false }
-libp2p-swarm-test = "0.4"
+libp2p = { version = "0.55", default-features = false }
+libp2p-swarm-test = { version = "0.5", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.3"
 tokio = "1"

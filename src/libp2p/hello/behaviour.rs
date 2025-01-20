@@ -179,6 +179,7 @@ impl NetworkBehaviour for HelloBehaviour {
                         request: HelloRequest { .. },
                         ..
                     },
+                ..
             }) = &ev
             {
                 self.pending_inbound_hello_peers.remove(peer);
