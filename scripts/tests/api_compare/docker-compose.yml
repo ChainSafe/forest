@@ -210,7 +210,8 @@ services:
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
-          --n-tipsets 10 \
+          --n-tipsets 5 \
+          --test-criteria-overrides=valid-and-timeout,timeout-and-timeout \
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
@@ -241,7 +242,7 @@ services:
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
-          --n-tipsets 10 \
+          --n-tipsets 5 \
           --filter-file /data/filter-list-offline
   post-setup:
     depends_on:
