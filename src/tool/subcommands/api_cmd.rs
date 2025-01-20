@@ -14,7 +14,7 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, EthUint64, Predefined,
+    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, Predefined,
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
@@ -1529,9 +1529,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
-        RpcTest::identity(
-            EthGetBlockReceiptsLimited::request((block_hash.clone(), EthUint64(800))).unwrap(),
-        ),
+        RpcTest::identity(EthGetBlockReceiptsLimited::request((block_hash.clone(), 800)).unwrap()),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
                 .unwrap(),
