@@ -1,0 +1,33 @@
+# This workflows, run daily, updates the Forest CLI usage docs, and submits a PR with the changes.
+name: Update Forest usage docs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run update script
+        run: |
+          cd ./scripts/docs/docs/users/reference
+          ./generate_cli_md.sh docker > cli.md
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - run: corepack enable
+      - run: yarn --immutable
+      - run: yarn md-fmt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: main
+          token: ${{ secrets.ACTIONS_PAT }}
+          commit-message: Update Forest CLI docs
+          title: "[automated] Update Forest CLI docs"
+          body: |
+            ### Changes
+            - Updates Forest CLI docs to the latest commit in the `main` branch.

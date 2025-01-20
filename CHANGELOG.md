@@ -44,6 +44,8 @@
 
 - [#5131](https://github.com/ChainSafe/forest/pull/5131) Fix incorrect data deserialization in the `Filecoin.EthGetBlockReceipts` RPC method. This caused the method to return an error on some blocks.
 
+- [#5150](https://github.com/ChainSafe/forest/pull/5150) Fix incorrect prototype for the `Filecoin.EthGetBlockReceiptsLimited` RPC method.
+
 ## Forest v.0.23.3 "Plumber"
 
 Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
