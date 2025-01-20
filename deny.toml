@@ -75,10 +75,6 @@ ignore = [
   # https://github.com/filecoin-project/ref-fvm/issues/1843
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
-  # Instant is unmaintained, but there is a replacement in
-  # the pipeline - see
-  # https://github.com/libp2p/rust-libp2p/pull/5674
-  "RUSTSEC-2024-0384",
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.

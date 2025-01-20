@@ -20,7 +20,7 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
     store: &S,
     event: BitswapBehaviourEvent,
 ) -> anyhow::Result<()> {
-    if let BitswapBehaviourEvent::Message { peer, message } = event {
+    if let BitswapBehaviourEvent::Message { peer, message, .. } = event {
         match message {
             request_response::Message::Request {
                 request_id: _, // `request_id` is useless here for pairing request and response

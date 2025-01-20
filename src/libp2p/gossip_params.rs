@@ -107,6 +107,9 @@ pub(in crate::libp2p) fn build_peer_score_params(network_name: &str) -> PeerScor
 
         retain_score: Duration::from_secs(6 * 60 * 60),
         topics: psp_topics,
+
+        // slow_peer_* settings are not customized in Lotus
+        ..Default::default()
     }
 }
 
