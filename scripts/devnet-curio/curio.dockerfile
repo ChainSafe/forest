@@ -2,7 +2,7 @@
 ARG LOTUS_IMAGE
 # hadolint ignore=DL3006
 FROM ${LOTUS_IMAGE} as lotus-test
-FROM golang:1.22.3-bullseye AS curio-builder
+FROM golang:1.23.5-bullseye AS curio-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev
 
@@ -33,7 +33,7 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-RUN git clone --depth 1 --branch v1.23.1 https://github.com/filecoin-project/curio.git /opt/curio
+RUN git clone --depth 1 --branch v1.24.3 https://github.com/filecoin-project/curio.git /opt/curio
 
 WORKDIR /opt/curio
 
