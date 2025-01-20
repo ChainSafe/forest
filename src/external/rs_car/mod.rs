@@ -172,6 +172,7 @@ mod tests {
 
     use futures::executor;
     use serde::{Deserialize, Serialize};
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     use self::car_header::CarVersion;
     use super::*;
@@ -205,43 +206,39 @@ mod tests {
         Cid::from_str(cid.get("/").unwrap()).unwrap()
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn decode_carv1_helloworld_no_stream() {
-        executor::block_on(async {
-            let car_filepath = "./tests/custom_fixtures/helloworld.car";
-            let mut file = async_std::fs::File::open(car_filepath).await.unwrap();
-            let (blocks, header) = car_read_all(&mut file, true).await.unwrap();
+    async fn decode_carv1_helloworld_no_stream() {
+        let car_filepath = "./tests/custom_fixtures/helloworld.car";
+        let mut file = tokio::fs::File::open(car_filepath).await.unwrap().compat();
+        let (blocks, header) = car_read_all(&mut file, true).await.unwrap();
 
-            let root_cid = Cid::from_str("QmUU2HcUBVSXkfWPUc3WUSeCMrWWeEJTuAgR9uyWBhh9Nf").unwrap();
-            let root_block = hex::decode("0a110802120b68656c6c6f776f726c640a180b").unwrap();
+        let root_cid = Cid::from_str("QmUU2HcUBVSXkfWPUc3WUSeCMrWWeEJTuAgR9uyWBhh9Nf").unwrap();
+        let root_block = hex::decode("0a110802120b68656c6c6f776f726c640a180b").unwrap();
 
-            assert_eq!(blocks, vec!((root_cid, root_block)));
-            assert_eq!(header.version, CarVersion::V1);
-            assert_eq!(header.roots, vec!(root_cid));
-        })
+        assert_eq!(blocks, vec!((root_cid, root_block)));
+        assert_eq!(header.version, CarVersion::V1);
+        assert_eq!(header.roots, vec!(root_cid));
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn decode_carv1_helloworld_stream() {
-        executor::block_on(async {
-            let car_filepath = "./tests/custom_fixtures/helloworld.car";
-            let mut file = async_std::fs::File::open(car_filepath).await.unwrap();
-            let (blocks, header) = car_read_all(&mut file, true).await.unwrap();
+    async fn decode_carv1_helloworld_stream() {
+        let car_filepath = "./tests/custom_fixtures/helloworld.car";
+        let mut file = tokio::fs::File::open(car_filepath).await.unwrap().compat();
+        let (blocks, header) = car_read_all(&mut file, true).await.unwrap();
 
-            let root_cid = Cid::from_str("QmUU2HcUBVSXkfWPUc3WUSeCMrWWeEJTuAgR9uyWBhh9Nf").unwrap();
-            let root_block = hex::decode("0a110802120b68656c6c6f776f726c640a180b").unwrap();
+        let root_cid = Cid::from_str("QmUU2HcUBVSXkfWPUc3WUSeCMrWWeEJTuAgR9uyWBhh9Nf").unwrap();
+        let root_block = hex::decode("0a110802120b68656c6c6f776f726c640a180b").unwrap();
 
-            assert_eq!(blocks, vec!((root_cid, root_block)));
-            assert_eq!(header.version, CarVersion::V1);
-            assert_eq!(header.roots, vec!(root_cid));
-        })
+        assert_eq!(blocks, vec!((root_cid, root_block)));
+        assert_eq!(header.version, CarVersion::V1);
+        assert_eq!(header.roots, vec!(root_cid));
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn decode_carv1_basic() {
+    async fn decode_carv1_basic() {
         // 63a265726f6f747382d82a582500
         // 01711220f88bc853804cf294fe417e4fa83028689fcdb1b1592c5102e1474dbc200fab8b - v1 header root (bafyreihyrpefhacm6kkp4ql6j6udakdit7g3dmkzfriqfykhjw6cad5lrm)
         // d82a582500
@@ -271,18 +268,16 @@ mod tests {
         // 36 - block 7 len = 54, block_len = 18
         // 0171122069ea0740f9807a28f4d932c62e7c1c83be055e55072c90266ab3e79df63a365b - block 7 cid (bafyreidj5idub6mapiupjwjsyyxhyhedxycv4vihfsicm2vt46o7morwlm)
         // a2646c696e6bf6646e616d65656c696d626f - block 7 data
-        executor::block_on(async {
-            run_car_basic_test(
-                "./tests/spec_fixtures/carv1-basic.car",
-                "./tests/spec_fixtures/carv1-basic.json",
-            )
-            .await;
-        })
+        run_car_basic_test(
+            "./tests/spec_fixtures/carv1-basic.car",
+            "./tests/spec_fixtures/carv1-basic.json",
+        )
+        .await;
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn decode_carv2_basic() {
+    async fn decode_carv2_basic() {
         // 0aa16776657273696f6e02  - v2 pragma
         // 00000000000000000000000000000000  - v2 header characteristics
         // 3300000000000000  - v2 header data_offset
@@ -307,21 +302,18 @@ mod tests {
         // 01551220a2e1c40da1ae335d4dffe729eb4d5ca23b74b9e51fc535f4a804a261080c294d - block 4 cid (bafkreifc4hca3inognou377hfhvu2xfchn2ltzi7yu27jkaeujqqqdbjju)
         // 6c6f6273746572 - block 4 data
         // 0100000028000000c800000000000000a2e1c40da1ae335d4dffe729eb4d5ca23b74b9e51fc535f4a804a261080c294d9401000000000000b474a99a2705e23cf905a484ec6d14ef58b56bbe62e9292783466ec363b5072d6b01000000000000d745b7757f5b4593eeab7820306c7bc64eb496a7410a0d07df7a34ffec4b97f11201000000000000d9c0d5376d26f1931f7ad52d7acc00fc1090d2edb0808bf61eeb0a152826f6268b00000000000000fb16f5083412ef1371d031ed4aa239903d84efdadf1ba3cd678e6475b1a232f83900000000000000
-
-        executor::block_on(async {
-            run_car_basic_test(
-                "./tests/spec_fixtures/carv2-basic.car",
-                "./tests/spec_fixtures/carv2-basic.json",
-            )
-            .await;
-        })
+        run_car_basic_test(
+            "./tests/spec_fixtures/carv2-basic.car",
+            "./tests/spec_fixtures/carv2-basic.json",
+        )
+        .await;
     }
 
     async fn run_car_basic_test(car_filepath: &str, car_json_expected: &str) {
         let expected_car = std::fs::read_to_string(car_json_expected).unwrap();
         let expected_car: ExpectedCarv1 = serde_json::from_str(&expected_car).unwrap();
 
-        let mut file = async_std::fs::File::open(car_filepath).await.unwrap();
+        let mut file = tokio::fs::File::open(car_filepath).await.unwrap().compat();
         let mut streamer = CarReader::new(&mut file, true).await.unwrap();
 
         // Assert header v1
