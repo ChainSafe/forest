@@ -675,15 +675,6 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn beacon_tests() -> Vec<RpcTest> {
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
-    // Blocked by Lotus.
-    //vec![RpcTest::identity(
-    //    BeaconGetEntry::request((10101,)).unwrap(),
-    //)]
-    vec![]
-}
-
 fn chain_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ChainHead::request(()).unwrap()),
@@ -820,10 +811,12 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests() -> Vec<RpcTest> {
-    vec![
-        RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
-        RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
-    ]
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
+    // Blocked by Lotus.
+    //vec![RpcTest::identity(
+    //    BeaconGetEntry::request((10101,)).unwrap(),
+    //)]
+    vec![]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
@@ -1852,7 +1845,6 @@ fn create_tests(
     let mut tests = vec![];
     tests.extend(auth_tests()?);
     tests.extend(common_tests());
-    tests.extend(beacon_tests());
     tests.extend(chain_tests());
     tests.extend(mpool_tests());
     tests.extend(net_tests());
