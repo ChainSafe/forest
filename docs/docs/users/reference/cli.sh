@@ -3,13 +3,18 @@
 generate_markdown_section() {
   local forest_name=$1
   local command_name=$2
+
+  # Print the command header
+  echo
   if [ -z "$command_name" ]; then
     echo "## \`$forest_name\`"
   else
     echo "### \`$forest_name $command_name\`"
   fi
+  echo
+
   echo "\`\`\`"
-  eval "$forest_name $command_name --help"
+  eval "$forest_name $command_name --help" | sed 's/\+git\..*//g'
   echo "\`\`\`"
 }
 
@@ -72,6 +77,15 @@ generate_markdown_section "forest-cli" "shutdown"
 generate_markdown_section "forest-cli" "healthcheck"
 generate_markdown_section "forest-cli" "healthcheck ready"
 
+generate_markdown_section "forest-cli" "f3"
+generate_markdown_section "forest-cli" "f3 manifest"
+generate_markdown_section "forest-cli" "f3 status"
+generate_markdown_section "forest-cli" "f3 certs"
+generate_markdown_section "forest-cli" "f3 certs get"
+generate_markdown_section "forest-cli" "f3 certs list"
+generate_markdown_section "forest-cli" "f3 powertable"
+generate_markdown_section "forest-cli" "f3 powertable get"
+generate_markdown_section "forest-cli" "f3 powertable get-proportion"
 
 generate_markdown_section "forest-tool" ""
 
@@ -116,7 +130,9 @@ generate_markdown_section "forest-tool" "car validate"
 generate_markdown_section "forest-tool" "api"
 generate_markdown_section "forest-tool" "api serve"
 generate_markdown_section "forest-tool" "api compare"
+generate_markdown_section "forest-tool" "api generate-test-snapshot"
 generate_markdown_section "forest-tool" "api dump-tests"
+generate_markdown_section "forest-tool" "api test"
 
 generate_markdown_section "forest-tool" "net ping"
 
