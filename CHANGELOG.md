@@ -34,6 +34,8 @@
 
 - [#5154](https://github.com/ChainSafe/forest/pull/5154) Added support for test criteria overrides in `forest-tool api compare`.
 
+- [#5167](https://github.com/ChainSafe/forest/pull/5167) Allow overriding drand configs with environment variables.
+
 ### Changed
 
 ### Removed
