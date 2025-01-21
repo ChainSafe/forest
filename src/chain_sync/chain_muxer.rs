@@ -24,7 +24,6 @@ use crate::libp2p::{
 };
 use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
-use crate::shim::clock::SECONDS_IN_DAY;
 use crate::state_manager::StateManager;
 use crate::{
     blocks::{Block, CreateTipsetError, FullTipset, Tipset, TipsetKey},
@@ -111,14 +110,6 @@ enum NetworkHeadEvaluation {
     /// Local head is at the same height as the network head. The node should
     /// move into the FOLLOW state and wait for new tipsets
     InSync,
-}
-
-/// Represents whether received messages should be added to message pool
-enum PubsubMessageProcessingStrategy {
-    /// Messages should be added to the message pool
-    Process,
-    /// Message _should not_ be added to the message pool
-    DoNotProcess,
 }
 
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the
@@ -309,29 +300,92 @@ where
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    async fn process_gossipsub_event(
+    // Wait for a network event and handle mandatory protocol responses (hello
+    // requests, peer disconnects).
+    async fn recv_gossipsub_event(
+        p2p_messages: flume::Receiver<NetworkEvent>,
+        network: SyncNetworkContext<DB>,
+        chain_store: Arc<ChainStore<DB>>,
+        genesis: &Tipset,
+    ) -> Result<NetworkEvent, ChainMuxerError> {
+        let event = match p2p_messages.recv_async().await {
+            Ok(event) => event,
+            Err(why) => {
+                debug!("Receiving event from p2p event stream failed: {}", why);
+                return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+            }
+        };
+        Self::inc_gossipsub_event_metrics(&event);
+        Self::upd_peer_information(&event, network, chain_store, genesis);
+        Ok(event)
+    }
+
+    // Increment the gossipsub event metrics.
+    fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
+        let label = match event {
+            NetworkEvent::HelloRequestInbound => metrics::values::HELLO_REQUEST_INBOUND,
+            NetworkEvent::HelloResponseOutbound { .. } => metrics::values::HELLO_RESPONSE_OUTBOUND,
+            NetworkEvent::HelloRequestOutbound => metrics::values::HELLO_REQUEST_OUTBOUND,
+            NetworkEvent::HelloResponseInbound => metrics::values::HELLO_RESPONSE_INBOUND,
+            NetworkEvent::PeerConnected(_) => metrics::values::PEER_CONNECTED,
+            NetworkEvent::PeerDisconnected(_) => metrics::values::PEER_DISCONNECTED,
+            NetworkEvent::PubsubMessage { message } => match message {
+                PubsubMessage::Block(_) => metrics::values::PUBSUB_BLOCK,
+                PubsubMessage::Message(_) => metrics::values::PUBSUB_MESSAGE,
+            },
+            NetworkEvent::ChainExchangeRequestOutbound => {
+                metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND
+            }
+            NetworkEvent::ChainExchangeResponseInbound => {
+                metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND
+            }
+            NetworkEvent::ChainExchangeRequestInbound => {
+                metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND
+            }
+            NetworkEvent::ChainExchangeResponseOutbound => {
+                metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND
+            }
+        };
+
+        metrics::LIBP2P_MESSAGE_TOTAL.get_or_create(&label).inc();
+    }
+
+    // Keep our peer manager up to date.
+    fn upd_peer_information(
+        event: &NetworkEvent,
+        network: SyncNetworkContext<DB>,
+        chain_store: Arc<ChainStore<DB>>,
+        genesis: &Tipset,
+    ) {
+        match event {
+            NetworkEvent::PeerConnected(peer_id) => {
+                let genesis_cid = *genesis.block_headers().first().cid();
+                // Spawn and immediately move on to the next event
+                tokio::task::spawn(Self::handle_peer_connected_event(
+                    network,
+                    chain_store,
+                    *peer_id,
+                    genesis_cid,
+                ));
+            }
+            NetworkEvent::PeerDisconnected(peer_id) => {
+                Self::handle_peer_disconnected_event(network, *peer_id);
+            }
+            _ => {}
+        }
+    }
+
+    // Extract `Tipset` from the network event. `MessagePool` also happens here
+    // (ugly, this should be refactored).
+    async fn get_gossipsub_tipset(
         event: NetworkEvent,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
-        bad_block_cache: Arc<BadBlockCache>,
         mem_pool: Arc<MessagePool<M>>,
-        genesis: Arc<Tipset>,
-        message_processing_strategy: PubsubMessageProcessingStrategy,
-        block_delay: u32,
-        stateless_mode: bool,
     ) -> Result<Option<FullTipset>, ChainMuxerError> {
-        let tipset = match event {
-            NetworkEvent::HelloRequestInbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
-                    .inc();
-                return Ok(None);
-            }
+        match event {
+            NetworkEvent::HelloRequestInbound => Ok(None),
             NetworkEvent::HelloResponseOutbound { request, source } => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
-                    .inc();
                 let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
                 Self::get_full_tipset(
                     network.clone(),
@@ -340,108 +394,49 @@ where
                     tipset_keys,
                 )
                 .await
-                .inspect_err(|e| debug!("Querying full tipset failed: {}", e))?
+                .inspect_err(|e| debug!("Querying full tipset failed: {}", e))
+                .map(Some)
             }
-            NetworkEvent::HelloRequestOutbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::HELLO_REQUEST_OUTBOUND)
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::HelloResponseInbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::HELLO_RESPONSE_INBOUND)
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::PeerConnected(peer_id) => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::PEER_CONNECTED)
-                    .inc();
-                // Spawn and immediately move on to the next event
-                tokio::task::spawn(Self::handle_peer_connected_event(
+            NetworkEvent::HelloRequestOutbound => Ok(None),
+            NetworkEvent::HelloResponseInbound => Ok(None),
+            NetworkEvent::PeerConnected(_) => Ok(None),
+            NetworkEvent::PeerDisconnected(_) => Ok(None),
+            NetworkEvent::PubsubMessage { message } => match message {
+                PubsubMessage::Block(b) => Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
-                    peer_id,
-                    *genesis.block_headers().first().cid(),
-                ));
-                return Ok(None);
-            }
-            NetworkEvent::PeerDisconnected(peer_id) => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::PEER_DISCONNECTED)
-                    .inc();
-                Self::handle_peer_disconnected_event(network.clone(), peer_id);
-                return Ok(None);
-            }
-            NetworkEvent::PubsubMessage { message } => match message {
-                PubsubMessage::Block(b) => {
-                    metrics::LIBP2P_MESSAGE_TOTAL
-                        .get_or_create(&metrics::values::PUBSUB_BLOCK)
-                        .inc();
-                    if stateless_mode {
-                        return Ok(None);
-                    }
-                    // Assemble full tipset from block only in stateful mode
-                    Self::get_full_tipset(
-                        network.clone(),
-                        chain_store.clone(),
-                        None,
-                        TipsetKey::from(nunny::vec![*b.header.cid()]),
-                    )
-                    .await?
-                }
+                    None,
+                    TipsetKey::from(nunny::vec![*b.header.cid()]),
+                )
+                .await
+                .map(Some),
                 PubsubMessage::Message(m) => {
-                    metrics::LIBP2P_MESSAGE_TOTAL
-                        .get_or_create(&metrics::values::PUBSUB_MESSAGE)
-                        .inc();
-                    if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
-                        Self::handle_pubsub_message(mem_pool, m);
-                    }
-                    return Ok(None);
+                    Self::handle_pubsub_message(mem_pool, m);
+                    Ok(None)
                 }
             },
-            NetworkEvent::ChainExchangeRequestOutbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND)
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::ChainExchangeResponseInbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND)
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::ChainExchangeRequestInbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND)
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::ChainExchangeResponseOutbound => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND)
-                    .inc();
-                return Ok(None);
-            }
-        };
-
-        if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
-            < chain_store.heaviest_tipset().epoch()
-        {
-            debug!(
-                "Skip processing tipset at epoch {} that is too old",
-                tipset.epoch()
-            );
-            return Ok(None);
+            NetworkEvent::ChainExchangeRequestOutbound => Ok(None),
+            NetworkEvent::ChainExchangeResponseInbound => Ok(None),
+            NetworkEvent::ChainExchangeRequestInbound => Ok(None),
+            NetworkEvent::ChainExchangeResponseOutbound => Ok(None),
         }
+    }
 
+    // Quick sanity checks across the blocks in a tipset. This rejects tipsets
+    // with obvious issues before they're comitted to the database. Full
+    // validation happens at a later stage.
+    fn shallow_validate_tipset(
+        tipset: &FullTipset,
+        chain_store: &ChainStore<DB>,
+        bad_block_cache: &BadBlockCache,
+        genesis: &Tipset,
+        block_delay: u32,
+    ) -> Result<(), ChainMuxerError> {
         // Validate tipset
-        if let Err(why) = TipsetValidator(&tipset).validate(
-            &chain_store,
-            Some(&bad_block_cache),
-            &genesis,
+        if let Err(why) = TipsetValidator(tipset).validate(
+            chain_store,
+            Some(bad_block_cache),
+            genesis,
             block_delay,
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
@@ -460,7 +455,7 @@ where
         // This is needed for the Ethereum mapping
         chain_store.put_tipset_key(tipset.key())?;
 
-        Ok(Some(tipset))
+        Ok(())
     }
 
     fn stateless_node(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
@@ -468,39 +463,16 @@ where
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stateless_mode = self.stateless_mode;
 
         let future = async move {
             loop {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {why}");
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
-
-                match Self::process_gossipsub_event(
-                    event,
+                Self::recv_gossipsub_event(
+                    p2p_messages.clone(),
                     network.clone(),
                     chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::DoNotProcess,
-                    block_delay,
-                    stateless_mode,
+                    &genesis,
                 )
-                .await
-                {
-                    Ok(_) => {}
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {why:?}");
-                    }
-                };
+                .await?;
             }
         };
 
@@ -517,7 +489,6 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stateless_mode = self.stateless_mode;
 
         let evaluator = async move {
             // If `local_epoch >= now_epoch`, return `NetworkHeadEvaluation::InSync`
@@ -541,34 +512,36 @@ where
 
             let mut tipsets = Vec::with_capacity(tipset_sample_size);
             while tipsets.len() < tipset_sample_size {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
+                let event = Self::recv_gossipsub_event(
+                    p2p_messages.clone(),
+                    network.clone(),
+                    chain_store.clone(),
+                    &genesis,
+                )
+                .await?;
 
-                let tipset = match Self::process_gossipsub_event(
+                let tipset = match Self::get_gossipsub_tipset(
                     event,
                     network.clone(),
                     chain_store.clone(),
-                    bad_block_cache.clone(),
                     mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::Process,
-                    block_delay,
-                    stateless_mode,
                 )
-                .await
+                .await?
                 {
-                    Ok(Some(tipset)) => tipset,
-                    Ok(None) => continue,
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
-                        continue;
-                    }
+                    Some(tipset) => tipset,
+                    None => continue,
                 };
+
+                if let Err(why) = Self::shallow_validate_tipset(
+                    &tipset,
+                    &chain_store,
+                    &bad_block_cache,
+                    &genesis,
+                    block_delay,
+                ) {
+                    debug!("Processing GossipSub event failed: {:?}", why);
+                    continue;
+                }
 
                 let now_epoch = calculate_expected_epoch(
                     chrono::Utc::now().timestamp() as u64,
@@ -671,45 +644,18 @@ where
 
         // The stream processor _must_ only error if the stream ends
         let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
+        let chain_store = self.state_manager.chain_store().clone();
         let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
-
-                let _tipset = match Self::process_gossipsub_event(
-                    event,
+                Self::recv_gossipsub_event(
+                    p2p_messages.clone(),
                     network.clone(),
                     chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::DoNotProcess,
-                    block_delay,
-                    stateless_mode,
+                    &genesis,
                 )
-                .await
-                {
-                    Ok(Some(tipset)) => tipset,
-                    Ok(None) => continue,
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
-                        continue;
-                    }
-                };
-
-                // Drop tipsets while we are bootstrapping
+                .await?;
             }
         });
 
@@ -770,7 +716,6 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -784,24 +729,19 @@ where
                     };
                 }
                 loop {
-                    let event = match p2p_messages.recv_async().await {
-                        Ok(event) => event,
-                        Err(why) => {
-                            debug!("Receiving event from p2p event stream failed: {}", why);
-                            return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                        }
-                    };
+                    let event = Self::recv_gossipsub_event(
+                        p2p_messages.clone(),
+                        network.clone(),
+                        chain_store.clone(),
+                        &genesis,
+                    )
+                    .await?;
 
-                    let tipset = match Self::process_gossipsub_event(
+                    let tipset = match Self::get_gossipsub_tipset(
                         event,
                         network.clone(),
                         chain_store.clone(),
-                        bad_block_cache.clone(),
                         mem_pool.clone(),
-                        genesis.clone(),
-                        PubsubMessageProcessingStrategy::Process,
-                        block_delay,
-                        stateless_mode,
                     )
                     .await
                     {
@@ -812,6 +752,17 @@ where
                             continue;
                         }
                     };
+
+                    if let Err(why) = Self::shallow_validate_tipset(
+                        &tipset,
+                        &chain_store,
+                        &bad_block_cache,
+                        &genesis,
+                        block_delay,
+                    ) {
+                        debug!("Processing GossipSub event failed: {:?}", why);
+                        continue;
+                    }
 
                     // Validate that the tipset is heavier that the heaviest
                     // tipset in the store
