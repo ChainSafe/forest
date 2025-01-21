@@ -59,7 +59,7 @@ pub async fn read_single_file_buffer<R: AsyncRead + Send + Unpin, W: AsyncWrite 
         if inner.links.is_empty() {
             // Leaf data node
             let data = inner.data.Data.ok_or(ReadSingleFileError::InvalidUnixFs(
-                "unixfs data node has not Data field".to_string(),
+                "UnixFS data node has not Data field".to_string(),
             ))?;
 
             // Allow to limit max buffered data to prevent OOM

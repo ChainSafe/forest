@@ -84,7 +84,7 @@ impl<'a> TryFrom<&'a [u8]> for merkledag::PBNode<'a> {
     }
 }
 
-/// Combined dag-pb (or `MerkleDAG`) with unixfs payload.
+/// Combined dag-pb (or `MerkleDAG`) with UnixFS payload.
 #[derive(Debug)]
 pub(crate) struct FlatUnixFs<'a> {
     pub(crate) links: Vec<PBLink<'a>>,

@@ -73,7 +73,7 @@ pub async fn read_single_file_seek<
             }
 
             let data = inner.data.Data.ok_or(ReadSingleFileError::InvalidUnixFs(
-                "unixfs data node has not Data field".to_string(),
+                "UnixFS data node has not Data field".to_string(),
             ))?;
 
             // Write data now, and keep a record for potential future writes
@@ -122,7 +122,7 @@ pub async fn read_single_file_seek<
     }
 }
 
-/// Tracks the unixfs links progressively building the linear layout of the target file
+/// Tracks the UnixFS links progressively building the linear layout of the target file
 /// New links are inserted in place recursively expanding the tree to its leafs.
 struct SortedLinks<T: PartialEq + Clone> {
     pub sorted_items: Vec<T>,

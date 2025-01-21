@@ -1,4 +1,4 @@
-//! CAR stream does not include duplicated blocks, so to reconstruct a unixfs file,
+//! CAR stream does not include duplicated blocks, so to reconstruct a UnixFS file,
 //! data does not follow the same layout as the expected target file. To recreate
 //! the file one must have the ability to read from arbitrary locations of the stream.
 //!
