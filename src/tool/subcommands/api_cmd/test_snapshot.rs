@@ -154,6 +154,11 @@ mod tests {
 
     #[tokio::test]
     async fn rpc_regression_tests() {
+        // Skip for debug build on CI as the downloading is slow and flaky
+        if crate::utils::is_ci() && crate::utils::is_debug_build() {
+            return;
+        }
+
         let urls = include_str!("test_snapshots.txt")
             .trim()
             .split("\n")
@@ -204,7 +209,7 @@ mod tests {
     }
 
     async fn get_digital_ocean_space_url_etag(url: Url) -> anyhow::Result<Option<String>> {
-        const TIMEOUT: Duration = Duration::from_secs(10);
+        const TIMEOUT: Duration = Duration::from_secs(5);
         let response = (|| {
             global_http_client()
                 .head(url.clone())
