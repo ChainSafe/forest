@@ -204,7 +204,7 @@ mod tests {
     }
 
     async fn get_digital_ocean_space_url_etag(url: Url) -> anyhow::Result<Option<String>> {
-        const TIMEOUT: Duration = Duration::from_secs(3);
+        const TIMEOUT: Duration = Duration::from_secs(10);
         let response = (|| {
             global_http_client()
                 .head(url.clone())
