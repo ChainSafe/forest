@@ -1239,9 +1239,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.26"
+version = "4.5.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8eb5e908ef3a6efbe1ed62520fb7287959888c88485abe072543190ecc66783"
+checksum = "769b0145982b4b48713e01ec42d61614425f27b7058bda7180a3a41f30104796"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1249,9 +1249,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.26"
+version = "4.5.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b01801b5fc6a0a232407abc821660c9c6d25a1cafc0d4f85f29fb8d9afc121"
+checksum = "1b26884eb4b57140e4d2d93652abfa49498b938b3c9179f9fc487b0acc3edad7"
 dependencies = [
  "anstream",
  "anstyle",
@@ -6049,17 +6049,16 @@ dependencies = [
 
 [[package]]
 name = "netlink-proto"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b33524dc0968bfad349684447bfce6db937a9ac3332a1fe60c0c5a5ce63f21"
+checksum = "b2741a6c259755922e3ed29ebce3b299cc2160c4acae94b465b5938ab02c2bbe"
 dependencies = [
  "bytes",
  "futures",
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror 1.0.69",
- "tokio",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -7079,21 +7078,21 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7cc6633305d878cafb4a4482e7e7002d1a5d7b15fa837728b6613ff5336f8a4"
+checksum = "d71383317d5f157444917eadb61557c43b7aa4f8d54d1abf5ce636e77299cc11"
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90d8a2aecbd488cf79b430bd5abe6650da44ae58b31cd6052c909dbd3f5d5926"
+checksum = "5904eb539cdc53a9e25d16f6577b122f5befb509687c5a41d0de668852628f56"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f499b6c33a588d60ed9722d057954a21ec01913b97a5693ff40ba4828ffa7b9"
+checksum = "973097eaf7f9959754041d6b96bd23e39de9a16aef14b7c5bb341c00d60592d4"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7104,9 +7103,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4016934faae8413b4ad3f1bf063c7ffccdcfdf3f67ff32f4a79a197a3c1cb0da"
+checksum = "f4ee1da549d09f358b99d22516b1bcda59e616cc204c0a87656815aaabf6be2f"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7114,14 +7113,14 @@ dependencies = [
  "jod-thread",
  "libc",
  "miow",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.258"
+version = "0.0.259"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8e381d21d166d12b11906171f82382473d60abfead0c4acc6d7d07150f87f73"
+checksum = "66dcf6e164c9eb956cb3ce27af00fdf8d6778278d2fd4678670ba24eb10d1dea"
 dependencies = [
  "cov-mark",
  "either",
@@ -9451,9 +9450,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "744018581f9a3454a9e15beb8a33b017183f1e7c0cd170232a2d1453b23a51c4"
+checksum = "b3758f5e68192bb96cc8f9b7e2c2cfdabb435499a28499a42f8f984092adad4b"
 dependencies = [
  "getrandom",
  "serde",
