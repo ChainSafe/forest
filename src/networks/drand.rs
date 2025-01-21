@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use std::borrow::Cow;
 
 pub(super) static DRAND_MAINNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
-    DrandConfig {
+    let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
                 "https://api.drand.sh".try_into().unwrap(),
@@ -24,11 +24,12 @@ pub(super) static DRAND_MAINNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
             group_hash: Cow::Borrowed("176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a"),
         },
         network_type: DrandNetwork::Mainnet,
-    }
+    };
+    parse_drand_config_from_env_var("FOREST_DRAND_MAINNET_CONFIG").unwrap_or(default)
 });
 
 pub(super) static DRAND_QUICKNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
-    DrandConfig {
+    let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
             "https://api.drand.sh".try_into().unwrap(),
@@ -46,11 +47,12 @@ pub(super) static DRAND_QUICKNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
             group_hash: Cow::Borrowed("f477d5c89f21a17c863a7f937c6a6d15859414d2be09cd448d4279af331c5d3e"),
         },
         network_type: DrandNetwork::Quicknet,
-    }
+    };
+    parse_drand_config_from_env_var("FOREST_DRAND_QUICKNET_CONFIG").unwrap_or(default)
 });
 
 pub(super) static DRAND_INCENTINET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
-    DrandConfig {
+    let default = DrandConfig {
         // Note: This URL is no longer valid.
         // See <https://github.com/filecoin-project/lotus/pull/10476/files> and its related issues
         servers: vec![],
@@ -63,8 +65,25 @@ pub(super) static DRAND_INCENTINET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
             group_hash: Cow::Borrowed("d9406aaed487f7af71851b4399448e311f2328923d454e971536c05398ce2d9b"),
         },
         network_type: DrandNetwork::Incentinet,
-    }
+    };
+    parse_drand_config_from_env_var("FOREST_DRAND_INCENTINET_CONFIG").unwrap_or(default)
 });
+
+fn parse_drand_config_from_env_var<'a>(key: &str) -> Option<DrandConfig<'a>> {
+    match std::env::var(key) {
+        Ok(value) if !value.is_empty() => match serde_json::from_str(&value) {
+            Ok(config) => {
+                tracing::warn!("overriding drand config with environment variable {key}");
+                Some(config)
+            }
+            Err(error) => {
+                tracing::warn!(%error, "failed to parse drand config set by environment variable {key}");
+                None
+            }
+        },
+        _ => None,
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -88,6 +107,18 @@ mod tests {
     #[ignore = "server url is no longer valid"]
     async fn test_drand_incentinet() {
         test_drand(&DRAND_INCENTINET).await
+    }
+
+    #[test]
+    fn test_parse_drand_config_from_env_var() {
+        let mut config: DrandConfig<'static> = DRAND_QUICKNET.clone();
+        config.servers = vec![config.servers[0].clone()];
+        let config_json = serde_json::to_string_pretty(&config).unwrap();
+        println!("{config_json}");
+        let env_key = "FOREST_DRAND_TEST_CONFIG";
+        std::env::set_var(env_key, config_json);
+        let parsed = parse_drand_config_from_env_var(env_key);
+        assert_eq!(parsed, Some(config));
     }
 
     async fn test_drand<'a>(config: &'a DrandConfig<'a>) {
