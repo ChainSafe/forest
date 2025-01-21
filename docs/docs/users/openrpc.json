@@ -158,40 +158,6 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.EthEstimateGas",
-      "params": [
-        {
-          "name": "tx",
-          "required": true,
-          "schema": {
-            "$ref": "#/components/schemas/EthCallMessage"
-          }
-        },
-        {
-          "name": "block_param",
-          "required": true,
-          "schema": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BlockNumberOrHash"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      ],
-      "result": {
-        "name": "Filecoin.EthEstimateGas.Result",
-        "required": true,
-        "schema": {
-          "$ref": "#/components/schemas/Uint64"
-        }
-      },
-      "paramStructure": "by-position"
-    },
-    {
       "name": "Filecoin.EthFeeHistory",
       "params": [
         {
@@ -1204,36 +1170,6 @@
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/Signature"
-        }
-      },
-      "paramStructure": "by-position"
-    },
-    {
-      "name": "Filecoin.GetActorEventsRaw",
-      "params": [
-        {
-          "name": "filter",
-          "required": true,
-          "schema": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ActorEventFilter"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
-      ],
-      "result": {
-        "name": "Filecoin.GetActorEventsRaw.Result",
-        "required": false,
-        "schema": {
-          "type": ["array", "null"],
-          "items": {
-            "$ref": "#/components/schemas/ActorEvent"
-          }
         }
       },
       "paramStructure": "by-position"
