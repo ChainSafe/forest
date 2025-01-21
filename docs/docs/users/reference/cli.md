@@ -1629,6 +1629,15 @@ Options:
       --dump-dir <DUMP_DIR>
           Specify a directory to which the RPC tests are dumped
 
+      --test-criteria-overrides [<TEST_CRITERIA_OVERRIDES>...]
+          Additional overrides to modify success criteria for tests
+
+          [default: timeout-and-timeout]
+
+          Possible values:
+          - valid-and-timeout:   Test pass when first endpoint returns a valid result and the second one timeout
+          - timeout-and-timeout: Test pass when both endpoints timeout
+
   -h, --help
           Print help (see a summary with '-h')
 ````

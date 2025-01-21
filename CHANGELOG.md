@@ -32,6 +32,8 @@
 - [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
   `Filecoin.EthTraceBlock` RPC method.
 
+- [#5154](https://github.com/ChainSafe/forest/pull/5154) Added support for test criteria overrides in `forest-tool api compare`.
+
 ### Changed
 
 ### Removed
@@ -43,6 +45,8 @@
 - [#5122](https://github.com/ChainSafe/forest/issues/5122) Fix a bug in database garbage collection flow.
 
 - [#5131](https://github.com/ChainSafe/forest/pull/5131) Fix incorrect data deserialization in the `Filecoin.EthGetBlockReceipts` RPC method. This caused the method to return an error on some blocks.
+
+- [#5150](https://github.com/ChainSafe/forest/pull/5150) Fix incorrect prototype for the `Filecoin.EthGetBlockReceiptsLimited` RPC method.
 
 ## Forest v.0.23.3 "Plumber"
 
