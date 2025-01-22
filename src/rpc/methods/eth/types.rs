@@ -36,6 +36,12 @@ impl From<RawBytes> for EthBytes {
     }
 }
 
+impl From<Bloom> for EthBytes {
+    fn from(value: Bloom) -> Self {
+        Self(value.0 .0.to_vec())
+    }
+}
+
 impl FromStr for EthBytes {
     type Err = anyhow::Error;
 
