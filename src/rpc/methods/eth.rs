@@ -1104,6 +1104,102 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     Ok(receipt)
 }
 
+// Revamped implementation
+async fn new_eth_tx_receipt2<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    tipset: &Arc<Tipset>,
+    tx: &ApiEthTx,
+    base_fee: &TokenAmount,
+    msg_receipt: &Receipt,
+) -> anyhow::Result<EthTxReceipt> {
+    let mut tx_receipt = EthTxReceipt {
+        transaction_hash: tx.hash.clone(),
+        from: tx.from.clone(),
+        to: tx.to.clone(),
+        transaction_index: tx.transaction_index.clone(),
+        block_hash: tx.block_hash.clone(),
+        block_number: tx.block_number.clone(),
+        r#type: tx.r#type.clone(),
+        logs: vec![], // empty log array is compulsory when no logs, or libraries like ethers.js break
+        logs_bloom: EthBytes(EMPTY_BLOOM.to_vec()),
+        ..EthTxReceipt::new()
+    };
+
+    tx_receipt.status = (msg_receipt.exit_code().is_success() as u64).into();
+
+    tx_receipt.gas_used = msg_receipt.gas_used().into();
+
+    // TODO(elmattic): handle cumulative_gas_used
+    tx_receipt.cumulative_gas_used = EthUint64::default();
+
+    let gas_fee_cap = tx.gas_fee_cap()?;
+    let gas_premium = tx.gas_premium()?;
+
+    let gas_outputs = GasOutputs::compute(
+        msg_receipt.gas_used(),
+        tx.gas.clone().into(),
+        &base_fee,
+        &gas_fee_cap.0.into(),
+        &gas_premium.0.into(),
+    );
+    let total_spent: BigInt = gas_outputs.total_spent().into();
+
+    let mut effective_gas_price = EthBigInt::default();
+    if msg_receipt.gas_used() > 0 {
+        effective_gas_price = (total_spent / msg_receipt.gas_used()).into();
+    }
+    tx_receipt.effective_gas_price = effective_gas_price;
+
+    if tx_receipt.to.is_none() && msg_receipt.exit_code().is_success() {
+        // Create and Create2 return the same things.
+        let ret: eam::CreateExternalReturn =
+            from_slice_with_fallback(msg_receipt.return_data().bytes())?;
+
+        tx_receipt.contract_address = Some(ret.eth_address.0.into());
+    }
+
+    if let Some(_) = msg_receipt.events_root() {
+        let logs =
+            eth_logs_for_block_and_transaction(ctx, tipset, &tx.block_hash, &tx.hash).await?;
+        if logs.len() > 0 {
+            tx_receipt.logs = logs;
+        }
+    }
+
+    for log in tx_receipt.logs.iter() {
+        for _topic in log.topics.iter() {
+            // TODO(elmattic): handle bloom calculation
+            tx_receipt.logs_bloom = EthBytes(EMPTY_BLOOM.to_vec());
+        }
+    }
+
+    Ok(tx_receipt)
+}
+
+async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    ts: &Arc<Tipset>,
+    block_hash: &EthHash,
+    tx_hash: &EthHash,
+) -> anyhow::Result<Vec<EthLog>> {
+    let spec = EthFilterSpec {
+        block_hash: Some(block_hash.clone()),
+        ..Default::default()
+    };
+
+    let mut events = vec![];
+    EthEventHandler::collect_events(ctx, ts, Some(&spec), &mut events).await?;
+
+    let logs = eth_filter_logs_from_events(ctx, &events)?;
+    let mut out = vec![];
+    for log in logs.into_iter() {
+        if &log.transaction_hash == tx_hash {
+            out.push(log)
+        }
+    }
+    Ok(out)
+}
+
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
     let result: Result<SignedMessage, crate::chain::Error> =
         crate::chain::message_from_cid(ctx.store(), &message_cid);
@@ -1234,41 +1330,30 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
     let ts_ref = Arc::new(ts);
     let ts_key = ts_ref.key();
+
+    // Execute the tipset to get the messages and receipts
     let (state_root, msgs_and_receipts) = execute_tipset(ctx, &ts_ref).await?;
 
-    let msgs_and_receipts = if let Some(limit) = limit {
-        msgs_and_receipts.into_iter().take(limit).collect()
-    } else {
-        msgs_and_receipts
-    };
+    // Load the state tree
+    let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
 
-    let mut receipts = Vec::with_capacity(msgs_and_receipts.len());
-    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let base_fee = ts_ref.block_headers().first().parent_base_fee.clone();
 
+    let mut eth_receipts = Vec::with_capacity(msgs_and_receipts.len());
     for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
-        let return_dec = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-
-        let message_lookup = MessageLookup {
-            receipt,
-            tipset: ts_key.clone(),
-            height: ts_ref.epoch(),
-            message: msg.cid(),
-            return_dec,
-        };
-
         let tx = new_eth_tx(
             ctx,
-            &state,
+            &state_tree,
             ts_ref.epoch(),
             &ts_key.cid()?,
             &msg.cid(),
             i as u64,
         )?;
 
-        let tx_receipt = new_eth_tx_receipt(ctx, &tx, &message_lookup).await?;
-        receipts.push(tx_receipt);
+        let receipt = new_eth_tx_receipt2(ctx, &ts_ref, &tx, &base_fee, &receipt).await?;
+        eth_receipts.push(receipt);
     }
-    Ok(receipts)
+    Ok(eth_receipts)
 }
 
 pub enum EthGetBlockReceipts {}
