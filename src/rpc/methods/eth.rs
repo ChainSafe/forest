@@ -144,6 +144,19 @@ pub struct Bloom(
 
 lotus_json_with_self!(Bloom);
 
+impl Bloom {
+    pub fn set(f: &mut [u8], data: &[u8]) {
+        let raw = ethereum_types::BloomInput::Raw(data);
+        let bloom = ethereum_types::Bloom::from(raw);
+
+        for i in 0..3 {
+            let bytes: [u8; 2] = bloom.0[i * 2..i * 2 + 2].try_into().unwrap();
+            let n = u16::from_be_bytes(bytes) as usize % BLOOM_SIZE;
+            f[BLOOM_SIZE_IN_BYTES - (n / 8) - 1] |= 1 << (n % 8);
+        }
+    }
+}
+
 #[derive(
     PartialEq,
     Debug,
@@ -1167,10 +1180,10 @@ async fn new_eth_tx_receipt2<DB: Blockstore + Send + Sync + 'static>(
     }
 
     for log in tx_receipt.logs.iter() {
-        for _topic in log.topics.iter() {
-            // TODO(elmattic): handle bloom calculation
-            tx_receipt.logs_bloom = EthBytes(EMPTY_BLOOM.to_vec());
+        for topic in log.topics.iter() {
+            Bloom::set(&mut tx_receipt.logs_bloom.0, topic.0.as_bytes());
         }
+        Bloom::set(&mut tx_receipt.logs_bloom.0, log.address.0.as_bytes());
     }
 
     Ok(tx_receipt)
