@@ -263,15 +263,12 @@ impl F3PowerTableCommands {
                     .fold(num::BigInt::ZERO, |acc, entry| acc + &entry.power);
                 let mut scaled_total = 0;
                 let mut scaled_sum = 0;
-                let actor_id_set = HashSet::from_iter(actor_ids);
-                let mut not_found = vec![];
+                let mut actor_id_set = HashSet::from_iter(actor_ids);
                 for entry in power_table.iter() {
                     let scaled_power = scale_power(&entry.power, &total)?;
                     scaled_total += scaled_power;
-                    if actor_id_set.contains(&entry.id) {
+                    if actor_id_set.remove(&entry.id) {
                         scaled_sum += scaled_power;
-                    } else {
-                        not_found.push(entry.id);
                     }
                 }
 
@@ -284,7 +281,7 @@ impl F3PowerTableCommands {
                     },
                     scaled_sum,
                     proportion: (scaled_sum as f64) / (scaled_total as f64),
-                    not_found,
+                    not_found: actor_id_set.into_iter().collect(),
                 };
                 println!("{}", serde_json::to_string_pretty(&result)?);
             }
