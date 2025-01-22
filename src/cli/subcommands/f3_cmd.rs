@@ -11,12 +11,12 @@ use crate::{
         f3::{F3Instant, F3Manifest, F3PowerEntry, FinalityCertificate},
         prelude::*,
     },
+    shim::fvm_shared_latest::ActorID,
 };
 use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
-use itertools::Itertools as _;
 use sailfish::TemplateSimple;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -263,20 +263,17 @@ impl F3PowerTableCommands {
                     .fold(num::BigInt::ZERO, |acc, entry| acc + &entry.power);
                 let mut scaled_total = 0;
                 let mut scaled_sum = 0;
-                let mut actor_id_set = HashSet::from_iter(actor_ids);
+                let actor_id_set = HashSet::from_iter(actor_ids);
+                let mut not_found = vec![];
                 for entry in power_table.iter() {
                     let scaled_power = scale_power(&entry.power, &total)?;
                     scaled_total += scaled_power;
-                    if actor_id_set.remove(&entry.id) {
+                    if actor_id_set.contains(&entry.id) {
                         scaled_sum += scaled_power;
+                    } else {
+                        not_found.push(entry.id);
                     }
                 }
-
-                anyhow::ensure!(
-                    actor_id_set.is_empty(),
-                    "actor ID {} not found in power table",
-                    actor_id_set.into_iter().map(|i| i.to_string()).join(",")
-                );
 
                 let result = F3PowerTableGetProportionCommandResult {
                     instance,
@@ -287,6 +284,7 @@ impl F3PowerTableCommands {
                     },
                     scaled_sum,
                     proportion: (scaled_sum as f64) / (scaled_total as f64),
+                    not_found,
                 };
                 println!("{}", serde_json::to_string_pretty(&result)?);
             }
@@ -374,6 +372,7 @@ pub struct F3PowerTableGetProportionCommandResult {
     power_table: F3PowerTableCliMinimalJson,
     scaled_sum: i64,
     proportion: f64,
+    not_found: Vec<ActorID>,
 }
 
 #[serde_as]
