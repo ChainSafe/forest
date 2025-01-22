@@ -144,14 +144,21 @@ async fn ctx(
 mod tests {
     use super::*;
     use crate::{daemon::db_util::download_to, utils::net::global_http_client};
+    use backon::{ExponentialBuilder, Retryable as _};
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
     use md5::{Digest as _, Md5};
+    use std::time::Duration;
     use url::Url;
 
     #[tokio::test]
     async fn rpc_regression_tests() {
+        // Skip for debug build on CI as the downloading is slow and flaky
+        if crate::utils::is_ci() && crate::utils::is_debug_build() {
+            return;
+        }
+
         let urls = include_str!("test_snapshots.txt")
             .trim()
             .split("\n")
@@ -202,7 +209,15 @@ mod tests {
     }
 
     async fn get_digital_ocean_space_url_etag(url: Url) -> anyhow::Result<Option<String>> {
-        let response = global_http_client().head(url).send().await?;
+        const TIMEOUT: Duration = Duration::from_secs(5);
+        let response = (|| {
+            global_http_client()
+                .head(url.clone())
+                .timeout(TIMEOUT)
+                .send()
+        })
+        .retry(ExponentialBuilder::default())
+        .await?;
         Ok(response
             .headers()
             .get("etag")
