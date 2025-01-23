@@ -17,6 +17,12 @@ slow-timeout = { period = "120s", terminate-after = 3 }
 filter = 'test(create_manifest_json)'
 slow-timeout = { period = "120s", terminate-after = 3 }
 
+# This test downloads RPC test snapshot files from the network, which can take a while.
+# It is only run on CI, so we can afford to be more patient.
+[[profile.default.overrides]]
+filter = 'test(tool::subcommands::api_cmd::test_snapshot::tests::rpc_regression_tests)'
+slow-timeout = { period = "120s", terminate-after = 3 }
+
 [[profile.default.overrides]]
 # lint runs `cargo check` for source file discovery, which can take a while
 filter = 'binary(lint)'

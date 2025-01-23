@@ -1389,12 +1389,12 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const PARAM_NAMES: [&'static str; 2] = ["block_hash", "limit"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    type Params = (EthHash, EthUint64);
+    type Params = (EthHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_hash, EthUint64(limit)): Self::Params,
+        (block_hash, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         get_block_receipts(&ctx, block_hash, Some(limit as usize)).await
     }
