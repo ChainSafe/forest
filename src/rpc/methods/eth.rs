@@ -1049,70 +1049,6 @@ fn new_eth_tx<DB: Blockstore>(
 
 async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    tx: &ApiEthTx,
-    message_lookup: &MessageLookup,
-) -> anyhow::Result<EthTxReceipt> {
-    let mut receipt = EthTxReceipt {
-        transaction_hash: tx.hash.clone(),
-        from: tx.from.clone(),
-        to: tx.to.clone(),
-        transaction_index: tx.transaction_index.clone(),
-        block_hash: tx.block_hash.clone(),
-        block_number: tx.block_number.clone(),
-        r#type: tx.r#type.clone(),
-        status: (message_lookup.receipt.exit_code().is_success() as u64).into(),
-        gas_used: message_lookup.receipt.gas_used().into(),
-        ..EthTxReceipt::new()
-    };
-
-    let ts = ctx
-        .chain_store()
-        .load_required_tipset_or_heaviest(&message_lookup.tipset)?;
-
-    // This transaction is located in the parent tipset
-    let parent_ts = ctx
-        .chain_store()
-        .load_required_tipset_or_heaviest(ts.parents())?;
-
-    let base_fee = parent_ts.block_headers().first().parent_base_fee.clone();
-
-    let gas_fee_cap = tx.gas_fee_cap()?;
-    let gas_premium = tx.gas_premium()?;
-
-    let gas_outputs = GasOutputs::compute(
-        message_lookup.receipt.gas_used(),
-        tx.gas.clone().into(),
-        &base_fee,
-        &gas_fee_cap.0.into(),
-        &gas_premium.0.into(),
-    );
-
-    let total_spent: BigInt = gas_outputs.total_spent().into();
-
-    let mut effective_gas_price = EthBigInt::default();
-    if message_lookup.receipt.gas_used() > 0 {
-        effective_gas_price = (total_spent / message_lookup.receipt.gas_used()).into();
-    }
-    receipt.effective_gas_price = effective_gas_price;
-
-    if receipt.to.is_none() && message_lookup.receipt.exit_code().is_success() {
-        // Create and Create2 return the same things.
-        let ret: eam::CreateExternalReturn =
-            from_slice_with_fallback(message_lookup.receipt.return_data().bytes())?;
-
-        receipt.contract_address = Some(ret.eth_address.0.into());
-    }
-
-    let mut events = vec![];
-    EthEventHandler::collect_events(ctx, &parent_ts, None, &mut events).await?;
-    receipt.logs = eth_filter_logs_from_events(ctx, &events)?;
-
-    Ok(receipt)
-}
-
-// Revamped implementation
-async fn new_eth_tx_receipt2<DB: Blockstore + Send + Sync + 'static>(
-    ctx: &Ctx<DB>,
     tipset: &Arc<Tipset>,
     tx: &ApiEthTx,
     base_fee: &TokenAmount,
@@ -1359,7 +1295,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt2(ctx, &ts_ref, &tx, &base_fee, &receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &base_fee, &receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -2434,7 +2370,10 @@ async fn get_eth_transaction_receipt(
     let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
         .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
 
-    let tx_receipt = new_eth_tx_receipt(&ctx, &tx, &message_lookup).await?;
+    let base_fee = tipset.block_headers().first().parent_base_fee.clone();
+
+    let tx_receipt =
+        new_eth_tx_receipt(&ctx, &tipset, &tx, &base_fee, &message_lookup.receipt).await?;
 
     Ok(tx_receipt)
 }
