@@ -257,8 +257,9 @@ impl EthEventHandler {
             messages.len() == events.len(),
             "Length of messages and events do not match"
         );
+        let mut event_count = 0;
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
-            for (j, event) in events.iter().enumerate() {
+            for event in events.iter() {
                 let id_addr = Address::new_id(event.emitter());
                 let result = ctx
                     .state_manager
@@ -275,10 +276,9 @@ impl EthEventHandler {
                     resolved
                 } else {
                     // Skip event
+                    event_count += 1;
                     continue;
                 };
-
-                let event_idx = j as u64;
 
                 let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
 
@@ -289,7 +289,7 @@ impl EthEventHandler {
                     let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
                     tracing::debug!(
                         "Event {} {}match filter topics",
-                        event_idx,
+                        event_count,
                         if matched { "" } else { "do not " }
                     );
                     matched
@@ -313,7 +313,7 @@ impl EthEventHandler {
                     let ce = CollectedEvent {
                         entries,
                         emitter_addr: resolved,
-                        event_idx,
+                        event_idx: event_count,
                         reverted: false,
                         height,
                         tipset_key: tipset_key.clone(),
@@ -321,9 +321,11 @@ impl EthEventHandler {
                         msg_cid: message.cid(),
                     };
                     collected_events.push(ce);
+                    event_count += 1;
                 }
             }
         }
+
         Ok(())
     }
 
