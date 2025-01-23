@@ -177,7 +177,7 @@ async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> 
     if !crate::f3::is_sidecar_ffi_enabled(&state.chain_config) {
         acc.push_ok("f3 disabled");
         true
-    } else if let Ok(true) = F3IsRunning::is_f3_running().await {
+    } else if F3IsRunning::is_f3_running().await.unwrap_or_default() {
         acc.push_ok("f3 running");
         true
     } else {
