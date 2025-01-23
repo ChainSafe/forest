@@ -6,6 +6,7 @@ use ahash::HashMap;
 use axum::extract::{self, Query};
 
 use crate::db::SettingsExt;
+use crate::rpc::f3::F3IsRunning;
 use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
 
 use super::{AppError, ForestState};
@@ -43,6 +44,7 @@ pub(crate) async fn livez(
 /// - The current epoch of the node is not too far behind the network
 /// - The RPC server is running
 /// - The Ethereum mapping is up to date
+/// - The F3 side car is running if enabled
 ///
 /// If any of these conditions are not met, the nod is **not** ready to serve requests.
 pub(crate) async fn readyz(
@@ -56,6 +58,7 @@ pub(crate) async fn readyz(
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
     ready &= check_eth_mapping_up_to_date(&state, &mut acc);
+    ready &= check_f3_running(&state, &mut acc).await;
 
     if ready {
         Ok(acc.result_ok())
@@ -77,6 +80,7 @@ pub(crate) async fn healthz(
     healthy &= check_rpc_server_running(&state, &mut acc).await;
     healthy &= check_sync_state_not_error(&state, &mut acc);
     healthy &= check_peers_connected(&state, &mut acc);
+    healthy &= check_f3_running(&state, &mut acc).await;
 
     if healthy {
         Ok(acc.result_ok())
@@ -166,6 +170,19 @@ fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulato
             acc.push_err("no eth mapping");
             false
         }
+    }
+}
+
+async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+    if !crate::f3::is_sidecar_ffi_enabled(&state.chain_config) {
+        acc.push_ok("f3 disabled");
+        true
+    } else if let Ok(true) = F3IsRunning::is_f3_running().await {
+        acc.push_ok("f3 running");
+        true
+    } else {
+        acc.push_err("f3 not running");
+        false
     }
 }
 
