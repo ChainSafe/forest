@@ -147,6 +147,11 @@ pub(super) async fn start(
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
+    if opts.detach {
+        tracing::warn!("F3 sidecar is disabled in detach mode");
+        std::env::set_var("FOREST_F3_SIDECAR_FFI_ENABLED", "0");
+    }
+
     let chain_config = Arc::new(ChainConfig::from_chain(config.chain()));
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
