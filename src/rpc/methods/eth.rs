@@ -1144,7 +1144,7 @@ async fn new_eth_tx_receipt2<DB: Blockstore + Send + Sync + 'static>(
     let gas_outputs = GasOutputs::compute(
         msg_receipt.gas_used(),
         tx.gas.clone().into(),
-        &base_fee,
+        base_fee,
         &gas_fee_cap.0.into(),
         &gas_premium.0.into(),
     );
@@ -1164,10 +1164,10 @@ async fn new_eth_tx_receipt2<DB: Blockstore + Send + Sync + 'static>(
         tx_receipt.contract_address = Some(ret.eth_address.0.into());
     }
 
-    if let Some(_) = msg_receipt.events_root() {
+    if msg_receipt.events_root().is_some() {
         let logs =
             eth_logs_for_block_and_transaction(ctx, tipset, &tx.block_hash, &tx.hash).await?;
-        if logs.len() > 0 {
+        if !logs.is_empty() {
             tx_receipt.logs = logs;
         }
     }
