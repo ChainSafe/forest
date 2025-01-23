@@ -410,6 +410,8 @@ jobs:
             sh -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
   local-devnet-curio-check:
+    # Disabling this job as it is not providing any value until the curio setup is fixed. See: https://github.com/ChainSafe/forest/issues/5171
+    if: false
     name: Devnet Curio checks
     runs-on: ubuntu-24.04
     needs:
@@ -585,7 +587,7 @@ jobs:
       - db-migration-checks
       - db-migration-checks-car-db  
       - local-devnet-check
-      - local-devnet-curio-check
+      # - local-devnet-curio-check
       - calibnet-rpc-checks
       - bootstrap-checks-forest
       - bootstrap-checks-lotus

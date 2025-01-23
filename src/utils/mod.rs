@@ -167,6 +167,17 @@ pub enum RetryError {
 }
 
 #[cfg(test)]
+pub fn is_debug_build() -> bool {
+    cfg!(debug_assertions)
+}
+
+#[cfg(test)]
+pub fn is_ci() -> bool {
+    // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
+    misc::env::is_env_truthy("CI")
+}
+
+#[cfg(test)]
 mod tests {
     mod files;
 
