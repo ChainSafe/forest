@@ -12,7 +12,7 @@ exclude = [
   "faucet.calibnet.chainsafe-fil.io/funds.html",
   # Bot protection
   "jwt.io",
-  "forest-explorer.chainsafe.dev"
+  "forest-explorer.chainsafe.dev",
 ]
 timeout = 30
 max_retries = 6
