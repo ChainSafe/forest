@@ -4,7 +4,7 @@ hide_title: true
 sidebar_position: 6
 ---
 
-<p align="center" style="display: flex; justify-content: space-around;">
+<p align="center" style={{ display: 'flex' , justifyContent: 'space-around' }}>
   <img src="/img/logo.png" alt="Forest logo"/>
   <img src="/img/chainsafe_logo.png" alt="ChainSafe logo"/>
   <img src="/img/filecoin_logo.png" alt="Filecoin logo"/>
