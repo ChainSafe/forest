@@ -17,6 +17,7 @@ cli
 Cloudflare
 codebase
 config
+datacap
 devnet
 Devops
 Devs
@@ -78,6 +79,9 @@ Roadmap
 roadmap
 RPC
 rustup
+S3-compatible
+semver
+serverless
 subcommands
 swappiness
 TabItem
