@@ -1130,12 +1130,10 @@ async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'stat
     EthEventHandler::collect_events(ctx, ts, Some(&spec), &mut events).await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
-    let mut out = vec![];
-    for log in logs.into_iter() {
-        if &log.transaction_hash == tx_hash {
-            out.push(log)
-        }
-    }
+    let out: Vec<_> = logs
+        .into_iter()
+        .filter(|log| &log.transaction_hash == tx_hash)
+        .collect();
     Ok(out)
 }
 
