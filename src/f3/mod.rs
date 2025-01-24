@@ -116,7 +116,7 @@ pub fn run_f3_sidecar_if_enabled(
 }
 
 /// Whether F3 sidecar via FFI is enabled.
-fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
+pub fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
     // Respect the environment variable when set, and fallback to chain config when not set.
     let enabled =
         is_env_set_and_truthy("FOREST_F3_SIDECAR_FFI_ENABLED").unwrap_or(chain_config.f3_enabled);
