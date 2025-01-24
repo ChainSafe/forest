@@ -1071,7 +1071,6 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
 
     tx_receipt.gas_used = msg_receipt.gas_used().into();
 
-    // TODO(elmattic): handle cumulative_gas_used
     tx_receipt.cumulative_gas_used = EthUint64::default();
 
     let gas_fee_cap = tx.gas_fee_cap()?;
