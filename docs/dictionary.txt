@@ -16,9 +16,11 @@ CLI
 cli
 Cloudflare
 codebase
+config
 devnet
 Devops
 Devs
+Drand
 Ethereum
 F3
 f3

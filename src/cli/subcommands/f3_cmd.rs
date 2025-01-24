@@ -11,12 +11,12 @@ use crate::{
         f3::{F3Instant, F3Manifest, F3PowerEntry, FinalityCertificate},
         prelude::*,
     },
+    shim::fvm_shared_latest::ActorID,
 };
 use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
-use itertools::Itertools as _;
 use sailfish::TemplateSimple;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -272,12 +272,6 @@ impl F3PowerTableCommands {
                     }
                 }
 
-                anyhow::ensure!(
-                    actor_id_set.is_empty(),
-                    "actor ID {} not found in power table",
-                    actor_id_set.into_iter().map(|i| i.to_string()).join(",")
-                );
-
                 let result = F3PowerTableGetProportionCommandResult {
                     instance,
                     from_ec: ec,
@@ -287,6 +281,7 @@ impl F3PowerTableCommands {
                     },
                     scaled_sum,
                     proportion: (scaled_sum as f64) / (scaled_total as f64),
+                    not_found: actor_id_set.into_iter().collect(),
                 };
                 println!("{}", serde_json::to_string_pretty(&result)?);
             }
@@ -374,6 +369,7 @@ pub struct F3PowerTableGetProportionCommandResult {
     power_table: F3PowerTableCliMinimalJson,
     scaled_sum: i64,
     proportion: f64,
+    not_found: Vec<ActorID>,
 }
 
 #[serde_as]
