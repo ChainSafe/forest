@@ -1051,7 +1051,6 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     tipset: &Arc<Tipset>,
     tx: &ApiEthTx,
-    base_fee: &TokenAmount,
     msg_receipt: &Receipt,
 ) -> anyhow::Result<EthTxReceipt> {
     let mut tx_receipt = EthTxReceipt {
@@ -1075,7 +1074,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     let gas_outputs = GasOutputs::compute(
         msg_receipt.gas_used(),
         tx.gas.clone().into(),
-        base_fee,
+        &tipset.block_headers().first().parent_base_fee,
         &gas_fee_cap.0.into(),
         &gas_premium.0.into(),
     );
@@ -1275,8 +1274,6 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     // Load the state tree
     let state_tree = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
 
-    let base_fee = ts_ref.block_headers().first().parent_base_fee.clone();
-
     let mut eth_receipts = Vec::with_capacity(msgs_and_receipts.len());
     for (i, (msg, receipt)) in msgs_and_receipts.into_iter().enumerate() {
         let tx = new_eth_tx(
@@ -1288,7 +1285,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &base_fee, &receipt).await?;
+        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, &receipt).await?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -2363,10 +2360,7 @@ async fn get_eth_transaction_receipt(
     let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
         .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
 
-    let base_fee = tipset.block_headers().first().parent_base_fee.clone();
-
-    let tx_receipt =
-        new_eth_tx_receipt(&ctx, &tipset, &tx, &base_fee, &message_lookup.receipt).await?;
+    let tx_receipt = new_eth_tx_receipt(&ctx, &tipset, &tx, &message_lookup.receipt).await?;
 
     Ok(tx_receipt)
 }
