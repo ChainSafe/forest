@@ -1062,14 +1062,10 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
         block_hash: tx.block_hash.clone(),
         block_number: tx.block_number.clone(),
         r#type: tx.r#type.clone(),
-        logs: vec![], // empty log array is compulsory when no logs, or libraries like ethers.js break
-        logs_bloom: EthBytes(EMPTY_BLOOM.to_vec()),
+        status: (msg_receipt.exit_code().is_success() as u64).into(),
+        gas_used: msg_receipt.gas_used().into(),
         ..EthTxReceipt::new()
     };
-
-    tx_receipt.status = (msg_receipt.exit_code().is_success() as u64).into();
-
-    tx_receipt.gas_used = msg_receipt.gas_used().into();
 
     tx_receipt.cumulative_gas_used = EthUint64::default();
 
