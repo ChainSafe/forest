@@ -237,6 +237,22 @@ pub struct CertificateExchangeConfig {
     pub maximum_poll_interval: Duration,
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct PubSubConfig {
+    pub compression_enabled: bool,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ChainExchangeConfig {
+    pub max_chain_length: usize,
+    pub max_discovered_chains_per_instance: usize,
+    pub max_instance_lookahead: usize,
+    pub max_wanted_chains_per_instance: usize,
+    pub subscription_buffer_size: usize,
+}
+
 #[serde_as]
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -262,6 +278,8 @@ pub struct F3Manifest {
     #[serde(rename = "EC")]
     pub ec: EcConfig,
     pub certificate_exchange: CertificateExchangeConfig,
+    pub pub_sub: PubSubConfig,
+    pub chain_exchange: ChainExchangeConfig,
 }
 lotus_json_with_self!(F3Manifest);
 

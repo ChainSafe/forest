@@ -1,6 +1,6 @@
 module test/v2
 
-go 1.22.0
+go 1.22.7
 
 require (
 	github.com/ipfs/boxo v0.26.0

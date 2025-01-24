@@ -17,6 +17,8 @@ func init() {
 	checkError(err)
 	err = logging.SetLogLevel("net/identify", "error")
 	checkError(err)
+	err = logging.SetLogLevel("pubsub", "warn")
+	checkError(err)
 	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}

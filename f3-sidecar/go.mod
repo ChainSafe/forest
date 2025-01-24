@@ -1,9 +1,9 @@
 module f3-sidecar/v2
 
-go 1.22.0
+go 1.22.7
 
 require (
-	github.com/filecoin-project/go-f3 v0.7.3
+	github.com/filecoin-project/go-f3 v0.7.4-0.20250120154023-9c11ba345092
 	github.com/filecoin-project/go-jsonrpc v0.7.0
 	github.com/filecoin-project/go-state-types v0.15.0
 	github.com/ipfs/go-cid v0.4.1
