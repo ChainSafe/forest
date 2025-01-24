@@ -30,7 +30,7 @@ pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,
@@ -47,7 +47,7 @@ impl DrandNetwork {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, SerdeSerialize, SerdeDeserialize, Eq, PartialEq)]
 /// Configuration used when initializing a `Drand` beacon.
 pub struct DrandConfig<'a> {
     /// Public endpoints of the `Drand` service.
@@ -264,6 +264,11 @@ impl DrandBeacon {
             )),
         }
     }
+
+    fn is_verified(&self, entry: &BeaconEntry) -> bool {
+        let cache = self.verified_beacons.read();
+        cache.peek(&entry.round()) == Some(entry)
+    }
 }
 
 #[async_trait]
@@ -283,9 +288,8 @@ impl Beacon for DrandBeacon {
             let mut signatures = vec![];
             let pk = PublicKeyOnG2::from_bytes(&self.public_key)?;
             {
-                let cache = self.verified_beacons.read();
                 for entry in entries.iter() {
-                    if cache.contains(&entry.round()) {
+                    if self.is_verified(entry) {
                         continue;
                     }
 
@@ -309,9 +313,8 @@ impl Beacon for DrandBeacon {
                     .chain(entries.iter())
                     .unique_by(|e| e.round())
                     .tuple_windows::<(_, _)>();
-                let cache = self.verified_beacons.read();
                 for (prev, curr) in prev_curr_pairs {
-                    if prev.round() > 0 && !cache.contains(&curr.round()) {
+                    if prev.round() > 0 && !self.is_verified(curr) {
                         messages.push(BeaconEntry::message_chained(curr.round(), prev.signature()));
                         signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
                         validated.push(curr);
@@ -328,7 +331,9 @@ impl Beacon for DrandBeacon {
 
         if is_valid && !validated.is_empty() {
             let mut cache = self.verified_beacons.write();
-            assert!(cache.cap().get() >= validated.len());
+            if cache.cap().get() < validated.len() {
+                tracing::warn!(cap=%cache.cap().get(), validated_len=%validated.len(), "verified_beacons.cap() is too small");
+            }
             for entry in validated {
                 cache.put(entry.round(), entry.clone());
             }
