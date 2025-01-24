@@ -172,12 +172,12 @@ services:
         cp /var/lib/lotus/token /data/lotus-token
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        SNAPSHOT_EPOCH=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
         # backfill the index db first
-        lotus index validate-backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
+        lotus index validate-backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300))
         sleep 2
         # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
-        lotus chain sethead --epoch $(($SNAPSHOT_EPOCH - 50))
+        lotus chain sethead --epoch $(($$SNAPSHOT_EPOCH - 50))
         # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait
