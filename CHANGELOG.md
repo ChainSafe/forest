@@ -50,6 +50,8 @@
 
 - [#5150](https://github.com/ChainSafe/forest/pull/5150) Fix incorrect prototype for the `Filecoin.EthGetBlockReceiptsLimited` RPC method.
 
+- [#5006](https://github.com/ChainSafe/forest/issues/5006) Fix incorrect logs, logs bloom and event index for the `Filecoin.EthGetBlockReceipts` RPC method.
+
 ## Forest v.0.23.3 "Plumber"
 
 Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
