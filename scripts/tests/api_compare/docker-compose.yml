@@ -170,16 +170,17 @@ services:
         lotus wait-api --timeout 10m
         # copy Lotus token to shared volume
         cp /var/lib/lotus/token /data/lotus-token
-        # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        HEAD_EPOCH=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)
-        lotus chain sethead --epoch $(($HEAD_EPOCH - 50))
+        SNAPSHOT_EPOCH=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)
+        # backfill the index db first
+        lotus index validate-backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
+        sleep 2
+        # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
+        lotus chain sethead --epoch $(($SNAPSHOT_EPOCH - 50))
         # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait
-        # backfill the index db
-        lotus index validate-backfill --from $(($HEAD_EPOCH - 50)) --to $(($HEAD_EPOCH - 100))
         # After the sync is done, import the wallet for signing blocks. It might be already there, which will return an error. We ignore it.
         echo $MINER_WORKER_KEY | lotus wallet import || true
   api-compare:
