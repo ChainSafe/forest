@@ -10,8 +10,9 @@ exclude = [
   "github.com/ChainSafe/forest",
   # Requires CAPTCHA verification
   "faucet.calibnet.chainsafe-fil.io/funds.html",
-  # Avoid this one too
-  "jwt.io/introduction",
+  # Bot protection
+  "jwt.io",
+  "forest-explorer.chainsafe.dev",
 ]
 timeout = 30
 max_retries = 6
