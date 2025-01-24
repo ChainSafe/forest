@@ -653,6 +653,15 @@ impl RpcMethod<1> for F3GetF3PowerTable {
 }
 
 pub enum F3IsRunning {}
+
+impl F3IsRunning {
+    pub async fn is_f3_running() -> anyhow::Result<bool> {
+        let client = get_rpc_http_client()?;
+        let response = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response)
+    }
+}
+
 impl RpcMethod<0> for F3IsRunning {
     const NAME: &'static str = "Filecoin.F3IsRunning";
     const PARAM_NAMES: [&'static str; 0] = [];
@@ -663,9 +672,7 @@ impl RpcMethod<0> for F3IsRunning {
     type Ok = bool;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let client = get_rpc_http_client()?;
-        let response = client.request(Self::NAME, ArrayParams::new()).await?;
-        Ok(response)
+        Ok(Self::is_f3_running().await?)
     }
 }
 
