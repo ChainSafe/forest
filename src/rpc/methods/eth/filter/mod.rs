@@ -269,7 +269,6 @@ impl EthEventHandler {
                 }
             })
             .unwrap_or(ctx.events_config().max_filter_results);
-        dbg!(max_filter_results);
 
         let mut event_count = 0;
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
