@@ -16,6 +16,7 @@ use crate::{
     rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
+    tool::subcommands::EventsConfig,
     KeyStore, KeyStoreConfig,
 };
 use openrpc_types::ParamStructure;
@@ -92,6 +93,7 @@ async fn ctx(
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let sync_config = Arc::new(SyncConfig::default());
+    let events_config = Arc::new(EventsConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(
@@ -105,8 +107,15 @@ async fn ctx(
         .unwrap(),
     );
     chain_store.set_heaviest_tipset(db.heaviest_tipset()?.into())?;
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
+    let state_manager = Arc::new(
+        StateManager::new(
+            chain_store.clone(),
+            chain_config,
+            sync_config,
+            events_config,
+        )
+        .unwrap(),
+    );
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),

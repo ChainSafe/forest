@@ -421,6 +421,10 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.chain_config()
     }
 
+    pub fn events_config(&self) -> &Arc<crate::cli_shared::cli::EventsConfig> {
+        self.state_manager.events_config()
+    }
+
     pub fn store(&self) -> &DB {
         self.chain_store().blockstore()
     }

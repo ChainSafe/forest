@@ -36,6 +36,23 @@ impl Default for DaemonConfig {
     }
 }
 
+/// Structure that defines events configuration
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct EventsConfig {
+    pub max_filter_results: usize,
+    pub max_filter_height_range: usize,
+}
+
+impl Default for EventsConfig {
+    fn default() -> Self {
+        Self {
+            max_filter_results: 10000,
+            max_filter_height_range: 2880,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -46,6 +63,7 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub daemon: DaemonConfig,
+    pub events: EventsConfig,
 }
 
 impl Config {

@@ -34,8 +34,6 @@
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
 !Filecoin.ChainSetHead
-# TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
-!Filecoin.EthGetLogs
 # TODO: https://github.com/ChainSafe/forest/issues/4996
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.EthGetTransactionReceiptLimited

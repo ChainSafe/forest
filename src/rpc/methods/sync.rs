@@ -142,6 +142,7 @@ mod tests {
     use crate::chain::ChainStore;
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::chain_sync::{SyncConfig, SyncStage};
+    use crate::cli_shared::cli::EventsConfig;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::{NetworkMessage, PeerManager};
@@ -164,6 +165,7 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let sync_config = Arc::new(SyncConfig::default());
+        let events_config = Arc::new(EventsConfig::default());
 
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
@@ -182,8 +184,9 @@ mod tests {
             .unwrap(),
         );
 
-        let state_manager =
-            Arc::new(StateManager::new(cs_arc.clone(), chain_config, sync_config).unwrap());
+        let state_manager = Arc::new(
+            StateManager::new(cs_arc.clone(), chain_config, sync_config, events_config).unwrap(),
+        );
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let mpool_network_send = network_send.clone();

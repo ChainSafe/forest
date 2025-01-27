@@ -6,6 +6,7 @@ use crate::{
     blocks::{CachingBlockHeader, TipsetKey},
     chain::ChainStore,
     chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
+    cli_shared::cli::EventsConfig,
     daemon::db_util::load_all_forest_cars,
     db::{
         db_engine::open_db, parity_db::ParityDb, EthMappingsStore, MemoryDB, SettingsStore,
@@ -77,6 +78,7 @@ async fn ctx(
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let sync_config = Arc::new(SyncConfig::default());
+    let events_config = Arc::new(EventsConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
 
@@ -91,8 +93,15 @@ async fn ctx(
         .unwrap(),
     );
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
+    let state_manager = Arc::new(
+        StateManager::new(
+            chain_store.clone(),
+            chain_config,
+            sync_config,
+            events_config,
+        )
+        .unwrap(),
+    );
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),

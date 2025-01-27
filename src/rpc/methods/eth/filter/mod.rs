@@ -257,6 +257,20 @@ impl EthEventHandler {
             messages.len() == events.len(),
             "Length of messages and events do not match"
         );
+        let max_filter_results = std::env::var("FOREST_MAXFILTERRESULTS")
+            .ok()
+            .and_then(|v| match v.parse::<usize>() {
+                Ok(u) if u > 0 => Some(u),
+                _ => {
+                    tracing::warn!(
+                    "Invalid FOREST_MAXFILTERRESULTS value {v}. A positive integer is expected."
+                );
+                    None
+                }
+            })
+            .unwrap_or(ctx.events_config().max_filter_results);
+        dbg!(max_filter_results);
+
         let mut event_count = 0;
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
             for event in events.iter() {
@@ -320,6 +334,9 @@ impl EthEventHandler {
                         msg_idx: i as u64,
                         msg_cid: message.cid(),
                     };
+                    if collected_events.len() >= max_filter_results {
+                        bail!("filter matches too many events, try a more restricted filter");
+                    }
                     collected_events.push(ce);
                     event_count += 1;
                 }
