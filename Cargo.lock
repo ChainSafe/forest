@@ -4502,13 +4502,14 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.42.0"
+version = "1.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6513e4067e16e69ed1db5ab56048ed65db32d10ba5fc1217f5393f8f17d8b5a5"
+checksum = "71c1b125e30d93896b365e156c33dadfffab45ee8400afcbba4752f59de08a86"
 dependencies = [
  "console",
  "linked-hash-map",
  "once_cell",
+ "pin-project",
  "serde",
  "similar",
 ]
@@ -4569,13 +4570,13 @@ checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 
 [[package]]
 name = "is-terminal"
-version = "0.4.13"
+version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "261f68e344040fbd0edea105bef17c66edf46f984ddb1115b775ce31be948f4b"
+checksum = "e19b23d53f35ce9f56aebc7d1bb4e6ac1e9c0db7ac85c8d1760c04379edced37"
 dependencies = [
  "hermit-abi 0.4.0",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4688,9 +4689,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
-version = "0.24.7"
+version = "0.24.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5c71d8c1a731cc4227c2f698d377e7848ca12c8a48866fc5e6951c43a4db843"
+checksum = "834af00800e962dee8f7bfc0f60601de215e73e78e5497d733a2919da837d3c8"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7068,9 +7069,9 @@ dependencies = [
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.87.0"
+version = "0.91.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb76f0a4d4c20859e41f0a23bff0f37ab9ca9171c214a6c7dd72ea69434865dc"
+checksum = "52fa42c582e21b35e8f61a5afe3c63a9c722d995826762eb19b18beeccf5157f"
 dependencies = [
  "unicode-properties",
  "unicode-xid",
@@ -7078,21 +7079,21 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.259"
+version = "0.0.260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d71383317d5f157444917eadb61557c43b7aa4f8d54d1abf5ce636e77299cc11"
+checksum = "d5d369c3f5c215a49158aafaee72792c383081513a0f3b39d6bad1bbe52bb6a1"
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.259"
+version = "0.0.260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5904eb539cdc53a9e25d16f6577b122f5befb509687c5a41d0de668852628f56"
+checksum = "27a66a95fbc42fa9e28f6e5f7e018bafa454d55314ec73bf0f834789ae629287"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.259"
+version = "0.0.260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "973097eaf7f9959754041d6b96bd23e39de9a16aef14b7c5bb341c00d60592d4"
+checksum = "c7d2de2c67d29ba86e70920f1b48cffbd0868bb5a64c7eeeda2bd01c14f5eb7c"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7103,9 +7104,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.259"
+version = "0.0.260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4ee1da549d09f358b99d22516b1bcda59e616cc204c0a87656815aaabf6be2f"
+checksum = "ad0fc44b0b9094b3dc38c5696dc48c56c2e87ad670e887f2a1b4dceecc1749e2"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7118,9 +7119,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.259"
+version = "0.0.260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66dcf6e164c9eb956cb3ce27af00fdf8d6778278d2fd4678670ba24eb10d1dea"
+checksum = "b40bf2c753dd84fba5ce24145918582fe0b2f380cdd40a6632ad4ac4f34c11d8"
 dependencies = [
  "cov-mark",
  "either",
