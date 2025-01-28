@@ -6,7 +6,6 @@ use crate::{
     blocks::{CachingBlockHeader, TipsetKey},
     chain::ChainStore,
     chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
-    cli_shared::cli::EventsConfig,
     daemon::db_util::load_all_forest_cars,
     db::{
         db_engine::open_db, parity_db::ParityDb, EthMappingsStore, MemoryDB, SettingsStore,
