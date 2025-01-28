@@ -41,6 +41,7 @@ impl Default for DaemonConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct EventsConfig {
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub max_filter_results: usize,
     pub max_filter_height_range: ChainEpoch,
 }
