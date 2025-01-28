@@ -165,7 +165,6 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let sync_config = Arc::new(SyncConfig::default());
-        let events_config = Arc::new(EventsConfig::default());
 
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),

@@ -93,7 +93,6 @@ async fn ctx(
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let sync_config = Arc::new(SyncConfig::default());
-    let events_config = Arc::new(EventsConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(
