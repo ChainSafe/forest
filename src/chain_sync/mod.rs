@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod bad_block_cache;
+mod chain_follower;
 mod chain_muxer;
 pub mod consensus;
 mod metrics;
