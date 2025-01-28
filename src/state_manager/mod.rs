@@ -279,7 +279,6 @@ pub struct StateManager<DB> {
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
     sync_config: Arc<SyncConfig>,
-    events_config: Arc<EventsConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
@@ -294,7 +293,6 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
-        events_config: Arc<EventsConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
@@ -306,7 +304,6 @@ where
             beacon,
             chain_config,
             sync_config,
-            events_config,
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -326,10 +323,6 @@ where
 
     pub fn sync_config(&self) -> &Arc<SyncConfig> {
         &self.sync_config
-    }
-
-    pub fn events_config(&self) -> &Arc<EventsConfig> {
-        &self.events_config
     }
 
     /// Gets the state tree

@@ -78,7 +78,6 @@ pub async fn start_offline_server(
         chain_store.clone(),
         chain_config,
         sync_config,
-        events_config,
     )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
@@ -139,7 +138,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
-        eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
         start_time: chrono::Utc::now(),

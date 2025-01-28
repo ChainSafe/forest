@@ -181,7 +181,6 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
         Arc::clone(&chain_store),
         chain_config,
         Arc::new(config.sync.clone()),
-        Arc::new(config.events.clone()),
     )?;
 
     populate_eth_mappings(&state_manager, &chain_store.heaviest_tipset())?;

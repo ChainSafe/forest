@@ -3,6 +3,7 @@
 
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
+use crate::shim::clock::ChainEpoch;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -41,7 +42,7 @@ impl Default for DaemonConfig {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct EventsConfig {
     pub max_filter_results: usize,
-    pub max_filter_height_range: usize,
+    pub max_filter_height_range: ChainEpoch,
 }
 
 impl Default for EventsConfig {

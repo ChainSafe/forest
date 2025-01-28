@@ -184,9 +184,8 @@ mod tests {
             .unwrap(),
         );
 
-        let state_manager = Arc::new(
-            StateManager::new(cs_arc.clone(), chain_config, sync_config, events_config).unwrap(),
-        );
+        let state_manager =
+            Arc::new(StateManager::new(cs_arc.clone(), chain_config, sync_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let mpool_network_send = network_send.clone();

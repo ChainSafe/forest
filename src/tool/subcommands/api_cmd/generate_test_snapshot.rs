@@ -93,15 +93,8 @@ async fn ctx(
         .unwrap(),
     );
 
-    let state_manager = Arc::new(
-        StateManager::new(
-            chain_store.clone(),
-            chain_config,
-            sync_config,
-            events_config,
-        )
-        .unwrap(),
-    );
+    let state_manager =
+        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
