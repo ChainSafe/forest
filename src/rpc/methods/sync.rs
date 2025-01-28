@@ -142,7 +142,6 @@ mod tests {
     use crate::chain::ChainStore;
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::chain_sync::{SyncConfig, SyncStage};
-    use crate::cli_shared::cli::EventsConfig;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::{NetworkMessage, PeerManager};

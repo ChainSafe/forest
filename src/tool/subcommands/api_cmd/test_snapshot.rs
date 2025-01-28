@@ -16,7 +16,6 @@ use crate::{
     rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
-    tool::subcommands::EventsConfig,
     KeyStore, KeyStoreConfig,
 };
 use openrpc_types::ParamStructure;
