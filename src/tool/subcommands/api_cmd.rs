@@ -512,12 +512,41 @@ enum PolicyOnRejected {
     PassWithQuasiIdenticalError,
 }
 
+enum SortPolicy {
+    /// Recursively sorts both arrays and maps in a JSON value.
+    All,
+}
+
 struct RpcTest {
     request: rpc::Request,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
     policy_on_rejected: PolicyOnRejected,
+    sort_policy: Option<SortPolicy>,
+}
+
+fn sort_json(value: &mut Value) {
+    match value {
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                sort_json(v);
+            }
+            arr.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+        }
+        Value::Object(obj) => {
+            let mut sorted_map: serde_json::Map<String, Value> = serde_json::Map::new();
+            let mut keys: Vec<String> = obj.keys().cloned().collect();
+            keys.sort();
+            for k in keys {
+                let mut v = obj.remove(&k).unwrap();
+                sort_json(&mut v);
+                sorted_map.insert(k, v);
+            }
+            *obj = sorted_map;
+        }
+        _ => (),
+    }
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -546,6 +575,7 @@ impl RpcTest {
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
             policy_on_rejected: PolicyOnRejected::Fail,
+            sort_policy: None,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -591,6 +621,7 @@ impl RpcTest {
             }),
             ignore: None,
             policy_on_rejected: PolicyOnRejected::Fail,
+            sort_policy: None,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -609,6 +640,11 @@ impl RpcTest {
         self
     }
 
+    fn sort_policy(mut self, policy: SortPolicy) -> Self {
+        self.sort_policy = Some(policy);
+        self
+    }
+
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
         let forest_resp = forest.call(self.request.clone()).await;
         let forest_response = forest_resp.as_ref().map_err(|e| e.to_string()).cloned();
@@ -619,6 +655,15 @@ impl RpcTest {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
+                let (forest, lotus) = if self.sort_policy.is_some() {
+                    let mut sorted_forest = forest.clone();
+                    sort_json(&mut sorted_forest);
+                    let mut sorted_lotus = lotus.clone();
+                    sort_json(&mut sorted_lotus);
+                    (sorted_forest, sorted_lotus)
+                } else {
+                    (forest, lotus)
+                };
                 let forest_status = if (self.check_semantics)(forest, lotus) {
                     TestSummary::Valid
                 } else {
@@ -1625,6 +1670,17 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             },))
             .unwrap(),
         ),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
+                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                address: vec![],
+                topics: None,
+                block_hash: None,
+            },))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
             EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
