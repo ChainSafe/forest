@@ -88,7 +88,7 @@ impl EthEventHandler {
         let max_filter_height_range = std::env::var("FOREST_MAX_FILTER_HEIGHT_RANGE")
             .ok()
             .and_then(|v| match v.parse::<ChainEpoch>() {
-                Ok(u) if u > 0 => Some(u),
+                Ok(i) if i > 0 => Some(i),
                 _ => {
                     tracing::warn!("Invalid FOREST_MAX_FILTER_HEIGHT_RANGE value {v}. A positive integer is expected.");
                     None
