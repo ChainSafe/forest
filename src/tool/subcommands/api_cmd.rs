@@ -532,7 +532,7 @@ fn sort_json(value: &mut Value) {
             for v in arr.iter_mut() {
                 sort_json(v);
             }
-            arr.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+            arr.sort_by_key(|a| a.to_string());
         }
         Value::Object(obj) => {
             let mut sorted_map: serde_json::Map<String, Value> = serde_json::Map::new();
