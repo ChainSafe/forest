@@ -7,28 +7,28 @@ use tokio::task::JoinSet;
 
 use crate::{blocks::FullTipset, chain::ChainStore};
 
-// struct ChainFollower<DB> {
-//     state_machine: Arc<Mutex<SyncStateMachine<DB>>>,
-//     tasks: Arc<Mutex<Vec<SyncTask>>>,
-// }
-
 // We receive new full tipsets from the p2p swarm, and from miners that use Forest as their frontend.
 pub async fn chain_follower<DB: Sync + Send + 'static>(
     cs: Arc<ChainStore<DB>>,
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
 ) -> anyhow::Result<()> {
-    let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(cs)));
+    let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(cs.clone())));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
 
     let (event_sender, event_receiver) = flume::bounded(20);
 
     let mut set = JoinSet::new();
 
-    set.spawn(async move {
-        while let Ok(tipset) = tipset_receiver.recv_async().await {
-            event_sender.send(SyncEvent::NewFullTipsets(vec![tipset]));
+    // spawn a task to tipsets to the state machine. These tipsets are received
+    // from the p2p swarm and from directly-connected miners.
+    set.spawn({
+        let event_sender = event_sender.clone();
+        async move {
+            while let Ok(tipset) = tipset_receiver.recv_async().await {
+                event_sender.send(SyncEvent::NewFullTipsets(vec![tipset]));
+            }
+            // tipset_receiver is closed, shutdown gracefully
         }
-        // tipset_receiver is closed, shutdown gracefully
     });
 
     set.spawn(async move {
@@ -38,7 +38,10 @@ pub async fn chain_follower<DB: Sync + Send + 'static>(
             let mut tasks = tasks.lock();
             for task in sm.tasks() {
                 // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
-                let new = tasks.insert(task);
+                let new = tasks.insert(task.clone());
+                if new {
+                    tokio::spawn(task.execute(cs.clone(), event_sender.clone()));
+                }
             }
         }
     });
@@ -94,8 +97,18 @@ impl<DB> SyncStateMachine<DB> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 enum SyncTask {
     ValidateTipset(Arc<FullTipset>),
     FetchParents(Arc<FullTipset>),
+}
+
+impl SyncTask {
+    async fn execute<DB: Sync + Send + 'static>(
+        self,
+        cs: Arc<ChainStore<DB>>,
+        sender: flume::Sender<SyncEvent>,
+    ) {
+        todo!()
+    }
 }
