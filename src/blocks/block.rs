@@ -14,7 +14,7 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 
 /// A complete Filecoin block. This contains the block header as well as all BLS
 /// and SECP messages.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub header: CachingBlockHeader,
     pub bls_messages: Vec<Message>,

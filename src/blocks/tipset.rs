@@ -432,11 +432,17 @@ impl Tipset {
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 pub struct FullTipset {
     blocks: NonEmpty<Block>,
     // key is lazily initialized via `fn key()`.
     key: OnceCell<TipsetKey>,
+}
+
+impl std::hash::Hash for FullTipset {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key().hash(state)
+    }
 }
 
 // Constructing a FullTipset from a single Block is infallible.
