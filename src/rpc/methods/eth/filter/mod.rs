@@ -388,10 +388,6 @@ impl EthEventHandler {
                 };
 
                 let num_tipsets = (range.end() - range.start()) + 1;
-                let max_filter_height_range = ctx.eth_event_handler.max_filter_height_range;
-                if num_tipsets > (max_filter_height_range + 1) {
-                    bail!("range between to and from blocks is too large (maximum: {max_filter_height_range})")
-                }
                 let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
