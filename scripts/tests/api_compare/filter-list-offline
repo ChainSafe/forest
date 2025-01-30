@@ -22,8 +22,6 @@
 !Filecoin.F3GetOrRenewParticipationTicket
 !Filecoin.F3GetF3PowerTable
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
-!Filecoin.StateReplay
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateCall
 # These methods don't make sense in the context of an offline node
 !Filecoin.MinerCreateBlock
