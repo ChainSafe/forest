@@ -25,6 +25,7 @@ use super::CollectedEvent;
 use super::Predefined;
 use crate::blocks::Tipset;
 use crate::chain::index::ResolveNullTipset;
+use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
@@ -59,7 +60,8 @@ pub trait FilterManager {
 /// configurations such as the maximum filter height range and maximum filter results.
 pub struct EthEventHandler {
     filter_store: Option<Arc<dyn FilterStore>>,
-    max_filter_height_range: ChainEpoch,
+    pub max_filter_results: usize,
+    pub max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
@@ -67,9 +69,32 @@ pub struct EthEventHandler {
 
 impl EthEventHandler {
     pub fn new() -> Self {
+        let config = EventsConfig::default();
+        Self::from_config(&config)
+    }
+
+    pub fn from_config(config: &EventsConfig) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("FOREST_MAX_FILTER_RESULTS", 10000);
-        let max_filter_height_range: i64 = env_or_default("FOREST_MAX_FILTER_HEIGHT_RANGE", 2880);
+        let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
+            .ok()
+            .and_then(|v| match v.parse::<usize>() {
+                Ok(u) if u > 0 => Some(u),
+                _ => {
+                    tracing::warn!("Invalid FOREST_MAX_FILTER_RESULTS value {v}. A positive integer is expected.");
+                    None
+                }
+            })
+            .unwrap_or(config.max_filter_results);
+        let max_filter_height_range = std::env::var("FOREST_MAX_FILTER_HEIGHT_RANGE")
+            .ok()
+            .and_then(|v| match v.parse::<ChainEpoch>() {
+                Ok(i) if i > 0 => Some(i),
+                _ => {
+                    tracing::warn!("Invalid FOREST_MAX_FILTER_HEIGHT_RANGE value {v}. A positive integer is expected.");
+                    None
+                }
+            })
+            .unwrap_or(config.max_filter_height_range);
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
@@ -78,6 +103,7 @@ impl EthEventHandler {
 
         Self {
             filter_store,
+            max_filter_results,
             max_filter_height_range,
             event_filter_manager,
             tipset_filter_manager,
@@ -257,6 +283,7 @@ impl EthEventHandler {
             messages.len() == events.len(),
             "Length of messages and events do not match"
         );
+
         let mut event_count = 0;
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
             for event in events.iter() {
@@ -320,6 +347,9 @@ impl EthEventHandler {
                         msg_idx: i as u64,
                         msg_cid: message.cid(),
                     };
+                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
+                        bail!("filter matches too many events, try a more restricted filter");
+                    }
                     collected_events.push(ce);
                     event_count += 1;
                 }
@@ -357,7 +387,7 @@ impl EthEventHandler {
                     *range.end()
                 };
 
-                let num_tipsets = (range.end() - range.start()) as usize + 1;
+                let num_tipsets = (range.end() - range.start()) + 1;
                 let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
@@ -367,7 +397,7 @@ impl EthEventHandler {
                     .as_ref()
                     .clone()
                     .chain(&ctx.store())
-                    .take(num_tipsets)
+                    .take(num_tipsets as usize)
                 {
                     let tipset = Arc::new(tipset);
                     Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;

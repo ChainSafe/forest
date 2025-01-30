@@ -36,6 +36,9 @@
 
 - [#5167](https://github.com/ChainSafe/forest/pull/5167) Allow overriding drand configs with environment variables.
 
+- [#4851](https://github.com/ChainSafe/forest/issues/4851) Add support for `FOREST_MAX_FILTER_RESULTS` in `Filecoin.EthGetLogs` RPC method.
+  Add an `[events]` section to Forest configuration file.
+
 ### Changed
 
 ### Removed

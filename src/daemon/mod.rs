@@ -400,6 +400,8 @@ pub(super) async fn start(
 
         info!("JSON-RPC endpoint will listen at {rpc_address}");
 
+        let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+
         services.spawn(async move {
             start_rpc(
                 RPCState {
@@ -408,7 +410,7 @@ pub(super) async fn start(
                     mpool,
                     bad_blocks,
                     sync_state,
-                    eth_event_handler: Arc::new(EthEventHandler::new()),
+                    eth_event_handler,
                     sync_network_context,
                     network_name,
                     start_time,
