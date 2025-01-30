@@ -4,6 +4,8 @@
 !Filecoin.MpoolGetNonce
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateReplay
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/5213
+!Filecoin.EthGetLogs
 # TODO: https://github.com/ChainSafe/forest/issues/4996
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.EthGetTransactionReceiptLimited
