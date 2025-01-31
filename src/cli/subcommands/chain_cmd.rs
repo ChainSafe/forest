@@ -10,7 +10,7 @@ use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
 
-use super::{print_pretty_lotus_json, print_rpc_res_cids};
+use super::{print_pretty_lotus_json};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Format {
