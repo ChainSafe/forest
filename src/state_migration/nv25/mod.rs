@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This module contains the migration logic for the `NV25` upgrade.
+mod evm;
 mod migration;
 
 /// Run migration for `NV25`. This should be the only exported method in this
