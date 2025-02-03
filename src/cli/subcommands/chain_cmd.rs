@@ -10,7 +10,7 @@ use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
 
-use super::{print_pretty_lotus_json};
+use super::print_pretty_lotus_json;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Format {
@@ -35,7 +35,8 @@ pub enum ChainCommands {
         /// Tipsets are categorized by epoch in descending order.
         #[arg(short = 'n', long, default_value = "1")]
         tipsets: u64,
-        #[arg(short, long, default_value = "text")]
+        /// Format of the output. `json` or `text`.
+        #[arg(long, default_value = "text")]
         format: Format,
     },
 
@@ -165,29 +166,31 @@ struct TipsetInfo {
     cids: Vec<String>,
 }
 
-async fn collect_tipsets(client: &rpc::Client, n: u64) -> anyhow::Result<Vec<TipsetInfo>> {
+/// Collects `n` tipsets from the head (inclusive) and returns them as a list of
+/// `TipsetInfo` objects.
+async fn collect_n_tipsets(client: &rpc::Client, n: u64) -> anyhow::Result<Vec<TipsetInfo>> {
     ensure!(n > 0, "number of tipsets must be positive");
     let current_epoch = ChainHead::call(client, ()).await?.epoch() as u64;
-    let mut result = Vec::with_capacity(n as usize);
+    let mut tipsets = Vec::with_capacity(n as usize);
     for epoch in (current_epoch.saturating_sub(n - 1)..=current_epoch).rev() {
         let tipset = tipset_by_epoch_or_offset(client, epoch.try_into()?).await?;
-        result.push(TipsetInfo {
+        tipsets.push(TipsetInfo {
             epoch,
             cids: tipset.cids().iter().map(|cid| cid.to_string()).collect(),
         });
     }
-    Ok(result)
+    Ok(tipsets)
 }
 
 /// Print the first `n` tipsets from the head (inclusive).
 async fn print_chain_head(client: &rpc::Client, n: u64, format: Format) -> anyhow::Result<()> {
-    let result = collect_tipsets(client, n).await?;
+    let tipsets = collect_n_tipsets(client, n).await?;
     match format {
         Format::Json => {
-            println!("{}", serde_json::to_string_pretty(&result)?);
+            println!("{}", serde_json::to_string_pretty(&tipsets)?);
         }
         Format::Text => {
-            result.iter().for_each(|epoch_info| {
+            tipsets.iter().for_each(|epoch_info| {
                 println!("[{}]", epoch_info.epoch);
                 epoch_info.cids.iter().for_each(|cid| {
                     println!("{}", cid);

@@ -24,8 +24,8 @@ use std::io::Write;
 
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::lotus_json::HasLotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
-use crate::{lotus_json::HasLotusJson};
 use clap::Parser;
 use tracing::error;
 
