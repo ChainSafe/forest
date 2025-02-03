@@ -238,6 +238,14 @@ pub enum Predefined {
     Finalized,
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum PredefinedSet {
+    #[default]
+    Basic,
+    Full,
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockNumber {
@@ -686,7 +694,8 @@ impl RpcMethod<2> for EthGetBalance {
         (address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let fil_addr = address.to_filecoin_address()?;
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Basic)?;
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&fil_addr)?;
         Ok(EthBigInt(actor.balance.atto().clone()))
@@ -704,18 +713,19 @@ fn get_tipset_from_hash<DB: Blockstore>(
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
+    predefined_set: PredefinedSet,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
 
     match block_param {
-        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            Predefined::Pending => Ok(head),
-            Predefined::Latest => {
+        BlockNumberOrHash::PredefinedBlock(predefined) => match (predefined, predefined_set) {
+            (Predefined::Earliest, _) => bail!("block param \"earliest\" is not supported"),
+            (Predefined::Pending, _) => Ok(head),
+            (Predefined::Latest, _) => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
                 Ok(parent)
             }
-            Predefined::Safe => {
+            (Predefined::Safe, PredefinedSet::Full) => {
                 let latest_height = head.epoch() - 1;
                 let safe_height = latest_height - SAFE_EPOCH_DELAY;
                 let ts = chain.chain_index.tipset_by_height(
@@ -725,7 +735,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 )?;
                 Ok(ts)
             }
-            Predefined::Finalized => {
+            (Predefined::Finalized, PredefinedSet::Full) => {
                 let latest_height = head.epoch() - 1;
                 let finality_height = latest_height - chain.chain_config.policy.chain_finality;
                 let ts = chain.chain_index.tipset_by_height(
@@ -735,6 +745,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 )?;
                 Ok(ts)
             }
+            _ => bail!(format!("unknown predefined block")),
         },
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
@@ -1231,7 +1242,8 @@ impl RpcMethod<2> for EthGetBlockByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1252,7 +1264,8 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1503,9 +1516,13 @@ impl RpcMethod<2> for EthEstimateGas {
         msg.gas_limit = 0;
         let tsk = if let Some(block_param) = block_param {
             Some(
-                tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?
-                    .key()
-                    .clone(),
+                tipset_by_block_number_or_hash(
+                    ctx.chain_store(),
+                    block_param,
+                    PredefinedSet::Basic,
+                )?
+                .key()
+                .clone(),
             )
         } else {
             None
@@ -1659,7 +1676,11 @@ impl RpcMethod<3> for EthFeeHistory {
         let reward_percentiles = reward_percentiles.unwrap_or_default();
         Self::validate_reward_precentiles(&reward_percentiles)?;
 
-        let tipset = tipset_by_block_number_or_hash(ctx.chain_store(), newest_block_number.into())?;
+        let tipset = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            newest_block_number.into(),
+            PredefinedSet::Full,
+        )?;
         let mut oldest_block_height = 1;
         // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
         //  because the next base fee can be inferred from the messages in the newest block.
@@ -1778,9 +1799,10 @@ impl RpcMethod<2> for EthGetCode {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (eth_address, block_number_or_hash): Self::Params,
+        (eth_address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_number_or_hash)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Basic)?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
         let actor = ctx
             .state_manager
@@ -1844,7 +1866,11 @@ impl RpcMethod<3> for EthGetStorageAt {
     ) -> Result<Self::Ok, ServerError> {
         let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
 
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_number_or_hash)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_number_or_hash,
+            PredefinedSet::Basic,
+        )?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
         let Some(actor) = ctx
             .state_manager
@@ -1922,7 +1948,11 @@ impl RpcMethod<2> for EthGetTransactionCount {
                 if *predefined == Predefined::Pending {
                     return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
                 }
-                let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+                let ts = tipset_by_block_number_or_hash(
+                    ctx.chain_store(),
+                    block_param,
+                    PredefinedSet::Basic,
+                )?;
                 let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
                 let actor = state.get_required_actor(&addr)?;
                 if is_evm_actor(&actor.code) {
@@ -1998,7 +2028,11 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param.into())?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            block_param.into(),
+            PredefinedSet::Full,
+        )?;
 
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 
@@ -2218,7 +2252,8 @@ impl RpcMethod<2> for EthCall {
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let msg = tx.try_into()?;
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Basic)?;
         let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
 
         if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
@@ -2643,7 +2678,8 @@ impl RpcMethod<1> for EthTraceBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
 
         let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
 
