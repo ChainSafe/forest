@@ -167,7 +167,7 @@ struct TipsetInfo {
 }
 
 /// Collects `n` tipsets from the head (inclusive) and returns them as a list of
-/// `TipsetInfo` objects.
+/// [`TipsetInfo`] objects.
 async fn collect_n_tipsets(client: &rpc::Client, n: u64) -> anyhow::Result<Vec<TipsetInfo>> {
     ensure!(n > 0, "number of tipsets must be positive");
     let current_epoch = ChainHead::call(client, ()).await?.epoch() as u64;
