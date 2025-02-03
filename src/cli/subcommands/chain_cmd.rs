@@ -10,7 +10,13 @@ use cid::Cid;
 use clap::Subcommand;
 use nunny::Vec as NonEmpty;
 
-use super::{print_pretty_lotus_json, print_rpc_res_cids};
+use super::print_pretty_lotus_json;
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum Format {
+    Json,
+    Text,
+}
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
@@ -29,6 +35,9 @@ pub enum ChainCommands {
         /// Tipsets are categorized by epoch in descending order.
         #[arg(short = 'n', long, default_value = "1")]
         tipsets: u64,
+        /// Format of the output. `json` or `text`.
+        #[arg(long, default_value = "text")]
+        format: Format,
     },
 
     /// Reads and prints out a message referenced by the specified CID from the
@@ -68,7 +77,7 @@ impl ChainCommands {
                 print_pretty_lotus_json(ChainGetBlock::call(&client, (cid,)).await?)
             }
             Self::Genesis => print_pretty_lotus_json(ChainGetGenesis::call(&client, ()).await?),
-            Self::Head { tipsets } => print_chain_head(&client, tipsets).await,
+            Self::Head { tipsets, format } => print_chain_head(&client, tipsets, format).await,
             Self::Message { cid } => {
                 let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
@@ -151,15 +160,43 @@ fn maybe_confirm(no_confirm: bool, prompt: impl Into<String>) -> anyhow::Result<
     }
 }
 
-/// Print the first `n` tipsets from the head (inclusive).
-async fn print_chain_head(client: &rpc::Client, n: u64) -> anyhow::Result<()> {
+#[derive(Debug, serde::Serialize)]
+struct TipsetInfo {
+    epoch: u64,
+    cids: Vec<String>,
+}
+
+/// Collects `n` tipsets from the head (inclusive) and returns them as a list of
+/// [`TipsetInfo`] objects.
+async fn collect_n_tipsets(client: &rpc::Client, n: u64) -> anyhow::Result<Vec<TipsetInfo>> {
     ensure!(n > 0, "number of tipsets must be positive");
     let current_epoch = ChainHead::call(client, ()).await?.epoch() as u64;
-
+    let mut tipsets = Vec::with_capacity(n as usize);
     for epoch in (current_epoch.saturating_sub(n - 1)..=current_epoch).rev() {
         let tipset = tipset_by_epoch_or_offset(client, epoch.try_into()?).await?;
-        println!("[{}]", epoch);
-        print_rpc_res_cids(tipset)?;
+        tipsets.push(TipsetInfo {
+            epoch,
+            cids: tipset.cids().iter().map(|cid| cid.to_string()).collect(),
+        });
+    }
+    Ok(tipsets)
+}
+
+/// Print the first `n` tipsets from the head (inclusive).
+async fn print_chain_head(client: &rpc::Client, n: u64, format: Format) -> anyhow::Result<()> {
+    let tipsets = collect_n_tipsets(client, n).await?;
+    match format {
+        Format::Json => {
+            println!("{}", serde_json::to_string_pretty(&tipsets)?);
+        }
+        Format::Text => {
+            tipsets.iter().for_each(|epoch_info| {
+                println!("[{}]", epoch_info.epoch);
+                epoch_info.cids.iter().for_each(|cid| {
+                    println!("{}", cid);
+                });
+            });
+        }
     }
     Ok(())
 }

@@ -39,6 +39,8 @@
 - [#4851](https://github.com/ChainSafe/forest/issues/4851) Add support for `FOREST_MAX_FILTER_RESULTS` in `Filecoin.EthGetLogs` RPC method.
   Add an `[events]` section to Forest configuration file.
 
+- [#4954](https://github.com/ChainSafe/forest/issues/4954) Add `--format json` to `forest-cli chain head` command.
+
 ### Changed
 
 ### Removed
