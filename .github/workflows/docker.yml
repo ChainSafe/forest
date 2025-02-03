@@ -34,8 +34,8 @@ env:
   CXX: sccache clang++
 
 jobs:
-  build-ubuntu-2204-amd64:
-    name: Build forest binaries on Ubuntu-22.04-amd64
+  build-ubuntu-amd64:
+    name: Build forest binaries on Linux AMD64
     runs-on: ubuntu-22.04
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
@@ -74,9 +74,9 @@ jobs:
             ~/.cargo/bin/forest*
           if-no-files-found: error
   
-  build-ubuntu-2204-arm64:
-    name: Build forest binaries on Ubuntu-22.04-arm64
-    runs-on: buildjet-8vcpu-ubuntu-2204-arm
+  build-ubuntu-arm64:
+    name: Build forest binaries on Ubuntu ARM64
+    runs-on: ubuntu-22.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -127,8 +127,8 @@ jobs:
     if: github.event.pull_request.draft == false
     timeout-minutes: 30
     needs:
-      - build-ubuntu-2204-amd64
-      - build-ubuntu-2204-arm64
+      - build-ubuntu-amd64
+      - build-ubuntu-arm64
     steps:
       - name: List cached docker images
         run: docker image ls
