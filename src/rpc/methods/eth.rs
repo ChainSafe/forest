@@ -1917,18 +1917,25 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
-        let actor = state.get_required_actor(&addr)?;
-        if is_evm_actor(&actor.code) {
-            let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
-            if !evm_state.is_alive() {
-                return Ok(EthUint64(0));
+        match block_param {
+            BlockNumberOrHash::PredefinedBlock(ref predefined) => {
+                if *predefined == Predefined::Pending {
+                    return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
+                }
+                let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+                let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+                let actor = state.get_required_actor(&addr)?;
+                if is_evm_actor(&actor.code) {
+                    let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
+                    if !evm_state.is_alive() {
+                        return Ok(EthUint64(0));
+                    }
+                    Ok(EthUint64(evm_state.nonce()))
+                } else {
+                    Ok(EthUint64(actor.sequence))
+                }
             }
-
-            Ok(EthUint64(evm_state.nonce()))
-        } else {
-            Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+            _ => Ok(EthUint64(0)),
         }
     }
 }
