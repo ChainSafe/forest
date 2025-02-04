@@ -171,7 +171,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
 
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
-        db.writer().clone(),
+        Arc::new(db.clone()),
         db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),

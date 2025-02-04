@@ -9,7 +9,7 @@
 //! CARv2 is not supported yet.
 
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::PersistentStore;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
@@ -49,6 +49,14 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
             ErrorKind::InvalidData,
             "input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)",
         ))
+    }
+
+    pub fn heaviest_tipset_key(&self) -> TipsetKey {
+        match self {
+            AnyCar::Forest(forest) => forest.heaviest_tipset_key(),
+            AnyCar::Plain(plain) => plain.heaviest_tipset_key(),
+            AnyCar::Memory(mem) => mem.heaviest_tipset_key(),
+        }
     }
 
     /// Filecoin archives are tagged with the heaviest tipset. This call may
