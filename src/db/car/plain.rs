@@ -333,13 +333,13 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
 /// ```
 fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
     /// <https://ipld.io/specs/transport/car/carv2/#pragma>
-    const CAR_V2_PROGMA: [u8; 10] = [0xa1, 0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x02];
+    const CAR_V2_PRAGMA: [u8; 10] = [0xa1, 0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x02];
 
     let len = reader.read_varint()?;
-    if len == CAR_V2_PROGMA.len() {
+    if len == CAR_V2_PRAGMA.len() {
         let mut buffer = vec![0; len];
         reader.read_exact(&mut buffer)?;
-        if buffer[..] == CAR_V2_PROGMA {
+        if buffer[..] == CAR_V2_PRAGMA {
             let mut characteristics = [0; 16];
             reader.read_exact(&mut characteristics)?;
             let data_offset: i64 = reader.read_fixedint()?;
