@@ -40,7 +40,7 @@ jobs:
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -56,10 +56,8 @@ jobs:
       - run: make test
   tests-release:
     runs-on: ubuntu-24.04-arm
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
-    timeout-minutes: 30
+    # Run the job only on `main` to reduce the runner cost.
+    if: github.ref == 'refs/heads/main'
     steps:
       # find the nearest S3 space for storing cache files
       - name: Show IP

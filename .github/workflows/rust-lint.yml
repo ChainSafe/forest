@@ -46,6 +46,7 @@ jobs:
             echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
             echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
           fi
+          echo "SCCACHE_S3_KEY_PREFIX=arm" >> $GITHUB_ENV
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
