@@ -36,6 +36,11 @@
 
 - [#5167](https://github.com/ChainSafe/forest/pull/5167) Allow overriding drand configs with environment variables.
 
+- [#4851](https://github.com/ChainSafe/forest/issues/4851) Add support for `FOREST_MAX_FILTER_RESULTS` in `Filecoin.EthGetLogs` RPC method.
+  Add an `[events]` section to Forest configuration file.
+
+- [#4954](https://github.com/ChainSafe/forest/issues/4954) Add `--format json` to `forest-cli chain head` command.
+
 ### Changed
 
 ### Removed
@@ -49,6 +54,11 @@
 - [#5131](https://github.com/ChainSafe/forest/pull/5131) Fix incorrect data deserialization in the `Filecoin.EthGetBlockReceipts` RPC method. This caused the method to return an error on some blocks.
 
 - [#5150](https://github.com/ChainSafe/forest/pull/5150) Fix incorrect prototype for the `Filecoin.EthGetBlockReceiptsLimited` RPC method.
+
+- [#5006](https://github.com/ChainSafe/forest/issues/5006) Fix incorrect logs, logs bloom and event index for the `Filecoin.EthGetBlockReceipts` RPC method.
+
+- [#4996](https://github.com/ChainSafe/forest/issues/4996) Fix incorrect logs and logs bloom for the `Filecoin.EthGetTransactionReceipt` and
+  `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
 
 ## Forest v.0.23.3 "Plumber"
 

@@ -61,7 +61,7 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
-ethereum-types = "0.15"
+ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
 fil_actor_account_state = { version = "19" }
 fil_actor_cron_state = { version = "19" }
@@ -249,7 +249,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.259"
+ra_ap_syntax = "0.0.262"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

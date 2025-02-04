@@ -32,6 +32,7 @@ $FOREST_CLI_PATH chain set-head --epoch -10 --force
 echo "Test subcommand: chain head"
 $FOREST_CLI_PATH chain head
 $FOREST_CLI_PATH chain head --tipsets 10
+$FOREST_CLI_PATH chain head --tipsets 5 --format json | jq 'length == 5'
 
 echo "Test subcommand: info show"
 $FOREST_CLI_PATH info show
