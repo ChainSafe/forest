@@ -36,7 +36,7 @@ env:
 
 jobs:
   tests:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
@@ -55,7 +55,7 @@ jobs:
         uses: taiki-e/install-action@nextest
       - run: make test
   tests-release:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
