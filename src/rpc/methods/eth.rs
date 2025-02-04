@@ -2402,7 +2402,23 @@ async fn get_eth_transaction_receipt(
     let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
         .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
 
-    let tx_receipt = new_eth_tx_receipt(&ctx, &tipset, &tx, &message_lookup.receipt).await?;
+    let ts = ctx
+        .chain_index()
+        .load_required_tipset(&message_lookup.tipset)?;
+
+    // The tx is located in the parent tipset
+    let parent_ts = ctx
+        .chain_index()
+        .load_required_tipset(ts.parents())
+        .map_err(|e| {
+            format!(
+                "failed to lookup tipset {} when constructing the eth txn receipt: {}",
+                ts.parents(),
+                e
+            )
+        })?;
+
+    let tx_receipt = new_eth_tx_receipt(&ctx, &parent_ts, &tx, &message_lookup.receipt).await?;
 
     Ok(tx_receipt)
 }

@@ -547,7 +547,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet snapshot parity checks
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: ubuntu-24.04
     # Run the job only on main to limit the runner cost.
     # The downside is that the offending commit can only be caught after being merged
     # and a manual revert is required.

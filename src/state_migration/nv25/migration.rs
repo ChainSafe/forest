@@ -9,7 +9,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::BuiltinActorManifest,
+    machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::utils::db::CborStoreExt as _;
@@ -18,6 +18,7 @@ use cid::Cid;
 
 use fvm_ipld_blockstore::Blockstore;
 
+use super::evm::EvmMigrator;
 use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
@@ -45,6 +46,13 @@ impl<BS: Blockstore> StateMigration<BS> {
         self.add_migrator(
             current_manifest.get_system(),
             system::system_migrator(new_manifest),
+        );
+
+        self.add_migrator(
+            current_manifest.get(BuiltinActor::EVM)?,
+            Arc::new(EvmMigrator {
+                new_code_cid: new_manifest.get(BuiltinActor::EVM)?,
+            }),
         );
 
         Ok(())
