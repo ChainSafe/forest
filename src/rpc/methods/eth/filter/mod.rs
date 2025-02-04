@@ -387,7 +387,6 @@ impl EthEventHandler {
                     *range.end()
                 };
 
-                let num_tipsets = (range.end() - range.start()) + 1;
                 let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
@@ -397,7 +396,7 @@ impl EthEventHandler {
                     .as_ref()
                     .clone()
                     .chain(&ctx.store())
-                    .take(num_tipsets as usize)
+                    .take_while(|ts| ts.epoch() >= *range.start())
                 {
                     let tipset = Arc::new(tipset);
                     Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
