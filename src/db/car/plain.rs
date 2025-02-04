@@ -484,22 +484,42 @@ mod tests {
     use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
+    use once_cell::sync::Lazy;
     use tokio::io::AsyncBufRead;
 
     #[test]
-    fn test_uncompressed() {
+    fn test_uncompressed_v1() {
         let car = chain4_car();
-        let reference = reference(car);
         let car_backed = PlainCar::new(car).unwrap();
 
-        assert_eq!(car_backed.cids().len(), 1222);
+        assert_eq!(car_backed.version(), 1);
         assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.cids().len(), 1222);
 
+        let reference = reference(car);
         for cid in car_backed.cids() {
             let expected = reference.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
         }
+    }
+
+    #[test]
+    fn test_uncompressed_v2() {
+        let car = carv2_car();
+        let car_backed = PlainCar::new(car).unwrap();
+
+        assert_eq!(car_backed.version(), 2);
+        assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.cids().len(), 7153);
+
+        // Uncomment below lines once CarStream supports CARv2
+        // let reference = reference(car);
+        // for cid in car_backed.cids() {
+        //     let expected = reference.get(&cid).unwrap().unwrap();
+        //     let actual = car_backed.get(&cid).unwrap().unwrap();
+        //     assert_eq!(expected, actual);
+        // }
     }
 
     fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
@@ -510,5 +530,14 @@ mod tests {
 
     fn chain4_car() -> &'static [u8] {
         include_bytes!("../../../test-snapshots/chain4.car")
+    }
+
+    fn carv2_car_zst() -> &'static [u8] {
+        include_bytes!("../../../test-snapshots/carv2.car.zst")
+    }
+
+    fn carv2_car() -> &'static [u8] {
+        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(carv2_car_zst()).unwrap());
+        CAR.as_slice()
     }
 }
