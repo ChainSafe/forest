@@ -2,8 +2,6 @@
 # They should be considered bugged, and not used until the root cause is resolved.
 # Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619017774/job/23623141130?pr=4170
 !Filecoin.MpoolGetNonce
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/5213
-!Filecoin.EthGetLogs
 # TODO: https://github.com/ChainSafe/forest/issues/4996
 !Filecoin.EthGetTransactionReceipt
 !Filecoin.EthGetTransactionReceiptLimited
