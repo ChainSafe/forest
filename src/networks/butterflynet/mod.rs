@@ -40,12 +40,12 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzacedz7udmigfoijokj3tnvw66bviygircxak7or2zrxzde2zsaouypi").unwrap()
+    Cid::from_str("bafy2bzacecm7xklkq3hkc2kgm5wnb5shlxmffino6lzhh7lte5acytb7sssr4").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacedz7udmigfoijokj3tnvw66bviygircxak7or2zrxzde2zsaouypi.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacecm7xklkq3hkc2kgm5wnb5shlxmffino6lzhh7lte5acytb7sssr4.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
@@ -55,7 +55,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 /// The genesis file does not live on the `master` branch, currently on `butterfly/v24` branch.
 /// `<https://github.com/filecoin-project/lotus/commit/36e6a639fd8411dd69048c95ac478468f2755b8d>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/35052f6d1502d838ed36539996df9e70fe5a8fc4/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/b15b3c40b9649e3bc52aa15968d558aa4514ba6a/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
