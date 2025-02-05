@@ -13,10 +13,10 @@ use ahash::HashSet;
 use anyhow::ensure;
 use cid::Cid;
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use std::io::{Cursor, SeekFrom};
+use std::io::Cursor;
 use std::mem::discriminant;
 use std::path::Path;
-use tokio::io::{AsyncSeekExt, BufReader};
+use tokio::io::BufReader;
 use tracing::{info, warn};
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
@@ -48,13 +48,10 @@ pub async fn load_actor_bundles_from_path(
         "Bundle file not found at {}",
         bundle_path.as_ref().display()
     );
-    let mut car_stream = {
-        let buf_reader =
-            tokio::io::BufReader::new(tokio::fs::File::open(bundle_path.as_ref()).await?);
-        let (mut buf_reader, header_v2) = CarStream::extract_header_v2(buf_reader).await?;
-        buf_reader.seek(SeekFrom::Start(0)).await?;
-        CarStream::new_with_header_v2(buf_reader, header_v2).await?
-    };
+    let mut car_stream = CarStream::new(tokio::io::BufReader::new(
+        tokio::fs::File::open(bundle_path.as_ref()).await?,
+    ))
+    .await?;
 
     // Validate the bundle
     let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());
