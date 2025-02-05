@@ -43,6 +43,8 @@
 
 ### Changed
 
+- [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
+
 ### Removed
 
 ### Fixed
