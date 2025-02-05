@@ -61,13 +61,13 @@ References: [1](https://en.wikipedia.org/wiki/Memory_paging#Swappiness)
 
 ```shell
 # daemon
-❯ docker run --init -it --rm ghcr.io/chainsafe/forest:latest --help
+docker run --init -it --rm ghcr.io/chainsafe/forest:latest --help
 # cli
-❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
+docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 # tool
-❯ docker run --init -it --rm --entrypoint forest-tool ghcr.io/chainsafe/forest:latest --help
+docker run --init -it --rm --entrypoint forest-tool ghcr.io/chainsafe/forest:latest --help
 # wallet tool
-❯ docker run --init -it --rm --entrypoint forest-wallet ghcr.io/chainsafe/forest:latest --help
+docker run --init -it --rm --entrypoint forest-wallet ghcr.io/chainsafe/forest:latest --help
 ```
 
 Also see the [CLI documentation](../reference/cli.md) for more details about commands and
@@ -76,26 +76,38 @@ their usage.
 ### Run a Forest node with custom environment variables
 
 ```shell
-❯ docker run --init -it --rm --name forest --env <key>=<value> ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
+docker run --init -it --rm --name forest --env <key>=<value> ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
 ```
 
 Check [Forest environment variables documentation](../reference/env_variables.md) for more details.
 
 ### Create a Forest node running calibration network. Then list all connected peers.
 
+Interactive mode:
+
 ```shell
-# interactive mode
-❯ docker run --init -it --rm --name forest ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
-# non-interactive mode
-❯ docker run --init --name forest ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
+docker run --init -it --rm --name forest ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
 ```
 
-Note: watchtower is a great tool for keeping the forest image up-to-date, automagically, check [instructions](https://containrrr.dev/watchtower/#quick_start).
+Non-interactive mode
 
-then in another terminal (sample output)
+```
+docker run --init --name forest ghcr.io/chainsafe/forest:latest --chain calibnet --auto-download-snapshot
+```
+
+:::tip
+[watchtower](https://github.com/containrrr/watchtower) is a great tool for keeping the forest image up-to-date, automagically, check [instructions](https://containrrr.dev/watchtower/#quick_start).
+:::
+
+Then, in another terminal:
 
 ```shell
-❯ docker exec forest forest-cli net peers
+docker exec forest forest-cli net peers
+```
+
+Sample output:
+
+```console
 12D3KooWAh4qiT3ZRZgctVJ8AWwRva9AncjMRVBSkFwNjTx3EpEr, [/ip4/10.0.2.215/tcp/1347, /ip4/52.12.185.166/tcp/1347]
 12D3KooWMY4VdMsdbFwkHv9HxX2jZsUdCcWFX5F5VGzBPZkdxyVr, [/ip4/162.219.87.149/tcp/30141, /ip4/162.219.87.149/tcp/30141/p2p/12D3KooWMY4VdMsdbFwkHv9HxX2jZsUdCcWFX5F5VGzBPZkdxyVr]
 12D3KooWFWUqE9jgXvcKHWieYs9nhyp6NF4ftwLGAHm4sCv73jjK, [/dns4/bootstrap-3.calibration.fildev.network/tcp/1347]
@@ -113,11 +125,11 @@ Now, whenever you create a new Forest container, attach the volume to where the
 data is stored `/root/.local/share/forest`.
 
 ```shell
-❯ docker run --init -it --rm \
-             --ulimit nofile=8192 \
-             --volume forest-data:/root/.local/share/forest \
-             --name forest ghcr.io/chainsafe/forest:latest --chain calibnet
-                                                           --auto-download-snapshot
+docker run --init -it --rm \
+           --ulimit nofile=8192 \
+           --volume forest-data:/root/.local/share/forest \
+           --name forest ghcr.io/chainsafe/forest:latest --chain calibnet
+                                                         --auto-download-snapshot
 ```
 
 ### Export the calibnet snapshot to the host machine
@@ -125,12 +137,17 @@ data is stored `/root/.local/share/forest`.
 Assuming you have `forest` container already running, run:
 
 ```shell
-❯ docker exec forest forest-cli --chain calibnet snapshot export
+docker exec forest forest-cli --chain calibnet snapshot export
+```
+
+Sample output:
+
+```console
 Export completed. Snapshot located at forest_snapshot_calibnet_2023-02-17_height_308891.car
 ```
 
 Copy the snapshot to the host
 
 ```shell
-❯ docker cp forest:/home/forest/forest_snapshot_calibnet_2023-02-17_height_308891.car .
+docker cp forest:/home/forest/forest_snapshot_calibnet_2023-02-17_height_308891.car .
 ```

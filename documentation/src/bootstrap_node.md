@@ -91,7 +91,7 @@ directory. Done!
 First, convert the keypair file used by Forest into a private key used by Lotus:
 
 ```bash
-❯ forest-tool shed private-key-from-key-pair > lotus_key
+forest-tool shed private-key-from-key-pair > lotus_key
 ```
 
 Then, copy the content to the relevant file's (one with the type `libp2p-host`
