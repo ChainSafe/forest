@@ -331,11 +331,11 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
 ///        │pragma│v2 header│
 ///        └──────┴─────────┘
 /// ```
-fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
+pub fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
     /// <https://ipld.io/specs/transport/car/carv2/#pragma>
     const CAR_V2_PRAGMA: [u8; 10] = [0xa1, 0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x02];
 
-    let len = reader.read_varint()?;
+    let len = reader.read_fixedint::<u8>()? as usize;
     if len == CAR_V2_PRAGMA.len() {
         let mut buffer = vec![0; len];
         reader.read_exact(&mut buffer)?;
