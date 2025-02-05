@@ -51,7 +51,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::db::car::RandomAccessFileReader;
 use crate::db::PersistentStore;
-use crate::utils::db::car_stream::{CarBlock, CarHeader};
+use crate::utils::db::car_stream::{CarBlock, CarV1Header};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
@@ -114,7 +114,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Self::validate_car(reader).is_ok()
     }
 
-    fn validate_car(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
+    fn validate_car(reader: &ReaderT) -> io::Result<(CarV1Header, ForestCarFooter)> {
         let mut cursor = SizeCursor::new(&reader);
         cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
 
@@ -133,7 +133,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         let block_frame = UviBytes::<Bytes>::default()
             .decode(&mut header_zstd_frame)?
             .ok_or_else(|| invalid_data("malformed uvibytes"))?;
-        let header = from_slice_with_fallback::<CarHeader>(&block_frame)
+        let header = from_slice_with_fallback::<CarV1Header>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok((header, footer))
@@ -269,7 +269,7 @@ impl Encoder {
         // Write CARv1 header
         let mut header_encoder = new_encoder(3)?;
 
-        let header = CarHeader { roots, version: 1 };
+        let header = CarV1Header { roots, version: 1 };
         let mut header_uvi_frame = BytesMut::new();
         UviBytes::default().encode(Bytes::from(to_vec(&header)?), &mut header_uvi_frame)?;
         header_encoder.write_all(&header_uvi_frame)?;

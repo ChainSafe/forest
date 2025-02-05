@@ -27,15 +27,20 @@ Forest snapshots are available in the [forest-archive](https://forest-archive.ch
 You read that in the [Forest NV23 support announcement](https://github.com/ChainSafe/forest/discussions/4488) the mainnet is going to be upgraded to NV23 at the epoch `4154640`, which corresponds to `2024-08-06T12:00:00Z`. You stop your note at least a minute before the upgrade, so before `2024-08-06T11:59:00Z` and wait until the latest snapshot at the [forest-archive](https://forest-archive.chainsafe.dev/latest/mainnet/) is newer than the epoch `4154640`.
 You use `curl` to check the latest snapshot.
 
+```bash
+curl --no-progress-meter --head  https://forest-archive.chainsafe.dev/latest/mainnet/ | egrep 'height_(\d+)'
+```
+
+Sample output:
+
 ```console
-❯ curl --no-progress-meter --head  https://forest-archive.chainsafe.dev/latest/mainnet/ | egrep 'height_(\d+)'
 location: /archive/mainnet/latest/forest_snapshot_mainnet_2024-08-06_height_415650.forest.car.zst
 ```
 
 You see that the snapshot is past the upgrade epoch by ten epochs. You download the snapshot with `aria2c` because it's significantly faster than a raw `curl`.
 
-```console
-❯ aria2c -x5 https://forest-archive.chainsafe.dev/latest/mainnet/
+```bash
+aria2c -x5 https://forest-archive.chainsafe.dev/latest/mainnet/
 ```
 
 You start your node with `--import-snapshot <snapshot-path>` and enjoy the new, fancy NV23 features. Hooray!
