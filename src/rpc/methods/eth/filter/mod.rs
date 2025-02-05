@@ -47,6 +47,14 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
+pub trait Matcher {
+    fn matches(
+        &self,
+        eth_emitter_addr: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool>;
+}
+
 /// Trait for managing filters. Provides common functionality for installing and removing filters.
 pub trait FilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>, Error>;
@@ -269,7 +277,7 @@ impl EthEventHandler {
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
-        spec: Option<&EthFilterSpec>,
+        spec: Option<&impl Matcher>,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let tipset_key = tipset.key().clone();
@@ -307,13 +315,11 @@ impl EthEventHandler {
                     continue;
                 };
 
-                let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
-
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
                 // dbg!(&entries);
 
                 let matched = if let Some(spec) = spec {
-                    let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
+                    let matched = spec.matches(&resolved, &entries)?;
                     tracing::debug!(
                         "Event {} {}match filter topics",
                         event_count,
@@ -451,6 +457,45 @@ impl EthFilterSpec {
             addresses,
             keys,
         })
+    }
+}
+
+impl Matcher for EthFilterSpec {
+    fn matches(
+        &self,
+        resolved: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool> {
+        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
+            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
+        }
+
+        let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
+
+        let match_addr = if self.address.is_empty() {
+            true
+        } else {
+            self.address.iter().any(|other| other == &eth_emitter_addr)
+        };
+        let match_topics = if let Some(spec) = self.topics.as_ref() {
+            let matched = entries.iter().enumerate().all(|(i, entry)| {
+                if let Some(slice) = get_word(entry.value()) {
+                    let hash: EthHash = (*slice).into();
+                    match spec.0.get(i) {
+                        Some(EthHashList::List(vec)) => vec.contains(&hash),
+                        Some(EthHashList::Single(Some(h))) => h == &hash,
+                        _ => true, /* wildcard */
+                    }
+                } else {
+                    // Drop events with mis-sized topics
+                    false
+                }
+            });
+            matched
+        } else {
+            true
+        };
+        Ok(match_addr && match_topics)
     }
 }
 
