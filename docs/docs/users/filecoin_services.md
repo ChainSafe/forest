@@ -32,7 +32,7 @@ Actively-maintained repositories that are part of the Forest project are:
 
 Forest Explorer Faucet is a serverless application that allows users to request FIL on both mainnet and calibnet. The faucet is available at [forest-explorer.chainsafe.dev/faucet](https://forest-explorer.chainsafe.dev/faucet). The code is open source and available at [github.com/ChainSafe/forest-explorer](https://github.com/ChainSafe/forest-explorer).
 
-## Bootstrap nodes
+## Bootstrap Nodes
 
 Bootstrap nodes are essential for new peers joining the network. They provide a list of known peers to connect to, allowing the new peer to join the network quickly. ChainSafe provides the several bootstrap nodes (both Forest and Lotus-based) on Filecoin networks.
 
@@ -69,7 +69,7 @@ Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/fil
 </details>
 
 
-## Latest Filecoin snapshots
+## Latest Filecoin Snapshots
 
 The latest snapshots are required for new nodes to sync with the network. The snapshots are updated hourly and are available for both [mainnet](https://forest-archive.chainsafe.dev/list/mainnet/latest) and [calibnet](https://forest-archive.chainsafe.dev/list/calibnet/latest).
 
@@ -77,7 +77,7 @@ The latest snapshots are required for new nodes to sync with the network. The sn
 
 Filecoin Archive is a collection of Filecoin snapshots aiming to provide a historical record of the Filecoin network. The archive is available at [forest-archive.chainsafe.dev](https://forest-archive.chainsafe.dev).
 
-## Calibnet FIL and datacap faucet
+## Calibnet FIL and Datacap Faucet
 
 [Lotus Fountain](https://github.com/filecoin-project/lotus/blob/master/cmd/lotus-fountain/main.go)-based faucet for calibnet FIL and datacap. The faucet is available at [faucet.calibnet.chainsafe-fil.io](https://faucet.calibnet.chainsafe-fil.io).
 
