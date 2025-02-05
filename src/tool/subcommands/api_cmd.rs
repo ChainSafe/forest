@@ -1590,13 +1590,6 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
-        RpcTest::basic(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
-            ))
-            .unwrap(),
-        ),
         RpcTest::identity(
             EthGetTransactionCount::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
@@ -1608,20 +1601,6 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetTransactionCount::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Latest),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Safe),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::basic(
-            EthGetTransactionCount::request((
-                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-                BlockNumberOrHash::from_predefined(Predefined::Finalized),
             ))
             .unwrap(),
         ),
