@@ -16,6 +16,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use positioned_io::ReadAt;
+use std::borrow::Cow;
 use std::io::{Error, ErrorKind, Result};
 use std::path::Path;
 use std::sync::Arc;
@@ -70,12 +71,12 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     }
 
     /// Return the identified CAR format variant. There are three variants:
-    /// `CARv1`, `CARv1.zst` and `ForestCARv1.zst`.
-    pub fn variant(&self) -> &'static str {
+    /// `CARv1`, `CARv2`, `CARv1.zst`, `CARv2.zst` and `ForestCARv1.zst`.
+    pub fn variant(&self) -> Cow<'static, str> {
         match self {
-            AnyCar::Forest(_) => "ForestCARv1.zst",
-            AnyCar::Plain(_) => "CARv1",
-            AnyCar::Memory(_) => "CARv1.zst",
+            AnyCar::Forest(_) => "ForestCARv1.zst".into(),
+            AnyCar::Plain(car) => format!("CARv{}", car.version()).into(),
+            AnyCar::Memory(car) => format!("CARv{}.zst", car.version()).into(),
         }
     }
 

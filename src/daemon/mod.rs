@@ -624,7 +624,18 @@ fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<Str
     )?;
     info!("Admin token: {token}");
     if let Some(path) = opts.save_token.as_ref() {
-        std::fs::write(path, &token)?;
+        if let Some(dir) = path.parent() {
+            if !dir.is_dir() {
+                std::fs::create_dir_all(dir).with_context(|| {
+                    format!(
+                        "Failed to create `--save-token` directory {}",
+                        dir.display()
+                    )
+                })?;
+            }
+        }
+        std::fs::write(path, &token)
+            .with_context(|| format!("Failed to save admin token to {}", path.display()))?;
     }
 
     Ok(token)
