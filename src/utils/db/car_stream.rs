@@ -13,10 +13,13 @@ use integer_encoding::VarInt;
 use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::io::{self, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, Take};
+use tokio::io::{
+    AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite,
+    Take,
+};
 use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
@@ -111,21 +114,28 @@ fn is_zstd(buf: &[u8]) -> bool {
 }
 
 impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
-    pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
-        let (is_compressed, header_v2) = {
-            let inner_buf = reader.fill_buf().await?;
-            let is_compressed = is_zstd(inner_buf);
-            let inner_buf_reader = if is_compressed {
-                either::Either::Right(zstd::Decoder::new(inner_buf)?)
-            } else {
-                either::Either::Left(inner_buf)
-            };
-            (
-                is_compressed,
-                read_v2_header(inner_buf_reader).ok().flatten(),
-            )
-        };
+    /// Create a stream with automatic but unsafe CARv2 header extraction.
+    ///
+    /// Note that if the input is zstd compressed, the CARv2 header extraction
+    /// is on a best efforts basis. It could fail when `reader.fill_buf()` is insufficient
+    /// for decoding the first zstd frame, and treat input as CARv1, because this method
+    /// does not require the input to be [`tokio::io::AsyncSeek`].
+    /// It's recommended to use [`CarStream::new`] for zstd compressed CARv2 input.
+    #[allow(dead_code)]
+    pub async fn new_unsafe(mut reader: ReaderT) -> io::Result<Self> {
+        let header_v2 = Self::try_decode_header_v2_from_fill_buf(reader.fill_buf().await?)
+            // treat input as CARv1 if zstd decoding failed
+            .ok()
+            .flatten();
+        Self::new_with_header_v2(reader, header_v2).await
+    }
 
+    /// Create a stream with pre-extracted CARv2 header
+    pub async fn new_with_header_v2(
+        mut reader: ReaderT,
+        header_v2: Option<CarV2Header>,
+    ) -> io::Result<Self> {
+        let is_compressed = is_zstd(reader.fill_buf().await?);
         let mut reader = if is_compressed {
             let mut zstd = ZstdDecoder::new(reader);
             zstd.multiple_members(true);
@@ -173,6 +183,50 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 first_block: None,
             })
         }
+    }
+
+    fn try_decode_header_v2_from_fill_buf(fill_buf: &[u8]) -> io::Result<Option<CarV2Header>> {
+        let is_compressed = is_zstd(fill_buf);
+        let fill_buf_reader = if is_compressed {
+            either::Either::Right(zstd::Decoder::new(fill_buf)?)
+        } else {
+            either::Either::Left(fill_buf)
+        };
+        read_v2_header(fill_buf_reader)
+    }
+}
+
+impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
+    /// Create a stream with automatic CARv2 header extraction.
+    pub async fn new(reader: ReaderT) -> io::Result<Self> {
+        let (reader, header_v2) = Self::extract_header_v2(reader).await?;
+        Self::new_with_header_v2(reader, header_v2).await
+    }
+
+    /// Extracts CARv2 header from the input, returns the reader and CARv2 header.
+    ///
+    /// Note that position of the input reader does not need to be reset again before calling [`CarStream::new_with_header_v2`],
+    pub async fn extract_header_v2(
+        mut reader: ReaderT,
+    ) -> io::Result<(ReaderT, Option<CarV2Header>)> {
+        let stream_position = reader.stream_position().await?;
+        let is_compressed = is_zstd(reader.fill_buf().await?);
+        let mut reader = if is_compressed {
+            let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
+            Either::Right(zstd)
+        } else {
+            Either::Left(reader)
+        };
+        let mut possible_header_bytes = [0; 51];
+        reader.read_exact(&mut possible_header_bytes).await?;
+        let header_v2 = read_v2_header(possible_header_bytes.as_slice())?;
+        let mut reader = match reader {
+            Either::Left(reader) => reader,
+            Either::Right(zstd) => zstd.into_inner(),
+        };
+        reader.seek(SeekFrom::Start(stream_position)).await?;
+        Ok((reader, header_v2))
     }
 }
 
@@ -250,6 +304,8 @@ async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
     use crate::networks::{calibnet, mainnet};
     use futures::TryStreamExt;
@@ -274,8 +330,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stream_calibnet_genesis() {
-        let stream = CarStream::new(calibnet::DEFAULT_GENESIS).await.unwrap();
+    async fn stream_calibnet_genesis_unsafe() {
+        let stream = CarStream::new_unsafe(calibnet::DEFAULT_GENESIS)
+            .await
+            .unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1207);
         for block in blocks {
@@ -284,8 +342,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stream_calibnet_genesis() {
+        let stream = CarStream::new(Cursor::new(calibnet::DEFAULT_GENESIS))
+            .await
+            .unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1207);
+        for block in blocks {
+            block.validate().unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_mainnet_genesis_unsafe() {
+        let stream = CarStream::new_unsafe(mainnet::DEFAULT_GENESIS)
+            .await
+            .unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1222);
+        for block in blocks {
+            block.validate().unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn stream_mainnet_genesis() {
-        let stream = CarStream::new(mainnet::DEFAULT_GENESIS).await.unwrap();
+        let stream = CarStream::new(Cursor::new(mainnet::DEFAULT_GENESIS))
+            .await
+            .unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1222);
         for block in blocks {

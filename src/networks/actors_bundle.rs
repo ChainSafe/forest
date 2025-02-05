@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::io;
+use std::io::{self, Cursor};
 use std::path::Path;
 
 use ahash::HashMap;
@@ -180,7 +180,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
                 http_get(alt_url).await?
             };
             let bytes = response.bytes().await?;
-            let car = CarStream::new(bytes.as_ref()).await?;
+            let car = CarStream::new(Cursor::new(bytes)).await?;
             ensure!(car.header_v1.version == 1);
             ensure!(car.header_v1.roots.len() == 1);
             ensure!(car.header_v1.roots.first() == root);
@@ -282,8 +282,8 @@ mod tests {
                     _ => return anyhow::Ok(()),
                 };
 
-                let car_primary = CarStream::new(primary.as_ref()).await?;
-                let car_secondary = CarStream::new(alt.as_ref()).await?;
+                let car_primary = CarStream::new(Cursor::new(primary)).await?;
+                let car_secondary = CarStream::new(Cursor::new(alt)).await?;
 
                 assert_eq!(
                     car_primary.header_v1.roots, car_secondary.header_v1.roots,
