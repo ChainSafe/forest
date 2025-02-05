@@ -108,14 +108,6 @@ impl ParityDb {
         })
     }
 
-    pub fn wrap(db: parity_db::Db, stats: bool, disable_persistent: bool) -> Self {
-        Self {
-            db,
-            statistics_enabled: stats,
-            disable_persistent_fallback: disable_persistent,
-        }
-    }
-
     /// Returns an appropriate column variant based on the information
     /// in the Cid.
     fn choose_column(cid: &Cid) -> DbColumn {
