@@ -6,6 +6,7 @@ blockstore
 Butterflynet
 Calibnet
 calibnet
+calibnet-related
 cardinality
 ChainSafe
 chainsafe
@@ -17,6 +18,8 @@ cli
 Cloudflare
 codebase
 config
+Datacap
+datacap
 devnet
 Devops
 Devs
@@ -69,6 +72,7 @@ NVMe
 onwards
 Organisation
 p2p
+performant
 pre-compiled
 preload
 preloaded
@@ -78,6 +82,9 @@ Roadmap
 roadmap
 RPC
 rustup
+S3-compatible
+semver
+serverless
 subcommands
 swappiness
 TabItem
