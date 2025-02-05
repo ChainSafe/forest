@@ -63,8 +63,8 @@ github.com/filecoin-project/go-bitfield v0.2.4 h1:uZ7MeE+XfM5lqrHJZ93OnhQKc/rveW
 github.com/filecoin-project/go-bitfield v0.2.4/go.mod h1:CNl9WG8hgR5mttCnUErjcQjGvuiZjRqK9rHVBsQF4oM=
 github.com/filecoin-project/go-clock v0.1.0 h1:SFbYIM75M8NnFm1yMHhN9Ahy3W5bEZV9gd6MPfXbKVU=
 github.com/filecoin-project/go-clock v0.1.0/go.mod h1:4uB/O4PvOjlx1VCMdZ9MyDZXRm//gkj1ELEbxfI1AZs=
-github.com/filecoin-project/go-f3 v0.7.4-0.20250203114347-740dd940de17 h1:75mwVmyLQwNZMGNbkBUidORjVL8MJP6bFA7vReA6Tlw=
-github.com/filecoin-project/go-f3 v0.7.4-0.20250203114347-740dd940de17/go.mod h1:zNFGuBM+fYuGXk2fpzl6wW4g2Gyrxgg6z2IVSoGt+60=
+github.com/filecoin-project/go-f3 v0.7.4-0.20250204212658-e232882cba71 h1:CJPb27oHIXaB187vCng9k9BYYKd0wEN9brdEU6n/S1Y=
+github.com/filecoin-project/go-f3 v0.7.4-0.20250204212658-e232882cba71/go.mod h1:zNFGuBM+fYuGXk2fpzl6wW4g2Gyrxgg6z2IVSoGt+60=
 github.com/filecoin-project/go-jsonrpc v0.7.0 h1:mqA5pIOlBODx7ascY9cJdBAYonhgbdUOIn2dyYI1YBg=
 github.com/filecoin-project/go-jsonrpc v0.7.0/go.mod h1:lAUpS8BSVtKaA8+/CFUMA5dokMiSM7n0ehf8bHOFdpE=
 github.com/filecoin-project/go-state-types v0.15.0 h1:GaUSCti0tGMzLg7fVpRjtNVGBvirbMFzLfyWbR+qzWE=
