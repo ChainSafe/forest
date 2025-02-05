@@ -56,7 +56,6 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 <summary>Mainnet bootstrap nodes</summary>
 <p>
 
-
 ```
 /dns/bootstrap-mainnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWKKkCZbcigsWTEu1cgNetNbZJqeNtysRtFpq7DTqw3eqH
 /dns/bootstrap-mainnet-1.chainsafe-fil.io/tcp/34000/p2p/12D3KooWGnkd9GQKo3apkShQDaq1d6cKJJmsVe6KiQkacUk1T8oZ
@@ -67,7 +66,6 @@ Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/fil
 
 </p>
 </details>
-
 
 ## Latest Filecoin Snapshots
 
@@ -92,10 +90,10 @@ You can check the status of many ChainSafe services at [status.chainsafe.dev](ht
 :::info
 Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#connect-with-us).
 
-We are also active on the following channels on the Filecoin Slack. Reach out to us for any questions or issues:
+We are also active on the following channels on the [Filecoin Slack](https://filecoin.io/slack). Reach out to us for any questions or issues:
+
 - `#fil-net-calibration-discuss` for calibnet-related issues.
 - `#fil-forest-help` for Forest-related issues.
 - `#fil-implementers` for general Filecoin implementation questions.
 - `#fil-infra` for Filecoin infrastructure questions.
-:::
-
+  :::

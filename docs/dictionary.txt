@@ -6,6 +6,7 @@ blockstore
 Butterflynet
 Calibnet
 calibnet
+calibnet-related
 cardinality
 ChainSafe
 chainsafe
@@ -17,6 +18,7 @@ cli
 Cloudflare
 codebase
 config
+Datacap
 datacap
 devnet
 Devops
