@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::eth::filter::{ParsedFilter, ParsedFilterTipsets};
+use std::ops::RangeInclusive;
 use std::{any::Any, collections::BTreeMap};
 
 use crate::{
@@ -21,8 +23,21 @@ impl RpcMethod<1> for GetActorEventsRaw {
     const PERMISSION: Permission = Permission::Read;
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
-    async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(vec![])
+    async fn handle(ctx: Ctx<impl Any>, (filter,): Self::Params) -> Result<Self::Ok, ServerError> {
+        if let Some(filter) = filter {
+            let parsed_filter = ParsedFilter {
+                tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(
+                    filter.from_height.unwrap_or(0),
+                    filter.to_height.unwrap_or(-1),
+                )),
+                addresses: filter.addresses.iter().map(|addr| addr.0).collect(),
+                keys: Default::default(),
+            };
+
+            todo!()
+        } else {
+            Ok(vec![])
+        }
     }
 }
 

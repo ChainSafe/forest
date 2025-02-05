@@ -569,15 +569,15 @@ fn keys_to_keys_with_codec(
 }
 
 #[derive(Debug, PartialEq)]
-enum ParsedFilterTipsets {
+pub enum ParsedFilterTipsets {
     Range(std::ops::RangeInclusive<ChainEpoch>),
     Hash(EthHash),
 }
 
-struct ParsedFilter {
-    tipsets: ParsedFilterTipsets,
-    addresses: Vec<Address>,
-    keys: HashMap<String, Vec<ActorEventBlock>>,
+pub struct ParsedFilter {
+    pub(crate) tipsets: ParsedFilterTipsets,
+    pub(crate) addresses: Vec<Address>,
+    pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
 }
 
 #[cfg(test)]
