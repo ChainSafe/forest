@@ -145,7 +145,7 @@ const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
-    config: Config,
+    mut config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if opts.detach {
@@ -268,53 +268,53 @@ pub(super) async fn start(
     // downloaded later right after snapshot import step
     crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
-    // Sets the latest snapshot if needed for downloading later
-    let mut config = config;
-    if config.client.snapshot_path.is_none() && !opts.stateless {
-        set_snapshot_path_if_needed(
-            &mut config,
-            &chain_config,
-            chain_store.heaviest_tipset().epoch(),
-            opts.auto_download_snapshot,
-            &db_root_dir,
-        )
-        .await?;
-    }
-
-    // Import chain if needed
-    if !opts.skip_load.unwrap_or_default() {
-        if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, _ts) =
-                import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
-                    .await?;
-            db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            debug!("Loaded car DB at {}", car_db_path.display());
+    if !opts.exit_after_init {
+        // Sets the latest snapshot if needed for downloading later
+        if config.client.snapshot_path.is_none() && !opts.stateless {
+            set_snapshot_path_if_needed(
+                &mut config,
+                &chain_config,
+                chain_store.heaviest_tipset().epoch(),
+                opts.auto_download_snapshot,
+                &db_root_dir,
+            )
+            .await?;
         }
-    }
 
-    if let Some(validate_from) = config.client.snapshot_height {
-        // We've been provided a snapshot and asked to validate it
-        ensure_params_downloaded().await?;
-        // Use the specified HEAD, otherwise take the current HEAD.
-        let current_height = config
-            .client
-            .snapshot_head
-            .unwrap_or_else(|| state_manager.chain_store().heaviest_tipset().epoch());
-        assert!(current_height.is_positive());
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => {
-                state_manager.validate_range((current_height + validate_from)..=current_height)?
+        // Import chain if needed
+        if !opts.skip_load.unwrap_or_default() {
+            if let Some(path) = &config.client.snapshot_path {
+                let (car_db_path, _ts) =
+                    import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
+                        .await?;
+                db.read_only_files(std::iter::once(car_db_path.clone()))?;
+                debug!("Loaded car DB at {}", car_db_path.display());
             }
-            false => state_manager.validate_range(validate_from..=current_height)?,
         }
-    }
 
-    // Halt
-    if opts.halt_after_import {
-        // Cancel all async services
-        services.shutdown().await;
-        return Ok(());
+        if let Some(validate_from) = config.client.snapshot_height {
+            // We've been provided a snapshot and asked to validate it
+            ensure_params_downloaded().await?;
+            // Use the specified HEAD, otherwise take the current HEAD.
+            let current_height = config
+                .client
+                .snapshot_head
+                .unwrap_or_else(|| state_manager.chain_store().heaviest_tipset().epoch());
+            assert!(current_height.is_positive());
+            match validate_from.is_negative() {
+                // allow --height=-1000 to scroll back from the current head
+                true => state_manager
+                    .validate_range((current_height + validate_from)..=current_height)?,
+                false => state_manager.validate_range(validate_from..=current_height)?,
+            }
+        }
+
+        // Halt
+        if opts.halt_after_import {
+            // Cancel all async services
+            services.shutdown().await;
+            return Ok(());
+        }
     }
 
     if !opts.no_gc {
