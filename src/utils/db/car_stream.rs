@@ -1,6 +1,7 @@
-use crate::db::car::plain::read_v2_header;
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+use crate::db::car::plain::read_v2_header;
 use crate::utils::multihash::prelude::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -113,7 +114,6 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
     pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
         let (is_compressed, header_v2) = {
             let inner_buf = reader.fill_buf().await?;
-            println!("inner_buf len: {}", inner_buf.len());
             let is_compressed = is_zstd(inner_buf);
             let inner_buf_reader = if is_compressed {
                 either::Either::Right(zstd::Decoder::new(inner_buf)?)
@@ -125,8 +125,6 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 read_v2_header(inner_buf_reader).ok().flatten(),
             )
         };
-
-        println!("is_compressed: {is_compressed}, header_v2: {header_v2:?}");
 
         let mut reader = if is_compressed {
             let mut zstd = ZstdDecoder::new(reader);
