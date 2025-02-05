@@ -361,7 +361,7 @@ mod print {
             .iter()
             .filter(|prefix| prefix.exponent > 0)
         {
-            let scaled = n.clone() / prefix.multiplier();
+            let scaled = n.clone() * prefix.multiplier().inverse();
             if scaled >= BigDecimal::one() {
                 return (scaled, Some(*prefix));
             }
@@ -375,14 +375,17 @@ mod print {
             .iter()
             .filter(|prefix| prefix.exponent < 0)
         {
-            let scaled = n.clone() / prefix.multiplier();
+            let scaled = n.clone() * prefix.multiplier().inverse();
             if scaled >= BigDecimal::one() {
                 return (scaled, Some(*prefix));
             }
         }
 
         let smallest_prefix = si::SUPPORTED_PREFIXES.last().unwrap();
-        (n / smallest_prefix.multiplier(), Some(*smallest_prefix))
+        (
+            n * smallest_prefix.multiplier().inverse(),
+            Some(*smallest_prefix),
+        )
     }
 
     pub struct Pretty {
