@@ -18,7 +18,7 @@ where
     while let Some(block) = stream.try_next().await? {
         db.put_keyed(&block.cid, &block.data)?;
     }
-    Ok(stream.header)
+    Ok(stream.header_v1)
 }
 
 pub fn merge_car_streams<R>(

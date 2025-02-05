@@ -53,7 +53,7 @@ pub async fn load_actor_bundles_from_path(
     .await?;
 
     // Validate the bundle
-    let roots = HashSet::from_iter(car_stream.header.roots.iter());
+    let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());
     for ActorBundleInfo {
         manifest, network, ..
     } in ACTOR_BUNDLES.iter().filter(|bundle| {
@@ -109,7 +109,7 @@ pub async fn load_actor_bundles_from_server(
                     while let Some(block) = stream.try_next().await? {
                         db.put_keyed_persistent(&block.cid, &block.data)?;
                     }
-                    let header = stream.header;
+                    let header = stream.header_v1;
                     ensure!(header.roots.len() == 1);
                     ensure!(header.roots.first() == root);
                     Ok(*header.roots.first())

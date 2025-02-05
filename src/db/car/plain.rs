@@ -331,11 +331,11 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
 ///        │pragma│v2 header│
 ///        └──────┴─────────┘
 /// ```
-fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
+pub fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
     /// <https://ipld.io/specs/transport/car/carv2/#pragma>
     const CAR_V2_PRAGMA: [u8; 10] = [0xa1, 0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x02];
 
-    let len = reader.read_varint()?;
+    let len = reader.read_fixedint::<u8>()? as usize;
     if len == CAR_V2_PRAGMA.len() {
         let mut buffer = vec![0; len];
         reader.read_exact(&mut buffer)?;
@@ -496,11 +496,14 @@ mod tests {
         assert_eq!(car_backed.roots().len(), 1);
         assert_eq!(car_backed.cids().len(), 1222);
 
-        let reference = reference(car);
+        let reference_car = reference(car);
+        let reference_car_zst = reference(chain4_car_zst());
         for cid in car_backed.cids() {
-            let expected = reference.get(&cid).unwrap().unwrap();
+            let expected = reference_car.get(&cid).unwrap().unwrap();
+            let expected2 = reference_car_zst.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
+            assert_eq!(expected2, actual);
         }
     }
 
@@ -513,13 +516,15 @@ mod tests {
         assert_eq!(car_backed.roots().len(), 1);
         assert_eq!(car_backed.cids().len(), 7153);
 
-        // Uncomment below lines once CarStream supports CARv2
-        // let reference = reference(car);
-        // for cid in car_backed.cids() {
-        //     let expected = reference.get(&cid).unwrap().unwrap();
-        //     let actual = car_backed.get(&cid).unwrap().unwrap();
-        //     assert_eq!(expected, actual);
-        // }
+        let reference_car = reference(car);
+        let reference_car_zst = reference(carv2_car_zst());
+        for cid in car_backed.cids() {
+            let expected = reference_car.get(&cid).unwrap().unwrap();
+            let expected2 = reference_car_zst.get(&cid).unwrap().unwrap();
+            let actual = car_backed.get(&cid).unwrap().unwrap();
+            assert_eq!(expected, actual);
+            assert_eq!(expected2, actual);
+        }
     }
 
     fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
@@ -528,8 +533,13 @@ mod tests {
         blockstore
     }
 
+    fn chain4_car_zst() -> &'static [u8] {
+        include_bytes!("../../../test-snapshots/chain4.car.zst")
+    }
+
     fn chain4_car() -> &'static [u8] {
-        include_bytes!("../../../test-snapshots/chain4.car")
+        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(chain4_car_zst()).unwrap());
+        CAR.as_slice()
     }
 
     fn carv2_car_zst() -> &'static [u8] {
