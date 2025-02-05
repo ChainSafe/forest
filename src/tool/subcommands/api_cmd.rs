@@ -18,6 +18,7 @@ use crate::rpc::eth::{
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, Permission};
@@ -865,9 +866,20 @@ fn state_tests() -> Vec<RpcTest> {
 }
 
 fn event_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
-    vec![RpcTest::identity(
-        GetActorEventsRaw::request((None,)).unwrap(),
-    )]
+    let epoch = tipset.epoch();
+    vec![
+        RpcTest::identity(GetActorEventsRaw::request((None,)).unwrap()),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![],
+                fields: Default::default(),
+                from_height: Some(epoch),
+                to_height: Some(epoch),
+                tipset_key: None,
+            }),))
+            .unwrap(),
+        ),
+    ]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
