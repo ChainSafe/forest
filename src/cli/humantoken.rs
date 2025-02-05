@@ -361,7 +361,7 @@ mod print {
             .iter()
             .filter(|prefix| prefix.exponent > 0)
         {
-            let scaled = n.clone() * prefix.multiplier().inverse();
+            let scaled = (n.clone() * prefix.multiplier().inverse()).normalized();
             if scaled >= BigDecimal::one() {
                 return (scaled, Some(*prefix));
             }
@@ -375,7 +375,7 @@ mod print {
             .iter()
             .filter(|prefix| prefix.exponent < 0)
         {
-            let scaled = n.clone() * prefix.multiplier().inverse();
+            let scaled = (n.clone() * prefix.multiplier().inverse()).normalized();
             if scaled >= BigDecimal::one() {
                 return (scaled, Some(*prefix));
             }
@@ -416,7 +416,7 @@ mod print {
         /// let amount = TokenAmount::from_nano(1500);
         ///
         /// // Defaults to precise, with SI prefix
-        /// assert_eq!("1500 nanoFIL", format!("{}", amount.pretty()));
+        /// assert_eq!("1.5 microFIL", format!("{}", amount.pretty()));
         ///
         /// // Rounded to 1 s.f
         /// assert_eq!("~2 microFIL", format!("{:.1}", amount.pretty()));
@@ -428,7 +428,7 @@ mod print {
         /// assert_eq!("~0.000002 FIL", format!("{:#.1}", amount.pretty()));
         ///
         /// // We only indicate lost precision when relevant
-        /// assert_eq!("1500 nanoFIL", format!("{:.2}", amount.pretty()));
+        /// assert_eq!("1.5 microFIL", format!("{:.2}", amount.pretty()));
         /// ```
         ///
         /// # Formatting
@@ -511,6 +511,7 @@ mod print {
             test_scale(&one_thousanth_of_a_quecto, "0.001", si::quecto);
         }
 
+        #[track_caller]
         fn test_scale(
             input: &str,
             expected_value: &str,
@@ -539,9 +540,9 @@ mod print {
         }
         #[test]
         fn trailing_one() {
-            test_scale("10001000", "10001", si::kilo);
-            test_scale("10001", "10001", None);
-            test_scale("1000.1", "1000100", si::milli);
+            test_scale("10001000", "10.001", si::mega);
+            test_scale("10001", "10.001", si::kilo);
+            test_scale("1000.1", "1.0001", si::kilo);
         }
 
         fn attos(input: &str) -> TokenAmount {
