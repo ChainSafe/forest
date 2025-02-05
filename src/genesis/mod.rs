@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::Cursor, path::Path};
+use std::path::Path;
 
 use crate::blocks::CachingBlockHeader;
 use crate::state_manager::StateManager;
@@ -10,7 +10,7 @@ use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::{
     fs::File,
-    io::{AsyncBufRead, AsyncSeek, BufReader},
+    io::{AsyncBufRead, BufReader},
 };
 use tracing::{debug, info};
 
@@ -36,7 +36,7 @@ where
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes = genesis_bytes.context("No default genesis.")?;
-            process_car(Cursor::new(genesis_bytes), db).await?
+            process_car(genesis_bytes, db).await?
         }
     };
 
@@ -60,7 +60,7 @@ where
 
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<CachingBlockHeader, anyhow::Error>
 where
-    R: AsyncBufRead + AsyncSeek + Unpin,
+    R: AsyncBufRead + Unpin,
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
@@ -101,6 +101,6 @@ mod tests {
 
     async fn load_header_from_car(genesis_bytes: &[u8]) -> CachingBlockHeader {
         let db = crate::db::MemoryDB::default();
-        process_car(Cursor::new(genesis_bytes), &db).await.unwrap()
+        process_car(genesis_bytes, &db).await.unwrap()
     }
 }

@@ -250,8 +250,6 @@ async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::*;
     use crate::networks::{calibnet, mainnet};
     use futures::TryStreamExt;
@@ -277,9 +275,7 @@ mod tests {
 
     #[tokio::test]
     async fn stream_calibnet_genesis() {
-        let stream = CarStream::new(Cursor::new(calibnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
+        let stream = CarStream::new(calibnet::DEFAULT_GENESIS).await.unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1207);
         for block in blocks {
@@ -289,9 +285,7 @@ mod tests {
 
     #[tokio::test]
     async fn stream_mainnet_genesis() {
-        let stream = CarStream::new(Cursor::new(mainnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
+        let stream = CarStream::new(mainnet::DEFAULT_GENESIS).await.unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1222);
         for block in blocks {

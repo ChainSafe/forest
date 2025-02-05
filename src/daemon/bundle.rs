@@ -14,7 +14,7 @@ use anyhow::ensure;
 use cid::Cid;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use std::mem::discriminant;
-use std::{io::Cursor, path::Path};
+use std::path::Path;
 use tokio::io::BufReader;
 use tracing::{info, warn};
 
@@ -105,7 +105,7 @@ pub async fn load_actor_bundles_from_server(
                     };
                     let bytes = response.bytes().await?;
 
-                    let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
+                    let mut stream = CarStream::new(BufReader::new(bytes.as_ref())).await?;
                     while let Some(block) = stream.try_next().await? {
                         db.put_keyed_persistent(&block.cid, &block.data)?;
                     }

@@ -116,7 +116,7 @@ mod tests {
     fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
         block_on(async move {
             let car = blocks.into_forest_car_zst_bytes().await;
-            let reader = CarStream::new(std::io::Cursor::new(&car)).await?;
+            let reader = CarStream::new(car.as_slice()).await?;
             let blocks2 = Blocks(reader.try_collect().await?);
             let car2 = blocks2.into_forest_car_zst_bytes().await;
 
@@ -130,7 +130,7 @@ mod tests {
     fn car_writer_roundtrip(blocks1: Blocks) -> anyhow::Result<()> {
         block_on(async move {
             let (all_roots, car) = blocks1.clone().into_forest_car_zst_bytes_with_roots().await;
-            let reader = CarStream::new(std::io::Cursor::new(&car)).await?;
+            let reader = CarStream::new(car.as_slice()).await?;
 
             let mut buff: Vec<u8> = vec![];
             let zstd_encoder = ZstdEncoder::new(&mut buff);
@@ -138,7 +138,7 @@ mod tests {
                 .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
                 .await?;
 
-            let stream = CarStream::new(std::io::Cursor::new(buff)).await?;
+            let stream = CarStream::new(buff.as_slice()).await?;
             let blocks2 = Blocks(stream.try_collect().await?);
 
             assert_eq!(blocks1.0, blocks2.0);
