@@ -1669,7 +1669,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 block_hash: None,
             },))
             .unwrap(),
-        ),
+        )
+        .sort_policy(SortPolicy::All),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),

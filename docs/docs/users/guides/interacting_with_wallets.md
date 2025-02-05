@@ -35,19 +35,36 @@ The rest of this document will assume you're using testnet tokens.
 Initially, our wallet contains no addresses:
 
 ```shell
-❯ forest-wallet list
+forest-wallet list
+```
+
+Should output:
+
+```console
 Address                                   Default Balance
 ```
 
 Let's create a new address and inspects its balance:
 
 ```shell
-❯ forest-wallet new
+forest-wallet new
+```
+
+Sample output:
+
+```console
 t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy
 ```
 
+Listing the accounts shows the new account with a balance of `0 FIL`:
+
 ```shell
-❯ forest-wallet list
+forest-wallet list
+```
+
+Sample output:
+
+```console
 Address                                   Default Balance
 t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        0 FIL
 ```
@@ -66,7 +83,12 @@ Since this is a testnet account, we can add FIL to it from the [faucet](https://
 After requesting the funds and waiting roughly a minute, we can see the funds arrive in our wallet:
 
 ```shell
-❯ forest-wallet list
+forest-wallet list
+```
+
+Sample output:
+
+```console
 Address                                   Default Balance
 t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
 ```
@@ -76,10 +98,24 @@ t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
 Let's create a new, empty account:
 
 ```shell
-❯ forest-wallet new
-t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq
+forest-wallet new
+```
 
-❯ forest-wallet list
+Sample output:
+
+```console
+t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq
+```
+
+Listing the accounts shows the new account with a balance of `0 FIL`:
+
+```shell
+forest-wallet list
+```
+
+Sample output:
+
+```console
 Address                                   Default Balance
 t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq           0 FIL
 t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
@@ -88,14 +124,24 @@ t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        100 FIL
 We can transfer FIL to this new account from our default account:
 
 ```shell
-❯ forest-wallet send t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq "1.2 FIL"
+forest-wallet send t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq "1.2 FIL"
+```
+
+Sample output:
+
+```console
 bafy2bzaceblzz644szs6s5ggyxlgdnonlq5bavu54cxwujcdtgdaze2bafdle
 ```
 
 It takes a minute or so for the message to be included in the Filecoin blockchain. Once the message has gone through, we can inspect our balances again:
 
 ```shell
-❯ forest-wallet list
+forest-wallet list
+```
+
+Sample output:
+
+```console
 Address                                   Default Balance
 t1qj55ggurqydu4mgoon7ycvkyyhofc4tvf25tmlq           1200 milliFIL
 t1amfhh3hxvsilyhloxwheuxforst5hyzsbletgoy  X        ~98800 milliFIL
