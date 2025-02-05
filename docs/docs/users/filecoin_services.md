@@ -12,10 +12,6 @@ sidebar_position: 6
 
 This page provides an overview of the services and infrastructure provided by ChainSafe across the Filecoin ecosystem.
 
-:::tip
-You can check the status of many ChainSafe services at [status.chainsafe.dev](https://status.chainsafe.dev).
-:::
-
 ## Forest Node
 
 Filecoin full node written in Rust aiming to provide a stable and performant implementation of the Filecoin protocol.
@@ -36,17 +32,15 @@ Actively-maintained repositories that are part of the Forest project are:
 
 Forest Explorer Faucet is a serverless application that allows users to request FIL on both mainnet and calibnet. The faucet is available at [forest-explorer.chainsafe.dev/faucet](https://forest-explorer.chainsafe.dev/faucet). The code is open source and available at [github.com/ChainSafe/forest-explorer](https://github.com/ChainSafe/forest-explorer).
 
-:::info
-Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#connect-with-us).
-:::
-
 ## Bootstrap nodes
 
 Bootstrap nodes are essential for new peers joining the network. They provide a list of known peers to connect to, allowing the new peer to join the network quickly. ChainSafe provides the several bootstrap nodes (both Forest and Lotus-based) on Filecoin networks.
 
 ChainSafe also operates an **archival bootstrap node** which maintains a full set of historical state to serve to the network. This is currently available for calibnet only.
 
-### Calibnet
+<details>
+<summary>Calibnet bootstrap nodes</summary>
+<p>
 
 ```
 /dns/bootstrap-calibnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWABQ5gTDHPWyvhJM7jPhtNwNJruzTEo32Lo4gcS5ABAMm
@@ -55,7 +49,13 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 /dns/bootstrap-archive-calibnet-0.chainsafe-fil.io/tcp/1347/p2p/12D3KooWLcRpEfmUq1fC8vfcLnKc1s161C92rUewEze3ALqCd9yJ
 ```
 
-### Mainnet
+</p>
+</details>
+
+<details>
+<summary>Mainnet bootstrap nodes</summary>
+<p>
+
 
 ```
 /dns/bootstrap-mainnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWKKkCZbcigsWTEu1cgNetNbZJqeNtysRtFpq7DTqw3eqH
@@ -64,6 +64,10 @@ ChainSafe also operates an **archival bootstrap node** which maintains a full se
 ```
 
 Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/filecoin](https://probelab.io/bootstrappers/filecoin).
+
+</p>
+</details>
+
 
 ## Latest Filecoin snapshots
 
@@ -80,3 +84,18 @@ Filecoin Archive is a collection of Filecoin snapshots aiming to provide a histo
 ## Storage
 
 The S3-compatible IPFS/Filecoin gateway is available at [storage.chainsafe.io](https://storage.chainsafe.io).
+
+:::tip
+You can check the status of many ChainSafe services at [status.chainsafe.dev](https://status.chainsafe.dev).
+:::
+
+:::info
+Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#connect-with-us).
+
+We are also active on the following channels on the Filecoin Slack. Reach out to us for any questions or issues:
+- `#fil-net-calibration-discuss` for calibnet-related issues.
+- `#fil-forest-help` for Forest-related issues.
+- `#fil-implementers` for general Filecoin implementation questions.
+- `#fil-infra` for Filecoin infrastructure questions.
+:::
+
