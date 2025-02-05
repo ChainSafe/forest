@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
+
 ### Added
 
 - [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
