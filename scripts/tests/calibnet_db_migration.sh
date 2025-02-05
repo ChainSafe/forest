@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-# This script tests the migration(s) from Forest 0.12.0 to the current version.
+# This script tests the migration(s) from Forest 0.19.2 to the current version.
 # As simple as it is, it will detect regressions in the migration process and breaking changes.
 
 source "$(dirname "$0")/harness.sh"
@@ -11,32 +11,28 @@ mkdir -p "${DATA_DIR}"
 
 chmod -R 777 "${DATA_DIR}"
 
-# Run Forest 0.12.0 with mounted db so that we can re-use it later.
-# NOTE: We aren't using '--auto-download-snapshot', because of a bug in
-# forest-0.12.0 that's related to `Content-Disposition` parsing.
-docker run --init --rm --name forest-0.12.0 \
+FOREST_INIT_VERSION="0.19.2"
+
+# Run Forest 0.19.2 with mounted db so that we can re-use it later.
+docker run --init --rm --name forest-${FOREST_INIT_VERSION} \
   --volume "${DATA_DIR}":/home/forest/.local/share/forest \
-  ghcr.io/chainsafe/forest:v0.12.0 \
+  ghcr.io/chainsafe/forest:v${FOREST_INIT_VERSION} \
   --chain calibnet \
   --encrypt-keystore false \
-  --import-snapshot=https://forest-archive.chainsafe.dev/latest/calibnet/ \
+  --auto-download-snapshot \
   --halt-after-import
 
 # Assert the database is looking as expected.
-if [ ! -d "${DATA_DIR}/calibnet/paritydb" ]; then
+if [ ! -d "${DATA_DIR}/calibnet/${FOREST_INIT_VERSION}" ]; then
   echo "Database directory not found"
   exit 1
 fi
 
 # If can't access due to permissions, try changing ownership to the current user.
 # This is needed for GHA which runs under a particular user.
-if [ ! -w "${DATA_DIR}/calibnet/paritydb" ]; then
+if [ ! -w "${DATA_DIR}/calibnet/${FOREST_INIT_VERSION}" ]; then
   sudo chown -R "$(id -u):$(id -g)" "${DATA_DIR}/"
 fi
-
-# Note that for Forest 0.12.0, a seamless migration is not really possible given that there is no notion of versioning.
-# We **know** here that Forest was at 0.12.0 so we manually change the directory name to reflect that. This should not be required in the future.
-mv "${DATA_DIR}/calibnet/paritydb" "${DATA_DIR}/calibnet/0.12.0"
 
 CONFIG_FILE="${TMP_DIR}/config.toml"
 
@@ -60,8 +56,8 @@ export FULLNODE_API_INFO
 forest_wait_for_sync
 forest_check_db_stats
 
-# Assert there is no "0.12.0" directory in the database directory. This and a successful sync indicate that the database was successfully migrated.
-if [ -d "${DATA_DIR}/calibnet/0.12.0" ]; then
+# Assert there is no "0.19.2" directory in the database directory. This and a successful sync indicate that the database was successfully migrated.
+if [ -d "${DATA_DIR}/calibnet/${FOREST_INIT_VERSION}" ]; then
   echo "Database directory not migrated"
   exit 1
 fi
