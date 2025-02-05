@@ -480,8 +480,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::PlainCar;
     use crate::utils::db::{
         car_stream::{CarStream, CarV1Header},
@@ -490,6 +488,7 @@ mod tests {
     use futures::{executor::block_on, TryStreamExt as _};
     use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
     use once_cell::sync::Lazy;
+    use std::io::Cursor;
     use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
     #[test]

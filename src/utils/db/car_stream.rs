@@ -185,6 +185,31 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         }
     }
 
+    /// Extracts CARv2 header from the input, returns the reader and CARv2 header.
+    ///
+    /// Note that position of the input reader has to be reset before calling [`CarStream::new_with_header_v2`].
+    /// Use [`CarStream::extract_header_v2_and_reset_reader_position`] to automatically reset stream position.
+    pub async fn extract_header_v2(
+        mut reader: ReaderT,
+    ) -> io::Result<(ReaderT, Option<CarV2Header>)> {
+        let is_compressed = is_zstd(reader.fill_buf().await?);
+        let mut reader = if is_compressed {
+            let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
+            Either::Right(zstd)
+        } else {
+            Either::Left(reader)
+        };
+        let mut possible_header_bytes = [0; 51];
+        reader.read_exact(&mut possible_header_bytes).await?;
+        let header_v2 = read_v2_header(possible_header_bytes.as_slice())?;
+        let reader = match reader {
+            Either::Left(reader) => reader,
+            Either::Right(zstd) => zstd.into_inner(),
+        };
+        Ok((reader, header_v2))
+    }
+
     fn try_decode_header_v2_from_fill_buf(fill_buf: &[u8]) -> io::Result<Option<CarV2Header>> {
         let is_compressed = is_zstd(fill_buf);
         let fill_buf_reader = if is_compressed {
@@ -199,32 +224,16 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
 impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
     /// Create a stream with automatic CARv2 header extraction.
     pub async fn new(reader: ReaderT) -> io::Result<Self> {
-        let (reader, header_v2) = Self::extract_header_v2(reader).await?;
+        let (reader, header_v2) = Self::extract_header_v2_and_reset_reader_position(reader).await?;
         Self::new_with_header_v2(reader, header_v2).await
     }
 
-    /// Extracts CARv2 header from the input, returns the reader and CARv2 header.
-    ///
-    /// Note that position of the input reader does not need to be reset again before calling [`CarStream::new_with_header_v2`],
-    pub async fn extract_header_v2(
+    /// Extracts CARv2 header from the input, resets the reader position and returns the reader and CARv2 header.
+    pub async fn extract_header_v2_and_reset_reader_position(
         mut reader: ReaderT,
     ) -> io::Result<(ReaderT, Option<CarV2Header>)> {
         let stream_position = reader.stream_position().await?;
-        let is_compressed = is_zstd(reader.fill_buf().await?);
-        let mut reader = if is_compressed {
-            let mut zstd = ZstdDecoder::new(reader);
-            zstd.multiple_members(true);
-            Either::Right(zstd)
-        } else {
-            Either::Left(reader)
-        };
-        let mut possible_header_bytes = [0; 51];
-        reader.read_exact(&mut possible_header_bytes).await?;
-        let header_v2 = read_v2_header(possible_header_bytes.as_slice())?;
-        let mut reader = match reader {
-            Either::Left(reader) => reader,
-            Either::Right(zstd) => zstd.into_inner(),
-        };
+        let (mut reader, header_v2) = Self::extract_header_v2(reader).await?;
         reader.seek(SeekFrom::Start(stream_position)).await?;
         Ok((reader, header_v2))
     }
