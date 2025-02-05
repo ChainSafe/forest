@@ -7,7 +7,12 @@ chain's archive state without syncing, and various testing scenarios.
 ## Usage
 
 ```bash
-❯ forest-tool api serve --help
+forest-tool api serve --help
+```
+
+Sample output (may vary depending on the version):
+
+```console
 Usage: forest-tool api serve [OPTIONS] [SNAPSHOT_FILES]...
 
 Arguments:
@@ -40,7 +45,12 @@ default port and act as a calibnet node _stuck_ at the snapshot's
 height: 1859736.
 
 ```bash
-❯ forest-tool api serve --chain calibnet ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
+forest-tool api serve --chain calibnet ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
+```
+
+Sample output:
+
+```console
 2024-08-12T12:29:16.624698Z  INFO forest::tool::offline_server::server: Configuring Offline RPC Server
 2024-08-12T12:29:16.640402Z  INFO forest::tool::offline_server::server: Using chain config for calibnet
 2024-08-12T12:29:16.641654Z  INFO forest::genesis: Initialized genesis: bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4
@@ -53,9 +63,14 @@ height: 1859736.
 The server can then be queried using `forest-cli` or raw requests.
 
 ```bash
-❯ curl --silent -X POST -H "Content-Type: application/json" \
+curl --silent -X POST -H "Content-Type: application/json" \
              --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
              "http://127.0.0.1:2345/rpc/v0" | jq
+```
+
+Sample output:
+
+```json
 {
   "jsonrpc": "2.0",
   "id": 2,
@@ -88,9 +103,14 @@ forest-tool api serve --chain localnet-55c7758d-c91a-41eb-94a2-718cb4601bc5 --ge
 The server can be later queried:
 
 ```bash
-❯ curl --silent -X POST -H "Content-Type: application/json" \
+curl --silent -X POST -H "Content-Type: application/json" \
              --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.StateGetNetworkParams","param":"null"}' \
              "http://127.0.0.1:2345/rpc/v0" | jq
+```
+
+Sample output:
+
+```json
 {
   "jsonrpc": "2.0",
   "id": 2,
