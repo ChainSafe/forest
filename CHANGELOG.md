@@ -43,6 +43,8 @@
 
 - [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
 
+- [#5232](https://github.com/ChainSafe/forest/issues/5232) Support `CARv2` stream decoding.
+
 ### Changed
 
 ### Removed
