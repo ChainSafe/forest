@@ -22,7 +22,7 @@ impl RpcMethod<1> for GetActorEventsRaw {
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
     async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+        Ok(vec![])
     }
 }
 
@@ -47,7 +47,7 @@ pub struct ActorEventBlock {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActorEvent {
     pub entries: Vec<EventEntry>,

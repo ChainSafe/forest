@@ -864,6 +864,12 @@ fn state_tests() -> Vec<RpcTest> {
     vec![]
 }
 
+fn event_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
+    vec![RpcTest::identity(
+        GetActorEventsRaw::request((None,)).unwrap(),
+    )]
+}
+
 fn miner_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     tipset: &Tipset,
@@ -1831,6 +1837,7 @@ fn snapshot_tests(
         tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&store, &tipset));
+        tests.extend(event_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
