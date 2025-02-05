@@ -17,7 +17,7 @@ The security model of JWTs in Forest is inspired and compatible with [Lotus](htt
 During its initialization, the node generates a JWT private key. Then, the `admin` token is generated and printed at startup. Alternatively, use `--save-token <PATH>` to save the token to a file. This token grants full access to the node and its available methods. More fine-grained access can be granted by creating additional tokens, which will be explained later in this document.
 
 :::info
-The token is only printed once at startup. If you lose it, you can generate a new one by restarting the node. :::
+The token is only printed once at startup. If you lose it, you can generate a new one by restarting the node.
 :::
 
 :::info
@@ -28,8 +28,13 @@ Technically, tokens have an expiration date, the default is 100 years, so there'
 **Keep your tokens safe!** Anyone with access to the admin token can control your node if the RPC API is exposed to the internet. The private key is stored in an optionally encrypted file in the node's data directory. The default location on Linux is `$HOME/.local/share/forest/keystore` or `$HOME/.local/share/forest/keystore.json` if encryption is disabled.
 :::
 
-```bash
-❯ forest --chain calibnet --encrypt-keystore=false
+```shell
+forest --chain calibnet --encrypt-keystore=false
+```
+
+Sample output:
+
+```console
 2024-08-21T11:26:37.608429Z  INFO forest::daemon::main: Using default calibnet config
 2024-08-21T11:26:37.611063Z  INFO forest::daemon: Starting Forest daemon, version 0.19.2+git.76266421b1e
 2024-08-21T11:26:37.611140Z  WARN forest::daemon: Forest has encryption disabled
@@ -40,9 +45,13 @@ Technically, tokens have an expiration date, the default is 100 years, so there'
 
 Alternative, with `--save-token <PATH>`:
 
-```bash
-❯ forest --chain calibnet --encrypt-keystore=false --save-token /tmp/token --exit-after-init 2>&1 > /dev/null && cat /tmp/token
+```shell
+forest --chain calibnet --encrypt-keystore=false --save-token /tmp/token --exit-after-init 2>&1 > /dev/null && cat /tmp/token
+```
 
+Sample output:
+
+```console
 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjo0ODc3ODM5NzM5fQ.Ra0u-js9GA0d7hHtJZ-7U4MGOMol5gkMveVeIQtgggw
 ```
 
@@ -60,9 +69,10 @@ The most straightforward way to use tokens is to pass them to the `forest-cli` t
 forest-cli --token $(cat /tmp/token) shutdown
 ```
 
+Format: `FULLNODE_API_INFO="<TOKEN>:/ip4/<host>/tcp/<port>/http`
+
 ```bash
-# FULLNODE_API_INFO="<TOKEN>:/ip4/<host>/tcp/<port>/http
-❯ FULLNODE_API_INFO="$(cat /tmp/token):/ip4/127.0.0.1/tcp/2345/http" forest-cli shutdown
+FULLNODE_API_INFO="$(cat /tmp/token):/ip4/127.0.0.1/tcp/2345/http" forest-cli shutdown
 ```
 
 ### via HTTP headers
@@ -70,7 +80,7 @@ forest-cli --token $(cat /tmp/token) shutdown
 The token can be passed as a bearer token in the `Authorization` header when using the raw JSON-RPC API. Note the `Bearer` prefix, optional in Forest but required in Lotus.
 
 ```bash
-❯ curl --silent -X POST  \
+curl --silent -X POST  \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $(cat /tmp/token)" \
     --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.Shutdown","param":"null"}' \
@@ -92,7 +102,12 @@ The admin token grants full access to the node. All exposed methods can be calle
 The tool for creating new tokens is `forest-cli auth create-token`. The `--perm` flag specifies the new token's permissions. They can be `admin`, `read`, `write`, or `sign`.
 
 ```bash
-❯ forest-cli --token $(cat /tmp/token) auth create-token --perm admin
+forest-cli --token $(cat /tmp/token) auth create-token --perm admin
+```
+
+Sample output:
+
+```console
 eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNzI5NTAzOTUzfQ.iRrbKNsujJsi89JauFPmFXM5DhgFc4hurtoncxN4pl8
 ```
 
