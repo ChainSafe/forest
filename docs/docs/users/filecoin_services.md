@@ -42,10 +42,28 @@ Questions? Issues? Feedback? [Connect with the Forest team](./introduction.md#co
 
 ## Bootstrap nodes
 
-Bootstrap nodes are essential for new peers joining the network. They provide a list of known peers to connect to, allowing the new peer to join the network quickly. ChainSafe provides several bootstrap nodes (both Forest and Lotus-based) for the Filecoin network (the `chainsafe.io` domain):
+Bootstrap nodes are essential for new peers joining the network. They provide a list of known peers to connect to, allowing the new peer to join the network quickly. ChainSafe provides the several bootstrap nodes (both Forest and Lotus-based) on Filecoin networks.
 
-- [calibnet](https://github.com/ChainSafe/forest/blob/main/build/bootstrap/calibnet)
-- [mainnet](https://github.com/ChainSafe/forest/blob/main/build/bootstrap/mainnet)
+ChainSafe also operates an **archival bootstrap node** which maintains a full set of historical state to serve to the network. This is currently available for calibnet only.
+
+### Calibnet
+
+```
+/dns/bootstrap-calibnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWABQ5gTDHPWyvhJM7jPhtNwNJruzTEo32Lo4gcS5ABAMm
+/dns/bootstrap-calibnet-1.chainsafe-fil.io/tcp/34000/p2p/12D3KooWS3ZRhMYL67b4bD5XQ6fcpTyVQXnDe8H89LvwrDqaSbiT
+/dns/bootstrap-calibnet-2.chainsafe-fil.io/tcp/34000/p2p/12D3KooWEiBN8jBX8EBoM3M47pVRLRWV812gDRUJhMxgyVkUoR48
+/dns/bootstrap-archive-calibnet-0.chainsafe-fil.io/tcp/1347/p2p/12D3KooWLcRpEfmUq1fC8vfcLnKc1s161C92rUewEze3ALqCd9yJ
+```
+
+### Mainnet
+
+```
+/dns/bootstrap-mainnet-0.chainsafe-fil.io/tcp/34000/p2p/12D3KooWKKkCZbcigsWTEu1cgNetNbZJqeNtysRtFpq7DTqw3eqH
+/dns/bootstrap-mainnet-1.chainsafe-fil.io/tcp/34000/p2p/12D3KooWGnkd9GQKo3apkShQDaq1d6cKJJmsVe6KiQkacUk1T8oZ
+/dns/bootstrap-mainnet-2.chainsafe-fil.io/tcp/34000/p2p/12D3KooWHQRSDFv4FvAjtU32shQ7znz7oRbLBryXzZ9NMK2feyyH
+```
+
+Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/filecoin](https://probelab.io/bootstrappers/filecoin).
 
 ## Latest Filecoin snapshots
 
