@@ -745,7 +745,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 )?;
                 Ok(ts)
             }
-            _ => bail!(format!("unknown predefined block")),
+            _ => bail!(format!("invalid block param")),
         },
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
