@@ -54,7 +54,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() {
 #[test]
 fn should_create_jwt_admin_token() {
     let (config_file, data_dir) = create_tmp_config();
-    let token_path = data_dir.path().join("admin-token");
+    let token_path = data_dir.path().join("non-exsiting-dir").join("admin-token");
     daemon()
         .common_args()
         .arg("--config")
