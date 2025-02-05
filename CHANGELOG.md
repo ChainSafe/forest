@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
+
 ### Added
 
 - [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
@@ -40,6 +42,8 @@
   Add an `[events]` section to Forest configuration file.
 
 - [#4954](https://github.com/ChainSafe/forest/issues/4954) Add `--format json` to `forest-cli chain head` command.
+
+- [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
 
 ### Changed
 
@@ -59,6 +63,8 @@
 
 - [#4996](https://github.com/ChainSafe/forest/issues/4996) Fix incorrect logs and logs bloom for the `Filecoin.EthGetTransactionReceipt` and
   `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
+
+- [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
 
 ## Forest v.0.23.3 "Plumber"
 

@@ -61,17 +61,15 @@
 //! - A wrapper that abstracts over car formats for reading.
 
 use crate::cid_collections::{hash_map::Entry as CidHashMapEntry, CidHashMap};
+use crate::db::PersistentStore;
+use crate::utils::db::car_stream::{CarV1Header, CarV2Header};
 use crate::{
     blocks::{Tipset, TipsetKey},
     utils::encoding::from_slice_with_fallback,
 };
-
-use crate::utils::db::car_stream::CarHeader;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use integer_encoding::VarIntReader;
-
-use crate::db::PersistentStore;
+use integer_encoding::{FixedIntReader, VarIntReader};
 use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
@@ -80,7 +78,7 @@ use std::{
     any::Any,
     io::{
         self, BufReader,
-        ErrorKind::{InvalidData, UnexpectedEof, Unsupported},
+        ErrorKind::{InvalidData, Unsupported},
         Read, Seek, SeekFrom,
     },
     iter,
@@ -114,7 +112,9 @@ pub struct PlainCar<ReaderT> {
     reader: ReaderT,
     write_cache: RwLock<CidHashMap<Vec<u8>>>,
     index: RwLock<CidHashMap<UncompressedBlockDataLocation>>,
-    roots: NonEmpty<Cid>,
+    version: u64,
+    header_v1: CarV1Header,
+    header_v2: Option<CarV2Header>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
@@ -125,16 +125,33 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(reader: ReaderT) -> io::Result<Self> {
         let mut cursor = positioned_io::Cursor::new(&reader);
-        let roots = get_roots_from_v1_header(&mut cursor)?;
+        let position = cursor.position();
+        let header_v2 = read_v2_header(&mut cursor)?;
+        let (limit_position, version) = if let Some(header_v2) = &header_v2 {
+            cursor.set_position(position.saturating_add(header_v2.data_offset as u64));
+            (
+                Some(
+                    cursor
+                        .stream_position()?
+                        .saturating_add(header_v2.data_size as u64),
+                ),
+                2,
+            )
+        } else {
+            cursor.set_position(position);
+            (None, 1)
+        };
 
+        let header_v1 = read_v1_header(&mut cursor)?;
         // When indexing, we perform small reads of the length and CID before seeking
         // Buffering these gives us a ~50% speedup (n=10): https://github.com/ChainSafe/forest/pull/3085#discussion_r1246897333
         let mut buf_reader = BufReader::with_capacity(1024, cursor);
 
         // now create the index
-        let index =
-            iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<CidHashMap<_>, _>>()?;
+        let index = iter::from_fn(|| {
+            read_block_data_location_and_skip(&mut buf_reader, limit_position).transpose()
+        })
+        .collect::<Result<CidHashMap<_>, _>>()?;
 
         match index.len() {
             0 => Err(io::Error::new(
@@ -145,16 +162,22 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
                     reader,
-                    index: RwLock::new(index),
-                    roots,
                     write_cache: RwLock::new(CidHashMap::new()),
+                    index: RwLock::new(index),
+                    version,
+                    header_v1,
+                    header_v2,
                 })
             }
         }
     }
 
     pub fn roots(&self) -> &NonEmpty<Cid> {
-        &self.roots
+        &self.header_v1.roots
+    }
+
+    pub fn version(&self) -> u64 {
+        self.version
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -172,7 +195,9 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             reader: Box::new(self.reader),
             write_cache: self.write_cache,
             index: self.index,
-            roots: self.roots,
+            version: self.version,
+            header_v1: self.header_v1,
+            header_v2: self.header_v2,
         }
     }
 }
@@ -292,16 +317,6 @@ fn handle_write_cache(
     }
 }
 
-fn get_roots_from_v1_header(reader: impl Read) -> io::Result<NonEmpty<Cid>> {
-    match read_header(reader)? {
-        CarHeader { roots, version: 1 } => Ok(roots),
-        other_version => Err(io::Error::new(
-            Unsupported,
-            format!("unsupported CARv1 version {}", other_version.version),
-        )),
-    }
-}
-
 fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
     match cid_error {
         cid::Error::Io(io_error) => io_error,
@@ -309,19 +324,59 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
     }
 }
 
+/// <https://ipld.io/specs/transport/car/carv2/#header>
 /// ```text
-/// start ►│          reader end ►│
-///        ├───────────┬──────────┤
-///        │body length│car header│
-///        └───────────┴──────────┘
+/// start ►│    reader end ►│
+///        ├──────┬─────────┤
+///        │pragma│v2 header│
+///        └──────┴─────────┘
+/// ```
+pub fn read_v2_header(mut reader: impl Read) -> io::Result<Option<CarV2Header>> {
+    /// <https://ipld.io/specs/transport/car/carv2/#pragma>
+    const CAR_V2_PRAGMA: [u8; 10] = [0xa1, 0x67, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x02];
+
+    let len = reader.read_fixedint::<u8>()? as usize;
+    if len == CAR_V2_PRAGMA.len() {
+        let mut buffer = vec![0; len];
+        reader.read_exact(&mut buffer)?;
+        if buffer[..] == CAR_V2_PRAGMA {
+            let mut characteristics = [0; 16];
+            reader.read_exact(&mut characteristics)?;
+            let data_offset: i64 = reader.read_fixedint()?;
+            let data_size: i64 = reader.read_fixedint()?;
+            let index_offset: i64 = reader.read_fixedint()?;
+            return Ok(Some(CarV2Header {
+                characteristics,
+                data_offset,
+                data_size,
+                index_offset,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// ```text
+/// start ►│         reader end ►│
+///        ├───────────┬─────────┤
+///        │body length│v1 header│
+///        └───────────┴─────────┘
 /// ```
 #[tracing::instrument(level = "trace", skip_all, ret)]
-fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
-    let header_len = read_varint_body_length_or_eof(&mut reader)?
-        .ok_or_else(|| io::Error::from(UnexpectedEof))?;
-    let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
+fn read_v1_header(mut reader: impl Read) -> io::Result<CarV1Header> {
+    let header_len = reader.read_varint()?;
+    let mut buffer = vec![0; header_len];
     reader.read_exact(&mut buffer)?;
-    from_slice_with_fallback(&buffer).map_err(|e| io::Error::new(InvalidData, e))
+    let header: CarV1Header =
+        from_slice_with_fallback(&buffer).map_err(|e| io::Error::new(InvalidData, e))?;
+    if header.version == 1 {
+        Ok(header)
+    } else {
+        Err(io::Error::new(
+            Unsupported,
+            format!("unsupported CAR version {}", header.version),
+        ))
+    }
 }
 
 /// Returns ([`Cid`], the `block data offset` and `block data length`)
@@ -342,7 +397,13 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_data_location_and_skip(
     mut reader: (impl Read + Seek),
+    limit_position: Option<u64>,
 ) -> io::Result<Option<(Cid, UncompressedBlockDataLocation)>> {
+    if let Some(limit_position) = limit_position {
+        if reader.stream_position()? >= limit_position {
+            return Ok(None);
+        }
+    }
     let Some(body_length) = read_varint_body_length_or_eof(&mut reader)? else {
         return Ok(None);
     };
@@ -423,22 +484,42 @@ mod tests {
     use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
+    use once_cell::sync::Lazy;
     use tokio::io::AsyncBufRead;
 
     #[test]
-    fn test_uncompressed() {
+    fn test_uncompressed_v1() {
         let car = chain4_car();
-        let reference = reference(car);
         let car_backed = PlainCar::new(car).unwrap();
 
-        assert_eq!(car_backed.cids().len(), 1222);
+        assert_eq!(car_backed.version(), 1);
         assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.cids().len(), 1222);
 
+        let reference = reference(car);
         for cid in car_backed.cids() {
             let expected = reference.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
         }
+    }
+
+    #[test]
+    fn test_uncompressed_v2() {
+        let car = carv2_car();
+        let car_backed = PlainCar::new(car).unwrap();
+
+        assert_eq!(car_backed.version(), 2);
+        assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.cids().len(), 7153);
+
+        // Uncomment below lines once CarStream supports CARv2
+        // let reference = reference(car);
+        // for cid in car_backed.cids() {
+        //     let expected = reference.get(&cid).unwrap().unwrap();
+        //     let actual = car_backed.get(&cid).unwrap().unwrap();
+        //     assert_eq!(expected, actual);
+        // }
     }
 
     fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
@@ -449,5 +530,14 @@ mod tests {
 
     fn chain4_car() -> &'static [u8] {
         include_bytes!("../../../test-snapshots/chain4.car")
+    }
+
+    fn carv2_car_zst() -> &'static [u8] {
+        include_bytes!("../../../test-snapshots/carv2.car.zst")
+    }
+
+    fn carv2_car() -> &'static [u8] {
+        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(carv2_car_zst()).unwrap());
+        CAR.as_slice()
     }
 }

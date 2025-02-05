@@ -7,8 +7,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::db::migration::v0_16_0::Migration0_15_2_0_16_0;
-use crate::db::migration::v0_19_0::Migration0_18_0_0_19_0;
 use crate::db::migration::v0_22_1::Migration0_22_0_0_22_1;
 use crate::Config;
 use anyhow::bail;
@@ -19,7 +17,6 @@ use once_cell::sync::Lazy;
 use semver::Version;
 use tracing::{debug, info};
 
-use super::v0_12_1::Migration0_12_1_0_13_0;
 use super::void_migration::MigrationVoid;
 
 /// Migration trait. It is expected that the [`MigrationOperation::migrate`] method will pick up the relevant database
@@ -78,9 +75,6 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 }}
 
 create_migrations!(
-    "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
-    "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
-    "0.18.0" -> "0.19.0" @ Migration0_18_0_0_19_0,
     "0.22.0" -> "0.22.1" @ Migration0_22_0_0_22_1,
 );
 
