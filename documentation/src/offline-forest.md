@@ -9,7 +9,9 @@ chain's archive state without syncing, and various testing scenarios.
 ```bash
 forest-tool api serve --help
 ```
+
 Sample output (may vary depending on the version):
+
 ```console
 Usage: forest-tool api serve [OPTIONS] [SNAPSHOT_FILES]...
 
@@ -45,7 +47,9 @@ height: 1859736.
 ```bash
 forest-tool api serve --chain calibnet ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
 ```
+
 Sample output:
+
 ```console
 2024-08-12T12:29:16.624698Z  INFO forest::tool::offline_server::server: Configuring Offline RPC Server
 2024-08-12T12:29:16.640402Z  INFO forest::tool::offline_server::server: Using chain config for calibnet
@@ -63,7 +67,9 @@ curl --silent -X POST -H "Content-Type: application/json" \
              --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
              "http://127.0.0.1:2345/rpc/v0" | jq
 ```
+
 Sample output:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -101,7 +107,9 @@ curl --silent -X POST -H "Content-Type: application/json" \
              --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.StateGetNetworkParams","param":"null"}' \
              "http://127.0.0.1:2345/rpc/v0" | jq
 ```
+
 Sample output:
+
 ```json
 {
   "jsonrpc": "2.0",
