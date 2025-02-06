@@ -186,9 +186,10 @@ pub async fn import_chain_as_forest_car(
 
     let ts = ForestCar::try_from(forest_car_db_path.as_path())?.heaviest_tipset()?;
     info!(
-        "Imported snapshot in: {}s, heaviest tipset epoch: {}",
+        "Imported snapshot in: {}s, heaviest tipset epoch: {}, key: {}",
         stopwatch.elapsed().as_secs(),
-        ts.epoch()
+        ts.epoch(),
+        ts.key()
     );
 
     Ok((forest_car_db_path, ts))
