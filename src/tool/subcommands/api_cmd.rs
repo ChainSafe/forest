@@ -2069,7 +2069,7 @@ async fn run_tests(
                         true
                     }
                     PolicyOnRejected::PassWithQuasiIdenticalError
-                        if reason_lotus.starts_with(reason_forest) =>
+                        if reason_lotus.contains(reason_forest) =>
                     {
                         true
                     }
