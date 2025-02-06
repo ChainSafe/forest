@@ -140,7 +140,7 @@ impl Signature {
         match self.sig_type {
             SignatureType::Bls => verify_bls_sig(&self.bytes, data, addr),
             SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
-            SignatureType::Delegated => Ok(()),
+            SignatureType::Delegated => verify_delegated_sig(&self.bytes, data, addr),
         }
     }
 
@@ -207,6 +207,53 @@ pub fn verify_bls_sig(
     addr: &crate::shim::address::Address,
 ) -> Result<(), String> {
     fvm_shared_latest::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
+}
+
+/// Returns `String` error if a delegated signature is invalid.
+/// TODO(fvm_shared): add verify delegated signature to [`fvm_shared_latest::crypto::signature::ops`]
+pub fn verify_delegated_sig(
+    signature: &[u8],
+    data: &[u8],
+    addr: &crate::shim::address::Address,
+) -> Result<(), String> {
+    use super::fvm_shared_latest::{
+        address::Protocol::Delegated,
+        crypto::signature::{ops::recover_secp_public_key, SECP_SIG_LEN},
+    };
+    use crate::rpc::eth::types::EthAddress;
+    use crate::utils::encoding::keccak_256;
+
+    if addr.protocol() != Delegated {
+        return Err(format!(
+            "cannot validate a delegated signature against a {} address expected",
+            addr.protocol(),
+        ));
+    }
+
+    if signature.len() != SECP_SIG_LEN {
+        return Err(format!(
+            "invalid delegated signature length. Was {}, must be {}",
+            signature.len(),
+            SECP_SIG_LEN
+        ));
+    }
+
+    let hash = keccak_256(data);
+    let mut sig = [0u8; SECP_SIG_LEN];
+    sig[..].copy_from_slice(signature);
+    let pub_key = recover_secp_public_key(&hash, &sig).map_err(|e| e.to_string())?;
+
+    let eth_addr =
+        EthAddress::eth_address_from_pub_key(&pub_key.serialize()).map_err(|e| e.to_string())?;
+
+    let rec_addr = eth_addr.to_filecoin_address().map_err(|e| e.to_string())?;
+
+    // check address against recovered address
+    if rec_addr == *addr {
+        Ok(())
+    } else {
+        Err("Delegated signature verification failed".to_owned())
+    }
 }
 
 /// Extracts the raw replica commitment from a CID
