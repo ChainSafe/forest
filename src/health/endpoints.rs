@@ -18,6 +18,7 @@ const VERBOSE_PARAM: &str = "verbose";
 /// In our case, we require:
 /// - The node is not in an error state (i.e., boot-looping)
 /// - At least 1 peer is connected (without peers, the node is isolated and cannot sync)
+/// - The RPC server is running if not disabled
 ///
 /// If any of these conditions are not met, the node is **not** healthy. If this happens for a prolonged period of time, the application should be restarted.
 pub(crate) async fn livez(
@@ -29,6 +30,7 @@ pub(crate) async fn livez(
     let mut lively = true;
     lively &= check_sync_state_not_error(&state, &mut acc);
     lively &= check_peers_connected(&state, &mut acc);
+    lively &= check_rpc_server_running(&state, &mut acc).await;
 
     if lively {
         Ok(acc.result_ok())
@@ -42,7 +44,7 @@ pub(crate) async fn livez(
 /// In our case, we require:
 /// - The node is in sync with the network
 /// - The current epoch of the node is not too far behind the network
-/// - The RPC server is running
+/// - The RPC server is running if not disabled
 /// - The Ethereum mapping is up to date
 /// - The F3 side car is running if enabled
 ///

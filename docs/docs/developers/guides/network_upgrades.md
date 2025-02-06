@@ -92,7 +92,7 @@ The steps required to update the Builtin Actors in Forest are as follows:
 3. Cut a new release of the `fil-actor-states`.
 4. Update the `fil-actor-states` dependency in Forest.
 5. Update the CIDs in the [bundle module](https://github.com/ChainSafe/forest/blob/main/src/networks/actors_bundle.rs) to include bundles for any networks that you want to support.
-6. Update the manifest with `❯ forest-tool state-migration generate-actors-metadata > build/manifest.json`. This will add necessary entries to the manifest.
+6. Update the manifest with `forest-tool state-migration generate-actors-metadata > build/manifest.json`. This will add necessary entries to the manifest.
 
 Note that if there were no Rust interface changes, e.g., a re-tag, steps 1-4 can be skipped.
 

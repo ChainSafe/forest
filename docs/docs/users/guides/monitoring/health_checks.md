@@ -30,10 +30,13 @@ we require:
 If any of these conditions are not met, the node is **not** healthy. If this
 happens for a prolonged period of time, the application should be restarted.
 
+```bash
+curl "http://127.0.0.1:2346/livez?verbose"
+```
+
 Sample _lively_ response:
 
-```
-❯ curl "http://127.0.0.1:2346/livez?verbose"
+```console
 [+] sync ok
 [+] peers connected⏎
 ```
@@ -41,7 +44,6 @@ Sample _lively_ response:
 Sample _not lively_ response:
 
 ```
-❯ curl "http://127.0.0.1:2346/livez?verbose"
 [+] sync ok
 [!] no peers connected
 ```
@@ -63,24 +65,28 @@ accept traffic. In our case, we require:
 If any of these conditions are not met, the node is **not** ready to serve
 requests.
 
+```bash
+curl "127.0.0.1:2346/readyz?verbose"
+```
+
 Sample _ready_ response:
 
-```
-❯ curl "http://127.0.0.1:2346/readyz?verbose"
+```console
 [+] sync complete
 [+] epoch up to date
 [+] rpc server running
-[+] eth mapping up to date⏎
+[+] eth mapping up to date
+[+] f3 running⏎
 ```
 
 Sample _not ready_ response:
 
-```
-❯ curl "http://127.0.0.1:2346/readyz?verbose"
+```console
 [!] sync incomplete
 [!] epoch outdated
 [+] rpc server running
-[!] no eth mapping⏎
+[+] eth mapping up to date
+[+] f3 running⏎
 ```
 
   </TabItem>  
@@ -92,26 +98,28 @@ This endpoint is a combination of the `/livez` and `/readyz` endpoints, except
 that the node doesn't have to be fully synced. Deprecated in the Kubernetes
 world, but still used in some setups.
 
+```bash
+curl "http://127.0.0.1:2346/healthz?verbose"
+```
+
 Sample _healthy_ response:
 
-```
-❯ curl "http://127.0.0.1:2346/healthz?verbose"
-[+] sync complete
+```console
 [+] epoch up to date
 [+] rpc server running
 [+] sync ok
-[+] peers connected⏎
+[+] peers connected
+[+] f3 running⏎
 ```
 
 Sample _unhealthy_ response:
 
 ```
-❯ curl "http://127.0.0.1:2346/healthz?verbose"
-[!] sync incomplete
 [!] epoch outdated
 [+] rpc server running
 [+] sync ok
-[!] no peers connected⏎
+[+] peers connected
+[+] f3 running⏎
 ```
 
   </TabItem>
