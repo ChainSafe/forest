@@ -1594,6 +1594,14 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::identity(
             EthGetTransactionCount::request((
                 EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Earliest),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionCount::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
                 BlockNumberOrHash::from_predefined(Predefined::Pending),
             ))
             .unwrap(),
@@ -1605,6 +1613,22 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
+        RpcTest::identity(
+            EthGetTransactionCount::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_ext_predefined(ExtPredefined::Safe),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(
+            EthGetTransactionCount::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_ext_predefined(ExtPredefined::Finalized),
+            ))
+            .unwrap(),
+        )
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
