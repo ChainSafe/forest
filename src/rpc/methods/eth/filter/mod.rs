@@ -507,7 +507,7 @@ impl EthEventHandler {
         let mut collected_events = vec![];
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
-                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+                let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
                 let tipset = Arc::new(tipset);
                 Self::fil_collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
             }
@@ -602,7 +602,7 @@ impl Matcher for EthFilterSpec {
             value.get(..EVM_WORD_LENGTH)?.try_into().ok()
         }
 
-        let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
+        let eth_emitter_addr = EthAddress::from_filecoin_address(resolved)?;
 
         let match_addr = if self.address.is_empty() {
             true

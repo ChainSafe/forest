@@ -865,7 +865,7 @@ fn state_tests() -> Vec<RpcTest> {
     vec![]
 }
 
-fn event_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
+fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
     let epoch = tipset.epoch();
     vec![
         RpcTest::identity(GetActorEventsRaw::request((None,)).unwrap()),
