@@ -2,7 +2,7 @@ name: Butterflynet checks
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: "${{ github.ref != 'refs/heads/main' }}"
-"on":
+on:
   workflow_dispatch:
 env:
   CI: 1
