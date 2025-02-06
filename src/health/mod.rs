@@ -154,6 +154,7 @@ mod test {
     #[tokio::test]
     async fn test_check_livez() {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+        let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
         let sync_state = Arc::new(RwLock::new(SyncState::default()));
         let peer_manager = Arc::new(PeerManager::default());
@@ -162,6 +163,7 @@ mod test {
             config: Config {
                 client: Client {
                     healthcheck_address,
+                    rpc_address: rpc_listener.local_addr().unwrap(),
                     ..Default::default()
                 },
                 ..Default::default()
