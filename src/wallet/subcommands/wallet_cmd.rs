@@ -200,7 +200,7 @@ impl WalletBackend {
 pub enum WalletCommands {
     /// Create a new wallet
     New {
-        /// The signature type to use. One of secp256k1, bls or delegated
+        /// The signature type to use. One of `secp256k1`, `bls` or `delegated`
         #[arg(default_value = "secp256k1")]
         signature_type: SignatureType,
     },
