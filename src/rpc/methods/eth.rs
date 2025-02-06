@@ -234,6 +234,11 @@ pub enum Predefined {
     Pending,
     #[default]
     Latest,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ExtPredefined {
     Safe,
     Finalized,
 }
@@ -264,6 +269,8 @@ pub struct BlockHash {
 pub enum BlockNumberOrHash {
     #[schemars(with = "String")]
     PredefinedBlock(Predefined),
+    #[schemars(with = "String")]
+    ExtPredefinedBlock(ExtPredefined),
     BlockNumber(EthInt64),
     BlockHash(EthHash),
     BlockNumberObject(BlockNumber),
@@ -275,6 +282,10 @@ lotus_json_with_self!(BlockNumberOrHash);
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
         Self::PredefinedBlock(predefined)
+    }
+
+    pub fn from_ext_predefined(ext_predefined: ExtPredefined) -> Self {
+        Self::ExtPredefinedBlock(ext_predefined)
     }
 
     pub fn from_block_number(number: i64) -> Self {
@@ -718,35 +729,39 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     let head = chain.heaviest_tipset();
 
     match block_param {
-        BlockNumberOrHash::PredefinedBlock(predefined) => match (predefined, predefined_set) {
-            (Predefined::Earliest, _) => bail!("block param \"earliest\" is not supported"),
-            (Predefined::Pending, _) => Ok(head),
-            (Predefined::Latest, _) => {
+        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
+            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
+            Predefined::Pending => Ok(head),
+            Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
                 Ok(parent)
             }
-            (Predefined::Safe, PredefinedSet::Full) => {
-                let latest_height = head.epoch() - 1;
-                let safe_height = latest_height - SAFE_EPOCH_DELAY;
-                let ts = chain.chain_index.tipset_by_height(
-                    safe_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-            (Predefined::Finalized, PredefinedSet::Full) => {
-                let latest_height = head.epoch() - 1;
-                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
-                let ts = chain.chain_index.tipset_by_height(
-                    finality_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-            _ => bail!(format!("invalid block param")),
         },
+        BlockNumberOrHash::ExtPredefinedBlock(ext_predefined) => {
+            match (ext_predefined, predefined_set) {
+                (ExtPredefined::Safe, PredefinedSet::Full) => {
+                    let latest_height = head.epoch() - 1;
+                    let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                    let ts = chain.chain_index.tipset_by_height(
+                        safe_height,
+                        head,
+                        ResolveNullTipset::TakeOlder,
+                    )?;
+                    Ok(ts)
+                }
+                (ExtPredefined::Finalized, PredefinedSet::Full) => {
+                    let latest_height = head.epoch() - 1;
+                    let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                    let ts = chain.chain_index.tipset_by_height(
+                        finality_height,
+                        head,
+                        ResolveNullTipset::TakeOlder,
+                    )?;
+                    Ok(ts)
+                }
+                (_, PredefinedSet::Basic) => bail!(format!("invalid block param")),
+            }
+        }
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
             let height = ChainEpoch::from(block_number.0);
