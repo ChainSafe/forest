@@ -2441,14 +2441,14 @@ impl RpcMethod<1> for EthSendRawTransaction {
 
 #[derive(Debug)]
 pub struct CollectedEvent {
-    entries: Vec<EventEntry>,
-    emitter_addr: crate::shim::address::Address,
-    pub event_idx: u64,
-    reverted: bool,
-    height: ChainEpoch,
-    tipset_key: TipsetKey,
+    pub(crate) entries: Vec<EventEntry>,
+    pub(crate) emitter_addr: crate::shim::address::Address,
+    pub(crate) event_idx: u64,
+    pub(crate) reverted: bool,
+    pub(crate) height: ChainEpoch,
+    pub(crate) tipset_key: TipsetKey,
     msg_idx: u64,
-    msg_cid: Cid,
+    pub(crate) msg_cid: Cid,
 }
 
 fn match_key(key: &str) -> Option<usize> {

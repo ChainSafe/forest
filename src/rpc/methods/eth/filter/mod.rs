@@ -412,6 +412,52 @@ impl EthEventHandler {
 
         Ok(collected_events)
     }
+
+    pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
+        &self,
+        ctx: &Ctx<DB>,
+        pf: &ParsedFilter,
+    ) -> anyhow::Result<Vec<CollectedEvent>> {
+        let mut collected_events = vec![];
+        match &pf.tipsets {
+            ParsedFilterTipsets::Hash(block_hash) => {
+                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+                let tipset = Arc::new(tipset);
+                Self::collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
+            }
+            ParsedFilterTipsets::Range(range) => {
+                let max_height = if *range.end() == -1 {
+                    // heaviest tipset doesn't have events because its messages haven't been executed yet
+                    ctx.chain_store().heaviest_tipset().epoch() - 1
+                } else if *range.end() < 0 {
+                    bail!("max_height requested is less than 0")
+                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
+                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                    bail!("max_height requested is greater than the heaviest tipset");
+                } else {
+                    *range.end()
+                };
+
+                let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
+                    max_height,
+                    ctx.chain_store().heaviest_tipset(),
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                for tipset in max_tipset
+                    .as_ref()
+                    .clone()
+                    .chain(&ctx.store())
+                    .take_while(|ts| ts.epoch() >= *range.start())
+                {
+                    let tipset = Arc::new(tipset);
+                    Self::collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
+                }
+            }
+        }
+
+        Ok(collected_events)
+    }
 }
 
 impl EthFilterSpec {
@@ -623,6 +669,39 @@ pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,
     pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
+}
+
+impl Matcher for ParsedFilter {
+    fn matches(
+        &self,
+        resolved: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool> {
+        let match_addr = if self.addresses.is_empty() {
+            true
+        } else {
+            self.addresses.iter().any(|other| *other == *resolved)
+        };
+        // let match_topics = if let Some(spec) = self.topics.as_ref() {
+        //     let matched = entries.iter().enumerate().all(|(i, entry)| {
+        //         if let Some(slice) = get_word(entry.value()) {
+        //             let hash: EthHash = (*slice).into();
+        //             match spec.0.get(i) {
+        //                 Some(EthHashList::List(vec)) => vec.contains(&hash),
+        //                 Some(EthHashList::Single(Some(h))) => h == &hash,
+        //                 _ => true, /* wildcard */
+        //             }
+        //         } else {
+        //             // Drop events with mis-sized topics
+        //             false
+        //         }
+        //     });
+        //     matched
+        // } else {
+        //     true
+        // };
+        Ok(match_addr)
+    }
 }
 
 #[cfg(test)]

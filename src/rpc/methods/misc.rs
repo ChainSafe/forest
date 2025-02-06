@@ -1,19 +1,22 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::filter::{ParsedFilter, ParsedFilterTipsets};
+use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
-use std::{any::Any, collections::BTreeMap};
 
+use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use crate::rpc::eth::filter::{ParsedFilter, ParsedFilterTipsets};
+use crate::rpc::eth::CollectedEvent;
 use crate::{
     blocks::TipsetKey,
     lotus_json::{lotus_json_with_self, LotusJson},
     rpc::{types::EventEntry, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{address::Address, clock::ChainEpoch},
 };
-use cid::Cid;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 pub enum GetActorEventsRaw {}
 impl RpcMethod<1> for GetActorEventsRaw {
@@ -23,7 +26,10 @@ impl RpcMethod<1> for GetActorEventsRaw {
     const PERMISSION: Permission = Permission::Read;
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
-    async fn handle(ctx: Ctx<impl Any>, (filter,): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
         if let Some(filter) = filter {
             let parsed_filter = ParsedFilter {
                 tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(
@@ -33,8 +39,11 @@ impl RpcMethod<1> for GetActorEventsRaw {
                 addresses: filter.addresses.iter().map(|addr| addr.0).collect(),
                 keys: Default::default(),
             };
-
-            todo!()
+            let events = ctx
+                .eth_event_handler
+                .get_events_for_parsed_filter(&ctx, &parsed_filter)
+                .await?;
+            Ok(events.into_iter().map(|ce| ce.into()).collect())
         } else {
             Ok(vec![])
         }
@@ -76,4 +85,17 @@ pub struct ActorEvent {
 lotus_json_with_self! {
     ActorEvent,
     ActorEventFilter
+}
+
+impl From<CollectedEvent> for ActorEvent {
+    fn from(event: CollectedEvent) -> Self {
+        ActorEvent {
+            entries: event.entries,
+            emitter: LotusJson(event.emitter_addr),
+            reverted: event.reverted,
+            height: event.height,
+            tipset_key: LotusJson(event.tipset_key),
+            msg_cid: LotusJson(event.msg_cid),
+        }
+    }
 }
