@@ -365,6 +365,92 @@ impl EthEventHandler {
         Ok(())
     }
 
+    pub async fn fil_collect_events<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        spec: Option<&impl Matcher>,
+        collected_events: &mut Vec<CollectedEvent>,
+    ) -> anyhow::Result<()> {
+        let tipset_key = tipset.key().clone();
+        let height = tipset.epoch();
+
+        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
+
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
+
+        ensure!(
+            messages.len() == events.len(),
+            "Length of messages and events do not match"
+        );
+
+        let mut event_count = 0;
+        for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
+            for event in events.iter() {
+                let id_addr = Address::new_id(event.emitter());
+
+                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+                // dbg!(&entries);
+
+                let matched = if let Some(spec) = spec {
+                    let matched = spec.matches(&id_addr, &entries)?;
+                    tracing::info!(
+                        "Event {} {}match filter topics",
+                        event_count,
+                        if matched { "" } else { "do not " }
+                    );
+                    matched
+                } else {
+                    true
+                };
+                if matched {
+                    let entries: Vec<EventEntry> = entries
+                        .into_iter()
+                        .map(|entry| {
+                            let (flags, key, codec, value) = entry.into_parts();
+                            EventEntry {
+                                flags,
+                                key,
+                                codec,
+                                value: value.into(),
+                            }
+                        })
+                        .collect();
+
+                    let resolved = ctx
+                        .state_manager
+                        .resolve_to_deterministic_address(id_addr, tipset.clone())
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "resolving address {} failed (EPOCH = {})",
+                                id_addr,
+                                tipset.epoch()
+                            )
+                        })
+                        .unwrap_or(id_addr);
+
+                    let ce = CollectedEvent {
+                        entries,
+                        emitter_addr: resolved,
+                        event_idx: event_count,
+                        reverted: false,
+                        height,
+                        tipset_key: tipset_key.clone(),
+                        msg_idx: i as u64,
+                        msg_cid: message.cid(),
+                    };
+                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
+                        bail!("filter matches too many events, try a more restricted filter");
+                    }
+                    collected_events.push(ce);
+                    event_count += 1;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
         &self,
         ctx: &Ctx<DB>,
@@ -423,7 +509,7 @@ impl EthEventHandler {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
                 let tipset = Arc::new(tipset);
-                Self::collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
+                Self::fil_collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
@@ -451,7 +537,7 @@ impl EthEventHandler {
                     .take_while(|ts| ts.epoch() >= *range.start())
                 {
                     let tipset = Arc::new(tipset);
-                    Self::collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
+                    Self::fil_collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
                 }
             }
         }
