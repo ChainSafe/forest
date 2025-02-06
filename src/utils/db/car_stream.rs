@@ -23,12 +23,21 @@ use unsigned_varint::codec::UviBytes;
 use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CarHeader {
+pub struct CarV1Header {
     // The roots array must contain one or more CIDs,
     // each of which should be present somewhere in the remainder of the CAR.
     // See <https://ipld.io/specs/transport/car/carv1/#constraints>
     pub roots: NonEmpty<Cid>,
     pub version: u64,
+}
+
+/// <https://ipld.io/specs/transport/car/carv2/#header>
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CarV2Header {
+    pub characteristics: [u8; 16],
+    pub data_offset: i64,
+    pub data_size: i64,
+    pub index_offset: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -86,7 +95,7 @@ pin_project! {
     pub struct CarStream<ReaderT> {
         #[pin]
         reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
-        pub header: CarHeader,
+        pub header: CarV1Header,
         first_block: Option<CarBlock>,
     }
 }
@@ -108,7 +117,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         } else {
             FramedRead::new(Either::Left(reader), UviBytes::default())
         };
-        let header = read_header(&mut reader)
+        let header = read_v1_header(&mut reader)
             .await
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid header block"))?;
 
@@ -160,7 +169,7 @@ pin_project! {
 
 impl<W: AsyncWrite> CarWriter<W> {
     pub fn new_carv1(roots: NonEmpty<Cid>, writer: W) -> io::Result<Self> {
-        let car_header = CarHeader { roots, version: 1 };
+        let car_header = CarV1Header { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();
         UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
@@ -198,10 +207,11 @@ impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
     }
 }
 
-async fn read_header<ReaderT: AsyncRead + Unpin>(
+async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
     framed_reader: &mut FramedRead<ReaderT, UviBytes>,
-) -> Option<CarHeader> {
-    let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
+) -> Option<CarV1Header> {
+    let frame = framed_reader.next().await?.ok()?;
+    let header = from_slice_with_fallback::<CarV1Header>(&frame).ok()?;
     if header.version != 1 {
         return None;
     }

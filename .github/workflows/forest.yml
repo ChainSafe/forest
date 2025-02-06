@@ -344,26 +344,6 @@ jobs:
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
-  db-migration-checks-car-db:
-    needs:
-      - build-ubuntu
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/cache@v4
-        with:
-          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
-          key: proof-params-keys
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: Database migration checks with car_db folder
-        run: ./scripts/tests/calibnet_db_migration_car_db.sh
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-24.04
@@ -547,7 +527,7 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet snapshot parity checks
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: ubuntu-24.04
     # Run the job only on main to limit the runner cost.
     # The downside is that the offending commit can only be caught after being merged
     # and a manual revert is required.
@@ -585,7 +565,6 @@ jobs:
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
       - db-migration-checks
-      - db-migration-checks-car-db  
       - local-devnet-check
       # - local-devnet-curio-check
       - calibnet-rpc-checks

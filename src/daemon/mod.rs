@@ -20,6 +20,7 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
+use crate::db::SettingsStore;
 use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, CAR_DB_DIR_NAME};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
@@ -144,7 +145,7 @@ const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
-    config: Config,
+    mut config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if opts.detach {
@@ -245,11 +246,76 @@ pub(super) async fn start(
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
-        db.writer().clone(),
+        Arc::new(db.clone()),
         db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
+
+    // Initialize StateManager
+    let state_manager = Arc::new(StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&chain_config),
+        Arc::new(config.sync.clone()),
+    )?);
+
+    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
+
+    info!("Using network :: {}", get_actual_chain_name(&network_name));
+    utils::misc::display_chain_logo(config.chain());
+
+    // Sets proof parameter file download path early, the files will be checked and
+    // downloaded later right after snapshot import step
+    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+    if !opts.exit_after_init {
+        // Sets the latest snapshot if needed for downloading later
+        if config.client.snapshot_path.is_none() && !opts.stateless {
+            set_snapshot_path_if_needed(
+                &mut config,
+                &chain_config,
+                chain_store.heaviest_tipset().epoch(),
+                opts.auto_download_snapshot,
+                &db_root_dir,
+            )
+            .await?;
+        }
+
+        // Import chain if needed
+        if !opts.skip_load.unwrap_or_default() {
+            if let Some(path) = &config.client.snapshot_path {
+                let (car_db_path, _ts) =
+                    import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
+                        .await?;
+                db.read_only_files(std::iter::once(car_db_path.clone()))?;
+                debug!("Loaded car DB at {}", car_db_path.display());
+            }
+        }
+
+        if let Some(validate_from) = config.client.snapshot_height {
+            // We've been provided a snapshot and asked to validate it
+            ensure_params_downloaded().await?;
+            // Use the specified HEAD, otherwise take the current HEAD.
+            let current_height = config
+                .client
+                .snapshot_head
+                .unwrap_or_else(|| state_manager.chain_store().heaviest_tipset().epoch());
+            assert!(current_height.is_positive());
+            match validate_from.is_negative() {
+                // allow --height=-1000 to scroll back from the current head
+                true => state_manager
+                    .validate_range((current_height + validate_from)..=current_height)?,
+                false => state_manager.validate_range(validate_from..=current_height)?,
+            }
+        }
+
+        // Halt
+        if opts.halt_after_import {
+            // Cancel all async services
+            services.shutdown().await;
+            return Ok(());
+        }
+    }
 
     if !opts.no_gc {
         let mut db_garbage_collector = {
@@ -289,19 +355,6 @@ pub(super) async fn start(
 
     let publisher = chain_store.publisher();
 
-    // Initialize StateManager
-    let sm = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&chain_config),
-        Arc::new(config.sync.clone()),
-    )?;
-
-    let state_manager = Arc::new(sm);
-
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
-
-    info!("Using network :: {}", get_actual_chain_name(&network_name));
-    utils::misc::display_chain_logo(config.chain());
     let (tipset_sender, tipset_receiver) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
@@ -322,8 +375,6 @@ pub(super) async fn start(
     if opts.exit_after_init {
         return Ok(());
     }
-
-    let epoch = chain_store.heaviest_tipset().epoch();
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -379,7 +430,7 @@ pub(super) async fn start(
             genesis_timestamp: genesis_header.timestamp,
             sync_state: sync_state.clone(),
             peer_manager,
-            settings_store: chain_store.settings(),
+            settings_store: db.writer().clone(),
         };
 
         let listener =
@@ -400,6 +451,8 @@ pub(super) async fn start(
 
         info!("JSON-RPC endpoint will listen at {rpc_address}");
 
+        let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
+
         services.spawn(async move {
             start_rpc(
                 RPCState {
@@ -408,7 +461,7 @@ pub(super) async fn start(
                     mpool,
                     bad_blocks,
                     sync_state,
-                    eth_event_handler: Arc::new(EthEventHandler::new()),
+                    eth_event_handler,
                     sync_network_context,
                     network_name,
                     start_time,
@@ -465,67 +518,11 @@ pub(super) async fn start(
         unblock_parent_process()?;
     }
 
-    // Sets proof parameter file download path early, the files will be checked and
-    // downloaded later right after snapshot import step
-    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-    // Sets the latest snapshot if needed for downloading later
-    let mut config = config;
-    if config.client.snapshot_path.is_none() && !opts.stateless {
-        set_snapshot_path_if_needed(
-            &mut config,
-            &chain_config,
-            epoch,
-            opts.auto_download_snapshot,
-            &db_root_dir,
-        )
-        .await?;
-    }
-
-    // Import chain if needed
-    if !opts.skip_load.unwrap_or_default() {
-        if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, ts) =
-                import_chain_as_forest_car(path, &forest_car_db_dir, config.client.import_mode)
-                    .await?;
-            db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            debug!("Loaded car DB at {}", car_db_path.display());
-            state_manager
-                .chain_store()
-                .set_heaviest_tipset(Arc::new(ts.clone()))?;
-        }
-    }
-
-    if let Some(validate_from) = config.client.snapshot_height {
-        // We've been provided a snapshot and asked to validate it
-        ensure_params_downloaded().await?;
-        // Use the specified HEAD, otherwise take the current HEAD.
-        let current_height = config
-            .client
-            .snapshot_head
-            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-        assert!(current_height.is_positive());
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => {
-                state_manager.validate_range((current_height + validate_from)..=current_height)?
-            }
-            false => state_manager.validate_range(validate_from..=current_height)?,
-        }
-    }
-
-    // Halt
-    if opts.halt_after_import {
-        // Cancel all async services
-        services.shutdown().await;
-        return Ok(());
-    }
-
     // Populate task
     if !opts.stateless && !chain_config.is_devnet() {
         let state_manager = Arc::clone(&state_manager);
         services.spawn(async move {
-            if let Err(err) = init_ethereum_mapping(state_manager, &config) {
+            if let Err(err) = init_ethereum_mapping(state_manager, db.writer(), &config) {
                 tracing::warn!("Init Ethereum mapping failed: {}", err)
             }
             Ok(())
@@ -627,7 +624,18 @@ fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<Str
     )?;
     info!("Admin token: {token}");
     if let Some(path) = opts.save_token.as_ref() {
-        std::fs::write(path, &token)?;
+        if let Some(dir) = path.parent() {
+            if !dir.is_dir() {
+                std::fs::create_dir_all(dir).with_context(|| {
+                    format!(
+                        "Failed to create `--save-token` directory {}",
+                        dir.display()
+                    )
+                })?;
+            }
+        }
+        std::fs::write(path, &token)
+            .with_context(|| format!("Failed to save admin token to {}", path.display()))?;
     }
 
     Ok(token)
@@ -798,13 +806,10 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
 
 fn init_ethereum_mapping<DB: Blockstore>(
     state_manager: Arc<StateManager<DB>>,
+    settings: &impl SettingsStore,
     config: &Config,
 ) -> anyhow::Result<()> {
-    match state_manager
-        .chain_store()
-        .settings()
-        .eth_mapping_up_to_date()?
-    {
+    match settings.eth_mapping_up_to_date()? {
         Some(false) | None => {
             let car_db_path = car_db_path(config)?;
             let db: Arc<ManyCar<MemoryDB>> = Arc::default();
@@ -813,10 +818,7 @@ fn init_ethereum_mapping<DB: Blockstore>(
 
             populate_eth_mappings(&state_manager, &ts)?;
 
-            state_manager
-                .chain_store()
-                .settings()
-                .set_eth_mapping_up_to_date()
+            settings.set_eth_mapping_up_to_date()
         }
         Some(true) => {
             tracing::info!("Ethereum mapping up to date");

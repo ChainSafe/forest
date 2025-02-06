@@ -36,6 +36,13 @@ install-lint-tools-ci:
 
 	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny
 
+install-lint-tools-ci-arm:
+	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-aarch64-unknown-linux-musl.tgz
+	tar xzf cargo-binstall-aarch64-unknown-linux-musl.tgz
+	cp cargo-binstall ~/.cargo/bin/cargo-binstall
+
+	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny
+
 clean:
 	cargo clean
 
