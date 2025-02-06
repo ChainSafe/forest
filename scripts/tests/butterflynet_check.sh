@@ -5,6 +5,12 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
+function shutdown {
+  kill -KILL $FOREST_NODE_PID
+}
+
+trap shutdown EXIT
+
 function call_forest_chain_head {
   curl --silent -X POST -H "Content-Type: application/json" \
         --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
@@ -20,9 +26,3 @@ until call_forest_chain_head; do
 done
 
 forest_wait_for_sync
-
-function shutdown {
-  kill -KILL $FOREST_NODE_PID
-}
-
-trap shutdown EXIT
