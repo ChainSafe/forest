@@ -16,7 +16,7 @@ env:
 jobs:
   butterflynet-checks:
     name: Butterflynet checks
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
