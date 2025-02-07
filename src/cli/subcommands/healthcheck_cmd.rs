@@ -14,7 +14,7 @@ use ticker::Ticker;
 
 #[derive(Debug, Subcommand)]
 pub enum HealthcheckCommand {
-    /// Display ready status
+    /// Display readiness status
     Ready {
         /// Don't exit until node is ready
         #[arg(long)]
@@ -23,7 +23,7 @@ pub enum HealthcheckCommand {
         #[arg(long, default_value_t=DEFAULT_HEALTHCHECK_PORT)]
         healthcheck_port: u16,
     },
-    /// Display live status
+    /// Display liveness status
     Live {
         /// Don't exit until node is ready
         #[arg(long)]
@@ -32,7 +32,7 @@ pub enum HealthcheckCommand {
         #[arg(long, default_value_t=DEFAULT_HEALTHCHECK_PORT)]
         healthcheck_port: u16,
     },
-    /// Display live status
+    /// Display health status
     Healthy {
         /// Don't exit until node is ready
         #[arg(long)]
