@@ -359,11 +359,28 @@ impl EthEventHandler {
             for event in events.iter() {
                 let id_addr = Address::new_id(event.emitter());
 
+                let result = ctx
+                    .state_manager
+                    .resolve_to_deterministic_address(id_addr, tipset.clone())
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "resolving address {} failed (EPOCH = {})",
+                            id_addr,
+                            tipset.epoch()
+                        )
+                    });
+                let resolved = if let Ok(resolved) = result {
+                    resolved
+                } else {
+                    id_addr
+                };
+
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
                 // dbg!(&entries);
 
                 let matched = if let Some(spec) = spec {
-                    let matched = spec.matches(&id_addr, &entries)?;
+                    let matched = spec.matches(&resolved, &entries)?;
                     tracing::info!(
                         "Event {} {}match filter topics",
                         event_count,
@@ -386,19 +403,6 @@ impl EthEventHandler {
                             }
                         })
                         .collect();
-
-                    let resolved = ctx
-                        .state_manager
-                        .resolve_to_deterministic_address(id_addr, tipset.clone())
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "resolving address {} failed (EPOCH = {})",
-                                id_addr,
-                                tipset.epoch()
-                            )
-                        })
-                        .unwrap_or(id_addr);
 
                     let ce = CollectedEvent {
                         entries,
@@ -771,31 +775,13 @@ impl Matcher for ParsedFilter {
     fn matches(
         &self,
         resolved: &crate::shim::address::Address,
-        entries: &[Entry],
+        _entries: &[Entry],
     ) -> anyhow::Result<bool> {
         let match_addr = if self.addresses.is_empty() {
             true
         } else {
             self.addresses.iter().any(|other| *other == *resolved)
         };
-        // let match_topics = if let Some(spec) = self.topics.as_ref() {
-        //     let matched = entries.iter().enumerate().all(|(i, entry)| {
-        //         if let Some(slice) = get_word(entry.value()) {
-        //             let hash: EthHash = (*slice).into();
-        //             match spec.0.get(i) {
-        //                 Some(EthHashList::List(vec)) => vec.contains(&hash),
-        //                 Some(EthHashList::Single(Some(h))) => h == &hash,
-        //                 _ => true, /* wildcard */
-        //             }
-        //         } else {
-        //             // Drop events with mis-sized topics
-        //             false
-        //         }
-        //     });
-        //     matched
-        // } else {
-        //     true
-        // };
         Ok(match_addr)
     }
 }

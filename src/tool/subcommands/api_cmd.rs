@@ -902,6 +902,21 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             .unwrap(),
         )
         .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![
+                    Address::from_str("t410fvtakbtytk4otbnfymn4zn5ow252nj7lcpbtersq")
+                        .unwrap()
+                        .into(),
+                ],
+                fields: Default::default(),
+                from_height: Some(epoch - 100),
+                to_height: Some(epoch),
+                tipset_key: None,
+            }),))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
     ]
 }
 
