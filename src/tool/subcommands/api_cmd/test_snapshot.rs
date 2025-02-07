@@ -142,7 +142,7 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::daemon::db_util::download_file_with_cache;
+    use crate::utils::net::download_file_with_cache;
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;

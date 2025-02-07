@@ -1,8 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::daemon::db_util::download_file_with_cache;
 use crate::db::PersistentStore;
+use crate::utils::net::download_file_with_cache;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::db::car_stream::{CarBlock, CarStream},

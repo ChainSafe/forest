@@ -21,9 +21,9 @@ use tokio::fs::File;
 use tracing::warn;
 
 use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
-use crate::daemon::db_util::download_file_with_cache;
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
+use crate::utils::net::download_file_with_cache;
 
 use std::str::FromStr;
 
