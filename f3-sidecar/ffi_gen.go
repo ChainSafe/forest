@@ -17,30 +17,35 @@ typedef struct StringRef {
   const uint8_t *ptr;
   uintptr_t len;
 } StringRef;
-
-// hack from: https://stackoverflow.com/a/69904977
-__attribute__((weak))
-inline void GoF3Node_run_cb(const void *f_ptr, bool resp, const void *slot) {
-((void (*)(bool, const void*))f_ptr)(resp, slot);
-}
 */
 import "C"
 import (
 	"runtime"
 	"unsafe"
+
+	"github.com/ihciah/rust2go/asmcall"
 )
 
 var GoF3NodeImpl GoF3Node
 
 type GoF3Node interface {
-	run(rpc_endpoint string, jwt string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, f3_root string, manifest_server string) bool
+	run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, f3_root *string, manifest_server *string) bool
 }
 
 //export CGoF3Node_run
 func CGoF3Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint C.StringRef, initial_power_table C.StringRef, bootstrap_epoch C.int64_t, finality C.int64_t, f3_root C.StringRef, manifest_server C.StringRef, slot *C.void, cb *C.void) {
-	resp := GoF3NodeImpl.run(newString(rpc_endpoint), newString(jwt), newString(f3_rpc_endpoint), newString(initial_power_table), newC_int64_t(bootstrap_epoch), newC_int64_t(finality), newString(f3_root), newString(manifest_server))
+	_new_rpc_endpoint := newString(rpc_endpoint)
+	_new_jwt := newString(jwt)
+	_new_f3_rpc_endpoint := newString(f3_rpc_endpoint)
+	_new_initial_power_table := newString(initial_power_table)
+	_new_bootstrap_epoch := newC_int64_t(bootstrap_epoch)
+	_new_finality := newC_int64_t(finality)
+	_new_f3_root := newString(f3_root)
+	_new_manifest_server := newString(manifest_server)
+	resp := GoF3NodeImpl.run(&_new_rpc_endpoint, &_new_jwt, &_new_f3_rpc_endpoint, &_new_initial_power_table, &_new_bootstrap_epoch, &_new_finality, &_new_f3_root, &_new_manifest_server)
 	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
-	C.GoF3Node_run_cb(unsafe.Pointer(cb), resp_ref, unsafe.Pointer(slot))
+	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
+	runtime.KeepAlive(resp_ref)
 	runtime.KeepAlive(resp)
 	runtime.KeepAlive(buffer)
 }
@@ -55,6 +60,9 @@ func refString(s *string, _ *[]byte) C.StringRef {
 	}
 }
 
+func ownString(s_ref C.StringRef) string {
+	return string(unsafe.Slice((*byte)(unsafe.Pointer(s_ref.ptr)), int(s_ref.len)))
+}
 func cntString(_ *string, _ *uint) [0]C.StringRef { return [0]C.StringRef{} }
 func new_list_mapper[T1, T2 any](f func(T1) T2) func(C.ListRef) []T2 {
 	return func(x C.ListRef) []T2 {
