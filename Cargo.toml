@@ -61,6 +61,7 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
+either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
 fil_actor_account_state = { version = "19" }
@@ -133,6 +134,7 @@ libp2p = { workspace = true, features = [
 ] }
 libsecp256k1 = "0.7"
 lru = "0.13"
+md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
@@ -241,7 +243,6 @@ glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
-md5 = { package = "md-5", version = "0.10" }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.7"
 predicates = "3"

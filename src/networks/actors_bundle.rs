@@ -20,10 +20,10 @@ use serde_with::{serde_as, DisplayFromStr};
 use tokio::fs::File;
 use tracing::warn;
 
-use crate::daemon::bundle::load_actor_bundles_from_server;
+use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::http_get;
+use crate::utils::net::download_file_with_cache;
 
 use std::str::FromStr;
 
@@ -170,20 +170,25 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              manifest: root,
              url,
              alt_url,
-             network: _,
-             version: _,
+             network,
+             version,
          }| async move {
-            let response = if let Ok(response) = http_get(url).await {
+            let result = if let Ok(response) =
+                download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
+            {
                 response
             } else {
-                warn!("failed to download bundle from primary URL, trying alternative URL");
-                http_get(alt_url).await?
+                warn!(
+                    "failed to download bundle {network}-{version} from primary URL, trying alternative URL"
+                );
+                download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
             };
-            let bytes = response.bytes().await?;
+
+            let bytes = std::fs::read(&result.path)?;
             let car = CarStream::new(Cursor::new(bytes)).await?;
-            ensure!(car.header.version == 1);
-            ensure!(car.header.roots.len() == 1);
-            ensure!(car.header.roots.first() == root);
+            ensure!(car.header_v1.version == 1);
+            ensure!(car.header_v1.roots.len() == 1);
+            ensure!(car.header_v1.roots.first() == root);
             anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
         },
     ))
@@ -286,11 +291,11 @@ mod tests {
                 let car_secondary = CarStream::new(Cursor::new(alt)).await?;
 
                 assert_eq!(
-                    car_primary.header.roots, car_secondary.header.roots,
+                    car_primary.header_v1.roots, car_secondary.header_v1.roots,
                     "Roots for {url} and {alt_url} do not match"
                 );
                 assert_eq!(
-                    car_primary.header.roots.first(),
+                    car_primary.header_v1.roots.first(),
                     manifest,
                     "Manifest for {url} and {alt_url} does not match"
                 );

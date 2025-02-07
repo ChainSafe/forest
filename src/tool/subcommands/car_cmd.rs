@@ -59,7 +59,7 @@ impl CarCommands {
                 let all_roots = NonEmpty::new(
                     car_streams
                         .iter()
-                        .flat_map(|it| it.header.roots.iter())
+                        .flat_map(|it| it.header_v1.roots.iter())
                         .unique()
                         .cloned()
                         .collect_vec(),
