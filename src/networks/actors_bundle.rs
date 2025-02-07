@@ -186,9 +186,9 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
             let bytes = std::fs::read(&result.path)?;
             let car = CarStream::new(Cursor::new(bytes)).await?;
-            ensure!(car.header.version == 1);
-            ensure!(car.header.roots.len() == 1);
-            ensure!(car.header.roots.first() == root);
+            ensure!(car.header_v1.version == 1);
+            ensure!(car.header_v1.roots.len() == 1);
+            ensure!(car.header_v1.roots.first() == root);
             anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
         },
     ))
@@ -291,11 +291,11 @@ mod tests {
                 let car_secondary = CarStream::new(Cursor::new(alt)).await?;
 
                 assert_eq!(
-                    car_primary.header.roots, car_secondary.header.roots,
+                    car_primary.header_v1.roots, car_secondary.header_v1.roots,
                     "Roots for {url} and {alt_url} do not match"
                 );
                 assert_eq!(
-                    car_primary.header.roots.first(),
+                    car_primary.header_v1.roots.first(),
                     manifest,
                     "Manifest for {url} and {alt_url} does not match"
                 );

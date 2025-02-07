@@ -485,11 +485,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::PlainCar;
-    use crate::utils::db::car_util::load_car;
-    use futures::executor::block_on;
-    use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
+    use crate::utils::db::{
+        car_stream::{CarStream, CarV1Header},
+        car_util::load_car,
+    };
+    use futures::{executor::block_on, TryStreamExt as _};
+    use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
     use once_cell::sync::Lazy;
-    use tokio::io::AsyncBufRead;
+    use std::io::Cursor;
+    use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
     #[test]
     fn test_uncompressed_v1() {
@@ -500,11 +504,17 @@ mod tests {
         assert_eq!(car_backed.roots().len(), 1);
         assert_eq!(car_backed.cids().len(), 1222);
 
-        let reference = reference(car);
+        let reference_car = reference(Cursor::new(car));
+        let reference_car_zst = reference(Cursor::new(chain4_car_zst()));
+        let reference_car_zst_unsafe = reference_unsafe(chain4_car_zst());
         for cid in car_backed.cids() {
-            let expected = reference.get(&cid).unwrap().unwrap();
+            let expected = reference_car.get(&cid).unwrap().unwrap();
+            let expected2 = reference_car_zst.get(&cid).unwrap().unwrap();
+            let expected3 = reference_car_zst_unsafe.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
+            assert_eq!(expected2, actual);
+            assert_eq!(expected3, actual);
         }
     }
 
@@ -517,23 +527,50 @@ mod tests {
         assert_eq!(car_backed.roots().len(), 1);
         assert_eq!(car_backed.cids().len(), 7153);
 
-        // Uncomment below lines once CarStream supports CARv2
-        // let reference = reference(car);
-        // for cid in car_backed.cids() {
-        //     let expected = reference.get(&cid).unwrap().unwrap();
-        //     let actual = car_backed.get(&cid).unwrap().unwrap();
-        //     assert_eq!(expected, actual);
-        // }
+        let reference_car = reference(Cursor::new(car));
+        let reference_car_zst = reference(Cursor::new(carv2_car_zst()));
+        let reference_car_zst_unsafe = reference_unsafe(carv2_car_zst());
+        for cid in car_backed.cids() {
+            let expected = reference_car.get(&cid).unwrap().unwrap();
+            let expected2 = reference_car_zst.get(&cid).unwrap().unwrap();
+            let expected3 = reference_car_zst_unsafe.get(&cid).unwrap().unwrap();
+            let actual = car_backed.get(&cid).unwrap().unwrap();
+            assert_eq!(expected, actual);
+            assert_eq!(expected2, actual);
+            assert_eq!(expected3, actual);
+        }
     }
 
-    fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
+    fn reference(reader: impl AsyncBufRead + AsyncSeek + Unpin) -> MemoryBlockstore {
         let blockstore = MemoryBlockstore::new();
         block_on(load_car(&blockstore, reader)).unwrap();
         blockstore
     }
 
+    fn reference_unsafe(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
+        let blockstore = MemoryBlockstore::new();
+        block_on(load_car_unsafe(&blockstore, reader)).unwrap();
+        blockstore
+    }
+
+    pub async fn load_car_unsafe<R>(db: &impl Blockstore, reader: R) -> anyhow::Result<CarV1Header>
+    where
+        R: AsyncBufRead + Unpin,
+    {
+        let mut stream = CarStream::new_unsafe(BufReader::new(reader)).await?;
+        while let Some(block) = stream.try_next().await? {
+            db.put_keyed(&block.cid, &block.data)?;
+        }
+        Ok(stream.header_v1)
+    }
+
+    fn chain4_car_zst() -> &'static [u8] {
+        include_bytes!("../../../test-snapshots/chain4.car.zst")
+    }
+
     fn chain4_car() -> &'static [u8] {
-        include_bytes!("../../../test-snapshots/chain4.car")
+        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(chain4_car_zst()).unwrap());
+        CAR.as_slice()
     }
 
     fn carv2_car_zst() -> &'static [u8] {

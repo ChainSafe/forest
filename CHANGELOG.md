@@ -45,6 +45,8 @@
 
 - [#4954](https://github.com/ChainSafe/forest/issues/4954) Add `--format json` to `forest-cli chain head` command.
 
+- [#5232](https://github.com/ChainSafe/forest/issues/5232) Support `CARv2` stream decoding.
+
 - [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
 
 ### Changed

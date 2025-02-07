@@ -247,7 +247,7 @@ impl SnapshotCommands {
 
                 let mut block_stream = CarStream::new(file).await?;
                 let roots = std::mem::replace(
-                    &mut block_stream.header.roots,
+                    &mut block_stream.header_v1.roots,
                     nunny::vec![Default::default()],
                 );
 
