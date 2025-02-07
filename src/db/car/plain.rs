@@ -180,12 +180,8 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         self.version
     }
 
-    pub fn heaviest_tipset_key(&self) -> TipsetKey {
-        TipsetKey::from(self.roots().clone())
-    }
-
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &self.heaviest_tipset_key())
+        Tipset::load_required(self, &TipsetKey::from(self.roots().clone()))
     }
 
     /// In an arbitrary order
