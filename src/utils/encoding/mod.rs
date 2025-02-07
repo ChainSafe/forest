@@ -96,6 +96,21 @@ pub fn blake2b_256(ingest: &[u8]) -> [u8; 32] {
     ret
 }
 
+/// Generates Keccak-256 hash of fixed 32 bytes size.
+///
+/// # Example
+/// ```
+/// # use forest::doctest_private::keccak_256;
+/// let ingest: Vec<u8> = vec![];
+/// let hash = keccak_256(&ingest);
+/// assert_eq!(hash.len(), 32);
+/// ```
+pub fn keccak_256(ingest: &[u8]) -> [u8; 32] {
+    let mut ret: [u8; 32] = Default::default();
+    keccak_hash::keccak_256(ingest, &mut ret);
+    ret
+}
+
 pub fn prover_id_from_u64(id: u64) -> ProverId {
     let mut prover_id = ProverId::default();
     let prover_bytes = Address::new_id(id).payload().to_raw_bytes();

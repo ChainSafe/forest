@@ -6,7 +6,9 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::db::{EthMappingsStore, EthMappingsStoreExt};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
+use crate::db::setting_keys::HEAD_KEY;
+use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -20,10 +22,6 @@ use crate::shim::{
 };
 use crate::state_manager::StateOutput;
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
-use crate::{
-    blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
-    db::HeaviestTipsetKeyProvider,
-};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -31,6 +29,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
+use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
@@ -61,8 +60,8 @@ pub struct ChainStore<DB> {
     /// key-value `datastore`.
     pub db: Arc<DB>,
 
-    /// Heaviest tipset key provider
-    heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
+    /// Settings store
+    settings: Arc<dyn SettingsStore + Sync + Send>,
 
     /// Used as a cache for tipset `lookbacks`.
     pub chain_index: Arc<ChainIndex<Arc<DB>>>,
@@ -112,13 +111,22 @@ where
 {
     pub fn new(
         db: Arc<DB>,
-        heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
+        settings: Arc<dyn SettingsStore + Sync + Send>,
         eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
+
+        if settings
+            .read_obj::<TipsetKey>(HEAD_KEY)?
+            .is_none_or(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_err())
+        {
+            let tipset_keys = TipsetKey::from(nonempty![*genesis_block_header.cid()]);
+            settings.write_obj(HEAD_KEY, &tipset_keys)?;
+        }
+
         let validated_blocks = Mutex::new(HashSet::default());
 
         let cs = Self {
@@ -126,7 +134,7 @@ where
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
-            heaviest_tipset_key_provider,
+            settings,
             genesis_block_header,
             validated_blocks,
             eth_mappings,
@@ -136,10 +144,10 @@ where
         Ok(cs)
     }
 
-    /// Sets heaviest tipset
+    /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
+    /// the settings store under the [`crate::db::setting_keys::HEAD_KEY`] key.
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.heaviest_tipset_key_provider
-            .set_heaviest_tipset_key(ts.key())?;
+        self.settings.write_obj(HEAD_KEY, ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -221,12 +229,13 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        let tsk = self
-            .heaviest_tipset_key_provider
-            .heaviest_tipset_key()
-            .unwrap_or_else(|_| TipsetKey::from(nunny::vec![*self.genesis_block_header.cid()]));
         self.chain_index
-            .load_required_tipset(&tsk)
+            .load_required_tipset(
+                &self
+                    .settings
+                    .require_obj::<TipsetKey>(HEAD_KEY)
+                    .expect("failed to load heaviest tipset key"),
+            )
             .expect("failed to load heaviest tipset")
     }
 
@@ -373,6 +382,10 @@ where
             .load_required_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
+    }
+
+    pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
+        self.settings.clone()
     }
 
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.

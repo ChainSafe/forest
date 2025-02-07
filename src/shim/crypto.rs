@@ -1,7 +1,5 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::borrow::Cow;
-
 pub use super::fvm_shared_latest::{
     crypto::signature::SECP_SIG_LEN, IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK,
 };
@@ -19,6 +17,7 @@ use fvm_ipld_encoding::{
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use schemars::JsonSchema;
+use std::borrow::Cow;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -87,6 +86,46 @@ impl Signature {
             sig_type: SignatureType::Secp256k1,
             bytes,
         }
+    }
+
+    /// Creates a Delegated Signature given the raw bytes.
+    pub fn new_delegated(bytes: Vec<u8>) -> Self {
+        Self {
+            sig_type: SignatureType::Delegated,
+            bytes,
+        }
+    }
+
+    /// Creates a signature from bytes.
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, anyhow::Error> {
+        if bytes.is_empty() {
+            anyhow::bail!("Empty signature bytes");
+        }
+
+        let first_byte = bytes
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("Invalid signature bytes"))?;
+
+        let signature_data = bytes
+            .get(1..)
+            .ok_or_else(|| anyhow::anyhow!("Invalid signature bytes"))?
+            .to_vec();
+
+        // first byte in signature represents the signature type
+        let sig_type = SignatureType::try_from(*first_byte)?;
+        match sig_type {
+            SignatureType::Secp256k1 => Ok(Self::new_secp256k1(signature_data)),
+            SignatureType::Bls => Ok(Self::new_bls(signature_data)),
+            SignatureType::Delegated => Ok(Self::new_delegated(signature_data)),
+        }
+    }
+
+    /// Returns the signature bytes including the signature type byte.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(self.bytes.len() + 1);
+        bytes.push(self.sig_type as u8);
+        bytes.extend_from_slice(&self.bytes);
+        bytes
     }
 
     pub fn signature_type(&self) -> SignatureType {
@@ -199,4 +238,17 @@ pub enum SignatureType {
     Secp256k1 = 1,
     Bls = 2,
     Delegated = 3,
+}
+
+impl TryFrom<u8> for SignatureType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SignatureType::Secp256k1),
+            2 => Ok(SignatureType::Bls),
+            3 => Ok(SignatureType::Delegated),
+            invalid => anyhow::bail!("Invalid signature type byte: {}", invalid),
+        }
+    }
 }
