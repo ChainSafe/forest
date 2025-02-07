@@ -245,37 +245,6 @@ impl EthEventHandler {
         )
     }
 
-    fn do_match(spec: &EthFilterSpec, eth_emitter_addr: &EthAddress, entries: &[Entry]) -> bool {
-        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
-            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
-        }
-
-        let match_addr = if spec.address.is_empty() {
-            true
-        } else {
-            spec.address.iter().any(|other| other == eth_emitter_addr)
-        };
-        let match_topics = if let Some(spec) = spec.topics.as_ref() {
-            let matched = entries.iter().enumerate().all(|(i, entry)| {
-                if let Some(slice) = get_word(entry.value()) {
-                    let hash: EthHash = (*slice).into();
-                    match spec.0.get(i) {
-                        Some(EthHashList::List(vec)) => vec.contains(&hash),
-                        Some(EthHashList::Single(Some(h))) => h == &hash,
-                        _ => true, /* wildcard */
-                    }
-                } else {
-                    // Drop events with mis-sized topics
-                    false
-                }
-            });
-            matched
-        } else {
-            true
-        };
-        match_addr && match_topics
-    }
-
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
@@ -1056,8 +1025,10 @@ mod tests {
             block_hash: None,
         };
 
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
         let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
+        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
         let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
 
         let entries0 = vec![
@@ -1092,13 +1063,9 @@ mod tests {
         ];
 
         // Matching an empty spec
-        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &[]));
+        assert!(empty_spec.matches(&addr0, &[]).unwrap());
 
-        assert!(EthEventHandler::do_match(
-            &empty_spec,
-            &eth_addr0,
-            &entries0
-        ));
+        assert!(empty_spec.matches(&addr0, &entries0).unwrap());
 
         // Matching the given address 0
         let spec0 = EthFilterSpec {
@@ -1109,9 +1076,9 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &[]));
+        assert!(spec0.matches(&addr0, &[]).unwrap());
 
-        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &[]));
+        assert!(!spec0.matches(&addr1, &[]).unwrap());
 
         // Matching the given address 0 or 1
         let spec1 = EthFilterSpec {
@@ -1122,13 +1089,14 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &[]));
+        assert!(spec1.matches(&addr0, &[]).unwrap());
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &[]));
+        assert!(spec1.matches(&addr1, &[]).unwrap());
     }
 
     #[test]
     fn test_do_match_topic() {
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
         let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
         let entries0 = vec![
@@ -1186,7 +1154,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &entries0));
+        assert!(spec1.matches(&addr0, &entries0).unwrap());
 
         let spec2 = EthFilterSpec {
             from_block: None,
@@ -1199,7 +1167,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+        assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec2 = EthFilterSpec {
             from_block: None,
@@ -1211,7 +1179,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+        assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec3 = EthFilterSpec {
             from_block: None,
@@ -1221,7 +1189,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec3, &eth_addr0, &entries0));
+        assert!(spec3.matches(&addr0, &entries0).unwrap());
 
         let spec4 = EthFilterSpec {
             from_block: None,
@@ -1234,7 +1202,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec4, &eth_addr0, &entries0));
+        assert!(spec4.matches(&addr0, &entries0).unwrap());
 
         let spec5 = EthFilterSpec {
             from_block: None,
@@ -1246,7 +1214,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec5, &eth_addr0, &entries0));
+        assert!(!spec5.matches(&addr0, &entries0).unwrap());
 
         let spec6 = EthFilterSpec {
             from_block: None,
@@ -1259,7 +1227,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec6, &eth_addr0, &entries0));
+        assert!(!spec6.matches(&addr0, &entries0).unwrap());
 
         let spec7 = EthFilterSpec {
             from_block: None,
@@ -1272,7 +1240,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec7, &eth_addr0, &entries0));
+        assert!(!spec7.matches(&addr0, &entries0).unwrap());
 
         let spec8 = EthFilterSpec {
             from_block: None,
@@ -1286,6 +1254,6 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec8, &eth_addr0, &entries0));
+        assert!(!spec8.matches(&addr0, &entries0).unwrap());
     }
 }
