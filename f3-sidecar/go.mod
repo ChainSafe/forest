@@ -6,6 +6,7 @@ require (
 	github.com/filecoin-project/go-f3 v0.7.4-0.20250204212658-e232882cba71
 	github.com/filecoin-project/go-jsonrpc v0.7.0
 	github.com/filecoin-project/go-state-types v0.15.0
+	github.com/ihciah/rust2go v0.0.0-20250125181647-c5957947a3c0
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
