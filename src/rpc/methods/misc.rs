@@ -31,14 +31,11 @@ impl RpcMethod<1> for GetActorEventsRaw {
         (filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(filter) = filter {
-            let parsed_filter = ParsedFilter {
-                tipsets: ParsedFilterTipsets::Range(RangeInclusive::new(
-                    filter.from_height.unwrap_or(0),
-                    filter.to_height.unwrap_or(-1),
-                )),
-                addresses: filter.addresses.iter().map(|addr| addr.0).collect(),
-                keys: Default::default(),
-            };
+            let parsed_filter = ParsedFilter::from_actor_event_filter(
+                ctx.chain_store().heaviest_tipset().epoch(),
+                ctx.eth_event_handler.max_filter_height_range,
+                filter,
+            )?;
             let events = ctx
                 .eth_event_handler
                 .get_events_for_parsed_filter(&ctx, &parsed_filter)

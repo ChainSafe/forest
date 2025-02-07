@@ -24,6 +24,7 @@ use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
 use crate::blocks::Tipset;
+use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::filter::event::*;
@@ -31,6 +32,7 @@ use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
@@ -465,6 +467,10 @@ impl EthEventHandler {
                 let tipset = Arc::new(tipset);
                 Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
             }
+            ParsedFilterTipsets::Key(tsk) => {
+                let tipset = Arc::new(Tipset::load_required(ctx.store(), &tsk)?);
+                Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
+            }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
                     // heaviest tipset doesn't have events because its messages haven't been executed yet
@@ -509,6 +515,10 @@ impl EthEventHandler {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
                 let tipset = Arc::new(tipset);
+                Self::fil_collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
+            }
+            ParsedFilterTipsets::Key(tsk) => {
+                let tipset = Arc::new(Tipset::load_required(ctx.store(), tsk)?);
                 Self::fil_collect_events(ctx, &tipset, Some(pf), &mut collected_events).await?;
             }
             ParsedFilterTipsets::Range(range) => {
@@ -747,14 +757,45 @@ fn keys_to_keys_with_codec(
 
 #[derive(Debug, PartialEq)]
 pub enum ParsedFilterTipsets {
-    Range(std::ops::RangeInclusive<ChainEpoch>),
+    Range(RangeInclusive<ChainEpoch>),
     Hash(EthHash),
+    Key(TipsetKey),
 }
 
+#[derive(Debug)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,
     pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
+}
+
+impl ParsedFilter {
+    pub fn from_actor_event_filter(
+        chain_height: ChainEpoch,
+        _max_filter_height_range: ChainEpoch,
+        filter: ActorEventFilter,
+    ) -> anyhow::Result<Self> {
+        let tipsets = if let Some(tsk) = &filter.tipset_key {
+            if filter.from_height.is_some() || filter.to_height.is_some() {
+                bail!("must not specify block hash and from/to block");
+            }
+            ParsedFilterTipsets::Key(tsk.0.clone())
+        } else {
+            let min = filter.from_height.unwrap_or(0);
+            let max = filter.to_height.unwrap_or(chain_height);
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
+        };
+
+        let addresses: Vec<_> = filter.addresses.iter().map(|addr| addr.0).collect();
+
+        let keys = Default::default();
+
+        Ok(ParsedFilter {
+            tipsets,
+            addresses,
+            keys,
+        })
+    }
 }
 
 impl Matcher for ParsedFilter {
