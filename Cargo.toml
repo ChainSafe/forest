@@ -19,7 +19,7 @@ futures = "0.3"
 libp2p = { version = "0.55", default-features = false }
 libp2p-swarm-test = { version = "0.5", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
-rust2go = "0.3"
+rust2go = "0.4"
 tokio = "1"
 
 [dependencies]
@@ -134,6 +134,7 @@ libp2p = { workspace = true, features = [
 ] }
 libsecp256k1 = "0.7"
 lru = "0.13"
+md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
@@ -242,7 +243,6 @@ glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
-md5 = { package = "md-5", version = "0.10" }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.7"
 predicates = "3"

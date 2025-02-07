@@ -44,8 +44,8 @@ func (impl *kadImpl) run() {
 	impl.node = &kadNode{host, hostDHT}
 }
 
-func (impl *kadImpl) connect(multiaddr string) {
-	targetAddr, err := ma.NewMultiaddr(multiaddr)
+func (impl *kadImpl) connect(multiaddr *string) {
+	targetAddr, err := ma.NewMultiaddr(*multiaddr)
 	checkError(err)
 
 	target, err := peer.AddrInfoFromP2pAddr(targetAddr)

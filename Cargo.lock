@@ -1391,6 +1391,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "const_format"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "126f97965c8ad46d6d9163268ff28432e8f6a1196a55578867832e3049df63dd"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d57c2eccfb16dbac1f4e61e206105db5820c9d26c3c472bc17c774259ef7744"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4862,11 +4882,11 @@ dependencies = [
 
 [[package]]
 name = "jsonwebtoken"
-version = "9.3.0"
+version = "9.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9ae10193d25051e74945f1ea2d0b42e03cc3b890f7e4cc5faa44997d808193f"
+checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "js-sys",
  "pem",
  "ring 0.17.8",
@@ -6322,9 +6342,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.2"
+version = "1.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "oorandom"
@@ -6424,28 +6444,30 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.12"
+version = "3.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
+checksum = "c9fde3d0718baf5bc92f577d652001da0f8d54cd03a7974e118d04fc888dc23d"
 dependencies = [
  "arrayvec 0.7.6",
  "bitvec",
  "byte-slice-cast",
+ "const_format",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
+ "rustversion",
  "serde",
 ]
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.12"
+version = "3.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
+checksum = "581c837bb6b9541ce7faa9377c20616e4fb7650f6b0f68bc93c827ee504fb7b3"
 dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -7553,9 +7575,9 @@ dependencies = [
 
 [[package]]
 name = "rust2go"
-version = "0.3.17"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cedb3ca308113535deaf2e0cce0fe93bb53d5f4b1e571a13c701e5bca5b1c3ed"
+checksum = "91f4c573050b419b1cad4024180a41dead36eb1abf89277525f98a484859711b"
 dependencies = [
  "bindgen",
  "rust2go-cli",
@@ -7566,9 +7588,9 @@ dependencies = [
 
 [[package]]
 name = "rust2go-cli"
-version = "0.3.10"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d64d615f7bbfe41a95bfb28d3e7d37881c98e2bc9239abe1ffa280ab2ebbdb6f"
+checksum = "ee020c2c649667859a30f3667a5cbf1156928c2274ea424526ce6b3d3abcf419"
 dependencies = [
  "cbindgen",
  "clap",
@@ -7578,9 +7600,9 @@ dependencies = [
 
 [[package]]
 name = "rust2go-common"
-version = "0.3.12"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e6cbc4f2ec83801d291d9285112d664ced769c3c141ae800bda677452d57ff3"
+checksum = "04274cfe9552d6893cf9cb17652de327c3b0f4f912b5372a904d9d97da9204c5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7595,9 +7617,9 @@ checksum = "b4c9b9dcfbeec346b228b700861dc2b43f32ab6679b6440db3eedc459ef024be"
 
 [[package]]
 name = "rust2go-macro"
-version = "0.3.10"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae4424d0b8a209333ede9b90e1d2c581413871ad23b7cec8a73d649599c295ec"
+checksum = "9f195b1658c4984e70f0aef27b49a1d2b98e106a1418542017dfc9d11636e7c4"
 dependencies = [
  "proc-macro2",
  "quote",
