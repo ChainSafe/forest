@@ -2,7 +2,7 @@ name: Integration tests
 concurrency:
   group: '${{ github.workflow }}-${{ github.ref }}'
   cancel-in-progress: '${{ github.ref != ''refs/heads/main'' }}'
-'on':
+on:
   workflow_dispatch:
   merge_group:
   pull_request:
@@ -184,6 +184,32 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_mode_check.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+  calibnet-stateless-rpc-check:
+    needs:
+      - build-ubuntu
+    name: Calibnet stateless RPC check
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
+          key: proof-params-keys
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_stateless_rpc_check.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   state-migrations-check:
     needs:
@@ -558,6 +584,7 @@ jobs:
       - forest-cli-check
       - calibnet-check
       - calibnet-stateless-mode-check
+      - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
       - calibnet-export-check

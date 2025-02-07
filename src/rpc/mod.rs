@@ -4,6 +4,8 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod filter_layer;
+mod filter_list;
 mod log_layer;
 mod metrics_layer;
 mod request;
@@ -11,6 +13,8 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
+use filter_layer::FilterLayer;
+pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use log_layer::LogLayer;
 use reflect::Ctx;
@@ -442,10 +446,15 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     keystore: Arc<RwLock<KeyStore>>,
 }
 
-pub async fn start_rpc<DB>(state: RPCState<DB>, rpc_endpoint: SocketAddr) -> anyhow::Result<()>
+pub async fn start_rpc<DB>(
+    state: RPCState<DB>,
+    rpc_endpoint: SocketAddr,
+    filter_list: Option<FilterList>,
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    let filter_list = filter_list.unwrap_or_default();
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
@@ -490,6 +499,7 @@ where
 
         let svc = tower::service_fn({
             let per_conn = per_conn.clone();
+            let filter_list = filter_list.clone();
             move |req| {
                 let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
                 let PerConnection {
@@ -508,6 +518,7 @@ where
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
                 let rpc_middleware = RpcServiceBuilder::new()
+                    .layer(FilterLayer::new(filter_list.clone()))
                     .layer(AuthLayer {
                         headers,
                         keystore: keystore.clone(),
