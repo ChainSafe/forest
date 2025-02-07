@@ -767,8 +767,10 @@ Print healthcheck info
 Usage: forest-cli healthcheck <COMMAND>
 
 Commands:
-  ready  Display ready status
-  help   Print this message or the help of the given subcommand(s)
+  ready    Display ready status
+  live     Display live status
+  healthy  Display live status
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
