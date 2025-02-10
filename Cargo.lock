@@ -1881,15 +1881,15 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.7.0"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e60eed09d8c01d3cee5b7d30acb059b76614c918fa0f992e0dd6eeb10daad6f"
+checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
 
 [[package]]
 name = "data-encoding-macro"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b16d9d0d88a5273d830dac8b78ceb217ffc9b1d5404e5597a3542515329405b"
+checksum = "9f9724adfcf41f45bf652b3995837669d73c4d49a1b5ac1ff82905ac7d9b5558"
 dependencies = [
  "data-encoding",
  "data-encoding-macro-internal",
@@ -1897,9 +1897,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding-macro-internal"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1145d32e826a7748b69ee8fc62d3e6355ff7f1051df53141e7048162fc90481b"
+checksum = "18e4fdb82bd54a12e42fb58a800dcae6b9e13982238ce2296dc3570b92148e1f"
 dependencies = [
  "data-encoding",
  "syn 2.0.98",
@@ -7143,21 +7143,21 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.262"
+version = "0.0.263"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae451373d0e9cb79c867bd578d7cfea52f25f4c9618f31520b852dedb99403e9"
+checksum = "9d3298b184a70f721d92f523b5da78235b45a189997964f11a80a493c447bb9f"
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.262"
+version = "0.0.263"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f3d2ea96b3479a91377c99c9f742ac6514a6e9d0366e48f98b67917fc38044"
+checksum = "a4d70a18e32911f69da095b0846a203f228c780993ff1f95fa7dc5a5f6d7252f"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.262"
+version = "0.0.263"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c37b9abba2cc879ee22a8b27cf8ac5729253fa2d25454fcffbdb94b08e9788a6"
+checksum = "fffcdcb36ee3809a61e2cfc5df9549438cddb7521cdf3c6aac975616a5f74a90"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7168,9 +7168,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.262"
+version = "0.0.263"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "818c9d67fd704d051dee19c99c86cdfa300d5ecd08df05bb75a4319d25877a34"
+checksum = "bf19d893fcec891b60751fb40624bd5dcc7d231be488bd68f3dfbe695c0cb845"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7183,9 +7183,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.262"
+version = "0.0.263"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3923104cdd54e89208c09c43d110d8d3fdcd030b34fde63d7e4fe8304209c847"
+checksum = "4d04c5965f5022438b59a1dd12ee7d46dedbd322aacc01ae4d27d94665faa51e"
 dependencies = [
  "cov-mark",
  "either",
@@ -8451,9 +8451,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stacker"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "799c883d55abdb5e98af1a7b3f23b9b6de8ecada0ecac058672d7635eb48ca7b"
+checksum = "1d08feb8f695b465baed819b03c128dc23f57a694510ab1f06c77f763975685e"
 dependencies = [
  "cc",
  "cfg-if",
