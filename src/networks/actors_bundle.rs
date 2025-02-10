@@ -20,10 +20,10 @@ use serde_with::{serde_as, DisplayFromStr};
 use tokio::fs::File;
 use tracing::warn;
 
-use crate::daemon::bundle::load_actor_bundles_from_server;
+use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::http_get;
+use crate::utils::net::download_file_with_cache;
 
 use std::str::FromStr;
 
@@ -83,7 +83,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacebq3hncszqpojglh2dkwekybq4zn6qpc4gceqbx36wndps5qehtau" @ "v14.0.0-rc.1" for "calibrationnet",
         "bafy2bzaceax5zkysst7vtyup4whdxwzlpnaya3qp34rnoi6gyt4pongps7obw" @ "v15.0.0-rc1" for "calibrationnet",
         "bafy2bzacearjal5rsmzloz3ny7aoju2rgw66wgxdrydgg27thcsazbmf5qihq" @ "v15.0.0-rc1" for "butterflynet",
-        "bafy2bzaced3uzaynkdi7wiqiwbje7l3lllpwbokuf7slak627gx7bk5pryjpa" @ "v16.0.0-dev" for "butterflynet",
+        "bafy2bzaced3ucmgzcrkvaw6qgqdzl56t3rctlb7i66vrj23dacgeath7jcxne" @ "v16.0.0-dev1" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
         "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
         "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
@@ -170,20 +170,25 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              manifest: root,
              url,
              alt_url,
-             network: _,
-             version: _,
+             network,
+             version,
          }| async move {
-            let response = if let Ok(response) = http_get(url).await {
+            let result = if let Ok(response) =
+                download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
+            {
                 response
             } else {
-                warn!("failed to download bundle from primary URL, trying alternative URL");
-                http_get(alt_url).await?
+                warn!(
+                    "failed to download bundle {network}-{version} from primary URL, trying alternative URL"
+                );
+                download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
             };
-            let bytes = response.bytes().await?;
+
+            let bytes = std::fs::read(&result.path)?;
             let car = CarStream::new(Cursor::new(bytes)).await?;
-            ensure!(car.header.version == 1);
-            ensure!(car.header.roots.len() == 1);
-            ensure!(car.header.roots.first() == root);
+            ensure!(car.header_v1.version == 1);
+            ensure!(car.header_v1.roots.len() == 1);
+            ensure!(car.header_v1.roots.first() == root);
             anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
         },
     ))
@@ -286,11 +291,11 @@ mod tests {
                 let car_secondary = CarStream::new(Cursor::new(alt)).await?;
 
                 assert_eq!(
-                    car_primary.header.roots, car_secondary.header.roots,
+                    car_primary.header_v1.roots, car_secondary.header_v1.roots,
                     "Roots for {url} and {alt_url} do not match"
                 );
                 assert_eq!(
-                    car_primary.header.roots.first(),
+                    car_primary.header_v1.roots.first(),
                     manifest,
                     "Manifest for {url} and {alt_url} does not match"
                 );

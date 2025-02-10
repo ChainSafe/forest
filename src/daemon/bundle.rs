@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::db::PersistentStore;
+use crate::utils::net::download_file_with_cache;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
-    utils::{
-        db::car_stream::{CarBlock, CarStream},
-        net::http_get,
-    },
+    utils::db::car_stream::{CarBlock, CarStream},
 };
 use ahash::HashSet;
-use anyhow::ensure;
 use cid::Cid;
+use directories::ProjectDirs;
 use futures::{stream::FuturesUnordered, TryStreamExt};
+use once_cell::sync::Lazy;
 use std::mem::discriminant;
+use std::path::PathBuf;
 use std::{io::Cursor, path::Path};
 use tokio::io::BufReader;
 use tracing::{info, warn};
@@ -53,7 +53,7 @@ pub async fn load_actor_bundles_from_path(
     .await?;
 
     // Validate the bundle
-    let roots = HashSet::from_iter(car_stream.header.roots.iter());
+    let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());
     for ActorBundleInfo {
         manifest, network, ..
     } in ACTOR_BUNDLES.iter().filter(|bundle| {
@@ -73,6 +73,14 @@ pub async fn load_actor_bundles_from_path(
 
     Ok(())
 }
+
+pub static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
+    project_dir
+        .map(|d| d.cache_dir().to_path_buf())
+        .unwrap_or_else(std::env::temp_dir)
+        .join("actor-bundles")
+});
 
 /// Loads the missing actor bundle, returns the CIDs of the loaded bundles.
 pub async fn load_actor_bundles_from_server(
@@ -94,26 +102,28 @@ pub async fn load_actor_bundles_from_server(
                      manifest: root,
                      url,
                      alt_url,
-                     network: _,
-                     version: _,
+                     network,
+                     version,
                  }| async move {
-                    let response = if let Ok(response) = http_get(url).await {
+                    let result = if let Ok(response) =
+                        download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
+                    {
                         response
                     } else {
-                        warn!("failed to download bundle from primary URL, trying alternative URL");
-                        http_get(alt_url).await?
+                        warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
+                        download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
                     };
-                    let bytes = response.bytes().await?;
 
+                    let bytes = std::fs::read(&result.path)?;
                     let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
                     while let Some(block) = stream.try_next().await? {
                         db.put_keyed_persistent(&block.cid, &block.data)?;
                     }
-                    let header = stream.header;
-                    ensure!(header.roots.len() == 1);
-                    ensure!(header.roots.first() == root);
+                    let header = stream.header_v1;
+                    anyhow::ensure!(header.roots.len() == 1);
+                    anyhow::ensure!(header.roots.first() == root);
                     Ok(*header.roots.first())
-                },
+                }
             ),
     )
     .try_collect::<Vec<_>>()

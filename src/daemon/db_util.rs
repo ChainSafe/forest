@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
 use crate::networks::Height;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
+use crate::utils::net::download_to;
 use anyhow::{bail, Context};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsStr;
-use std::fs;
 use std::{
+    fs,
     path::{Path, PathBuf},
     time,
 };
@@ -186,32 +185,12 @@ pub async fn import_chain_as_forest_car(
 
     let ts = ForestCar::try_from(forest_car_db_path.as_path())?.heaviest_tipset()?;
     info!(
-        "Imported snapshot in: {}s, heaviest tipset epoch: {}, key: {}",
+        "Imported snapshot in: {}s, heaviest tipset epoch: {}",
         stopwatch.elapsed().as_secs(),
-        ts.epoch(),
-        ts.key()
+        ts.epoch()
     );
 
     Ok((forest_car_db_path, ts))
-}
-
-pub async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
-    snapshot::download_file_with_retry(
-        url,
-        destination.parent().with_context(|| {
-            format!(
-                "Error getting the parent directory of {}",
-                destination.display()
-            )
-        })?,
-        destination
-            .file_name()
-            .and_then(OsStr::to_str)
-            .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
-    )
-    .await?;
-
-    Ok(())
 }
 
 fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow::Result<()> {
@@ -241,7 +220,7 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
         tokio::fs::File::open(from).await?,
     ))
     .await?;
-    let roots = car_stream.header.roots.clone();
+    let roots = car_stream.header_v1.roots.clone();
 
     let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(to).await?);
     let frames = crate::db::car::forest::Encoder::compress_stream_default(
