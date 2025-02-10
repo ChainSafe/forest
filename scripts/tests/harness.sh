@@ -62,6 +62,11 @@ function forest_run_node_stateless_detached {
   $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless
 }
 
+function forest_wait_api {
+  echo "Waiting for Forest API"
+  $FOREST_CLI_PATH wait-api --timeout 60s
+}
+
 function forest_wait_for_sync {
   echo "Waiting for sync"
   timeout 30m $FOREST_CLI_PATH sync wait
@@ -78,6 +83,7 @@ function forest_init {
   export ADMIN_TOKEN
   export FULLNODE_API_INFO
 
+  forest_wait_api
   forest_wait_for_sync
   forest_check_db_stats
 }
