@@ -1107,7 +1107,6 @@ mod tests {
     #[test]
     fn test_do_match_topic() {
         let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
-        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
         let entries0 = vec![
             Entry::new(

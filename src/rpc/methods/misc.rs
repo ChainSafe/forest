@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::BTreeMap;
-use std::ops::RangeInclusive;
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::eth::filter::{ParsedFilter, ParsedFilterTipsets};
+use crate::rpc::eth::filter::ParsedFilter;
 use crate::rpc::eth::CollectedEvent;
 use crate::{
     blocks::TipsetKey,
