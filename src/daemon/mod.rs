@@ -383,16 +383,14 @@ pub(super) async fn start(
     services.spawn({
         let sync_network_context = sync_network_context.clone();
         let chain_config = chain_config.clone();
-        async move {
-            chain_follower(
-                chain_config,
-                Arc::clone(&chain_store),
-                network_rx,
-                tipset_receiver,
-                sync_network_context,
-            )
-            .await
-        }
+        let chain_store = chain_store.clone();
+        chain_follower(
+            chain_config,
+            chain_store,
+            network_rx,
+            tipset_receiver,
+            sync_network_context,
+        )
     });
 
     if config.client.enable_health_check {
