@@ -761,7 +761,17 @@ impl ParsedFilter {
 
         let addresses: Vec<_> = filter.addresses.iter().map(|addr| addr.0).collect();
 
-        let keys = Default::default();
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
+        for (k, v) in filter.fields.into_iter() {
+            let data = v
+                .into_iter()
+                .map(|x| crate::rpc::methods::eth::filter::ActorEventBlock {
+                    codec: x.codec,
+                    value: x.value.0,
+                })
+                .collect();
+            keys.insert(k, data);
+        }
 
         Ok(ParsedFilter {
             tipsets,
@@ -775,14 +785,28 @@ impl Matcher for ParsedFilter {
     fn matches(
         &self,
         resolved: &crate::shim::address::Address,
-        _entries: &[Entry],
+        entries: &[Entry],
     ) -> anyhow::Result<bool> {
         let match_addr = if self.addresses.is_empty() {
             true
         } else {
             self.addresses.iter().any(|other| *other == *resolved)
         };
-        Ok(match_addr)
+
+        let match_fields = if self.keys.is_empty() {
+            true
+        } else {
+            let matched = self.keys.iter().all(|(k, v)| {
+                entries.iter().any(|entry| {
+                    k == entry.key()
+                        && v.iter()
+                            .any(|aeb| aeb.codec == entry.codec() && &aeb.value == entry.value())
+                })
+            });
+            matched
+        };
+
+        Ok(match_addr && match_fields)
     }
 }
 
