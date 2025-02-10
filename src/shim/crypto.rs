@@ -210,7 +210,6 @@ pub fn verify_bls_sig(
 }
 
 /// Returns `String` error if a delegated signature is invalid.
-/// TODO(fvm_shared): add verify delegated signature to [`fvm_shared_latest::crypto::signature::ops`]
 pub fn verify_delegated_sig(
     signature: &[u8],
     data: &[u8],
