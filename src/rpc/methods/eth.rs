@@ -1246,19 +1246,22 @@ pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByHash");
-    const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "full_tx_info"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (BlockNumberOrHash, bool);
+    type Params = (EthHash, bool);
     type Ok = Block;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, full_tx_info): Self::Params,
+        (block_hash, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts =
-            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            BlockNumberOrHash::from_block_hash(block_hash),
+            PredefinedSet::Full,
+        )?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
