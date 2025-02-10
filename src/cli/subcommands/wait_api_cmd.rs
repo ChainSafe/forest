@@ -29,9 +29,9 @@ impl WaitApiCommand {
         }
 
         if success {
-            println!("Forest API has been online!");
+            println!("Forest API is online!");
         } else {
-            println!("Timed out waiting for api to come online");
+            println!("Timed out waiting for the API to come online");
         }
 
         Ok(())
