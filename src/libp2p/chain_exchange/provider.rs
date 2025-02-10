@@ -156,12 +156,12 @@ mod tests {
     use crate::shim::address::Address;
     use crate::utils::db::car_util::load_car;
     use nunny::Vec as NonEmpty;
-    use std::sync::Arc;
+    use std::{io::Cursor, sync::Arc};
 
     async fn populate_db() -> (NonEmpty<Cid>, Arc<MemoryDB>) {
         let db = Arc::new(MemoryDB::default());
         // The cids are the tipset cids of the most recent tipset (39th)
-        let header = load_car(&db, EXPORT_SR_40).await.unwrap();
+        let header = load_car(&db, Cursor::new(EXPORT_SR_40)).await.unwrap();
         (header.roots, db)
     }
 

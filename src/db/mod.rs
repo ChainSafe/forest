@@ -14,7 +14,6 @@ use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
-use crate::blocks::TipsetKey;
 use crate::rpc::eth::types::EthHash;
 use anyhow::Context as _;
 use cid::Cid;
@@ -77,7 +76,6 @@ pub trait SettingsStoreExt {
     fn read_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<V>>;
     fn write_obj<V: Serialize>(&self, key: &str, value: &V) -> anyhow::Result<()>;
 
-    #[allow(dead_code)]
     /// Same as [`SettingsStoreExt::read_obj`], but returns an error if the key does not exist.
     fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V>;
 }
@@ -240,24 +238,6 @@ impl<T: PersistentStore> PersistentStore for Arc<T> {
 impl<T: PersistentStore> PersistentStore for &Arc<T> {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         PersistentStore::put_keyed_persistent(self.as_ref(), k, block)
-    }
-}
-
-pub trait HeaviestTipsetKeyProvider {
-    /// Returns the currently tracked heaviest tipset.
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey>;
-
-    /// Sets heaviest tipset.
-    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()>;
-}
-
-impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
-    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
-        self.as_ref().heaviest_tipset_key()
-    }
-
-    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
-        self.as_ref().set_heaviest_tipset_key(tsk)
     }
 }
 

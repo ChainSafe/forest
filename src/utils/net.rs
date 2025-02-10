@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod download_file;
+pub use download_file::*;
+
 use crate::utils::io::WithProgress;
 use crate::utils::reqwest_resume;
 use cid::Cid;

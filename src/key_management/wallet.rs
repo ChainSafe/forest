@@ -251,7 +251,8 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::encoding::blake2b_256;
+    use crate::utils::encoding::{blake2b_256, keccak_256};
+    use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
@@ -260,6 +261,7 @@ mod tests {
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();
         let mut bls_keys = Vec::new();
+        let mut delegate_keys = Vec::new();
         for _ in 1..5 {
             let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
             let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
@@ -270,9 +272,15 @@ mod tests {
             let bls_key_info = KeyInfo::new(SignatureType::Bls, bls_priv_key);
             let bls_key = Key::try_from(bls_key_info).unwrap();
             bls_keys.push(bls_key);
+
+            let delegate_priv_key = generate(SignatureType::Delegated).unwrap();
+            let delegate_key_info = KeyInfo::new(SignatureType::Delegated, delegate_priv_key);
+            let delegate_key = Key::try_from(delegate_key_info).unwrap();
+            delegate_keys.push(delegate_key);
         }
 
         secp_keys.append(bls_keys.as_mut());
+        secp_keys.append(delegate_keys.as_mut());
         secp_keys
     }
 
@@ -313,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn sign() {
+    fn secp_sign() {
         let key_vec = construct_priv_keys();
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
         let addr = key_vec[2].address;
@@ -332,6 +340,46 @@ mod tests {
         new_bytes[..64].copy_from_slice(&sig.serialize());
         new_bytes[64] = recovery_id.serialize();
         let actual = Signature::new_secp256k1(new_bytes.to_vec());
+        assert_eq!(msg_sig, actual)
+    }
+
+    #[test]
+    fn bls_sign() {
+        let key_vec = construct_priv_keys();
+        let priv_key_bytes = key_vec[4].key_info.private_key().clone();
+        let addr = key_vec[4].address;
+        let mut wallet =
+            Wallet::new_from_keys(KeyStore::new(KeyStoreConfig::Memory).unwrap(), key_vec);
+
+        let msg = [0u8; 64];
+        let msg_sign = wallet.sign(&addr, &msg).unwrap();
+
+        let priv_key = BlsPrivate::from_bytes(&priv_key_bytes).unwrap();
+        let sig = priv_key.sign(msg);
+        let actual = Signature::new_bls(sig.as_bytes());
+        assert_eq!(msg_sign, actual);
+    }
+
+    #[test]
+    fn delegate_sign() {
+        let key_vec = construct_priv_keys();
+        let priv_key_bytes = key_vec[9].key_info.private_key().clone();
+        let addr = key_vec[9].address;
+
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(keystore, key_vec);
+        let msg = [0u8; 64];
+
+        let msg_sig = wallet.sign(&addr, &msg).unwrap();
+
+        let msg_complete = keccak_256(&msg);
+        let message = SecpMessage::parse(&msg_complete);
+        let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
+        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
+        let mut new_bytes = [0; 65];
+        new_bytes[..64].copy_from_slice(&sig.serialize());
+        new_bytes[64] = recovery_id.serialize();
+        let actual = Signature::new_delegated(new_bytes.to_vec());
         assert_eq!(msg_sig, actual)
     }
 
