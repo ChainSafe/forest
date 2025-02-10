@@ -2749,13 +2749,12 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
                 trace::build_traces(&mut env, &[], execution_trace)?;
 
                 let get_output = || -> EthBytes {
-                    env.traces.first().map_or_else(
-                        EthBytes::default,
-                        |trace| match &trace.result {
+                    env.traces
+                        .first()
+                        .map_or_else(EthBytes::default, |trace| match &trace.result {
                             TraceResult::Call(r) => r.output.clone(),
                             TraceResult::Create(r) => r.code.clone(),
-                        }
-                    )
+                        })
                 };
 
                 all_traces.push(EthReplayBlockTransactionTrace {

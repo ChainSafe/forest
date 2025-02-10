@@ -1,9 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::{
-    EthAddress, EthBytes, EthCallTraceAction, EthTrace, TraceAction, TraceResult,
-};
+use super::types::{EthAddress, EthBytes, EthCallTraceAction, EthTrace, TraceAction, TraceResult};
 use super::utils::{decode_params, decode_return};
 use super::{
     decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
