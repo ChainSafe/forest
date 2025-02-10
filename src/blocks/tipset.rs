@@ -486,6 +486,10 @@ impl FullTipset {
     pub fn parent_state(&self) -> &Cid {
         &self.first_block().header().state_root
     }
+    /// Returns the state root for the tipset parent.
+    pub fn parents(&self) -> &TipsetKey {
+        &self.first_block().header().parents
+    }
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.first_block().header().epoch

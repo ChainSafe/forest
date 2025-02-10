@@ -112,7 +112,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
             .context("failed to validate the tipset")?;
 
         ctx.tipset_send
-            .try_send(Arc::new(ts.into_tipset()))
+            .try_send(Arc::new(ts))
             .context("tipset queue is full")?;
 
         ctx.network_send().send(NetworkMessage::PubsubMessage {

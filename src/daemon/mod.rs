@@ -8,7 +8,7 @@ pub mod main;
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
-use crate::chain_sync::ChainMuxer;
+use crate::chain_sync::{chain_follower, ChainMuxer};
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
@@ -406,22 +406,45 @@ pub(super) async fn start(
 
     let mpool = Arc::new(mpool);
 
-    // Initialize ChainMuxer
-    let chain_muxer = ChainMuxer::new(
-        Arc::clone(&state_manager),
+    // // Initialize ChainMuxer
+    // let chain_muxer = ChainMuxer::new(
+    //     Arc::clone(&state_manager),
+    //     peer_manager.clone(),
+    //     mpool.clone(),
+    //     network_send.clone(),
+    //     network_rx,
+    //     Arc::new(Tipset::from(&genesis_header)),
+    //     tipset_sender.clone(),
+    //     tipset_receiver,
+    //     opts.stateless,
+    // )?;
+    // let bad_blocks = chain_muxer.bad_blocks_cloned();
+    // let sync_state = chain_muxer.sync_state_cloned();
+    // let sync_network_context = chain_muxer.sync_network_context();
+    // services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+
+    // New chain follower
+    let bad_blocks = Arc::new(crate::chain_sync::BadBlockCache::default());
+    let sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>> = Default::default();
+    let sync_network_context = crate::chain_sync::network_context::SyncNetworkContext::new(
+        network_send,
         peer_manager.clone(),
-        mpool.clone(),
-        network_send.clone(),
-        network_rx,
-        Arc::new(Tipset::from(&genesis_header)),
-        tipset_sender.clone(),
-        tipset_receiver,
-        opts.stateless,
-    )?;
-    let bad_blocks = chain_muxer.bad_blocks_cloned();
-    let sync_state = chain_muxer.sync_state_cloned();
-    let sync_network_context = chain_muxer.sync_network_context();
-    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+        db.clone(),
+    );
+    services.spawn({
+        let sync_network_context = sync_network_context.clone();
+        let chain_config = chain_config.clone();
+        async move {
+            chain_follower(
+                chain_config,
+                Arc::clone(&chain_store),
+                network_rx,
+                tipset_receiver,
+                sync_network_context,
+            )
+            .await
+        }
+    });
 
     if config.client.enable_health_check {
         let forest_state = crate::health::ForestState {
