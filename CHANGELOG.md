@@ -49,6 +49,8 @@
 
 - [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
 
+- [#5259](https://github.com/ChainSafe/forest/issues/5259) Add `forest-cli wait-api` command.
+
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
 ### Changed
