@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::eth::filter::ParsedFilter;
+use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::rpc::eth::CollectedEvent;
 use crate::{
     blocks::TipsetKey,
@@ -37,7 +37,7 @@ impl RpcMethod<1> for GetActorEventsRaw {
             )?;
             let events = ctx
                 .eth_event_handler
-                .get_events_for_parsed_filter(&ctx, &parsed_filter)
+                .get_events_for_parsed_filter(&ctx, &parsed_filter, SkipEvent::Never)
                 .await?;
             Ok(events.into_iter().map(|ce| ce.into()).collect())
         } else {

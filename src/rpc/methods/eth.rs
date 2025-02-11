@@ -2638,9 +2638,12 @@ impl RpcMethod<1> for EthGetLogs {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let pf = ctx
+            .eth_event_handler
+            .parse_eth_filter_spec(&ctx, &eth_filter)?;
         let events = ctx
             .eth_event_handler
-            .eth_get_events_for_filter(&ctx, eth_filter)
+            .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
             .await?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
     }

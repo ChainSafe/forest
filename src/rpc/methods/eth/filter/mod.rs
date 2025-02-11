@@ -77,6 +77,7 @@ pub struct EthEventHandler {
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
+#[derive(Clone)]
 pub enum SkipEvent {
     OnUnresolvedAddress,
     Never,
@@ -238,7 +239,7 @@ impl EthEventHandler {
         }
     }
 
-    fn parse_eth_filter_spec<DB: Blockstore>(
+    pub fn parse_eth_filter_spec<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
         filter_spec: &EthFilterSpec,
@@ -345,108 +346,24 @@ impl EthEventHandler {
         Ok(())
     }
 
-    pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
-        &self,
-        ctx: &Ctx<DB>,
-        spec: EthFilterSpec,
-    ) -> anyhow::Result<Vec<CollectedEvent>> {
-        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
-
-        let mut collected_events = vec![];
-        match pf.tipsets {
-            ParsedFilterTipsets::Hash(block_hash) => {
-                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
-                let tipset = Arc::new(tipset);
-                Self::collect_events(
-                    ctx,
-                    &tipset,
-                    Some(&spec),
-                    SkipEvent::OnUnresolvedAddress,
-                    &mut collected_events,
-                )
-                .await?;
-            }
-            ParsedFilterTipsets::Key(tsk) => {
-                let tipset = Arc::new(Tipset::load_required(ctx.store(), &tsk)?);
-                Self::collect_events(
-                    ctx,
-                    &tipset,
-                    Some(&spec),
-                    SkipEvent::OnUnresolvedAddress,
-                    &mut collected_events,
-                )
-                .await?;
-            }
-            ParsedFilterTipsets::Range(range) => {
-                let max_height = if *range.end() == -1 {
-                    // heaviest tipset doesn't have events because its messages haven't been executed yet
-                    ctx.chain_store().heaviest_tipset().epoch() - 1
-                } else if *range.end() < 0 {
-                    bail!("max_height requested is less than 0")
-                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
-                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
-                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
-                    bail!("max_height requested is greater than the heaviest tipset");
-                } else {
-                    *range.end()
-                };
-
-                let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
-                    max_height,
-                    ctx.chain_store().heaviest_tipset(),
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                for tipset in max_tipset
-                    .as_ref()
-                    .clone()
-                    .chain(&ctx.store())
-                    .take_while(|ts| ts.epoch() >= *range.start())
-                {
-                    let tipset = Arc::new(tipset);
-                    Self::collect_events(
-                        ctx,
-                        &tipset,
-                        Some(&spec),
-                        SkipEvent::OnUnresolvedAddress,
-                        &mut collected_events,
-                    )
-                    .await?;
-                }
-            }
-        }
-
-        Ok(collected_events)
-    }
-
     pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
         &self,
         ctx: &Ctx<DB>,
         pf: &ParsedFilter,
+        skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
         let mut collected_events = vec![];
         match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
                 let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
                 let tipset = Arc::new(tipset);
-                Self::collect_events(
-                    ctx,
-                    &tipset,
-                    Some(pf),
-                    SkipEvent::Never,
-                    &mut collected_events,
-                )
-                .await?;
+                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                    .await?;
             }
             ParsedFilterTipsets::Key(tsk) => {
                 let tipset = Arc::new(Tipset::load_required(ctx.store(), tsk)?);
-                Self::collect_events(
-                    ctx,
-                    &tipset,
-                    Some(pf),
-                    SkipEvent::Never,
-                    &mut collected_events,
-                )
-                .await?;
+                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                    .await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
@@ -478,7 +395,7 @@ impl EthEventHandler {
                         ctx,
                         &tipset,
                         Some(pf),
-                        SkipEvent::Never,
+                        skip_event.clone(),
                         &mut collected_events,
                     )
                     .await?;
