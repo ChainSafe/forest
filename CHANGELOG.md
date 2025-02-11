@@ -51,6 +51,8 @@
 
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
+- [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for the `Filecoin.GetActorEventsRaw` RPC method.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
