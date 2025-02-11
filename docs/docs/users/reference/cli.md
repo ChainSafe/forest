@@ -144,7 +144,7 @@ Create a new wallet
 Usage: forest-wallet new [SIGNATURE_TYPE]
 
 Arguments:
-  [SIGNATURE_TYPE]  The signature type to use. One of SECP256k1, or BLS [default: secp256k1]
+  [SIGNATURE_TYPE]  The signature type to use. One of `secp256k1`, `bls` or `delegated` [default: secp256k1]
 
 Options:
   -h, --help  Print help
@@ -779,7 +779,7 @@ Options:
 ### `forest-cli healthcheck ready`
 
 ```
-Display ready status
+Display readiness status
 
 Usage: forest-cli healthcheck ready [OPTIONS]
 
