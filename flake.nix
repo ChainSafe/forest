@@ -47,7 +47,6 @@
 
         buildInputs = with pkgs; [
           # Add runtime dependencies here
-          go # For rust2go FFI
         ];
 
         nativeBuildInputs = with pkgs; [
