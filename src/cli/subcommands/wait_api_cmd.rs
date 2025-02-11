@@ -6,7 +6,7 @@ use std::time::Duration;
 
 #[derive(Debug, clap::Args)]
 pub struct WaitApiCommand {
-    /// duration to wait till fail
+    /// duration to wait till fail, e.g. `5s`, `5seconds`, `1m`, `1min`, etc.
     #[arg(long)]
     timeout: Option<humantime::Duration>,
 }
