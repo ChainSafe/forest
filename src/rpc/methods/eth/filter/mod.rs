@@ -381,7 +381,7 @@ impl EthEventHandler {
 
                 let matched = if let Some(spec) = spec {
                     let matched = spec.matches(&resolved, &entries)?;
-                    tracing::info!(
+                    tracing::debug!(
                         "Event {} {}match filter topics",
                         event_count,
                         if matched { "" } else { "do not " }
