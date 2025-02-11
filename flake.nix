@@ -28,6 +28,19 @@
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+      f3-sidecar-files = pkgs.buildGoModule {
+        pname = "f3-sidecar-files";
+        version = "0.1.0";
+        src = pkgs.lib.cleanSourceWith {
+          src = ./f3-sidecar;
+        };
+        buildPhase = ''
+          mkdir -p $out
+          cp -r . $out
+        '';
+        vendorHash = "sha256-Pe3bgBZr8pdn2XVOQRvEjvnXldw7N1ehv0zY51kGSSk=";
+      };
+
       src = pkgs.lib.cleanSourceWith {
         src = ./.;
         filter = path: type:
@@ -70,8 +83,12 @@
             export GOCACHE=$(mktemp -d)
             export GOMODCACHE=$(mktemp -d)
           '';
+          preBuild = ''
+            # Copy f3-sidecar files into the build directory
+            cp -r ${f3-sidecar-files}/vendor f3-sidecar/
+          '';
           # Environment variables needed for the build
-          FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
+          # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
         });
     in {
       checks = {
@@ -80,7 +97,7 @@
       };
 
       packages.default = forest;
-
+      packages.f3-sidecar-files = f3-sidecar-files;
       apps = let
         binaries = ["forest" "forest-cli" "forest-tool" "forest-wallet"];
         mkBinApp = name:
