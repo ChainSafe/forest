@@ -24,7 +24,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::eth::types::EthBlockTrace;
+use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
@@ -2743,12 +2743,14 @@ impl RpcMethod<1> for EthTraceBlock {
 
                 for trace in env.traces {
                     all_traces.push(EthBlockTrace {
-                        r#type: trace.r#type,
-                        subtraces: trace.subtraces,
-                        trace_address: trace.trace_address,
-                        action: trace.action,
-                        result: trace.result,
-                        error: trace.error,
+                        trace: EthTrace {
+                            r#type: trace.r#type,
+                            subtraces: trace.subtraces,
+                            trace_address: trace.trace_address,
+                            action: trace.action,
+                            result: trace.result,
+                            error: trace.error,
+                        },
 
                         block_hash: block_hash.clone(),
                         block_number: ts.epoch(),
@@ -2757,6 +2759,70 @@ impl RpcMethod<1> for EthTraceBlock {
                     });
                 }
             }
+        }
+
+        Ok(all_traces)
+    }
+}
+
+pub enum EthTraceReplayBlockTransactions {}
+impl RpcMethod<2> for EthTraceReplayBlockTransactions {
+    const N_REQUIRED_PARAMS: usize = 2;
+    const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_traceReplayBlockTransactions");
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "trace_types"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (BlockNumberOrHash, Vec<String>);
+    type Ok = Vec<EthReplayBlockTransactionTrace>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, trace_types): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if trace_types.as_slice() != ["trace"] {
+            return Err(anyhow::anyhow!("only trace is supported").into());
+        }
+
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+
+        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+
+        let mut all_traces = vec![];
+        for ir in trace.into_iter() {
+            if ir.msg.from == system::ADDRESS.into() {
+                continue;
+            }
+
+            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+            let tx_hash = tx_hash
+                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+
+            let mut env = trace::base_environment(&state, &ir.msg.from)
+                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+
+            if let Some(execution_trace) = ir.execution_trace {
+                trace::build_traces(&mut env, &[], execution_trace)?;
+
+                let get_output = || -> EthBytes {
+                    env.traces
+                        .first()
+                        .map_or_else(EthBytes::default, |trace| match &trace.result {
+                            TraceResult::Call(r) => r.output.clone(),
+                            TraceResult::Create(r) => r.code.clone(),
+                        })
+                };
+
+                all_traces.push(EthReplayBlockTransactionTrace {
+                    output: get_output(),
+                    state_diff: None,
+                    trace: env.traces.clone(),
+                    transaction_hash: tx_hash.clone(),
+                    vm_trace: None,
+                });
+            };
         }
 
         Ok(all_traces)
