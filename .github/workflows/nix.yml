@@ -24,4 +24,5 @@ jobs:
         with:
           determinate: true
       - uses: DeterminateSystems/flakehub-cache-action@main
+      - run: nix build --dry-run
       - run: nix build
