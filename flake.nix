@@ -65,6 +65,7 @@
         nativeBuildInputs = with pkgs; [
           # Add build-time dependencies here
           go # For rust2go compilation
+          clang # For C/C++ compilation
         ];
 
         doCheck = false;
@@ -87,6 +88,7 @@
             # Copy f3-sidecar files into the build directory
             cp -r ${f3-sidecar-files}/vendor f3-sidecar/
           '';
+          LIBCLANG_PATH = "${pkgs.llvmPackages_14.libclang.lib}/lib";
           # Environment variables needed for the build
           # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
         });
