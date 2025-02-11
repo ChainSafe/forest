@@ -2784,7 +2784,8 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             return Err(anyhow::anyhow!("only trace is supported").into());
         }
 
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
+        let ts =
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param, PredefinedSet::Full)?;
 
         let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
 
