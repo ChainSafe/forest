@@ -100,7 +100,7 @@ test:
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --release --workspace
+	cargo nextest run --cargo-profile quick --workspace
 
 test-all: test test-release
 
