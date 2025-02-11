@@ -611,7 +611,7 @@ mod tests {
     #[tokio::test]
     async fn resolve_libp2p_dnsaddr_test() {
         async fn run() -> anyhow::Result<()> {
-            let addr = Multiaddr::from_str("/dnsaddr/bootstrap.butterfly.fildev.network").unwrap();
+            let addr = Multiaddr::from_str("/dnsaddr/bootstrap.libp2p.io").unwrap();
             let p = addr
                 .iter()
                 .find(|p| matches!(p, Protocol::Dnsaddr(_)))
