@@ -917,6 +917,37 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
             .unwrap(),
         )
         .sort_policy(SortPolicy::All),
+        {
+            use std::collections::BTreeMap;
+
+            use base64::{prelude::BASE64_STANDARD, Engine};
+
+            use crate::lotus_json::LotusJson;
+            use crate::rpc::misc::ActorEventBlock;
+
+            let topic = BASE64_STANDARD
+                .decode("0Gprf0kYSUs3GSF9GAJ4bB9REqbB2I/iz+wAtFhPauw=")
+                .unwrap();
+            let mut fields: BTreeMap<String, Vec<ActorEventBlock>> = Default::default();
+            fields.insert(
+                "t1".into(),
+                vec![ActorEventBlock {
+                    codec: 85,
+                    value: LotusJson(topic),
+                }],
+            );
+            RpcTest::identity(
+                GetActorEventsRaw::request((Some(ActorEventFilter {
+                    addresses: vec![],
+                    fields,
+                    from_height: Some(epoch - 100),
+                    to_height: Some(epoch),
+                    tipset_key: None,
+                }),))
+                .unwrap(),
+            )
+            .sort_policy(SortPolicy::All)
+        },
     ]
 }
 
