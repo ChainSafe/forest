@@ -71,7 +71,7 @@
             export GOMODCACHE=$(mktemp -d)
           '';
           # Environment variables needed for the build
-          # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
+          FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
         });
     in {
       checks = {
