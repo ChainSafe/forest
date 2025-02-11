@@ -133,13 +133,17 @@ impl Signature {
     }
 
     /// Checks if a signature is valid given data and address.
-    pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
+    pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> anyhow::Result<()> {
         use super::fvm_shared_latest::crypto::signature::ops::{
             verify_bls_sig, verify_secp256k1_sig,
         };
         match self.sig_type {
-            SignatureType::Bls => verify_bls_sig(&self.bytes, data, addr),
-            SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
+            SignatureType::Bls => {
+                verify_bls_sig(&self.bytes, data, addr).map_err(anyhow::Error::msg)
+            }
+            SignatureType::Secp256k1 => {
+                verify_secp256k1_sig(&self.bytes, data, addr).map_err(anyhow::Error::msg)
+            }
             SignatureType::Delegated => verify_delegated_sig(&self.bytes, data, addr),
         }
     }
@@ -214,7 +218,7 @@ pub fn verify_delegated_sig(
     signature: &[u8],
     data: &[u8],
     addr: &crate::shim::address::Address,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     use super::fvm_shared_latest::{
         address::Protocol::Delegated,
         crypto::signature::{ops::recover_secp_public_key, SECP_SIG_LEN},
@@ -222,37 +226,32 @@ pub fn verify_delegated_sig(
     use crate::rpc::eth::types::EthAddress;
     use crate::utils::encoding::keccak_256;
 
-    if addr.protocol() != Delegated {
-        return Err(format!(
-            "cannot validate a delegated signature against a {} address expected",
-            addr.protocol(),
-        ));
-    }
+    anyhow::ensure!(
+        addr.protocol() == Delegated,
+        "cannot validate a delegated signature against a {} address expected",
+        addr.protocol()
+    );
 
-    if signature.len() != SECP_SIG_LEN {
-        return Err(format!(
-            "invalid delegated signature length. Was {}, must be {}",
-            signature.len(),
-            SECP_SIG_LEN
-        ));
-    }
+    anyhow::ensure!(
+        signature.len() == SECP_SIG_LEN,
+        "invalid delegated signature length. Was {}, must be {}",
+        signature.len(),
+        SECP_SIG_LEN
+    );
 
     let hash = keccak_256(data);
     let mut sig = [0u8; SECP_SIG_LEN];
     sig[..].copy_from_slice(signature);
-    let pub_key = recover_secp_public_key(&hash, &sig).map_err(|e| e.to_string())?;
+    let pub_key = recover_secp_public_key(&hash, &sig)?;
 
-    let eth_addr =
-        EthAddress::eth_address_from_pub_key(&pub_key.serialize()).map_err(|e| e.to_string())?;
+    let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key.serialize())?;
 
-    let rec_addr = eth_addr.to_filecoin_address().map_err(|e| e.to_string())?;
+    let rec_addr = eth_addr.to_filecoin_address()?;
 
     // check address against recovered address
-    if rec_addr == *addr {
-        Ok(())
-    } else {
-        Err("Delegated signature verification failed".to_owned())
-    }
+    anyhow::ensure!(rec_addr == *addr, "Delegated signature verification failed");
+
+    Ok(())
 }
 
 /// Extracts the raw replica commitment from a CID

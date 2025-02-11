@@ -1566,7 +1566,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         // SecP256K1 Signature validation
         msg.signature
             .verify(&msg.message().cid().to_bytes(), &key_addr)
-            .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
+            .map_err(|e| TipsetRangeSyncerError::MessageSignatureInvalid(e.to_string()))?;
     }
 
     // Validate message root from header matches message root

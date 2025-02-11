@@ -26,8 +26,7 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature
-            .verify(&message.cid().to_bytes(), &message.from())
-            .map_err(anyhow::Error::msg)?;
+            .verify(&message.cid().to_bytes(), &message.from())?;
         Ok(SignedMessage { message, signature })
     }
 
@@ -68,7 +67,7 @@ impl SignedMessage {
     }
 
     /// Verifies that the from address of the message generated the signature.
-    pub fn verify(&self) -> Result<(), String> {
+    pub fn verify(&self) -> anyhow::Result<()> {
         self.signature
             .verify(&self.message.cid().to_bytes(), &self.from())
     }
