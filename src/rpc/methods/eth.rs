@@ -24,6 +24,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::filter::SkipEvent;
 use crate::rpc::eth::types::EthBlockTrace;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
@@ -1126,7 +1127,14 @@ async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'stat
     };
 
     let mut events = vec![];
-    EthEventHandler::collect_events(ctx, ts, Some(&spec), &mut events).await?;
+    EthEventHandler::collect_events(
+        ctx,
+        ts,
+        Some(&spec),
+        SkipEvent::OnUnresolvedAddress,
+        &mut events,
+    )
+    .await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
     let out: Vec<_> = logs
