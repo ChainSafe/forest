@@ -32,3 +32,6 @@
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
 !Filecoin.ChainSetHead
+!Filecoin.EthFeeHistory
+!Filecoin.EthGetTransactionByBlockNumberAndIndex
+!Filecoin.EthTraceBlock
