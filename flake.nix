@@ -81,9 +81,22 @@
 
       packages.default = forest;
 
-      apps.default = flake-utils.lib.mkApp {
-        drv = forest;
-      };
+      apps = let
+        binaries = ["forest" "forest-cli" "forest-tool" "forest-wallet"];
+        mkBinApp = name:
+          flake-utils.lib.mkApp {
+            drv = forest;
+            inherit name;
+          };
+      in
+        {
+          default = mkBinApp "forest";
+        }
+        // builtins.listToAttrs (map (name: {
+            inherit name;
+            value = mkBinApp name;
+          })
+          binaries);
 
       devShells.default = pkgs.mkShell {
         inputsFrom = builtins.attrValues self.checks.${system};
