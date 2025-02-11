@@ -53,6 +53,8 @@
 
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
+- [#4709](https://github.com/ChainSafe/forest/issues/4709) Add support for `Filecoin.EthTraceReplayBlockTransactions` RPC method.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.

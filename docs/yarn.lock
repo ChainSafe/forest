@@ -2663,9 +2663,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@easyops-cn/docusaurus-search-local@npm:^0.48.4":
-  version: 0.48.4
-  resolution: "@easyops-cn/docusaurus-search-local@npm:0.48.4"
+"@easyops-cn/docusaurus-search-local@npm:^0.48.5":
+  version: 0.48.5
+  resolution: "@easyops-cn/docusaurus-search-local@npm:0.48.5"
   dependencies:
     "@docusaurus/plugin-content-docs": "npm:^2 || ^3"
     "@docusaurus/theme-translations": "npm:^2 || ^3"
@@ -2688,7 +2688,7 @@ __metadata:
     "@docusaurus/theme-common": ^2 || ^3
     react: ^16.14.0 || ^17 || ^18 || ^19
     react-dom: ^16.14.0 || 17 || ^18 || ^19
-  checksum: 10c0/29ae3b9c1088ed0bf8beda2598f488f5e8dee0eec397a8b1644519f59545bdd0ea090736aac077397026f6aa8d10a799c6015bb652b8c24e2a6e0fba4bd11021
+  checksum: 10c0/59b28b9b02d5106015744078b8bf954234964cf98d5ce3d28f56e5f7f8055b69acaf644d695e9c709b070c8e77bfa6a3ec36885879045a1dfd4febaee34b822c
   languageName: node
   linkType: hard
 
@@ -8953,7 +8953,7 @@ __metadata:
     "@docusaurus/preset-classic": "npm:^3.7.0"
     "@docusaurus/theme-mermaid": "npm:^3.7.0"
     "@docusaurus/tsconfig": "npm:^3.7.0"
-    "@easyops-cn/docusaurus-search-local": "npm:^0.48.4"
+    "@easyops-cn/docusaurus-search-local": "npm:^0.48.5"
     "@metamask/docusaurus-openrpc": "npm:^0.4.1"
     mdx-mermaid: "npm:^2.0.3"
     mermaid: "npm:^11.4.1"
