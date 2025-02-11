@@ -28,6 +28,7 @@
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+      # This is a hack to get the f3-sidecar vendor files into the build directory
       f3-sidecar-files = pkgs.buildGoModule {
         pname = "f3-sidecar-files";
         version = "0.1.0";
@@ -88,7 +89,7 @@
             # Copy f3-sidecar files into the build directory
             cp -r ${f3-sidecar-files}/vendor f3-sidecar/
           '';
-          LIBCLANG_PATH = "${pkgs.llvmPackages_14.libclang.lib}/lib";
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # Environment variables needed for the build
           # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
         });
@@ -99,7 +100,7 @@
       };
 
       packages.default = forest;
-      packages.f3-sidecar-files = f3-sidecar-files;
+
       apps = let
         binaries = ["forest" "forest-cli" "forest-tool" "forest-wallet"];
         mkBinApp = name:
