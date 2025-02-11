@@ -25,8 +25,7 @@ impl SignedMessage {
     /// Generate a new signed message from fields.
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
-        signature
-            .verify(&message.cid().to_bytes(), &message.from())?;
+        signature.verify(&message.cid().to_bytes(), &message.from())?;
         Ok(SignedMessage { message, signature })
     }
 
