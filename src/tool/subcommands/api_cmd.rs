@@ -1774,6 +1774,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
                 .unwrap(),
         ),
+        RpcTest::identity(
+            EthTraceReplayBlockTransactions::request((
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                vec!["trace".to_string()],
+            ))
+            .unwrap(),
+        ),
     ];
 
     for block in shared_tipset.block_headers() {

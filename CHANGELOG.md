@@ -51,7 +51,9 @@
 
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
-- [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for the `Filecoin.GetActorEventsRaw` RPC method.
+- [#4709](https://github.com/ChainSafe/forest/issues/4709) Add support for `Filecoin.EthTraceReplayBlockTransactions` RPC method.
+
+- [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for `Filecoin.GetActorEventsRaw` RPC method.
 
 ### Changed
 
