@@ -7,19 +7,28 @@ use std::time::Duration;
 #[derive(Debug, clap::Args)]
 pub struct WaitApiCommand {
     /// duration to wait till fail
-    #[arg(long, default_value = "30s")]
-    timeout: humantime::Duration,
+    #[arg(long)]
+    timeout: Option<humantime::Duration>,
 }
 
 impl WaitApiCommand {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         let request = Version::request(())?.with_timeout(Duration::from_secs(1));
-        let deadline = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::from_std(self.timeout.into())?)
-            .expect("Failed to calculate deadline");
+        let deadline = self.timeout.map(|timeout| {
+            chrono::Utc::now()
+                .checked_add_signed(
+                    chrono::Duration::from_std(timeout.into())
+                        .expect("Failed to convert humantime::Duration to std::time::Duration"),
+                )
+                .expect("Failed to calculate deadline")
+        });
 
         let mut success = false;
-        while chrono::Utc::now() <= deadline {
+        loop {
+            match deadline {
+                Some(deadline) if chrono::Utc::now() > deadline => break,
+                _ => {}
+            }
             if let Ok(_r) = client.call(request.clone()).await {
                 success = true;
                 break;
