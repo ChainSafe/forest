@@ -66,9 +66,9 @@
       forest = craneLib.buildPackage (commonArgs
         // {
           inherit cargoArtifacts;
-          # Set HOME for Go compilation
           preConfigure = ''
-            export HOME=$(mktemp -d)
+            export GOCACHE=$(mktemp -d)
+            export GOMODCACHE=$(mktemp -d)
           '';
           # Environment variables needed for the build
           # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
