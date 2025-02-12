@@ -1,10 +1,6 @@
 [profile.default]
 slow-timeout = { period = "10s", terminate-after = 3 }
 
-[[profile.default.overrides]]
-filter = 'test(state_migration_actor_bundle_runs)'
-slow-timeout = { period = "120s", terminate-after = 3 }
-
 # This test downloads bundles from the network, which can take a while.
 # It is only run on CI, so we can afford to be more patient.
 [[profile.default.overrides]]
@@ -14,7 +10,13 @@ slow-timeout = { period = "120s", terminate-after = 3 }
 # This test downloads bundles from the network, which can take a while.
 # It is only run on CI, so we can afford to be more patient.
 [[profile.default.overrides]]
-filter = 'test(create_manifest_json)'
+filter = 'test(state_migration_actor_bundle)'
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+# This test downloads bundles from the network, which can take a while.
+# It is only run on CI, so we can afford to be more patient.
+[[profile.default.overrides]]
+filter = 'test(state_migration_generate_actors_metadata)'
 slow-timeout = { period = "120s", terminate-after = 3 }
 
 # This test downloads RPC test snapshot files from the network, which can take a while.
