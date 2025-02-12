@@ -109,6 +109,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthUninstallFilter);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
 
