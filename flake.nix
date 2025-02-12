@@ -100,6 +100,7 @@
       };
 
       packages.default = forest;
+      packages.dependencies = cargoArtifacts;
 
       apps = let
         binaries = ["forest" "forest-cli" "forest-tool" "forest-wallet"];
