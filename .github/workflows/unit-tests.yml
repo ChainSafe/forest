@@ -15,14 +15,14 @@ on:
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - 'docs/**'
-      - '.github/workflows/docs-*.yml'
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
   push:
     branches:
       - main
     paths-ignore:
-      - 'docs/**'
-      - '.github/workflows/docs-*.yml'
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
 
 env:
   CI: 1
@@ -74,3 +74,6 @@ jobs:
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-release
+        env:
+          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
