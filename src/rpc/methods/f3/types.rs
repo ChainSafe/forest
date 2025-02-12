@@ -196,7 +196,11 @@ pub struct GpbftConfig {
     #[serde(with = "crate::lotus_json")]
     pub delta: Duration,
     pub delta_back_off_exponent: f64,
+    pub quality_delta_multiplier: f64,
     pub max_lookahead_rounds: u64,
+
+    pub chain_proposed_length: usize,
+
     #[schemars(with = "u64")]
     #[serde(with = "crate::lotus_json")]
     pub rebroadcast_backoff_base: Duration,
@@ -246,11 +250,17 @@ pub struct PubSubConfig {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ChainExchangeConfig {
-    pub max_chain_length: usize,
-    pub max_discovered_chains_per_instance: usize,
-    pub max_instance_lookahead: usize,
-    pub max_wanted_chains_per_instance: usize,
     pub subscription_buffer_size: usize,
+    pub max_chain_length: usize,
+    pub max_instance_lookahead: usize,
+    pub max_discovered_chains_per_instance: usize,
+    pub max_wanted_chains_per_instance: usize,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub rebroadcast_interval: Duration,
+    #[schemars(with = "u64")]
+    #[serde(with = "crate::lotus_json")]
+    pub max_timestamp_age: Duration,
 }
 
 #[serde_as]
