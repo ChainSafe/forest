@@ -20,8 +20,6 @@ on:
     paths:
       - '**/*.rs'
       - '.github/workflows/rust-lint.yml'
-  schedule:
-    - cron: "0 0 * * *"
 
 env:
   CI: 1

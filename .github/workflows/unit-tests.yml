@@ -23,8 +23,6 @@ on:
     paths-ignore:
       - 'docs/**'
       - '.github/workflows/docs-*.yml'
-  schedule:
-    - cron: "0 0 * * *"
 
 env:
   CI: 1

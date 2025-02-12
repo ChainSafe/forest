@@ -20,6 +20,9 @@ func main() {
 	if err := logging.SetLogLevel("net/identify", "error"); err != nil {
 		panic(err)
 	}
+	if err := logging.SetLogLevel("pubsub", "warn"); err != nil {
+		panic(err)
+	}
 	if err := logging.SetLogLevel("f3/sidecar", "debug"); err != nil {
 		panic(err)
 	}
