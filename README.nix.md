@@ -32,6 +32,8 @@ Forest uses Nix flakes for reproducible builds. To build Forest:
    ```
 
 This will build Forest and all its dependencies in a reproducible environment.
+Note, you might see a warning from FlakeHub. This happens when you're not logged
+in (to FlakeHub) and can be ignored.
 
 ## Installing Forest
 
