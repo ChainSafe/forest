@@ -57,9 +57,9 @@ The filter list is a text file where each line represents a method that should b
 
 - `!` at the beginning of the line means that the method is disallowed.
 - `#` at the beginning of the line is a comment and is ignored.
-- no prefix means that the method is allowed.
+- no prefix means that all the methods containing this name are allowed.
 
-If there is a single allowed method (no prefix), all other methods are disallowed by default.
+If there is a single allowed method (no prefix), all non-matching methods are disallowed by default.
 
 :::warning
 Some methods have aliases, so you need to filter all of them. This is most prominent in the `Filecoin.Eth.*` namespace. They are implemented for compatibility with Lotus, see [here](https://github.com/filecoin-project/lotus/blob/a9718c841e1fced8afc6e9fee2db2a2b565acc42/api/eth_aliases.go).
@@ -86,4 +86,23 @@ Disallow the `Filecoin.EthGasPrice`, `Filecoin.EthEstimateGas`, and their aliase
 !eth_gasPrice
 !Filecoin.EthEstimateGas
 !eth_estimateGas
+```
+
+Allow all the methods in the `Filecoin.Chain` namespace. Disallow the `Filecoin.ChainExport` method. This will allow methods such as `Filecoin.ChainGetTipSet` and `Filecoin.ChainGetBlock` but disallow the `Filecoin.ChainExport` method:
+
+```plaintext
+Filecoin.Chain
+!Filecoin.ChainExport
+```
+
+## Public RPC node recommendations
+
+If you are running a public RPC node, it is recommended to filter certain methods (even those not requiring a JWT token) to reduce the load on the node and to improve security. Here is a list of methods that you might want to consider filtering:
+
+```plaintext
+# Creates a snapshot of the chain and writes it to a file. Very resource-intensive.
+!Filecoin.ChainExport
+# Potentially resource-intensive.
+!Filecoin.EthCall
+!eth_call
 ```
