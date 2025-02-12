@@ -7,6 +7,7 @@ use common::{daemon, CommonArgs};
 use predicates::prelude::*;
 
 use crate::common::{create_tmp_config, tool};
+use fickle::fickle;
 
 // Exporting an empty archive should fail but not panic
 #[test]
@@ -28,6 +29,7 @@ fn export_empty_archive() {
 
 // Running `forest-tool state-migration actor-bundle` may not fail.
 #[test]
+#[fickle]
 fn state_migration_actor_bundle_runs() {
     let temp_dir = tempfile::tempdir().unwrap();
     let bundle = temp_dir.path().join("bundle.car");

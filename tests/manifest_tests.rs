@@ -4,9 +4,11 @@
 pub mod common;
 
 use crate::common::tool;
+use fickle::fickle;
 use std::path::PathBuf;
 
 #[test]
+#[fickle]
 fn create_manifest_json() {
     // This downloads lots of bundles from Github, which may be down at the time
     // of local development. If GH is down, the CI will likely fail as well.
