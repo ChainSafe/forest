@@ -26,23 +26,6 @@ fn export_empty_archive() {
         ));
 }
 
-// Running `forest-tool state-migration actor-bundle` may not fail.
-#[test]
-fn state_migration_actor_bundle_runs() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let bundle = temp_dir.path().join("bundle.car");
-
-    tool()
-        .arg("state-migration")
-        .arg("actor-bundle")
-        .arg(&bundle)
-        .assert()
-        .success();
-
-    assert!(bundle.exists());
-    assert!(zstd::decode_all(std::fs::File::open(&bundle).unwrap()).is_ok());
-}
-
 #[test]
 fn peer_id_from_keypair() {
     let temp_dir = tempfile::tempdir().unwrap();

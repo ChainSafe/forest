@@ -8,7 +8,7 @@ fn test_manifest_template() {
     // lotus f3 manifest --output json
     let lotus_json = serde_json::json!({
       "Pause": false,
-      "ProtocolVersion": 4,
+      "ProtocolVersion": 5,
       "InitialInstance": 0,
       "BootstrapEpoch": 2081674,
       "NetworkName": "calibrationnet",
@@ -22,7 +22,9 @@ fn test_manifest_template() {
       "Gpbft": {
         "Delta": 6000000000_u64,
         "DeltaBackOffExponent": 2_f64,
+        "QualityDeltaMultiplier": 1_f64,
         "MaxLookaheadRounds": 5,
+        "ChainProposedLength": 100,
         "RebroadcastBackoffBase": 6000000000_u64,
         "RebroadcastBackoffExponent": 1.3,
         "RebroadcastBackoffSpread": 0.1,
@@ -42,7 +44,7 @@ fn test_manifest_template() {
           6.27,
           7.5
         ],
-        "HeadLookback": 0,
+        "HeadLookback": 4,
         "Finalize": true
       },
       "CertificateExchange": {
@@ -50,6 +52,18 @@ fn test_manifest_template() {
         "ServerRequestTimeout": 60000000000_u64,
         "MinimumPollInterval": 30000000000_u64,
         "MaximumPollInterval": 120000000000_u64
+      },
+      "PubSub": {
+        "CompressionEnabled": false
+      },
+      "ChainExchange": {
+        "SubscriptionBufferSize": 32,
+        "MaxChainLength": 100,
+        "MaxInstanceLookahead": 10,
+        "MaxDiscoveredChainsPerInstance": 1000,
+        "MaxWantedChainsPerInstance": 1000,
+        "RebroadcastInterval": 2000000000_u64,
+        "MaxTimestampAge": 8000000000_u64
       }
     });
     let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();

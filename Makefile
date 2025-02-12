@@ -93,14 +93,14 @@ docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
 test:
-	cargo nextest run --workspace
+	cargo nextest run --workspace --no-fail-fast
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
 test-release:
-	cargo nextest run --release --workspace
+	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
 
 test-all: test test-release
 

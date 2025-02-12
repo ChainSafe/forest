@@ -61,6 +61,9 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
+    /// Path to a list of RPC methods to allow/disallow.
+    pub rpc_filter_list: Option<PathBuf>,
+    /// Healthcheck bind, e.g. 127.0.0.1:2346
     pub healthcheck_address: SocketAddr,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
     pub load_actors: bool,
@@ -87,6 +90,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), crate::rpc::DEFAULT_PORT),
+            rpc_filter_list: None,
             healthcheck_address: SocketAddr::new(
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
                 crate::health::DEFAULT_HEALTHCHECK_PORT,

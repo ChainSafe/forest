@@ -1,9 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::{
-    EthAddress, EthBlockTrace, EthBytes, EthCallTraceAction, TraceAction, TraceResult,
-};
+use super::types::{EthAddress, EthBytes, EthCallTraceAction, EthTrace, TraceAction, TraceResult};
 use super::utils::{decode_params, decode_return};
 use super::{
     decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
@@ -30,7 +28,7 @@ pub struct Environment {
     caller: EthAddress,
     is_evm: bool,
     subtrace_count: i64,
-    pub traces: Vec<EthBlockTrace>,
+    pub traces: Vec<EthTrace>,
     last_byte_code: Option<EthAddress>,
 }
 
@@ -160,7 +158,7 @@ fn build_trace(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
-) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+) -> anyhow::Result<(Option<EthTrace>, Option<ExecutionTrace>)> {
     // This function first assumes that the call is a "native" call, then handles all the "not
     // native" cases. If we get any unexpected results in any of these special cases, we just
     // keep the "native" interpretation and move on.
@@ -251,7 +249,7 @@ fn trace_call(
     trace: &ExecutionTrace,
     input: EthBytes,
     output: EthBytes,
-) -> anyhow::Result<EthBlockTrace> {
+) -> anyhow::Result<EthTrace> {
     if let Some(invoked_actor) = &trace.invoked_actor {
         let to = trace_to_address(invoked_actor);
         let call_type: String = if trace.msg.read_only.unwrap_or_default() {
@@ -261,8 +259,7 @@ fn trace_call(
         }
         .into();
 
-        let default = EthBlockTrace::default();
-        Ok(EthBlockTrace {
+        Ok(EthTrace {
             r#type: "call".into(),
             action: TraceAction::Call(EthCallTraceAction {
                 call_type,
@@ -278,7 +275,7 @@ fn trace_call(
             }),
             trace_address: Vec::from(address),
             error: trace_err_msg(trace),
-            ..default
+            ..EthTrace::default()
         })
     } else {
         bail!("no invoked actor")
@@ -290,7 +287,7 @@ fn trace_native_call(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<EthBlockTrace> {
+) -> anyhow::Result<EthTrace> {
     trace_call(
         env,
         address,
@@ -310,7 +307,7 @@ fn trace_evm_call(
     env: &mut Environment,
     address: &[i64],
     trace: ExecutionTrace,
-) -> anyhow::Result<(EthBlockTrace, ExecutionTrace)> {
+) -> anyhow::Result<(EthTrace, ExecutionTrace)> {
     let input = match decode_payload(&trace.msg.params, trace.msg.params_codec) {
         Ok(value) => value,
         Err(err) => {
@@ -335,7 +332,7 @@ fn trace_native_create(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+) -> anyhow::Result<(Option<EthTrace>, Option<ExecutionTrace>)> {
     if trace.msg.read_only.unwrap_or_default() {
         // "create" isn't valid in a staticcall, so we just skip this trace
         // (couldn't have created an actor anyways).
@@ -395,7 +392,7 @@ fn trace_native_create(
     }
 
     Ok((
-        Some(EthBlockTrace {
+        Some(EthTrace {
             r#type: "create".into(),
             action: TraceAction::Create(EthCreateTraceAction {
                 from: env.caller.clone(),
@@ -413,7 +410,7 @@ fn trace_native_create(
             }),
             trace_address: Vec::from(address),
             error: trace_err_msg(trace),
-            ..EthBlockTrace::default()
+            ..EthTrace::default()
         }),
         Some(sub_trace.clone()),
     ))
@@ -448,7 +445,7 @@ fn trace_eth_create(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+) -> anyhow::Result<(Option<EthTrace>, Option<ExecutionTrace>)> {
     // Same as the Init actor case above, see the comment there.
     if trace.msg.read_only.unwrap_or_default() {
         return Ok((None, None));
@@ -505,7 +502,7 @@ fn trace_eth_create(
     };
 
     Ok((
-        Some(EthBlockTrace {
+        Some(EthTrace {
             r#type: "create".into(),
             action: TraceAction::Create(EthCreateTraceAction {
                 from: env.caller.clone(),
@@ -520,7 +517,7 @@ fn trace_eth_create(
             }),
             trace_address: Vec::from(address),
             error: trace_err_msg(trace),
-            ..EthBlockTrace::default()
+            ..EthTrace::default()
         }),
         Some(sub_trace.clone()),
     ))
@@ -532,7 +529,7 @@ fn trace_evm_private(
     env: &mut Environment,
     address: &[i64],
     trace: &ExecutionTrace,
-) -> anyhow::Result<(Option<EthBlockTrace>, Option<ExecutionTrace>)> {
+) -> anyhow::Result<(Option<EthTrace>, Option<ExecutionTrace>)> {
     // The EVM actor implements DELEGATECALL by:
     //
     // 1. Asking the callee for its bytecode by calling it on the GetBytecode method.
@@ -594,7 +591,7 @@ fn trace_evm_private(
                 .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {}", e))?;
 
             Ok((
-                Some(EthBlockTrace {
+                Some(EthTrace {
                     r#type: "call".into(),
                     action: TraceAction::Call(EthCallTraceAction {
                         call_type: "delegatecall".into(),
@@ -610,7 +607,7 @@ fn trace_evm_private(
                     }),
                     trace_address: Vec::from(address),
                     error: trace_err_msg(trace),
-                    ..EthBlockTrace::default()
+                    ..EthTrace::default()
                 }),
                 Some(trace.clone()),
             ))

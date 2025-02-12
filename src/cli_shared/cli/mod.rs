@@ -57,6 +57,9 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
+    /// Path to a list of RPC methods to allow/disallow.
+    #[arg(long)]
+    pub rpc_filter_list: Option<PathBuf>,
     /// Disable healthcheck endpoints
     #[arg(long)]
     pub no_healthcheck: bool,
@@ -165,6 +168,7 @@ impl CliOpts {
         }
         if self.rpc.unwrap_or(cfg.client.enable_rpc) {
             cfg.client.enable_rpc = true;
+            cfg.client.rpc_filter_list = self.rpc_filter_list.clone();
             if let Some(rpc_address) = self.rpc_address {
                 cfg.client.rpc_address = rpc_address;
             }
