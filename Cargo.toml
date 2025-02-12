@@ -253,6 +253,7 @@ quickcheck_async = "0.1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.263"
 regex-automata = "0.4"
+serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 
