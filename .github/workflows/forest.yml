@@ -17,8 +17,7 @@ concurrency:
     paths-ignore:
       - 'docs/**'
       - '.github/workflows/docs-*.yml'
-  schedule:
-    - cron: 0 0 * * *
+
 env:
   CI: 1
   CARGO_INCREMENTAL: 0
