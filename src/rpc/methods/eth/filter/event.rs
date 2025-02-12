@@ -13,11 +13,11 @@ use std::any::Any;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct EventFilter {
-    id: FilterID,
-    tipsets: ParsedFilterTipsets,
-    addresses: Vec<Address>, // list of actor addresses that are extpected to emit the event
-    keys_with_codec: HashMap<String, Vec<ActorEventBlock>>, // map of key names to a list of alternate values that may match
-    max_results: usize,                                     // maximum number of results to collect
+    pub id: FilterID,
+    pub tipsets: ParsedFilterTipsets,
+    pub addresses: Vec<Address>, // list of actor addresses that are extpected to emit the event
+    pub keys_with_codec: HashMap<String, Vec<ActorEventBlock>>, // map of key names to a list of alternate values that may match
+    pub max_results: usize, // maximum number of results to collect
 }
 
 impl Filter for EventFilter {
