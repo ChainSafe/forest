@@ -237,6 +237,7 @@ cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
+fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
@@ -252,6 +253,7 @@ quickcheck_async = "0.1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.263"
 regex-automata = "0.4"
+serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 

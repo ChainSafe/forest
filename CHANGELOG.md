@@ -53,6 +53,8 @@
 
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
+- [#5147](https://github.com/ChainSafe/forest/issues/5147) Add support for the `--rpc-filter-list` flag to the `forest` daemon. This flag allows users to specify a list of RPC methods to whitelist or blacklist.
+
 - [#4709](https://github.com/ChainSafe/forest/issues/4709) Add support for `Filecoin.EthTraceReplayBlockTransactions` RPC method.
 
 ### Changed

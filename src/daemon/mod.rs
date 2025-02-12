@@ -397,6 +397,12 @@ pub(super) async fn start(
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_address = config.client.rpc_address;
+        let filter_list = config
+            .client
+            .rpc_filter_list
+            .as_ref()
+            .map(|path| crate::rpc::FilterList::new_from_file(path))
+            .transpose()?;
 
         info!("JSON-RPC endpoint will listen at {rpc_address}");
 
@@ -418,6 +424,7 @@ pub(super) async fn start(
                     tipset_send: tipset_sender,
                 },
                 rpc_address,
+                filter_list,
             )
             .await
         });

@@ -4,16 +4,32 @@
 pub mod common;
 
 use crate::common::tool;
+use fickle::fickle;
+use serial_test::serial;
 use std::path::PathBuf;
 
 #[test]
-fn create_manifest_json() {
-    // This downloads lots of bundles from Github, which may be down at the time
-    // of local development. If GH is down, the CI will likely fail as well.
-    if std::env::var("CI").is_err() {
-        return;
-    }
+#[fickle]
+#[serial]
+fn state_migration_actor_bundle() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let bundle = temp_dir.path().join("bundle.car");
 
+    tool()
+        .arg("state-migration")
+        .arg("actor-bundle")
+        .arg(&bundle)
+        .assert()
+        .success();
+
+    assert!(bundle.exists());
+    assert!(zstd::decode_all(std::fs::File::open(&bundle).unwrap()).is_ok());
+}
+
+#[test]
+#[fickle]
+#[serial]
+fn state_migration_generate_actors_metadata() {
     let json = tool()
         .arg("state-migration")
         .arg("generate-actors-metadata")
