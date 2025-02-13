@@ -14,6 +14,7 @@ use anyhow::{Context as _, Result};
 use cid::multibase;
 use fvm_ipld_blockstore::Blockstore;
 
+/// Returns a list of listening addresses and the peer ID.
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
@@ -37,6 +38,7 @@ impl RpcMethod<0> for NetAddrsListen {
     }
 }
 
+/// Returns a list of currently connected peers.
 pub enum NetPeers {}
 impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
@@ -130,6 +132,7 @@ impl RpcMethod<0> for NetInfo {
     }
 }
 
+/// Connects to a specified peer.
 pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
@@ -163,6 +166,7 @@ impl RpcMethod<1> for NetConnect {
     }
 }
 
+/// Disconnects from the specified peer.
 pub enum NetDisconnect {}
 impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
@@ -191,6 +195,7 @@ impl RpcMethod<1> for NetDisconnect {
     }
 }
 
+/// Returns the agent version string.
 pub enum NetAgentVersion {}
 impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
@@ -252,6 +257,7 @@ impl RpcMethod<0> for NetVersion {
     }
 }
 
+/// Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.
 pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
@@ -285,6 +291,8 @@ impl RpcMethod<1> for NetProtectAdd {
         Ok(())
     }
 }
+
+/// Returns the current list of protected peers.
 pub enum NetProtectList {}
 impl RpcMethod<0> for NetProtectList {
     const NAME: &'static str = "Filecoin.NetProtectList";
@@ -306,6 +314,7 @@ impl RpcMethod<0> for NetProtectList {
     }
 }
 
+/// Remove a peer from the protected list.
 pub enum NetProtectRemove {}
 impl RpcMethod<1> for NetProtectRemove {
     const NAME: &'static str = "Filecoin.NetProtectRemove";

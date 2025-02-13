@@ -13,6 +13,8 @@ use cid::Cid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Returns all user-programmed and built-in actor events that match the given filter.
+/// Results may be limited by MaxFilterResults, MaxFilterHeightRange, and the node's available historical data.
 pub enum GetActorEventsRaw {}
 impl RpcMethod<1> for GetActorEventsRaw {
     const NAME: &'static str = "Filecoin.GetActorEventsRaw";

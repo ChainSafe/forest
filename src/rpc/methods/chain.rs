@@ -42,6 +42,7 @@ use tokio::sync::{
     Mutex,
 };
 
+/// Returns the message with the specified CID.
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
@@ -67,6 +68,7 @@ impl RpcMethod<1> for ChainGetMessage {
     }
 }
 
+/// Returns the events under the given event AMT root CID.
 pub enum ChainGetEvents {}
 impl RpcMethod<1> for ChainGetEvents {
     const NAME: &'static str = "Filecoin.ChainGetEvents";
@@ -80,6 +82,7 @@ impl RpcMethod<1> for ChainGetEvents {
     }
 }
 
+/// Returns the messages included in the blocks of the parent tipset.
 pub enum ChainGetParentMessages {}
 impl RpcMethod<1> for ChainGetParentMessages {
     const NAME: &'static str = "Filecoin.ChainGetParentMessages";
@@ -107,6 +110,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     }
 }
 
+/// Returns the message receipts included in the blocks of the parent tipset.
 pub enum ChainGetParentReceipts {}
 impl RpcMethod<1> for ChainGetParentReceipts {
     const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
@@ -242,6 +246,7 @@ impl RpcMethod<1> for ChainExport {
     }
 }
 
+/// Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.
 pub enum ChainReadObj {}
 impl RpcMethod<1> for ChainReadObj {
     const NAME: &'static str = "Filecoin.ChainReadObj";
@@ -264,6 +269,7 @@ impl RpcMethod<1> for ChainReadObj {
     }
 }
 
+/// Checks if a given CID exists in the chain blockstore.
 pub enum ChainHasObj {}
 impl RpcMethod<1> for ChainHasObj {
     const NAME: &'static str = "Filecoin.ChainHasObj";
@@ -336,6 +342,7 @@ impl RpcMethod<2> for ChainStatObj {
     }
 }
 
+/// Returns all messages from the specified block.
 pub enum ChainGetBlockMessages {}
 impl RpcMethod<1> for ChainGetBlockMessages {
     const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
@@ -366,6 +373,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     }
 }
 
+/// Returns the path between the two specified tipsets.
 pub enum ChainGetPath {}
 impl RpcMethod<2> for ChainGetPath {
     const NAME: &'static str = "Filecoin.ChainGetPath";
@@ -440,9 +448,7 @@ fn impl_chain_get_path(
         .collect())
 }
 
-/// Get tipset at epoch. Pick younger tipset if epoch points to a
-/// null-tipset. Only tipsets below the given `head` are searched. If `head`
-/// is null, the node will use the heaviest tipset.
+/// Returns the tipset at the specified height.
 pub enum ChainGetTipSetByHeight {}
 impl RpcMethod<2> for ChainGetTipSetByHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetByHeight";
@@ -465,6 +471,9 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     }
 }
 
+/// Looks back and returns the tipset at the specified epoch.
+/// If there are no blocks at the given epoch,
+/// returns the first non-nil tipset at a later epoch.
 pub enum ChainGetTipSetAfterHeight {}
 impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
@@ -503,6 +512,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     }
 }
 
+/// Returns the chain head (heaviest tipset).
 pub enum ChainHead {}
 impl RpcMethod<0> for ChainHead {
     const NAME: &'static str = "Filecoin.ChainHead";
@@ -519,6 +529,7 @@ impl RpcMethod<0> for ChainHead {
     }
 }
 
+/// Returns the block with the specified CID.
 pub enum ChainGetBlock {}
 impl RpcMethod<1> for ChainGetBlock {
     const NAME: &'static str = "Filecoin.ChainGetBlock";
@@ -538,6 +549,7 @@ impl RpcMethod<1> for ChainGetBlock {
     }
 }
 
+/// Returns the tipset with the specified CID.
 pub enum ChainGetTipSet {}
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
@@ -618,6 +630,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     }
 }
 
+/// Returns the weight of the specified tipset.
 pub enum ChainTipSetWeight {}
 impl RpcMethod<1> for ChainTipSetWeight {
     const NAME: &'static str = "Filecoin.ChainTipSetWeight";

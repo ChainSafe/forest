@@ -25,7 +25,7 @@ use super::state::InvocResult;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
-/// Estimate the fee cap
+/// Returns the estimated fee cap for the given parameters.
 pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {
     const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
@@ -64,7 +64,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     Ok(out)
 }
 
-/// Estimate the fee cap
+/// Returns the estimated gas premium for the given parameters.
 pub enum GasEstimateGasPremium {}
 impl RpcMethod<4> for GasEstimateGasPremium {
     const NAME: &'static str = "Filecoin.GasEstimateGasPremium";
@@ -163,6 +163,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     Ok(premium)
 }
 
+/// Returns the estimated gas limit for the given parameters.
 pub enum GasEstimateGasLimit {}
 impl RpcMethod<2> for GasEstimateGasLimit {
     const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
@@ -257,7 +258,7 @@ impl GasEstimateGasLimit {
     }
 }
 
-/// Estimates the gas parameters for a given message
+/// Returns the estimated gas for the given parameters.
 pub enum GasEstimateMessageGas {}
 impl RpcMethod<3> for GasEstimateMessageGas {
     const NAME: &'static str = "Filecoin.GasEstimateMessageGas";

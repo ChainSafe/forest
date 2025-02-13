@@ -71,6 +71,7 @@ impl RpcMethod<0> for SyncState {
     }
 }
 
+/// Submits a newly created block to the network.
 pub enum SyncSubmitBlock {}
 impl RpcMethod<1> for SyncSubmitBlock {
     const NAME: &'static str = "Filecoin.SyncSubmitBlock";

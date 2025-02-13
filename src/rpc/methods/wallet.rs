@@ -15,6 +15,7 @@ use crate::shim::{
 };
 use fvm_ipld_blockstore::Blockstore;
 
+/// Returns the balance of a wallet.
 pub enum WalletBalance {}
 impl RpcMethod<1> for WalletBalance {
     const NAME: &'static str = "Filecoin.WalletBalance";
@@ -75,6 +76,7 @@ impl RpcMethod<1> for WalletExport {
     }
 }
 
+/// Indicates whether the given address exists in the wallet.
 pub enum WalletHas {}
 impl RpcMethod<1> for WalletHas {
     const NAME: &'static str = "Filecoin.WalletHas";
@@ -118,6 +120,7 @@ impl RpcMethod<1> for WalletImport {
     }
 }
 
+/// Returns a list of all addresses in the wallet.
 pub enum WalletList {}
 impl RpcMethod<0> for WalletList {
     const NAME: &'static str = "Filecoin.WalletList";
@@ -185,6 +188,7 @@ impl RpcMethod<1> for WalletSetDefault {
     }
 }
 
+/// Signs the given bytes using the specified address.
 pub enum WalletSign {}
 impl RpcMethod<2> for WalletSign {
     const NAME: &'static str = "Filecoin.WalletSign";
@@ -223,6 +227,7 @@ impl RpcMethod<2> for WalletSign {
     }
 }
 
+/// Signs the given message using the specified address.
 pub enum WalletSignMessage {}
 impl RpcMethod<2> for WalletSignMessage {
     const NAME: &'static str = "Filecoin.WalletSignMessage";

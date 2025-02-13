@@ -15,7 +15,7 @@ use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-/// Gets next nonce for the specified sender.
+/// Returns the current nonce for the specified address.
 pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
@@ -34,7 +34,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     }
 }
 
-/// Return `Vec` of pending messages in `mpool`
+/// Returns the pending messages for a given tipset.
 pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
@@ -103,7 +103,7 @@ impl RpcMethod<1> for MpoolPending {
     }
 }
 
-/// Return `Vec` of pending messages for inclusion in the next block
+/// Returns a list of pending messages for inclusion in the next block.
 pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
@@ -123,7 +123,7 @@ impl RpcMethod<2> for MpoolSelect {
     }
 }
 
-/// Add `SignedMessage` to `mpool`, return message CID
+/// Adds a signed message to the message pool.
 pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
@@ -143,7 +143,7 @@ impl RpcMethod<1> for MpoolPush {
     }
 }
 
-/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+/// Adds a set of signed messages to the message pool.
 pub enum MpoolBatchPush {}
 impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
@@ -166,7 +166,7 @@ impl RpcMethod<1> for MpoolBatchPush {
     }
 }
 
-/// Add `SignedMessage` from untrusted source to `mpool`, return message CID
+/// Adds a message to the message pool with verification checks.
 pub enum MpoolPushUntrusted {}
 impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
@@ -188,7 +188,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     }
 }
 
-/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+/// Adds a set of messages to the message pool with additional verification checks.
 pub enum MpoolBatchPushUntrusted {}
 impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
@@ -208,7 +208,7 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     }
 }
 
-/// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
+/// Assigns a nonce, signs, and pushes a message to the mempool.
 pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";

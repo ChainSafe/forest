@@ -76,6 +76,7 @@ use tokio::task::JoinSet;
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
 
+/// Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.
 pub enum StateCall {}
 impl RpcMethod<2> for StateCall {
     const NAME: &'static str = "Filecoin.StateCall";
@@ -97,6 +98,7 @@ impl RpcMethod<2> for StateCall {
     }
 }
 
+/// Replays a given message, assuming it was included in a block in the specified tipset.
 pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
@@ -136,6 +138,7 @@ impl RpcMethod<0> for StateNetworkName {
     }
 }
 
+/// Returns the network version at the given tipset.
 pub enum StateNetworkVersion {}
 impl RpcMethod<1> for StateNetworkVersion {
     const NAME: &'static str = "Filecoin.StateNetworkVersion";
@@ -155,8 +158,7 @@ impl RpcMethod<1> for StateNetworkVersion {
     }
 }
 
-/// gets the public key address of the given ID address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+/// Returns the public key address for the given ID address (secp and bls accounts).
 pub enum StateAccountKey {}
 
 impl RpcMethod<2> for StateAccountKey {
@@ -180,8 +182,7 @@ impl RpcMethod<2> for StateAccountKey {
     }
 }
 
-/// retrieves the ID address of the given address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+/// Retrieves the ID address of the given address.
 pub enum StateLookupID {}
 
 impl RpcMethod<2> for StateLookupID {
@@ -204,7 +205,7 @@ impl RpcMethod<2> for StateLookupID {
     }
 }
 
-/// `StateVerifiedRegistryRootKey` returns the address of the Verified Registry's root key
+/// Returns the address of the Verified Registry's root key.
 pub enum StateVerifiedRegistryRootKey {}
 
 impl RpcMethod<1> for StateVerifiedRegistryRootKey {
@@ -226,8 +227,7 @@ impl RpcMethod<1> for StateVerifiedRegistryRootKey {
     }
 }
 
-// StateVerifiedClientStatus returns the data cap for the given address.
-// Returns zero if there is no entry in the data cap table for the address.
+/// Returns the data cap for the given address.
 pub enum StateVerifierStatus {}
 
 impl RpcMethod<2> for StateVerifierStatus {
@@ -252,6 +252,7 @@ impl RpcMethod<2> for StateVerifierStatus {
     }
 }
 
+/// Returns the nonce and balance for the specified actor.
 pub enum StateGetActor {}
 
 impl RpcMethod<2> for StateGetActor {
@@ -273,6 +274,7 @@ impl RpcMethod<2> for StateGetActor {
     }
 }
 
+/// Returns the public key address for non-account addresses (e.g., multisig, miners).
 pub enum StateLookupRobustAddress {}
 
 macro_rules! get_robust_address {
@@ -413,8 +415,7 @@ impl RpcMethod<2> for StateLookupRobustAddress {
     }
 }
 
-/// looks up the Escrow and Locked balances of the given address in the Storage
-/// Market
+/// Returns the Escrow and Locked balances of the specified address in the Storage Market.
 pub enum StateMarketBalance {}
 
 impl RpcMethod<2> for StateMarketBalance {
@@ -437,6 +438,7 @@ impl RpcMethod<2> for StateMarketBalance {
     }
 }
 
+/// Returns information about every deal in the Storage Market.
 pub enum StateMarketDeals {}
 
 impl RpcMethod<1> for StateMarketDeals {
@@ -481,7 +483,7 @@ impl RpcMethod<1> for StateMarketDeals {
     }
 }
 
-/// looks up the miner info of the given address.
+/// Returns information about the specified miner.
 pub enum StateMinerInfo {}
 
 impl RpcMethod<2> for StateMinerInfo {
@@ -502,6 +504,7 @@ impl RpcMethod<2> for StateMinerInfo {
     }
 }
 
+/// Returns information about sectors actively proven by a given miner.
 pub enum StateMinerActiveSectors {}
 
 impl RpcMethod<2> for StateMinerActiveSectors {
@@ -536,7 +539,7 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     }
 }
 
-/// Returns a bitfield containing all sector numbers marked as allocated in miner state
+/// Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.
 pub enum StateMinerAllocated {}
 
 impl RpcMethod<2> for StateMinerAllocated {
@@ -560,7 +563,7 @@ impl RpcMethod<2> for StateMinerAllocated {
     }
 }
 
-/// Return all partitions in the specified deadline
+/// Returns all partitions in the specified deadline.
 pub enum StateMinerPartitions {}
 
 impl RpcMethod<3> for StateMinerPartitions {
@@ -597,6 +600,7 @@ impl RpcMethod<3> for StateMinerPartitions {
     }
 }
 
+/// Returns information about the given miner's sectors. If no filter is provided, all sectors are included.
 pub enum StateMinerSectors {}
 
 impl RpcMethod<3> for StateMinerSectors {
@@ -620,7 +624,7 @@ impl RpcMethod<3> for StateMinerSectors {
     }
 }
 
-/// Returns the number of sectors in a miner's sector set and proving set
+/// Returns the number of sectors in a miner's sector and proving sets.
 pub enum StateMinerSectorCount {}
 
 impl RpcMethod<2> for StateMinerSectorCount {
@@ -657,7 +661,7 @@ impl RpcMethod<2> for StateMinerSectorCount {
     }
 }
 
-/// Checks if a sector is allocated
+/// Checks if a sector number is marked as allocated.
 pub enum StateMinerSectorAllocated {}
 
 impl RpcMethod<3> for StateMinerSectorAllocated {
@@ -683,7 +687,7 @@ impl RpcMethod<3> for StateMinerSectorAllocated {
     }
 }
 
-/// looks up the miner power of the given address.
+/// Returns the power of the specified miner.
 pub enum StateMinerPower {}
 
 impl RpcMethod<2> for StateMinerPower {
@@ -706,6 +710,7 @@ impl RpcMethod<2> for StateMinerPower {
     }
 }
 
+/// Returns all proving deadlines for the given miner.
 pub enum StateMinerDeadlines {}
 
 impl RpcMethod<2> for StateMinerDeadlines {
@@ -738,6 +743,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
     }
 }
 
+/// Calculates the deadline and related details for a given epoch during a proving period.
 pub enum StateMinerProvingDeadline {}
 
 impl RpcMethod<2> for StateMinerProvingDeadline {
@@ -766,7 +772,7 @@ impl RpcMethod<2> for StateMinerProvingDeadline {
     }
 }
 
-/// looks up the miner power of the given address.
+/// Returns a bitfield of the faulty sectors for the given miner.
 pub enum StateMinerFaults {}
 
 impl RpcMethod<2> for StateMinerFaults {
@@ -789,6 +795,7 @@ impl RpcMethod<2> for StateMinerFaults {
     }
 }
 
+/// Returns a bitfield of recovering sectors for the given miner.
 pub enum StateMinerRecoveries {}
 
 impl RpcMethod<2> for StateMinerRecoveries {
@@ -811,6 +818,7 @@ impl RpcMethod<2> for StateMinerRecoveries {
     }
 }
 
+/// Returns the portion of a miner's balance available for withdrawal or spending.
 pub enum StateMinerAvailableBalance {}
 
 impl RpcMethod<2> for StateMinerAvailableBalance {
@@ -875,6 +883,7 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
     }
 }
 
+/// Returns the initial pledge collateral for the specified miner's sector.
 pub enum StateMinerInitialPledgeCollateral {}
 
 impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
@@ -936,6 +945,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     }
 }
 
+/// Returns the sector precommit deposit for the specified miner.
 pub enum StateMinerPreCommitDepositForPower {}
 
 impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
@@ -1046,8 +1056,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     }
 }
 
-/// looks back in the chain for a message. If not found, it blocks until the
-/// message arrives on chain, and gets to the indicated confidence depth.
+/// StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.
 pub enum StateWaitMsg {}
 
 impl RpcMethod<4> for StateWaitMsg {
@@ -1090,8 +1099,7 @@ impl RpcMethod<4> for StateWaitMsg {
     }
 }
 
-/// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#statesearchmsg>
+/// Returns the receipt and tipset the specified message was included in.
 pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
@@ -1388,7 +1396,7 @@ fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
     mutex.lock().pop()
 }
 
-/// Get randomness from tickets
+/// Samples the chain for randomness.
 pub enum StateGetRandomnessFromTickets {}
 
 impl RpcMethod<4> for StateGetRandomnessFromTickets {
@@ -1418,6 +1426,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     }
 }
 
+/// Samples the chain for randomness.
 pub enum StateGetRandomnessDigestFromTickets {}
 
 impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
@@ -1440,7 +1449,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     }
 }
 
-/// Get randomness from beacon
+/// Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.
 pub enum StateGetRandomnessFromBeacon {}
 
 impl RpcMethod<4> for StateGetRandomnessFromBeacon {
@@ -1470,6 +1479,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     }
 }
 
+/// Samples the beacon for randomness.
 pub enum StateGetRandomnessDigestFromBeacon {}
 
 impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
@@ -1492,7 +1502,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     }
 }
 
-/// Get read state
+/// Returns the state of the specified actor.
 pub enum StateReadState {}
 
 impl RpcMethod<2> for StateReadState {
@@ -1524,6 +1534,7 @@ impl RpcMethod<2> for StateReadState {
     }
 }
 
+/// Returns the exact circulating supply of Filecoin at the given tipset.
 pub enum StateCirculatingSupply {}
 
 impl RpcMethod<1> for StateCirculatingSupply {
@@ -1549,6 +1560,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
     }
 }
 
+/// Returns the data cap for the given address. Returns null if no entry exists in the data cap table.
 pub enum StateVerifiedClientStatus {}
 
 impl RpcMethod<2> for StateVerifiedClientStatus {
@@ -1570,6 +1582,7 @@ impl RpcMethod<2> for StateVerifiedClientStatus {
     }
 }
 
+/// Returns an approximation of Filecoin's circulating supply at the given tipset.
 pub enum StateVMCirculatingSupplyInternal {}
 
 impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
@@ -1595,6 +1608,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
     }
 }
 
+/// Returns the addresses of every miner with claimed power in the Power Actor.
 pub enum StateListMiners {}
 
 impl RpcMethod<1> for StateListMiners {
@@ -1621,6 +1635,7 @@ impl RpcMethod<1> for StateListMiners {
     }
 }
 
+/// Returns the addresses of every actor in the state.
 pub enum StateListActors {}
 
 impl RpcMethod<1> for StateListActors {
@@ -1647,6 +1662,7 @@ impl RpcMethod<1> for StateListActors {
     }
 }
 
+/// Returns information about the specified deal.
 pub enum StateMarketStorageDeal {}
 
 impl RpcMethod<2> for StateMarketStorageDeal {
@@ -1675,6 +1691,7 @@ impl RpcMethod<2> for StateMarketStorageDeal {
     }
 }
 
+/// Returns the Escrow and Locked balances of all participants in the Storage Market.
 pub enum StateMarketParticipants {}
 
 impl RpcMethod<1> for StateMarketParticipants {
@@ -1710,6 +1727,7 @@ impl RpcMethod<1> for StateMarketParticipants {
     }
 }
 
+/// Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.
 pub enum StateDealProviderCollateralBounds {}
 
 impl RpcMethod<3> for StateDealProviderCollateralBounds {
@@ -1770,6 +1788,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     }
 }
 
+/// Returns the beacon entries for the specified epoch.
 pub enum StateGetBeaconEntry {}
 
 impl RpcMethod<1> for StateGetBeaconEntry {
@@ -1834,6 +1853,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     }
 }
 
+/// Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.
 pub enum StateSectorPreCommitInfo {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfo {
@@ -2115,6 +2135,7 @@ impl StateSectorPreCommitInfo {
     }
 }
 
+/// Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.
 pub enum StateSectorGetInfo {}
 
 impl RpcMethod<3> for StateSectorGetInfo {
@@ -2155,6 +2176,7 @@ impl StateSectorGetInfo {
     }
 }
 
+/// Returns the epoch at which the specified sector will expire.
 pub enum StateSectorExpiration {}
 
 impl RpcMethod<3> for StateSectorExpiration {
@@ -2213,6 +2235,7 @@ impl RpcMethod<3> for StateSectorExpiration {
     }
 }
 
+/// Finds the deadline/partition for the specified sector.
 pub enum StateSectorPartition {}
 
 impl RpcMethod<3> for StateSectorPartition {
@@ -2241,7 +2264,7 @@ impl RpcMethod<3> for StateSectorPartition {
     }
 }
 
-/// Looks back and returns all messages with a matching to or from address, stopping at the given height.
+/// Returns all messages with a matching to or from address up to the given height.
 pub enum StateListMessages {}
 
 impl RpcMethod<3> for StateListMessages {
@@ -2301,6 +2324,7 @@ impl RpcMethod<3> for StateListMessages {
     }
 }
 
+/// Returns the claim for a given address and claim ID.
 pub enum StateGetClaim {}
 
 impl RpcMethod<3> for StateGetClaim {
@@ -2321,6 +2345,7 @@ impl RpcMethod<3> for StateGetClaim {
     }
 }
 
+/// Returns all claims for a given provider.
 pub enum StateGetClaims {}
 
 impl RpcMethod<2> for StateGetClaims {
@@ -2355,6 +2380,7 @@ impl StateGetClaims {
     }
 }
 
+/// Returns all claims available in the verified registry actor.
 pub enum StateGetAllClaims {}
 
 impl RpcMethod<1> for StateGetAllClaims {
@@ -2375,6 +2401,7 @@ impl RpcMethod<1> for StateGetAllClaims {
     }
 }
 
+/// Returns the allocation for a given address and allocation ID.
 pub enum StateGetAllocation {}
 
 impl RpcMethod<3> for StateGetAllocation {
@@ -2397,6 +2424,7 @@ impl RpcMethod<3> for StateGetAllocation {
     }
 }
 
+/// Returns all allocations for a given client.
 pub enum StateGetAllocations {}
 
 impl RpcMethod<2> for StateGetAllocations {
@@ -2564,6 +2592,7 @@ impl StateGetAllocations {
     }
 }
 
+/// Returns all allocations available in the verified registry actor.
 pub enum StateGetAllAllocations {}
 
 impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
@@ -2584,6 +2613,7 @@ impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
     }
 }
 
+/// Returns the allocation ID for the specified pending deal.
 pub enum StateGetAllocationIdForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
@@ -2617,6 +2647,7 @@ impl StateGetAllocationIdForPendingDeal {
     }
 }
 
+/// Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.
 pub enum StateGetAllocationForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationForPendingDeal {
@@ -2642,6 +2673,7 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     }
 }
 
+/// Returns current network parameters.
 pub enum StateGetNetworkParams {}
 
 impl RpcMethod<0> for StateGetNetworkParams {

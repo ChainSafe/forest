@@ -96,6 +96,7 @@ struct MessageMeta {
     secpk_messages: Cid,
 }
 
+/// Fills and signs a block template on behalf of the given miner, returning a suitable block header.
 pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
@@ -267,6 +268,7 @@ fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Sig
     }
 }
 
+/// Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
