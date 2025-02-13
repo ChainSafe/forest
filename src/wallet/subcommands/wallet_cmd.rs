@@ -211,11 +211,11 @@ pub enum WalletCommands {
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        #[arg(long, alias = "exact-balance")]
         no_round: bool,
         /// Output may be given an SI prefix like `atto` by default.
         /// Do not do this, showing whole FIL at all times.
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        #[arg(long, alias = "fixed-unit")]
         no_abbrev: bool,
     },
     /// Get the default address of the wallet
@@ -240,11 +240,11 @@ pub enum WalletCommands {
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        #[arg(long, alias = "exact-balance")]
         no_round: bool,
         /// Output may be given an SI prefix like `atto` by default.
         /// Do not do this, showing whole FIL at all times.
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        #[arg(long, alias = "fixed-unit")]
         no_abbrev: bool,
     },
     /// Set the default wallet address
