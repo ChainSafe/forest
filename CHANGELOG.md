@@ -49,6 +49,8 @@
 
 - [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
 
+- [#5259](https://github.com/ChainSafe/forest/issues/5259) Add `forest-cli wait-api` command.
+
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 
 - [#5147](https://github.com/ChainSafe/forest/issues/5147) Add support for the `--rpc-filter-list` flag to the `forest` daemon. This flag allows users to specify a list of RPC methods to whitelist or blacklist.
