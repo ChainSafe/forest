@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub enum GetActorEventsRaw {}
 impl RpcMethod<1> for GetActorEventsRaw {
     const NAME: &'static str = "Filecoin.GetActorEventsRaw";
-    const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const PARAM_NAMES: [&'static str; 1] = ["eventFilter"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     type Params = (Option<ActorEventFilter>,);
