@@ -1270,5 +1270,19 @@ mod tests {
         };
 
         assert!(filter1.matches(&addr0, &entries0).unwrap());
+
+        let value = BASE64_STANDARD
+            .decode("0Gprf0kYSUs3GSF9GAJ4bB9REqbB2I/iz+wAtFhPauw=")
+            .unwrap();
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert("t1".into(), vec![ActorEventBlock { codec: 85, value }]);
+
+        let filter2 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(!filter2.matches(&addr0, &entries0).unwrap());
     }
 }
