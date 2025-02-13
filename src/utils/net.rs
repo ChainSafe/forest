@@ -86,7 +86,7 @@ pub async fn reader(
                         .pipe(tokio_util::io::StreamReader::new);
                     (Left(Left(stream)), content_length)
                 }
-                DownloadFileOption::Default => {
+                DownloadFileOption::NonResumable => {
                     let resp = reqwest::get(url).await?;
                     let content_length = resp.content_length().unwrap_or_default();
                     let stream = resp

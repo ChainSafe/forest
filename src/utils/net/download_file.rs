@@ -235,13 +235,15 @@ mod test {
     async fn test_download_file_with_cache() {
         let temp_dir = tempfile::tempdir().unwrap();
         let url = "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacecm7xklkq3hkc2kgm5wnb5shlxmffino6lzhh7lte5acytb7sssr4.car.zst".try_into().unwrap();
-        let result = download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::Default)
-            .await
-            .unwrap();
+        let result =
+            download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::NonResumable)
+                .await
+                .unwrap();
         assert!(!result.cache_hit);
-        let result = download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::Default)
-            .await
-            .unwrap();
+        let result =
+            download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::NonResumable)
+                .await
+                .unwrap();
         assert!(result.cache_hit);
     }
 }

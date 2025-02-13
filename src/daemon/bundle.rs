@@ -105,12 +105,12 @@ pub async fn load_actor_bundles_from_server(
                      version,
                  }| async move {
                     let result = if let Ok(response) =
-                        download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::Default).await
+                        download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::NonResumable).await
                     {
                         response
                     } else {
                         warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
-                        download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::Default).await?
+                        download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::NonResumable).await?
                     };
 
                     let bytes = std::fs::read(&result.path)?;

@@ -176,7 +176,7 @@ mod tests {
             let cache_dir = cache_dir.clone();
             async move {
                 let result =
-                    download_file_with_cache(&url, &cache_dir, DownloadFileOption::Default)
+                    download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable)
                         .await
                         .unwrap();
                 (filename, result.path)
