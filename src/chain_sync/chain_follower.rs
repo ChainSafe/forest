@@ -48,31 +48,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 let Ok(tipset) = (match event {
                     NetworkEvent::HelloResponseOutbound { request, source } => {
                         let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
-                        if let Ok(tipset) =
-                            get_full_tipset(network.clone(), cs.clone(), Some(source), tipset_keys)
-                                .await
-                                .inspect_err(|e| debug!("Querying full tipset failed: {}", e))
-                        {
-                            get_full_tipset(
-                                network.clone(),
-                                cs.clone(),
-                                None,
-                                tipset.parents().clone(),
-                            )
+                        get_full_tipset(network.clone(), cs.clone(), Some(source), tipset_keys)
                             .await
-                        } else {
-                            continue;
-                        }
+                            .inspect_err(|e| debug!("Querying full tipset failed: {}", e))
                     }
                     NetworkEvent::PubsubMessage { message } => match message {
                         PubsubMessage::Block(b) => {
-                            get_full_tipset(
-                                network.clone(),
-                                cs.clone(),
-                                None,
-                                b.header.parents.clone(),
-                            )
-                            .await
+                            let key = TipsetKey::from(nunny::vec![*b.header.cid()]);
+                            get_full_tipset(network.clone(), cs.clone(), None, key).await
                         }
                         PubsubMessage::Message(m) => {
                             // handle_pubsub_message(mem_pool, m);
@@ -83,7 +66,9 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 }) else {
                     continue;
                 };
-                event_sender.send(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]));
+                let _ = event_sender
+                    .send_async(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]))
+                    .await;
             }
         }
     });
@@ -95,7 +80,9 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         async move {
             while let Ok(tipset) = tipset_receiver.recv_async().await {
                 info!("Received tipset from tipset receiver.");
-                event_sender.send(SyncEvent::NewFullTipsets(vec![tipset]));
+                let _ = event_sender
+                    .send_async(SyncEvent::NewFullTipsets(vec![tipset]))
+                    .await;
             }
             // tipset_receiver is closed, shutdown gracefully
         }
