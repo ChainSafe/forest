@@ -77,6 +77,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blk"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Submits a newly created block to the network.");
 
     type Params = (GossipBlock,);
     type Ok = ();

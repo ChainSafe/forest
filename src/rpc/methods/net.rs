@@ -20,6 +20,8 @@ impl RpcMethod<0> for NetAddrsListen {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a list of listening addresses and the peer ID.");
 
     type Params = ();
     type Ok = AddrInfo;
@@ -43,6 +45,7 @@ impl RpcMethod<0> for NetPeers {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns a list of currently connected peers.");
 
     type Params = ();
     type Ok = Vec<AddrInfo>;
@@ -136,6 +139,7 @@ impl RpcMethod<1> for NetConnect {
     const PARAM_NAMES: [&'static str; 1] = ["info"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Connects to a specified peer.");
 
     type Params = (AddrInfo,);
     type Ok = ();
@@ -169,6 +173,7 @@ impl RpcMethod<1> for NetDisconnect {
     const PARAM_NAMES: [&'static str; 1] = ["id"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Disconnects from the specified peer.");
 
     type Params = (String,);
     type Ok = ();
@@ -197,6 +202,7 @@ impl RpcMethod<1> for NetAgentVersion {
     const PARAM_NAMES: [&'static str; 1] = ["id"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the agent version string.");
 
     type Params = (String,);
     type Ok = String;
@@ -258,6 +264,7 @@ impl RpcMethod<1> for NetProtectAdd {
     const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.");
 
     type Params = (Vec<String>,);
     type Ok = ();
@@ -285,12 +292,14 @@ impl RpcMethod<1> for NetProtectAdd {
         Ok(())
     }
 }
+
 pub enum NetProtectList {}
 impl RpcMethod<0> for NetProtectList {
     const NAME: &'static str = "Filecoin.NetProtectList";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::Both;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current list of protected peers.");
 
     type Params = ();
     type Ok = Vec<String>;
@@ -312,6 +321,7 @@ impl RpcMethod<1> for NetProtectRemove {
     const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
     const API_PATHS: ApiPaths = ApiPaths::Both;
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Remove a peer from the protected list.");
 
     type Params = (Vec<String>,);
     type Ok = ();
