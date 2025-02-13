@@ -29,6 +29,8 @@
 
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
+- [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
+
 ### Added
 
 - [#5244](https://github.com/ChainSafe/forest/issues/5244) Add `live` and `healthy` subcommands to `forest-cli healthcheck`.
@@ -60,7 +62,6 @@
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
-- [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
 
 ### Removed
 
