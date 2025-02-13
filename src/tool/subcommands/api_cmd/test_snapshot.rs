@@ -143,10 +143,11 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::net::download_file_with_cache;
+    use crate::utils::net::{download_file_with_cache, DownloadFileOption};
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
+    use tokio::sync::Semaphore;
     use url::Url;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -172,10 +173,16 @@ mod tests {
             .collect_vec();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
+        let semaphore = Arc::new(Semaphore::new(4));
         let mut tasks = FuturesUnordered::from_iter(urls.into_iter().map(|(filename, url)| {
             let cache_dir = cache_dir.clone();
+            let semaphore = semaphore.clone();
             async move {
-                let result = download_file_with_cache(&url, &cache_dir).await.unwrap();
+                let _permit = semaphore.acquire().await.unwrap();
+                let result =
+                    download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable)
+                        .await
+                        .unwrap();
                 (filename, result.path)
             }
         }));

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::db::PersistentStore;
-use crate::utils::net::download_file_with_cache;
+use crate::utils::net::{download_file_with_cache, DownloadFileOption};
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::db::car_stream::{CarBlock, CarStream},
@@ -14,8 +14,9 @@ use futures::{stream::FuturesUnordered, TryStreamExt};
 use once_cell::sync::Lazy;
 use std::mem::discriminant;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::{io::Cursor, path::Path};
-use tokio::io::BufReader;
+use tokio::sync::Semaphore;
 use tracing::{info, warn};
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
@@ -88,6 +89,7 @@ pub async fn load_actor_bundles_from_server(
     network: &NetworkChain,
     bundles: &[ActorBundleInfo],
 ) -> anyhow::Result<Vec<Cid>> {
+    let semaphore = Arc::new(Semaphore::new(4));
     FuturesUnordered::from_iter(
         bundles
             .iter()
@@ -104,25 +106,29 @@ pub async fn load_actor_bundles_from_server(
                      alt_url,
                      network,
                      version,
-                 }| async move {
-                    let result = if let Ok(response) =
-                        download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
-                    {
-                        response
-                    } else {
-                        warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
-                        download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
-                    };
+                 }| {
+                    let semaphore = semaphore.clone();
+                    async move {
+                        let _permit = semaphore.acquire().await?;
+                        let result = if let Ok(response) =
+                            download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::NonResumable).await
+                        {
+                            response
+                        } else {
+                            warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
+                            download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::NonResumable).await?
+                        };
 
-                    let bytes = std::fs::read(&result.path)?;
-                    let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
-                    while let Some(block) = stream.try_next().await? {
-                        db.put_keyed_persistent(&block.cid, &block.data)?;
+                        let bytes = std::fs::read(&result.path)?;
+                        let mut stream = CarStream::new(Cursor::new(bytes)).await?;
+                        while let Some(block) = stream.try_next().await? {
+                            db.put_keyed_persistent(&block.cid, &block.data)?;
+                        }
+                        let header = stream.header_v1;
+                        anyhow::ensure!(header.roots.len() == 1);
+                        anyhow::ensure!(header.roots.first() == root);
+                        Ok(*root)
                     }
-                    let header = stream.header_v1;
-                    anyhow::ensure!(header.roots.len() == 1);
-                    anyhow::ensure!(header.roots.first() == root);
-                    Ok(*header.roots.first())
                 }
             ),
     )
