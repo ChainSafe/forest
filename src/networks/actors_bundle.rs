@@ -186,7 +186,6 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
             let bytes = std::fs::read(&result.path)?;
             let car = CarStream::new(Cursor::new(bytes)).await?;
-            ensure!(car.header_v1.version == 1);
             ensure!(car.header_v1.roots.len() == 1);
             ensure!(car.header_v1.roots.first() == root);
             anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))

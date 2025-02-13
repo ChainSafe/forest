@@ -15,7 +15,6 @@ use once_cell::sync::Lazy;
 use std::mem::discriminant;
 use std::path::PathBuf;
 use std::{io::Cursor, path::Path};
-use tokio::io::BufReader;
 use tracing::{info, warn};
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
@@ -115,14 +114,14 @@ pub async fn load_actor_bundles_from_server(
                     };
 
                     let bytes = std::fs::read(&result.path)?;
-                    let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
+                    let mut stream = CarStream::new(Cursor::new(bytes)).await?;
                     while let Some(block) = stream.try_next().await? {
                         db.put_keyed_persistent(&block.cid, &block.data)?;
                     }
                     let header = stream.header_v1;
                     anyhow::ensure!(header.roots.len() == 1);
                     anyhow::ensure!(header.roots.first() == root);
-                    Ok(*header.roots.first())
+                    Ok(*root)
                 }
             ),
     )

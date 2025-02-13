@@ -38,8 +38,8 @@ pub async fn download_file_with_cache(
                 if file_md5 == url_md5 {
                     true
                 } else {
-                    println!(
-                        "md5 hash mismatch, url: {url}, local: {}, remote: {}",
+                    tracing::warn!(
+                        "download again due to md5 hash mismatch, url: {url}, local cache: {}, remote: {}",
                         hex::encode(&file_md5),
                         hex::encode(&url_md5)
                     );
@@ -53,7 +53,9 @@ pub async fn download_file_with_cache(
         None => false,
     };
 
-    if !cache_hit {
+    if cache_hit {
+        tracing::debug!(%url, "loaded from cache");
+    } else {
         download_file_with_retry(
             url,
             cache_file_path.parent().unwrap_or_else(|| Path::new(".")),
