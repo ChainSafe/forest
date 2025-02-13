@@ -19,6 +19,8 @@ impl RpcMethod<1> for GetActorEventsRaw {
     const PARAM_NAMES: [&'static str; 1] = ["eventFilter"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns all user-programmed and built-in actor events that match the given filter. Results may be limited by MaxFilterResults, MaxFilterHeightRange, and the node's available historical data.");
+
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
     async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {

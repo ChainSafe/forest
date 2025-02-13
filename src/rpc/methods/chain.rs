@@ -48,6 +48,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const PARAM_NAMES: [&'static str; 1] = ["messageCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
     type Ok = Message;
@@ -73,6 +74,9 @@ impl RpcMethod<1> for ChainGetEvents {
     const PARAM_NAMES: [&'static str; 1] = ["rootCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the events under the given event AMT root CID.");
+
     type Params = (Cid,);
     type Ok = Vec<types::Event>;
     async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
@@ -86,6 +90,8 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the messages included in the blocks of the parent tipset.");
 
     type Params = (Cid,);
     type Ok = Vec<ApiMessage>;
@@ -113,6 +119,8 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the message receipts included in the blocks of the parent tipset.");
 
     type Params = (Cid,);
     type Ok = Vec<ApiReceipt>;
@@ -250,6 +258,7 @@ impl RpcMethod<1> for ChainReadObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.");
 
     type Params = (Cid,);
     type Ok = Vec<u8>;
@@ -272,6 +281,8 @@ impl RpcMethod<1> for ChainHasObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Checks if a given CID exists in the chain blockstore.");
 
     type Params = (Cid,);
     type Ok = bool;
@@ -344,6 +355,8 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns all messages from the specified block.");
 
     type Params = (Cid,);
     type Ok = BlockMessages;
@@ -374,6 +387,8 @@ impl RpcMethod<2> for ChainGetPath {
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the path between the two specified tipsets.");
 
     type Params = (TipsetKey, TipsetKey);
     type Ok = Vec<PathChange>;
@@ -451,6 +466,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -475,6 +491,11 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Looks back and returns the tipset at the specified epoch.
+    If there are no blocks at the given epoch,
+    returns the first non-nil tipset at a later epoch.",
+    );
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -515,6 +536,7 @@ impl RpcMethod<0> for ChainHead {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
 
     type Params = ();
     type Ok = Tipset;
@@ -531,6 +553,7 @@ impl RpcMethod<1> for ChainGetBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the block with the specified CID.");
 
     type Params = (Cid,);
     type Ok = CachingBlockHeader;
@@ -550,6 +573,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
     type Ok = Tipset;
@@ -632,6 +656,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the weight of the specified tipset.");
 
     type Params = (ApiTipsetKey,);
     type Ok = BigInt;

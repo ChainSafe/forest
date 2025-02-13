@@ -22,6 +22,8 @@ impl RpcMethod<1> for MpoolGetNonce {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the current nonce for the specified address.");
 
     type Params = (Address,);
     type Ok = u64;
@@ -41,6 +43,8 @@ impl RpcMethod<1> for MpoolPending {
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the pending messages for a given tipset.");
 
     type Params = (ApiTipsetKey,);
     type Ok = NotNullVec<SignedMessage>;
@@ -112,6 +116,8 @@ impl RpcMethod<2> for MpoolSelect {
     const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "ticketQuality"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a list of pending messages for inclusion in the next block.");
 
     type Params = (ApiTipsetKey, f64);
     type Ok = Vec<SignedMessage>;
@@ -134,6 +140,7 @@ impl RpcMethod<1> for MpoolPush {
     const PARAM_NAMES: [&'static str; 1] = ["message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Adds a signed message to the message pool.");
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -154,6 +161,8 @@ impl RpcMethod<1> for MpoolBatchPush {
     const PARAM_NAMES: [&'static str; 1] = ["messages"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Adds a set of signed messages to the message pool.");
 
     type Params = (Vec<SignedMessage>,);
     type Ok = Vec<Cid>;
@@ -177,6 +186,8 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     const PARAM_NAMES: [&'static str; 1] = ["message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Adds a message to the message pool with verification checks.");
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -199,6 +210,8 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const PARAM_NAMES: [&'static str; 1] = ["messages"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Adds a set of messages to the message pool with additional verification checks.");
 
     type Params = (Vec<SignedMessage>,);
     type Ok = Vec<Cid>;
@@ -219,6 +232,8 @@ impl RpcMethod<2> for MpoolPushMessage {
     const PARAM_NAMES: [&'static str; 2] = ["message", "sendSpec"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Assigns a nonce, signs, and pushes a message to the mempool.");
 
     type Params = (Message, Option<MessageSendSpec>);
     type Ok = SignedMessage;

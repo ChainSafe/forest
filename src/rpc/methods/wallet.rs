@@ -21,6 +21,7 @@ impl RpcMethod<1> for WalletBalance {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the balance of a wallet.");
 
     type Params = (Address,);
     type Ok = TokenAmount;
@@ -81,6 +82,8 @@ impl RpcMethod<1> for WalletHas {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Indicates whether the given address exists in the wallet.");
 
     type Params = (Address,);
     type Ok = bool;
@@ -124,6 +127,8 @@ impl RpcMethod<0> for WalletList {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a list of all addresses in the wallet.");
 
     type Params = ();
     type Ok = Vec<Address>;
@@ -191,6 +196,8 @@ impl RpcMethod<2> for WalletSign {
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Signs the given bytes using the specified address.");
 
     type Params = (Address, Vec<u8>);
     type Ok = Signature;
@@ -229,6 +236,8 @@ impl RpcMethod<2> for WalletSignMessage {
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Signs the given message using the specified address.");
 
     type Params = (Address, Message);
     type Ok = SignedMessage;
