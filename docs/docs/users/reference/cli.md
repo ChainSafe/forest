@@ -36,6 +36,8 @@ OPTIONS:
           Address used for metrics collection server. By defaults binds on localhost on port 6116
       --rpc-address <RPC_ADDRESS>
           Address used for RPC. By defaults binds on localhost on port 2345
+      --rpc-filter-list <RPC_FILTER_LIST>
+          Path to a list of RPC methods to allow/disallow
       --no-healthcheck
           Disable healthcheck endpoints
       --healthcheck-address <HEALTHCHECK_ADDRESS>
