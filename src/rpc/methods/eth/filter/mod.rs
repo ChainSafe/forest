@@ -1143,4 +1143,132 @@ mod tests {
 
         assert!(!spec8.matches(&addr0, &entries0).unwrap());
     }
+
+    #[test]
+    fn test_parsed_filter_match_address() {
+        let empty_filter = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys: Default::default(),
+        };
+
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                vec![
+                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
+                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                vec![
+                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
+                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
+                ],
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                vec![
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
+                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
+                ],
+            ),
+        ];
+
+        // Matching an empty spec
+        assert!(empty_filter.matches(&addr0, &[]).unwrap());
+
+        assert!(empty_filter.matches(&addr0, &entries0).unwrap());
+
+        // Matching the given address 0
+        let filter0 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![addr0],
+            keys: Default::default(),
+        };
+
+        assert!(filter0.matches(&addr0, &[]).unwrap());
+
+        assert!(!filter0.matches(&addr1, &[]).unwrap());
+
+        // Matching the given address 0 or 1
+        let filter1 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![addr0.clone(), addr1.clone()],
+            keys: Default::default(),
+        };
+
+        assert!(filter1.matches(&addr0, &[]).unwrap());
+
+        assert!(filter1.matches(&addr1, &[]).unwrap());
+    }
+
+    #[test]
+    fn test_parsed_filter_match_keys() {
+        use ahash::AHashMap;
+        use base64::{prelude::BASE64_STANDARD, Engine};
+
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("dATj0QTqeEHD2eb9IK3+mbStWGvAjY8706/viUzxhN4=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCFA6vK+FJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFLvXoMoks6HcAA==")
+                    .unwrap(),
+            ),
+        ];
+
+        let empty_filter = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys: Default::default(),
+        };
+
+        assert!(empty_filter.matches(&addr0, &entries0).unwrap());
+
+        let value = BASE64_STANDARD
+            .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+            .unwrap();
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert("t1".into(), vec![ActorEventBlock { codec: 85, value }]);
+
+        let filter1 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(filter1.matches(&addr0, &entries0).unwrap());
+    }
 }
