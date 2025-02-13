@@ -13,6 +13,13 @@ use std::{
 };
 use url::Url;
 
+#[derive(Debug, Copy, Clone)]
+pub enum DownloadFileOption {
+    /// Non-resumable
+    Default,
+    Resumable,
+}
+
 #[derive(Debug, Clone)]
 pub struct DownloadFileResult {
     pub path: PathBuf,
@@ -23,6 +30,7 @@ pub struct DownloadFileResult {
 pub async fn download_file_with_cache(
     url: &Url,
     cache_dir: &Path,
+    option: DownloadFileOption,
 ) -> anyhow::Result<DownloadFileResult> {
     let cache_file_path =
         cache_dir.join(url.path().strip_prefix('/').unwrap_or_else(|| url.path()));
@@ -68,6 +76,7 @@ pub async fn download_file_with_cache(
                         cache_file_path.display()
                     )
                 })?,
+            option,
         )
         .await?;
     }
@@ -120,14 +129,19 @@ async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8
 }
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
-pub async fn download_http(url: &Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
+pub async fn download_http(
+    url: &Url,
+    directory: &Path,
+    filename: &str,
+    option: DownloadFileOption,
+) -> anyhow::Result<PathBuf> {
     if !directory.is_dir() {
         std::fs::create_dir_all(directory)?;
     }
     let dst_path = directory.join(filename);
     let destination = dst_path.display();
     tracing::info!(%url, %destination, "downloading snapshot");
-    let mut reader = crate::utils::net::reader(url.as_str()).await?;
+    let mut reader = crate::utils::net::reader(url.as_str(), option).await?;
     let tmp_dst_path = {
         // like `crdownload` for the chrome browser
         const DOWNLOAD_EXTENSION: &str = "frdownload";
@@ -157,18 +171,23 @@ pub async fn download_file_with_retry(
     url: &Url,
     directory: &Path,
     filename: &str,
+    option: DownloadFileOption,
 ) -> anyhow::Result<PathBuf> {
     Ok(retry(
         RetryArgs {
             timeout: None,
             ..Default::default()
         },
-        || download_http(url, directory, filename),
+        || download_http(url, directory, filename, option),
     )
     .await?)
 }
 
-pub async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
+pub async fn download_to(
+    url: &Url,
+    destination: &Path,
+    option: DownloadFileOption,
+) -> anyhow::Result<()> {
     download_file_with_retry(
         url,
         destination.parent().with_context(|| {
@@ -181,6 +200,7 @@ pub async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
             .file_name()
             .and_then(OsStr::to_str)
             .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
+        option,
     )
     .await?;
 
@@ -215,11 +235,11 @@ mod test {
     async fn test_download_file_with_cache() {
         let temp_dir = tempfile::tempdir().unwrap();
         let url = "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacecm7xklkq3hkc2kgm5wnb5shlxmffino6lzhh7lte5acytb7sssr4.car.zst".try_into().unwrap();
-        let result = download_file_with_cache(&url, temp_dir.path())
+        let result = download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::Default)
             .await
             .unwrap();
         assert!(!result.cache_hit);
-        let result = download_file_with_cache(&url, temp_dir.path())
+        let result = download_file_with_cache(&url, temp_dir.path(), DownloadFileOption::Default)
             .await
             .unwrap();
         assert!(result.cache_hit);

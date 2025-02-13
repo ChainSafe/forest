@@ -143,7 +143,7 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::net::download_file_with_cache;
+    use crate::utils::net::{download_file_with_cache, DownloadFileOption};
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
@@ -175,7 +175,10 @@ mod tests {
         let mut tasks = FuturesUnordered::from_iter(urls.into_iter().map(|(filename, url)| {
             let cache_dir = cache_dir.clone();
             async move {
-                let result = download_file_with_cache(&url, &cache_dir).await.unwrap();
+                let result =
+                    download_file_with_cache(&url, &cache_dir, DownloadFileOption::Default)
+                        .await
+                        .unwrap();
                 (filename, result.path)
             }
         }));

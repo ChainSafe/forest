@@ -23,7 +23,7 @@ use tracing::warn;
 use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::download_file_with_cache;
+use crate::utils::net::{download_file_with_cache, DownloadFileOption};
 
 use std::str::FromStr;
 
@@ -174,14 +174,14 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              version,
          }| async move {
             let result = if let Ok(response) =
-                download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
+                download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::Default).await
             {
                 response
             } else {
                 warn!(
                     "failed to download bundle {network}-{version} from primary URL, trying alternative URL"
                 );
-                download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
+                download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR, DownloadFileOption::Default).await?
             };
 
             let bytes = std::fs::read(&result.path)?;
