@@ -79,7 +79,7 @@ const INITIAL_PLEDGE_DEN: u64 = 100;
 pub enum StateCall {}
 impl RpcMethod<2> for StateCall {
     const NAME: &'static str = "Filecoin.StateCall";
-    const PARAM_NAMES: [&'static str; 2] = ["message", "tsk"];
+    const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -161,7 +161,7 @@ pub enum StateAccountKey {}
 
 impl RpcMethod<2> for StateAccountKey {
     const NAME: &'static str = "Filecoin.StateAccountKey";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -256,7 +256,7 @@ pub enum StateGetActor {}
 
 impl RpcMethod<2> for StateGetActor {
     const NAME: &'static str = "Filecoin.StateGetActor";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1528,7 +1528,7 @@ pub enum StateCirculatingSupply {}
 
 impl RpcMethod<1> for StateCirculatingSupply {
     const NAME: &'static str = "Filecoin.StateCirculatingSupply";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1714,7 +1714,7 @@ pub enum StateDealProviderCollateralBounds {}
 
 impl RpcMethod<3> for StateDealProviderCollateralBounds {
     const NAME: &'static str = "Filecoin.StateDealProviderCollateralBounds";
-    const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2305,7 +2305,7 @@ pub enum StateGetClaim {}
 
 impl RpcMethod<3> for StateGetClaim {
     const NAME: &'static str = "Filecoin.StateGetClaim";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["address", "claimId", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2325,7 +2325,7 @@ pub enum StateGetClaims {}
 
 impl RpcMethod<2> for StateGetClaims {
     const NAME: &'static str = "Filecoin.StateGetClaims";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2359,7 +2359,7 @@ pub enum StateGetAllClaims {}
 
 impl RpcMethod<1> for StateGetAllClaims {
     const NAME: &'static str = "Filecoin.StateGetAllClaims";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2379,7 +2379,7 @@ pub enum StateGetAllocation {}
 
 impl RpcMethod<3> for StateGetAllocation {
     const NAME: &'static str = "Filecoin.StateGetAllocation";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "allocation_id", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["address", "allocationId", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2401,7 +2401,7 @@ pub enum StateGetAllocations {}
 
 impl RpcMethod<2> for StateGetAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllocations";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2568,7 +2568,7 @@ pub enum StateGetAllAllocations {}
 
 impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllAllocations";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2588,7 +2588,7 @@ pub enum StateGetAllocationIdForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
     const NAME: &'static str = "Filecoin.StateGetAllocationIdForPendingDeal";
-    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2621,7 +2621,7 @@ pub enum StateGetAllocationForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     const NAME: &'static str = "Filecoin.StateGetAllocationForPendingDeal";
-    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
