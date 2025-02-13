@@ -38,7 +38,7 @@ impl RpcMethod<1> for MpoolGetNonce {
 pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
-    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -47,9 +47,11 @@ impl RpcMethod<1> for MpoolPending {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (ApiTipsetKey(tsk),): Self::Params,
+        (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let mut ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
 
         let (mut pending, mpts) = ctx.mpool.pending()?;
 
@@ -107,7 +109,7 @@ impl RpcMethod<1> for MpoolPending {
 pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
-    const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "ticket_quality"];
+    const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "ticketQuality"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -116,9 +118,11 @@ impl RpcMethod<2> for MpoolSelect {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (ApiTipsetKey(tsk), ticket_quality): Self::Params,
+        (ApiTipsetKey(tipset_key), ticket_quality): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
         Ok(ctx.mpool.select_messages(&ts, ticket_quality)?)
     }
 }
@@ -127,7 +131,7 @@ impl RpcMethod<2> for MpoolSelect {
 pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
-    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    const PARAM_NAMES: [&'static str; 1] = ["message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
@@ -136,9 +140,9 @@ impl RpcMethod<1> for MpoolPush {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (msg,): Self::Params,
+        (message,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let cid = ctx.mpool.as_ref().push(msg).await?;
+        let cid = ctx.mpool.as_ref().push(message).await?;
         Ok(cid)
     }
 }
@@ -147,7 +151,7 @@ impl RpcMethod<1> for MpoolPush {
 pub enum MpoolBatchPush {}
 impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
-    const PARAM_NAMES: [&'static str; 1] = ["msgs"];
+    const PARAM_NAMES: [&'static str; 1] = ["messages"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
@@ -156,10 +160,10 @@ impl RpcMethod<1> for MpoolBatchPush {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (msgs,): Self::Params,
+        (messages,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut cids = vec![];
-        for msg in msgs {
+        for msg in messages {
             cids.push(ctx.mpool.as_ref().push(msg).await?);
         }
         Ok(cids)
@@ -170,7 +174,7 @@ impl RpcMethod<1> for MpoolBatchPush {
 pub enum MpoolPushUntrusted {}
 impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
-    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    const PARAM_NAMES: [&'static str; 1] = ["message"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
@@ -179,12 +183,12 @@ impl RpcMethod<1> for MpoolPushUntrusted {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (msg,): Self::Params,
+        (message,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         // Lotus implements a few extra sanity checks that we skip. We skip them
         // because those checks aren't used for messages received from peers and
         // therefore aren't safety critical.
-        MpoolPush::handle(ctx, (msg,)).await
+        MpoolPush::handle(ctx, (message,)).await
     }
 }
 
@@ -192,7 +196,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
 pub enum MpoolBatchPushUntrusted {}
 impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
-    const PARAM_NAMES: [&'static str; 1] = ["msgs"];
+    const PARAM_NAMES: [&'static str; 1] = ["messages"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
@@ -201,10 +205,10 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (msgs,): Self::Params,
+        (messages,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         // Alias of MpoolBatchPush.
-        MpoolBatchPush::handle(ctx, (msgs,)).await
+        MpoolBatchPush::handle(ctx, (messages,)).await
     }
 }
 
@@ -212,7 +216,7 @@ impl RpcMethod<1> for MpoolBatchPushUntrusted {
 pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
-    const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
+    const PARAM_NAMES: [&'static str; 2] = ["message", "sendSpec"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
 
@@ -221,9 +225,9 @@ impl RpcMethod<2> for MpoolPushMessage {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (umsg, spec): Self::Params,
+        (message, send_spec): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let from = umsg.from;
+        let from = message.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
@@ -232,14 +236,15 @@ impl RpcMethod<2> for MpoolPushMessage {
             .resolve_to_key_addr(&from, &heaviest_tipset)
             .await?;
 
-        if umsg.sequence != 0 {
+        if message.sequence != 0 {
             return Err(anyhow::anyhow!(
                 "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
             )
             .into());
         }
-        let mut umsg = estimate_message_gas(&ctx, umsg, spec, Default::default()).await?;
-        if umsg.gas_premium > umsg.gas_fee_cap {
+        let mut message =
+            estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
+        if message.gas_premium > message.gas_fee_cap {
             return Err(anyhow::anyhow!(
                 "After estimation, gas premium is greater than gas fee cap"
             )
@@ -247,10 +252,10 @@ impl RpcMethod<2> for MpoolPushMessage {
         }
 
         if from.protocol() == Protocol::ID {
-            umsg.from = key_addr;
+            message.from = key_addr;
         }
         let nonce = ctx.mpool.get_sequence(&from)?;
-        umsg.sequence = nonce;
+        message.sequence = nonce;
         let key = crate::key_management::Key::try_from(crate::key_management::try_find(
             &key_addr,
             &mut keystore,
@@ -258,10 +263,10 @@ impl RpcMethod<2> for MpoolPushMessage {
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
-            umsg.cid().to_bytes().as_slice(),
+            message.cid().to_bytes().as_slice(),
         )?;
 
-        let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+        let smsg = SignedMessage::new_from_parts(message, sig)?;
 
         ctx.mpool.as_ref().push(smsg.clone()).await?;
 
