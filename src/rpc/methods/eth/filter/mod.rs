@@ -1206,7 +1206,7 @@ mod tests {
         // Matching the given address 0 or 1
         let filter1 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
-            addresses: vec![addr0.clone(), addr1.clone()],
+            addresses: vec![addr0, addr1],
             keys: Default::default(),
         };
 
