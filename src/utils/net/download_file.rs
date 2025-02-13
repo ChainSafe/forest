@@ -16,7 +16,7 @@ use url::Url;
 #[derive(Debug, Copy, Clone)]
 pub enum DownloadFileOption {
     /// Non-resumable
-    Default,
+    NonResumable,
     Resumable,
 }
 
