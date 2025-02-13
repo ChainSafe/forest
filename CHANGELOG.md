@@ -58,6 +58,7 @@
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
+- [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
 
 ### Removed
 
