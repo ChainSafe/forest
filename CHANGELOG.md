@@ -29,6 +29,8 @@
 
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
+- [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
+
 ### Added
 
 - [#5244](https://github.com/ChainSafe/forest/issues/5244) Add `live` and `healthy` subcommands to `forest-cli healthcheck`.
@@ -48,6 +50,8 @@
 - [#5232](https://github.com/ChainSafe/forest/issues/5232) Support `CARv2` stream decoding.
 
 - [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
+
+- [#5259](https://github.com/ChainSafe/forest/issues/5259) Add `forest-cli wait-api` command.
 
 - [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
 

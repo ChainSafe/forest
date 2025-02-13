@@ -141,7 +141,7 @@ while [[ $i != 20 && $ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
   
   : "Checking balance $i/20"
   sleep 30s
-  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" -e)
+  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" --exact-balance)
 done
 
 ADDR_THREE_BALANCE=$FIL_ZERO
@@ -151,7 +151,7 @@ while [[ $i != 20 && $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
 
   : "Checking balance $i/20"
   sleep 30s
-  ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" -e)
+  ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_THREE" --exact-balance)
 done
 
 # wallet list should contain address two with transfered FIL amount
