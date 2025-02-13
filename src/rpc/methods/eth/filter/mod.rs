@@ -690,6 +690,7 @@ impl Matcher for ParsedFilter {
 
 #[cfg(test)]
 mod tests {
+    use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
 
     use super::*;
@@ -1261,7 +1262,13 @@ mod tests {
             .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
             .unwrap();
         let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
-        keys.insert("t1".into(), vec![ActorEventBlock { codec: 85, value }]);
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value,
+            }],
+        );
 
         let filter1 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
@@ -1275,7 +1282,33 @@ mod tests {
             .decode("0Gprf0kYSUs3GSF9GAJ4bB9REqbB2I/iz+wAtFhPauw=")
             .unwrap();
         let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
-        keys.insert("t1".into(), vec![ActorEventBlock { codec: 85, value }]);
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value,
+            }],
+        );
+
+        let filter2 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(!filter2.matches(&addr0, &entries0).unwrap());
+
+        let value = BASE64_STANDARD
+            .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+            .unwrap();
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: DAG_CBOR,
+                value,
+            }],
+        );
 
         let filter2 = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
