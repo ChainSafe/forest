@@ -99,7 +99,7 @@ struct MessageMeta {
 pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
-    const PARAM_NAMES: [&'static str; 1] = ["block_template"];
+    const PARAM_NAMES: [&'static str; 1] = ["blockTemplate"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some("Fills and signs a block template on behalf of the given miner, returning a suitable block header.");
@@ -271,7 +271,7 @@ fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Sig
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "epoch", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.");
@@ -281,13 +281,15 @@ impl RpcMethod<3> for MinerGetBaseInfo {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (address, epoch, ApiTipsetKey(tsk)): Self::Params,
+        (miner_address, epoch, ApiTipsetKey(tipset_key)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let tipset = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
 
         Ok(ctx
             .state_manager
-            .miner_get_base_info(ctx.beacon(), ts, address, epoch)
+            .miner_get_base_info(ctx.beacon(), tipset, miner_address, epoch)
             .await?)
     }
 }
