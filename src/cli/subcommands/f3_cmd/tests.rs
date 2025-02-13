@@ -67,8 +67,7 @@ fn test_manifest_template() {
       }
     });
     let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();
-    let template = ManifestTemplate::new(manifest);
-    println!("{}", template.render_once().unwrap());
+    println!("{}", render_manifest_template(&manifest).unwrap());
 }
 
 #[test]
@@ -79,8 +78,7 @@ fn test_progress_template() {
       "Phase": 0
     });
     let progress: F3Instant = serde_json::from_value(lotus_json).unwrap();
-    let template = ProgressTemplate::new(progress);
-    println!("{}", template.render_once().unwrap());
+    println!("{}", render_progress_template(&progress).unwrap());
 }
 
 #[test]
@@ -146,8 +144,7 @@ fn test_finality_certificate_template() {
       ]
     });
     let cert: FinalityCertificate = serde_json::from_value(lotus_json).unwrap();
-    let template = FinalityCertificateTemplate::new(cert);
-    println!("{}", template.render_once().unwrap());
+    println!("{}", render_certificate_template(&cert).unwrap());
 }
 
 #[test]
