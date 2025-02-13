@@ -100,7 +100,7 @@ impl RpcMethod<2> for StateCall {
 pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
-    const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "message_cid"];
+    const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "messageCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -139,7 +139,7 @@ impl RpcMethod<0> for StateNetworkName {
 pub enum StateNetworkVersion {}
 impl RpcMethod<1> for StateNetworkVersion {
     const NAME: &'static str = "Filecoin.StateNetworkVersion";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -486,7 +486,7 @@ pub enum StateMinerInfo {}
 
 impl RpcMethod<2> for StateMinerInfo {
     const NAME: &'static str = "Filecoin.StateMinerInfo";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -506,7 +506,7 @@ pub enum StateMinerActiveSectors {}
 
 impl RpcMethod<2> for StateMinerActiveSectors {
     const NAME: &'static str = "Filecoin.StateMinerActiveSectors";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -541,7 +541,7 @@ pub enum StateMinerAllocated {}
 
 impl RpcMethod<2> for StateMinerAllocated {
     const NAME: &'static str = "Filecoin.StateMinerAllocated";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -565,7 +565,7 @@ pub enum StateMinerPartitions {}
 
 impl RpcMethod<3> for StateMinerPartitions {
     const NAME: &'static str = "Filecoin.StateMinerPartitions";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "deadline_index", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "deadlineIndex", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -601,7 +601,7 @@ pub enum StateMinerSectors {}
 
 impl RpcMethod<3> for StateMinerSectors {
     const NAME: &'static str = "Filecoin.StateMinerSectors";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "sectors", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectors", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -625,7 +625,7 @@ pub enum StateMinerSectorCount {}
 
 impl RpcMethod<2> for StateMinerSectorCount {
     const NAME: &'static str = "Filecoin.StateMinerSectorCount";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -662,7 +662,7 @@ pub enum StateMinerSectorAllocated {}
 
 impl RpcMethod<3> for StateMinerSectorAllocated {
     const NAME: &'static str = "Filecoin.StateMinerSectorAllocated";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -688,7 +688,7 @@ pub enum StateMinerPower {}
 
 impl RpcMethod<2> for StateMinerPower {
     const NAME: &'static str = "Filecoin.StateMinerPower";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -710,7 +710,7 @@ pub enum StateMinerDeadlines {}
 
 impl RpcMethod<2> for StateMinerDeadlines {
     const NAME: &'static str = "Filecoin.StateMinerDeadlines";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -742,7 +742,7 @@ pub enum StateMinerProvingDeadline {}
 
 impl RpcMethod<2> for StateMinerProvingDeadline {
     const NAME: &'static str = "Filecoin.StateMinerProvingDeadline";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -771,7 +771,7 @@ pub enum StateMinerFaults {}
 
 impl RpcMethod<2> for StateMinerFaults {
     const NAME: &'static str = "Filecoin.StateMinerFaults";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -793,7 +793,7 @@ pub enum StateMinerRecoveries {}
 
 impl RpcMethod<2> for StateMinerRecoveries {
     const NAME: &'static str = "Filecoin.StateMinerRecoveries";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -815,7 +815,7 @@ pub enum StateMinerAvailableBalance {}
 
 impl RpcMethod<2> for StateMinerAvailableBalance {
     const NAME: &'static str = "Filecoin.StateMinerAvailableBalance";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -879,7 +879,7 @@ pub enum StateMinerInitialPledgeCollateral {}
 
 impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeCollateral";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -940,7 +940,7 @@ pub enum StateMinerPreCommitDepositForPower {}
 
 impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     const NAME: &'static str = "Filecoin.StateMinerPreCommitDepositForPower";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1092,12 +1092,8 @@ pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
     const NAME: &'static str = "Filecoin.StateSearchMsg";
-    const PARAM_NAMES: [&'static str; 4] = [
-        "tipset_key",
-        "message_cid",
-        "look_back_limit",
-        "allow_replaced",
-    ];
+    const PARAM_NAMES: [&'static str; 4] =
+        ["tipsetKey", "messageCid", "lookBackLimit", "allowReplaced"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1491,7 +1487,7 @@ pub enum StateReadState {}
 
 impl RpcMethod<2> for StateReadState {
     const NAME: &'static str = "Filecoin.StateReadState";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1807,7 +1803,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
     // point v0 implementation back to this one
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
@@ -1832,7 +1828,7 @@ pub enum StateSectorPreCommitInfo {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfo {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2113,7 +2109,7 @@ pub enum StateSectorGetInfo {}
 
 impl RpcMethod<3> for StateSectorGetInfo {
     const NAME: &'static str = "Filecoin.StateSectorGetInfo";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2153,7 +2149,7 @@ pub enum StateSectorExpiration {}
 
 impl RpcMethod<3> for StateSectorExpiration {
     const NAME: &'static str = "Filecoin.StateSectorExpiration";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -2211,7 +2207,7 @@ pub enum StateSectorPartition {}
 
 impl RpcMethod<3> for StateSectorPartition {
     const NAME: &'static str = "Filecoin.StateSectorPartition";
-    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
