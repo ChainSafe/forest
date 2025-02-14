@@ -4,7 +4,6 @@
 
 - [Introduction](./introduction.md)
   - [Troubleshooting](./trouble_shooting.md)
-  - [Bootstrap node](./bootstrap_node.md)
   - [Offline Forest](./offline-forest.md)
 
 # Developer documentation
