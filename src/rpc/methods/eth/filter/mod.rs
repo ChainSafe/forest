@@ -706,6 +706,8 @@ impl Matcher for ParsedFilter {
 
 #[cfg(test)]
 mod tests {
+    use ahash::AHashMap;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
 
@@ -1163,6 +1165,9 @@ mod tests {
 
     #[test]
     fn test_parsed_filter_match_address() {
+        // Note that all the following addresses and topics (base64-encoded strings) come from real data on Calibnet,
+        // but they could also be newly generated addresses or valid topic data.
+
         let empty_filter = ParsedFilter {
             tipsets: ParsedFilterTipsets::Range(0..=0),
             addresses: vec![],
@@ -1178,29 +1183,25 @@ mod tests {
                 Flags::FLAG_INDEXED_ALL,
                 "t1".into(),
                 IPLD_RAW,
-                vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ],
+                BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
             ),
             Entry::new(
                 Flags::FLAG_INDEXED_ALL,
                 "t2".into(),
                 IPLD_RAW,
-                vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ],
+                BASE64_STANDARD
+                    .decode("dATj0QTqeEHD2eb9IK3+mbStWGvAjY8706/viUzxhN4=")
+                    .unwrap(),
             ),
             Entry::new(
                 Flags::FLAG_INDEXED_ALL,
                 "d".into(),
                 IPLD_RAW,
-                vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23,
-                    254, 169, 229, 74, 6, 24, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 13, 232, 134, 151, 206, 121, 139, 231, 226, 192,
-                ],
+                BASE64_STANDARD
+                    .decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCFA6vK+FJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFLvXoMoks6HcAA==")
+                    .unwrap(),
             ),
         ];
 
@@ -1234,8 +1235,8 @@ mod tests {
 
     #[test]
     fn test_parsed_filter_match_keys() {
-        use ahash::AHashMap;
-        use base64::{prelude::BASE64_STANDARD, Engine};
+        // Note that all the following addresses and topics (base64-encoded strings) come from real data on Calibnet,
+        // but they could also be newly generated addresses or valid topic data.
 
         let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
 
