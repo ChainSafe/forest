@@ -472,14 +472,14 @@ impl EthFilterSpec {
 impl Matcher for EthFilterSpec {
     fn matches(
         &self,
-        resolved: &crate::shim::address::Address,
+        emitter_addr: &crate::shim::address::Address,
         entries: &[Entry],
     ) -> anyhow::Result<bool> {
         fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
             value.get(..EVM_WORD_LENGTH)?.try_into().ok()
         }
 
-        let eth_emitter_addr = EthAddress::from_filecoin_address(resolved)?;
+        let eth_emitter_addr = EthAddress::from_filecoin_address(emitter_addr)?;
 
         let match_addr = if self.address.is_empty() {
             true
@@ -678,13 +678,13 @@ impl ParsedFilter {
 impl Matcher for ParsedFilter {
     fn matches(
         &self,
-        resolved: &crate::shim::address::Address,
+        emitter_addr: &crate::shim::address::Address,
         entries: &[Entry],
     ) -> anyhow::Result<bool> {
         let match_addr = if self.addresses.is_empty() {
             true
         } else {
-            self.addresses.iter().any(|other| *other == *resolved)
+            self.addresses.iter().any(|other| *other == *emitter_addr)
         };
 
         let match_fields = if self.keys.is_empty() {
