@@ -49,10 +49,26 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
+/// A trait for filtering events based on predefined conditions.
+///
+/// Implementors of this trait define custom logic to determine whether an event matches the filtering criteria
+/// based on the event emitter's address and its associated entries.
+///
+/// # Parameters
+/// - `emitter_addr`: The address of the Actor that emitted the event, along with the associated event entries.
+/// - `entries`: A list of [`Entry`] objects related to the event.
+///
+/// # Returns
+/// - `Ok(true)`: If the event matches the filtering criteria.
+/// - `Ok(false)`: If the event does not match the filtering criteria.
+/// - `Err(anyhow::Error)`: If an error occurs during the evaluation of the filtering logic.
+///
+/// # Notes
+/// - Implementations may use wildcards to match any emitter address or topic.
 pub trait Matcher {
     fn matches(
         &self,
-        eth_emitter_addr: &crate::shim::address::Address,
+        emitter_addr: &crate::shim::address::Address,
         entries: &[Entry],
     ) -> anyhow::Result<bool>;
 }
