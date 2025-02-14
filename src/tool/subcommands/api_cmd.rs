@@ -14,8 +14,8 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, ExtPredefined,
-    Predefined,
+    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash,
+    ExtPredefined, Predefined,
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
@@ -1572,21 +1572,21 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         ),
         RpcTest::identity(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 false,
             ))
             .unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 true,
             ))
             .unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_predefined(Predefined::Earliest),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Earliest),
                 true,
             ))
             .unwrap(),
@@ -1594,28 +1594,28 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_predefined(Predefined::Pending),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Pending),
                 true,
             ))
             .unwrap(),
         ),
         RpcTest::basic(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),
                 true,
             ))
             .unwrap(),
         ),
         RpcTest::basic(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_ext_predefined(ExtPredefined::Safe),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),
                 true,
             ))
             .unwrap(),
         ),
         RpcTest::basic(
             EthGetBlockByNumber::request((
-                BlockNumberOrHash::from_ext_predefined(ExtPredefined::Finalized),
+                ExtBlockNumberOrHash::from_predefined(ExtPredefined::Finalized),
                 true,
             ))
             .unwrap(),
@@ -1711,7 +1711,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::identity(
             EthFeeHistory::request((
                 10.into(),
-                BlockNumberOrPredefined::PredefinedBlock(Predefined::Earliest),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Earliest),
                 None,
             ))
             .unwrap(),
@@ -1720,7 +1720,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::basic(
             EthFeeHistory::request((
                 10.into(),
-                BlockNumberOrPredefined::PredefinedBlock(Predefined::Pending),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Pending),
                 Some(vec![10., 50., 90.]),
             ))
             .unwrap(),
@@ -1728,7 +1728,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::basic(
             EthFeeHistory::request((
                 10.into(),
-                BlockNumberOrPredefined::PredefinedBlock(Predefined::Latest),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Latest),
                 None,
             ))
             .unwrap(),
@@ -1736,7 +1736,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::basic(
             EthFeeHistory::request((
                 10.into(),
-                BlockNumberOrPredefined::ExtPredefinedBlock(ExtPredefined::Safe),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Safe),
                 None,
             ))
             .unwrap(),
@@ -1744,7 +1744,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::basic(
             EthFeeHistory::request((
                 10.into(),
-                BlockNumberOrPredefined::ExtPredefinedBlock(ExtPredefined::Finalized),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Finalized),
                 Some(vec![10., 50., 90.]),
             ))
             .unwrap(),
@@ -1800,7 +1800,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(
             EthGetTransactionByBlockNumberAndIndex::request((
-                BlockNumberOrPredefined::PredefinedBlock(Predefined::Earliest),
+                BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Earliest),
                 0.into(),
             ))
             .unwrap(),
@@ -1836,35 +1836,41 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
-            EthTraceBlock::request((BlockNumberOrHash::from_block_number(shared_tipset.epoch()),))
-                .unwrap(),
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_block_number(
+                shared_tipset.epoch(),
+            ),))
+            .unwrap(),
         ),
         RpcTest::identity(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Earliest),))
-                .unwrap(),
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Earliest,
+            ),))
+            .unwrap(),
         )
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Pending),))
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Pending,
+            ),))
+            .unwrap(),
+        ),
+        RpcTest::basic(
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest),))
                 .unwrap(),
         ),
         RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe),))
                 .unwrap(),
         ),
         RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_ext_predefined(ExtPredefined::Safe),))
-                .unwrap(),
-        ),
-        RpcTest::basic(
-            EthTraceBlock::request((BlockNumberOrHash::from_ext_predefined(
+            EthTraceBlock::request((ExtBlockNumberOrHash::from_predefined(
                 ExtPredefined::Finalized,
             ),))
             .unwrap(),
         ),
         RpcTest::identity(
             EthTraceReplayBlockTransactions::request((
-                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                ExtBlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 vec!["trace".to_string()],
             ))
             .unwrap(),
