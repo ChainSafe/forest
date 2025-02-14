@@ -20,6 +20,7 @@ use crate::{
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
 };
+use api_compare_tests::TestDump;
 use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
