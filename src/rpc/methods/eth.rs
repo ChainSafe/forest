@@ -247,6 +247,18 @@ pub enum ExtPredefined {
     Finalized,
 }
 
+impl TryFrom<&ExtPredefined> for Predefined {
+    type Error = ();
+    fn try_from(ext: &ExtPredefined) -> Result<Self, Self::Error> {
+        match ext {
+            ExtPredefined::Earliest => Ok(Predefined::Earliest),
+            ExtPredefined::Pending => Ok(Predefined::Pending),
+            ExtPredefined::Latest => Ok(Predefined::Latest),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockNumber {
@@ -779,57 +791,74 @@ fn get_tipset_from_hash<DB: Blockstore>(
     Tipset::load_required(chain_store.blockstore(), &tsk)
 }
 
+fn resolve_predefined_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    predefined: Predefined,
+) -> anyhow::Result<Arc<Tipset>> {
+    match predefined {
+        Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
+        Predefined::Pending => Ok(head),
+        Predefined::Latest => Ok(chain.chain_index.load_required_tipset(head.parents())?),
+    }
+}
+
+fn resolve_block_number_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    block_number: EthInt64,
+) -> anyhow::Result<Arc<Tipset>> {
+    let height = ChainEpoch::from(block_number.0);
+    if height > head.epoch() - 1 {
+        bail!("requested a future epoch (beyond \"latest\")");
+    }
+    Ok(chain
+        .chain_index
+        .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?)
+}
+
+fn resolve_block_hash_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    block_hash: &EthHash,
+    require_canonical: bool,
+) -> anyhow::Result<Arc<Tipset>> {
+    let ts = Arc::new(get_tipset_from_hash(chain, block_hash)?);
+    // verify that the tipset is in the canonical chain
+    if require_canonical {
+        // walk up the current chain (our head) until we reach ts.epoch()
+        let walk_ts =
+            chain
+                .chain_index
+                .tipset_by_height(ts.epoch(), head, ResolveNullTipset::TakeOlder)?;
+        // verify that it equals the expected tipset
+        if walk_ts != ts {
+            bail!("tipset is not canonical");
+        }
+    }
+    Ok(ts)
+}
+
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
-
     match block_param {
-        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            Predefined::Pending => Ok(head),
-            Predefined::Latest => {
-                let parent = chain.chain_index.load_required_tipset(head.parents())?;
-                Ok(parent)
-            }
-        },
+        BlockNumberOrHash::PredefinedBlock(predefined) => {
+            resolve_predefined_tipset(chain, head, predefined)
+        }
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
-            let height = ChainEpoch::from(block_number.0);
-            if height > head.epoch() - 1 {
-                bail!("requested a future epoch (beyond \"latest\")");
-            }
-            let ts =
-                chain
-                    .chain_index
-                    .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
-            Ok(ts)
+            resolve_block_number_tipset(chain, head, block_number)
         }
         BlockNumberOrHash::BlockHash(block_hash) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            Ok(ts)
+            resolve_block_hash_tipset(chain, head, &block_hash, false)
         }
         BlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
-        }) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            // verify that the tipset is in the canonical chain
-            if require_canonical {
-                // walk up the current chain (our head) until we reach ts.epoch()
-                let walk_ts = chain.chain_index.tipset_by_height(
-                    ts.epoch(),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                // verify that it equals the expected tipset
-                if walk_ts != ts {
-                    bail!("tipset is not canonical");
-                }
-            }
-            Ok(ts)
-        }
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical),
     }
 }
 
@@ -838,72 +867,46 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
     block_param: ExtBlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
-
     match block_param {
-        ExtBlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            ExtPredefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            ExtPredefined::Pending => Ok(head),
-            ExtPredefined::Latest => {
-                let parent = chain.chain_index.load_required_tipset(head.parents())?;
-                Ok(parent)
+        ExtBlockNumberOrHash::PredefinedBlock(ext_predefined) => {
+            if let Ok(common) = Predefined::try_from(&ext_predefined) {
+                resolve_predefined_tipset(chain, head, common)
+            } else {
+                match ext_predefined {
+                    ExtPredefined::Safe => {
+                        let latest_height = head.epoch() - 1;
+                        let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                        Ok(chain.chain_index.tipset_by_height(
+                            safe_height,
+                            head,
+                            ResolveNullTipset::TakeOlder,
+                        )?)
+                    }
+                    ExtPredefined::Finalized => {
+                        let latest_height = head.epoch() - 1;
+                        let finality_height =
+                            latest_height - chain.chain_config.policy.chain_finality;
+                        Ok(chain.chain_index.tipset_by_height(
+                            finality_height,
+                            head,
+                            ResolveNullTipset::TakeOlder,
+                        )?)
+                    }
+                    _ => unreachable!(), // All variants are already handled
+                }
             }
-            ExtPredefined::Safe => {
-                let latest_height = head.epoch() - 1;
-                let safe_height = latest_height - SAFE_EPOCH_DELAY;
-                let ts = chain.chain_index.tipset_by_height(
-                    safe_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-            ExtPredefined::Finalized => {
-                let latest_height = head.epoch() - 1;
-                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
-                let ts = chain.chain_index.tipset_by_height(
-                    finality_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-        },
+        }
         ExtBlockNumberOrHash::BlockNumber(block_number)
         | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
-            let height = ChainEpoch::from(block_number.0);
-            if height > head.epoch() - 1 {
-                bail!("requested a future epoch (beyond \"latest\")");
-            }
-            let ts =
-                chain
-                    .chain_index
-                    .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
-            Ok(ts)
+            resolve_block_number_tipset(chain, head, block_number)
         }
         ExtBlockNumberOrHash::BlockHash(block_hash) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            Ok(ts)
+            resolve_block_hash_tipset(chain, head, &block_hash, false)
         }
         ExtBlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
-        }) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            // verify that the tipset is in the canonical chain
-            if require_canonical {
-                // walk up the current chain (our head) until we reach ts.epoch()
-                let walk_ts = chain.chain_index.tipset_by_height(
-                    ts.epoch(),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                // verify that it equals the expected tipset
-                if walk_ts != ts {
-                    bail!("tipset is not canonical");
-                }
-            }
-            Ok(ts)
-        }
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical),
     }
 }
 
