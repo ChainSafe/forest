@@ -8,7 +8,7 @@ use crate::networks::Height;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use crate::utils::net::download_to;
+use crate::utils::net::{download_to, DownloadFileOption};
 use anyhow::{bail, Context};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -108,7 +108,12 @@ pub async fn import_chain_as_forest_car(
             let downloaded_car_temp_path =
                 tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
             if let Ok(url) = Url::parse(&from_path.display().to_string()) {
-                download_to(&url, &downloaded_car_temp_path).await?;
+                download_to(
+                    &url,
+                    &downloaded_car_temp_path,
+                    DownloadFileOption::Resumable,
+                )
+                .await?;
             } else {
                 move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
             }

@@ -74,9 +74,10 @@ impl RpcMethod<0> for SyncState {
 pub enum SyncSubmitBlock {}
 impl RpcMethod<1> for SyncSubmitBlock {
     const NAME: &'static str = "Filecoin.SyncSubmitBlock";
-    const PARAM_NAMES: [&'static str; 1] = ["blk"];
+    const PARAM_NAMES: [&'static str; 1] = ["block"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Submits a newly created block to the network.");
 
     type Params = (GossipBlock,);
     type Ok = ();

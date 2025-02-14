@@ -45,21 +45,22 @@ use tokio::sync::{
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
-    const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["messageCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
     type Params = (Cid,);
     type Ok = Message;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (msg_cid,): Self::Params,
+        (message_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
             .store()
-            .get_cbor(&msg_cid)?
-            .with_context(|| format!("can't find message with cid {msg_cid}"))?;
+            .get_cbor(&message_cid)?
+            .with_context(|| format!("can't find message with cid {message_cid}"))?;
         Ok(match chain_message {
             ChainMessage::Signed(m) => m.into_message(),
             ChainMessage::Unsigned(m) => m,
@@ -70,9 +71,12 @@ impl RpcMethod<1> for ChainGetMessage {
 pub enum ChainGetEvents {}
 impl RpcMethod<1> for ChainGetEvents {
     const NAME: &'static str = "Filecoin.ChainGetEvents";
-    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["rootCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the events under the given event AMT root CID.");
+
     type Params = (Cid,);
     type Ok = Vec<types::Event>;
     async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
@@ -83,9 +87,11 @@ impl RpcMethod<1> for ChainGetEvents {
 pub enum ChainGetParentMessages {}
 impl RpcMethod<1> for ChainGetParentMessages {
     const NAME: &'static str = "Filecoin.ChainGetParentMessages";
-    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the messages included in the blocks of the parent tipset.");
 
     type Params = (Cid,);
     type Ok = Vec<ApiMessage>;
@@ -110,9 +116,11 @@ impl RpcMethod<1> for ChainGetParentMessages {
 pub enum ChainGetParentReceipts {}
 impl RpcMethod<1> for ChainGetParentReceipts {
     const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
-    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the message receipts included in the blocks of the parent tipset.");
 
     type Params = (Cid,);
     type Ok = Vec<ApiReceipt>;
@@ -155,7 +163,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
 pub enum ChainGetMessagesInTipset {}
 impl RpcMethod<1> for ChainGetMessagesInTipset {
     const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
-    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
@@ -164,9 +172,11 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tsk),): Self::Params,
+        (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let tipset = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
         load_api_messages_from_tipset(ctx.store(), &tipset)
     }
 }
@@ -248,6 +258,7 @@ impl RpcMethod<1> for ChainReadObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.");
 
     type Params = (Cid,);
     type Ok = Vec<u8>;
@@ -270,6 +281,8 @@ impl RpcMethod<1> for ChainHasObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Checks if a given CID exists in the chain blockstore.");
 
     type Params = (Cid,);
     type Ok = bool;
@@ -339,18 +352,20 @@ impl RpcMethod<2> for ChainStatObj {
 pub enum ChainGetBlockMessages {}
 impl RpcMethod<1> for ChainGetBlockMessages {
     const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
-    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns all messages from the specified block.");
 
     type Params = (Cid,);
     type Ok = BlockMessages;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (cid,): Self::Params,
+        (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&cid)?;
+        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
         let blk_msgs = &blk.messages;
         let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), blk_msgs)?;
         let (bls_msg, secp_msg) =
@@ -372,6 +387,8 @@ impl RpcMethod<2> for ChainGetPath {
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the path between the two specified tipsets.");
 
     type Params = (TipsetKey, TipsetKey);
     type Ok = Vec<PathChange>;
@@ -446,18 +463,21 @@ fn impl_chain_get_path(
 pub enum ChainGetTipSetByHeight {}
 impl RpcMethod<2> for ChainGetTipSetByHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetByHeight";
-    const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
+    const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (height, ApiTipsetKey(tsk)): Self::Params,
+        (height, ApiTipsetKey(tipset_key)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
@@ -468,18 +488,25 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
 pub enum ChainGetTipSetAfterHeight {}
 impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
-    const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
+    const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Looks back and returns the tipset at the specified epoch.
+    If there are no blocks at the given epoch,
+    returns the first non-nil tipset at a later epoch.",
+    );
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (height, ApiTipsetKey(tsk)): Self::Params,
+        (height, ApiTipsetKey(tipset_key)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
         let tss = ctx
             .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
@@ -509,6 +536,7 @@ impl RpcMethod<0> for ChainHead {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
 
     type Params = ();
     type Ok = Tipset;
@@ -522,18 +550,19 @@ impl RpcMethod<0> for ChainHead {
 pub enum ChainGetBlock {}
 impl RpcMethod<1> for ChainGetBlock {
     const NAME: &'static str = "Filecoin.ChainGetBlock";
-    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the block with the specified CID.");
 
     type Params = (Cid,);
     type Ok = CachingBlockHeader;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (cid,): Self::Params,
+        (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&cid)?;
+        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
         Ok(blk)
     }
 }
@@ -541,18 +570,21 @@ impl RpcMethod<1> for ChainGetBlock {
 pub enum ChainGetTipSet {}
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
-    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
     type Params = (ApiTipsetKey,);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tsk),): Self::Params,
+        (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
         Ok((*ts).clone())
     }
 }
@@ -621,19 +653,22 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
 pub enum ChainTipSetWeight {}
 impl RpcMethod<1> for ChainTipSetWeight {
     const NAME: &'static str = "Filecoin.ChainTipSetWeight";
-    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the weight of the specified tipset.");
 
     type Params = (ApiTipsetKey,);
     type Ok = BigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (ApiTipsetKey(tsk),): Self::Params,
+        (ApiTipsetKey(tipset_key),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let weight = crate::fil_cns::weight(ctx.store(), &tsk)?;
+        let ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tipset_key)?;
+        let weight = crate::fil_cns::weight(ctx.store(), &ts)?;
         Ok(weight)
     }
 }
