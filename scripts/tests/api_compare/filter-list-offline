@@ -1,7 +1,5 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619314467/job/23624081698
-!Filecoin.MpoolGetNonce
 !Filecoin.EthSyncing
 !eth_syncing
 !Filecoin.NetAddrsListen
