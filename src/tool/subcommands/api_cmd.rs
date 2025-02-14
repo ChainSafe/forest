@@ -69,6 +69,10 @@ const COLLECTION_SAMPLE_SIZE: usize = 5;
 
 const CALIBNET_CHAIN_ID: EthChainIdType = crate::networks::calibnet::ETH_CHAIN_ID;
 
+/// This address has been funded by the calibnet faucet and the private keys
+/// has been discarded. It should always have a non-zero balance.
+const KNOWN_CALIBNET_ADDRESS: &str = "t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui";
+
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
 pub enum ApiCommands {
@@ -806,6 +810,9 @@ fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
+        RpcTest::identity(
+            MpoolGetNonce::request((Address::from_str(KNOWN_CALIBNET_ADDRESS).unwrap(),)).unwrap(),
+        ),
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
@@ -1448,9 +1455,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 }
 
 fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
-    // This address has been funded by the calibnet faucet and the private keys
-    // has been discarded. It should always have a non-zero balance.
-    let known_wallet = Address::from_str("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui").unwrap();
+    let known_wallet = Address::from_str(KNOWN_CALIBNET_ADDRESS).unwrap();
     // "Hello world!" signed with the above address:
     let signature = "44364ca78d85e53dda5ac6f719a4f2de3261c17f58558ab7730f80c478e6d43775244e7d6855afad82e4a1fd6449490acfa88e3fcfe7c1fe96ed549c100900b400";
     let text = "Hello world!".as_bytes().to_vec();

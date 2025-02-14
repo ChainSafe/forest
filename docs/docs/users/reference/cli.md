@@ -347,6 +347,7 @@ SUBCOMMANDS:
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
   f3           Manages Filecoin Fast Finality (F3) interactions
+  wait-api     Wait for lotus API to come online
   help         Print this message or the help of the given subcommand(s)
 
 OPTIONS:
