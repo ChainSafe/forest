@@ -30,15 +30,16 @@ use crate::shim::{
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use cid::Cid;
-use itertools::Itertools as _;
-use futures::stream::StreamExt as _;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
+use futures::stream::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
+use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -47,7 +48,6 @@ use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use tabled::{builder::Builder, settings::Style};
 use tokio::sync::Semaphore;
 use tracing::debug;
-use once_cell::sync::Lazy;
 
 use super::{CreateTestsArgs, RunIgnored, TestCriteriaOverride};
 
@@ -57,16 +57,13 @@ const COLLECTION_SAMPLE_SIZE: usize = 5;
 /// has been discarded. It should always have a non-zero balance.
 static KNOWN_CALIBNET_ADDRESS: Lazy<Address> = Lazy::new(|| {
     crate::shim::address::Network::Testnet
-        .parse_address(
-            "t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui",
-        )
+        .parse_address("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui")
         .unwrap()
         .into()
 });
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
-
 
 /// Brief description of a single method call against a single host
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -464,9 +461,7 @@ fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::identity(
-            MpoolGetNonce::request((*KNOWN_CALIBNET_ADDRESS,)).unwrap(),
-        ),
+        RpcTest::identity(MpoolGetNonce::request((*KNOWN_CALIBNET_ADDRESS,)).unwrap()),
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
