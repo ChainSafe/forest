@@ -379,6 +379,10 @@ where
     pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }
+
+    pub fn peer_manager(&self) -> &Arc<PeerManager> {
+        &self.peer_manager
+    }
 }
 
 fn dial_to_bootstrap_peers_if_needed(

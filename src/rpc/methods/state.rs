@@ -136,7 +136,7 @@ impl RpcMethod<0> for StateNetworkName {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         Ok(ctx
             .state_manager
-            .get_network_name(heaviest_tipset.parent_state())?)
+            .get_network_name(*heaviest_tipset.parent_state())?)
     }
 }
 
