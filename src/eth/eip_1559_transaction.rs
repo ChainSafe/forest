@@ -156,6 +156,33 @@ impl EthEip1559TxArgs {
         let signature = self.signature()?;
         Ok(SignedMessage { message, signature })
     }
+
+    /// Constructs an unsigned message using EIP-1559 transaction args
+    pub fn get_unsigned_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<Message> {
+        ensure!(
+            self.chain_id == eth_chain_id,
+            "Invalid chain id, expected {}, got {}",
+            self.chain_id,
+            eth_chain_id
+        );
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        Ok(Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.max_fee_per_gas.clone().into(),
+            gas_premium: self.max_priority_fee_per_gas.clone().into(),
+        })
+    }
 }
 
 impl EthEip1559TxArgsBuilder {

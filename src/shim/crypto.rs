@@ -7,6 +7,9 @@ use super::{
     fvm_shared_latest::{self, commcid::Commitment},
     version::NetworkVersion,
 };
+use crate::eth::{EthChainId, EthTx};
+use crate::message::{Message, SignedMessage};
+use anyhow::ensure;
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
@@ -111,7 +114,7 @@ impl Signature {
             .ok_or_else(|| anyhow::anyhow!("Invalid signature bytes"))?
             .to_vec();
 
-        // first byte in signature represents the signature type
+        // the first byte in signature represents the signature type
         let sig_type = SignatureType::try_from(*first_byte)?;
         match sig_type {
             SignatureType::Secp256k1 => Ok(Self::new_secp256k1(signature_data)),
@@ -130,6 +133,36 @@ impl Signature {
 
     pub fn signature_type(&self) -> SignatureType {
         self.sig_type
+    }
+
+    /// Authenticates the message signature using protocol-specific validation:
+    /// - Delegated: Uses ethereum message with RLP encoding for signature verification, Verifies message roundtrip integrity
+    /// - BLS/SECP: Standard signature verification
+    pub fn authenticate_msg(
+        &self,
+        eth_chain_id: EthChainId,
+        msg: &SignedMessage,
+        addr: &crate::shim::address::Address,
+    ) -> anyhow::Result<()> {
+        let mut sig = self.clone();
+        let digest: Vec<u8>;
+        match self.sig_type {
+            SignatureType::Delegated => {
+                let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
+                let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
+                ensure!(
+                    msg.message().cid() == filecoin_msg.cid(),
+                    "Ethereum transaction roundtrip mismatch"
+                );
+                // delegated uses rlp encoding for the message
+                digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
+                // update the exiting signature bytes with the verifiable signature for delegated signature
+                sig.bytes =
+                    eth_tx.to_verifiable_signature(Vec::from(self.bytes()), eth_chain_id)?;
+            }
+            _ => digest = msg.message().cid().to_bytes(),
+        }
+        sig.verify(&digest, addr)
     }
 
     /// Checks if a signature is valid given data and address.

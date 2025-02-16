@@ -43,7 +43,7 @@ bls-signatures = { version = "0.15", default-features = false, features = [
 blstrs = { version = "0.7", features = ["portable"] }
 byteorder = "1"
 bytes = "1"
-cbor4ii = { version = "0.2", default-features = false, features = ["use_alloc", "use_std"] }
+cbor4ii = { version = "0.2", default-features = false, features = ["use_alloc", "use_std", "serde1"] }
 cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

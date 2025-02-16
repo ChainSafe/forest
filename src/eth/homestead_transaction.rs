@@ -207,6 +207,23 @@ impl EthLegacyHomesteadTxArgs {
         let signature = self.signature()?;
         Ok(SignedMessage { message, signature })
     }
+
+    /// Constructs an unsigned message using legacy homestead transaction args
+    pub fn get_unsigned_message(&self, from: Address) -> anyhow::Result<Message> {
+        let method_info = get_filecoin_method_info(&self.to, &self.input)?;
+        Ok (Message {
+            version: 0,
+            from,
+            to: method_info.to,
+            sequence: self.nonce,
+            value: self.value.clone().into(),
+            method_num: method_info.method,
+            params: method_info.params.into(),
+            gas_limit: self.gas_limit,
+            gas_fee_cap: self.gas_price.clone().into(),
+            gas_premium: self.gas_price.clone().into(),
+        })
+    }
 }
 
 impl EthLegacyHomesteadTxArgsBuilder {
