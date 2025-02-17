@@ -20,6 +20,8 @@ impl RpcMethod<0> for NetAddrsListen {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns a list of listening addresses and the peer ID.");
 
     type Params = ();
     type Ok = AddrInfo;
@@ -43,6 +45,7 @@ impl RpcMethod<0> for NetPeers {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns a list of currently connected peers.");
 
     type Params = ();
     type Ok = Vec<AddrInfo>;
@@ -133,9 +136,10 @@ impl RpcMethod<0> for NetInfo {
 pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
-    const PARAM_NAMES: [&'static str; 1] = ["info"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerAddressInfo"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Connects to a specified peer.");
 
     type Params = (AddrInfo,);
     type Ok = ();
@@ -166,18 +170,19 @@ impl RpcMethod<1> for NetConnect {
 pub enum NetDisconnect {}
 impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
-    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> = Some("Disconnects from the specified peer.");
 
     type Params = (String,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (id,): Self::Params,
+        (peer_id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let peer_id = PeerId::from_str(&id)?;
+        let peer_id = PeerId::from_str(&peer_id)?;
 
         let (tx, rx) = flume::bounded(1);
         let req = NetworkMessage::JSONRPCRequest {
@@ -194,18 +199,19 @@ impl RpcMethod<1> for NetDisconnect {
 pub enum NetAgentVersion {}
 impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
-    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerId"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the agent version string.");
 
     type Params = (String,);
     type Ok = String;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (id,): Self::Params,
+        (peer_id,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let peer_id = PeerId::from_str(&id)?;
+        let peer_id = PeerId::from_str(&peer_id)?;
         let (tx, rx) = flume::bounded(1);
         ctx.network_send()
             .send_async(NetworkMessage::JSONRPCRequest {
@@ -255,9 +261,10 @@ impl RpcMethod<0> for NetVersion {
 pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.");
 
     type Params = (Vec<String>,);
     type Ok = ();
@@ -285,12 +292,14 @@ impl RpcMethod<1> for NetProtectAdd {
         Ok(())
     }
 }
+
 pub enum NetProtectList {}
 impl RpcMethod<0> for NetProtectList {
     const NAME: &'static str = "Filecoin.NetProtectList";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::Both;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current list of protected peers.");
 
     type Params = ();
     type Ok = Vec<String>;
@@ -309,9 +318,10 @@ impl RpcMethod<0> for NetProtectList {
 pub enum NetProtectRemove {}
 impl RpcMethod<1> for NetProtectRemove {
     const NAME: &'static str = "Filecoin.NetProtectRemove";
-    const PARAM_NAMES: [&'static str; 1] = ["peer_ids"];
+    const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
     const API_PATHS: ApiPaths = ApiPaths::Both;
     const PERMISSION: Permission = Permission::Admin;
+    const DESCRIPTION: Option<&'static str> = Some("Remove a peer from the protected list.");
 
     type Params = (Vec<String>,);
     type Ok = ();

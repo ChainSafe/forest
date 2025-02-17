@@ -600,6 +600,7 @@ fn parse_dnsaddr_txt(txt: &[u8]) -> io::Result<Multiaddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use backon::{ExponentialBuilder, Retryable as _};
     use libp2p::{
         core::transport::MemoryTransport, identity::Keypair, swarm::SwarmEvent, Swarm,
         Transport as _,
@@ -609,17 +610,23 @@ mod tests {
 
     #[tokio::test]
     async fn resolve_libp2p_dnsaddr_test() {
-        let addr = Multiaddr::from_str("/dnsaddr/bootstrap.butterfly.fildev.network").unwrap();
-        let p = addr
-            .iter()
-            .find(|p| matches!(p, Protocol::Dnsaddr(_)))
-            .unwrap();
-        if let Protocol::Dnsaddr(name) = p {
-            let pairs = resolve_libp2p_dnsaddr(&name).await.unwrap();
-            assert!(!pairs.is_empty());
-        } else {
-            panic!("No dnsaddr protocol found");
+        async fn run() -> anyhow::Result<()> {
+            let addr = Multiaddr::from_str("/dnsaddr/bootstrap.libp2p.io").unwrap();
+            let p = addr
+                .iter()
+                .find(|p| matches!(p, Protocol::Dnsaddr(_)))
+                .unwrap();
+            if let Protocol::Dnsaddr(name) = p {
+                let pairs = resolve_libp2p_dnsaddr(&name).await?;
+                assert!(!pairs.is_empty());
+            } else {
+                panic!("No dnsaddr protocol found");
+            }
+
+            Ok(())
         }
+
+        run.retry(ExponentialBuilder::default()).await.unwrap();
     }
 
     #[tokio::test]
