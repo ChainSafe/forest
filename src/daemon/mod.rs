@@ -151,7 +151,7 @@ struct DbMetadata {
     forest_car_db_dir: PathBuf,
 }
 
-fn do_startup_miscs_and_get_timestamp(
+fn startup_init(
     opts: &CliOpts,
     config: &Config,
 ) -> anyhow::Result<chrono::DateTime<chrono::Utc>> {
