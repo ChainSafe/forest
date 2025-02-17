@@ -4,8 +4,11 @@
 #[cfg(test)]
 mod tests;
 
+use std::{borrow::Cow, time::Duration};
+
 use crate::{
     blocks::TipsetKey,
+    lotus_json::HasLotusJson as _,
     rpc::{
         self,
         f3::{F3Instant, F3Manifest, F3PowerEntry, FinalityCertificate},
@@ -17,9 +20,46 @@ use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
-use sailfish::TemplateSimple;
+use itertools::Itertools as _;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
+use tera::Tera;
+
+const MANIFEST_TEMPLATE_NAME: &str = "manifest.tpl";
+const CERTIFICATE_TEMPLATE_NAME: &str = "certificate.tpl";
+const PROGRESS_TEMPLATE_NAME: &str = "progress.tpl";
+
+static TEMPLATES: Lazy<Tera> = Lazy::new(|| {
+    let mut tera = Tera::default();
+    tera.add_raw_template(MANIFEST_TEMPLATE_NAME, include_str!("f3_cmd/manifest.tpl"))
+        .unwrap();
+    tera.add_raw_template(
+        CERTIFICATE_TEMPLATE_NAME,
+        include_str!("f3_cmd/certificate.tpl"),
+    )
+    .unwrap();
+    tera.add_raw_template(PROGRESS_TEMPLATE_NAME, include_str!("f3_cmd/progress.tpl"))
+        .unwrap();
+
+    #[allow(clippy::disallowed_types)]
+    fn format_duration(
+        value: &serde_json::Value,
+        _args: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> tera::Result<serde_json::Value> {
+        if let Some(duration_nano_secs) = value.as_u64() {
+            let duration = Duration::from_lotus_json(duration_nano_secs);
+            return Ok(serde_json::Value::String(
+                humantime::format_duration(duration).to_string(),
+            ));
+        }
+
+        Ok(value.clone())
+    }
+    tera.register_filter("format_duration", format_duration);
+
+    tera
+});
 
 /// Output format
 #[derive(ValueEnum, Debug, Clone, Default, Serialize, Deserialize)]
@@ -58,8 +98,7 @@ impl F3Commands {
                 let manifest = client.call(F3GetManifest::request(())?).await?;
                 match output {
                     F3OutputFormat::Text => {
-                        let template = ManifestTemplate::new(manifest);
-                        println!("{}", template.render_once()?);
+                        println!("{}", render_manifest_template(&manifest)?);
                     }
                     F3OutputFormat::Json => {
                         println!("{}", serde_json::to_string_pretty(&manifest)?);
@@ -71,11 +110,9 @@ impl F3Commands {
                 let is_running = client.call(F3IsRunning::request(())?).await?;
                 println!("Running: {is_running}");
                 let progress = client.call(F3GetProgress::request(())?).await?;
-                let progress_template = ProgressTemplate::new(progress);
-                println!("{}", progress_template.render_once()?);
+                println!("{}", render_progress_template(&progress)?);
                 let manifest = client.call(F3GetManifest::request(())?).await?;
-                let manifest_template = ManifestTemplate::new(manifest);
-                println!("{}", manifest_template.render_once()?);
+                println!("{}", render_manifest_template(&manifest)?);
                 Ok(())
             }
             Self::Certs(cmd) => cmd.run(client).await,
@@ -122,8 +159,7 @@ impl F3CertsCommands {
                 };
                 match output {
                     F3OutputFormat::Text => {
-                        let template = FinalityCertificateTemplate::new(cert);
-                        println!("{}", template.render_once()?);
+                        println!("{}", render_certificate_template(&cert)?);
                     }
                     F3OutputFormat::Json => {
                         println!("{}", serde_json::to_string_pretty(&cert)?);
@@ -165,8 +201,7 @@ impl F3CertsCommands {
                     let cert = F3GetCertificate::call(&client, (i,)).await?;
                     match output {
                         F3OutputFormat::Text => {
-                            let template = FinalityCertificateTemplate::new(cert);
-                            println!("{}", template.render_once()?);
+                            println!("{}", render_certificate_template(&cert)?);
                         }
                         F3OutputFormat::Json => {
                             println!("{}", serde_json::to_string_pretty(&cert)?);
@@ -338,6 +373,87 @@ impl F3PowerTableCommands {
     }
 }
 
+fn render_manifest_template(template: &F3Manifest) -> anyhow::Result<String> {
+    let mut context = tera::Context::from_serialize(template)?;
+    context.insert(
+        "initial_power_table_cid",
+        &if template.initial_power_table != Cid::default() {
+            Cow::Owned(template.initial_power_table.to_string())
+        } else {
+            Cow::Borrowed("unknown")
+        },
+    );
+    Ok(TEMPLATES
+        .render(MANIFEST_TEMPLATE_NAME, &context)?
+        .trim_end()
+        .to_owned())
+}
+
+fn render_certificate_template(template: &FinalityCertificate) -> anyhow::Result<String> {
+    const MAX_TIPSETS: usize = 10;
+    const MAX_TIPSET_KEYS: usize = 2;
+    let mut context = tera::Context::from_serialize(template)?;
+    context.insert(
+        "power_table_cid",
+        &template.supplemental_data.power_table.to_string(),
+    );
+    context.insert(
+        "power_table_delta_string",
+        &template.power_table_delta_string(),
+    );
+    context.insert(
+        "epochs",
+        &format!(
+            "{}-{}",
+            template.chain_base().epoch,
+            template.chain_head().epoch
+        ),
+    );
+    let mut chain_lines = vec![];
+    for (i, ts) in template.ec_chain.iter().take(MAX_TIPSETS).enumerate() {
+        let table = if i + 1 == template.ec_chain.len() {
+            "    └──"
+        } else {
+            "    ├──"
+        };
+        let mut keys = ts
+            .key
+            .iter()
+            .take(MAX_TIPSET_KEYS)
+            .map(|i| i.to_string())
+            .join(", ");
+        if ts.key.len() > MAX_TIPSET_KEYS {
+            keys = format!("{keys}, ...");
+        }
+        chain_lines.push(format!(
+            "{table}{} (length: {}): [{keys}]",
+            ts.epoch,
+            ts.key.len()
+        ));
+    }
+    if template.ec_chain.len() > MAX_TIPSETS {
+        let n_remaining = template.ec_chain.len() - MAX_TIPSETS;
+        chain_lines.push(format!(
+            "    └──...omitted the remaining {n_remaining} tipsets."
+        ));
+    }
+    chain_lines.push(format!("Signed by {} miner(s).", template.signers.len()));
+    context.insert("chain_lines", &chain_lines);
+    Ok(TEMPLATES
+        .render(CERTIFICATE_TEMPLATE_NAME, &context)?
+        .trim_end()
+        .to_owned())
+}
+
+fn render_progress_template(template: &F3Instant) -> anyhow::Result<String> {
+    let mut context = tera::Context::from_serialize(template)?;
+    context.insert("phase_string", template.phase_string());
+    Ok(TEMPLATES
+        .render(PROGRESS_TEMPLATE_NAME, &context)?
+        .trim_end()
+        .to_owned())
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct F3PowerTableGetCommandResult {
@@ -389,45 +505,4 @@ fn scale_power(power: &num::BigInt, total: &num::BigInt) -> anyhow::Result<i64> 
     }
     let scacled = MAX_POWER * power / total;
     Ok(scacled.try_into()?)
-}
-
-#[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
-#[template(path = "cli/f3/manifest.stpl")]
-struct ManifestTemplate {
-    manifest: F3Manifest,
-    is_initial_power_table_defined: bool,
-}
-
-impl ManifestTemplate {
-    fn new(manifest: F3Manifest) -> Self {
-        let is_initial_power_table_defined = manifest.initial_power_table != Cid::default();
-        Self {
-            manifest,
-            is_initial_power_table_defined,
-        }
-    }
-}
-
-#[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
-#[template(path = "cli/f3/progress.stpl")]
-struct ProgressTemplate {
-    progress: F3Instant,
-}
-
-impl ProgressTemplate {
-    fn new(progress: F3Instant) -> Self {
-        Self { progress }
-    }
-}
-
-#[derive(TemplateSimple, Debug, Clone, Serialize, Deserialize)]
-#[template(path = "cli/f3/certificate.stpl")]
-struct FinalityCertificateTemplate {
-    cert: FinalityCertificate,
-}
-
-impl FinalityCertificateTemplate {
-    fn new(cert: FinalityCertificate) -> Self {
-        Self { cert }
-    }
 }

@@ -19,6 +19,7 @@ mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
+mod wait_api_cmd;
 
 use std::io::Write;
 
@@ -34,6 +35,7 @@ pub(super) use self::{
     f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
     net_cmd::NetCommands, send_cmd::SendCommand, shutdown_cmd::ShutdownCommand,
     snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wait_api_cmd::WaitApiCommand,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -104,6 +106,9 @@ pub enum Subcommand {
     /// Manages Filecoin Fast Finality (F3) interactions
     #[command(subcommand)]
     F3(F3Commands),
+
+    /// Wait for lotus API to come online
+    WaitApi(WaitApiCommand),
 }
 
 /// Format a vector to a prettified string

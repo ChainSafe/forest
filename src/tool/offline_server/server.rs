@@ -18,7 +18,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
-use crate::utils::net::download_to;
+use crate::utils::net::{download_to, DownloadFileOption};
 use crate::JWT_IDENTIFIER;
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
@@ -165,7 +165,7 @@ where
     let mut terminate = signal(SignalKind::terminate())?;
 
     let result = tokio::select! {
-        ret = start_rpc(state, rpc_address) => ret,
+        ret = start_rpc(state, rpc_address, None) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -223,7 +223,12 @@ async fn handle_snapshots(
         indicatif::HumanBytes(num_bytes)
     );
     let downloaded_snapshot_path = std::env::current_dir()?.join(path);
-    download_to(&snapshot_url, &downloaded_snapshot_path).await?;
+    download_to(
+        &snapshot_url,
+        &downloaded_snapshot_path,
+        DownloadFileOption::Resumable,
+    )
+    .await?;
     info!("Snapshot downloaded");
     Ok(vec![downloaded_snapshot_path])
 }

@@ -36,6 +36,8 @@ OPTIONS:
           Address used for metrics collection server. By defaults binds on localhost on port 6116
       --rpc-address <RPC_ADDRESS>
           Address used for RPC. By defaults binds on localhost on port 2345
+      --rpc-filter-list <RPC_FILTER_LIST>
+          Path to a list of RPC methods to allow/disallow
       --no-healthcheck
           Disable healthcheck endpoints
       --healthcheck-address <HEALTHCHECK_ADDRESS>
@@ -144,7 +146,7 @@ Create a new wallet
 Usage: forest-wallet new [SIGNATURE_TYPE]
 
 Arguments:
-  [SIGNATURE_TYPE]  The signature type to use. One of SECP256k1, or BLS [default: secp256k1]
+  [SIGNATURE_TYPE]  The signature type to use. One of `secp256k1`, `bls` or `delegated` [default: secp256k1]
 
 Options:
   -h, --help  Print help
@@ -345,6 +347,7 @@ SUBCOMMANDS:
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
   f3           Manages Filecoin Fast Finality (F3) interactions
+  wait-api     Wait for lotus API to come online
   help         Print this message or the help of the given subcommand(s)
 
 OPTIONS:
@@ -779,7 +782,7 @@ Options:
 ### `forest-cli healthcheck ready`
 
 ```
-Display ready status
+Display readiness status
 
 Usage: forest-cli healthcheck ready [OPTIONS]
 

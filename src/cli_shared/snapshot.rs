@@ -7,8 +7,8 @@ use std::{
     str::FromStr,
 };
 
-use crate::networks::NetworkChain;
 use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_file_with_retry};
+use crate::{networks::NetworkChain, utils::net::DownloadFileOption};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDate;
 use url::Url;
@@ -67,7 +67,7 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
-    download_file_with_retry(&url, directory, &filename).await
+    download_file_with_retry(&url, directory, &filename, DownloadFileOption::Resumable).await
 }
 
 /// Returns

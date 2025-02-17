@@ -42,7 +42,9 @@ pub async fn download_ipfs_file_trustlessly(
         tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?
             .into_temp_path();
     {
-        let mut reader = reader(url.as_str()).await?.compat();
+        let mut reader = reader(url.as_str(), DownloadFileOption::Resumable)
+            .await?
+            .compat();
         let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
         let cid_v10 = crate::utils::cid::cid_11_to_10(cid);
         rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(&cid_v10))
@@ -63,22 +65,37 @@ pub async fn download_ipfs_file_trustlessly(
 /// - uncompressed
 ///
 /// This function returns a reader of uncompressed data.
-pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
+pub async fn reader(
+    location: &str,
+    option: DownloadFileOption,
+) -> anyhow::Result<impl AsyncBufRead> {
     // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
     // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
     // is thrown.
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
             info!("Downloading file: {}", url);
-            let resume_resp = reqwest_resume::get(url).await?;
-            let resp = resume_resp.response().error_for_status_ref()?;
-            let content_length = resp.content_length().unwrap_or_default();
-            let stream = resume_resp
-                .bytes_stream()
-                .map_err(std::io::Error::other)
-                .pipe(tokio_util::io::StreamReader::new);
-
-            (Left(stream), content_length)
+            match option {
+                DownloadFileOption::Resumable => {
+                    let resume_resp = reqwest_resume::get(url).await?;
+                    let resp = resume_resp.response().error_for_status_ref()?;
+                    let content_length = resp.content_length().unwrap_or_default();
+                    let stream = resume_resp
+                        .bytes_stream()
+                        .map_err(std::io::Error::other)
+                        .pipe(tokio_util::io::StreamReader::new);
+                    (Left(Left(stream)), content_length)
+                }
+                DownloadFileOption::NonResumable => {
+                    let resp = global_http_client().get(url).send().await?;
+                    let content_length = resp.content_length().unwrap_or_default();
+                    let stream = resp
+                        .bytes_stream()
+                        .map_err(std::io::Error::other)
+                        .pipe(tokio_util::io::StreamReader::new);
+                    (Left(Right(stream)), content_length)
+                }
+            }
         }
         Err(_) => {
             info!("Reading file: {}", location);

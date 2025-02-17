@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::db::PersistentStore;
-use crate::utils::net::download_file_with_cache;
+use crate::utils::net::http_get;
 use crate::{
     networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::db::car_stream::{CarBlock, CarStream},
@@ -15,7 +15,6 @@ use once_cell::sync::Lazy;
 use std::mem::discriminant;
 use std::path::PathBuf;
 use std::{io::Cursor, path::Path};
-use tokio::io::BufReader;
 use tracing::{info, warn};
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
@@ -104,25 +103,27 @@ pub async fn load_actor_bundles_from_server(
                      alt_url,
                      network,
                      version,
-                 }| async move {
-                    let result = if let Ok(response) =
-                        download_file_with_cache(url, &ACTOR_BUNDLE_CACHE_DIR).await
-                    {
-                        response
-                    } else {
-                        warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
-                        download_file_with_cache(alt_url, &ACTOR_BUNDLE_CACHE_DIR).await?
-                    };
+                 }| {
+                    async move {
+                        let response = if let Ok(response) =
+                            http_get(url).await
+                        {
+                            response
+                        } else {
+                            warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
+                            http_get(alt_url).await?
+                        };
 
-                    let bytes = std::fs::read(&result.path)?;
-                    let mut stream = CarStream::new(BufReader::new(Cursor::new(bytes))).await?;
-                    while let Some(block) = stream.try_next().await? {
-                        db.put_keyed_persistent(&block.cid, &block.data)?;
+                        let bytes = response.bytes().await?;
+                        let mut stream = CarStream::new(Cursor::new(bytes)).await?;
+                        while let Some(block) = stream.try_next().await? {
+                            db.put_keyed_persistent(&block.cid, &block.data)?;
+                        }
+                        let header = stream.header_v1;
+                        anyhow::ensure!(header.roots.len() == 1);
+                        anyhow::ensure!(header.roots.first() == root);
+                        Ok(*root)
                     }
-                    let header = stream.header_v1;
-                    anyhow::ensure!(header.roots.len() == 1);
-                    anyhow::ensure!(header.roots.first() == root);
-                    Ok(*header.roots.first())
                 }
             ),
     )
