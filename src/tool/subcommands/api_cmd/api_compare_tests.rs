@@ -14,6 +14,7 @@ use crate::rpc::eth::{
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::FilterList;
@@ -521,6 +522,92 @@ fn state_tests() -> Vec<RpcTest> {
     //    BeaconGetEntry::request((10101,)).unwrap(),
     //)]
     vec![]
+}
+
+fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
+    let epoch = tipset.epoch();
+    vec![
+        RpcTest::identity(GetActorEventsRaw::request((None,)).unwrap()),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![],
+                fields: Default::default(),
+                from_height: Some(epoch),
+                to_height: Some(epoch),
+                tipset_key: None,
+            }),))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![],
+                fields: Default::default(),
+                from_height: Some(epoch - 100),
+                to_height: Some(epoch),
+                tipset_key: None,
+            }),))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![],
+                fields: Default::default(),
+                from_height: None,
+                to_height: None,
+                tipset_key: Some(tipset.key().clone().into()),
+            }),))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            GetActorEventsRaw::request((Some(ActorEventFilter {
+                addresses: vec![
+                    Address::from_str("t410fvtakbtytk4otbnfymn4zn5ow252nj7lcpbtersq")
+                        .unwrap()
+                        .into(),
+                ],
+                fields: Default::default(),
+                from_height: Some(epoch - 100),
+                to_height: Some(epoch),
+                tipset_key: None,
+            }),))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
+        {
+            use std::collections::BTreeMap;
+
+            use base64::{prelude::BASE64_STANDARD, Engine};
+
+            use crate::lotus_json::LotusJson;
+            use crate::rpc::misc::ActorEventBlock;
+
+            let topic = BASE64_STANDARD
+                .decode("0Gprf0kYSUs3GSF9GAJ4bB9REqbB2I/iz+wAtFhPauw=")
+                .unwrap();
+            let mut fields: BTreeMap<String, Vec<ActorEventBlock>> = Default::default();
+            fields.insert(
+                "t1".into(),
+                vec![ActorEventBlock {
+                    codec: 85,
+                    value: LotusJson(topic),
+                }],
+            );
+            RpcTest::identity(
+                GetActorEventsRaw::request((Some(ActorEventFilter {
+                    addresses: vec![],
+                    fields,
+                    from_height: Some(epoch - 100),
+                    to_height: Some(epoch),
+                    tipset_key: None,
+                }),))
+                .unwrap(),
+            )
+            .sort_policy(SortPolicy::All)
+        },
+    ]
 }
 
 fn miner_tests_with_tipset<DB: Blockstore>(
@@ -1674,6 +1761,7 @@ fn snapshot_tests(
         tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&store, &tipset));
+        tests.extend(event_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);

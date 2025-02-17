@@ -24,6 +24,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::filter::SkipEvent;
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
@@ -1261,7 +1262,14 @@ async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'stat
     };
 
     let mut events = vec![];
-    EthEventHandler::collect_events(ctx, ts, Some(&spec), &mut events).await?;
+    EthEventHandler::collect_events(
+        ctx,
+        ts,
+        Some(&spec),
+        SkipEvent::OnUnresolvedAddress,
+        &mut events,
+    )
+    .await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
     let out: Vec<_> = logs
@@ -2584,14 +2592,14 @@ impl RpcMethod<1> for EthSendRawTransaction {
 
 #[derive(Debug)]
 pub struct CollectedEvent {
-    entries: Vec<EventEntry>,
-    emitter_addr: crate::shim::address::Address,
-    pub event_idx: u64,
-    reverted: bool,
-    height: ChainEpoch,
-    tipset_key: TipsetKey,
+    pub(crate) entries: Vec<EventEntry>,
+    pub(crate) emitter_addr: crate::shim::address::Address,
+    pub(crate) event_idx: u64,
+    pub(crate) reverted: bool,
+    pub(crate) height: ChainEpoch,
+    pub(crate) tipset_key: TipsetKey,
     msg_idx: u64,
-    msg_cid: Cid,
+    pub(crate) msg_cid: Cid,
 }
 
 fn match_key(key: &str) -> Option<usize> {
@@ -2773,9 +2781,12 @@ impl RpcMethod<1> for EthGetLogs {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_filter,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let pf = ctx
+            .eth_event_handler
+            .parse_eth_filter_spec(&ctx, &eth_filter)?;
         let events = ctx
             .eth_event_handler
-            .eth_get_events_for_filter(&ctx, eth_filter)
+            .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
             .await?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
     }
