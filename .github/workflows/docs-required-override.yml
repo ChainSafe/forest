@@ -97,3 +97,13 @@ jobs:
     if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
     steps:
       - run: echo "No-op job to trigger the required checks."
+
+  override_lints:
+    name: All lint checks
+    runs-on: ubuntu-22.04-arm
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
