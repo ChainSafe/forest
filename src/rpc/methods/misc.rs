@@ -1,17 +1,21 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{any::Any, collections::BTreeMap};
+use std::collections::BTreeMap;
 
+use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
+use crate::rpc::eth::CollectedEvent;
 use crate::{
     blocks::TipsetKey,
     lotus_json::{lotus_json_with_self, LotusJson},
     rpc::{types::EventEntry, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
     shim::{address::Address, clock::ChainEpoch},
 };
-use cid::Cid;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 pub enum GetActorEventsRaw {}
 impl RpcMethod<1> for GetActorEventsRaw {
@@ -23,8 +27,24 @@ impl RpcMethod<1> for GetActorEventsRaw {
 
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
-    async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if let Some(filter) = filter {
+            let parsed_filter = ParsedFilter::from_actor_event_filter(
+                ctx.chain_store().heaviest_tipset().epoch(),
+                ctx.eth_event_handler.max_filter_height_range,
+                filter,
+            )?;
+            let events = ctx
+                .eth_event_handler
+                .get_events_for_parsed_filter(&ctx, &parsed_filter, SkipEvent::Never)
+                .await?;
+            Ok(events.into_iter().map(|ce| ce.into()).collect())
+        } else {
+            Ok(vec![])
+        }
     }
 }
 
@@ -49,7 +69,7 @@ pub struct ActorEventBlock {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActorEvent {
     pub entries: Vec<EventEntry>,
@@ -63,4 +83,17 @@ pub struct ActorEvent {
 lotus_json_with_self! {
     ActorEvent,
     ActorEventFilter
+}
+
+impl From<CollectedEvent> for ActorEvent {
+    fn from(event: CollectedEvent) -> Self {
+        ActorEvent {
+            entries: event.entries,
+            emitter: LotusJson(event.emitter_addr),
+            reverted: event.reverted,
+            height: event.height,
+            tipset_key: LotusJson(event.tipset_key),
+            msg_cid: LotusJson(event.msg_cid),
+        }
+    }
 }
