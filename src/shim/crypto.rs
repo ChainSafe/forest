@@ -7,6 +7,9 @@ use super::{
     fvm_shared_latest::{self, commcid::Commitment},
     version::NetworkVersion,
 };
+use crate::eth::{EthChainId, EthTx};
+use crate::message::{Message, SignedMessage};
+use anyhow::ensure;
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
@@ -111,7 +114,7 @@ impl Signature {
             .ok_or_else(|| anyhow::anyhow!("Invalid signature bytes"))?
             .to_vec();
 
-        // first byte in signature represents the signature type
+        // the first byte in signature represents the signature type
         let sig_type = SignatureType::try_from(*first_byte)?;
         match sig_type {
             SignatureType::Secp256k1 => Ok(Self::new_secp256k1(signature_data)),
@@ -132,15 +135,49 @@ impl Signature {
         self.sig_type
     }
 
+    /// Authenticates the message signature using protocol-specific validation:
+    /// - Delegated: Uses the Ethereum message with RLP encoding for signature verification, Verifies message roundtrip integrity
+    /// - BLS/SECP: Standard signature verification
+    pub fn authenticate_msg(
+        &self,
+        eth_chain_id: EthChainId,
+        msg: &SignedMessage,
+        addr: &crate::shim::address::Address,
+    ) -> anyhow::Result<()> {
+        let mut sig = self.clone();
+        let digest: Vec<u8>;
+        match self.sig_type {
+            SignatureType::Delegated => {
+                let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
+                let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
+                ensure!(
+                    msg.message().cid() == filecoin_msg.cid(),
+                    "Ethereum transaction roundtrip mismatch"
+                );
+                // delegated uses rlp encoding for the message
+                digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
+                // update the exiting signature bytes with the verifiable signature for delegated signature
+                sig.bytes =
+                    eth_tx.to_verifiable_signature(Vec::from(self.bytes()), eth_chain_id)?;
+            }
+            _ => digest = msg.message().cid().to_bytes(),
+        }
+        sig.verify(&digest, addr)
+    }
+
     /// Checks if a signature is valid given data and address.
-    pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
+    pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> anyhow::Result<()> {
         use super::fvm_shared_latest::crypto::signature::ops::{
             verify_bls_sig, verify_secp256k1_sig,
         };
         match self.sig_type {
-            SignatureType::Bls => verify_bls_sig(&self.bytes, data, addr),
-            SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
-            SignatureType::Delegated => Ok(()),
+            SignatureType::Bls => {
+                verify_bls_sig(&self.bytes, data, addr).map_err(anyhow::Error::msg)
+            }
+            SignatureType::Secp256k1 => {
+                verify_secp256k1_sig(&self.bytes, data, addr).map_err(anyhow::Error::msg)
+            }
+            SignatureType::Delegated => verify_delegated_sig(&self.bytes, data, addr),
         }
     }
 
@@ -207,6 +244,47 @@ pub fn verify_bls_sig(
     addr: &crate::shim::address::Address,
 ) -> Result<(), String> {
     fvm_shared_latest::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
+}
+
+/// Returns `String` error if a delegated signature is invalid.
+pub fn verify_delegated_sig(
+    signature: &[u8],
+    data: &[u8],
+    addr: &crate::shim::address::Address,
+) -> anyhow::Result<()> {
+    use super::fvm_shared_latest::{
+        address::Protocol::Delegated,
+        crypto::signature::{ops::recover_secp_public_key, SECP_SIG_LEN},
+    };
+    use crate::rpc::eth::types::EthAddress;
+    use crate::utils::encoding::keccak_256;
+
+    anyhow::ensure!(
+        addr.protocol() == Delegated,
+        "cannot validate a delegated signature against a {} address expected",
+        addr.protocol()
+    );
+
+    anyhow::ensure!(
+        signature.len() == SECP_SIG_LEN,
+        "invalid delegated signature length. Was {}, must be {}",
+        signature.len(),
+        SECP_SIG_LEN
+    );
+
+    let hash = keccak_256(data);
+    let mut sig = [0u8; SECP_SIG_LEN];
+    sig[..].copy_from_slice(signature);
+    let pub_key = recover_secp_public_key(&hash, &sig)?;
+
+    let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key.serialize())?;
+
+    let rec_addr = eth_addr.to_filecoin_address()?;
+
+    // check address against recovered address
+    anyhow::ensure!(rec_addr == *addr, "Delegated signature verification failed");
+
+    Ok(())
 }
 
 /// Extracts the raw replica commitment from a CID

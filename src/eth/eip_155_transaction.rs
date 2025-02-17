@@ -228,12 +228,23 @@ impl EthLegacyEip155TxArgs {
         from: Address,
         eth_chain_id: EthChainId,
     ) -> anyhow::Result<SignedMessage> {
+        let message = self.get_unsigned_message(from, eth_chain_id)?;
+        let signature = self.signature(eth_chain_id)?;
+        Ok(SignedMessage { message, signature })
+    }
+
+    /// Constructs an unsigned message using legacy EIP-155 transaction args
+    pub fn get_unsigned_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<Message> {
         ensure!(
             validate_eip155_chain_id(eth_chain_id, &self.v).is_ok(),
             "Failed to validate EIP155 chain Id"
         );
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
-        let message = Message {
+        Ok(Message {
             version: 0,
             from,
             to: method_info.to,
@@ -244,9 +255,7 @@ impl EthLegacyEip155TxArgs {
             gas_limit: self.gas_limit,
             gas_fee_cap: self.gas_price.clone().into(),
             gas_premium: self.gas_price.clone().into(),
-        };
-        let signature = self.signature(eth_chain_id)?;
-        Ok(SignedMessage { message, signature })
+        })
     }
 }
 
