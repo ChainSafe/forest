@@ -152,6 +152,10 @@ struct DbMetadata {
     forest_car_db_dir: PathBuf,
 }
 
+/// This function initialize Forest with below steps
+/// - increase file descriptor limit (for parity-db)
+/// - setup proofs parameter cache directory
+/// - prints Forest version
 fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
     maybe_increase_fd_limit()?;
     // Sets proof parameter file download path early, the files will be checked and
@@ -205,6 +209,11 @@ fn maybe_migrate_db(config: &Config) {
     }
 }
 
+/// This function configures database with below steps
+/// - migrate database auto-magically on Forest version bump
+/// - load parity-db
+/// - load CAR database
+/// - load actor bundles
 async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType>, DbMetadata)> {
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
