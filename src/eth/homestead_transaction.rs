@@ -199,7 +199,7 @@ impl EthLegacyHomesteadTxArgs {
     /// Constructs an unsigned message using legacy homestead transaction args
     pub fn get_unsigned_message(&self, from: Address) -> anyhow::Result<Message> {
         let method_info = get_filecoin_method_info(&self.to, &self.input)?;
-        Ok (Message {
+        Ok(Message {
             version: 0,
             from,
             to: method_info.to,

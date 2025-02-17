@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::Message as MessageTrait;
+use crate::eth::EthChainId;
 use crate::shim::message::MethodNum;
 use crate::shim::{
     address::Address,
@@ -10,8 +12,6 @@ use crate::shim::{
 };
 use fvm_ipld_encoding::RawBytes;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
-use crate::eth::EthChainId;
-use super::Message as MessageTrait;
 
 /// Represents a wrapped message with signature bytes.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -68,7 +68,7 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self, eth_chain_id: EthChainId) -> anyhow::Result<()> {
         self.signature
-            .authenticate_msg(eth_chain_id, &self, &self.from())
+            .authenticate_msg(eth_chain_id, self, &self.from())
     }
 
     // Important note: `msg.cid()` is different from

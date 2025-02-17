@@ -136,7 +136,7 @@ impl Signature {
     }
 
     /// Authenticates the message signature using protocol-specific validation:
-    /// - Delegated: Uses ethereum message with RLP encoding for signature verification, Verifies message roundtrip integrity
+    /// - Delegated: Uses the Ethereum message with RLP encoding for signature verification, Verifies message roundtrip integrity
     /// - BLS/SECP: Standard signature verification
     pub fn authenticate_msg(
         &self,
