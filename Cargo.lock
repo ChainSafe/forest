@@ -1239,9 +1239,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.29"
+version = "4.5.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8acebd8ad879283633b343856142139f2da2317c96b05b4dd6181c61e2480184"
+checksum = "92b7b18d71fad5313a1e320fa9897994228ce274b60faa4d694fe0ea89cd9e6d"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1249,9 +1249,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.29"
+version = "4.5.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6ba32cbda51c7e1dfd49acc1457ba1a7dec5b64fe360e828acb13ca8dc9c2f9"
+checksum = "a35db2071778a7344791a4fb4f95308b5673d219dee3ae348b86642574ecc90c"
 dependencies = [
  "anstream",
  "anstyle",
@@ -4670,9 +4670,9 @@ dependencies = [
 
 [[package]]
 name = "ipld-core"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ede82a79e134f179f4b29b5fdb1eb92bd1b38c4dfea394c539051150a21b9b"
+checksum = "104718b1cc124d92a6d01ca9c9258a7df311405debb3408c445a36452f9bf8db"
 dependencies = [
  "cid 0.11.1",
  "quickcheck",
@@ -7237,31 +7237,32 @@ dependencies = [
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.91.0"
+version = "0.94.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52fa42c582e21b35e8f61a5afe3c63a9c722d995826762eb19b18beeccf5157f"
+checksum = "b7a4d402b2f85650e8c1f78e2e2defc241b03948d6e30d9f5254c9b82755cc4d"
 dependencies = [
+ "memchr",
  "unicode-properties",
  "unicode-xid",
 ]
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.263"
+version = "0.0.264"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d3298b184a70f721d92f523b5da78235b45a189997964f11a80a493c447bb9f"
+checksum = "39191bad4865aefc5db6d7e19be264d3289a6e8879c14a90091cd88142a3a04e"
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.263"
+version = "0.0.264"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4d70a18e32911f69da095b0846a203f228c780993ff1f95fa7dc5a5f6d7252f"
+checksum = "6d6e205acd860a47e7f1b39b39f6732dfbd6d876d0950820ffb1937fe45a0a7d"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.263"
+version = "0.0.264"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fffcdcb36ee3809a61e2cfc5df9549438cddb7521cdf3c6aac975616a5f74a90"
+checksum = "4393f287f18c19f8a9a60a8b53e59003e0edffbe355bb2ced96a054f73109a14"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7272,9 +7273,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.263"
+version = "0.0.264"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf19d893fcec891b60751fb40624bd5dcc7d231be488bd68f3dfbe695c0cb845"
+checksum = "37d1ba69f49f11457a8e04ac539504c685e0653a3eed060eb80fdbef5e2a3c68"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7287,9 +7288,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.263"
+version = "0.0.264"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d04c5965f5022438b59a1dd12ee7d46dedbd322aacc01ae4d27d94665faa51e"
+checksum = "17547fdea8b5d6f1cb1a0c71b1f5728359b29accdd0ec77bd7099b63963ffcf3"
 dependencies = [
  "cov-mark",
  "either",
@@ -8112,9 +8113,9 @@ dependencies = [
 
 [[package]]
 name = "serde_ipld_dagcbor"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ded35fbe4ab8fdec1f1d14b4daff2206b1eada4d6e708cb451d464d2d965f493"
+checksum = "6851dcd54a7271dd9013195fdccbdaba70c8e71014364e396d4b938d0e67f324"
 dependencies = [
  "cbor4ii",
  "ipld-core",
