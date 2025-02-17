@@ -193,9 +193,9 @@ smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
-strum = { version = "0.26", features = ["derive"] }
-strum_macros = "0.26"
-tabled = "0.17"
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+tabled = "0.18"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
