@@ -714,6 +714,11 @@ pub(super) async fn start(
     }
     services.spawn(p2p_service.run());
     start_chain_muxer_service(&mut services, chain_muxer);
+    // Note: it could take long before unblocking parent process on a fresh Forest run which
+    // downloads a snapshot, actor bundles and proof parameter files.
+    // This could be moved to before any of those steps if we want to unblock parent process early,
+    // the downside would be that, if an error occurs, the log can only be be found in files instead
+    // of the console output.
     if opts.detach {
         unblock_parent_process()?;
     }
