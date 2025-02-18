@@ -21,6 +21,7 @@ use crate::daemon::db_util::{
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
+use crate::db::SettingsStore;
 use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, CAR_DB_DIR_NAME};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{
@@ -257,7 +258,7 @@ async fn maybe_import_snapshot(
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, ts) = import_chain_as_forest_car(
+            let (car_db_path, _ts) = import_chain_as_forest_car(
                 path,
                 &db_meta.forest_car_db_dir,
                 config.client.import_mode,
@@ -265,9 +266,6 @@ async fn maybe_import_snapshot(
             .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
             debug!("Loaded car DB at {}", car_db_path.display());
-            state_manager
-                .chain_store()
-                .set_heaviest_tipset(Arc::new(ts.clone()))?;
         }
     }
 
@@ -486,6 +484,7 @@ fn start_chain_muxer_service(
 async fn maybe_start_health_check_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
+    db: &DbType,
     state_manager: &StateManager<DbType>,
     p2p_service: &Libp2pService<DbType>,
     chain_muxer: &ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
@@ -497,7 +496,7 @@ async fn maybe_start_health_check_service(
             genesis_timestamp: state_manager.chain_store().genesis_block_header().timestamp,
             sync_state: chain_muxer.sync_state().clone(),
             peer_manager: p2p_service.peer_manager().clone(),
-            settings_store: state_manager.chain_store().settings(),
+            settings_store: db.writer().clone(),
         };
         let listener =
             tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
@@ -623,12 +622,14 @@ fn maybe_populate_eth_mappings_in_background(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: Config,
+    db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
 ) {
     if !opts.stateless && !state_manager.chain_config().is_devnet() {
         let state_manager = state_manager.clone();
+        let settings = db.writer().clone();
         services.spawn(async move {
-            if let Err(err) = init_ethereum_mapping(state_manager, &config) {
+            if let Err(err) = init_ethereum_mapping(state_manager, &settings, &config) {
                 tracing::warn!("Init Ethereum mapping failed: {}", err)
             }
             Ok(())
@@ -703,12 +704,13 @@ pub(super) async fn start(
     maybe_start_health_check_service(
         &mut services,
         &config,
+        &db,
         &state_manager,
         &p2p_service,
         &chain_muxer,
     )
     .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &state_manager);
+    maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &db, &state_manager);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }
@@ -994,13 +996,10 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
 
 fn init_ethereum_mapping<DB: Blockstore>(
     state_manager: Arc<StateManager<DB>>,
+    settings: &impl SettingsStore,
     config: &Config,
 ) -> anyhow::Result<()> {
-    match state_manager
-        .chain_store()
-        .settings()
-        .eth_mapping_up_to_date()?
-    {
+    match settings.eth_mapping_up_to_date()? {
         Some(false) | None => {
             let car_db_path = car_db_path(config)?;
             let db: Arc<ManyCar<MemoryDB>> = Arc::default();
@@ -1009,10 +1008,7 @@ fn init_ethereum_mapping<DB: Blockstore>(
 
             populate_eth_mappings(&state_manager, &ts)?;
 
-            state_manager
-                .chain_store()
-                .settings()
-                .set_eth_mapping_up_to_date()
+            settings.set_eth_mapping_up_to_date()
         }
         Some(true) => {
             tracing::info!("Ethereum mapping up to date");

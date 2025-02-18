@@ -5,7 +5,6 @@ mod api_compare_tests;
 mod generate_test_snapshot;
 mod test_snapshot;
 
-use crate::blocks::Tipset;
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
