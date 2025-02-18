@@ -54,6 +54,15 @@ documentation in the [Forest Book]. Keep in mind that the `latest` tag is the la
 stable release. If you want to use the current development build, use the `edge`
 tag.
 
+## Run with Nix (as a flake)
+
+```
+nix profile install github:ChainSafe/forest
+```
+
+This will make the `forest`, `forest-cli`, `forest-tool`, and `forest-wallet`
+commands available in your shell.
+
 ## Dependencies
 
 - Rust (toolchain version is specified in `rust-toolchain.toml`)
