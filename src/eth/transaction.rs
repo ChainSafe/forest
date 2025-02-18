@@ -763,13 +763,13 @@ pub(crate) mod tests {
         )
         .unwrap();
         let tx = EthTx::Eip1559(Box::new(tx_args));
-        let sig = tx.signature(mainnet::ETH_CHAIN_ID);
+        let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(tx
-            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), mainnet::ETH_CHAIN_ID)
+            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
             .is_ok());
-        assert!(tx.rlp_unsigned_message(mainnet::ETH_CHAIN_ID).is_ok());
-        assert!(tx.get_signed_message(mainnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
             "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f",
         )
