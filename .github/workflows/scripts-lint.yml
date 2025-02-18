@@ -24,7 +24,7 @@ jobs:
         env:
           SHELLCHECK_OPTS: --external-sources --source-path=SCRIPTDIR
   rubocop:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby
@@ -37,7 +37,7 @@ jobs:
           rubocop scripts/
   python-lint:
     if: ${{ !startsWith(github.ref, 'refs/heads/gh-readonly-queue/') }}
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,7 +50,7 @@ jobs:
           black: true
           flake8: true
   docker-lint:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - name: validate compose file

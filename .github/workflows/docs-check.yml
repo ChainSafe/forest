@@ -25,7 +25,7 @@ on:
 jobs:
   docs-check:
     name: Check
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     defaults:
       run:
         working-directory: ./docs
