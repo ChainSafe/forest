@@ -235,8 +235,29 @@ pub enum Predefined {
     Pending,
     #[default]
     Latest,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ExtPredefined {
+    Earliest,
+    Pending,
+    #[default]
+    Latest,
     Safe,
     Finalized,
+}
+
+impl TryFrom<&ExtPredefined> for Predefined {
+    type Error = ();
+    fn try_from(ext: &ExtPredefined) -> Result<Self, Self::Error> {
+        match ext {
+            ExtPredefined::Earliest => Ok(Predefined::Earliest),
+            ExtPredefined::Pending => Ok(Predefined::Pending),
+            ExtPredefined::Latest => Ok(Predefined::Latest),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -299,11 +320,80 @@ impl BlockNumberOrHash {
 
     pub fn from_str(s: &str) -> Result<Self, Error> {
         match s {
-            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
             "earliest" => Ok(BlockNumberOrHash::from_predefined(Predefined::Earliest)),
+            "pending" => Ok(BlockNumberOrHash::from_predefined(Predefined::Pending)),
+            "latest" | "" => Ok(BlockNumberOrHash::from_predefined(Predefined::Latest)),
             hex if hex.starts_with("0x") => {
                 let epoch = hex_str_to_epoch(hex)?;
                 Ok(BlockNumberOrHash::from_block_number(epoch))
+            }
+            _ => Err(anyhow!("Invalid block identifier")),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ExtBlockNumberOrHash {
+    #[schemars(with = "String")]
+    PredefinedBlock(ExtPredefined),
+    BlockNumber(EthInt64),
+    BlockHash(EthHash),
+    BlockNumberObject(BlockNumber),
+    BlockHashObject(BlockHash),
+}
+
+lotus_json_with_self!(ExtBlockNumberOrHash);
+
+#[allow(dead_code)]
+impl ExtBlockNumberOrHash {
+    pub fn from_predefined(ext_predefined: ExtPredefined) -> Self {
+        Self::PredefinedBlock(ext_predefined)
+    }
+
+    pub fn from_block_number(number: i64) -> Self {
+        Self::BlockNumber(EthInt64(number))
+    }
+
+    pub fn from_block_hash(hash: EthHash) -> Self {
+        Self::BlockHash(hash)
+    }
+
+    /// Construct a block number using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_number_object(number: i64) -> Self {
+        Self::BlockNumberObject(BlockNumber {
+            block_number: EthInt64(number),
+        })
+    }
+
+    /// Construct a block hash using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_hash_object(hash: EthHash, require_canonical: bool) -> Self {
+        Self::BlockHashObject(BlockHash {
+            block_hash: hash,
+            require_canonical,
+        })
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, Error> {
+        match s {
+            "earliest" => Ok(ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Earliest,
+            )),
+            "pending" => Ok(ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Pending,
+            )),
+            "latest" | "" => Ok(ExtBlockNumberOrHash::from_predefined(ExtPredefined::Latest)),
+            "safe" => Ok(ExtBlockNumberOrHash::from_predefined(ExtPredefined::Safe)),
+            "finalized" => Ok(ExtBlockNumberOrHash::from_predefined(
+                ExtPredefined::Finalized,
+            )),
+            hex if hex.starts_with("0x") => {
+                let epoch = hex_str_to_epoch(hex)?;
+                Ok(ExtBlockNumberOrHash::from_block_number(epoch))
             }
             _ => Err(anyhow!("Invalid block identifier")),
         }
@@ -702,77 +792,122 @@ fn get_tipset_from_hash<DB: Blockstore>(
     Tipset::load_required(chain_store.blockstore(), &tsk)
 }
 
+fn resolve_predefined_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    predefined: Predefined,
+) -> anyhow::Result<Arc<Tipset>> {
+    match predefined {
+        Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
+        Predefined::Pending => Ok(head),
+        Predefined::Latest => Ok(chain.chain_index.load_required_tipset(head.parents())?),
+    }
+}
+
+fn resolve_block_number_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    block_number: EthInt64,
+) -> anyhow::Result<Arc<Tipset>> {
+    let height = ChainEpoch::from(block_number.0);
+    if height > head.epoch() - 1 {
+        bail!("requested a future epoch (beyond \"latest\")");
+    }
+    Ok(chain
+        .chain_index
+        .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?)
+}
+
+fn resolve_block_hash_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    block_hash: &EthHash,
+    require_canonical: bool,
+) -> anyhow::Result<Arc<Tipset>> {
+    let ts = Arc::new(get_tipset_from_hash(chain, block_hash)?);
+    // verify that the tipset is in the canonical chain
+    if require_canonical {
+        // walk up the current chain (our head) until we reach ts.epoch()
+        let walk_ts =
+            chain
+                .chain_index
+                .tipset_by_height(ts.epoch(), head, ResolveNullTipset::TakeOlder)?;
+        // verify that it equals the expected tipset
+        if walk_ts != ts {
+            bail!("tipset is not canonical");
+        }
+    }
+    Ok(ts)
+}
+
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
-
     match block_param {
-        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            Predefined::Pending => Ok(head),
-            Predefined::Latest => {
-                let parent = chain.chain_index.load_required_tipset(head.parents())?;
-                Ok(parent)
-            }
-            Predefined::Safe => {
-                let latest_height = head.epoch() - 1;
-                let safe_height = latest_height - SAFE_EPOCH_DELAY;
-                let ts = chain.chain_index.tipset_by_height(
-                    safe_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-            Predefined::Finalized => {
-                let latest_height = head.epoch() - 1;
-                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
-                let ts = chain.chain_index.tipset_by_height(
-                    finality_height,
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                Ok(ts)
-            }
-        },
+        BlockNumberOrHash::PredefinedBlock(predefined) => {
+            resolve_predefined_tipset(chain, head, predefined)
+        }
         BlockNumberOrHash::BlockNumber(block_number)
         | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
-            let height = ChainEpoch::from(block_number.0);
-            if height > head.epoch() - 1 {
-                bail!("requested a future epoch (beyond \"latest\")");
-            }
-            let ts =
-                chain
-                    .chain_index
-                    .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
-            Ok(ts)
+            resolve_block_number_tipset(chain, head, block_number)
         }
         BlockNumberOrHash::BlockHash(block_hash) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            Ok(ts)
+            resolve_block_hash_tipset(chain, head, &block_hash, false)
         }
         BlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
-        }) => {
-            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
-            // verify that the tipset is in the canonical chain
-            if require_canonical {
-                // walk up the current chain (our head) until we reach ts.epoch()
-                let walk_ts = chain.chain_index.tipset_by_height(
-                    ts.epoch(),
-                    head,
-                    ResolveNullTipset::TakeOlder,
-                )?;
-                // verify that it equals the expected tipset
-                if walk_ts != ts {
-                    bail!("tipset is not canonical");
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical),
+    }
+}
+
+fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    block_param: ExtBlockNumberOrHash,
+) -> anyhow::Result<Arc<Tipset>> {
+    let head = chain.heaviest_tipset();
+    match block_param {
+        ExtBlockNumberOrHash::PredefinedBlock(ext_predefined) => {
+            if let Ok(common) = Predefined::try_from(&ext_predefined) {
+                resolve_predefined_tipset(chain, head, common)
+            } else {
+                match ext_predefined {
+                    ExtPredefined::Safe => {
+                        let latest_height = head.epoch() - 1;
+                        let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                        Ok(chain.chain_index.tipset_by_height(
+                            safe_height,
+                            head,
+                            ResolveNullTipset::TakeOlder,
+                        )?)
+                    }
+                    ExtPredefined::Finalized => {
+                        let latest_height = head.epoch() - 1;
+                        let finality_height =
+                            latest_height - chain.chain_config.policy.chain_finality;
+                        Ok(chain.chain_index.tipset_by_height(
+                            finality_height,
+                            head,
+                            ResolveNullTipset::TakeOlder,
+                        )?)
+                    }
+                    _ => unreachable!(), // All variants are already handled
                 }
             }
-            Ok(ts)
         }
+        ExtBlockNumberOrHash::BlockNumber(block_number)
+        | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
+            resolve_block_number_tipset(chain, head, block_number)
+        }
+        ExtBlockNumberOrHash::BlockHash(block_hash) => {
+            resolve_block_hash_tipset(chain, head, &block_hash, false)
+        }
+        ExtBlockNumberOrHash::BlockHashObject(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => resolve_block_hash_tipset(chain, head, &block_hash, require_canonical),
     }
 }
 
@@ -1228,18 +1363,21 @@ pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByHash");
-    const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "full_tx_info"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (BlockNumberOrHash, bool);
+    type Params = (EthHash, bool);
     type Ok = Block;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_param, full_tx_info): Self::Params,
+        (block_hash, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts = tipset_by_block_number_or_hash(
+            ctx.chain_store(),
+            BlockNumberOrHash::from_block_hash(block_hash),
+        )?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1253,14 +1391,14 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (BlockNumberOrHash, bool);
+    type Params = (ExtBlockNumberOrHash, bool);
     type Ok = Block;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, full_tx_info): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
@@ -1667,7 +1805,8 @@ impl RpcMethod<3> for EthFeeHistory {
         let reward_percentiles = reward_percentiles.unwrap_or_default();
         Self::validate_reward_precentiles(&reward_percentiles)?;
 
-        let tipset = tipset_by_block_number_or_hash(ctx.chain_store(), newest_block_number.into())?;
+        let tipset =
+            tipset_by_ext_block_number_or_hash(ctx.chain_store(), newest_block_number.into())?;
         let mut oldest_block_height = 1;
         // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
         //  because the next base fee can be inferred from the messages in the newest block.
@@ -1786,9 +1925,9 @@ impl RpcMethod<2> for EthGetCode {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (eth_address, block_number_or_hash): Self::Params,
+        (eth_address, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_number_or_hash)?;
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
         let actor = ctx
             .state_manager
@@ -1925,7 +2064,12 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        if let BlockNumberOrHash::PredefinedBlock(ref predefined) = block_param {
+            if *predefined == Predefined::Pending {
+                return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
+            }
+        }
+        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param.clone())?;
         let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&addr)?;
         if is_evm_actor(&actor.code) {
@@ -1933,10 +2077,9 @@ impl RpcMethod<2> for EthGetTransactionCount {
             if !evm_state.is_alive() {
                 return Ok(EthUint64(0));
             }
-
             Ok(EthUint64(evm_state.nonce()))
         } else {
-            Ok(EthUint64(ctx.mpool.get_sequence(&addr)?))
+            Ok(EthUint64(actor.sequence))
         }
     }
 }
@@ -1999,7 +2142,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, tx_index): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param.into())?;
+        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param.into())?;
 
         let messages = ctx.chain_store().messages_for_tipset(&ts)?;
 
@@ -2657,13 +2800,13 @@ impl RpcMethod<1> for EthTraceBlock {
     const PARAM_NAMES: [&'static str; 1] = ["block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    type Params = (BlockNumberOrHash,);
+    type Params = (ExtBlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
 
         let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
 
@@ -2726,7 +2869,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "trace_types"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    type Params = (BlockNumberOrHash, Vec<String>);
+    type Params = (ExtBlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
 
     async fn handle(
@@ -2737,7 +2880,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             return Err(anyhow::anyhow!("only trace is supported").into());
         }
 
-        let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
+        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
 
         let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
 
