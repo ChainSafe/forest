@@ -387,6 +387,8 @@ pub(super) async fn start(
         chain_follower(
             chain_config,
             chain_store,
+            Arc::clone(&state_manager),
+            Arc::clone(&bad_blocks),
             network_rx,
             tipset_receiver,
             sync_network_context,

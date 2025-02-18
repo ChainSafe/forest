@@ -578,7 +578,7 @@ where
 }
 
 #[derive(Debug, Copy, Clone)]
-enum InvalidBlockStrategy {
+pub enum InvalidBlockStrategy {
     #[allow(dead_code)]
     Strict,
     Forgiving,
@@ -1170,7 +1170,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
 /// executed), adding the successful ones to the tipset tracker, and the failed
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
-async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
+pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
     bad_block_cache: &BadBlockCache,

@@ -1,5 +1,6 @@
 use std::{ops::Deref as _, sync::Arc};
 
+use crate::state_manager::StateManager;
 use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -10,10 +11,12 @@ use std::collections::HashMap;
 use tokio::task::JoinSet;
 use tracing::{debug, info, warn};
 
+use crate::chain_sync::tipset_syncer::validate_tipset;
+use crate::chain_sync::tipset_syncer::InvalidBlockStrategy;
 use crate::{
     blocks::{Block, FullTipset, TipsetKey},
     chain::ChainStore,
-    chain_sync::{metrics, TipsetValidator},
+    chain_sync::{bad_block_cache::BadBlockCache, metrics, TipsetValidator},
     libp2p::{NetworkEvent, PubsubMessage},
     networks::ChainConfig,
     shim::clock::SECONDS_IN_DAY,
@@ -25,6 +28,8 @@ use super::network_context::SyncNetworkContext;
 pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     chain_config: Arc<ChainConfig>,
     cs: Arc<ChainStore<DB>>,
+    state_manager: Arc<StateManager<DB>>,
+    bad_block_cache: Arc<BadBlockCache>,
     network_rx: flume::Receiver<NetworkEvent>,
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
@@ -88,27 +93,34 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         }
     });
 
-    set.spawn(async move {
-        while let Ok(event) = event_receiver.recv_async().await {
-            info!("Received event from event receiver.");
-            let mut sm = state_machine.lock();
-            sm.update(event);
-            let mut tasks_set = tasks.lock();
-            for task in sm.tasks() {
-                // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
-                let new = tasks_set.insert(task.clone());
-                if new {
-                    let tasks_clone = tasks.clone();
-                    let action =
-                        task.clone()
-                            .execute(network.clone(), cs.clone(), event_sender.clone());
-                    tokio::spawn(async move {
-                        action.await;
-                        tasks_clone.lock().remove(&task);
-                    });
+    set.spawn({
+        let bad_block_cache = bad_block_cache.clone();
+        async move {
+            while let Ok(event) = event_receiver.recv_async().await {
+                // info!("Received event from event receiver.");
+                let mut sm = state_machine.lock();
+                sm.update(event);
+                let mut tasks_set = tasks.lock();
+                for task in sm.tasks() {
+                    // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
+                    let new = tasks_set.insert(task.clone());
+                    if new {
+                        let tasks_clone = tasks.clone();
+                        let action = task.clone().execute(
+                            network.clone(),
+                            cs.clone(),
+                            state_manager.clone(),
+                            bad_block_cache.clone(),
+                            event_sender.clone(),
+                        );
+                        tokio::spawn(async move {
+                            action.await;
+                            tasks_clone.lock().remove(&task);
+                        });
+                    }
                 }
+                // info!("Current number of tasks: {}", tasks_set.len());
             }
-            info!("Current number of tasks: {}", tasks_set.len());
         }
     });
 
@@ -127,10 +139,21 @@ async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
         return Ok(full_tipset);
     }
     // Load from the network
-    network
+    let tipset = network
         .chain_exchange_fts(peer_id, &tipset_keys.clone())
         .await
-        .map_err(|e| anyhow::anyhow!(e))
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    for block in tipset.blocks() {
+        block.persist(&chain_store.db)?;
+        crate::chain::persist_objects(&chain_store.db, block.bls_messages.iter())?;
+        crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
+    }
+
+    // This is needed for the Ethereum mapping
+    chain_store.put_tipset_key(tipset.key())?;
+
+    Ok(tipset)
 }
 
 fn load_full_tipset<DB: Blockstore>(
@@ -249,19 +272,51 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             return;
         }
 
-        if self.is_validated(&tipset) {
-            info!("Add tipset: Already validated. epoch: {:?}", tipset.epoch());
-            return;
-        }
+        // if self.is_validated(&tipset) {
+        //     info!("Add tipset: Already validated. epoch: {:?}", tipset.epoch());
+        //     return;
+        // }
 
         // Check if tipset already exists
         if self.tipsets.contains_key(tipset.key()) {
-            info!("Add tipset: Already in map. epoch: {:?}", tipset.epoch());
+            // info!("Add tipset: Already in map. epoch: {:?}", tipset.epoch());
             return;
         }
 
-        info!("Add tipset: Adding to map. epoch: {:?}", tipset.epoch());
-        self.tipsets.insert(tipset.key().clone(), tipset);
+        // info!("Add tipset: Adding to map. epoch: {:?}", tipset.epoch());
+
+        // Find any existing tipsets with same epoch and parents
+        let mut to_remove = Vec::new();
+        let mut merged_blocks: HashSet<_> = tipset.blocks().iter().cloned().collect();
+
+        // Collect all parent references from existing tipsets
+        let parent_refs: HashSet<_> = self
+            .tipsets
+            .values()
+            .map(|ts| ts.parents().clone())
+            .collect();
+
+        for (key, existing_ts) in self.tipsets.iter() {
+            if existing_ts.epoch() == tipset.epoch() && existing_ts.parents() == tipset.parents() {
+                // Only mark for removal if not referenced as a parent
+                if !parent_refs.contains(key) {
+                    to_remove.push(key.clone());
+                }
+                // Add blocks from existing tipset - HashSet handles deduplication automatically
+                merged_blocks.extend(existing_ts.blocks().iter().cloned());
+            }
+        }
+
+        // Remove old tipsets that were merged and aren't referenced
+        for key in to_remove {
+            self.tipsets.remove(&key);
+        }
+
+        // Create and insert new merged tipset
+        if let Ok(merged_tipset) = FullTipset::new(merged_blocks.into_iter()) {
+            self.tipsets
+                .insert(merged_tipset.key().clone(), Arc::new(merged_tipset));
+        }
     }
 
     fn mark_bad_block(&mut self, cid: Cid) {
@@ -269,15 +324,17 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>) {
-        todo!()
+        // FIXME: Should navigate to the heaviest tipset in the chain
+        assert!(self.is_validated(&tipset), "Tipset must be validated");
+        self.tipsets.remove(tipset.key());
+        let tipset = Arc::new(tipset.deref().clone().into_tipset());
+        self.cs.set_heaviest_tipset(tipset);
     }
 
     pub fn update(&mut self, event: SyncEvent) {
         let heaviest = self.cs.heaviest_tipset();
-        info!(
-            "Sync StateMachine: Current heaviest tipset epoch: {}",
-            heaviest.epoch()
-        );
+
+        let prev_count = self.tipsets.len();
 
         match event {
             SyncEvent::NewFullTipsets(tipsets) => {
@@ -288,16 +345,23 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             SyncEvent::BadBlock(cid) => self.mark_bad_block(cid),
             SyncEvent::ValidatedTipset(tipset) => self.mark_validated_tipset(tipset),
         }
-        for (i, chain) in self.chains().iter().enumerate() {
-            if let (Some(first), Some(last)) = (chain.first(), chain.last()) {
-                info!(
-                    "Sync StateMachine: Chain: {}: {} ({}) .. {} ({})",
-                    i,
-                    first.epoch(),
-                    first.blocks().len(),
-                    last.epoch(),
-                    last.blocks().len()
-                );
+        if prev_count != self.tipsets.len() {
+            info!(
+                "Sync StateMachine: Current heaviest tipset epoch: {}",
+                heaviest.epoch()
+            );
+            for (i, chain) in self.chains().iter().enumerate() {
+                if let (Some(first), Some(last)) = (chain.first(), chain.last()) {
+                    info!(
+                        "Sync StateMachine: Chain: {}: {} ({}) .. {} ({}) [length: {}]",
+                        i,
+                        first.epoch(),
+                        first.blocks().len(),
+                        last.epoch(),
+                        last.blocks().len(),
+                        last.epoch() - first.epoch()
+                    );
+                }
             }
         }
     }
@@ -307,8 +371,12 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         for chain in self.chains() {
             if let Some(first_ts) = chain.first() {
                 if !self.is_ready_for_validation(first_ts) {
-                    tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
+                    // FIXME: This is just here to ignore forks.
+                    if first_ts.epoch() > self.cs.heaviest_tipset().epoch() {
+                        tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
+                    }
                 } else {
+                    // info!("Epoch {} ready for validation", first_ts.epoch());
                     tasks.push(SyncTask::ValidateTipset(first_ts.clone()));
                 }
             }
@@ -328,16 +396,42 @@ impl SyncTask {
         self,
         network: SyncNetworkContext<DB>,
         cs: Arc<ChainStore<DB>>,
+        state_manager: Arc<StateManager<DB>>,
+        bad_block_cache: Arc<BadBlockCache>,
         sender: flume::Sender<SyncEvent>,
     ) {
         match self {
             SyncTask::ValidateTipset(tipset) => {
+                info!("Validating tipset at epoch {}", tipset.epoch());
                 // cs.validate_tipset(tipset).await;
+                let genesis = cs.genesis_tipset();
+                match validate_tipset(
+                    state_manager,
+                    &cs,
+                    &bad_block_cache,
+                    tipset.deref().clone(),
+                    &genesis,
+                    InvalidBlockStrategy::Forgiving,
+                )
+                .await
+                {
+                    Ok(()) => {
+                        sender.send_async(SyncEvent::ValidatedTipset(tipset)).await;
+                    }
+                    Err(e) => {
+                        warn!("Error validating tipset: {}", e);
+                        sender
+                            .send_async(SyncEvent::BadBlock(tipset.blocks()[0].cid().clone()))
+                            .await;
+                    }
+                }
             }
             SyncTask::FetchTipset(key) => {
-                info!("Fetching tipset: {}", key);
+                // info!("Fetching tipset: {}", key);
                 if let Ok(parent) = get_full_tipset(network.clone(), cs.clone(), None, key).await {
-                    sender.send(SyncEvent::NewFullTipsets(vec![Arc::new(parent)]));
+                    sender
+                        .send_async(SyncEvent::NewFullTipsets(vec![Arc::new(parent)]))
+                        .await;
                 }
             }
         }

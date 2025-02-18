@@ -21,6 +21,12 @@ pub struct Block {
     pub secp_messages: Vec<SignedMessage>,
 }
 
+impl std::hash::Hash for Block {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(self.cid(), state)
+    }
+}
+
 impl Block {
     pub fn header(&self) -> &CachingBlockHeader {
         &self.header
