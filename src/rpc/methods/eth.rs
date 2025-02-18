@@ -24,7 +24,7 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::eth::filter::SkipEvent;
+use crate::rpc::eth::filter::{event::EventFilter, SkipEvent};
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
@@ -2447,7 +2447,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CollectedEvent {
     pub(crate) entries: Vec<EventEntry>,
     pub(crate) emitter_addr: crate::shim::address::Address,
@@ -2646,6 +2646,53 @@ impl RpcMethod<1> for EthGetLogs {
             .get_events_for_parsed_filter(&ctx, &pf, SkipEvent::OnUnresolvedAddress)
             .await?;
         Ok(eth_filter_result_from_events(&ctx, &events)?)
+    }
+}
+
+pub enum EthGetFilterLogs {}
+impl RpcMethod<1> for EthGetFilterLogs {
+    const NAME: &'static str = "Filecoin.EthGetFilterLogs";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterLogs");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Write;
+    type Params = (FilterID,);
+    type Ok = EthFilterResult;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+        if let Some(store) = &eth_event_handler.filter_store {
+            let filter = store.get(&filter_id)?;
+            if let Some(event_filter) = filter.as_any().downcast_ref::<EventFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .eth_get_events_for_event_filter(
+                        &ctx,
+                        event_filter,
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let recent_events: Vec<CollectedEvent> = events
+                    .clone()
+                    .into_iter()
+                    .filter(|event| !event_filter.collected.contains(event))
+                    .collect();
+                let filter = Arc::new(EventFilter {
+                    id: event_filter.id.clone(),
+                    tipsets: event_filter.tipsets.clone(),
+                    addresses: event_filter.addresses.clone(),
+                    keys_with_codec: event_filter.keys_with_codec.clone(),
+                    max_results: event_filter.max_results.clone(),
+                    collected: events.clone(),
+                });
+                store.update(filter);
+                return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
+            }
+        }
+        return Err(anyhow::anyhow!("method not supported").into());
     }
 }
 
