@@ -261,7 +261,7 @@ mod tests {
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();
         let mut bls_keys = Vec::new();
-        let mut delegate_keys = Vec::new();
+        let mut delegated_keys = Vec::new();
         for _ in 1..5 {
             let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
             let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
@@ -273,14 +273,14 @@ mod tests {
             let bls_key = Key::try_from(bls_key_info).unwrap();
             bls_keys.push(bls_key);
 
-            let delegate_priv_key = generate(SignatureType::Delegated).unwrap();
-            let delegate_key_info = KeyInfo::new(SignatureType::Delegated, delegate_priv_key);
-            let delegate_key = Key::try_from(delegate_key_info).unwrap();
-            delegate_keys.push(delegate_key);
+            let delegated_priv_key = generate(SignatureType::Delegated).unwrap();
+            let delegated_key_info = KeyInfo::new(SignatureType::Delegated, delegated_priv_key);
+            let delegated_key = Key::try_from(delegated_key_info).unwrap();
+            delegated_keys.push(delegated_key);
         }
 
         secp_keys.append(bls_keys.as_mut());
-        secp_keys.append(delegate_keys.as_mut());
+        secp_keys.append(delegated_keys.as_mut());
         secp_keys
     }
 
@@ -361,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn delegate_sign() {
+    fn delegated_sign() {
         let key_vec = construct_priv_keys();
         let priv_key_bytes = key_vec[9].key_info.private_key().clone();
         let addr = key_vec[9].address;
@@ -523,6 +523,27 @@ mod tests {
 
         // invalid verify check
         let invalid_addr = wallet.generate_addr(SignatureType::Bls).unwrap();
+        assert!(sig.verify(&msg, &invalid_addr).is_err())
+    }
+
+    #[test]
+    fn delegated_verify() {
+        let delegated_priv_key = generate(SignatureType::Delegated).unwrap();
+        let delegated_key_info = KeyInfo::new(SignatureType::Delegated, delegated_priv_key);
+        let delegated_key = Key::try_from(delegated_key_info).unwrap();
+        let addr = delegated_key.address;
+        println!("addr: {}", addr);
+
+        let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(key_store, vec![delegated_key]);
+
+        let msg = [0u8; 64];
+
+        let sig = wallet.sign(&addr, &msg).unwrap();
+        sig.verify(&msg, &addr).unwrap();
+
+        // invalid verify check
+        let invalid_addr = wallet.generate_addr(SignatureType::Delegated).unwrap();
         assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 }

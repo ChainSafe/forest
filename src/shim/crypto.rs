@@ -9,7 +9,7 @@ use super::{
 };
 use crate::eth::{EthChainId, EthTx};
 use crate::message::{Message, SignedMessage};
-use anyhow::ensure;
+use anyhow::{ensure, Context};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
@@ -145,8 +145,7 @@ impl Signature {
         addr: &crate::shim::address::Address,
     ) -> anyhow::Result<()> {
         let mut sig = self.clone();
-        let digest: Vec<u8>;
-        match self.sig_type {
+        let digest = match self.sig_type {
             SignatureType::Delegated => {
                 let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
                 let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
@@ -154,14 +153,14 @@ impl Signature {
                     msg.message().cid() == filecoin_msg.cid(),
                     "Ethereum transaction roundtrip mismatch"
                 );
-                // delegated uses rlp encoding for the message
-                digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
                 // update the exiting signature bytes with the verifiable signature for delegated signature
                 sig.bytes =
                     eth_tx.to_verifiable_signature(Vec::from(self.bytes()), eth_chain_id)?;
+                // delegated uses rlp encoding for the message
+                eth_tx.rlp_unsigned_message(eth_chain_id)?
             }
-            _ => digest = msg.message().cid().to_bytes(),
-        }
+            _ => msg.message().cid().to_bytes(),
+        };
         sig.verify(&digest, addr)
     }
 
@@ -265,16 +264,15 @@ pub fn verify_delegated_sig(
         addr.protocol()
     );
 
-    anyhow::ensure!(
-        signature.len() == SECP_SIG_LEN,
-        "invalid delegated signature length. Was {}, must be {}",
-        signature.len(),
-        SECP_SIG_LEN
-    );
+    let sig: [u8; SECP_SIG_LEN] = signature.try_into().with_context(|| {
+        format!(
+            "invalid delegated signature length. Was {}, must be {}",
+            signature.len(),
+            SECP_SIG_LEN,
+        )
+    })?;
 
     let hash = keccak_256(data);
-    let mut sig = [0u8; SECP_SIG_LEN];
-    sig[..].copy_from_slice(signature);
     let pub_key = recover_secp_public_key(&hash, &sig)?;
 
     let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key.serialize())?;
@@ -328,5 +326,168 @@ impl TryFrom<u8> for SignatureType {
             3 => Ok(SignatureType::Delegated),
             invalid => anyhow::bail!("Invalid signature type byte: {}", invalid),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::eth::EthEip1559TxArgsBuilder;
+    use crate::networks::calibnet;
+    use crate::{
+        key_management::{generate_key, sign},
+        message::SignedMessage,
+        shim::{address::Address, crypto::SignatureType},
+    };
+    use num_bigint::BigInt;
+    use std::str::FromStr;
+
+    const TEST_CHAIN_ID: EthChainId = calibnet::ETH_CHAIN_ID;
+
+    fn create_delegated_key() -> (Address, Vec<u8>) {
+        let key = generate_key(SignatureType::Delegated).unwrap();
+        let addr = key.address;
+        let priv_key = key.key_info.private_key().clone();
+        (addr, priv_key)
+    }
+
+    // Create a base EIP-1559 transaction
+    fn create_eip1559_tx() -> EthTx {
+        EthTx::Eip1559(Box::new(
+            EthEip1559TxArgsBuilder::default()
+                .chain_id(TEST_CHAIN_ID)
+                .nonce(486_u64)
+                .to(Some(ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd").unwrap().into()))
+                .value(BigInt::from(0))
+                .max_fee_per_gas(BigInt::from(1500000120))
+                .max_priority_fee_per_gas(BigInt::from(1500000000))
+                .gas_limit(37442471_u64)
+                .input(hex::decode("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap())
+                .build()
+                .unwrap()
+            )
+        )
+    }
+
+    fn create_signed_message(signature_type: SignatureType) -> (Address, SignedMessage) {
+        let eth_tx = create_eip1559_tx();
+        let key = generate_key(signature_type).unwrap();
+        let from = key.address;
+        let encoded_msg = eth_tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).unwrap();
+        let signature = sign(signature_type, key.key_info.private_key(), &encoded_msg).unwrap();
+        let msg = SignedMessage::new_unchecked(
+            eth_tx.get_unsigned_message(from, TEST_CHAIN_ID).unwrap(),
+            signature.clone()
+        );
+        (from, msg)
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_valid() {
+        let (address, priv_key) = create_delegated_key();
+        let message = b"important protocol message";
+        let signature = sign(SignatureType::Delegated, &priv_key, message).unwrap();
+
+        let result = verify_delegated_sig(&signature.bytes, message, &address);
+        assert!(result.is_ok(), "Valid delegated signature should verify");
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_invalid_signature() {
+        let (address, priv_key) = create_delegated_key();
+        let message = b"important protocol message";
+        let mut signature = sign(SignatureType::Delegated, &priv_key, message).unwrap();
+
+        // Tamper with signature
+        if let Some(last_byte) = signature.bytes.last_mut() {
+            *last_byte = last_byte.wrapping_add(1);
+        }
+
+        let result = verify_delegated_sig(&signature.bytes, message, &address);
+        assert!(result.is_err(), "Tampered signature should fail");
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_wrong_address() {
+        let (_, priv_key) = create_delegated_key();
+        let (wrong_address, _) = create_delegated_key();
+        let signature = sign(SignatureType::Delegated, &priv_key, b"message").unwrap();
+
+        let result = verify_delegated_sig(&signature.bytes, b"message", &wrong_address);
+        assert!(
+            result.is_err(),
+            "Signature should not verify for wrong address"
+        );
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_invalid_length() {
+        let (address, _) = create_delegated_key();
+        let invalid_sig = vec![0u8; 64]; // Too short
+
+        let result = verify_delegated_sig(&invalid_sig, b"message", &address);
+        assert!(result.is_err(), "Should error on invalid signature length");
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_non_delegated_address() {
+        let secp_key = generate_key(SignatureType::Secp256k1).unwrap();
+        let secp_addr = secp_key.address;
+        let (_, priv_key) = create_delegated_key();
+        let signature = sign(SignatureType::Delegated, &priv_key, b"message").unwrap();
+
+        let result = verify_delegated_sig(&signature.bytes, b"message", &secp_addr);
+        assert!(result.is_err(), "Should reject non-delegated address");
+    }
+
+    #[test]
+    fn test_verify_delegated_sig_empty_message() {
+        let (address, priv_key) = create_delegated_key();
+        let signature = sign(SignatureType::Delegated, &priv_key, &[]).unwrap();
+
+        let result = verify_delegated_sig(&signature.bytes, &[], &address);
+        assert!(result.is_ok(), "Should handle empty messages");
+    }
+
+    #[test]
+    fn authenticate_valid_signed_message() {
+        let (from, signed_msg) = create_signed_message(SignatureType::Delegated);
+        let result = signed_msg
+            .signature()
+            .authenticate_msg(TEST_CHAIN_ID, &signed_msg, &from);
+        assert!(result.is_ok(), "Invalid Delegated signature");
+    }
+
+    #[test]
+    fn authenticate_invalid_signature_type() {
+        let (addr, signed_msg) = create_signed_message(SignatureType::Bls);
+        let mut bad_sign = signed_msg.signature().clone();
+        bad_sign.sig_type = SignatureType::Delegated; // Wrong type
+
+        let result = bad_sign.authenticate_msg(TEST_CHAIN_ID, &signed_msg, &addr);
+        assert!(result.is_err(), "Mismatched signature type should fail");
+    }
+
+    #[test]
+    fn authenticate_tampered_signature() {
+        let (addr, mut signed_msg) = create_signed_message(SignatureType::Delegated);
+        signed_msg.signature.bytes[32] = signed_msg.signature.bytes[32].wrapping_add(1);
+
+        let result = signed_msg
+            .signature()
+            .authenticate_msg(TEST_CHAIN_ID, &signed_msg, &addr);
+
+        assert!(result.is_err(), "Tampered signature should fail");
+    }
+
+    #[test]
+    fn authenticate_delegated_invalid_chain_id() {
+        let (addr, signed_msg) = create_signed_message(SignatureType::Delegated);
+
+        let result = signed_msg
+            .signature()
+            .authenticate_msg(0, &signed_msg, &addr); // Invalid Chain ID
+
+        assert!(result.is_err(), "Chain ID mismatch should fail");
     }
 }
