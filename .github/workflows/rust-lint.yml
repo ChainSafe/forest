@@ -11,15 +11,15 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - '**/*.rs'
-      - '.github/workflows/rust-lint.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
-    paths:
-      - '**/*.rs'
-      - '.github/workflows/rust-lint.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
 
 env:
   CI: 1
