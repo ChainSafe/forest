@@ -4,7 +4,6 @@
 use std::{io::Cursor, path::Path};
 
 use crate::blocks::CachingBlockHeader;
-use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
@@ -42,20 +41,6 @@ where
 
     info!("Initialized genesis: {}", genesis.cid());
     Ok(genesis)
-}
-
-pub fn get_network_name_from_genesis<BS>(
-    genesis_header: &CachingBlockHeader,
-    state_manager: &StateManager<BS>,
-) -> Result<String, anyhow::Error>
-where
-    BS: Blockstore,
-{
-    // Get network name from genesis state.
-    let network_name = state_manager
-        .get_network_name(&genesis_header.state_root)
-        .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
-    Ok(network_name)
 }
 
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<CachingBlockHeader, anyhow::Error>

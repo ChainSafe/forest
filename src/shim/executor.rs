@@ -274,6 +274,20 @@ impl Entry {
             Self::V4(v4) => &v4.value,
         }
     }
+
+    pub fn codec(&self) -> u64 {
+        match self {
+            Self::V3(v3) => v3.codec,
+            Self::V4(v4) => v4.codec,
+        }
+    }
+
+    pub fn key(&self) -> &String {
+        match self {
+            Self::V3(v3) => &v3.key,
+            Self::V4(v4) => &v4.key,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
