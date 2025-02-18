@@ -11,7 +11,7 @@ use crate::{
         db_engine::open_db, parity_db::ParityDb, EthMappingsStore, HeaviestTipsetKeyProvider,
         MemoryDB, SettingsStore, SettingsStoreExt, CAR_DB_DIR_NAME,
     },
-    genesis::{get_network_name_from_genesis, read_genesis_header},
+    genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite, Block64},
     message_pool::{MessagePool, MpoolRpcProvider},
@@ -20,6 +20,7 @@ use crate::{
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
 };
+use api_compare_tests::TestDump;
 use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
@@ -93,7 +94,7 @@ async fn ctx(
 
     let state_manager =
         Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
+    let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_name.clone(),

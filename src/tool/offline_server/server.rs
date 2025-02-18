@@ -9,7 +9,7 @@ use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::populate_eth_mappings;
 use crate::db::{car::ManyCar, MemoryDB};
-use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
+use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -86,8 +86,8 @@ pub async fn start_offline_server(
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
-    let message_pool = MessagePool::new(
+    let network_name = state_manager.get_network_name_from_genesis()?;
+    let message_pool: MessagePool<MpoolRpcProvider<ManyCar>> = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_name.clone(),
         network_send.clone(),
