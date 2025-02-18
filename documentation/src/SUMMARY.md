@@ -7,7 +7,6 @@
   - [Backups](./backups.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)
-  - [Bootstrap node](./bootstrap_node.md)
   - [Offline Forest](./offline-forest.md)
 
 # Developer documentation
