@@ -14,7 +14,6 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-
 use crate::daemon::db_util::{
     import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
 };

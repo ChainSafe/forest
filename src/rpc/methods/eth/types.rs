@@ -281,7 +281,7 @@ pub struct GasReward {
     pub premium: TokenAmount,
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallMessage {
     pub from: Option<EthAddress>,
