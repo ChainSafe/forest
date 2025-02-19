@@ -2685,14 +2685,14 @@ impl RpcMethod<1> for EthGetFilterLogs {
                     tipsets: event_filter.tipsets.clone(),
                     addresses: event_filter.addresses.clone(),
                     keys_with_codec: event_filter.keys_with_codec.clone(),
-                    max_results: event_filter.max_results.clone(),
+                    max_results: event_filter.max_results,
                     collected: events.clone(),
                 });
                 store.update(filter);
                 return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
             }
         }
-        return Err(anyhow::anyhow!("method not supported").into());
+        Err(anyhow::anyhow!("method not supported").into())
     }
 }
 
