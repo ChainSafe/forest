@@ -8,7 +8,7 @@ use crate::{
         car::{AnyCar, ManyCar},
         MemoryDB,
     },
-    genesis::{get_network_name_from_genesis, read_genesis_header},
+    genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
@@ -104,10 +104,9 @@ async fn ctx(
         )
         .unwrap(),
     );
-    chain_store.set_heaviest_tipset(db.heaviest_tipset()?.into())?;
     let state_manager =
         Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
+    let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_name.clone(),

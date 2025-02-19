@@ -56,13 +56,12 @@ pub enum SectorSizeOpt {
 }
 
 /// Ensures the parameter files are downloaded to cache dir
-pub async fn ensure_params_downloaded() -> anyhow::Result<()> {
+pub async fn ensure_proof_params_downloaded() -> anyhow::Result<()> {
     let data_dir = std::env::var(PROOFS_PARAMETER_CACHE_ENV).unwrap_or_default();
     if data_dir.is_empty() {
         anyhow::bail!("Proof parameter data dir is not set");
     }
     get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys, false).await?;
-
     Ok(())
 }
 
