@@ -144,8 +144,7 @@ impl Signature {
         msg: &SignedMessage,
         addr: &crate::shim::address::Address,
     ) -> anyhow::Result<()> {
-        let mut sig = self.clone();
-        let digest = match self.sig_type {
+        match self.sig_type {
             SignatureType::Delegated => {
                 let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
                 let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
@@ -154,14 +153,19 @@ impl Signature {
                     "Ethereum transaction roundtrip mismatch"
                 );
                 // update the exiting signature bytes with the verifiable signature for delegated signature
-                sig.bytes =
-                    eth_tx.to_verifiable_signature(Vec::from(self.bytes()), eth_chain_id)?;
+                let sig = Signature {
+                    bytes: eth_tx.to_verifiable_signature(Vec::from(self.bytes()), eth_chain_id)?,
+                    ..*self
+                };
                 // delegated uses rlp encoding for the message
-                eth_tx.rlp_unsigned_message(eth_chain_id)?
+                let digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
+                sig.verify(&digest, addr)
             }
-            _ => msg.message().cid().to_bytes(),
-        };
-        sig.verify(&digest, addr)
+            _ => {
+                let digest = msg.message().cid().to_bytes();
+                self.verify(&digest, addr)
+            }
+        }
     }
 
     /// Checks if a signature is valid given data and address.
