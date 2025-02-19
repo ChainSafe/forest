@@ -24,12 +24,21 @@ use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc};
 use tokio::{sync::mpsc, task::JoinSet};
 
+#[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec<u8>);
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct Index {
+    pub eth_mappings: std::collections::HashMap<String, Payload>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcTestSnapshot {
     pub chain: NetworkChain,
     pub name: String,
     pub params: serde_json::Value,
     pub response: Result<serde_json::Value, String>,
+    pub index: Index,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
 }
@@ -46,6 +55,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         chain,
         name: method_name,
         params,
+        index,
         db: db_bytes,
         response: expected_response,
     } = serde_json::from_slice(snapshot_bytes.as_slice())?;
@@ -59,6 +69,8 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         s if s.is_empty() => None,
         s => Some(s),
     };
+
+    // backfill db with index data
 
     macro_rules! run_test {
         ($ty:ty) => {

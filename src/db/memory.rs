@@ -21,7 +21,7 @@ pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Cid, Vec<u8>>>,
     blockchain_persistent_db: RwLock<HashMap<Cid, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
-    eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
+    pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
 }
 
 impl MemoryDB {
