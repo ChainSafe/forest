@@ -78,6 +78,7 @@ fil_actor_reward_state = { version = "19" }
 fil_actor_system_state = { version = "19" }
 fil_actor_verifreg_state = { version = "19" }
 fil_actors_shared = { version = "19", features = ["json"] }
+flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
