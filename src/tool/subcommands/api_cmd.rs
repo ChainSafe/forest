@@ -15,6 +15,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
+use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{bail, ensure, Context as _};
 use cid::Cid;
@@ -238,11 +239,18 @@ impl ApiCommands {
                                 tracking_db.ensure_chain_head_is_tracked()?;
                                 let mut db = vec![];
                                 tracking_db.export_forest_car(&mut db).await?;
+
+                                let mut index: Index = Default::default();
+                                let reader = tracking_db.tracker.eth_mappings_db.read();
+                                for (k, v) in reader.iter() {
+                                    index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
+                                }
                                 RpcTestSnapshot {
                                     chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
                                     response: test_dump.forest_response,
+                                    index,
                                     db,
                                 }
                             };

@@ -130,7 +130,7 @@ async fn ctx(
 /// A [`Blockstore`] wrapper that tracks read operations to the inner [`Blockstore`] with an [`MemoryDB`]
 pub struct ReadOpsTrackingStore<T> {
     inner: T,
-    tracker: Arc<MemoryDB>,
+    pub tracker: Arc<MemoryDB>,
 }
 
 impl<T> ReadOpsTrackingStore<T>
@@ -241,6 +241,10 @@ impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for ReadOpsTrackingStore<T>
 
 impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
         self.inner.read_bin(key)
     }
 
