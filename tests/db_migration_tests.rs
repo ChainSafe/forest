@@ -6,17 +6,16 @@ pub mod common;
 use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
 
 #[test]
-fn failing_migration_should_not_fail_daemon() {
+fn future_db_should_not_fail_daemon() {
     let (config_file, data_dir) = create_tmp_config();
 
-    // Create an invalid, versioned database in the data directory.
-    // This will trigger a migration, which should fail. Forest should be able to recover from
-    // this.
+    // Create a future, versioned database in the data directory.
+    // This should be ignored by the daemon.
     // In the end, we should have two databases in the data directory:
-    // - The invalid database which should not be deleted,
+    // - The future database which should not be deleted,
     // - The new, fresh database which should be used by the daemon.
 
-    let bad_db_path = data_dir.path().join("calibnet").join("0.12.1");
+    let bad_db_path = data_dir.path().join("calibnet").join("666.42.13");
     std::fs::create_dir_all(&bad_db_path).unwrap();
     daemon()
         .common_env()

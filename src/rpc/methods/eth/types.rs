@@ -36,6 +36,12 @@ impl From<RawBytes> for EthBytes {
     }
 }
 
+impl From<Bloom> for EthBytes {
+    fn from(value: Bloom) -> Self {
+        Self(value.0 .0.to_vec())
+    }
+}
+
 impl FromStr for EthBytes {
     type Err = anyhow::Error;
 
@@ -244,16 +250,16 @@ impl TryFrom<EthAddress> for FilecoinAddress {
 #[serde(untagged)]
 pub enum BlockNumberOrPredefined {
     #[schemars(with = "String")]
-    PredefinedBlock(Predefined),
+    PredefinedBlock(ExtPredefined),
     BlockNumber(EthInt64),
 }
 lotus_json_with_self!(BlockNumberOrPredefined);
 
-impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
+impl From<BlockNumberOrPredefined> for ExtBlockNumberOrHash {
     fn from(value: BlockNumberOrPredefined) -> Self {
         match value {
-            BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),
-            BlockNumberOrPredefined::BlockNumber(v) => BlockNumberOrHash::BlockNumber(v),
+            BlockNumberOrPredefined::PredefinedBlock(v) => ExtBlockNumberOrHash::PredefinedBlock(v),
+            BlockNumberOrPredefined::BlockNumber(v) => ExtBlockNumberOrHash::BlockNumber(v),
         }
     }
 }
@@ -510,7 +516,7 @@ impl Default for TraceResult {
 
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct EthBlockTrace {
+pub struct EthTrace {
     pub r#type: String,
     pub subtraces: i64,
     pub trace_address: Vec<i64>,
@@ -518,12 +524,32 @@ pub struct EthBlockTrace {
     pub result: TraceResult,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthBlockTrace {
+    #[serde(flatten)]
+    pub trace: EthTrace,
     pub block_hash: EthHash,
     pub block_number: i64,
     pub transaction_hash: EthHash,
     pub transaction_position: i64,
 }
 lotus_json_with_self!(EthBlockTrace);
+
+#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthReplayBlockTransactionTrace {
+    pub output: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_diff: Option<String>,
+    pub trace: Vec<EthTrace>,
+    pub transaction_hash: EthHash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vm_trace: Option<String>,
+}
+lotus_json_with_self!(EthReplayBlockTransactionTrace);
 
 #[cfg(test)]
 mod tests {

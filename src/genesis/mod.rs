@@ -1,14 +1,16 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::Path;
+use std::{io::Cursor, path::Path};
 
 use crate::blocks::CachingBlockHeader;
-use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
-use tokio::{fs::File, io::AsyncBufRead, io::BufReader};
+use tokio::{
+    fs::File,
+    io::{AsyncBufRead, AsyncSeek, BufReader},
+};
 use tracing::{debug, info};
 
 #[cfg(test)]
@@ -33,7 +35,7 @@ where
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes = genesis_bytes.context("No default genesis.")?;
-            process_car(genesis_bytes, db).await?
+            process_car(Cursor::new(genesis_bytes), db).await?
         }
     };
 
@@ -41,23 +43,9 @@ where
     Ok(genesis)
 }
 
-pub fn get_network_name_from_genesis<BS>(
-    genesis_header: &CachingBlockHeader,
-    state_manager: &StateManager<BS>,
-) -> Result<String, anyhow::Error>
-where
-    BS: Blockstore,
-{
-    // Get network name from genesis state.
-    let network_name = state_manager
-        .get_network_name(&genesis_header.state_root)
-        .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
-    Ok(network_name)
-}
-
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<CachingBlockHeader, anyhow::Error>
 where
-    R: AsyncBufRead + Unpin,
+    R: AsyncBufRead + AsyncSeek + Unpin,
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
@@ -98,6 +86,6 @@ mod tests {
 
     async fn load_header_from_car(genesis_bytes: &[u8]) -> CachingBlockHeader {
         let db = crate::db::MemoryDB::default();
-        process_car(genesis_bytes, &db).await.unwrap()
+        process_car(Cursor::new(genesis_bytes), &db).await.unwrap()
     }
 }

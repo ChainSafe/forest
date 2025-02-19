@@ -18,7 +18,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, StateOutput};
 use crate::utils::db::car_stream::CarStream;
-use crate::utils::proofs_api::ensure_params_downloaded;
+use crate::utils::proofs_api::ensure_proof_params_downloaded;
 use anyhow::{bail, Context as _};
 use cid::Cid;
 use clap::Subcommand;
@@ -247,7 +247,7 @@ impl SnapshotCommands {
 
                 let mut block_stream = CarStream::new(file).await?;
                 let roots = std::mem::replace(
-                    &mut block_stream.header.roots,
+                    &mut block_stream.header_v1.roots,
                     nunny::vec![Default::default()],
                 );
 
@@ -418,7 +418,7 @@ where
         &Config::default().client.data_dir,
     );
 
-    ensure_params_downloaded().await?;
+    ensure_proof_params_downloaded().await?;
 
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
 

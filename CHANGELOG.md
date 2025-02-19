@@ -27,7 +27,13 @@
 
 ### Breaking
 
+- [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
+
+- [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
+
 ### Added
+
+- [#5244](https://github.com/ChainSafe/forest/issues/5244) Add `live` and `healthy` subcommands to `forest-cli healthcheck`.
 
 - [#4708](https://github.com/ChainSafe/forest/issues/4708) Add support for the
   `Filecoin.EthTraceBlock` RPC method.
@@ -36,7 +42,28 @@
 
 - [#5167](https://github.com/ChainSafe/forest/pull/5167) Allow overriding drand configs with environment variables.
 
+- [#4851](https://github.com/ChainSafe/forest/issues/4851) Add support for `FOREST_MAX_FILTER_RESULTS` in `Filecoin.EthGetLogs` RPC method.
+  Add an `[events]` section to Forest configuration file.
+
+- [#4954](https://github.com/ChainSafe/forest/issues/4954) Add `--format json` to `forest-cli chain head` command.
+
+- [#5232](https://github.com/ChainSafe/forest/issues/5232) Support `CARv2` stream decoding.
+
+- [#5230](https://github.com/ChainSafe/forest/issues/5230) Add `CARv2` support to `forest-tool archive` command.
+
+- [#5259](https://github.com/ChainSafe/forest/issues/5259) Add `forest-cli wait-api` command.
+
+- [#4769](https://github.com/ChainSafe/forest/issues/4769) Add delegated address support to `forest-wallet new` command.
+
+- [#5147](https://github.com/ChainSafe/forest/issues/5147) Add support for the `--rpc-filter-list` flag to the `forest` daemon. This flag allows users to specify a list of RPC methods to whitelist or blacklist.
+
+- [#4709](https://github.com/ChainSafe/forest/issues/4709) Add support for `Filecoin.EthTraceReplayBlockTransactions` RPC method.
+
+- [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for `Filecoin.GetActorEventsRaw` RPC method.
+
 ### Changed
+
+- [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
 
 ### Removed
 
@@ -49,6 +76,13 @@
 - [#5131](https://github.com/ChainSafe/forest/pull/5131) Fix incorrect data deserialization in the `Filecoin.EthGetBlockReceipts` RPC method. This caused the method to return an error on some blocks.
 
 - [#5150](https://github.com/ChainSafe/forest/pull/5150) Fix incorrect prototype for the `Filecoin.EthGetBlockReceiptsLimited` RPC method.
+
+- [#5006](https://github.com/ChainSafe/forest/issues/5006) Fix incorrect logs, logs bloom and event index for the `Filecoin.EthGetBlockReceipts` RPC method.
+
+- [#4996](https://github.com/ChainSafe/forest/issues/4996) Fix incorrect logs and logs bloom for the `Filecoin.EthGetTransactionReceipt` and
+  `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
+
+- [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
 
 ## Forest v.0.23.3 "Plumber"
 

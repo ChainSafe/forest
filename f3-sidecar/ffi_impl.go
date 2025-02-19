@@ -17,6 +17,8 @@ func init() {
 	checkError(err)
 	err = logging.SetLogLevel("net/identify", "error")
 	checkError(err)
+	err = logging.SetLogLevel("pubsub", "warn")
+	checkError(err)
 	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
@@ -26,12 +28,12 @@ type f3Impl struct {
 	ctx context.Context
 }
 
-func (f3 *f3Impl) run(rpc_endpoint string, jwt string, f3_rpc_endpoint string, initial_power_table string, bootstrap_epoch int64, finality int64, db string, manifest_server string) bool {
+func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, db *string, manifest_server *string) bool {
 	var err error = nil
 	const MAX_RETRY int = 5
 	nRetry := 0
 	for nRetry <= MAX_RETRY {
-		err = run(f3.ctx, rpc_endpoint, jwt, f3_rpc_endpoint, initial_power_table, bootstrap_epoch, finality, db, manifest_server)
+		err = run(f3.ctx, *rpc_endpoint, *jwt, *f3_rpc_endpoint, *initial_power_table, *bootstrap_epoch, *finality, *db, *manifest_server)
 		if err != nil {
 			nRetry += 1
 			logger.Errorf("Unexpected F3 failure, retrying(%d) in 10s... error=%s", nRetry, err)

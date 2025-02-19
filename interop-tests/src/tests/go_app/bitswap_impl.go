@@ -41,8 +41,8 @@ func (impl *bitswapImpl) run() {
 	impl.node = &bitswapNode{host: host}
 }
 
-func (impl *bitswapImpl) connect(multiaddr string) {
-	targetAddr, err := ma.NewMultiaddr(multiaddr)
+func (impl *bitswapImpl) connect(multiaddr *string) {
+	targetAddr, err := ma.NewMultiaddr(*multiaddr)
 	checkError(err)
 
 	target, err := peer.AddrInfoFromP2pAddr(targetAddr)
@@ -57,8 +57,8 @@ func (impl *bitswapImpl) connect(multiaddr string) {
 	impl.node.exchange = exchange
 }
 
-func (impl *bitswapImpl) get_block(cidStr string) bool {
-	id, err := cid.Parse(cidStr)
+func (impl *bitswapImpl) get_block(cidStr *string) bool {
+	id, err := cid.Parse(*cidStr)
 	checkError(err)
 	b, err := impl.node.exchange.GetBlock(impl.ctx, id)
 	checkError(err)

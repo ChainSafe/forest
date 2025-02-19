@@ -14,8 +14,26 @@ use ticker::Ticker;
 
 #[derive(Debug, Subcommand)]
 pub enum HealthcheckCommand {
-    /// Display ready status
+    /// Display readiness status
     Ready {
+        /// Don't exit until node is ready
+        #[arg(long)]
+        wait: bool,
+        /// Healthcheck port
+        #[arg(long, default_value_t=DEFAULT_HEALTHCHECK_PORT)]
+        healthcheck_port: u16,
+    },
+    /// Display liveness status
+    Live {
+        /// Don't exit until node is ready
+        #[arg(long)]
+        wait: bool,
+        /// Healthcheck port
+        #[arg(long, default_value_t=DEFAULT_HEALTHCHECK_PORT)]
+        healthcheck_port: u16,
+    },
+    /// Display health status
+    Healthy {
         /// Don't exit until node is ready
         #[arg(long)]
         wait: bool,
@@ -31,42 +49,56 @@ impl HealthcheckCommand {
             Self::Ready {
                 wait,
                 healthcheck_port,
-            } => {
-                let ticker = Ticker::new(0.., Duration::from_secs(1));
-                let mut stdout = stdout();
+            } => Self::check(&client, "readyz", healthcheck_port, wait).await,
+            Self::Live {
+                wait,
+                healthcheck_port,
+            } => Self::check(&client, "livez", healthcheck_port, wait).await,
+            Self::Healthy {
+                wait,
+                healthcheck_port,
+            } => Self::check(&client, "healthz", healthcheck_port, wait).await,
+        }
+    }
 
-                let url = format!(
-                    "http://{}:{}/readyz?verbose",
-                    client.base_url().host_str().unwrap_or("localhost"),
-                    healthcheck_port,
-                );
+    async fn check(
+        client: &rpc::Client,
+        endpoint: &str,
+        healthcheck_port: u16,
+        wait: bool,
+    ) -> anyhow::Result<()> {
+        let ticker = Ticker::new(0.., Duration::from_secs(1));
+        let mut stdout = stdout();
 
-                for _ in ticker {
-                    let response = reqwest::get(&url).await?;
-                    let status = response.status();
-                    let text = response.text().await?;
+        let url = format!(
+            "http://{}:{healthcheck_port}/{endpoint}?verbose",
+            client.base_url().host_str().unwrap_or("localhost"),
+        );
 
-                    println!("{}", text);
+        for _ in ticker {
+            let response = reqwest::get(&url).await?;
+            let status = response.status();
+            let text = response.text().await?;
 
-                    if !wait {
-                        break;
-                    }
-                    if status == StatusCode::OK {
-                        println!("Done!");
-                        break;
-                    }
+            println!("{}", text);
 
-                    for _ in 0..(text.matches('\n').count() + 1) {
-                        write!(
-                            stdout,
-                            "\r{}{}",
-                            anes::MoveCursorUp(1),
-                            anes::ClearLine::All,
-                        )?;
-                    }
-                }
-                Ok(())
+            if !wait {
+                break;
+            }
+            if status == StatusCode::OK {
+                println!("Done!");
+                break;
+            }
+
+            for _ in 0..(text.matches('\n').count() + 1) {
+                write!(
+                    stdout,
+                    "\r{}{}",
+                    anes::MoveCursorUp(1),
+                    anes::ClearLine::All,
+                )?;
             }
         }
+        Ok(())
     }
 }

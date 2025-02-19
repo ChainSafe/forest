@@ -24,12 +24,15 @@ use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
 use crate::blocks::Tipset;
+use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
+use crate::cli_shared::cli::EventsConfig;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::rpc::eth::EVM_WORD_LENGTH;
+use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Address;
@@ -46,6 +49,30 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 use store::*;
 
+/// A trait for filtering events based on predefined conditions.
+///
+/// Implementors of this trait define custom logic to determine whether an event matches the filtering criteria
+/// based on the event emitter's address and its associated entries.
+///
+pub trait Matcher {
+    /// # Parameters
+    /// - `emitter_addr`: The address of the Actor that emitted the event, along with the associated event entries.
+    /// - `entries`: A list of [`Entry`] objects related to the event.
+    ///
+    /// # Returns
+    /// - `Ok(true)`: If the event matches the filtering criteria.
+    /// - `Ok(false)`: If the event does not match the filtering criteria.
+    /// - `Err(anyhow::Error)`: If an error occurs during the evaluation of the filtering logic.
+    ///
+    /// # Notes
+    /// - Implementations may use wildcards to match any emitter address or topic.
+    fn matches(
+        &self,
+        emitter_addr: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool>;
+}
+
 /// Trait for managing filters. Provides common functionality for installing and removing filters.
 pub trait FilterManager {
     fn install(&self) -> Result<Arc<dyn Filter>, Error>;
@@ -59,17 +86,47 @@ pub trait FilterManager {
 /// configurations such as the maximum filter height range and maximum filter results.
 pub struct EthEventHandler {
     filter_store: Option<Arc<dyn FilterStore>>,
-    max_filter_height_range: ChainEpoch,
+    pub max_filter_results: usize,
+    pub max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
     mempool_filter_manager: Option<Arc<MempoolFilterManager>>,
 }
 
+#[derive(Clone)]
+pub enum SkipEvent {
+    OnUnresolvedAddress,
+    Never,
+}
+
 impl EthEventHandler {
     pub fn new() -> Self {
+        let config = EventsConfig::default();
+        Self::from_config(&config)
+    }
+
+    pub fn from_config(config: &EventsConfig) -> Self {
         let max_filters: usize = env_or_default("FOREST_MAX_FILTERS", 100);
-        let max_filter_results: usize = env_or_default("FOREST_MAX_FILTER_RESULTS", 10000);
-        let max_filter_height_range: i64 = env_or_default("FOREST_MAX_FILTER_HEIGHT_RANGE", 2880);
+        let max_filter_results = std::env::var("FOREST_MAX_FILTER_RESULTS")
+            .ok()
+            .and_then(|v| match v.parse::<usize>() {
+                Ok(u) if u > 0 => Some(u),
+                _ => {
+                    tracing::warn!("Invalid FOREST_MAX_FILTER_RESULTS value {v}. A positive integer is expected.");
+                    None
+                }
+            })
+            .unwrap_or(config.max_filter_results);
+        let max_filter_height_range = std::env::var("FOREST_MAX_FILTER_HEIGHT_RANGE")
+            .ok()
+            .and_then(|v| match v.parse::<ChainEpoch>() {
+                Ok(i) if i > 0 => Some(i),
+                _ => {
+                    tracing::warn!("Invalid FOREST_MAX_FILTER_HEIGHT_RANGE value {v}. A positive integer is expected.");
+                    None
+                }
+            })
+            .unwrap_or(config.max_filter_height_range);
         let filter_store: Option<Arc<dyn FilterStore>> =
             Some(MemFilterStore::new(max_filters) as Arc<dyn FilterStore>);
         let event_filter_manager = Some(EventFilterManager::new(max_filter_results));
@@ -78,6 +135,7 @@ impl EthEventHandler {
 
         Self {
             filter_store,
+            max_filter_results,
             max_filter_height_range,
             event_filter_manager,
             tipset_filter_manager,
@@ -197,7 +255,7 @@ impl EthEventHandler {
         }
     }
 
-    fn parse_eth_filter_spec<DB: Blockstore>(
+    pub fn parse_eth_filter_spec<DB: Blockstore>(
         &self,
         ctx: &Ctx<DB>,
         filter_spec: &EthFilterSpec,
@@ -209,41 +267,11 @@ impl EthEventHandler {
         )
     }
 
-    fn do_match(spec: &EthFilterSpec, eth_emitter_addr: &EthAddress, entries: &[Entry]) -> bool {
-        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
-            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
-        }
-
-        let match_addr = if spec.address.is_empty() {
-            true
-        } else {
-            spec.address.iter().any(|other| other == eth_emitter_addr)
-        };
-        let match_topics = if let Some(spec) = spec.topics.as_ref() {
-            let matched = entries.iter().enumerate().all(|(i, entry)| {
-                if let Some(slice) = get_word(entry.value()) {
-                    let hash: EthHash = (*slice).into();
-                    match spec.0.get(i) {
-                        Some(EthHashList::List(vec)) => vec.contains(&hash),
-                        Some(EthHashList::Single(Some(h))) => h == &hash,
-                        _ => true, /* wildcard */
-                    }
-                } else {
-                    // Drop events with mis-sized topics
-                    false
-                }
-            });
-            matched
-        } else {
-            true
-        };
-        match_addr && match_topics
-    }
-
     pub async fn collect_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
-        spec: Option<&EthFilterSpec>,
+        spec: Option<&impl Matcher>,
+        skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let tipset_key = tipset.key().clone();
@@ -257,8 +285,10 @@ impl EthEventHandler {
             messages.len() == events.len(),
             "Length of messages and events do not match"
         );
+
+        let mut event_count = 0;
         for (i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
-            for (j, event) in events.iter().enumerate() {
+            for event in events.iter() {
                 let id_addr = Address::new_id(event.emitter());
                 let result = ctx
                     .state_manager
@@ -274,22 +304,22 @@ impl EthEventHandler {
                 let resolved = if let Ok(resolved) = result {
                     resolved
                 } else {
-                    // Skip event
-                    continue;
+                    event_count += 1;
+                    if let SkipEvent::OnUnresolvedAddress = skip_event {
+                        // Skip event
+                        continue;
+                    } else {
+                        id_addr
+                    }
                 };
 
-                let event_idx = j as u64;
-
-                let eth_emitter_addr = EthAddress::from_filecoin_address(&resolved)?;
-
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-                // dbg!(&entries);
 
                 let matched = if let Some(spec) = spec {
-                    let matched = Self::do_match(spec, &eth_emitter_addr, &entries);
+                    let matched = spec.matches(&resolved, &entries)?;
                     tracing::debug!(
                         "Event {} {}match filter topics",
-                        event_idx,
+                        event_count,
                         if matched { "" } else { "do not " }
                     );
                     matched
@@ -313,33 +343,43 @@ impl EthEventHandler {
                     let ce = CollectedEvent {
                         entries,
                         emitter_addr: resolved,
-                        event_idx,
+                        event_idx: event_count,
                         reverted: false,
                         height,
                         tipset_key: tipset_key.clone(),
                         msg_idx: i as u64,
                         msg_cid: message.cid(),
                     };
+                    if collected_events.len() >= ctx.eth_event_handler.max_filter_results {
+                        bail!("filter matches too many events, try a more restricted filter");
+                    }
                     collected_events.push(ce);
+                    event_count += 1;
                 }
             }
         }
+
         Ok(())
     }
 
-    pub async fn eth_get_events_for_filter<DB: Blockstore + Send + Sync + 'static>(
+    pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
         &self,
         ctx: &Ctx<DB>,
-        spec: EthFilterSpec,
+        pf: &ParsedFilter,
+        skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
-        let pf = self.parse_eth_filter_spec(ctx, &spec)?;
-
         let mut collected_events = vec![];
-        match pf.tipsets {
+        match &pf.tipsets {
             ParsedFilterTipsets::Hash(block_hash) => {
-                let tipset = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+                let tipset = get_tipset_from_hash(ctx.chain_store(), block_hash)?;
                 let tipset = Arc::new(tipset);
-                Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
+                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                    .await?;
+            }
+            ParsedFilterTipsets::Key(tsk) => {
+                let tipset = Arc::new(Tipset::load_required(ctx.store(), tsk)?);
+                Self::collect_events(ctx, &tipset, Some(pf), skip_event, &mut collected_events)
+                    .await?;
             }
             ParsedFilterTipsets::Range(range) => {
                 let max_height = if *range.end() == -1 {
@@ -355,7 +395,6 @@ impl EthEventHandler {
                     *range.end()
                 };
 
-                let num_tipsets = (range.end() - range.start()) as usize + 1;
                 let max_tipset = ctx.chain_store().chain_index.tipset_by_height(
                     max_height,
                     ctx.chain_store().heaviest_tipset(),
@@ -365,10 +404,17 @@ impl EthEventHandler {
                     .as_ref()
                     .clone()
                     .chain(&ctx.store())
-                    .take(num_tipsets)
+                    .take_while(|ts| ts.epoch() >= *range.start())
                 {
                     let tipset = Arc::new(tipset);
-                    Self::collect_events(ctx, &tipset, Some(&spec), &mut collected_events).await?;
+                    Self::collect_events(
+                        ctx,
+                        &tipset,
+                        Some(pf),
+                        skip_event.clone(),
+                        &mut collected_events,
+                    )
+                    .await?;
                 }
             }
         }
@@ -420,6 +466,45 @@ impl EthFilterSpec {
             addresses,
             keys,
         })
+    }
+}
+
+impl Matcher for EthFilterSpec {
+    fn matches(
+        &self,
+        emitter_addr: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool> {
+        fn get_word(value: &[u8]) -> Option<&[u8; EVM_WORD_LENGTH]> {
+            value.get(..EVM_WORD_LENGTH)?.try_into().ok()
+        }
+
+        let eth_emitter_addr = EthAddress::from_filecoin_address(emitter_addr)?;
+
+        let match_addr = if self.address.is_empty() {
+            true
+        } else {
+            self.address.iter().any(|other| other == &eth_emitter_addr)
+        };
+        let match_topics = if let Some(spec) = self.topics.as_ref() {
+            let matched = entries.iter().enumerate().all(|(i, entry)| {
+                if let Some(slice) = get_word(entry.value()) {
+                    let hash: EthHash = (*slice).into();
+                    match spec.0.get(i) {
+                        Some(EthHashList::List(vec)) => vec.contains(&hash),
+                        Some(EthHashList::Single(Some(h))) => h == &hash,
+                        _ => true, /* wildcard */
+                    }
+                } else {
+                    // Drop events with mis-sized topics
+                    false
+                }
+            });
+            matched
+        } else {
+            true
+        };
+        Ok(match_addr && match_topics)
     }
 }
 
@@ -538,19 +623,92 @@ fn keys_to_keys_with_codec(
 }
 
 #[derive(Debug, PartialEq)]
-enum ParsedFilterTipsets {
-    Range(std::ops::RangeInclusive<ChainEpoch>),
+pub enum ParsedFilterTipsets {
+    Range(RangeInclusive<ChainEpoch>),
     Hash(EthHash),
+    Key(TipsetKey),
 }
 
-struct ParsedFilter {
-    tipsets: ParsedFilterTipsets,
-    addresses: Vec<Address>,
-    keys: HashMap<String, Vec<ActorEventBlock>>,
+#[derive(Debug)]
+pub struct ParsedFilter {
+    pub(crate) tipsets: ParsedFilterTipsets,
+    pub(crate) addresses: Vec<Address>,
+    pub(crate) keys: HashMap<String, Vec<ActorEventBlock>>,
+}
+
+impl ParsedFilter {
+    pub fn from_actor_event_filter(
+        chain_height: ChainEpoch,
+        _max_filter_height_range: ChainEpoch,
+        filter: ActorEventFilter,
+    ) -> anyhow::Result<Self> {
+        let tipsets = if let Some(tsk) = &filter.tipset_key {
+            if filter.from_height.is_some() || filter.to_height.is_some() {
+                bail!("must not specify block hash and from/to block");
+            }
+            ParsedFilterTipsets::Key(tsk.0.clone())
+        } else {
+            let min = filter.from_height.unwrap_or(0);
+            let max = filter.to_height.unwrap_or(chain_height);
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
+        };
+
+        let addresses: Vec<_> = filter.addresses.iter().map(|addr| addr.0).collect();
+
+        let mut keys: HashMap<String, Vec<ActorEventBlock>> = Default::default();
+        for (k, v) in filter.fields.into_iter() {
+            let data = v
+                .into_iter()
+                .map(|x| crate::rpc::methods::eth::filter::ActorEventBlock {
+                    codec: x.codec,
+                    value: x.value.0,
+                })
+                .collect();
+            keys.insert(k, data);
+        }
+
+        Ok(ParsedFilter {
+            tipsets,
+            addresses,
+            keys,
+        })
+    }
+}
+
+impl Matcher for ParsedFilter {
+    fn matches(
+        &self,
+        emitter_addr: &crate::shim::address::Address,
+        entries: &[Entry],
+    ) -> anyhow::Result<bool> {
+        let match_addr = if self.addresses.is_empty() {
+            true
+        } else {
+            self.addresses.iter().any(|other| *other == *emitter_addr)
+        };
+
+        let match_fields = if self.keys.is_empty() {
+            true
+        } else {
+            let matched = self.keys.iter().all(|(k, v)| {
+                entries.iter().any(|entry| {
+                    k == entry.key()
+                        && v.iter()
+                            .any(|aeb| aeb.codec == entry.codec() && &aeb.value == entry.value())
+                })
+            });
+            matched
+        };
+
+        Ok(match_addr && match_fields)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use ahash::AHashMap;
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
 
     use super::*;
@@ -774,8 +932,10 @@ mod tests {
             block_hash: None,
         };
 
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
         let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
 
+        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
         let eth_addr1 = EthAddress::from_str("0x26937d59db4463254c930d5f31353f14aa89a0f7").unwrap();
 
         let entries0 = vec![
@@ -810,13 +970,9 @@ mod tests {
         ];
 
         // Matching an empty spec
-        assert!(EthEventHandler::do_match(&empty_spec, &eth_addr0, &[]));
+        assert!(empty_spec.matches(&addr0, &[]).unwrap());
 
-        assert!(EthEventHandler::do_match(
-            &empty_spec,
-            &eth_addr0,
-            &entries0
-        ));
+        assert!(empty_spec.matches(&addr0, &entries0).unwrap());
 
         // Matching the given address 0
         let spec0 = EthFilterSpec {
@@ -827,9 +983,9 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec0, &eth_addr0, &[]));
+        assert!(spec0.matches(&addr0, &[]).unwrap());
 
-        assert!(!EthEventHandler::do_match(&spec0, &eth_addr1, &[]));
+        assert!(!spec0.matches(&addr1, &[]).unwrap());
 
         // Matching the given address 0 or 1
         let spec1 = EthFilterSpec {
@@ -840,14 +996,14 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &[]));
+        assert!(spec1.matches(&addr0, &[]).unwrap());
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr1, &[]));
+        assert!(spec1.matches(&addr1, &[]).unwrap());
     }
 
     #[test]
     fn test_do_match_topic() {
-        let eth_addr0 = EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap();
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
 
         let entries0 = vec![
             Entry::new(
@@ -904,7 +1060,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec1, &eth_addr0, &entries0));
+        assert!(spec1.matches(&addr0, &entries0).unwrap());
 
         let spec2 = EthFilterSpec {
             from_block: None,
@@ -917,7 +1073,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+        assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec2 = EthFilterSpec {
             from_block: None,
@@ -929,7 +1085,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec2, &eth_addr0, &entries0));
+        assert!(spec2.matches(&addr0, &entries0).unwrap());
 
         let spec3 = EthFilterSpec {
             from_block: None,
@@ -939,7 +1095,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec3, &eth_addr0, &entries0));
+        assert!(spec3.matches(&addr0, &entries0).unwrap());
 
         let spec4 = EthFilterSpec {
             from_block: None,
@@ -952,7 +1108,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(EthEventHandler::do_match(&spec4, &eth_addr0, &entries0));
+        assert!(spec4.matches(&addr0, &entries0).unwrap());
 
         let spec5 = EthFilterSpec {
             from_block: None,
@@ -964,7 +1120,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec5, &eth_addr0, &entries0));
+        assert!(!spec5.matches(&addr0, &entries0).unwrap());
 
         let spec6 = EthFilterSpec {
             from_block: None,
@@ -977,7 +1133,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec6, &eth_addr0, &entries0));
+        assert!(!spec6.matches(&addr0, &entries0).unwrap());
 
         let spec7 = EthFilterSpec {
             from_block: None,
@@ -990,7 +1146,7 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec7, &eth_addr0, &entries0));
+        assert!(!spec7.matches(&addr0, &entries0).unwrap());
 
         let spec8 = EthFilterSpec {
             from_block: None,
@@ -1004,6 +1160,204 @@ mod tests {
             block_hash: None,
         };
 
-        assert!(!EthEventHandler::do_match(&spec8, &eth_addr0, &entries0));
+        assert!(!spec8.matches(&addr0, &entries0).unwrap());
+    }
+
+    #[test]
+    fn test_parsed_filter_match_address() {
+        // Note that all the following addresses and topics (base64-encoded strings) come from real data on Calibnet,
+        // but they could also be newly generated addresses or valid topic data.
+
+        let empty_filter = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys: Default::default(),
+        };
+
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("dATj0QTqeEHD2eb9IK3+mbStWGvAjY8706/viUzxhN4=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCFA6vK+FJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFLvXoMoks6HcAA==")
+                    .unwrap(),
+            ),
+        ];
+
+        // Matching an empty spec
+        assert!(empty_filter.matches(&addr0, &[]).unwrap());
+
+        assert!(empty_filter.matches(&addr0, &entries0).unwrap());
+
+        // Matching the given address 0
+        let filter0 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![addr0],
+            keys: Default::default(),
+        };
+
+        assert!(filter0.matches(&addr0, &[]).unwrap());
+
+        assert!(!filter0.matches(&addr1, &[]).unwrap());
+
+        // Matching the given address 0 or 1
+        let filter1 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![addr0, addr1],
+            keys: Default::default(),
+        };
+
+        assert!(filter1.matches(&addr0, &[]).unwrap());
+
+        assert!(filter1.matches(&addr1, &[]).unwrap());
+    }
+
+    #[test]
+    fn test_parsed_filter_match_keys() {
+        // Note that all the following addresses and topics (base64-encoded strings) come from real data on Calibnet,
+        // but they could also be newly generated addresses or valid topic data.
+
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        let entries0 = vec![
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t1".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "t2".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("dATj0QTqeEHD2eb9IK3+mbStWGvAjY8706/viUzxhN4=")
+                    .unwrap(),
+            ),
+            Entry::new(
+                Flags::FLAG_INDEXED_ALL,
+                "d".into(),
+                IPLD_RAW,
+                BASE64_STANDARD
+                    .decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCFA6vK+FJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFLvXoMoks6HcAA==")
+                    .unwrap(),
+            ),
+        ];
+
+        let empty_filter = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys: Default::default(),
+        };
+
+        assert!(empty_filter.matches(&addr0, &entries0).unwrap());
+
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value: BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            }],
+        );
+
+        let filter1 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(filter1.matches(&addr0, &entries0).unwrap());
+
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value: BASE64_STANDARD
+                    .decode("0Gprf0kYSUs3GSF9GAJ4bB9REqbB2I/iz+wAtFhPauw=")
+                    .unwrap(),
+            }],
+        );
+
+        let filter2 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(!filter2.matches(&addr0, &entries0).unwrap());
+
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: DAG_CBOR,
+                value: BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            }],
+        );
+
+        let filter2 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(!filter2.matches(&addr0, &entries0).unwrap());
+
+        let mut keys: AHashMap<String, Vec<ActorEventBlock>> = Default::default();
+        keys.insert(
+            "t1".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value: BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            }],
+        );
+        keys.insert(
+            "t2".into(),
+            vec![ActorEventBlock {
+                codec: IPLD_RAW,
+                value: BASE64_STANDARD
+                    .decode("4kcg9Fy3Ty1V8d7rtgmPUPELUR2rin1HxIGaCNzQuJU=")
+                    .unwrap(),
+            }],
+        );
+
+        let filter3 = ParsedFilter {
+            tipsets: ParsedFilterTipsets::Range(0..=0),
+            addresses: vec![],
+            keys,
+        };
+
+        assert!(!filter3.matches(&addr0, &entries0).unwrap());
     }
 }

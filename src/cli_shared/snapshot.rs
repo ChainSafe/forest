@@ -7,16 +7,11 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    networks::NetworkChain,
-    utils::{retry, RetryArgs},
-};
+use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_file_with_retry};
+use crate::{networks::NetworkChain, utils::net::DownloadFileOption};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDate;
-use tracing::event;
 use url::Url;
-
-use crate::cli_shared::snapshot::parse::ParsedFilename;
 
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].
@@ -72,22 +67,7 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
-    download_file_with_retry(&url, directory, &filename).await
-}
-
-pub async fn download_file_with_retry(
-    url: &Url,
-    directory: &Path,
-    filename: &str,
-) -> anyhow::Result<PathBuf> {
-    Ok(retry(
-        RetryArgs {
-            timeout: None,
-            ..Default::default()
-        },
-        || download_http(url, directory, filename),
-    )
-    .await?)
+    download_file_with_retry(&url, directory, &filename, DownloadFileOption::Resumable).await
 }
 
 /// Returns
@@ -130,40 +110,6 @@ fn parse_content_disposition(value: &reqwest::header::HeaderValue) -> Option<Str
     let re = Regex::new("filename=\"([^\"]+)\"").ok()?;
     let cap = re.captures(value.to_str().ok()?)?;
     Some(cap.get(1)?.as_str().to_owned())
-}
-
-/// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
-async fn download_http(url: &Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    if !directory.is_dir() {
-        std::fs::create_dir_all(directory)?;
-    }
-    let dst_path = directory.join(filename);
-    let destination = dst_path.display();
-    event!(target: "forest::snapshot", tracing::Level::INFO, %url, %destination, "downloading snapshot");
-    let mut reader = crate::utils::net::reader(url.as_str()).await?;
-    let tmp_dst_path = {
-        // like `crdownload` for the chrome browser
-        const DOWNLOAD_EXTENSION: &str = "frdownload";
-        let mut path = dst_path.clone();
-        if let Some(ext) = path.extension() {
-            path.set_extension(format!(
-                "{}.{DOWNLOAD_EXTENSION}",
-                ext.to_str().unwrap_or_default()
-            ));
-        } else {
-            path.set_extension(DOWNLOAD_EXTENSION);
-        }
-        path
-    };
-    let mut tempfile = tokio::fs::File::create(&tmp_dst_path)
-        .await
-        .context("couldn't create destination file")?;
-    tokio::io::copy(&mut reader, &mut tempfile)
-        .await
-        .context("couldn't download file")?;
-    std::fs::rename(&tmp_dst_path, &dst_path).context("couldn't rename file")?;
-
-    Ok(dst_path)
 }
 
 /// Also defines an `ALL_URLS` constant for test purposes

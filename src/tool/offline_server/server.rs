@@ -5,10 +5,11 @@ use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::{SyncConfig, SyncStage};
+use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::{download_to, populate_eth_mappings};
+use crate::daemon::db_util::populate_eth_mappings;
 use crate::db::{car::ManyCar, MemoryDB};
-use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
+use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -17,6 +18,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
+use crate::utils::net::{download_to, DownloadFileOption};
 use crate::JWT_IDENTIFIER;
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
@@ -59,6 +61,7 @@ pub async fn start_offline_server(
     db.read_only_files(snapshot_files.iter().cloned())?;
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let sync_config = Arc::new(SyncConfig::default());
+    let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
         genesis.as_deref(),
         chain_config.genesis_bytes(&db).await?.as_deref(),
@@ -79,16 +82,12 @@ pub async fn start_offline_server(
     )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
-    state_manager
-        .chain_store()
-        .set_heaviest_tipset(head_ts.clone())?;
-
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
-    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
-    let message_pool = MessagePool::new(
+    let network_name = state_manager.get_network_name_from_genesis()?;
+    let message_pool: MessagePool<MpoolRpcProvider<ManyCar>> = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_name.clone(),
         network_send.clone(),
@@ -136,7 +135,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
-        eth_event_handler: Arc::new(EthEventHandler::new()),
+        eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
         start_time: chrono::Utc::now(),
@@ -162,7 +161,7 @@ where
     let mut terminate = signal(SignalKind::terminate())?;
 
     let result = tokio::select! {
-        ret = start_rpc(state, rpc_address) => ret,
+        ret = start_rpc(state, rpc_address, None) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -220,7 +219,12 @@ async fn handle_snapshots(
         indicatif::HumanBytes(num_bytes)
     );
     let downloaded_snapshot_path = std::env::current_dir()?.join(path);
-    download_to(&snapshot_url, &downloaded_snapshot_path).await?;
+    download_to(
+        &snapshot_url,
+        &downloaded_snapshot_path,
+        DownloadFileOption::Resumable,
+    )
+    .await?;
     info!("Snapshot downloaded");
     Ok(vec![downloaded_snapshot_path])
 }

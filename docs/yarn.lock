@@ -2663,9 +2663,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@easyops-cn/docusaurus-search-local@npm:^0.48.4":
-  version: 0.48.4
-  resolution: "@easyops-cn/docusaurus-search-local@npm:0.48.4"
+"@easyops-cn/docusaurus-search-local@npm:^0.48.5":
+  version: 0.48.5
+  resolution: "@easyops-cn/docusaurus-search-local@npm:0.48.5"
   dependencies:
     "@docusaurus/plugin-content-docs": "npm:^2 || ^3"
     "@docusaurus/theme-translations": "npm:^2 || ^3"
@@ -2688,7 +2688,7 @@ __metadata:
     "@docusaurus/theme-common": ^2 || ^3
     react: ^16.14.0 || ^17 || ^18 || ^19
     react-dom: ^16.14.0 || 17 || ^18 || ^19
-  checksum: 10c0/29ae3b9c1088ed0bf8beda2598f488f5e8dee0eec397a8b1644519f59545bdd0ea090736aac077397026f6aa8d10a799c6015bb652b8c24e2a6e0fba4bd11021
+  checksum: 10c0/59b28b9b02d5106015744078b8bf954234964cf98d5ce3d28f56e5f7f8055b69acaf644d695e9c709b070c8e77bfa6a3ec36885879045a1dfd4febaee34b822c
   languageName: node
   linkType: hard
 
@@ -7999,15 +7999,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dompurify@npm:3.2.3":
-  version: 3.2.3
-  resolution: "dompurify@npm:3.2.3"
+"dompurify@npm:3.2.4":
+  version: 3.2.4
+  resolution: "dompurify@npm:3.2.4"
   dependencies:
     "@types/trusted-types": "npm:^2.0.7"
   dependenciesMeta:
     "@types/trusted-types":
       optional: true
-  checksum: 10c0/0ce5cb89b76f396d800751bcb48e0d137792891d350ccc049f1bc9a5eca7332cc69030c25007ff4962e0824a5696904d4d74264df9277b5ad955642dfb6f313f
+  checksum: 10c0/6be56810fb7ad2776155c8fc2967af5056783c030094362c7d0cf1ad13f2129cf922d8eefab528a34bdebfb98e2f44b306a983ab93aefb9d6f24c18a3d027a05
   languageName: node
   linkType: hard
 
@@ -8953,11 +8953,11 @@ __metadata:
     "@docusaurus/preset-classic": "npm:^3.7.0"
     "@docusaurus/theme-mermaid": "npm:^3.7.0"
     "@docusaurus/tsconfig": "npm:^3.7.0"
-    "@easyops-cn/docusaurus-search-local": "npm:^0.48.4"
+    "@easyops-cn/docusaurus-search-local": "npm:^0.48.5"
     "@metamask/docusaurus-openrpc": "npm:^0.4.1"
     mdx-mermaid: "npm:^2.0.3"
     mermaid: "npm:^11.4.1"
-    prettier: "npm:^3.4.2"
+    prettier: "npm:^3.5.1"
     prism-react-renderer: "npm:^2.4.1"
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
@@ -15254,12 +15254,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.4.2":
-  version: 3.4.2
-  resolution: "prettier@npm:3.4.2"
+"prettier@npm:^3.5.1":
+  version: 3.5.1
+  resolution: "prettier@npm:3.5.1"
   bin:
     prettier: bin/prettier.cjs
-  checksum: 10c0/99e076a26ed0aba4ebc043880d0f08bbb8c59a4c6641cdee6cdadf2205bdd87aa1d7823f50c3aea41e015e99878d37c58d7b5f0e663bba0ef047f94e36b96446
+  checksum: 10c0/9f6f810eae455d6e4213845151a484a2338f2e0d6a8b84ee8e13a83af8a2421ef6c1e31e61e4b135671fb57b9541f6624648880cc2061ac803e243ac898c0123
   languageName: node
   linkType: hard
 

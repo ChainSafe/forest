@@ -1,7 +1,5 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619314467/job/23624081698
-!Filecoin.MpoolGetNonce
 !Filecoin.EthSyncing
 !eth_syncing
 !Filecoin.NetAddrsListen
@@ -22,22 +20,10 @@
 !Filecoin.F3GetOrRenewParticipationTicket
 !Filecoin.F3GetF3PowerTable
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
-!Filecoin.StateReplay
-# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateCall
 # These methods don't make sense in the context of an offline node
 !Filecoin.MinerCreateBlock
-# The estimation is inaccurate only for offline RPC server, to be investigated: https://github.com/ChainSafe/forest/issues/4555
-!Filecoin.EthEstimateGas
-!eth_estimateGas
 # Offline server won't provide correct results for finality-related methods
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
 !Filecoin.ChainSetHead
-# TODO(elmattic): https://github.com/ChainSafe/forest/issues/4759
-!Filecoin.EthGetLogs
-# TODO: https://github.com/ChainSafe/forest/issues/4996
-!Filecoin.EthGetTransactionReceipt
-!Filecoin.EthGetTransactionReceiptLimited
-# TODO: https://github.com/ChainSafe/forest/issues/5006
-!Filecoin.EthGetBlockReceipts

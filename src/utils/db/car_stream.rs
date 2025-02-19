@@ -1,5 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+use crate::db::car::plain::read_v2_header;
 use crate::utils::multihash::prelude::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -11,10 +13,13 @@ use integer_encoding::VarInt;
 use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::io::{self, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite};
+use tokio::io::{
+    AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite,
+    Take,
+};
 use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
@@ -23,12 +28,21 @@ use unsigned_varint::codec::UviBytes;
 use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CarHeader {
+pub struct CarV1Header {
     // The roots array must contain one or more CIDs,
     // each of which should be present somewhere in the remainder of the CAR.
     // See <https://ipld.io/specs/transport/car/carv1/#constraints>
     pub roots: NonEmpty<Cid>,
     pub version: u64,
+}
+
+/// <https://ipld.io/specs/transport/car/carv2/#header>
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CarV2Header {
+    pub characteristics: [u8; 16],
+    pub data_offset: i64,
+    pub data_size: i64,
+    pub index_offset: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -85,8 +99,9 @@ pin_project! {
     /// automatically be decompressed.
     pub struct CarStream<ReaderT> {
         #[pin]
-        reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
-        pub header: CarHeader,
+        reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>, UviBytes>,
+        pub header_v1: CarV1Header,
+        pub header_v2: Option<CarV2Header>,
         first_block: Option<CarBlock>,
     }
 }
@@ -99,18 +114,50 @@ fn is_zstd(buf: &[u8]) -> bool {
 }
 
 impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
-    pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
+    /// Create a stream with automatic but unsafe CARv2 header extraction.
+    ///
+    /// Note that if the input is zstd compressed, the CARv2 header extraction
+    /// is on a best efforts basis. It could fail when `reader.fill_buf()` is insufficient
+    /// for decoding the first zstd frame, and treat input as CARv1, because this method
+    /// does not require the input to be [`tokio::io::AsyncSeek`].
+    /// It's recommended to use [`CarStream::new`] for zstd compressed CARv2 input.
+    #[allow(dead_code)]
+    pub async fn new_unsafe(mut reader: ReaderT) -> io::Result<Self> {
+        let header_v2 = Self::try_decode_header_v2_from_fill_buf(reader.fill_buf().await?)
+            // treat input as CARv1 if zstd decoding failed
+            .ok()
+            .flatten();
+        Self::new_with_header_v2(reader, header_v2).await
+    }
+
+    /// Create a stream with pre-extracted CARv2 header
+    pub async fn new_with_header_v2(
+        mut reader: ReaderT,
+        header_v2: Option<CarV2Header>,
+    ) -> io::Result<Self> {
         let is_compressed = is_zstd(reader.fill_buf().await?);
         let mut reader = if is_compressed {
             let mut zstd = ZstdDecoder::new(reader);
             zstd.multiple_members(true);
-            FramedRead::new(Either::Right(zstd), UviBytes::default())
+            Either::Right(zstd)
         } else {
-            FramedRead::new(Either::Left(reader), UviBytes::default())
+            Either::Left(reader)
         };
-        let header = read_header(&mut reader)
+
+        // Skip v2 header bytes
+        if let Some(header_v2) = &header_v2 {
+            let mut to_skip = vec![0; header_v2.data_offset as usize];
+            reader.read_exact(&mut to_skip).await?;
+        }
+
+        let max_car_v1_bytes = header_v2
+            .as_ref()
+            .map(|h| h.data_size as u64)
+            .unwrap_or(u64::MAX);
+        let mut reader = FramedRead::new(reader.take(max_car_v1_bytes), UviBytes::default());
+        let header_v1 = read_v1_header(&mut reader)
             .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid header block"))?;
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid v1 header block"))?;
 
         // Read the first block and check if it is valid. This check helps to
         // catch invalid CAR files as soon as we open.
@@ -124,16 +171,71 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             }
             Ok(CarStream {
                 reader,
-                header,
+                header_v1,
+                header_v2,
                 first_block: Some(block),
             })
         } else {
             Ok(CarStream {
                 reader,
-                header,
+                header_v1,
+                header_v2,
                 first_block: None,
             })
         }
+    }
+
+    /// Extracts CARv2 header from the input, returns the reader and CARv2 header.
+    ///
+    /// Note that position of the input reader has to be reset before calling [`CarStream::new_with_header_v2`].
+    /// Use [`CarStream::extract_header_v2_and_reset_reader_position`] to automatically reset stream position.
+    pub async fn extract_header_v2(
+        mut reader: ReaderT,
+    ) -> io::Result<(ReaderT, Option<CarV2Header>)> {
+        let is_compressed = is_zstd(reader.fill_buf().await?);
+        let mut reader = if is_compressed {
+            let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
+            Either::Right(zstd)
+        } else {
+            Either::Left(reader)
+        };
+        let mut possible_header_bytes = [0; 51];
+        reader.read_exact(&mut possible_header_bytes).await?;
+        let header_v2 = read_v2_header(possible_header_bytes.as_slice())?;
+        let reader = match reader {
+            Either::Left(reader) => reader,
+            Either::Right(zstd) => zstd.into_inner(),
+        };
+        Ok((reader, header_v2))
+    }
+
+    fn try_decode_header_v2_from_fill_buf(fill_buf: &[u8]) -> io::Result<Option<CarV2Header>> {
+        let is_compressed = is_zstd(fill_buf);
+        let fill_buf_reader = if is_compressed {
+            either::Either::Right(zstd::Decoder::new(fill_buf)?)
+        } else {
+            either::Either::Left(fill_buf)
+        };
+        read_v2_header(fill_buf_reader)
+    }
+}
+
+impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
+    /// Create a stream with automatic CARv2 header extraction.
+    pub async fn new(reader: ReaderT) -> io::Result<Self> {
+        let (reader, header_v2) = Self::extract_header_v2_and_reset_reader_position(reader).await?;
+        Self::new_with_header_v2(reader, header_v2).await
+    }
+
+    /// Extracts CARv2 header from the input, resets the reader position and returns the reader and CARv2 header.
+    pub async fn extract_header_v2_and_reset_reader_position(
+        mut reader: ReaderT,
+    ) -> io::Result<(ReaderT, Option<CarV2Header>)> {
+        let stream_position = reader.stream_position().await?;
+        let (mut reader, header_v2) = Self::extract_header_v2(reader).await?;
+        reader.seek(SeekFrom::Start(stream_position)).await?;
+        Ok((reader, header_v2))
     }
 }
 
@@ -160,7 +262,7 @@ pin_project! {
 
 impl<W: AsyncWrite> CarWriter<W> {
     pub fn new_carv1(roots: NonEmpty<Cid>, writer: W) -> io::Result<Self> {
-        let car_header = CarHeader { roots, version: 1 };
+        let car_header = CarV1Header { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();
         UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
@@ -198,10 +300,11 @@ impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
     }
 }
 
-async fn read_header<ReaderT: AsyncRead + Unpin>(
+async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
     framed_reader: &mut FramedRead<ReaderT, UviBytes>,
-) -> Option<CarHeader> {
-    let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
+) -> Option<CarV1Header> {
+    let frame = framed_reader.next().await?.ok()?;
+    let header = from_slice_with_fallback::<CarV1Header>(&frame).ok()?;
     if header.version != 1 {
         return None;
     }
@@ -210,6 +313,8 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
     use crate::networks::{calibnet, mainnet};
     use futures::TryStreamExt;
@@ -234,8 +339,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stream_calibnet_genesis() {
-        let stream = CarStream::new(calibnet::DEFAULT_GENESIS).await.unwrap();
+    async fn stream_calibnet_genesis_unsafe() {
+        let stream = CarStream::new_unsafe(calibnet::DEFAULT_GENESIS)
+            .await
+            .unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1207);
         for block in blocks {
@@ -244,8 +351,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stream_calibnet_genesis() {
+        let stream = CarStream::new(Cursor::new(calibnet::DEFAULT_GENESIS))
+            .await
+            .unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1207);
+        for block in blocks {
+            block.validate().unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_mainnet_genesis_unsafe() {
+        let stream = CarStream::new_unsafe(mainnet::DEFAULT_GENESIS)
+            .await
+            .unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1222);
+        for block in blocks {
+            block.validate().unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn stream_mainnet_genesis() {
-        let stream = CarStream::new(mainnet::DEFAULT_GENESIS).await.unwrap();
+        let stream = CarStream::new(Cursor::new(mainnet::DEFAULT_GENESIS))
+            .await
+            .unwrap();
         let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
         assert_eq!(blocks.len(), 1222);
         for block in blocks {

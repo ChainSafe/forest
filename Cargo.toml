@@ -19,7 +19,7 @@ futures = "0.3"
 libp2p = { version = "0.55", default-features = false }
 libp2p-swarm-test = { version = "0.5", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
-rust2go = "0.3"
+rust2go = "0.4"
 tokio = "1"
 
 [dependencies]
@@ -55,12 +55,13 @@ daemonize-me = "2"
 data-encoding = "2"
 data-encoding-macro = "0.1"
 derive_builder = "0.20"
-derive_more = { version = "1", features = ["from", "into"] }
+derive_more = { version = "2", features = ["from", "into"] }
 dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
-ethereum-types = "0.15"
+either = "1"
+ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
 fil_actor_account_state = { version = "19" }
 fil_actor_cron_state = { version = "19" }
@@ -87,7 +88,7 @@ fvm_ipld_encoding = "0.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs"] }
-gethostname = "0.5"
+gethostname = "1"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
@@ -131,7 +132,8 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.12"
+lru = "0.13"
+md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
 multiaddr = "0.18"
@@ -171,7 +173,6 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10"
 rlp = "0.6"
 rust2go = { workspace = true }
-sailfish = "0.9"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
@@ -190,12 +191,13 @@ smart-default = "0.7"
 stacker = "0.1"
 static_assertions = "1"
 statrs = "0.18"
-strum = { version = "0.26", features = ["derive"] }
-strum_macros = "0.26"
-tabled = "0.17"
+strum = { version = "0.27", features = ["derive"] }
+strum_macros = "0.27"
+tabled = "0.18"
 tap = "1"
 tar = "0.4"
 tempfile = "3"
+tera = { version = "1", default-features = false }
 thiserror = "2"
 ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
@@ -233,6 +235,7 @@ cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
+fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
@@ -240,7 +243,6 @@ hex-literal = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
-md5 = { package = "md-5", version = "0.10" }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.7"
 predicates = "3"
@@ -248,8 +250,9 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.259"
+ra_ap_syntax = "0.0.264"
 regex-automata = "0.4"
+serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
 

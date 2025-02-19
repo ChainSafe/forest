@@ -24,11 +24,12 @@ Forest focuses on four key properties:
 
 With Forest you can:
 
-- Sync with a Filecoin chain (mainnet/calibnet/etc.)
+- Synchronize and interact with a Filecoin chain on all supported networks
 - Import/export snapshots
 - Submit transactions to the network
 - Run a JSON-RPC server
 - Act as a bootstrap node
+- manage and interact with the FIL wallet
 
 ## Interacting with Forest
 

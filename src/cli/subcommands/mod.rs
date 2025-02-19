@@ -19,13 +19,14 @@ mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
+mod wait_api_cmd;
 
 use std::io::Write;
 
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::lotus_json::HasLotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
-use crate::{blocks::Tipset, lotus_json::HasLotusJson};
 use clap::Parser;
 use tracing::error;
 
@@ -34,6 +35,7 @@ pub(super) use self::{
     f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
     net_cmd::NetCommands, send_cmd::SendCommand, shutdown_cmd::ShutdownCommand,
     snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wait_api_cmd::WaitApiCommand,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -104,6 +106,9 @@ pub enum Subcommand {
     /// Manages Filecoin Fast Finality (F3) interactions
     #[command(subcommand)]
     F3(F3Commands),
+
+    /// Wait for lotus API to come online
+    WaitApi(WaitApiCommand),
 }
 
 /// Format a vector to a prettified string
@@ -121,15 +126,6 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 /// Prints a pretty HTTP JSON-RPC response result
 pub(super) fn print_pretty_lotus_json<T: HasLotusJson>(obj: T) -> anyhow::Result<()> {
     println!("{}", obj.into_lotus_json_string_pretty()?);
-    Ok(())
-}
-
-/// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(tipset: Tipset) -> anyhow::Result<()> {
-    for cid in &tipset.cids() {
-        println!("{cid}");
-    }
-
     Ok(())
 }
 

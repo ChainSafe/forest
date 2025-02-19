@@ -11,17 +11,15 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - '**/*.rs'
-      - '.github/workflows/rust-lint.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
   push:
     branches:
       - main
-    paths:
-      - '**/*.rs'
-      - '.github/workflows/rust-lint.yml'
-  schedule:
-    - cron: "0 0 * * *"
+    paths-ignore:
+      - 'docs/**'
+      - '.github/workflows/docs-*.yml'
 
 env:
   CI: 1
@@ -36,7 +34,7 @@ env:
 jobs:
   lint-all:
     name: All lint checks
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Configure SCCache variables
         run: |
@@ -52,6 +50,9 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.7
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
       - name: Apt Dependencies
         uses: nick-fields/retry@v3
         with:
@@ -60,14 +61,14 @@ jobs:
           command: |
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - name: Install Lint tools
-        run: make install-lint-tools-ci
+        run: make install-lint-tools-ci-arm
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - run: make lint-all
 
   dependencies-check:
     name: Check cargo files
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby

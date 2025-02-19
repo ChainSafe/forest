@@ -140,6 +140,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
+      - LOTUS_EVENTS_ENABLEACTOREVENTSAPI=1
       - LOTUS_FEVM_ENABLEETHRPC=1
       - LOTUS_CHAININDEXER_ENABLEINDEXER=1
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
@@ -170,10 +171,14 @@ services:
         lotus wait-api --timeout 10m
         # copy Lotus token to shared volume
         cp /var/lib/lotus/token /data/lotus-token
-        # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 50))
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        # backfill the index db first
+        lotus index validate-backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300))
+        sleep 2
+        # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
+        lotus chain sethead --epoch $(($$SNAPSHOT_EPOCH - 50))
         # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait

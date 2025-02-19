@@ -7,6 +7,7 @@ use std::{
     str::{self, FromStr},
 };
 
+use crate::cli::humantoken::TokenAmountPretty as _;
 use crate::key_management::{Key, KeyInfo};
 use crate::{
     cli::humantoken,
@@ -25,7 +26,7 @@ use crate::{
 use crate::{lotus_json::LotusJson, KeyStore};
 use crate::{
     shim::{
-        address::{Protocol, StrictAddress},
+        address::StrictAddress,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
         message::{Message, METHOD_SEND},
@@ -38,8 +39,6 @@ use clap::{arg, Subcommand};
 use dialoguer::{console::Term, theme::ColorfulTheme, Password};
 use directories::ProjectDirs;
 use num::Zero as _;
-
-use crate::cli::humantoken::TokenAmountPretty as _;
 
 // Abstraction over local and remote wallets. A connection to a running Filecoin
 // node is always required for balance queries and for sending messages. When a
@@ -201,9 +200,9 @@ impl WalletBackend {
 pub enum WalletCommands {
     /// Create a new wallet
     New {
-        /// The signature type to use. One of SECP256k1, or BLS
+        /// The signature type to use. One of `secp256k1`, `bls` or `delegated`
         #[arg(default_value = "secp256k1")]
-        signature_type: String,
+        signature_type: SignatureType,
     },
     /// Get account balance
     Balance {
@@ -212,11 +211,11 @@ pub enum WalletCommands {
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        #[arg(long, alias = "exact-balance")]
         no_round: bool,
         /// Output may be given an SI prefix like `atto` by default.
         /// Do not do this, showing whole FIL at all times.
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        #[arg(long, alias = "fixed-unit")]
         no_abbrev: bool,
     },
     /// Get the default address of the wallet
@@ -241,11 +240,11 @@ pub enum WalletCommands {
         /// Output is rounded to 4 significant figures by default.
         /// Do not round
         // ENHANCE(aatifsyed): add a --round/--no-round argument pair
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        #[arg(long, alias = "exact-balance")]
         no_round: bool,
         /// Output may be given an SI prefix like `atto` by default.
         /// Do not do this, showing whole FIL at all times.
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        #[arg(long, alias = "fixed-unit")]
         no_abbrev: bool,
     },
     /// Set the default wallet address
@@ -317,12 +316,7 @@ impl WalletCommands {
         };
         match self {
             Self::New { signature_type } => {
-                let signature_type = match signature_type.to_lowercase().as_str() {
-                    "secp256k1" => SignatureType::Secp256k1,
-                    _ => SignatureType::Bls,
-                };
-
-                let addr = backend.wallet_new(signature_type).await?;
+                let addr: String = backend.wallet_new(signature_type).await?;
                 println!("{addr}");
                 Ok(())
             }
@@ -410,12 +404,21 @@ impl WalletCommands {
                 no_abbrev,
             } => {
                 let key_pairs = backend.list_addrs().await?;
-
                 let default = backend.wallet_default_address().await?;
 
-                let (title_address, title_default_mark, title_balance) =
-                    ("Address", "Default", "Balance");
-                println!("{title_address:41} {title_default_mark:7} {title_balance}");
+                let max_addr_len = key_pairs
+                    .iter()
+                    .map(|addr| addr.to_string().len())
+                    .max()
+                    .unwrap_or(42);
+
+                println!(
+                    "{:<width_addr$} {:<width_default$} Balance",
+                    "Address",
+                    "Default",
+                    width_addr = max_addr_len,
+                    width_default = 7,
+                );
 
                 for address in key_pairs {
                     let default_address_mark = if default.as_ref() == Some(&address.to_string()) {
@@ -429,7 +432,14 @@ impl WalletCommands {
 
                     let balance_string = format_balance(&balance_token_amount, no_round, no_abbrev);
 
-                    println!("{address:41}  {default_address_mark:7}  {balance_string}");
+                    println!(
+                        "{:<width_addr$} {:<width_default$} {}",
+                        address.to_string(),
+                        default_address_mark,
+                        balance_string,
+                        width_addr = max_addr_len,
+                        width_default = 7,
+                    );
                 }
                 Ok(())
             }
@@ -447,7 +457,7 @@ impl WalletCommands {
                 let message = BASE64_STANDARD.encode(message);
 
                 let signature = backend.wallet_sign(address, message).await?;
-                println!("{}", hex::encode(signature.bytes()));
+                println!("{}", hex::encode(signature.to_bytes()));
                 Ok(())
             }
             Self::ValidateAddress { address } => {
@@ -464,13 +474,9 @@ impl WalletCommands {
                     hex::decode(signature).context("Signature has to be a hex string")?;
                 let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
-                let signature = match address.protocol() {
-                    Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
-                    Protocol::BLS => Signature::new_bls(sig_bytes),
-                    _ => anyhow::bail!("Invalid signature (must be bls or secp256k1)"),
-                };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
+                let signature = Signature::from_bytes(sig_bytes)?;
                 let is_valid = backend.wallet_verify(address, msg, signature).await?;
 
                 println!("{is_valid}");
