@@ -354,7 +354,10 @@ impl F3PowerTableCommands {
         if instance < manifest.initial_instance + manifest.committee_lookback {
             let epoch = manifest.bootstrap_epoch - manifest.ec.finality;
             let ts = ChainGetTipSetByHeight::call(client, (epoch, None.into())).await?;
-            return Ok((ts.key().clone(), manifest.initial_power_table));
+            return Ok((
+                ts.key().clone(),
+                manifest.initial_power_table.unwrap_or_default(),
+            ));
         }
 
         let previous = F3GetCertificate::call(client, (instance.saturating_sub(1),)).await?;
@@ -377,10 +380,11 @@ fn render_manifest_template(template: &F3Manifest) -> anyhow::Result<String> {
     let mut context = tera::Context::from_serialize(template)?;
     context.insert(
         "initial_power_table_cid",
-        &if template.initial_power_table != Cid::default() {
-            Cow::Owned(template.initial_power_table.to_string())
-        } else {
-            Cow::Borrowed("unknown")
+        &match template.initial_power_table {
+            Some(initial_power_table) if initial_power_table != Cid::default() => {
+                Cow::Owned(initial_power_table.to_string())
+            }
+            _ => Cow::Borrowed("unknown"),
         },
     );
     Ok(TEMPLATES
