@@ -59,7 +59,7 @@ impl FilterStore for MemFilterStore {
         filters
             .get(id)
             .cloned()
-            .ok_or_else(|| anyhow!("Filter with the given ID not found"))
+            .ok_or_else(|| anyhow!("filter not found"))
     }
 
     fn update(&self, filter: Arc<dyn Filter>) {
