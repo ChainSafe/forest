@@ -61,6 +61,8 @@
 
 - [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for `Filecoin.GetActorEventsRaw` RPC method.
 
+- [#4671](https://github.com/ChainSafe/forest/issues/4671) Add support for `Filecoin.EthGetFilterLogs` RPC method.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
