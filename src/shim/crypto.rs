@@ -377,7 +377,7 @@ mod tests {
         let signature = sign(signature_type, key.key_info.private_key(), &encoded_msg).unwrap();
         let msg = SignedMessage::new_unchecked(
             eth_tx.get_unsigned_message(from, TEST_CHAIN_ID).unwrap(),
-            signature.clone()
+            signature.clone(),
         );
         (from, msg)
     }
