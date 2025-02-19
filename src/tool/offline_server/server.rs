@@ -82,10 +82,6 @@ pub async fn start_offline_server(
     )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
-    state_manager
-        .chain_store()
-        .set_heaviest_tipset(head_ts.clone())?;
-
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
