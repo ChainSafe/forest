@@ -532,7 +532,6 @@ mod tests {
         let delegated_key_info = KeyInfo::new(SignatureType::Delegated, delegated_priv_key);
         let delegated_key = Key::try_from(delegated_key_info).unwrap();
         let addr = delegated_key.address;
-        println!("addr: {}", addr);
 
         let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new_from_keys(key_store, vec![delegated_key]);
