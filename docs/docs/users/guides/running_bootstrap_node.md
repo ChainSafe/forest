@@ -1,9 +1,8 @@
-# Bootstrap node
+---
+title: Running a bootstrap node
+---
 
-⚠️ **The Forest bootstrap node connectivity turned out to be below expectations,
-as were the hardware requirements. As such, it's better to hold off hosting
-Forest as a bootstrap node until issue
-[#4346](https://github.com/ChainSafe/forest/issues/4346) is resolved.**
+# Running a Bootstrap Node
 
 ## Introduction
 
@@ -14,7 +13,7 @@ Forest node has a list of bootstrap nodes that it can contact to join the
 network. This list is hardcoded into the node but can be modified by the user
 via the configuration file.
 
-## Forest as a bootstrap node
+## Stateless Forest
 
 Every Forest node can act as a bootstrap node. That said, running a `stateless`
 node as a bootstrap node is recommended to lower the hardware requirements. A
@@ -31,17 +30,13 @@ Stateless node characteristics:
   initialized with a snapshot),
 - `ChainExchange` responses are `PartialResponses`.
 
-## Running a Forest node as a bootstrap node
+## Running a Forest Node as a Bootstrap Node
 
 To run Forest with the stateless mode enabled, you must set the `--stateless`
 flag when starting the node. For example:
 
 ```bash
-# Mainnet
 forest --stateless
-
-# Calibnet
-forest --stateless --chain calibnet
 ```
 
 The default peer count is likely too small for a bootstrap node. You can set the
@@ -52,13 +47,7 @@ example:
 forest --stateless --target-peer-count 10000
 ```
 
-## Hardware requirements
-
-The stateless node has lower hardware requirements than a full node. The exact
-requirements depend on the number of allowed peers. For 10'000 peers, 512 MiB of
-RAM and 1 vCPU should be sufficient.
-
-## Converting Lotus node into Forest node (and back)
+## Migrating from/to Lotus
 
 You can use the `forest-tool shed` commands to convert a Lotus node into a
 Forest node without losing the peer identity.
@@ -97,6 +86,6 @@ forest-tool shed private-key-from-key-pair > lotus_key
 Then, copy the content to the relevant file's (one with the type `libp2p-host`
 in `~/.lotus/keystore/`) `PrivateKey` value. Done!
 
-## Additional resources
+## Additional Resources
 
 - [DHT Bootstrap nodes](https://blog.ipfs.tech/2023-rust-libp2p-based-ipfs-bootstrap-node/#ipfs-public-dht-bootstrap-nodes)
