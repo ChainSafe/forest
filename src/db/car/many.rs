@@ -9,7 +9,8 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::db::{EthMappingsStore, MemoryDB, PersistentStore, SettingsStore};
+use crate::blocks::TipsetKey;
+use crate::db::{EthMappingsStore, MemoryDB, PersistentStore, SettingsStore, SettingsStoreExt};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
 use crate::shim::clock::ChainEpoch;
@@ -61,7 +62,7 @@ impl PartialEq for WithHeaviestEpoch {
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
-    read_only: RwLock<BinaryHeap<WithHeaviestEpoch>>,
+    read_only: Arc<RwLock<BinaryHeap<WithHeaviestEpoch>>>,
     writer: WriterT,
 }
 
@@ -69,7 +70,7 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
-            read_only: RwLock::new(BinaryHeap::default()),
+            read_only: Arc::new(RwLock::new(BinaryHeap::default())),
             writer,
         }
     }
@@ -124,6 +125,14 @@ impl<WriterT> ManyCar<WriterT> {
         }
 
         Ok(())
+    }
+
+    pub fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        self.read_only
+            .read()
+            .peek()
+            .map(|w| AnyCar::heaviest_tipset_key(&w.car))
+            .context("ManyCar store doesn't have a heaviest tipset key")
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -231,6 +240,19 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.writer(), keys)
+    }
+}
+
+impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for ManyCar<T> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        match SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)? {
+            Some(tsk) => Ok(tsk),
+            None => self.heaviest_tipset_key(),
+        }
+    }
+
+    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
+        SettingsStoreExt::write_obj(self, crate::db::setting_keys::HEAD_KEY, tsk)
     }
 }
 
