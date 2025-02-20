@@ -13,7 +13,10 @@ use crate::{
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::{ChainConfig, NetworkChain},
-    rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
+    rpc::{
+        eth::{filter::EthEventHandler, types::EthHash},
+        RPCState, RpcMethod as _, RpcMethodExt as _,
+    },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
@@ -21,7 +24,7 @@ use crate::{
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc};
+use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{sync::mpsc, task::JoinSet};
 
 #[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +47,18 @@ pub struct RpcTestSnapshot {
     pub db: Vec<u8>,
 }
 
+fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
+    if let Some(index) = index {
+        if let Some(mut guard) = db.eth_mappings_db.try_write() {
+            for (k, v) in index.eth_mappings.into_iter() {
+                let hash = EthHash::from_str(&k)?;
+                guard.insert(hash, v.0.clone());
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     let mut run = false;
     let snapshot_bytes = std::fs::read(path)?;
@@ -64,14 +79,14 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         CurrentNetwork::set_global(Network::Testnet);
     }
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
+    // backfill db with index data
+    backfill_eth_mappings(db.writer(), index)?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = match serde_json::to_string(&params)? {
         s if s.is_empty() => None,
         s => Some(s),
     };
-
-    // backfill db with index data
 
     macro_rules! run_test {
         ($ty:ty) => {
