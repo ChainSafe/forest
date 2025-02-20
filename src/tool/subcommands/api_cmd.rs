@@ -240,17 +240,15 @@ impl ApiCommands {
                                 let mut db = vec![];
                                 tracking_db.export_forest_car(&mut db).await?;
 
-                                let mut index: Index = Default::default();
-                                let reader = tracking_db.tracker.eth_mappings_db.read();
-                                for (k, v) in reader.iter() {
-                                    index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
-                                }
+                                let index =
+                                    generate_test_snapshot::build_index(tracking_db.clone());
+
                                 RpcTestSnapshot {
                                     chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
                                     response: test_dump.forest_response,
-                                    index: Some(index),
+                                    index,
                                     db,
                                 }
                             };

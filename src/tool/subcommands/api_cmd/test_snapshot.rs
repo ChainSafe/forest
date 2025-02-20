@@ -27,7 +27,7 @@ use tokio::{sync::mpsc, task::JoinSet};
 #[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec<u8>);
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Index {
     pub eth_mappings: std::collections::HashMap<String, Payload>,
 }
@@ -38,6 +38,7 @@ pub struct RpcTestSnapshot {
     pub name: String,
     pub params: serde_json::Value,
     pub response: Result<serde_json::Value, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<Index>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,

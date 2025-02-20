@@ -67,6 +67,20 @@ pub(super) fn load_db(
     Ok(Arc::new(ReadOpsTrackingStore::new(db)))
 }
 
+pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> Option<Index> {
+    let mut index = Index::default();
+    let reader = db.tracker.eth_mappings_db.read();
+    for (k, v) in reader.iter() {
+        index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
+    }
+
+    if index == Index::default() {
+        None
+    } else {
+        Some(index)
+    }
+}
+
 async fn ctx(
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain_config: Arc<ChainConfig>,
