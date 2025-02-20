@@ -262,7 +262,8 @@ where
             return Ok(());
         }
 
-        msg.verify().map_err(Error::Other)?;
+        msg.verify(self.chain_config.eth_chain_id)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
         self.sig_val_cache.lock().put(cid, ());
 
