@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod f3;
+use f3::*;
+
 use crate::{
     libp2p::keypair::get_keypair,
     rpc::{
@@ -61,6 +64,9 @@ pub enum ShedCommands {
         #[arg(long, value_delimiter = ',')]
         omit: Option<Vec<OmitField>>,
     },
+    /// F3 related commands.
+    #[command(subcommand)]
+    F3(F3Commands),
 }
 
 #[derive(Debug, Clone, ValueEnum, PartialEq)]
@@ -162,8 +168,9 @@ impl ShedCommands {
                     _ => std::cmp::Ordering::Equal,
                 });
 
-                println!("{}", serde_json::to_string_pretty(&openrpc_doc).unwrap());
+                println!("{}", serde_json::to_string_pretty(&openrpc_doc)?);
             }
+            ShedCommands::F3(cmd) => cmd.run(client).await?,
         }
         Ok(())
     }
