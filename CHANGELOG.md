@@ -61,6 +61,8 @@
 
 - [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for `Filecoin.GetActorEventsRaw` RPC method.
 
+- [#5242](https://github.com/ChainSafe/forest/issues/5242) Fix existing signature verification and add `delegated` signature
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
