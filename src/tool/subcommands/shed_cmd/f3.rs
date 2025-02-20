@@ -24,6 +24,7 @@ pub enum F3Commands {
         #[arg(long, required = true)]
         contract: EthAddress,
     },
+    /// Queries F3 parameters contract using raw logic
     CheckActivationRaw {
         /// Contract eth address
         #[arg(long, required = true)]
