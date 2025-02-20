@@ -2797,7 +2797,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
     const NAME: &'static str = "Filecoin.EthGetFilterLogs";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterLogs");
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     type Params = (FilterID,);
