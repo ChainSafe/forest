@@ -1,8 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
-
 use crate::{
     libp2p::keypair::get_keypair,
     rpc::{
@@ -15,8 +13,10 @@ use crate::{
 use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Subcommand;
+use clap::ValueEnum;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
 use openrpc_types::ReferenceOr;
+use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
@@ -57,7 +57,16 @@ pub enum ShedCommands {
         /// Which API path to dump.
         #[arg(long)]
         path: ApiPath,
+        /// A comma-separated list of fields to omit from the output (e.g., "summary,description").
+        #[arg(long, value_delimiter = ',')]
+        omit: Option<Vec<OmitField>>,
     },
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
+pub enum OmitField {
+    Summary,
+    Description,
 }
 
 impl ShedCommands {
@@ -122,7 +131,11 @@ impl ShedCommands {
                     println!("{}", BASE64_STANDARD.encode(keypair_data));
                 }
             }
-            ShedCommands::Openrpc { include, path } => {
+            ShedCommands::Openrpc {
+                include,
+                path,
+                omit,
+            } => {
                 let include = include.iter().map(String::as_str).collect::<Vec<_>>();
 
                 let mut openrpc_doc = crate::rpc::openrpc(
@@ -132,6 +145,18 @@ impl ShedCommands {
                         false => Some(&include),
                     },
                 );
+                if let Some(omit_fields) = omit {
+                    for method in &mut openrpc_doc.methods {
+                        if let ReferenceOr::Item(ref mut m) = method {
+                            if omit_fields.contains(&OmitField::Summary) {
+                                m.summary = None;
+                            }
+                            if omit_fields.contains(&OmitField::Description) {
+                                m.description = None;
+                            }
+                        }
+                    }
+                }
                 openrpc_doc.methods.sort_by(|a, b| match (a, b) {
                     (ReferenceOr::Item(a), ReferenceOr::Item(b)) => a.name.cmp(&b.name),
                     _ => std::cmp::Ordering::Equal,
