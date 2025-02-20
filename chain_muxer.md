@@ -44,6 +44,36 @@ State transitions:
 - SyncRange can return to FindRange if a new target needs to be selected
 - SyncRange returns to Idle when synchronization is complete
 
+## Chain Muxer Sequence
+
+```mermaid
+sequenceDiagram
+    participant I as Idle
+    participant P as P2P Swarm
+    participant B as Bootstrap
+    participant F as Follow
+
+    Note over I: Initial State
+    
+    loop Collect 5 Tipsets
+        P->>I: New Tipset
+        Note over I: Store Tipset
+    end
+    
+    Note over I: Select Heaviest Tipset
+    I->>B: Enter Bootstrap Mode
+    
+    Note over B: Target Set
+    
+    loop Until Target Reached
+        B->>B: Validate Tipset
+        Note over B,P: Ignore P2P Messages
+    end
+    
+    B->>F: Target Reached
+    Note over F: Chain Synchronized
+```
+
 ## Chain Follower Flow
 
 ```mermaid
