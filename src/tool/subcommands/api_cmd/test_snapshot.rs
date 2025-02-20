@@ -38,7 +38,7 @@ pub struct RpcTestSnapshot {
     pub name: String,
     pub params: serde_json::Value,
     pub response: Result<serde_json::Value, String>,
-    pub index: Index,
+    pub index: Option<Index>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
 }

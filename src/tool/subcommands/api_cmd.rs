@@ -250,7 +250,7 @@ impl ApiCommands {
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
                                     response: test_dump.forest_response,
-                                    index,
+                                    index: Some(index),
                                     db,
                                 }
                             };
