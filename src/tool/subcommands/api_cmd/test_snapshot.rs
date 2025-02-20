@@ -32,7 +32,7 @@ pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec
 
 #[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Index {
-    pub eth_mappings: std::collections::HashMap<String, Payload>,
+    pub eth_mappings: ahash::HashMap<String, Payload>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
