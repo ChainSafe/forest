@@ -63,6 +63,8 @@
 
 - [#5242](https://github.com/ChainSafe/forest/issues/5242) Fix existing signature verification and add `delegated` signature
 
+- [#5314](https://github.com/ChainSafe/forest/pull/5314) Add omit fields option for OpenRPC spec generation.
+
 - [#5293](https://github.com/ChainSafe/forest/issues/5293) Extend RPC test snapshots to support Eth methods that require an index.
 
 ### Changed
