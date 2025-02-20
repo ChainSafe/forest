@@ -238,10 +238,8 @@ impl ApiCommands {
                                 tracking_db.ensure_chain_head_is_tracked()?;
                                 let mut db = vec![];
                                 tracking_db.export_forest_car(&mut db).await?;
-
                                 let index =
                                     generate_test_snapshot::build_index(tracking_db.clone());
-
                                 RpcTestSnapshot {
                                     chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),

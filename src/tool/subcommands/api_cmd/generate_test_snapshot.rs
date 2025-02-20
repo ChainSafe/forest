@@ -73,7 +73,6 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     for (k, v) in reader.iter() {
         index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
     }
-
     if index == Index::default() {
         None
     } else {
