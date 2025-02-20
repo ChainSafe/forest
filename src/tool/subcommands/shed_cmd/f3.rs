@@ -20,14 +20,14 @@ const MAX_PAYLOAD_LEN: usize = 4 << 10;
 #[derive(Debug, Subcommand)]
 pub enum F3Commands {
     CheckActivation {
-        /// Contract address
+        /// Contract eth address
         #[arg(long, required = true)]
-        contract: String,
+        contract: EthAddress,
     },
     CheckActivationRaw {
-        /// Contract address
+        /// Contract eth address
         #[arg(long, required = true)]
-        contract: String,
+        contract: EthAddress,
     },
 }
 
@@ -40,7 +40,7 @@ impl F3Commands {
             }
             Self::CheckActivationRaw { contract } => {
                 let eth_call_message = EthCallMessage {
-                    to: Some(EthAddress::from_str(&contract)?),
+                    to: Some(contract),
                     data: EthBytes::from_str("0x2587660d")?, // method ID of activationInformation()
                     ..Default::default()
                 };
@@ -48,7 +48,7 @@ impl F3Commands {
                 let api_invoc_result =
                     StateCall::call(&client, (filecoin_message, None.into())).await?;
                 let Some(message_receipt) = api_invoc_result.msg_rct else {
-                    anyhow::bail!("No message receipt")
+                    anyhow::bail!("No message receipt");
                 };
                 anyhow::ensure!(
                     message_receipt.exit_code().is_success(),
