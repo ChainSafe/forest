@@ -3,13 +3,13 @@
 
 use super::*;
 use crate::{
-    blocks::{CachingBlockHeader, TipsetKey},
+    blocks::TipsetKey,
     chain::ChainStore,
     chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
     daemon::db_util::load_all_forest_cars,
     db::{
-        db_engine::open_db, parity_db::ParityDb, EthMappingsStore, MemoryDB, SettingsStore,
-        SettingsStoreExt, CAR_DB_DIR_NAME,
+        db_engine::open_db, parity_db::ParityDb, EthMappingsStore, HeaviestTipsetKeyProvider,
+        MemoryDB, SettingsStore, SettingsStoreExt, CAR_DB_DIR_NAME,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -149,6 +149,27 @@ pub struct ReadOpsTrackingStore<T> {
 
 impl<T> ReadOpsTrackingStore<T>
 where
+    T: Blockstore + SettingsStore + HeaviestTipsetKeyProvider,
+{
+    fn is_chain_head_tracked(&self) -> anyhow::Result<bool> {
+        SettingsStore::exists(&self.tracker, crate::db::setting_keys::HEAD_KEY)
+    }
+
+    pub fn ensure_chain_head_is_tracked(&self) -> anyhow::Result<()> {
+        if !self.is_chain_head_tracked()? {
+            SettingsStoreExt::write_obj(
+                &self.tracker,
+                crate::db::setting_keys::HEAD_KEY,
+                &self.inner.heaviest_tipset_key()?,
+            )?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T> ReadOpsTrackingStore<T>
+where
     T: Blockstore + SettingsStore,
 {
     pub fn new(inner: T) -> Self {
@@ -158,32 +179,21 @@ where
         }
     }
 
-    pub fn ensure_chain_head_is_tracked(&self) -> anyhow::Result<()> {
-        if !self.is_chain_head_tracked()? {
-            let _ =
-                SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
-                    .context("HEAD_KEY not found")?
-                    .into_cids()
-                    .into_iter()
-                    .map(|key| CachingBlockHeader::load(self, key))
-                    .collect::<anyhow::Result<Option<Vec<_>>>>()?
-                    .map(Tipset::new)
-                    .transpose()?
-                    .context("failed to load tipset")?;
-        }
-
-        Ok(())
-    }
-
-    fn is_chain_head_tracked(&self) -> anyhow::Result<bool> {
-        SettingsStore::exists(&self.tracker, crate::db::setting_keys::HEAD_KEY)
-    }
-
     pub async fn export_forest_car<W: tokio::io::AsyncWrite + Unpin>(
         &self,
         writer: &mut W,
     ) -> anyhow::Result<()> {
         self.tracker.export_forest_car(writer).await
+    }
+}
+
+impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for ReadOpsTrackingStore<T> {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        self.inner.heaviest_tipset_key()
+    }
+
+    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
+        self.inner.set_heaviest_tipset_key(tsk)
     }
 }
 

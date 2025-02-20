@@ -175,6 +175,17 @@ impl BitswapStoreReadWrite for MemoryDB {
     }
 }
 
+impl super::HeaviestTipsetKeyProvider for MemoryDB {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        SettingsStoreExt::read_obj::<TipsetKey>(self, crate::db::setting_keys::HEAD_KEY)?
+            .context("head key not found")
+    }
+
+    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
+        SettingsStoreExt::write_obj(self, crate::db::setting_keys::HEAD_KEY, tsk)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
