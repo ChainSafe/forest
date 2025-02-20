@@ -8,8 +8,8 @@ use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use tokio::task::JoinSet;
-use tracing::{debug, info, warn};
+use tokio::{sync::Notify, task::JoinSet};
+use tracing::{debug, info, trace, warn};
 
 use crate::chain_sync::tipset_syncer::validate_tipset;
 use crate::chain_sync::tipset_syncer::InvalidBlockStrategy;
@@ -34,15 +34,19 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
 ) -> anyhow::Result<()> {
-    let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(cs.clone(), chain_config)));
+    let state_changed = Arc::new(Notify::new());
+    let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
+        cs.clone(),
+        chain_config,
+        bad_block_cache.clone(),
+    )));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
-
-    let (event_sender, event_receiver) = flume::bounded(20);
 
     let mut set = JoinSet::new();
 
     set.spawn({
-        let event_sender = event_sender.clone();
+        let state_changed = state_changed.clone();
+        let state_machine = state_machine.clone();
         let network = network.clone();
         let cs = cs.clone();
         async move {
@@ -71,9 +75,15 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 }) else {
                     continue;
                 };
-                let _ = event_sender
-                    .send_async(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]))
-                    .await;
+                {
+                    state_machine
+                        .lock()
+                        .update(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]));
+                    state_changed.notify_one();
+                }
+                // let _ = event_sender
+                //     .send_async(SyncEvent::NewFullTipsets(vec![Arc::new(tipset)]))
+                //     .await;
             }
         }
     });
@@ -81,27 +91,37 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     // spawn a task to tipsets to the state machine. These tipsets are received
     // from the p2p swarm and from directly-connected miners.
     set.spawn({
-        let event_sender = event_sender.clone();
+        let state_changed = state_changed.clone();
+        let state_machine = state_machine.clone();
+
         async move {
             while let Ok(tipset) = tipset_receiver.recv_async().await {
                 info!("Received tipset from tipset receiver.");
-                let _ = event_sender
-                    .send_async(SyncEvent::NewFullTipsets(vec![tipset]))
-                    .await;
+                {
+                    state_machine
+                        .lock()
+                        .update(SyncEvent::NewFullTipsets(vec![tipset]));
+                    state_changed.notify_one();
+                }
+                // let _ = event_sender
+                //     .send_async(SyncEvent::NewFullTipsets(vec![tipset]))
+                //     .await;
             }
             // tipset_receiver is closed, shutdown gracefully
         }
     });
 
     set.spawn({
+        let state_machine = state_machine.clone();
+        let state_changed = state_changed.clone();
         let bad_block_cache = bad_block_cache.clone();
         async move {
-            while let Ok(event) = event_receiver.recv_async().await {
+            loop {
+                state_changed.notified().await;
                 // info!("Received event from event receiver.");
-                let mut sm = state_machine.lock();
-                sm.update(event);
+
                 let mut tasks_set = tasks.lock();
-                for task in sm.tasks() {
+                for task in state_machine.lock().tasks() {
                     // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
                     let new = tasks_set.insert(task.clone());
                     if new {
@@ -111,15 +131,51 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                             cs.clone(),
                             state_manager.clone(),
                             bad_block_cache.clone(),
-                            event_sender.clone(),
                         );
-                        tokio::spawn(async move {
-                            action.await;
-                            tasks_clone.lock().remove(&task);
+                        tokio::spawn({
+                            let state_machine = state_machine.clone();
+                            let state_changed = state_changed.clone();
+                            async move {
+                                if let Some(event) = action.await {
+                                    state_machine.lock().update(event);
+                                    state_changed.notify_one();
+                                }
+                                tasks_clone.lock().remove(&task);
+                            }
                         });
                     }
                 }
                 // info!("Current number of tasks: {}", tasks_set.len());
+            }
+        }
+    });
+
+    set.spawn({
+        let state_machine = state_machine.clone();
+        async move {
+            loop {
+                {
+                    let sm = state_machine.lock();
+                    let heaviest = sm.cs.heaviest_tipset();
+                    info!(
+                        "Sync StateMachine: Current heaviest tipset epoch: {}",
+                        heaviest.epoch()
+                    );
+                    for (i, chain) in sm.chains().iter().enumerate() {
+                        if let (Some(first), Some(last)) = (chain.first(), chain.last()) {
+                            info!(
+                                "Sync StateMachine: Chain: {}: {} ({}) .. {} ({}) [length: {}]",
+                                i,
+                                first.epoch(),
+                                first.blocks().len(),
+                                last.epoch(),
+                                last.blocks().len(),
+                                last.epoch() - first.epoch()
+                            );
+                        }
+                    }
+                } // Lock is released here
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         }
     });
@@ -184,22 +240,28 @@ fn load_full_tipset<DB: Blockstore>(
 
 enum SyncEvent {
     NewFullTipsets(Vec<Arc<FullTipset>>),
-    BadBlock(Cid),
+    BadTipset(Arc<FullTipset>, String),
     ValidatedTipset(Arc<FullTipset>),
 }
 
 struct SyncStateMachine<DB> {
     chain_config: Arc<ChainConfig>,
     cs: Arc<ChainStore<DB>>,
+    bad_block_cache: Arc<BadBlockCache>,
     // Map from TipsetKey to FullTipset
     tipsets: HashMap<TipsetKey, Arc<FullTipset>>,
 }
 
 impl<DB: Blockstore> SyncStateMachine<DB> {
-    pub fn new(cs: Arc<ChainStore<DB>>, chain_config: Arc<ChainConfig>) -> Self {
+    pub fn new(
+        cs: Arc<ChainStore<DB>>,
+        chain_config: Arc<ChainConfig>,
+        bad_block_cache: Arc<BadBlockCache>,
+    ) -> Self {
         Self {
             cs,
             chain_config,
+            bad_block_cache,
             tipsets: HashMap::default(),
         }
     }
@@ -248,12 +310,13 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     fn add_full_tipset(&mut self, tipset: Arc<FullTipset>) {
         if let Err(why) = TipsetValidator(&tipset).validate(
             &self.cs,
-            None,
+            Some(&self.bad_block_cache),
             &self.cs.genesis_tipset(),
             self.chain_config.block_delay_secs,
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
-            warn!("Skipping invalid tipset: {}", why);
+            trace!("Skipping invalid tipset: {}", why);
+            self.mark_bad_tipset(tipset, why.to_string());
             return;
         }
 
@@ -269,6 +332,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                 heaviest.epoch(),
                 time_diff
             );
+            self.mark_bad_tipset(tipset, "old tipset".to_string());
             return;
         }
 
@@ -319,8 +383,36 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    fn mark_bad_block(&mut self, cid: Cid) {
-        todo!()
+    // Mark blocks in tipset as bad.
+    // Mark all descendants of tipsets as bad.
+    // Remove all bad tipsets from the tipset map.
+    fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>, reason: String) {
+        self.tipsets.remove(tipset.key());
+        // Mark all blocks in the tipset as bad
+        for block in tipset.blocks() {
+            self.bad_block_cache.put(*block.cid(), reason.clone());
+        }
+
+        // Find all descendant tipsets (tipsets that have this tipset as a parent)
+        let mut to_remove = Vec::new();
+        let mut descendants = Vec::new();
+
+        for (key, ts) in self.tipsets.iter() {
+            if ts.parents() == tipset.key() {
+                to_remove.push(key.clone());
+                descendants.push(ts.clone());
+            }
+        }
+
+        // Remove bad tipsets from the map
+        for key in to_remove {
+            self.tipsets.remove(&key);
+        }
+
+        // Recursively mark descendants as bad
+        for descendant in descendants {
+            self.mark_bad_tipset(descendant, reason.clone());
+        }
     }
 
     fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>) {
@@ -332,37 +424,14 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     pub fn update(&mut self, event: SyncEvent) {
-        let heaviest = self.cs.heaviest_tipset();
-
-        let prev_count = self.tipsets.len();
-
         match event {
             SyncEvent::NewFullTipsets(tipsets) => {
                 for tipset in tipsets {
                     self.add_full_tipset(tipset);
                 }
             }
-            SyncEvent::BadBlock(cid) => self.mark_bad_block(cid),
+            SyncEvent::BadTipset(tipset, reason) => self.mark_bad_tipset(tipset, reason),
             SyncEvent::ValidatedTipset(tipset) => self.mark_validated_tipset(tipset),
-        }
-        if prev_count != self.tipsets.len() {
-            info!(
-                "Sync StateMachine: Current heaviest tipset epoch: {}",
-                heaviest.epoch()
-            );
-            for (i, chain) in self.chains().iter().enumerate() {
-                if let (Some(first), Some(last)) = (chain.first(), chain.last()) {
-                    info!(
-                        "Sync StateMachine: Chain: {}: {} ({}) .. {} ({}) [length: {}]",
-                        i,
-                        first.epoch(),
-                        first.blocks().len(),
-                        last.epoch(),
-                        last.blocks().len(),
-                        last.epoch() - first.epoch()
-                    );
-                }
-            }
         }
     }
 
@@ -371,10 +440,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         for chain in self.chains() {
             if let Some(first_ts) = chain.first() {
                 if !self.is_ready_for_validation(first_ts) {
-                    // FIXME: This is just here to ignore forks.
-                    if first_ts.epoch() > self.cs.heaviest_tipset().epoch() {
-                        tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
-                    }
+                    tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
                 } else {
                     // info!("Epoch {} ready for validation", first_ts.epoch());
                     tasks.push(SyncTask::ValidateTipset(first_ts.clone()));
@@ -398,11 +464,14 @@ impl SyncTask {
         cs: Arc<ChainStore<DB>>,
         state_manager: Arc<StateManager<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
-        sender: flume::Sender<SyncEvent>,
-    ) {
+    ) -> Option<SyncEvent> {
         match self {
             SyncTask::ValidateTipset(tipset) => {
-                info!("Validating tipset at epoch {}", tipset.epoch());
+                info!(
+                    "Validating tipset at epoch {}, key: {}",
+                    tipset.epoch(),
+                    tipset.key()
+                );
                 // cs.validate_tipset(tipset).await;
                 let genesis = cs.genesis_tipset();
                 match validate_tipset(
@@ -415,23 +484,19 @@ impl SyncTask {
                 )
                 .await
                 {
-                    Ok(()) => {
-                        sender.send_async(SyncEvent::ValidatedTipset(tipset)).await;
-                    }
+                    Ok(()) => Some(SyncEvent::ValidatedTipset(tipset)),
                     Err(e) => {
                         warn!("Error validating tipset: {}", e);
-                        sender
-                            .send_async(SyncEvent::BadBlock(tipset.blocks()[0].cid().clone()))
-                            .await;
+                        Some(SyncEvent::BadTipset(tipset, e.to_string()))
                     }
                 }
             }
             SyncTask::FetchTipset(key) => {
                 // info!("Fetching tipset: {}", key);
                 if let Ok(parent) = get_full_tipset(network.clone(), cs.clone(), None, key).await {
-                    sender
-                        .send_async(SyncEvent::NewFullTipsets(vec![Arc::new(parent)]))
-                        .await;
+                    Some(SyncEvent::NewFullTipsets(vec![Arc::new(parent)]))
+                } else {
+                    None
                 }
             }
         }
