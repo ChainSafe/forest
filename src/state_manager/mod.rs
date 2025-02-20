@@ -386,13 +386,16 @@ where
     }
 
     /// Returns the internal, protocol-level network name.
-    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
-        let init_act = self
-            .get_actor(&init::ADDRESS.into(), *st)?
-            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
-        let state = State::load(self.blockstore(), init_act.code, init_act.state)?;
+    pub fn get_network_name_from_genesis(&self) -> anyhow::Result<String> {
+        self.get_network_name(self.chain_store().genesis_block_header().state_root)
+    }
 
-        Ok(state.into_network_name())
+    /// Returns the internal, protocol-level network name.
+    pub fn get_network_name(&self, state_cid: Cid) -> anyhow::Result<String> {
+        let init_act = self
+            .get_actor(&init::ADDRESS.into(), state_cid)?
+            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+        Ok(State::load(self.blockstore(), init_act.code, init_act.state)?.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.

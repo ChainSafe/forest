@@ -50,7 +50,7 @@ pub fn construct_bls_messages() -> (Message, SignedMessage) {
 
 /// Returns a tuple of unsigned and signed messages used for testing the Ethereum mapping
 pub fn construct_eth_messages(sequence: u64) -> (Message, SignedMessage) {
-    let mut bls_message: Message = Message_v3 {
+    let mut eth_message: Message = Message_v3 {
         to: Address::from_str("t410foy6ucbmuujaequ3zsdo6nsubyogp6vtk23t4odq")
             .unwrap()
             .into(),
@@ -60,15 +60,15 @@ pub fn construct_eth_messages(sequence: u64) -> (Message, SignedMessage) {
         ..Message_v3::default()
     }
     .into();
-    bls_message.method_num = EVMMethod::InvokeContract as u64;
-    bls_message.sequence = sequence;
+    eth_message.method_num = EVMMethod::InvokeContract as u64;
+    eth_message.sequence = sequence;
 
     let secp_message = SignedMessage::new_unchecked(
-        bls_message.clone(),
+        eth_message.clone(),
         Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
     );
 
-    (bls_message, secp_message)
+    (eth_message, secp_message)
 }
 
 // Serialize macro used for testing

@@ -6,7 +6,6 @@ use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest;
 use anyhow::{bail, ensure, Context};
-use bytes::BufMut;
 use bytes::BytesMut;
 use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
 use fvm_shared4::METHOD_CONSTRUCTOR;
@@ -135,7 +134,20 @@ impl EthTx {
         Ok(msg)
     }
 
-    fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
+    pub fn get_unsigned_message(
+        &self,
+        from: Address,
+        eth_chain_id: EthChainId,
+    ) -> anyhow::Result<Message> {
+        let msg = match self {
+            Self::Homestead(tx) => (*tx).get_unsigned_message(from)?,
+            Self::Eip1559(tx) => (*tx).get_unsigned_message(from, eth_chain_id)?,
+            Self::Eip155(tx) => (*tx).get_unsigned_message(from, eth_chain_id)?,
+        };
+        Ok(msg)
+    }
+
+    pub fn rlp_unsigned_message(&self, eth_chain_id: EthChainId) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Homestead(tx) => (*tx).rlp_unsigned_message(),
             Self::Eip1559(tx) => (*tx).rlp_unsigned_message(),
@@ -159,7 +171,7 @@ impl EthTx {
         }
     }
 
-    fn to_verifiable_signature(
+    pub fn to_verifiable_signature(
         &self,
         sig: Vec<u8>,
         eth_chain_id: EthChainId,
@@ -461,11 +473,13 @@ pub fn get_filecoin_method_info(
     input: &[u8],
 ) -> anyhow::Result<MethodInfo> {
     let params = if !input.is_empty() {
-        let mut buf = BytesMut::with_capacity(input.len());
-        buf.put(input);
-        buf.to_vec()
+        cbor4ii::serde::to_vec(
+            Vec::with_capacity(input.len()),
+            &Value::Bytes(input.to_vec()),
+        )
+        .context("failed to encode params")?
     } else {
-        vec![]
+        Vec::new()
     };
 
     let (to, method) = match recipient {
@@ -749,13 +763,13 @@ pub(crate) mod tests {
         )
         .unwrap();
         let tx = EthTx::Eip1559(Box::new(tx_args));
-        let sig = tx.signature(mainnet::ETH_CHAIN_ID);
+        let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(tx
-            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), mainnet::ETH_CHAIN_ID)
+            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
             .is_ok());
-        assert!(tx.rlp_unsigned_message(mainnet::ETH_CHAIN_ID).is_ok());
-        assert!(tx.get_signed_message(mainnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
+        assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
             "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f",
         )

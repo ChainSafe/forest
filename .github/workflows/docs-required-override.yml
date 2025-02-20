@@ -28,7 +28,7 @@ jobs:
   # We need this because merge groups dont support path filters
   # https://github.com/community/community/discussions/45899
   changes-docs:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     outputs:
       changesFound: ${{ steps.filter.outputs.changesFound }}
     steps:
@@ -42,7 +42,7 @@ jobs:
                     - '**.md'
                     - '.github/workflows/docs-*.yml'
   changes-not-docs:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     outputs:
       otherChangesFound: ${{ steps.filter.outputs.otherChangesFound }}
     steps:
@@ -60,7 +60,7 @@ jobs:
 
   override_integration_tests:
     name: Integration tests status
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     needs:
       - changes-docs
       - changes-not-docs
@@ -70,7 +70,7 @@ jobs:
 
   override_unit_tests:
     name: tests
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     needs:
       - changes-docs
       - changes-not-docs
@@ -80,7 +80,7 @@ jobs:
 
   override_unit_tests_release:
     name: tests-release
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-24.04-arm
     needs:
       - changes-docs
       - changes-not-docs
@@ -90,6 +90,16 @@ jobs:
 
   override_docker_build:
     name: Build images and push to GHCR
+    runs-on: ubuntu-24.04-arm
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
+
+  override_lints:
+    name: All lint checks
     runs-on: ubuntu-22.04-arm
     needs:
       - changes-docs

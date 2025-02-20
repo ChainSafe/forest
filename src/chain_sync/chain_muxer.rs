@@ -164,13 +164,11 @@ where
         network_send: flume::Sender<NetworkMessage>,
         network_rx: flume::Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
-        tipset_sender: flume::Sender<Arc<Tipset>>,
-        tipset_receiver: flume::Receiver<Arc<Tipset>>,
         stateless_mode: bool,
     ) -> Result<Self, ChainMuxerError> {
         let network =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
-
+        let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Ok(Self {
             state: ChainMuxerState::Idle,
             worker_state: Default::default(),
@@ -186,20 +184,28 @@ where
         })
     }
 
-    /// Returns a clone of the inner [`SyncNetworkContext`]
-    pub fn sync_network_context(&self) -> SyncNetworkContext<DB> {
-        self.network.clone()
+    pub fn mpool(&self) -> &Arc<MessagePool<M>> {
+        &self.mpool
     }
 
-    /// Returns a clone of the bad blocks cache to be used outside of chain
+    pub fn tipset_sender(&self) -> &flume::Sender<Arc<Tipset>> {
+        &self.tipset_sender
+    }
+
+    /// Returns the inner [`SyncNetworkContext`]
+    pub fn sync_network_context(&self) -> &SyncNetworkContext<DB> {
+        &self.network
+    }
+
+    /// Returns the bad blocks cache to be used outside of chain
     /// sync.
-    pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
-        self.bad_blocks.clone()
+    pub fn bad_blocks(&self) -> &Arc<BadBlockCache> {
+        &self.bad_blocks
     }
 
-    /// Returns a cloned `Arc` of the sync worker state.
-    pub fn sync_state_cloned(&self) -> WorkerState {
-        self.worker_state.clone()
+    /// Returns the sync worker state.
+    pub fn sync_state(&self) -> &WorkerState {
+        &self.worker_state
     }
 
     async fn get_full_tipset(
