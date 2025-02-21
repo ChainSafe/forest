@@ -21,6 +21,16 @@ pub struct EventFilter {
     pub collected: Vec<CollectedEvent>,
 }
 
+impl From<&EventFilter> for ParsedFilter {
+    fn from(event_filter: &EventFilter) -> Self {
+        ParsedFilter {
+            tipsets: event_filter.tipsets.clone(),
+            addresses: event_filter.addresses.clone(),
+            keys: event_filter.keys_with_codec.clone(),
+        }
+    }
+}
+
 impl Filter for EventFilter {
     fn id(&self) -> &FilterID {
         &self.id

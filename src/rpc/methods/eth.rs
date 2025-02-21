@@ -2812,9 +2812,9 @@ impl RpcMethod<1> for EthGetFilterLogs {
             if let Some(event_filter) = filter.as_any().downcast_ref::<EventFilter>() {
                 let events = ctx
                     .eth_event_handler
-                    .eth_get_events_for_event_filter(
+                    .get_events_for_parsed_filter(
                         &ctx,
-                        event_filter,
+                        &event_filter.into(),
                         SkipEvent::OnUnresolvedAddress,
                     )
                     .await?;
