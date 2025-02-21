@@ -1728,6 +1728,7 @@ Commands:
   private-key-from-key-pair  Generate a base64-encoded private key from the given key-pair file. This effectively transforms Forest's key-pair file into a Lotus-compatible private key
   key-pair-from-private-key  Generate a key-pair file from the given base64-encoded private key. This effectively transforms Lotus's private key into a Forest-compatible key-pair file. If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string
   openrpc                    Dump the OpenRPC definition for the node
+  f3                         F3 related commands
   help                       Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1787,12 +1788,13 @@ Options:
 ```
 Dump the OpenRPC definition for the node
 
-Usage: forest-tool shed openrpc --path <PATH> [INCLUDE]...
+Usage: forest-tool shed openrpc [OPTIONS] --path <PATH> [INCLUDE]...
 
 Arguments:
   [INCLUDE]...
 
 Options:
       --path <PATH>  Which API path to dump [possible values: v0, v1]
+      --omit <OMIT>  A comma-separated list of fields to omit from the output (e.g., "summary,description") [possible values: summary, description]
   -h, --help         Print help
 ```
