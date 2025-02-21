@@ -391,7 +391,7 @@ impl EthEventHandler {
                     // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
                     // in the next non-null tipset (because of Filecoin's "deferred execution" model)
                     ensure!(
-                        *range.end() <= heaviest_epoch - 1,
+                        *range.end() < heaviest_epoch,
                         "max_height requested is greater than the heaviest tipset"
                     );
                     *range.end()
