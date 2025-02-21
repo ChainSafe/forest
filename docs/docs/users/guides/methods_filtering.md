@@ -1,5 +1,6 @@
 ---
 title: RPC methods filtering
+sidebar_position: 5
 ---
 
 # RPC methods filtering
