@@ -382,18 +382,18 @@ impl EthEventHandler {
                     .await?;
             }
             ParsedFilterTipsets::Range(range) => {
+                ensure!(*range.end() >= 0, "max_height requested is less than 0");
+                // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                ensure!(
+                    *range.end() < heaviest_epoch,
+                    "max_height requested is greater than the heaviest tipset"
+                );
                 let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
                 let max_height = if *range.end() == -1 {
                     // heaviest tipset doesn't have events because its messages haven't been executed yet
                     heaviest_epoch - 1
                 } else {
-                    ensure!(*range.end() >= 0, "max_height requested is less than 0");
-                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
-                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
-                    ensure!(
-                        *range.end() < heaviest_epoch,
-                        "max_height requested is greater than the heaviest tipset"
-                    );
                     *range.end()
                 };
 
