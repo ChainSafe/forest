@@ -26,10 +26,11 @@ use crate::{
 use parking_lot::RwLock;
 
 use super::network_context::SyncNetworkContext;
+use super::SyncStage;
 
 pub struct ChainFollower<DB> {
     /// Syncing state of chain sync workers.
-    pub sync_state: Arc<RwLock<SyncState>>,
+    pub sync_states: Arc<RwLock<Vec<SyncState>>>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -72,7 +73,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
     ) -> Self {
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
-            sync_state: Default::default(),
+            sync_states: Default::default(),
             state_manager,
             network,
             _genesis: genesis,
@@ -93,6 +94,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             self.tipset_receiver,
             self.network,
             self.mem_pool,
+            self.sync_states,
         )
         .await
     }
@@ -106,6 +108,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+    sync_states: Arc<RwLock<Vec<SyncState>>>,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
     let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
@@ -202,10 +205,22 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 state_changed.notified().await;
 
                 let mut tasks_set = tasks.lock();
-                for task in state_machine.lock().tasks() {
+                let (task_vec, states) = state_machine.lock().tasks();
+
+                let heaviest = state_manager.chain_store().heaviest_tipset();
+                sync_states
+                    .write()
+                    .first_mut()
+                    .unwrap()
+                    .set_epoch(heaviest.epoch());
+                // *sync_states.write().first_mut().unwrap().set_target()
+                *sync_states.write() = states;
+
+                for task in task_vec {
                     // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
                     let new = tasks_set.insert(task.clone());
                     if new {
+                        info!("Spawning task: {}", task);
                         let tasks_clone = tasks.clone();
                         let action = task.clone().execute(
                             network.clone(),
@@ -465,8 +480,8 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         // FIXME: Should navigate to the heaviest tipset in the chain
         assert!(self.is_validated(&tipset), "Tipset must be validated");
         self.tipsets.remove(tipset.key());
-        let tipset = Arc::new(tipset.deref().clone().into_tipset());
-        let _ = self.cs.set_heaviest_tipset(tipset);
+        let tipset = tipset.deref().clone().into_tipset();
+        let _ = self.cs.put_tipset(&tipset);
     }
 
     pub fn update(&mut self, event: SyncEvent) {
@@ -481,26 +496,52 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    pub fn tasks(&self) -> Vec<SyncTask> {
+    pub fn tasks(&self) -> (Vec<SyncTask>, Vec<SyncState>) {
+        let mut states = Vec::new();
         let mut tasks = Vec::new();
         for chain in self.chains() {
             if let Some(first_ts) = chain.first() {
+                let last = chain.last().expect("Infallible");
+                let mut state = SyncState::default();
+                state.init(
+                    Arc::new(first_ts.deref().clone().into_tipset()),
+                    Arc::new(last.deref().clone().into_tipset()),
+                );
+                state.set_epoch(first_ts.epoch());
                 if !self.is_ready_for_validation(first_ts) {
+                    state.set_stage(SyncStage::Headers);
                     tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
                 } else {
-                    // info!("Epoch {} ready for validation", first_ts.epoch());
+                    if last.epoch() - first_ts.epoch() > 5 {
+                        state.set_stage(SyncStage::Messages);
+                    } else {
+                        state.set_stage(SyncStage::Complete);
+                    }
                     tasks.push(SyncTask::ValidateTipset(first_ts.clone()));
                 }
+                states.push(state);
             }
         }
-        tasks
+        (tasks, states)
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 enum SyncTask {
     ValidateTipset(Arc<FullTipset>),
     FetchTipset(TipsetKey),
+}
+
+impl std::fmt::Display for SyncTask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyncTask::ValidateTipset(ts) => write!(f, "ValidateTipset(epoch: {})", ts.epoch()),
+            SyncTask::FetchTipset(key) => {
+                let s = key.to_string();
+                write!(f, "FetchTipset({})", &s[s.len().saturating_sub(8)..])
+            }
+        }
+    }
 }
 
 impl SyncTask {

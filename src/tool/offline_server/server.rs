@@ -134,7 +134,7 @@ pub async fn start_offline_server(
         keystore: Arc::new(RwLock::new(keystore)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        sync_states: Arc::new(parking_lot::RwLock::new(vec![Default::default()])),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
@@ -142,7 +142,12 @@ pub async fn start_offline_server(
         shutdown,
         tipset_send,
     };
-    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
+    rpc_state
+        .sync_states
+        .write()
+        .get_mut(0)
+        .unwrap()
+        .set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())

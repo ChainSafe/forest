@@ -506,7 +506,7 @@ async fn maybe_start_health_check_service(
             config: config.clone(),
             chain_config: state_manager.chain_config().clone(),
             genesis_timestamp: state_manager.chain_store().genesis_block_header().timestamp,
-            sync_state: chain_follower.sync_state.clone(),
+            sync_states: chain_follower.sync_states.clone(),
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: db.writer().clone(),
         };
@@ -546,7 +546,7 @@ fn maybe_start_rpc_service(
         services.spawn({
             let state_manager = state_manager.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();
-            let sync_state = chain_follower.sync_state.clone();
+            let sync_states = chain_follower.sync_states.clone();
             let sync_network_context = chain_follower.network.clone();
             let tipset_send = chain_follower.tipset_sender.clone();
             async move {
@@ -556,7 +556,7 @@ fn maybe_start_rpc_service(
                         keystore,
                         mpool,
                         bad_blocks,
-                        sync_state,
+                        sync_states,
                         eth_event_handler,
                         sync_network_context,
                         network_name,

@@ -115,7 +115,7 @@ async fn ctx(
         )?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        sync_state: Arc::new(RwLock::new(Default::default())),
+        sync_states: Arc::new(RwLock::new(vec![Default::default()])),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,
@@ -123,7 +123,12 @@ async fn ctx(
         shutdown,
         tipset_send,
     });
-    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
+    rpc_state
+        .sync_states
+        .write()
+        .get_mut(0)
+        .unwrap()
+        .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
 

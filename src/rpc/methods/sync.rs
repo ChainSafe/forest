@@ -66,7 +66,8 @@ impl RpcMethod<0> for SyncState {
     type Ok = RPCSyncState;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
+        let active_syncs = ctx.sync_states.as_ref().read().clone();
+        let active_syncs = NonEmpty::new(active_syncs).unwrap();
         Ok(RPCSyncState { active_syncs })
     }
 }
@@ -88,7 +89,10 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_state.read().stage(), SyncStage::Complete) {
+        if !matches!(
+            ctx.sync_states.read().first().unwrap().stage(),
+            SyncStage::Complete
+        ) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let encoded_message = to_vec(&block_msg)?;
@@ -225,7 +229,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+            sync_states: Arc::new(parking_lot::RwLock::new(vec![Default::default()])),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),
@@ -258,17 +262,21 @@ mod tests {
     async fn sync_state_test() {
         let (ctx, _) = ctx();
 
-        let st_copy = ctx.sync_state.clone();
+        let st_copy = ctx.sync_states.clone();
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
-        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
+        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
 
         // update cloned state
-        st_copy.write().set_stage(SyncStage::Messages);
-        st_copy.write().set_epoch(4);
+        st_copy
+            .write()
+            .get_mut(0)
+            .unwrap()
+            .set_stage(SyncStage::Messages);
+        st_copy.write().get_mut(0).unwrap().set_epoch(4);
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
 
-        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
+        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
     }
 }

@@ -123,6 +123,11 @@ impl SyncState {
         self.epoch = epoch;
     }
 
+    /// Sets the target tipset for the sync state.
+    pub fn set_target(&mut self, target: Arc<Tipset>) {
+        self.target = Some(target);
+    }
+
     /// Sets error for the sync.
     pub fn error(&mut self, err: String) {
         self.message = err;
