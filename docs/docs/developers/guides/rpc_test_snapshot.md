@@ -15,7 +15,7 @@ To generate test dumps, add `--dump-dir [PATH]` to `forest-tool api compare` com
 
 As described above, an RPC test snapshot is generated from an RPC test dump and includes the extra minimal database snapshot in Forest CAR format.
 
-The `forest-tool api generate-test-snapshot` command is for this purpose. Note that it uses the same database as the Forest daemon (which is used by the `forest-tool api compare` command in the previous step) to dump the minimal database snapshot. e.g. `forest-tool api generate-test-snapshot --chain calibnet --out-dir /var/tmp/rpc-snapshots /var/tmp/test-dumps/filecoin_stategetallallocations*.json`
+The `forest-tool api generate-test-snapshot` command is for this purpose. Note that it uses the same database as the Forest daemon (db which is also used by the `forest-tool api compare` command in the previous step) to dump the minimal database snapshot. e.g. `forest-tool api generate-test-snapshot --chain calibnet --out-dir /var/tmp/rpc-snapshots /var/tmp/test-dumps/filecoin_stategetallallocations*.json`
 
 ### (Optional) compress the test snapshots
 
