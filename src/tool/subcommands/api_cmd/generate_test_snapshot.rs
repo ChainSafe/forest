@@ -67,6 +67,19 @@ pub(super) fn load_db(
     Ok(Arc::new(ReadOpsTrackingStore::new(db)))
 }
 
+pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> Option<Index> {
+    let mut index = Index::default();
+    let reader = db.tracker.eth_mappings_db.read();
+    for (k, v) in reader.iter() {
+        index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
+    }
+    if index == Index::default() {
+        None
+    } else {
+        Some(index)
+    }
+}
+
 async fn ctx(
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain_config: Arc<ChainConfig>,
@@ -130,7 +143,7 @@ async fn ctx(
 /// A [`Blockstore`] wrapper that tracks read operations to the inner [`Blockstore`] with an [`MemoryDB`]
 pub struct ReadOpsTrackingStore<T> {
     inner: T,
-    tracker: Arc<MemoryDB>,
+    pub tracker: Arc<MemoryDB>,
 }
 
 impl<T> ReadOpsTrackingStore<T>
@@ -251,6 +264,10 @@ impl<T: BitswapStoreReadWrite> BitswapStoreReadWrite for ReadOpsTrackingStore<T>
 
 impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            EthMappingsStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
         self.inner.read_bin(key)
     }
 

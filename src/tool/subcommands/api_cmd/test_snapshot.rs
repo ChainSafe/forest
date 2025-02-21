@@ -13,7 +13,10 @@ use crate::{
     lotus_json::HasLotusJson,
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::{ChainConfig, NetworkChain},
-    rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _, RpcMethodExt as _},
+    rpc::{
+        eth::{filter::EthEventHandler, types::EthHash},
+        RPCState, RpcMethod as _, RpcMethodExt as _,
+    },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
     KeyStore, KeyStoreConfig,
@@ -21,8 +24,16 @@ use crate::{
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{path::Path, sync::Arc};
+use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{sync::mpsc, task::JoinSet};
+
+#[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec<u8>);
+
+#[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
+pub struct Index {
+    pub eth_mappings: ahash::HashMap<String, Payload>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RpcTestSnapshot {
@@ -30,8 +41,22 @@ pub struct RpcTestSnapshot {
     pub name: String,
     pub params: serde_json::Value,
     pub response: Result<serde_json::Value, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index: Option<Index>,
     #[serde(with = "crate::lotus_json::base64_standard")]
     pub db: Vec<u8>,
+}
+
+fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
+    if let Some(index) = index {
+        if let Some(mut guard) = db.eth_mappings_db.try_write() {
+            for (k, v) in index.eth_mappings.into_iter() {
+                let hash = EthHash::from_str(&k)?;
+                guard.insert(hash, v.0);
+            }
+        }
+    }
+    Ok(())
 }
 
 pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
@@ -46,6 +71,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         chain,
         name: method_name,
         params,
+        index,
         db: db_bytes,
         response: expected_response,
     } = serde_json::from_slice(snapshot_bytes.as_slice())?;
@@ -53,6 +79,8 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
         CurrentNetwork::set_global(Network::Testnet);
     }
     let db = Arc::new(ManyCar::new(MemoryDB::default()).with_read_only(AnyCar::new(db_bytes)?)?);
+    // backfill db with index data
+    backfill_eth_mappings(db.writer(), index)?;
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let (ctx, _, _) = ctx(db, chain_config).await?;
     let params_raw = match serde_json::to_string(&params)? {

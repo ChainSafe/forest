@@ -279,7 +279,7 @@ pub struct F3Manifest {
     pub ignore_ec_power: bool,
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]
-    pub initial_power_table: Cid,
+    pub initial_power_table: Option<Cid>,
     pub committee_lookback: u64,
     #[schemars(with = "u64")]
     #[serde(with = "crate::lotus_json")]
