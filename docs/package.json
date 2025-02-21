@@ -23,6 +23,7 @@
     "@docusaurus/theme-mermaid": "^3.7.0",
     "@easyops-cn/docusaurus-search-local": "^0.48.5",
     "@metamask/docusaurus-openrpc": "^0.4.1",
+    "@sentry/browser": "^7.119.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.4.1",
     "prettier": "^3.5.1",
