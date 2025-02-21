@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 
 	"github.com/filecoin-project/go-f3"
 	"github.com/filecoin-project/go-f3/certs"
@@ -61,4 +62,13 @@ func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
 
 func (h *F3ServerHandler) F3GetManifest(_ context.Context) *manifest.Manifest {
 	return h.f3.Manifest()
+}
+
+func (h *F3ServerHandler) F3SetManifest(_ context.Context, m *manifest.Manifest) error {
+	if ManifestProvider != nil {
+		ManifestProvider.Update(m)
+		return nil
+	} else {
+		return errors.New("forest manifest provider is not properly initialized")
+	}
 }

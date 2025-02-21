@@ -15,13 +15,12 @@ import (
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	leveldb "github.com/ipfs/go-ds-leveldb"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
+var ManifestProvider *ForestManifestProvider
+
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
@@ -95,40 +94,12 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
-	var manifestProvider manifest.ManifestProvider
-	switch manifestServerID, err := peer.Decode(manifestServer); {
-	case err != nil:
-		logger.Info("Using static manifest provider")
-		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
-			return err
-		}
-	default:
-		logger.Infof("Using dynamic manifest provider at %s", manifestServerID)
-		manifestDS := namespace.Wrap(ds, datastore.NewKey("/f3-dynamic-manifest"))
-		primaryNetworkName := m.NetworkName
-		filter := func(m *manifest.Manifest) error {
-			if m.EC.Finalize {
-				return fmt.Errorf("refusing dynamic manifest that finalizes tipsets")
-			}
-			if m.NetworkName == primaryNetworkName {
-				return fmt.Errorf(
-					"refusing dynamic manifest with network name %q that clashes with initial manifest",
-					primaryNetworkName,
-				)
-			}
-			return nil
-		}
-		if manifestProvider, err = manifest.NewDynamicManifestProvider(
-			p2p.PubSub,
-			manifestServerID,
-			manifest.DynamicManifestProviderWithInitialManifest(m),
-			manifest.DynamicManifestProviderWithDatastore(manifestDS),
-			manifest.DynamicManifestProviderWithFilter(filter)); err != nil {
-			return err
-		}
+	ManifestProvider, err = NewForestManifestProvider(m)
+	if err != nil {
+		return err
 	}
 
-	f3Module, err := f3.New(ctx, manifestProvider, ds,
+	f3Module, err := f3.New(ctx, ManifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {
 		return err

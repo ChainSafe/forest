@@ -12,28 +12,35 @@ mod util;
 
 pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate};
 use self::{types::*, util::*};
-use super::wallet::WalletSign;
-use crate::shim::actors::{
-    convert::{
-        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
-        from_policy_v13_to_v9,
-    },
-    miner, power,
-};
+use super::{eth::types::EthAddress, wallet::WalletSign};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{types::ApiTipsetKey, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{
+        eth::types::EthBytes, state::StateCall, types::ApiTipsetKey, ApiPaths, Ctx, Permission,
+        RpcMethod, ServerError,
+    },
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
         crypto::Signature,
+        message::Message,
     },
     utils::misc::env::is_env_set_and_truthy,
+};
+use crate::{
+    rpc::eth::types::EthCallMessage,
+    shim::actors::{
+        convert::{
+            from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
+            from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
+            from_policy_v13_to_v9,
+        },
+        miner, power,
+    },
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -41,6 +48,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
+use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
@@ -567,6 +575,54 @@ impl RpcMethod<2> for SignMessage {
     }
 }
 
+pub enum GetManifestFromContract {}
+
+impl GetManifestFromContract {
+    pub fn create_eth_call_message(contract: EthAddress) -> EthCallMessage {
+        // method ID of activationInformation()
+        static METHOD_ID: Lazy<EthBytes> =
+            Lazy::new(|| EthBytes::from_str("0x2587660d").expect("Infallible"));
+        EthCallMessage {
+            to: Some(contract),
+            data: METHOD_ID.clone(),
+            ..Default::default()
+        }
+    }
+
+    async fn get_manifest_from_contract(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        contract: EthAddress,
+    ) -> anyhow::Result<F3Manifest> {
+        let eth_call_message = Self::create_eth_call_message(contract);
+        let filecoin_message = Message::try_from(eth_call_message)?;
+        let api_invoc_result = StateCall::handle(ctx, (filecoin_message, None.into())).await?;
+        let Some(message_receipt) = api_invoc_result.msg_rct else {
+            anyhow::bail!("No message receipt");
+        };
+        message_receipt.try_into()
+    }
+}
+
+impl RpcMethod<0> for GetManifestFromContract {
+    const NAME: &'static str = "F3.GetManifestFromContract";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = F3Manifest;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        _: Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let Some(f3_contract_address) = ctx.chain_config().f3_contract_address.clone() else {
+            return Err(anyhow::anyhow!("F3 contract address is not set").into());
+        };
+        Ok(Self::get_manifest_from_contract(ctx, f3_contract_address).await?)
+    }
+}
+
 /// returns a finality certificate at given instance number
 pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
@@ -815,6 +871,14 @@ impl RpcMethod<1> for F3Participate {
             .participate(&lease, current_instance)?;
         Ok(lease)
     }
+}
+
+pub async fn set_f3_manifest(manifest: &F3Manifest) -> anyhow::Result<()> {
+    let client = get_rpc_http_client()?;
+    let mut params = ArrayParams::new();
+    params.insert(manifest)?;
+    let _: serde_json::Value = client.request("Filecoin.F3SetManifest", params).await?;
+    Ok(())
 }
 
 pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
