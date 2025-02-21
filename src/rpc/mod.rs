@@ -364,7 +364,7 @@ pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
-use crate::blocks::{FullTipset, Tipset};
+use crate::blocks::FullTipset;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},

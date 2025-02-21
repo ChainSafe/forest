@@ -8,7 +8,8 @@ pub mod main;
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
-use crate::chain_sync::{chain_follower, ChainMuxer};
+use crate::chain_sync::network_context::SyncNetworkContext;
+use crate::chain_sync::ChainFollower;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
@@ -442,43 +443,54 @@ async fn create_p2p_service(
     Ok(p2p_service)
 }
 
-fn create_chain_muxer(
+fn create_mpool(
     services: &mut JoinSet<anyhow::Result<()>>,
-    opts: &CliOpts,
     db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
     p2p_service: &Libp2pService<DbType>,
     network_name: String,
-) -> anyhow::Result<ChainMuxer<DbType, MpoolRpcProvider<DbType>>> {
+) -> anyhow::Result<Arc<MessagePool<MpoolRpcProvider<DbType>>>> {
     let publisher = state_manager.chain_store().publisher();
     let provider = MpoolRpcProvider::new(publisher.clone(), state_manager.clone());
-    let mpool = Arc::new(MessagePool::new(
+    Ok(MessagePool::new(
         provider,
         network_name,
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(db.writer().as_ref())?,
         state_manager.chain_config().clone(),
         services,
-    )?);
-    let chain_muxer = ChainMuxer::new(
+    )
+    .map(Arc::new)?)
+}
+
+fn create_chain_follower(
+    opts: &CliOpts,
+    state_manager: &Arc<StateManager<DbType>>,
+    p2p_service: &Libp2pService<DbType>,
+    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+) -> anyhow::Result<ChainFollower<DbType>> {
+    let network_send = p2p_service.network_sender().clone();
+    let peer_manager = p2p_service.peer_manager().clone();
+    let network =
+        SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+    let chain_follower = ChainFollower::new(
         state_manager.clone(),
-        p2p_service.peer_manager().clone(),
-        mpool.clone(),
-        p2p_service.network_sender().clone(),
-        p2p_service.network_receiver(),
+        network,
         Arc::new(Tipset::from(
             state_manager.chain_store().genesis_block_header(),
         )),
+        p2p_service.network_receiver(),
         opts.stateless,
-    )?;
-    Ok(chain_muxer)
+        mpool,
+    );
+    Ok(chain_follower)
 }
 
-fn start_chain_muxer_service(
+fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
-    chain_muxer: ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
+    chain_follower: ChainFollower<DbType>,
 ) {
-    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+    services.spawn(async move { chain_follower.run().await });
 }
 
 async fn maybe_start_health_check_service(
@@ -487,14 +499,14 @@ async fn maybe_start_health_check_service(
     db: &DbType,
     state_manager: &StateManager<DbType>,
     p2p_service: &Libp2pService<DbType>,
-    chain_muxer: &ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
+    chain_follower: &ChainFollower<DbType>,
 ) -> anyhow::Result<()> {
     if config.client.enable_health_check {
         let forest_state = crate::health::ForestState {
             config: config.clone(),
             chain_config: state_manager.chain_config().clone(),
             genesis_timestamp: state_manager.chain_store().genesis_block_header().timestamp,
-            sync_state: chain_muxer.sync_state().clone(),
+            sync_state: chain_follower.sync_state.clone(),
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: db.writer().clone(),
         };
@@ -515,7 +527,8 @@ fn maybe_start_rpc_service(
     config: &Config,
     keystore: Arc<RwLock<KeyStore>>,
     state_manager: &Arc<StateManager<DbType>>,
-    chain_muxer: &ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
+    mpool: Arc<MessagePool<MpoolRpcProvider<DbType>>>,
+    chain_follower: &ChainFollower<DbType>,
     start_time: chrono::DateTime<chrono::Utc>,
     network_name: String,
     shutdown: mpsc::Sender<()>,
@@ -532,11 +545,10 @@ fn maybe_start_rpc_service(
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
         services.spawn({
             let state_manager = state_manager.clone();
-            let mpool = chain_muxer.mpool().clone();
-            let bad_blocks = chain_muxer.bad_blocks().clone();
-            let sync_state = chain_muxer.sync_state().clone();
-            let sync_network_context = chain_muxer.sync_network_context().clone();
-            let tipset_send = chain_muxer.tipset_sender().clone();
+            let bad_blocks = chain_follower.bad_blocks.clone();
+            let sync_state = chain_follower.sync_state.clone();
+            let sync_network_context = chain_follower.network.clone();
+            let tipset_send = chain_follower.tipset_sender.clone();
             async move {
                 start_rpc(
                     RPCState {
@@ -675,20 +687,21 @@ pub(super) async fn start(
         &network_name,
     )
     .await?;
-    let chain_muxer = create_chain_muxer(
+    let mpool = create_mpool(
         &mut services,
-        &opts,
         &db,
         &state_manager,
         &p2p_service,
         network_name.clone(),
     )?;
+    let chain_follower = create_chain_follower(&opts, &state_manager, &p2p_service, mpool.clone())?;
     maybe_start_rpc_service(
         &mut services,
         &config,
         keystore,
         &state_manager,
-        &chain_muxer,
+        mpool.clone(),
+        &chain_follower,
         start_time,
         network_name,
         shutdown_send.clone(),
@@ -707,7 +720,7 @@ pub(super) async fn start(
         &db,
         &state_manager,
         &p2p_service,
-        &chain_muxer,
+        &chain_follower,
     )
     .await?;
     maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &db, &state_manager);
@@ -715,7 +728,7 @@ pub(super) async fn start(
         ensure_proof_params_downloaded().await?;
     }
     services.spawn(p2p_service.run());
-    start_chain_muxer_service(&mut services, chain_muxer);
+    start_chain_follower_service(&mut services, chain_follower);
     // Note: it could take long before unblocking parent process on a fresh Forest run which
     // downloads a snapshot, actor bundles and proof parameter files.
     // This could be moved to before any of those steps if we want to unblock parent process early,
