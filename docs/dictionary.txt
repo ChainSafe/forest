@@ -86,6 +86,7 @@ rustup
 S3-compatible
 semver
 serverless
+stateroots
 subcommands
 swappiness
 TabItem
