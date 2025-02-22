@@ -8,7 +8,7 @@ use crate::daemon::get_actual_chain_name;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
 use anyhow::bail;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use std::ffi::OsString;
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
@@ -50,6 +50,7 @@ where
                 Subcommand::Healthcheck(cmd) => cmd.run(client).await,
                 Subcommand::F3(cmd) => cmd.run(client).await,
                 Subcommand::WaitApi(cmd) => cmd.run(client).await,
+                Subcommand::GenerateCompletions(cmd) => cmd.run(&mut Cli::command()),
             }
         })
 }

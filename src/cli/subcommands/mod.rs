@@ -20,11 +20,10 @@ mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
 mod wait_api_cmd;
-
 use std::io::Write;
 
-pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
+pub(crate) use crate::cli_shared::cli::{CompletionCommand, Config};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use clap::Parser;
@@ -41,7 +40,8 @@ use crate::cli::subcommands::info_cmd::InfoCommand;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
-#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(name = env!("CARGO_PKG_NAME"), bin_name = "forest-cli", author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION")
+)]
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
     /// Client JWT token to use for JSON-RPC authentication
@@ -109,6 +109,9 @@ pub enum Subcommand {
 
     /// Wait for lotus API to come online
     WaitApi(WaitApiCommand),
+
+    /// Generate shell completions
+    GenerateCompletions(CompletionCommand),
 }
 
 /// Format a vector to a prettified string
