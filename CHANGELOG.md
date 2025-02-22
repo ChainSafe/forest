@@ -73,6 +73,8 @@
 
 - [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
 
+- [#2602](https://github.com/ChainSafe/forest/issues/2602) Add shell completion for forest-cli
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
