@@ -31,6 +31,8 @@
 
 - [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
 
+- [#5329](https://github.com/ChainSafe/forest/pull/5329) Changed JSON-RPC alias for `Filecoin.NetListening`, `Filecoin.NetVersion`, `Filecoin.EthTraceBlock`, `Filecoin.EthTraceReplayBlockTransactions` to adhere to Lotus API.
+
 ### Added
 
 - [#5244](https://github.com/ChainSafe/forest/issues/5244) Add `live` and `healthy` subcommands to `forest-cli healthcheck`.
@@ -76,6 +78,8 @@
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
+
+- [#5329](https://github.com/ChainSafe/forest/pull/5329) `Filecoin.Web3ClientVersion` now returns the name of the node and its version, e.g., `forest/0.23.3+git.32a34e92`.
 
 ### Removed
 

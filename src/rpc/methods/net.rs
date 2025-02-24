@@ -103,6 +103,7 @@ impl RpcMethod<0> for NetListening {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const NAME_ALIAS: Option<&'static str> = Some("net_listening");
 
     type Params = ();
     type Ok = bool;
@@ -249,6 +250,7 @@ impl RpcMethod<0> for NetVersion {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
     type Params = ();
     type Ok = String;
