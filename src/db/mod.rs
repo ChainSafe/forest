@@ -275,7 +275,7 @@ pub mod db_engine {
     }
 
     pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, &config).map_err(Into::into)
+        Db::open(path, &config)
     }
 }
 

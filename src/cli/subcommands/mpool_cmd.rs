@@ -415,7 +415,6 @@ mod tests {
             filter_messages(smsg_json_vec, None, &Some(target2.to_string()), &None)
                 .unwrap()
                 .into_iter()
-                .map(Into::into)
                 .collect();
 
         for smsg in smsg_filtered.iter() {

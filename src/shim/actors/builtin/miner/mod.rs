@@ -425,11 +425,7 @@ impl From<fil_actor_miner_state::v8::MinerInfo> for MinerInfo {
         MinerInfo {
             owner: info.owner,
             worker: info.worker,
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(Address::from)
-                .collect(),
+            control_addresses: info.control_addresses.into_iter().collect(),
             new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
             worker_change_epoch: info
                 .pending_worker_key
@@ -454,11 +450,7 @@ impl From<fil_actor_miner_state::v9::MinerInfo> for MinerInfo {
         MinerInfo {
             owner: info.owner,
             worker: info.worker,
-            control_addresses: info
-                .control_addresses
-                .into_iter()
-                .map(Address::from)
-                .collect(),
+            control_addresses: info.control_addresses.into_iter().collect(),
             new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
             worker_change_epoch: info
                 .pending_worker_key
