@@ -44,9 +44,9 @@ pub async fn run_test_with_dump(
             if test_dump.request.method_name.as_ref() == <$ty>::NAME {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params).await?;
-                assert_eq!(
-                    test_dump.forest_response,
-                    Ok(result.into_lotus_json_value()?)
+                anyhow::ensure!(
+                    test_dump.forest_response == Ok(result.into_lotus_json_value()?),
+                    "Response mismatch between Forest and Lotus"
                 );
                 run = true;
             }
