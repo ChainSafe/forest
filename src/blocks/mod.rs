@@ -8,7 +8,7 @@ mod block;
 mod chain4u;
 mod election_proof;
 mod gossip_block;
-mod header;
+pub mod header;
 mod ticket;
 #[cfg(not(doc))]
 mod tipset;
