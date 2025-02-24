@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 
 	"github.com/filecoin-project/go-f3"
 	"github.com/filecoin-project/go-f3/certs"
@@ -22,6 +21,7 @@ type F3Api struct {
 	GetParticipatingMinerIDs func(context.Context) ([]uint64, error)
 	SignMessage              func(context.Context, []byte, []byte) (*crypto.Signature, error)
 	Finalize                 func(context.Context, gpbft.TipSetKey) error
+	GetManifestFromContract  func(context.Context) (*manifest.Manifest, error)
 }
 
 type FilecoinApi struct {
@@ -62,13 +62,4 @@ func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
 
 func (h *F3ServerHandler) F3GetManifest(_ context.Context) *manifest.Manifest {
 	return h.f3.Manifest()
-}
-
-func (h *F3ServerHandler) F3SetManifest(_ context.Context, m *manifest.Manifest) error {
-	if ManifestProvider != nil {
-		ManifestProvider.Update(m)
-		return nil
-	} else {
-		return errors.New("forest manifest provider is not properly initialized")
-	}
 }

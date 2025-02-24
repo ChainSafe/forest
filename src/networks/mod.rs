@@ -240,7 +240,7 @@ pub struct ChainConfig {
     pub f3_initial_power_table: Cid,
     #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
     pub f3_contract_address: Option<EthAddress>,
-    pub f3_contract_poll_interval: Duration,
+    f3_contract_poll_interval: Duration,
 }
 
 impl ChainConfig {
@@ -446,6 +446,20 @@ impl ChainConfig {
 
     pub fn genesis_network_version(&self) -> NetworkVersion {
         self.genesis_network
+    }
+
+    #[allow(dead_code)]
+    pub fn f3_contract_poll_interval(&self) -> Duration {
+        std::env::var("FOREST_F3_MANIFEST_POLL_INTERVAL")
+            .ok()
+            .and_then(|i| humantime::Duration::from_str(&i).ok())
+            .inspect(|i| {
+                tracing::info!(
+                    "Using F3 contract manifest poll interval {i} set by FOREST_F3_MANIFEST_POLL_INTERVAL"
+                )
+            })
+            .map(Into::into)
+            .unwrap_or(self.f3_contract_poll_interval)
     }
 }
 

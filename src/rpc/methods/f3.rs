@@ -611,19 +611,19 @@ impl RpcMethod<0> for GetManifestFromContract {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = F3Manifest;
+    type Ok = Option<F3Manifest>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         _: Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let Some(f3_contract_address) = ctx.chain_config().f3_contract_address.clone() else {
-            return Err(anyhow::anyhow!("F3 contract address is not set").into());
-        };
-        Ok(Self::get_manifest_from_contract(
-            &ctx.state_manager,
-            f3_contract_address,
-        )?)
+        Ok(match &ctx.chain_config().f3_contract_address {
+            Some(f3_contract_address) => Some(Self::get_manifest_from_contract(
+                &ctx.state_manager,
+                f3_contract_address.clone(),
+            )?),
+            _ => None,
+        })
     }
 }
 
@@ -875,14 +875,6 @@ impl RpcMethod<1> for F3Participate {
             .participate(&lease, current_instance)?;
         Ok(lease)
     }
-}
-
-pub async fn set_f3_manifest(manifest: &F3Manifest) -> anyhow::Result<()> {
-    let client = get_rpc_http_client()?;
-    let mut params = ArrayParams::new();
-    params.insert(manifest)?;
-    let _: serde_json::Value = client.request("Filecoin.F3SetManifest", params).await?;
-    Ok(())
 }
 
 pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {

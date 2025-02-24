@@ -18,9 +18,9 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
-var ManifestProvider *ForestManifestProvider
+var ManifestProvider *ContractManifestProvider
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
@@ -94,7 +94,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
-	ManifestProvider, err = NewForestManifestProvider(m)
+	ManifestProvider, err = NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)
 	if err != nil {
 		return err
 	}

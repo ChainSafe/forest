@@ -28,12 +28,12 @@ type f3Impl struct {
 	ctx context.Context
 }
 
-func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, db *string) bool {
+func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, db *string, contract_manifest_poll_interval_seconds *uint64) bool {
 	var err error = nil
 	const MAX_RETRY int = 5
 	nRetry := 0
 	for nRetry <= MAX_RETRY {
-		err = run(f3.ctx, *rpc_endpoint, *jwt, *f3_rpc_endpoint, *initial_power_table, *bootstrap_epoch, *finality, *db)
+		err = run(f3.ctx, *rpc_endpoint, *jwt, *f3_rpc_endpoint, *initial_power_table, *bootstrap_epoch, *finality, *db, *contract_manifest_poll_interval_seconds)
 		if err != nil {
 			nRetry += 1
 			logger.Errorf("Unexpected F3 failure, retrying(%d) in 10s... error=%s", nRetry, err)
