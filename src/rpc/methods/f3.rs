@@ -29,6 +29,7 @@ use crate::{
         crypto::Signature,
         message::Message,
     },
+    state_manager::StateManager,
     utils::misc::env::is_env_set_and_truthy,
 };
 use crate::{
@@ -589,13 +590,13 @@ impl GetManifestFromContract {
         }
     }
 
-    async fn get_manifest_from_contract(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+    fn get_manifest_from_contract<DB: Blockstore + Send + Sync + 'static>(
+        state_manager: &Arc<StateManager<DB>>,
         contract: EthAddress,
     ) -> anyhow::Result<F3Manifest> {
         let eth_call_message = Self::create_eth_call_message(contract);
         let filecoin_message = Message::try_from(eth_call_message)?;
-        let api_invoc_result = StateCall::handle(ctx, (filecoin_message, None.into())).await?;
+        let api_invoc_result = StateCall::run(state_manager, &filecoin_message, None)?;
         let Some(message_receipt) = api_invoc_result.msg_rct else {
             anyhow::bail!("No message receipt");
         };
@@ -619,7 +620,10 @@ impl RpcMethod<0> for GetManifestFromContract {
         let Some(f3_contract_address) = ctx.chain_config().f3_contract_address.clone() else {
             return Err(anyhow::anyhow!("F3 contract address is not set").into());
         };
-        Ok(Self::get_manifest_from_contract(ctx, f3_contract_address).await?)
+        Ok(Self::get_manifest_from_contract(
+            &ctx.state_manager,
+            f3_contract_address,
+        )?)
     }
 }
 
