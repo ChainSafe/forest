@@ -14,7 +14,7 @@
 //! - **Event Filter**: Captures blockchain events, such as smart contract log events, emitted by specific actors.
 //! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
 //! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
-mod event;
+pub mod event;
 mod mempool;
 mod store;
 mod tipset;
@@ -85,7 +85,7 @@ pub trait FilterManager {
 /// including event filters and tipSet filters. It interacts with a filter store and manages
 /// configurations such as the maximum filter height range and maximum filter results.
 pub struct EthEventHandler {
-    filter_store: Option<Arc<dyn FilterStore>>,
+    pub filter_store: Option<Arc<dyn FilterStore>>,
     pub max_filter_results: usize,
     pub max_filter_height_range: ChainEpoch,
     event_filter_manager: Option<Arc<EventFilterManager>>,
@@ -382,15 +382,17 @@ impl EthEventHandler {
                     .await?;
             }
             ParsedFilterTipsets::Range(range) => {
+                ensure!(*range.end() >= 0, "max_height requested is less than 0");
+                // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+                // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+                let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
+                ensure!(
+                    *range.end() < heaviest_epoch,
+                    "max_height requested is greater than the heaviest tipset"
+                );
                 let max_height = if *range.end() == -1 {
                     // heaviest tipset doesn't have events because its messages haven't been executed yet
-                    ctx.chain_store().heaviest_tipset().epoch() - 1
-                } else if *range.end() < 0 {
-                    bail!("max_height requested is less than 0")
-                } else if *range.end() > ctx.chain_store().heaviest_tipset().epoch() - 1 {
-                    // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
-                    // in the next non-null tipset (because of Filecoin's "deferred execution" model)
-                    bail!("max_height requested is greater than the heaviest tipset");
+                    heaviest_epoch - 1
                 } else {
                     *range.end()
                 };
@@ -596,7 +598,7 @@ fn parse_eth_topics(
     Ok(keys)
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ActorEventBlock {
     codec: u64,
     value: Vec<u8>,
@@ -622,7 +624,7 @@ fn keys_to_keys_with_codec(
     keys_with_codec
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ParsedFilterTipsets {
     Range(RangeInclusive<ChainEpoch>),
     Hash(EthHash),
@@ -701,6 +703,21 @@ impl Matcher for ParsedFilter {
         };
 
         Ok(match_addr && match_fields)
+    }
+}
+
+impl Matcher for EventFilter {
+    fn matches(
+        &self,
+        resolved: &crate::shim::address::Address,
+        _entries: &[Entry],
+    ) -> anyhow::Result<bool> {
+        let match_addr = if self.addresses.is_empty() {
+            true
+        } else {
+            self.addresses.iter().any(|other| *other == *resolved)
+        };
+        Ok(match_addr)
     }
 }
 
