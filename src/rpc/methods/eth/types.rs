@@ -284,11 +284,18 @@ pub struct GasReward {
 #[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallMessage {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from: Option<EthAddress>,
+    // `to` is required as per [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) documentation.
+    // In the Filecoin context, though, it is optional due to special handling of the Ethereum
+    // Account Manager.
     pub to: Option<EthAddress>,
-    pub gas: EthUint64,
-    pub gas_price: EthBigInt,
-    pub value: EthBigInt,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gas: Option<EthUint64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gas_price: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub value: Option<EthBigInt>,
     pub data: EthBytes,
 }
 lotus_json_with_self!(EthCallMessage);
@@ -337,7 +344,7 @@ impl TryFrom<EthCallMessage> for Message {
         Ok(Message {
             from,
             to,
-            value: tx.value.0.into(),
+            value: tx.value.unwrap_or_default().0.into(),
             method_num,
             params,
             gas_limit: BLOCK_GAS_LIMIT,
