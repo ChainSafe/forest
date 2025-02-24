@@ -10,6 +10,7 @@ import (
 type ContractManifestProvider struct {
 	started         *bool
 	pollInterval    time.Duration
+	initialManifest *manifest.Manifest
 	currentManifest *manifest.Manifest
 	f3Api           *F3Api
 	ch              chan *manifest.Manifest
@@ -24,11 +25,11 @@ func NewContractManifestProvider(initialValue *manifest.Manifest, contract_manif
 	p := ContractManifestProvider{
 		started:         &started,
 		pollInterval:    pollInterval,
-		currentManifest: initialValue,
+		initialManifest: initialValue,
+		currentManifest: nil,
 		f3Api:           f3Api,
 		ch:              make(chan *manifest.Manifest),
 	}
-	p.Update(initialValue)
 	return &p, nil
 }
 
@@ -38,11 +39,19 @@ func (p *ContractManifestProvider) Update(m *manifest.Manifest) {
 }
 
 func (p *ContractManifestProvider) Start(ctx context.Context) error {
+	if *p.started {
+		logger.Warnf("ContractManifestProvider has already been started\n")
+		return nil
+	}
+
 	started := true
 	p.started = &started
 	go func() {
 		for started && ctx.Err() == nil {
-			logger.Infof("Polling manifest from contract...\n")
+			if p.currentManifest == nil {
+				p.Update(p.initialManifest)
+			}
+			logger.Debugf("Polling manifest from contract...\n")
 			m, err := p.f3Api.GetManifestFromContract(ctx)
 			if err == nil {
 				if m != nil {

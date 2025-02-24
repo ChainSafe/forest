@@ -18,8 +18,6 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
-var ManifestProvider *ContractManifestProvider
-
 func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
@@ -28,9 +26,16 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 	defer closer()
-	network, err := api.StateNetworkName(ctx)
-	if err != nil {
-		return err
+	var network string
+	for {
+		network, err = api.StateNetworkName(ctx)
+		if err == nil {
+			logger.Infoln("Forest RPC server is online")
+			break
+		} else {
+			logger.Warnln("waiting for Forest RPC server")
+			time.Sleep(5 * time.Second)
+		}
 	}
 	listenAddrs, err := api.NetAddrsListen(ctx)
 	if err != nil {
@@ -94,12 +99,14 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
-	ManifestProvider, err = NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)
+	manifestProvider, err := NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)
 	if err != nil {
 		return err
 	}
-
-	f3Module, err := f3.New(ctx, ManifestProvider, ds,
+	if err := manifestProvider.Start(ctx); err != nil {
+		return err
+	}
+	f3Module, err := f3.New(ctx, manifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {
 		return err
