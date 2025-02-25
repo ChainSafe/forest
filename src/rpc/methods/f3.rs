@@ -609,6 +609,7 @@ impl RpcMethod<0> for GetManifestFromContract {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.");
 
     type Params = ();
     type Ok = Option<F3Manifest>;
