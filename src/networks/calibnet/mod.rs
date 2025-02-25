@@ -10,9 +10,10 @@ use std::str::FromStr;
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
+    DrandPoint, Height, HeightInfo, NetworkChain,
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    parse_bootstrap_peers, DrandPoint, Height, HeightInfo, NetworkChain,
+    parse_bootstrap_peers,
 };
 
 /// Default genesis car file bytes.

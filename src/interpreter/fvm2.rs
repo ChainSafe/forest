@@ -12,23 +12,23 @@ use crate::networks::ChainConfig;
 use crate::shim::actors::miner;
 use crate::shim::{
     actors::MinerActorStateLoad as _,
-    gas::{price_list_by_network_version, Gas, GasTracker},
+    gas::{Gas, GasTracker, price_list_by_network_version},
     state_tree::StateTree,
     version::NetworkVersion,
 };
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::bail;
 use cid::Cid;
-use fvm2::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
-    tracking::{BSStats, TrackingBlockstore},
     Blockstore,
+    tracking::{BSStats, TrackingBlockstore},
 };
 use fvm_shared2::{
     address::Address,
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
+use fvm2::externs::{Consensus, Externs, Rand};
 
 pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,

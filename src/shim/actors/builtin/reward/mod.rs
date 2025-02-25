@@ -22,7 +22,7 @@ use fvm_shared2::address::Address;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::sector::StoragePower;
 use fvm_shared2::smooth::FilterEstimate;
-use fvm_shared2::{econ::TokenAmount, piece::PaddedPieceSize, TOTAL_FILECOIN};
+use fvm_shared2::{TOTAL_FILECOIN, econ::TokenAmount, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
 use std::cmp::max;

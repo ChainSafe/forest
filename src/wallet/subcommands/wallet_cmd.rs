@@ -10,6 +10,7 @@ use std::{
 use crate::cli::humantoken::TokenAmountPretty as _;
 use crate::key_management::{Key, KeyInfo};
 use crate::{
+    ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
     message::SignedMessage,
     rpc::{
@@ -17,26 +18,25 @@ use crate::{
         types::ApiTipsetKey,
     },
     shim::address::Address,
-    ENCRYPTED_KEYSTORE_NAME,
+};
+use crate::{KeyStore, lotus_json::LotusJson};
+use crate::{
+    KeyStoreConfig,
+    shim::{
+        address::StrictAddress,
+        crypto::{Signature, SignatureType},
+        econ::TokenAmount,
+        message::{METHOD_SEND, Message},
+    },
 };
 use crate::{
     lotus_json::HasLotusJson as _,
     rpc::{self, prelude::*},
 };
-use crate::{lotus_json::LotusJson, KeyStore};
-use crate::{
-    shim::{
-        address::StrictAddress,
-        crypto::{Signature, SignatureType},
-        econ::TokenAmount,
-        message::{Message, METHOD_SEND},
-    },
-    KeyStoreConfig,
-};
-use anyhow::{bail, Context as _};
-use base64::{prelude::BASE64_STANDARD, Engine};
-use clap::{arg, Subcommand};
-use dialoguer::{console::Term, theme::ColorfulTheme, Password};
+use anyhow::{Context as _, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
+use clap::{Subcommand, arg};
+use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
 use num::Zero as _;
 
@@ -156,7 +156,7 @@ impl WalletBackend {
     }
 
     async fn wallet_set_default(&mut self, address: Address) -> anyhow::Result<()> {
-        if let Some(ref mut keystore) = &mut self.local {
+        if let Some(keystore) = &mut self.local {
             let addr_string = format!("wallet-{}", address);
             let key_info = keystore.get(&addr_string)?;
             keystore.remove("default")?; // This line should unregister current default key then continue

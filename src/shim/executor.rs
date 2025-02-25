@@ -3,13 +3,10 @@
 
 use super::trace::ExecutionEvent;
 use crate::shim::{
-    econ::TokenAmount, fvm_shared_latest::error::ExitCode, fvm_shared_latest::ActorID,
+    econ::TokenAmount, fvm_shared_latest::ActorID, fvm_shared_latest::error::ExitCode,
 };
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0;
-use fvm2::executor::ApplyRet as ApplyRet_v2;
-use fvm3::executor::ApplyRet as ApplyRet_v3;
-use fvm4::executor::ApplyRet as ApplyRet_v4;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
@@ -21,6 +18,9 @@ use fvm_shared4::event::ActorEvent as ActorEvent_v4;
 use fvm_shared4::event::Entry as Entry_v4;
 use fvm_shared4::event::StampedEvent as StampedEvent_v4;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
+use fvm2::executor::ApplyRet as ApplyRet_v2;
+use fvm3::executor::ApplyRet as ApplyRet_v3;
+use fvm4::executor::ApplyRet as ApplyRet_v4;
 use serde::Serialize;
 
 #[derive(Clone, Debug)]

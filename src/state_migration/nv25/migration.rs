@@ -19,8 +19,8 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 use super::evm::EvmMigrator;
-use super::{system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use super::{SystemStateOld, system, verifier::Verifier};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv25_migrations(

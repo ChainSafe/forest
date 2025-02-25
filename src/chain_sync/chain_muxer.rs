@@ -20,7 +20,7 @@ use crate::chain_sync::{
     validation::{TipsetValidationError, TipsetValidator},
 };
 use crate::libp2p::{
-    hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
+    NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage, hello::HelloRequest,
 };
 use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
@@ -30,7 +30,7 @@ use crate::{
     networks::calculate_expected_epoch,
 };
 use cid::Cid;
-use futures::{future::Future, stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, future::Future, stream::FuturesUnordered};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use parking_lot::RwLock;
@@ -509,10 +509,12 @@ where
                 ) as i64,
             ) {
                 (local_epoch, now_epoch) if local_epoch >= now_epoch => {
-                    return Ok(NetworkHeadEvaluation::InSync)
+                    return Ok(NetworkHeadEvaluation::InSync);
                 }
                 (local_epoch, now_epoch) => {
-                    info!("local head is behind the network, local_epoch: {local_epoch}, now_epoch: {now_epoch}");
+                    info!(
+                        "local head is behind the network, local_epoch: {local_epoch}, now_epoch: {now_epoch}"
+                    );
                 }
             };
 
@@ -564,9 +566,9 @@ where
                         false
                     } else if tipset.epoch() > now_epoch {
                         warn!(
-                                "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
-                                header.epoch, header.timestamp
-                            );
+                            "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                            header.epoch, header.timestamp
+                        );
                         false
                     } else {
                         true
@@ -774,7 +776,10 @@ where
                     // tipset in the store
                     if tipset.weight() < chain_store.heaviest_tipset().weight() {
                         // Only send heavier Tipsets to the TipsetProcessor
-                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
+                        trace!(
+                            "Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store",
+                            tipset.key()
+                        );
                         continue;
                     }
 
@@ -866,13 +871,20 @@ where
                             network_head,
                             local_head,
                         } => {
-                            info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
+                            info!(
+                                "Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}",
+                                local_head.epoch(),
+                                network_head.epoch()
+                            );
                             self.state = ChainMuxerState::Bootstrap(
                                 self.bootstrap(network_head, local_head),
                             );
                         }
                         NetworkHeadEvaluation::InRange { network_head } => {
-                            info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
+                            info!(
+                                "Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW",
+                                network_head.epoch()
+                            );
                             self.state = ChainMuxerState::Follow(self.follow(Some(network_head)));
                         }
                         NetworkHeadEvaluation::InSync => {
@@ -896,11 +908,16 @@ where
                 ChainMuxerState::Bootstrap(ref mut bootstrap) => {
                     match bootstrap.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
-                            info!("Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync");
+                            info!(
+                                "Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync"
+                            );
                             self.state = ChainMuxerState::Idle;
                         }
                         Poll::Ready(Err(why)) => {
-                            error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
+                            error!(
+                                "Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}",
+                                why
+                            );
                             metrics::BOOTSTRAP_ERRORS.inc();
                             self.state = ChainMuxerState::Idle;
                         }
@@ -909,7 +926,9 @@ where
                 }
                 ChainMuxerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
                     Poll::Ready(Ok(_)) => {
-                        error!("Following the network unexpectedly ended without an error; restarting the sync process.");
+                        error!(
+                            "Following the network unexpectedly ended without an error; restarting the sync process."
+                        );
                         metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
                         self.state = ChainMuxerState::Idle;
                     }

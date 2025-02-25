@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::network_context::SyncNetworkContext;
@@ -8,18 +9,17 @@ use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::populate_eth_mappings;
-use crate::db::{car::ManyCar, MemoryDB};
+use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::eth::filter::EthEventHandler;
-use crate::rpc::{start_rpc, RPCState};
+use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
-use crate::utils::net::{download_to, DownloadFileOption};
-use crate::JWT_IDENTIFIER;
+use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use std::{
@@ -30,9 +30,9 @@ use std::{
 use tokio::{
     signal::{
         ctrl_c,
-        unix::{signal, SignalKind},
+        unix::{SignalKind, signal},
     },
-    sync::{mpsc, RwLock},
+    sync::{RwLock, mpsc},
     task::JoinSet,
 };
 use tracing::{info, warn};

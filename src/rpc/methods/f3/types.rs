@@ -5,7 +5,7 @@ use super::*;
 use crate::utils::multihash::prelude::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
-    lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson, LotusJson},
+    lotus_json::{HasLotusJson, LotusJson, base64_standard, lotus_json_with_self},
     networks::NetworkChain,
 };
 use cid::Cid;
@@ -18,7 +18,7 @@ use num::Zero as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;

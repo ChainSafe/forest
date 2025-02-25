@@ -11,9 +11,9 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
+use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
-use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
@@ -29,8 +29,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use ipld_core::ipld::Ipld;
-use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
+use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
@@ -38,8 +38,8 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::{any::Any, collections::VecDeque, path::PathBuf, sync::Arc};
 use tokio::sync::{
-    broadcast::{self, Receiver as Subscriber},
     Mutex,
+    broadcast::{self, Receiver as Subscriber},
 };
 
 pub enum ChainGetMessage {}
@@ -258,7 +258,9 @@ impl RpcMethod<1> for ChainReadObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.",
+    );
 
     type Params = (Cid,);
     type Ok = Vec<u8>;
@@ -909,8 +911,8 @@ mod tests {
     use PathChange::{Apply, Revert};
 
     use crate::{
-        blocks::{chain4u, Chain4U, RawBlockHeader},
-        db::{car::PlainCar, MemoryDB},
+        blocks::{Chain4U, RawBlockHeader, chain4u},
+        db::{MemoryDB, car::PlainCar},
         networks::{self, ChainConfig},
     };
 

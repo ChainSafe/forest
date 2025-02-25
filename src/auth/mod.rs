@@ -4,7 +4,7 @@
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -63,7 +63,7 @@ pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
 }
 
 pub fn generate_priv_key() -> KeyInfo {
-    let priv_key = rand::thread_rng().gen::<[u8; 32]>();
+    let priv_key = rand::thread_rng().r#gen::<[u8; 32]>();
     // This is temporary use of bls key as placeholder, need to update keyinfo to use string
     // instead of keyinfo for key type
     KeyInfo::new(SignatureType::Bls, priv_key.to_vec())

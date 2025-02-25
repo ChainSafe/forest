@@ -3,12 +3,12 @@
 
 pub mod common;
 
-use forest::{verify_token, JWT_IDENTIFIER};
 use forest::{
-    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
+    ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME, KeyStore, KeyStoreConfig,
 };
+use forest::{JWT_IDENTIFIER, verify_token};
 
-use crate::common::{create_tmp_config, daemon, CommonArgs};
+use crate::common::{CommonArgs, create_tmp_config, daemon};
 
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]

@@ -8,10 +8,10 @@ mod tests {
     use ahash::HashMap;
     use cid::Cid;
     use futures::StreamExt;
-    use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
+    use libp2p::{Multiaddr, PeerId, Swarm, multiaddr::Protocol, swarm::SwarmEvent};
     use libp2p_swarm_test::SwarmExt as _;
     use parking_lot::RwLock;
-    use rand::{rngs::OsRng, Rng};
+    use rand::{Rng, rngs::OsRng};
     use std::{sync::Arc, time::Duration};
     use tokio::{select, task::JoinSet};
 
@@ -139,8 +139,8 @@ mod tests {
         Ok(())
     }
 
-    fn new_random_block(
-    ) -> anyhow::Result<Block<<TestStoreInner as BitswapStoreReadWrite>::Hashes, 64>> {
+    fn new_random_block()
+    -> anyhow::Result<Block<<TestStoreInner as BitswapStoreReadWrite>::Hashes, 64>> {
         // 100KB
         let mut data = vec![0; 100 * 1024];
         OsRng.fill(&mut data[..]);

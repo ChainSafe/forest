@@ -17,7 +17,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
-use crate::state_manager::{errors::*, StateManager};
+use crate::state_manager::{StateManager, errors::*};
 
 use super::MinerActorStateLoad as _;
 
@@ -263,7 +263,7 @@ pub mod structured {
         kernel::SyscallError,
         trace::{Call, CallReturn, ExecutionEvent},
     };
-    use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
+    use fvm_ipld_encoding::{RawBytes, ipld_block::IpldBlock};
     use itertools::Either;
 
     enum CallTreeReturn {
@@ -274,9 +274,13 @@ pub mod structured {
 
     #[derive(Debug, thiserror::Error)]
     pub enum BuildExecutionTraceError {
-        #[error("every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't")]
+        #[error(
+            "every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't"
+        )]
         UnexpectedReturn,
-        #[error("every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't")]
+        #[error(
+            "every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't"
+        )]
         NoReturn,
         #[error("unrecognised ExecutionEvent variant: {0:?}")]
         UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
@@ -334,12 +338,12 @@ pub mod structured {
                 ExecutionEvent::CallReturn(_)
                 | ExecutionEvent::CallAbort(_)
                 | ExecutionEvent::CallError(_) => {
-                    return Err(BuildExecutionTraceError::UnexpectedReturn)
+                    return Err(BuildExecutionTraceError::UnexpectedReturn);
                 }
                 ExecutionEvent::Log(_ignored) => {}
                 ExecutionEvent::InvokeActor(_cid) => {}
                 ExecutionEvent::Unknown(u) => {
-                    return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
+                    return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)));
                 }
             }
         }
@@ -413,7 +417,7 @@ pub mod structured {
                     //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
                     ExecutionEvent::Unknown(u) => {
-                        return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
+                        return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)));
                     }
                 };
 

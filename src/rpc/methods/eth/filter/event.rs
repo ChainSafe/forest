@@ -1,9 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
-use crate::rpc::eth::{filter::Filter, CollectedEvent, FilterID};
 use crate::rpc::Arc;
+use crate::rpc::eth::filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets};
+use crate::rpc::eth::{CollectedEvent, FilterID, filter::Filter};
 use crate::shim::address::Address;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};

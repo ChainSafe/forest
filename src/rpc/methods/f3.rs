@@ -15,9 +15,9 @@ use self::{types::*, util::*};
 use super::wallet::WalletSign;
 use crate::shim::actors::{
     convert::{
-        from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-        from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
-        from_policy_v13_to_v9,
+        from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
+        from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
+        from_policy_v13_to_v16,
     },
     miner, power,
 };
@@ -27,7 +27,7 @@ use crate::{
     chain_sync::TipsetValidator,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{types::ApiTipsetKey, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,

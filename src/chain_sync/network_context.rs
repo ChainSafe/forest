@@ -5,8 +5,8 @@ use std::{
     convert::TryFrom,
     num::NonZeroU64,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicU64, Ordering},
     },
     time::{Duration, SystemTime},
 };
@@ -14,13 +14,13 @@ use std::{
 use crate::{
     blocks::{FullTipset, Tipset, TipsetKey},
     libp2p::{
+        NetworkMessage, PeerId, PeerManager,
         chain_exchange::{
-            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-            MESSAGES,
+            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, HEADERS, MESSAGES,
+            TipsetBundle,
         },
         hello::{HelloRequest, HelloResponse},
         rpc::RequestResponseError,
-        NetworkMessage, PeerId, PeerManager,
     },
     utils::{
         misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
@@ -595,7 +595,7 @@ mod tests {
     #[test]
     #[allow(unused_variables)]
     fn validate_network_tipsets_tests() {
-        use crate::blocks::{chain4u, Chain4U};
+        use crate::blocks::{Chain4U, chain4u};
 
         let c4u = Chain4U::new();
         chain4u! {

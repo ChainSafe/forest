@@ -46,7 +46,7 @@ mod quicknet {
 
     // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
     fn pk() -> PublicKeyOnG2 {
-        let pk_hex="83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a";
+        let pk_hex = "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a";
         PublicKeyOnG2::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap()
     }
 
@@ -90,7 +90,9 @@ mod mainnet {
 
     #[test]
     fn test_verify_messages_mainnet_batch_success() {
-        let messages = [message(&signature_2(), 3), message(&signature_3(), 4)];
+        let sig_2 = signature_2();
+        let sig_3 = signature_3();
+        let messages = [message(&sig_2, 3), message(&sig_3, 4)];
         let signatures = vec![signature_3(), signature_4()];
         assert!(verify_messages_chained(
             &pk(),
@@ -101,7 +103,9 @@ mod mainnet {
 
     #[test]
     fn test_verify_messages_mainnet_batch_failure() {
-        let messages = [message(&signature_2(), 3), message(&signature_3(), 3)];
+        let sig_2 = signature_2();
+        let sig_3 = signature_3();
+        let messages = [message(&sig_2, 3), message(&sig_3, 3)];
         let signatures = vec![signature_3(), signature_4()];
         assert!(!verify_messages_chained(
             &pk(),
@@ -112,7 +116,7 @@ mod mainnet {
 
     // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
     fn pk() -> PublicKeyOnG1 {
-        let pk_hex="868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31";
+        let pk_hex = "868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31";
         PublicKeyOnG1::from_bytes(&hex::decode(pk_hex).unwrap()).unwrap()
     }
 

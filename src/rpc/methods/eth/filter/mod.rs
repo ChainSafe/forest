@@ -19,19 +19,19 @@ mod mempool;
 mod store;
 mod tipset;
 
-use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
+use super::get_tipset_from_hash;
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
+use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::eth::filter::event::*;
 use crate::rpc::eth::filter::mempool::*;
 use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
-use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::reflect::Ctx;
 use crate::rpc::types::EventEntry;
@@ -41,7 +41,7 @@ use crate::shim::executor::Entry;
 use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
-use anyhow::{anyhow, bail, ensure, Context, Error};
+use anyhow::{Context, Error, anyhow, bail, ensure};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -724,7 +724,7 @@ impl Matcher for EventFilter {
 #[cfg(test)]
 mod tests {
     use ahash::AHashMap;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
 
@@ -747,9 +747,11 @@ mod tests {
         let chain_height = 50;
         let max_filter_height_range = 100;
 
-        assert!(eth_filter_spec
-            .parse_eth_filter_spec(chain_height, max_filter_height_range)
-            .is_ok());
+        assert!(
+            eth_filter_spec
+                .parse_eth_filter_spec(chain_height, max_filter_height_range)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -767,9 +769,11 @@ mod tests {
         let chain_height = 50;
         let max_filter_height_range = 100;
 
-        assert!(eth_filter_spec
-            .parse_eth_filter_spec(chain_height, max_filter_height_range)
-            .is_err(),);
+        assert!(
+            eth_filter_spec
+                .parse_eth_filter_spec(chain_height, max_filter_height_range)
+                .is_err(),
+        );
     }
 
     #[test]

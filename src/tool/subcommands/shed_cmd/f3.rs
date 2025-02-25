@@ -3,11 +3,10 @@
 
 use crate::{
     rpc::{
-        self,
+        self, RpcMethodExt,
         eth::types::{EthAddress, EthBytes, EthCallMessage},
         f3::F3Manifest,
         state::StateCall,
-        RpcMethodExt,
     },
     shim::message::Message,
 };

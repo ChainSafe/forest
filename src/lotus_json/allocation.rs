@@ -4,9 +4,9 @@
 use super::*;
 use crate::shim::actors::verifreg::Allocation;
 use ::cid::Cid;
+use fvm_shared4::ActorID;
 use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::piece::PaddedPieceSize;
-use fvm_shared4::ActorID;
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

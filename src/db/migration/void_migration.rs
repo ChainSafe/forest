@@ -3,8 +3,8 @@
 
 //! Migration logic from any version that requires no migration logic.
 
-use crate::db::migration::migration_map::temporary_db_name;
 use crate::Config;
+use crate::db::migration::migration_map::temporary_db_name;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};

@@ -12,16 +12,16 @@ use self::utils::structured;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
-    index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
+    index::{ChainIndex, ResolveNullTipset},
 };
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
-    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext, VMEvent,
-    IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    ApplyResult, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    VMEvent, resolve_to_key_addr,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
@@ -33,8 +33,8 @@ use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::*;
 use crate::shim::{
     actors::{
-        miner::ext::MinerStateExt as _, verifreg::ext::VerifiedRegistryStateExt as _,
-        LoadActorStateFromBlockstore,
+        LoadActorStateFromBlockstore, miner::ext::MinerStateExt as _,
+        verifreg::ext::VerifiedRegistryStateExt as _,
     },
     executor::{ApplyRet, Receipt, StampedEvent},
 };
@@ -50,7 +50,7 @@ use crate::shim::{
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
 use ahash::{HashMap, HashMapExt};
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -61,7 +61,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
 use fil_actors_shared::v13::runtime::Policy;
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, select};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools as _;
@@ -75,7 +75,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
+use tokio::sync::{Mutex as TokioMutex, RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
 
@@ -1281,7 +1281,7 @@ where
             Protocol::Actor => {
                 return Err(
                     Error::Other("cannot resolve actor address to key address".to_string()).into(),
-                )
+                );
             }
             _ => {}
         };

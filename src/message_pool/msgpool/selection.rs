@@ -8,7 +8,7 @@
 
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
-use crate::blocks::{Tipset, BLOCK_MESSAGE_LIMIT};
+use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
@@ -17,11 +17,11 @@ use rand::{prelude::SliceRandom, thread_rng};
 
 use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
-    add_to_selected_msgs,
-    msg_chain::{create_message_chains, Chains, NodeKey},
+    Error, add_to_selected_msgs,
+    msg_chain::{Chains, NodeKey, create_message_chains},
     msg_pool::MsgSet,
     msgpool::MIN_GAS,
-    remove_from_selected_msgs, Error,
+    remove_from_selected_msgs,
 };
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
@@ -447,8 +447,10 @@ where
             }
 
             if random_count > 0 {
-                tracing::warn!("optimal selection failed to pack a block; picked {} messages with random selection",
-                    random_count);
+                tracing::warn!(
+                    "optimal selection failed to pack a block; picked {} messages with random selection",
+                    random_count
+                );
             }
         }
 
@@ -703,7 +705,7 @@ mod test_selection {
     use crate::message_pool::{
         head_change,
         msgpool::{
-            test_provider::{mock_block, TestApi},
+            test_provider::{TestApi, mock_block},
             tests::{create_fake_smsg, create_smsg},
         },
     };

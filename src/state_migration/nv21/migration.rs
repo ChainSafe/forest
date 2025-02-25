@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use super::{miner, system, verifier::Verifier, SystemStateOld};
+use super::{SystemStateOld, miner, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -12,7 +12,7 @@ use crate::shim::{
     sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
     state_tree::{StateTree, StateTreeVersion},
 };
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 use crate::utils::db::CborStoreExt as _;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 use anyhow::Context as _;

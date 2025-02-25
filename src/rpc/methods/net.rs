@@ -266,7 +266,9 @@ impl RpcMethod<1> for NetProtectAdd {
     const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
-    const DESCRIPTION: Option<&'static str> = Some("Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.",
+    );
 
     type Params = (Vec<String>,);
     type Ok = ();

@@ -9,21 +9,21 @@ use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt, stream};
 use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use tokio::fs::File;
 use tracing::warn;
 
-use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
+use crate::daemon::bundle::{ACTOR_BUNDLE_CACHE_DIR, load_actor_bundles_from_server};
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+use crate::utils::net::{DownloadFileOption, download_file_with_cache};
 
 use std::str::FromStr;
 
