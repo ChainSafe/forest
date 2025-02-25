@@ -765,11 +765,6 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         return Err(why.into());
     };
 
-    // Persist tipset keys
-    for ts in parent_tipsets.iter() {
-        chain_store.put_tipset_key(ts.key())?;
-    }
-
     // Sync and validate messages from the tipsets
     tracker.write().set_stage(SyncStage::Messages);
     if let Err(why) = sync_messages_check_state(
@@ -788,9 +783,6 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         tracker.write().error(why.to_string());
         return Err(why);
     };
-
-    // Call only once messages persisted
-    chain_store.put_delegated_message_hashes(headers.into_iter())?;
 
     // At this point the head is synced and it can be set in the store as the
     // heaviest
@@ -986,9 +978,6 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         proposed_head.block_headers().iter(),
     )?;
 
-    // Persist tipset key
-    chain_store.put_tipset_key(proposed_head.key())?;
-
     // Sync and validate messages from the tipsets
     if let Err(e) = sync_messages_check_state(
         // Include a dummy WorkerState
@@ -1006,9 +995,6 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         warn!("Sync messages check state failed for single tipset");
         return Err(e);
     }
-
-    // Call only once messages persisted
-    chain_store.put_delegated_message_hashes(proposed_head.block_headers().iter())?;
 
     // Add the tipset to the store. The tipset will be expanded with other blocks
     // with the same [epoch, parents] before updating the heaviest Tipset in

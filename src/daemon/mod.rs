@@ -7,7 +7,7 @@ pub mod main;
 
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
-use crate::chain::ChainStore;
+use crate::chain::{ChainStore, HeadChange};
 use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
@@ -620,18 +620,57 @@ fn maybe_start_f3_service(
 fn maybe_populate_eth_mappings_in_background(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
-    config: Config,
+    config: &Config,
     db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
 ) {
     if !opts.stateless && !state_manager.chain_config().is_devnet() {
         let state_manager = state_manager.clone();
         let settings = db.writer().clone();
+        let config = config.clone();
         services.spawn(async move {
             if let Err(err) = init_ethereum_mapping(state_manager, &settings, &config) {
                 tracing::warn!("Init Ethereum mapping failed: {}", err)
             }
             Ok(())
+        });
+    }
+}
+
+fn maybe_start_indexer_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    _config: &Config,
+    _db: &DbType,
+    state_manager: &Arc<StateManager<DbType>>,
+) {
+    if !opts.stateless && !state_manager.chain_config().is_devnet() {
+        let state_manager = state_manager.clone();
+
+        let mut receiver = state_manager.chain_store().publisher().subscribe();
+
+        services.spawn(async move {
+            tracing::info!("Start indexer service");
+
+            // Continuously listen for head changes
+            loop {
+                let msg = receiver.recv().await?;
+
+                let ts = match msg {
+                    HeadChange::Apply(ts) => ts,
+                };
+                tracing::debug!("Indexing tipset {}", ts.key());
+
+                state_manager.chain_store().put_tipset_key(ts.key())?;
+
+                let delegated_messages = state_manager
+                    .chain_store()
+                    .headers_delegated_messages(ts.block_headers().iter())?;
+
+                state_manager
+                    .chain_store()
+                    .process_signed_messages(&delegated_messages)?;
+            }
         });
     }
 }
@@ -709,7 +748,8 @@ pub(super) async fn start(
         &chain_muxer,
     )
     .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &db, &state_manager);
+    maybe_populate_eth_mappings_in_background(&mut services, &opts, &config, &db, &state_manager);
+    maybe_start_indexer_service(&mut services, &opts, &config, &db, &state_manager);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }

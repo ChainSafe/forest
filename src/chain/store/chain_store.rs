@@ -158,8 +158,6 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.put_tipset_key(expanded.key())?;
-
         self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
