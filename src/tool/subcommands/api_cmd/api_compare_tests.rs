@@ -1197,23 +1197,41 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             EthProtocolVersion::request_with_alias((), use_alias).unwrap(),
         ));
-        tests.push(RpcTest::identity(
-            EthCall::request_with_alias(
-                (
-                    EthCallMessage {
-                        to: Some(
-                            EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")
-                                .unwrap(),
-                        ),
-                        data: "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse().unwrap(),
-                        ..EthCallMessage::default()
-                    },
-                    BlockNumberOrHash::from_predefined(Predefined::Latest),
-                ),
-                use_alias,
-            )
-            .unwrap(),
-        ));
+
+        let cases = [
+            (
+                Some(EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap()),
+                "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
+                    .parse()
+                    .unwrap(),
+            ),
+            // Assert contract creation, which is invoked via setting the `to` field to `None` and
+            // providing the contract bytecode in the `data` field.
+            (
+                None,
+                EthBytes::from_str(
+                    concat!("0x", include_str!("./contracts/invoke_cthulhu.hex")).trim(),
+                )
+                .unwrap(),
+            ),
+        ];
+
+        for (to, data) in cases {
+            tests.push(RpcTest::identity(
+                EthCall::request_with_alias(
+                    (
+                        EthCallMessage {
+                            to,
+                            data,
+                            ..EthCallMessage::default()
+                        },
+                        BlockNumberOrHash::from_predefined(Predefined::Latest),
+                    ),
+                    use_alias,
+                )
+                .unwrap(),
+            ));
+        }
         tests.push(RpcTest::basic(
             EthNewFilter::request_with_alias(
                 (EthFilterSpec {
@@ -1629,9 +1647,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 tests.extend([RpcTest::identity(
                     EthEstimateGas::request((
                         EthCallMessage {
-                            from: None,
                             to: Some(eth_to_addr),
-                            value: msg.value.clone().into(),
+                            value: Some(msg.value.clone().into()),
                             data: msg.params.clone().into(),
                             ..Default::default()
                         },

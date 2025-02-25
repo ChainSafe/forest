@@ -656,7 +656,10 @@ impl RpcMethod<0> for Web3ClientVersion {
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(crate::utils::version::FOREST_VERSION_STRING.clone())
+        Ok(format!(
+            "forest/{}",
+            *crate::utils::version::FOREST_VERSION_STRING
+        ))
     }
 }
 
@@ -2842,7 +2845,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
 pub enum EthTraceBlock {}
 impl RpcMethod<1> for EthTraceBlock {
     const NAME: &'static str = "Filecoin.EthTraceBlock";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_traceBlock");
+    const NAME_ALIAS: Option<&'static str> = Some("trace_block");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
@@ -2912,7 +2915,7 @@ pub enum EthTraceReplayBlockTransactions {}
 impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const N_REQUIRED_PARAMS: usize = 2;
     const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
-    const NAME_ALIAS: Option<&'static str> = Some("eth_traceReplayBlockTransactions");
+    const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "trace_types"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
