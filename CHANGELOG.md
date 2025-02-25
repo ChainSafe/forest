@@ -81,6 +81,8 @@
 
 - [#5329](https://github.com/ChainSafe/forest/pull/5329) `Filecoin.Web3ClientVersion` now returns the name of the node and its version, e.g., `forest/0.23.3+git.32a34e92`.
 
+- [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
+
 ### Removed
 
 ### Fixed
