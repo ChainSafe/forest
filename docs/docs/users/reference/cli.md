@@ -1798,3 +1798,31 @@ Options:
       --omit <OMIT>  A comma-separated list of fields to omit from the output (e.g., "summary,description") [possible values: summary, description]
   -h, --help         Print help
 ```
+
+### `forest-tool shed f3`
+
+```
+F3 related commands
+
+Usage: forest-tool shed f3 <COMMAND>
+
+Commands:
+  check-activation
+  check-activation-raw  Queries F3 parameters contract using raw logic
+  help                  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool shed f3 check-activation-raw`
+
+```
+Queries F3 parameters contract using raw logic
+
+Usage: forest-tool shed f3 check-activation-raw --contract <CONTRACT>
+
+Options:
+      --contract <CONTRACT>  Contract eth address
+  -h, --help                 Print help
+```
