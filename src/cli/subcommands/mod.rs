@@ -22,8 +22,8 @@ mod sync_cmd;
 mod wait_api_cmd;
 use std::io::Write;
 
+pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
-pub(crate) use crate::cli_shared::cli::{CompletionCommand, Config};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use clap::Parser;
@@ -109,9 +109,6 @@ pub enum Subcommand {
 
     /// Wait for lotus API to come online
     WaitApi(WaitApiCommand),
-
-    /// Generate shell completions
-    GenerateCompletions(CompletionCommand),
 }
 
 /// Format a vector to a prettified string
