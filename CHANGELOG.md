@@ -73,7 +73,7 @@
 
 - [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
 
-- [#2602](https://github.com/ChainSafe/forest/issues/2602) Add shell completion for forest-cli
+- [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
 
 ### Changed
 
