@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::net::global_http_client;
-use crate::utils::{retry, RetryArgs};
+use crate::utils::{RetryArgs, retry};
 use crate::{
     daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},

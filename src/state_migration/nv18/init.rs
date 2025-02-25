@@ -11,7 +11,7 @@ use crate::state_migration::common::{
 };
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
-use fil_actor_init_state::{v10::State as InitStateNew, v9::State as InitStateOld};
+use fil_actor_init_state::{v9::State as InitStateOld, v10::State as InitStateNew};
 use fvm_ipld_blockstore::Blockstore;
 
 pub struct InitMigrator(Cid);

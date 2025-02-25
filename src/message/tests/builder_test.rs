@@ -7,7 +7,7 @@ use crate::shim::{
     crypto::Signature,
     message::{Message, Message_v3},
 };
-use rand::{rngs::OsRng, RngCore};
+use rand::{RngCore, rngs::OsRng};
 
 #[test]
 fn generate_signed_message() {

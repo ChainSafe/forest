@@ -71,7 +71,7 @@ use cfg_vis::cfg_vis;
 use cid::Cid;
 use itertools::Itertools as _;
 use positioned_io::{ReadAt, Size};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::{
     cmp,
     io::{self, Read, Write},

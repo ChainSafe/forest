@@ -13,9 +13,10 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 
 use super::{
+    DrandPoint, Height, HeightInfo, NetworkChain,
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
-    parse_bootstrap_peers, DrandPoint, Height, HeightInfo, NetworkChain,
+    parse_bootstrap_peers,
 };
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;

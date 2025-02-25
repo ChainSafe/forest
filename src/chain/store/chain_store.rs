@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
+    Error,
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
-    Error,
 };
 use crate::db::{EthMappingsStore, EthMappingsStoreExt};
 use crate::fil_cns;
@@ -32,7 +32,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
 use parking_lot::Mutex;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::sync::Arc;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, info, trace, warn};

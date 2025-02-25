@@ -8,10 +8,10 @@ use crate::shim::{
     state_tree::ActorState as ShimActorState,
 };
 use cid::Cid;
+use fvm_ipld_encoding::{RawBytes, ipld_block::IpldBlock};
 use fvm2::trace::ExecutionEvent as E2;
 use fvm3::trace::ExecutionEvent as E3;
 use fvm4::trace::ExecutionEvent as E4;
-use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
 use itertools::Either;
 
 #[derive(Debug, Clone)]

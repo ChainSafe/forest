@@ -62,16 +62,16 @@
 
 use ahash::HashMap;
 use jsonrpsee::{
+    ConnectionId, MethodResponse, MethodSink,
     server::{
         IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
         ResponsePayload,
     },
-    types::{error::ErrorCode, ErrorObjectOwned, Id, Params},
-    ConnectionId, MethodResponse, MethodSink,
+    types::{ErrorObjectOwned, Id, Params, error::ErrorCode},
 };
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{mpsc, oneshot};
 
@@ -158,7 +158,9 @@ impl PendingSubscriptionSink {
                 channel_id: self.channel_id,
             })
         } else {
-            panic!("The subscription response was too big; adjust the `max_response_size` or change Subscription ID generation");
+            panic!(
+                "The subscription response was too big; adjust the `max_response_size` or change Subscription ID generation"
+            );
         }
     }
 

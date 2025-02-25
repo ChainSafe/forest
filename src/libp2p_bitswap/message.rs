@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::bitswap_pb::mod_Message::{mod_Wantlist::WantType, BlockPresenceType, Wantlist};
+use super::bitswap_pb::mod_Message::{BlockPresenceType, Wantlist, mod_Wantlist::WantType};
 use serde::{Deserialize, Serialize};
 
 use crate::libp2p_bitswap::{prefix::Prefix, *};

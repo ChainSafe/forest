@@ -7,7 +7,7 @@ use crate::blocks::Tipset;
 use crate::cli::humantoken::TokenAmountPretty;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::Address;
-use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
+use crate::shim::clock::{BLOCKS_PER_EPOCH, ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
@@ -273,18 +273,22 @@ mod tests {
         let tipset = mock_tipset_at(duration.as_secs() - 10);
         let status = node_status(duration, tipset.as_ref());
 
-        assert!(status
-            .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .contains("10s behind"));
+        assert!(
+            status
+                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .contains("10s behind")
+        );
     }
 
     #[test]
     fn test_lag_uptime_ahead() {
         let mut status = mock_node_status();
         status.lag = -360;
-        assert!(status
-            .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .contains("6m ahead"));
+        assert!(
+            status
+                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .contains("6m ahead")
+        );
     }
 
     #[test]
@@ -294,17 +298,21 @@ mod tests {
         let status = node_status(duration, tipset.as_ref());
         let expected_status_fmt =
             "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
-        assert!(status
-            .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .contains(&expected_status_fmt));
+        assert!(
+            status
+                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .contains(&expected_status_fmt)
+        );
 
         let tipset = mock_tipset_at(duration.as_secs() - 30000);
         let status = node_status(duration, tipset.as_ref());
 
         let expected_status_fmt =
             "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
-        assert!(status
-            .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .contains(&expected_status_fmt));
+        assert!(
+            status
+                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .contains(&expected_status_fmt)
+        );
     }
 }

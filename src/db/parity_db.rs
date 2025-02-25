@@ -3,11 +3,11 @@
 
 use super::{EthMappingsStore, PersistentStore, SettingsStore};
 use crate::cid_collections::CidHashSet;
-use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
+use crate::db::{DBStatistics, GarbageCollectable, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
@@ -557,10 +557,11 @@ mod test {
                 Blockstore::get(db.deref(), cid).unwrap(),
                 Some(persistent_entry.clone())
             );
-            assert!(db
-                .read_from_column(cid.to_bytes(), DbColumn::PersistentGraph)
-                .unwrap()
-                .is_some());
+            assert!(
+                db.read_from_column(cid.to_bytes(), DbColumn::PersistentGraph)
+                    .unwrap()
+                    .is_some()
+            );
             db.put_keyed(cid, data_entry).unwrap();
             assert_eq!(
                 Blockstore::get(db.deref(), cid).unwrap(),

@@ -19,8 +19,8 @@ use crate::rpc::eth::types::EthHash;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::sync::Arc;
 
 pub const CAR_DB_DIR_NAME: &str = "car_db";

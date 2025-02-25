@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use libp2p::gossipsub::{
-    score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
+    IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
 };
 
 use crate::libp2p::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};

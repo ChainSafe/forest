@@ -3,7 +3,7 @@
 
 pub mod common;
 
-use common::{daemon, CommonArgs};
+use common::{CommonArgs, daemon};
 use predicates::prelude::*;
 
 use crate::common::{create_tmp_config, tool};
@@ -216,7 +216,7 @@ fn keypair_conversion_roundtrip() {
     .trim()
     .to_string();
 
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::{Engine, prelude::BASE64_STANDARD};
     let keypair_decoded = BASE64_STANDARD.decode(keypair_encoded).unwrap();
     assert_eq!(keypair, keypair_decoded);
 }

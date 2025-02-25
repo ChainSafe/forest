@@ -7,7 +7,7 @@ mod writer_checksum;
 
 use std::{
     fs::File,
-    io::{self, prelude::*, Result},
+    io::{self, Result, prelude::*},
     os::unix::fs::OpenOptionsExt,
     path::Path,
 };

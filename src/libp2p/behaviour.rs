@@ -4,8 +4,8 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use super::{
-    discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
     PeerManager,
+    discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
 };
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
@@ -18,7 +18,7 @@ use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use ahash::{HashMap, HashSet};
 use libp2p::{
-    allow_block_list, connection_limits,
+    Multiaddr, allow_block_list, connection_limits,
     gossipsub::{
         self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
         ValidationMode,
@@ -28,7 +28,6 @@ use libp2p::{
     metrics::{Metrics, Recorder},
     ping, request_response,
     swarm::NetworkBehaviour,
-    Multiaddr,
 };
 use once_cell::sync::Lazy;
 use tracing::info;

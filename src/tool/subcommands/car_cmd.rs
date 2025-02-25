@@ -130,8 +130,8 @@ mod tests {
     use crate::utils::db::car_stream::CarBlock;
     use crate::utils::multihash::prelude::*;
     use cid::Cid;
-    use futures::{stream::iter, StreamExt, TryStreamExt};
-    use nunny::{vec as nonempty, Vec as NonEmpty};
+    use futures::{StreamExt, TryStreamExt, stream::iter};
+    use nunny::{Vec as NonEmpty, vec as nonempty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};
     use tokio::io::AsyncWriteExt;
@@ -140,26 +140,32 @@ mod tests {
     async fn validate_junk_car() {
         let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(&[0xde, 0xad, 0xbe, 0xef]).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, false)
-            .await
-            .is_err());
+        assert!(
+            validate(&temp_path.into_temp_path(), false, false)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
     async fn validate_empty_car() {
         let temp_path = Builder::new().tempfile().unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, false)
-            .await
-            .is_err());
+        assert!(
+            validate(&temp_path.into_temp_path(), false, false)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
     async fn validate_mainnet_genesis() {
         let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(mainnet::DEFAULT_GENESIS).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, true)
-            .await
-            .is_ok());
+        assert!(
+            validate(&temp_path.into_temp_path(), false, true)
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]

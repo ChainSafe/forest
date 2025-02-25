@@ -108,13 +108,13 @@ mod parse {
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
     use nom::{
+        IResult,
         bytes::complete::tag,
         character::complete::multispace0,
         combinator::{map_res, opt},
         error::{FromExternalError, ParseError},
         number::complete::recognize_float,
         sequence::terminated,
-        IResult,
     };
 
     use super::si;

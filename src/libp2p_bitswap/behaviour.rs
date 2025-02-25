@@ -4,9 +4,9 @@
 use std::sync::Arc;
 
 use libp2p::{
-    request_response::{self, OutboundRequestId, ProtocolSupport},
-    swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
+    request_response::{self, OutboundRequestId, ProtocolSupport},
+    swarm::{NetworkBehaviour, THandlerOutEvent, derive_prelude::*},
 };
 
 use crate::libp2p_bitswap::{codec::*, request_manager::*, *};

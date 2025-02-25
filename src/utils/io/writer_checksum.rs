@@ -112,7 +112,7 @@ impl AsyncWrite for VoidAsyncWriter {
 
 #[cfg(test)]
 mod test {
-    use rand::{rngs::OsRng, RngCore};
+    use rand::{RngCore, rngs::OsRng};
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};
 

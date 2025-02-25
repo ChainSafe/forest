@@ -389,11 +389,8 @@ pub fn unordered_stream_graph<
     }
 }
 
-impl<
-        DB: Blockstore + Send + Sync + 'static,
-        T: Borrow<Tipset>,
-        ITER: Iterator<Item = T> + Unpin,
-    > UnorderedChainStream<DB, ITER>
+impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>
+    UnorderedChainStream<DB, ITER>
 {
     fn start_workers(
         db: Arc<DB>,

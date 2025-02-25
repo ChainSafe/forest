@@ -9,7 +9,7 @@ use chrono::Duration;
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DurationSeconds};
+use serde_with::{DurationSeconds, serde_as};
 
 /// RPC call to create a new JWT Token
 pub enum AuthNew {}

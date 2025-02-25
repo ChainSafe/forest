@@ -16,10 +16,10 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 
 use super::{
-    eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,
-    SystemStateOld,
+    SystemStateOld, eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system,
+    verifier::Verifier,
 };
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv18_migrations(
         &mut self,

@@ -183,8 +183,8 @@ impl LintRunner {
     /// - We get byteoffset spans from [`rowan`](https://docs.rs/rowan/latest/rowan),
     ///   not char-offset spans.
     pub fn run_comment_linter(mut self) -> Self {
-        use ra_ap_syntax::{ast, AstNode as _, AstToken as _};
-        use regex_automata::{meta::Regex, Anchored, Input};
+        use ra_ap_syntax::{AstNode as _, AstToken as _, ast};
+        use regex_automata::{Anchored, Input, meta::Regex};
         info!("linting comments");
         let mut all_violations = vec![];
         let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();

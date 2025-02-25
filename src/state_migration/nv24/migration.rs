@@ -18,8 +18,8 @@ use cid::Cid;
 
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{power, system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use super::{SystemStateOld, power, system, verifier::Verifier};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv24_migrations(

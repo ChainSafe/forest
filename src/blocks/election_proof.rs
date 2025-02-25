@@ -5,8 +5,8 @@ use crate::blocks::VRFProof;
 use crate::shim::clock::BLOCKS_PER_EPOCH;
 use crate::utils::encoding::blake2b_256;
 use num::{
-    bigint::{ParseBigIntError, Sign},
     BigInt, Integer,
+    bigint::{ParseBigIntError, Sign},
 };
 use once_cell::sync::Lazy;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};

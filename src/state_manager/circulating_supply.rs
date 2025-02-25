@@ -7,19 +7,19 @@ use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::types::CirculatingSupply;
 use crate::shim::actors::{
-    is_account_actor, is_ethaccount_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
-    is_paymentchannel_actor, is_placeholder_actor, MarketActorStateLoad as _,
-    MinerActorStateLoad as _, MultisigActorStateLoad as _, PowerActorStateLoad as _,
+    MarketActorStateLoad as _, MinerActorStateLoad as _, MultisigActorStateLoad as _,
+    PowerActorStateLoad as _, is_account_actor, is_ethaccount_actor, is_evm_actor, is_miner_actor,
+    is_multisig_actor, is_paymentchannel_actor, is_placeholder_actor,
 };
 use crate::shim::actors::{market, miner, multisig, power, reward};
 use crate::shim::version::NetworkVersion;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
-    econ::{TokenAmount, TOTAL_FILECOIN},
+    econ::{TOTAL_FILECOIN, TokenAmount},
     state_tree::{ActorState, StateTree},
 };
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;

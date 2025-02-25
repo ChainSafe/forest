@@ -3,13 +3,13 @@
 
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nunny::{vec as nonempty, Vec as NonEmpty};
+use nunny::{Vec as NonEmpty, vec as nonempty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -148,8 +148,8 @@ mod tests {
     use crate::libp2p::{NetworkMessage, PeerManager};
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
     use crate::networks::ChainConfig;
-    use crate::rpc::eth::filter::EthEventHandler;
     use crate::rpc::RPCState;
+    use crate::rpc::eth::filter::EthEventHandler;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;

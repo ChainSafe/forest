@@ -14,16 +14,16 @@ use std::fmt::{self, Debug};
 use std::time::Duration;
 
 use anyhow::bail;
-use http::{header, HeaderMap, HeaderValue};
+use http::{HeaderMap, HeaderValue, header};
+use jsonrpsee::core::ClientError;
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
-use jsonrpsee::core::ClientError;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
-use tracing::{debug, Instrument, Level};
+use tracing::{Instrument, Level, debug};
 use url::Url;
 
-use super::{ApiPath, ApiPaths, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
+use super::{ApiPath, ApiPaths, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE, Request};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
@@ -114,7 +114,7 @@ impl Client {
                         return Err(ClientError::Custom(format!(
                             "invalid parameter type: `{}`",
                             prim
-                        )))
+                        )));
                     }
                 },
             )
@@ -187,7 +187,7 @@ impl UrlClient {
                     Err(e) => {
                         return Err(ClientError::Custom(format!(
                             "Invalid authorization token: {e}",
-                        )))
+                        )));
                     }
                 },
             )]),
@@ -215,7 +215,7 @@ impl UrlClient {
                 return Err(ClientError::Custom(format!(
                     "Unsupported URL scheme: {}",
                     it
-                )))
+                )));
             }
         };
         Ok(Self { url, inner })

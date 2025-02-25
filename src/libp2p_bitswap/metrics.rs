@@ -58,85 +58,85 @@ pub(in crate::libp2p_bitswap) fn outbound_stream_count<'a>() -> MappedRwLockRead
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_stream_count"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_get_block_success<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_get_block_success<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("get_block_success"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_get_block_failure<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_get_block_failure<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("get_block_failure"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_have<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_have<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_request_have"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_block<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_block<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_request_block"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_cancel<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_cancel<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_request_cancel"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_block<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_block<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_request_block"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_have<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_have<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_request_have"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_yes<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_yes<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_have_yes"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_no<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_no<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_have_no"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_block"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_block_update_db"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_already_exists_in_db<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_already_exists_in_db<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new(
         "inbound_response_block_already_exists_in_db",
     ))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_not_requested<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_not_requested<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_block_not_requested"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db_failure<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db_failure<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("inbound_response_block_update_db_failure"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_have<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_have<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_response_have"))
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_block<'a>(
-) -> MappedRwLockReadGuard<'a, Counter> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_block<'a>()
+-> MappedRwLockReadGuard<'a, Counter> {
     MESSAGE_COUNTER.get_or_create(&TypeLabel::new("outbound_response_block"))
 }
 
@@ -144,7 +144,7 @@ pub(in crate::libp2p_bitswap) fn peer_container_capacity<'a>() -> MappedRwLockRe
     CONTAINER_CAPACITIES.get_or_create(&TypeLabel::new("peer_container_capacity"))
 }
 
-pub(in crate::libp2p_bitswap) fn response_channel_container_capacity<'a>(
-) -> MappedRwLockReadGuard<'a, Gauge> {
+pub(in crate::libp2p_bitswap) fn response_channel_container_capacity<'a>()
+-> MappedRwLockReadGuard<'a, Gauge> {
     CONTAINER_CAPACITIES.get_or_create(&TypeLabel::new("response_channel_container_capacity"))
 }

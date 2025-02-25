@@ -5,7 +5,7 @@ mod resolve;
 
 use std::{
     fmt::Write as FmtWrite,
-    io::{stdout, Write},
+    io::{Write, stdout},
     sync::Arc,
 };
 

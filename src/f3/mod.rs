@@ -151,46 +151,50 @@ mod tests {
             }
         );
 
-        std::env::set_var("FOREST_F3_FINALITY", "100");
-        // A random CID
-        std::env::set_var(
-            "FOREST_F3_INITIAL_POWER_TABLE",
-            "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i",
-        );
-        std::env::set_var("FOREST_F3_BOOTSTRAP_EPOCH", "100");
-        // mainnet server
-        std::env::set_var(
-            "FOREST_F3_MANIFEST_SERVER",
-            "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7",
-        );
-        assert_eq!(
-            get_f3_sidecar_params(&chain_config),
-            F3Options {
-                chain_finality: 100,
-                bootstrap_epoch: 100,
-                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
-                    .parse()
-                    .unwrap(),
-                manifest_server: Some(
-                    "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
-                        .parse()
-                        .unwrap()
-                ),
-            }
-        );
+        unsafe {
+            std::env::set_var("FOREST_F3_FINALITY", "100");
+            // A random CID
+            std::env::set_var(
+                "FOREST_F3_INITIAL_POWER_TABLE",
+                "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i",
+            );
+            std::env::set_var("FOREST_F3_BOOTSTRAP_EPOCH", "100");
+            // mainnet server
+            std::env::set_var(
+                "FOREST_F3_MANIFEST_SERVER",
+                "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7",
+            );
+            assert_eq!(
+                get_f3_sidecar_params(&chain_config),
+                F3Options {
+                    chain_finality: 100,
+                    bootstrap_epoch: 100,
+                    initial_power_table:
+                        "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
+                            .parse()
+                            .unwrap(),
+                    manifest_server: Some(
+                        "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
+                            .parse()
+                            .unwrap()
+                    ),
+                }
+            );
 
-        // Unset FOREST_F3_MANIFEST_SERVER
-        std::env::set_var("FOREST_F3_MANIFEST_SERVER", "");
-        assert_eq!(
-            get_f3_sidecar_params(&chain_config),
-            F3Options {
-                chain_finality: 100,
-                bootstrap_epoch: 100,
-                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
-                    .parse()
-                    .unwrap(),
-                manifest_server: None,
-            }
-        );
+            // Unset FOREST_F3_MANIFEST_SERVER
+            std::env::set_var("FOREST_F3_MANIFEST_SERVER", "");
+            assert_eq!(
+                get_f3_sidecar_params(&chain_config),
+                F3Options {
+                    chain_finality: 100,
+                    bootstrap_epoch: 100,
+                    initial_power_table:
+                        "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
+                            .parse()
+                            .unwrap(),
+                    manifest_server: None,
+                }
+            );
+        }
     }
 }

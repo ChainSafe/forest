@@ -4,9 +4,9 @@
 pub mod cli;
 pub mod logger;
 
-use crate::cli_shared::cli::{find_config_path, Config, ConfigPath};
-use crate::db::db_engine::db_root;
+use crate::cli_shared::cli::{Config, ConfigPath, find_config_path};
 use crate::db::CAR_DB_DIR_NAME;
+use crate::db::db_engine::db_root;
 use crate::networks::NetworkChain;
 use crate::utils::io::read_toml;
 use std::path::PathBuf;

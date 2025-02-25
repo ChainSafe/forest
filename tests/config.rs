@@ -6,7 +6,7 @@ use forest::{Client, Config};
 use tempfile::TempDir;
 
 pub mod common;
-use crate::common::{cli, daemon, tool, CommonArgs};
+use crate::common::{CommonArgs, cli, daemon, tool};
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {

@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::Message as _;
 use crate::shim::executor::ApplyRet;
 use crate::shim::{

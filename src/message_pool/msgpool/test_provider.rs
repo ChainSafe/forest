@@ -19,7 +19,7 @@ use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
-use crate::message_pool::{provider::Provider, Error};
+use crate::message_pool::{Error, provider::Provider};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Structure used for creating a provider when writing tests involving message

@@ -80,12 +80,12 @@ impl From<Randomness> for Randomness_v4 {
 
 impl From<Randomness> for Randomness_v3 {
     fn from(other: Randomness) -> Self {
-        Self(other.0 .0)
+        Self(other.0.0)
     }
 }
 
 impl From<Randomness> for Randomness_v2 {
     fn from(other: Randomness) -> Self {
-        Self(other.0 .0)
+        Self(other.0.0)
     }
 }

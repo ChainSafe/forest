@@ -11,7 +11,7 @@ use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
     libp2p_bitswap::{
-        request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+        BitswapStoreRead, BitswapStoreReadWrite, request_manager::BitswapRequestManager,
     },
     utils::flume::FlumeSenderExt as _,
 };
@@ -23,6 +23,7 @@ use futures::{select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
+    PeerId, Swarm, SwarmBuilder,
     autonat::NatStatus,
     connection_limits::Exceeded,
     core::Multiaddr,
@@ -32,22 +33,22 @@ use libp2p::{
     multiaddr::Protocol,
     noise, ping, request_response,
     swarm::{DialError, SwarmEvent},
-    tcp, yamux, PeerId, Swarm, SwarmBuilder,
+    tcp, yamux,
 };
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
 
 use super::{
-    chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
-    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
+    chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
+    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
 };
 use crate::libp2p::{
+    PeerManager, PeerOperation,
     chain_exchange::ChainExchangeBehaviour,
     discovery::DiscoveryEvent,
     hello::{HelloBehaviour, HelloRequest, HelloResponse},
     rpc::RequestResponseError,
-    PeerManager, PeerOperation,
 };
 
 pub(in crate::libp2p) mod metrics {
@@ -528,7 +529,9 @@ async fn handle_network_message(
                                     DialError::Denied { cause } => {
                                         // try to get a more specific error cause
                                         if let Some(cause) = cause.downcast_ref::<Exceeded>() {
-                                            error!("Denied dialing (limits exceeded) {multiaddr}: {cause}");
+                                            error!(
+                                                "Denied dialing (limits exceeded) {multiaddr}: {cause}"
+                                            );
                                         } else {
                                             error!("Denied dialing {multiaddr}: {cause}")
                                         }

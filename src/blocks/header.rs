@@ -331,7 +331,7 @@ impl<'de> Deserialize<'de> for CachingBlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
+    use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon};
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
     use crate::utils::encoding::from_slice_with_fallback;

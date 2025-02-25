@@ -6,22 +6,22 @@ use anyhow::anyhow;
 use cid::Cid;
 use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actor_verifreg_state::{
-    v10::state::get_claim as get_claim_v10, v11::state::get_claim as get_claim_v11,
-    v12::state::get_claim as get_claim_v12, v13::state::get_claim as get_claim_v13,
-    v14::state::get_claim as get_claim_v14, v15::state::get_claim as get_claim_v15,
-    v16::state::get_claim as get_claim_v16, v9::state::get_claim as get_claim_v9,
+    v9::state::get_claim as get_claim_v9, v10::state::get_claim as get_claim_v10,
+    v11::state::get_claim as get_claim_v11, v12::state::get_claim as get_claim_v12,
+    v13::state::get_claim as get_claim_v13, v14::state::get_claim as get_claim_v14,
+    v15::state::get_claim as get_claim_v15, v16::state::get_claim as get_claim_v16,
 };
-use fil_actors_shared::v8::{make_map_with_root_and_bitwidth, HAMT_BIT_WIDTH};
+use fil_actors_shared::v8::{HAMT_BIT_WIDTH, make_map_with_root_and_bitwidth};
 use fil_actors_shared::v9::Keyer;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::serde_tuple;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared2::address::{Address, Protocol};
+use fvm_shared4::ActorID;
 use fvm_shared4::bigint::bigint_ser::BigIntDe;
 use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::sector::SectorNumber;
-use fvm_shared4::ActorID;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 

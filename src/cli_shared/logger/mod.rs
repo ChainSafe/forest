@@ -4,7 +4,7 @@
 use std::pin::Pin;
 
 use futures::Future;
-use tracing_subscriber::{prelude::*, EnvFilter, Registry};
+use tracing_subscriber::{EnvFilter, Registry, prelude::*};
 
 use crate::cli_shared::cli::CliOpts;
 use crate::utils::misc::LoggingColor;
@@ -42,7 +42,9 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
 
     if opts.tokio_console {
         #[cfg(not(feature = "tokio-console"))]
-        tracing::warn!("`tokio-console` is unavailable, forest binaries need to be recompiled with `tokio-console` feature");
+        tracing::warn!(
+            "`tokio-console` is unavailable, forest binaries need to be recompiled with `tokio-console` feature"
+        );
 
         #[cfg(feature = "tokio-console")]
         layers.push(Box::new(
@@ -54,7 +56,9 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
 
     if opts.loki {
         #[cfg(not(feature = "tracing-loki"))]
-        tracing::warn!("`tracing-loki` is unavailable, forest binaries need to be recompiled with `tracing-loki` feature");
+        tracing::warn!(
+            "`tracing-loki` is unavailable, forest binaries need to be recompiled with `tracing-loki` feature"
+        );
 
         #[cfg(feature = "tracing-loki")]
         {
@@ -88,7 +92,9 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
     // You may want to call ChromeLayerBuilder::trace_style as appropriate
     if let Some(_chrome_trace_file) = std::env::var_os("CHROME_TRACE_FILE") {
         #[cfg(not(feature = "tracing-chrome"))]
-        tracing::warn!("`tracing-chrome` is unavailable, forest binaries need to be recompiled with `tracing-chrome` feature");
+        tracing::warn!(
+            "`tracing-chrome` is unavailable, forest binaries need to be recompiled with `tracing-chrome` feature"
+        );
 
         #[cfg(feature = "tracing-chrome")]
         {

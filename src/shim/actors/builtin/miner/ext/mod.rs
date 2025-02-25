@@ -5,8 +5,8 @@ mod partition;
 mod state;
 
 use crate::shim::actors::{
-    miner::{DeadlineInfo, State},
     Policy,
+    miner::{DeadlineInfo, State},
 };
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -27,7 +27,7 @@ pub trait MinerStateExt {
 
     /// Loads the allocated sector numbers
     fn load_allocated_sector_numbers<BS: Blockstore>(&self, store: &BS)
-        -> anyhow::Result<BitField>;
+    -> anyhow::Result<BitField>;
 
     /// Loads the precommit-on-chain info
     fn load_precommit_on_chain_info<BS: Blockstore>(

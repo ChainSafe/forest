@@ -3,7 +3,7 @@
 
 use super::*;
 pub use crate::eth::{
-    EthTx, EIP_1559_TX_TYPE, EIP_LEGACY_TX_TYPE, ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID,
+    EIP_1559_TX_TYPE, EIP_LEGACY_TX_TYPE, ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID, EthTx,
 };
 
 impl From<EthLegacyHomesteadTxArgs> for ApiEthTx {

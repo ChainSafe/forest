@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use axum::{
+    Router,
     response::{IntoResponse, Response},
     routing::get,
-    Router,
 };
 use parking_lot::RwLock;
 
 use crate::{
-    chain_sync::SyncState, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig, Config,
+    Config, chain_sync::SyncState, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig,
 };
 
 mod endpoints;
@@ -63,7 +63,7 @@ mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use crate::db::SettingsExt;
-    use crate::{chain_sync::SyncStage, Client};
+    use crate::{Client, chain_sync::SyncStage};
 
     use reqwest::StatusCode;
 

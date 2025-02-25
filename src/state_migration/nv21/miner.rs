@@ -12,14 +12,14 @@ use crate::{
     shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
 };
 use anyhow::Context as _;
-use cid::{multibase::Base, Cid};
+use cid::{Cid, multibase::Base};
 use fil_actor_miner_state::{
     v11::Deadline as DeadlineOld, v11::Deadlines as DeadlinesOld, v11::State as MinerStateOld,
     v12::Deadline as DeadlineNew, v12::Deadlines as DeadlinesNew, v12::State as MinerStateNew,
 };
 use fil_actors_shared::fvm_ipld_amt;
-use fil_actors_shared::v11::{runtime::Policy as PolicyOld, Array as ArrayOld};
-use fil_actors_shared::v12::{runtime::Policy as PolicyNew, Array as ArrayNew};
+use fil_actors_shared::v11::{Array as ArrayOld, runtime::Policy as PolicyOld};
+use fil_actors_shared::v12::{Array as ArrayNew, runtime::Policy as PolicyNew};
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 
@@ -382,12 +382,11 @@ mod tests {
                     sectors_snapshots.get(0).unwrap().unwrap().flags,
                     fil_actor_miner_state::v12::SectorOnChainInfoFlags::SIMPLE_QA_POWER
                 );
-                assert!(!sectors_snapshots
-                    .get(1)
-                    .unwrap()
-                    .unwrap()
-                    .flags
-                    .contains(fil_actor_miner_state::v12::SectorOnChainInfoFlags::SIMPLE_QA_POWER));
+                assert!(
+                    !sectors_snapshots.get(1).unwrap().unwrap().flags.contains(
+                        fil_actor_miner_state::v12::SectorOnChainInfoFlags::SIMPLE_QA_POWER
+                    )
+                );
                 Ok(())
             })
             .unwrap();

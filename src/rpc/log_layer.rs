@@ -8,8 +8,8 @@ use std::{
     hash::{DefaultHasher, Hash as _, Hasher},
 };
 
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Id};
 use tower::Layer;

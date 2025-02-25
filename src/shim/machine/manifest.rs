@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use crate::utils::db::CborStoreExt as _;
-use anyhow::{ensure, Context as _};
+use anyhow::{Context as _, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;

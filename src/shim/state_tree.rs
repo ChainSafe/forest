@@ -6,27 +6,27 @@ use std::{
 };
 
 use crate::shim::actors::account;
-use anyhow::{anyhow, bail, Context as _};
+use anyhow::{Context as _, anyhow, bail};
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::{
+    CborStore as _,
+    repr::{Deserialize_repr, Serialize_repr},
+};
+use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
+use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
+use fvm_shared4::state::StateTreeVersion as StateTreeVersionV4;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 pub use fvm4::state_tree::{
     ActorState as ActorStateV4, ActorState as ActorState_latest, StateTree as StateTreeV4,
 };
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{
-    repr::{Deserialize_repr, Serialize_repr},
-    CborStore as _,
-};
-use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
-use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
-use fvm_shared4::state::StateTreeVersion as StateTreeVersionV4;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use super::actors::LoadActorStateFromBlockstore;
-pub use super::fvm_shared_latest::{state::StateRoot, ActorID};
+pub use super::fvm_shared_latest::{ActorID, state::StateRoot};
 use crate::{
     blocks::Tipset,
     shim::{actors::AccountActorStateLoad as _, address::Address, econ::TokenAmount},
@@ -176,7 +176,9 @@ where
             let state_root_version = state_root
                 .map(|sr| format!("{:?}", sr.version))
                 .unwrap_or_else(|| "unknown".into());
-            bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version. state_root_cid={c}, state_root_version={state_root_version}")
+            bail!(
+                "Can't create a valid state tree from the given root. This error may indicate unsupported version. state_root_cid={c}, state_root_version={state_root_version}"
+            )
         }
     }
 

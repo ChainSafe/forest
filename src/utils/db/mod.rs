@@ -9,7 +9,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+use fvm_ipld_encoding::{DAG_CBOR, to_vec};
 #[allow(clippy::disallowed_types)]
 use multihash_codetable::Code;
 

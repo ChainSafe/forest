@@ -1,8 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::eth::{filter::Filter, filter::FilterManager, FilterID};
 use crate::rpc::Arc;
+use crate::rpc::eth::{FilterID, filter::Filter, filter::FilterManager};
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use parking_lot::RwLock;

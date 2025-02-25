@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use libp2p::{request_response, PeerId};
+use libp2p::{PeerId, request_response};
 
 use crate::libp2p_bitswap::{request_manager::*, *};
 

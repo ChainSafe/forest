@@ -6,8 +6,8 @@ mod eip_155_transaction;
 mod homestead_transaction;
 mod transaction;
 
-pub use eip_1559_transaction::*;
 pub use eip_155_transaction::*;
+pub use eip_1559_transaction::*;
 pub use homestead_transaction::*;
 pub use transaction::*;
 pub type EthChainId = u64;

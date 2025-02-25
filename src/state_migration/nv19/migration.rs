@@ -15,8 +15,8 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 
-use super::{miner, power, system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use super::{SystemStateOld, miner, power, system, verifier::Verifier};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv19_migrations(

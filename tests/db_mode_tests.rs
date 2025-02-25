@@ -3,7 +3,7 @@
 
 pub mod common;
 
-use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
+use crate::common::{CommonArgs, CommonEnv, create_tmp_config, daemon};
 
 #[test]
 fn current_mode_should_create_current_version_if_no_migrations() {
@@ -22,11 +22,13 @@ fn current_mode_should_create_current_version_if_no_migrations() {
         .success();
 
     let forest_version = std::env::var("CARGO_PKG_VERSION").unwrap();
-    assert!(data_dir
-        .path()
-        .join("calibnet")
-        .join(forest_version)
-        .exists());
+    assert!(
+        data_dir
+            .path()
+            .join("calibnet")
+            .join(forest_version)
+            .exists()
+    );
 }
 
 #[test]

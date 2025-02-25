@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub use super::fvm_shared_latest::{
-    crypto::signature::SECP_SIG_LEN, IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK,
+    IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK, crypto::signature::SECP_SIG_LEN,
 };
 use super::{
     fvm_shared_latest::{self, commcid::Commitment},
@@ -9,7 +9,7 @@ use super::{
 };
 use crate::eth::{EthChainId, EthTx};
 use crate::message::{Message, SignedMessage};
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
@@ -257,7 +257,7 @@ pub fn verify_delegated_sig(
 ) -> anyhow::Result<()> {
     use super::fvm_shared_latest::{
         address::Protocol::Delegated,
-        crypto::signature::{ops::recover_secp_public_key, SECP_SIG_LEN},
+        crypto::signature::{SECP_SIG_LEN, ops::recover_secp_public_key},
     };
     use crate::rpc::eth::types::EthAddress;
     use crate::utils::encoding::keccak_256;

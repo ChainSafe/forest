@@ -206,12 +206,13 @@ mod tests {
         db.put_keyed_persistent(&key2, record2.as_slice()).unwrap();
 
         let mut car_db_bytes = vec![];
-        assert!(db
-            .export_forest_car(&mut car_db_bytes)
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("chain head is not tracked and cannot be exported"));
+        assert!(
+            db.export_forest_car(&mut car_db_bytes)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("chain head is not tracked and cannot be exported")
+        );
 
         db.write_obj(HEAD_KEY, &TipsetKey::from(nonempty![key1]))
             .unwrap();

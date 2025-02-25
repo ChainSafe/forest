@@ -3,7 +3,7 @@
 
 use std::{
     fmt::Display,
-    fs::{create_dir, File},
+    fs::{File, create_dir},
     io::{BufReader, BufWriter, ErrorKind, Read, Write},
     path::{Path, PathBuf},
 };
@@ -14,14 +14,14 @@ use crate::{
 };
 use ahash::{HashMap, HashMapExt};
 use argon2::{
-    password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
+    Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN, password_hash::SaltString,
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use crypto_secretbox::{
-    aead::{generic_array::GenericArray, Aead},
     KeyInit, SecretBox, XSalsa20Poly1305,
+    aead::{Aead, generic_array::GenericArray},
 };
-use rand::{rngs::OsRng, RngCore};
+use rand::{RngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{error, warn};
@@ -425,7 +425,7 @@ fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
 
 #[cfg(test)]
 mod test {
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::{Engine, prelude::BASE64_STANDARD};
 
     use super::*;
     use crate::key_management::wallet;

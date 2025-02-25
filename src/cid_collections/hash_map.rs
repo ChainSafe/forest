@@ -3,12 +3,12 @@
 
 use super::{CidV1DagCborBlake2b256, MaybeCompactedCid, Uncompactable};
 use cid::Cid;
+#[cfg(doc)]
+use std::collections::HashMap;
 use std::collections::hash_map::{
     Entry as StdEntry, IntoIter as StdIntoIter, OccupiedEntry as StdOccupiedEntry,
     VacantEntry as StdVacantEntry,
 };
-#[cfg(doc)]
-use std::collections::HashMap;
 
 /// A space-optimised hash map of [`Cid`]s, matching the API for [`std::collections::HashMap`].
 ///

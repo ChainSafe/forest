@@ -3,11 +3,11 @@
 
 use std::sync::Arc;
 
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
+use jsonrpsee::MethodResponse;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::ErrorObject;
-use jsonrpsee::MethodResponse;
 use tower::Layer;
 
 use super::FilterList;

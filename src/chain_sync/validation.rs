@@ -155,7 +155,7 @@ mod tests {
     use crate::shim::message::Message;
     use crate::test_utils::construct_messages;
     use crate::utils::encoding::from_slice_with_fallback;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::{Engine, prelude::BASE64_STANDARD};
     use cid::Cid;
 
     use super::TipsetValidator;

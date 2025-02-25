@@ -3,11 +3,11 @@
 
 use ahash::HashMap;
 use libp2p::{
+    PeerId,
     request_response::{
         self, OutboundFailure, OutboundRequestId, ProtocolSupport, ResponseChannel,
     },
-    swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
-    PeerId,
+    swarm::{NetworkBehaviour, THandlerOutEvent, derive_prelude::*},
 };
 use tracing::debug;
 

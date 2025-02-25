@@ -12,7 +12,7 @@
 
 use crate::utils::net::global_http_client;
 use bytes::Bytes;
-use futures::{ready, FutureExt as _, Stream, TryFutureExt as _};
+use futures::{FutureExt as _, Stream, TryFutureExt as _, ready};
 use std::{
     pin::Pin,
     task::{Context, Poll},

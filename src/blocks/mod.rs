@@ -16,7 +16,7 @@ mod tipset;
 pub mod tipset;
 mod vrf_proof;
 
-pub use block::{Block, TxMeta, BLOCK_MESSAGE_LIMIT};
+pub use block::{BLOCK_MESSAGE_LIMIT, Block, TxMeta};
 pub use election_proof::ElectionProof;
 pub use gossip_block::GossipBlock;
 pub use header::{CachingBlockHeader, RawBlockHeader};
@@ -36,7 +36,7 @@ pub enum Error {
 }
 
 #[cfg(test)]
-pub(crate) use chain4u::{chain4u, Chain4U, HeaderBuilder};
+pub(crate) use chain4u::{Chain4U, HeaderBuilder, chain4u};
 
 #[cfg(any(test, doc))]
 mod tests {

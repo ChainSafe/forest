@@ -13,7 +13,7 @@ use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 use fvm_shared4::address::Address as Address_v4;
 use fvm_shared4::address::Address as Address_latest;
-pub use fvm_shared4::address::{Error, Network, Payload, Protocol, PAYLOAD_HASH_LEN};
+pub use fvm_shared4::address::{Error, Network, PAYLOAD_HASH_LEN, Payload, Protocol};
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
@@ -446,12 +446,14 @@ fn set_with_network() {
 fn unwind_current_network_on_panic() {
     let outer_network = CurrentNetwork::get();
     let inner_network = flip_network(outer_network);
-    assert!(std::panic::catch_unwind(|| {
-        CurrentNetwork::with(inner_network, || {
-            panic!("unwinding stack");
+    assert!(
+        std::panic::catch_unwind(|| {
+            CurrentNetwork::with(inner_network, || {
+                panic!("unwinding stack");
+            })
         })
-    })
-    .is_err());
+        .is_err()
+    );
     let new_outer_network = CurrentNetwork::get();
     assert_eq!(outer_network, new_outer_network);
 }

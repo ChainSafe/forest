@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
+    KeyStore, KeyStoreConfig,
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
+    chain_sync::{SyncConfig, SyncStage, network_context::SyncNetworkContext},
     db::{
-        car::{AnyCar, ManyCar},
         MemoryDB,
+        car::{AnyCar, ManyCar},
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -14,12 +15,11 @@ use crate::{
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::{ChainConfig, NetworkChain},
     rpc::{
-        eth::{filter::EthEventHandler, types::EthHash},
         RPCState, RpcMethod as _, RpcMethodExt as _,
+        eth::{filter::EthEventHandler, types::EthHash},
     },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
-    KeyStore, KeyStoreConfig,
 };
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
@@ -170,9 +170,9 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+    use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use directories::ProjectDirs;
-    use futures::{stream::FuturesUnordered, StreamExt};
+    use futures::{StreamExt, stream::FuturesUnordered};
     use itertools::Itertools as _;
     use tokio::sync::Semaphore;
     use url::Url;

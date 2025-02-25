@@ -7,7 +7,7 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::Cid;
 use futures::ready;
-use futures::{sink::Sink, Stream, StreamExt};
+use futures::{Stream, StreamExt, sink::Sink};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use nunny::Vec as NonEmpty;

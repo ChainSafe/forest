@@ -1,12 +1,12 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm2::externs::Rand as Rand_v2;
-use fvm3::externs::Rand as Rand_v3;
-use fvm4::externs::Rand as Rand_v4;
 use fvm_shared2::clock::ChainEpoch as ChainEpoch_v2;
 use fvm_shared3::clock::ChainEpoch as ChainEpoch_v3;
 use fvm_shared4::clock::ChainEpoch as ChainEpoch_v4;
+use fvm2::externs::Rand as Rand_v2;
+use fvm3::externs::Rand as Rand_v3;
+use fvm4::externs::Rand as Rand_v4;
 
 #[derive(Clone, Debug)]
 pub struct RandWrapper<T> {

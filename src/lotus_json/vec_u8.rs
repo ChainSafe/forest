@@ -15,7 +15,7 @@ impl JsonSchema for VecU8LotusJson {
         "Base64String".into()
     }
 
-    fn json_schema(_: &mut schemars::gen::SchemaGenerator) -> Schema {
+    fn json_schema(_: &mut schemars::r#gen::SchemaGenerator) -> Schema {
         Schema::Object(SchemaObject {
             instance_type: Some(SingleOrVec::Vec(vec![
                 InstanceType::String,

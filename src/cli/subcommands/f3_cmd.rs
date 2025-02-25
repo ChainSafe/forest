@@ -23,7 +23,7 @@ use clap::{Subcommand, ValueEnum};
 use itertools::Itertools as _;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use tera::Tera;
 
 const MANIFEST_TEMPLATE_NAME: &str = "manifest.tpl";

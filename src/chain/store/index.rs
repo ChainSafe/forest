@@ -218,11 +218,11 @@ mod tests {
     #[test]
     fn get_null_tipset() {
         let db = Arc::new(MemoryDB::default());
-        let gen = genesis_tipset();
-        let epoch1 = tipset_child(&gen, 1);
+        let genesis = genesis_tipset();
+        let epoch1 = tipset_child(&genesis, 1);
         let epoch3 = tipset_child(&epoch1, 3);
         let epoch4 = tipset_child(&epoch3, 4);
-        persist_tipset(&gen, &db);
+        persist_tipset(&genesis, &db);
         persist_tipset(&epoch1, &db);
         persist_tipset(&epoch3, &db);
         persist_tipset(&epoch4, &db);
@@ -249,8 +249,8 @@ mod tests {
     #[test]
     fn get_different_branches() {
         let db = Arc::new(MemoryDB::default());
-        let gen = genesis_tipset();
-        let epoch1 = tipset_child(&gen, 1);
+        let genesis = genesis_tipset();
+        let epoch1 = tipset_child(&genesis, 1);
 
         let epoch2a = tipset_child(&epoch1, 2);
         let epoch3a = tipset_child(&epoch2a, 3);
@@ -258,7 +258,7 @@ mod tests {
         let epoch2b = tipset_child(&epoch1, 2);
         let epoch3b = tipset_child(&epoch2b, 3);
 
-        persist_tipset(&gen, &db);
+        persist_tipset(&genesis, &db);
         persist_tipset(&epoch1, &db);
         persist_tipset(&epoch2a, &db);
         persist_tipset(&epoch3a, &db);

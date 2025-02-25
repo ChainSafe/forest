@@ -16,8 +16,8 @@ use cid::Cid;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
 
-use super::super::common::PostMigrator;
 use super::super::ChainEpoch;
+use super::super::common::PostMigrator;
 
 pub(super) struct VerifregMarketPostMigrator {
     pub prior_epoch: ChainEpoch,

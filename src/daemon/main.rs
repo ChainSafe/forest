@@ -3,7 +3,7 @@
 
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use crate::cli_shared::{
-    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
+    cli::{ConfigPath, DaemonConfig, check_for_unknown_keys, cli_error_and_die},
     logger,
 };
 use crate::daemon::ipc_shmem_conf;
@@ -12,8 +12,8 @@ use anyhow::Context as _;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
 use raw_sync_2::{
-    events::{Event, EventInit},
     Timeout,
+    events::{Event, EventInit},
 };
 use std::ffi::OsString;
 use std::{fs::File, process, time::Duration};

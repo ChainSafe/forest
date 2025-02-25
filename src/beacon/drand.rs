@@ -7,7 +7,7 @@ use std::{borrow::Cow, num::NonZeroUsize};
 use super::{
     beacon_entries::BeaconEntry,
     signatures::{
-        verify_messages_chained, PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2,
+        PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
 use crate::shim::clock::ChainEpoch;
@@ -96,7 +96,10 @@ impl BeaconSchedule {
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
         // We don't expect this to ever be the case
         if max_round == prev.round() {
-            tracing::warn!("Unexpected `max_round == prev.round()` condition, network_version: {network_version:?}, max_round: {max_round}, prev_round: {}", prev.round());
+            tracing::warn!(
+                "Unexpected `max_round == prev.round()` condition, network_version: {network_version:?}, max_round: {max_round}, prev_round: {}",
+                prev.round()
+            );
             // Our chain has encountered two epochs before beacon chain has elapsed one,
             // return no beacon entries for this epoch.
             return Ok(vec![]);

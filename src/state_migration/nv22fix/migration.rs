@@ -5,7 +5,7 @@
 //! Corresponding
 use std::sync::Arc;
 
-use super::{system, verifier::Verifier, SystemStateOld};
+use super::{SystemStateOld, system, verifier::Verifier};
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -14,9 +14,9 @@ use crate::shim::{
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::state_migration::common::PostMigrationCheck;
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 use crate::utils::db::CborStoreExt as _;
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 

@@ -6,27 +6,27 @@ use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::rpc;
+use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    new_eth_tx_from_signed_message, types::*, BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash,
-    ExtPredefined, Predefined,
+    BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
+    new_eth_tx_from_signed_message, types::*,
 };
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::FilterList;
-use crate::rpc::{prelude::*, Permission};
-use crate::shim::actors::market;
+use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
+use crate::shim::actors::market;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
     econ::TokenAmount,
-    message::{Message, METHOD_SEND},
+    message::{METHOD_SEND, Message},
     state_tree::StateTree,
 };
 use ahash::HashMap;
@@ -579,7 +579,7 @@ fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) ->
         {
             use std::collections::BTreeMap;
 
-            use base64::{prelude::BASE64_STANDARD, Engine};
+            use base64::{Engine, prelude::BASE64_STANDARD};
 
             use crate::lotus_json::LotusJson;
             use crate::rpc::misc::ActorEventBlock;
@@ -1126,7 +1126,7 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
     // If a worker address is provided, we can test wallet methods requiring
     // a shared key.
     if let Some(worker_address) = worker_address {
-        use base64::{prelude::BASE64_STANDARD, Engine};
+        use base64::{Engine, prelude::BASE64_STANDARD};
         let msg =
             BASE64_STANDARD.encode("Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".as_bytes());
         tests.push(RpcTest::identity(
@@ -1237,10 +1237,9 @@ fn eth_tests() -> Vec<RpcTest> {
                 (EthFilterSpec {
                     from_block: None,
                     to_block: None,
-                    address: vec![EthAddress::from_str(
-                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-                    )
-                    .unwrap()],
+                    address: vec![
+                        EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                    ],
                     topics: None,
                     block_hash: None,
                 },),
@@ -1973,7 +1972,7 @@ pub(super) async fn run_tests(
             (TestSummary::Timeout, TestSummary::Timeout) => {
                 test_criteria_overrides.contains(&TestCriteriaOverride::TimeoutAndTimeout)
             }
-            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus)) => {
+            (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
                 match test.policy_on_rejected {
                     PolicyOnRejected::Pass => true,
                     PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {

@@ -1,19 +1,19 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::auth::{verify_token, JWT_IDENTIFIER};
+use crate::auth::{JWT_IDENTIFIER, verify_token};
 use crate::key_management::KeyStore;
-use crate::rpc::{chain, Permission, RpcMethod as _, CANCEL_METHOD_NAME};
+use crate::rpc::{CANCEL_METHOD_NAME, Permission, RpcMethod as _, chain};
 use ahash::{HashMap, HashMapExt as _};
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use http::{
-    header::{HeaderValue, AUTHORIZATION},
     HeaderMap,
+    header::{AUTHORIZATION, HeaderValue},
 };
-use jsonrpsee::server::middleware::rpc::RpcServiceT;
-use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
+use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use jsonrpsee::types::{ErrorObject, error::ErrorCode};
 use once_cell::sync::Lazy;
 use std::sync::Arc;
 use tokio::sync::RwLock;

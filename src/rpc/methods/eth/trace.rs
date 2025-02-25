@@ -4,8 +4,8 @@
 use super::types::{EthAddress, EthBytes, EthCallTraceAction, EthTrace, TraceAction, TraceResult};
 use super::utils::{decode_params, decode_return};
 use super::{
-    decode_payload, encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
-    EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult,
+    EthCallTraceResult, EthCreateTraceAction, EthCreateTraceResult, decode_payload,
+    encode_filecoin_params_as_abi, encode_filecoin_returns_as_abi,
 };
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::methods::eth::lookup_eth_address;
@@ -19,7 +19,7 @@ use fil_actor_init_state::v12::ExecReturn;
 use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use num::FromPrimitive;
 use tracing::debug;
 
@@ -87,12 +87,12 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
             evm12::EVM_CONTRACT_REVERTED => return Some("Reverted".into()), // capitalized for compatibility
             evm12::EVM_CONTRACT_INVALID_INSTRUCTION => return Some("invalid instruction".into()),
             evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
-                return Some("undefined instruction".into())
+                return Some("undefined instruction".into());
             }
             evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some("stack underflow".into()),
             evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some("stack overflow".into()),
             evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
-                return Some("illegal memory access".into())
+                return Some("illegal memory access".into());
             }
             evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some("invalid jump destination".into()),
             evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => return Some("self destruct failed".into()),

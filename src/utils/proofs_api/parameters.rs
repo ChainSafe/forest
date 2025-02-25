@@ -7,12 +7,12 @@
 
 use std::{
     fs::File as SyncFile,
-    io::{self, copy as sync_copy, BufReader as SyncBufReader},
+    io::{self, BufReader as SyncBufReader, copy as sync_copy},
     path::{Path, PathBuf},
 };
 
 use ahash::HashMap;
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use blake2b_simd::{Hash, State as Blake2b};
 use cid::Cid;
 use serde::{Deserialize, Serialize};
@@ -106,7 +106,9 @@ pub(super) fn param_dir(data_dir: &Path) -> PathBuf {
 ///
 /// More information available [here](https://github.com/filecoin-project/rust-fil-proofs/blob/8f5bd86be36a55e33b9b293ba22ea13ca1f28163/README.md?plain=1#L219-L235).
 pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
-    std::env::set_var(PROOFS_PARAMETER_CACHE_ENV, param_dir(data_dir));
+    unsafe {
+        std::env::set_var(PROOFS_PARAMETER_CACHE_ENV, param_dir(data_dir));
+    }
 }
 
 #[cfg(test)]

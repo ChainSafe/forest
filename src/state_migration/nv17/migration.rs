@@ -17,12 +17,12 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 
 use super::super::common::{
-    migrators::{nil_migrator, DeferredMigrator},
     StateMigration,
+    migrators::{DeferredMigrator, nil_migrator},
 };
 use super::{
-    datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
-    verifreg_market::VerifregMarketPostMigrator, SystemStateOld,
+    SystemStateOld, datacap, miner, system, util::get_pending_verified_deals_and_total_size,
+    verifier::Verifier, verifreg_market::VerifregMarketPostMigrator,
 };
 
 impl<BS: Blockstore + Send + Sync> StateMigration<BS> {

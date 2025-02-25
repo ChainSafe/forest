@@ -6,7 +6,7 @@ mod signature_impls;
 
 use bls_signatures::Error;
 use blstrs::{G1Affine, G1Projective, G2Affine, G2Projective};
-use group::{prime::PrimeCurveAffine, Curve};
+use group::{Curve, prime::PrimeCurveAffine};
 use rayon::prelude::*;
 
 // re-exports
