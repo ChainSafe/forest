@@ -257,14 +257,21 @@ async fn maybe_import_snapshot(
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, _ts) = import_chain_as_forest_car(
+            let (car_db_path, ts) = import_chain_as_forest_car(
                 path,
                 &db_meta.forest_car_db_dir,
                 config.client.import_mode,
             )
             .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            debug!("Loaded car DB at {}", car_db_path.display());
+            let ts_epoch = ts.epoch();
+            // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
+            // in the current setting store
+            state_manager.chain_store().set_heaviest_tipset(ts.into())?;
+            debug!(
+                "Loaded car DB at {} and set current head to epoch {ts_epoch}",
+                car_db_path.display(),
+            );
         }
     }
 
