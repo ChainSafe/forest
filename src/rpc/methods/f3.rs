@@ -618,10 +618,10 @@ impl RpcMethod<0> for GetManifestFromContract {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         _: Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(match &ctx.chain_config().f3_contract_address {
+        Ok(match ctx.chain_config().f3_contract_address() {
             Some(f3_contract_address) => Some(Self::get_manifest_from_contract(
                 &ctx.state_manager,
-                f3_contract_address.clone(),
+                f3_contract_address,
             )?),
             _ => None,
         })

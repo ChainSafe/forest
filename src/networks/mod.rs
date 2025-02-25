@@ -239,7 +239,7 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Cid,
     #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
-    pub f3_contract_address: Option<EthAddress>,
+    f3_contract_address: Option<EthAddress>,
     f3_contract_poll_interval: Duration,
 }
 
@@ -450,16 +450,34 @@ impl ChainConfig {
 
     #[allow(dead_code)]
     pub fn f3_contract_poll_interval(&self) -> Duration {
-        std::env::var("FOREST_F3_MANIFEST_POLL_INTERVAL")
+        const ENV_KEY: &str = "FOREST_F3_MANIFEST_POLL_INTERVAL";
+        std::env::var(ENV_KEY)
             .ok()
             .and_then(|i| humantime::Duration::from_str(&i).ok())
             .inspect(|i| {
-                tracing::info!(
-                    "Using F3 contract manifest poll interval {i} set by FOREST_F3_MANIFEST_POLL_INTERVAL"
-                )
+                tracing::info!("Using F3 contract manifest poll interval {i} set by {ENV_KEY}")
             })
             .map(Into::into)
             .unwrap_or(self.f3_contract_poll_interval)
+    }
+
+    pub fn f3_contract_address(&self) -> Option<EthAddress> {
+        const ENV_KEY: &str = "FOREST_F3_CONTRACT_ADDRESS";
+        std::env::var(ENV_KEY)
+            .ok()
+            .and_then(|i| {
+                if i.is_empty() {
+                    tracing::info!("F3 contract is disabled by {ENV_KEY}");
+                    None
+                } else if let Ok(addr) = EthAddress::from_str(&i) {
+                    tracing::info!("Using F3 contract address {i} set by {ENV_KEY}");
+                    Some(addr)
+                } else {
+                    tracing::warn!("Failed to parse F3 contract address {i}");
+                    None
+                }
+            })
+            .or_else(|| self.f3_contract_address.clone())
     }
 }
 
