@@ -75,6 +75,8 @@
 
 - [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
 
+- [#5342](https://github.com/ChainSafe/forest/pull/5342) Improved the ergonomics of handling addresses in the `Filecoin.EthGetLogs` and `Filecoin.EthNewFilter` to accept both single addresses and arrays of addresses. This conforms to the Ethereum RPC API.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
