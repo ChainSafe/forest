@@ -1234,6 +1234,7 @@ fn eth_tests() -> Vec<RpcTest> {
         }
 
         let cases = [
+            EthAddressList::List(vec![]),
             EthAddressList::List(vec![
                 EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap(),
                 EthAddress::from_str("0x89beb26addec4bc7e9f475aacfd084300d6de719").unwrap(),
