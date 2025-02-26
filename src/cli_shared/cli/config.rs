@@ -58,7 +58,7 @@ impl Default for EventsConfig {
     }
 }
 
-/// Structure that defines FEVM configuration
+/// Structure that defines `FEVM` configuration
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct FevmConfig {
