@@ -936,7 +936,7 @@ mod tests {
 
     #[test]
     fn test_f3_manifest_parse_contract_return() {
-        // The solidity contract: https://github.com/filecoin-project/f3-activation-contract/blob/master/contracts/F3Parameters.sol
+        // The solidity contract: https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/contracts/F3Parameters.sol
         let eth_return_hex = include_str!("contract_return.hex").trim();
         let eth_return = hex::decode(eth_return_hex).unwrap();
         let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
