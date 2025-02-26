@@ -310,8 +310,8 @@ impl F3Manifest {
         Ok(eth_return)
     }
 
-    #[allow(clippy::indexing_slicing)]
     pub fn parse_contract_return(eth_return: &[u8]) -> anyhow::Result<Self> {
+        const INDEXING_SLICING_ERROR: &str = "unexpected overflow in indexing slicling";
         const MAX_PAYLOAD_LEN: usize = 4 << 10;
         const SLOT_SIZE: usize = 32;
         const SLOT_COUNT: usize = 3;
@@ -322,10 +322,18 @@ impl F3Manifest {
             "no activation information"
         );
         let (slot_activation_epoch, slot_offset, slot_payload_len, payload) = (
-            &eth_return[..SLOT_SIZE],
-            &eth_return[SLOT_SIZE..SLOT_SIZE * 2],
-            &eth_return[SLOT_SIZE * 2..SLOT_SIZE * 3],
-            &eth_return[SLOT_SIZE * 3..],
+            eth_return
+                .get(..SLOT_SIZE)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE..SLOT_SIZE * 2)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE * 2..SLOT_SIZE * 3)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE * 3..)
+                .context(INDEXING_SLICING_ERROR)?,
         );
         // parse activation epoch from slot 1
         let activation_epoch = byteorder::BigEndian::read_u64(
@@ -333,16 +341,21 @@ impl F3Manifest {
         );
         // slot 2 is the offset to variable length bytes
         // it is always the same 0x00000...0040
-        for (i, &v) in slot_offset[..SLOT_SIZE - 1].iter().enumerate() {
+        for (i, &v) in slot_offset
+            .get(..SLOT_SIZE - 1)
+            .context(INDEXING_SLICING_ERROR)?
+            .iter()
+            .enumerate()
+        {
             anyhow::ensure!(
                 v == 0,
                 "wrong value for offset (padding): slot[{i}] = 0x{v:x} != 0x00"
             );
         }
+        let slot_offset_last = *slot_offset.last().context("unexpected empty slot_offset")?;
         anyhow::ensure!(
-            slot_offset[SLOT_SIZE - 1] == 0x40,
-            "wrong value for offest : slot[31] = 0x{:x} != 0x40",
-            slot_offset[SLOT_SIZE - 1]
+            slot_offset_last == 0x40,
+            "wrong value for offest : slot[31] = 0x{slot_offset_last:x} != 0x40",
         );
         // parse payload length from slot 3
         let payload_len =
@@ -361,7 +374,9 @@ impl F3Manifest {
             activation_epoch < u64::MAX && payload_len > 0,
             "no active activation"
         );
-        let compressed_manifest_bytes = &payload[..payload_len];
+        let compressed_manifest_bytes = payload
+            .get(..payload_len)
+            .context("not enough remaining bytes in payload")?;
         let mut deflater = DeflateDecoder::new(compressed_manifest_bytes);
         let mut manifest_bytes = vec![];
         deflater.read_to_end(&mut manifest_bytes)?;
