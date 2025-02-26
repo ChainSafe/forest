@@ -1409,11 +1409,11 @@ impl RpcMethod<2> for EthGetBlockByNumber {
 
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
-    block_hash: EthHash,
+    block_param: BlockNumberOrHash,
     // TODO(forest): https://github.com/ChainSafe/forest/issues/5177
     _limit: Option<usize>,
 ) -> Result<Vec<EthTxReceipt>, ServerError> {
-    let ts = get_tipset_from_hash(ctx.chain_store(), &block_hash)?;
+    let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
     let ts_ref = Arc::new(ts);
     let ts_key = ts_ref.key();
 
@@ -1444,17 +1444,17 @@ pub enum EthGetBlockReceipts {}
 impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
-    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const PARAM_NAMES: [&'static str; 1] = ["block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    type Params = (EthHash,);
+    type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_hash,): Self::Params,
+        (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_hash, None).await
+        get_block_receipts(&ctx, block_param, None).await
     }
 }
 
@@ -1462,17 +1462,17 @@ pub enum EthGetBlockReceiptsLimited {}
 impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
-    const PARAM_NAMES: [&'static str; 2] = ["block_hash", "limit"];
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "limit"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    type Params = (EthHash, ChainEpoch);
+    type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (block_hash, limit): Self::Params,
+        (block_param, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_hash, Some(limit as usize)).await
+        get_block_receipts(&ctx, block_param, Some(limit as usize)).await
     }
 }
 

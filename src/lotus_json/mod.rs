@@ -347,18 +347,19 @@ pub mod hexify_bytes {
 
 pub mod hexify_vec_bytes {
     use super::*;
-    use std::fmt::Write;
+    use std::borrow::Cow;
 
     pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut s = String::with_capacity(2 + value.len() * 2);
-        s.push_str("0x");
-        for b in value {
-            write!(s, "{:02x}", b).expect("failed to write to string");
-        }
-        serializer.serialize_str(&s)
+        let mut s = vec![0; 2 + value.len() * 2];
+        s.get_mut(0..2)
+            .expect("len is correct")
+            .copy_from_slice(b"0x");
+        hex::encode_to_slice(value, s.get_mut(2..).expect("len is correct"))
+            .map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(std::str::from_utf8(&s).expect("valid utf8"))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -366,15 +367,19 @@ pub mod hexify_vec_bytes {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        if (s.len() >= 2 && s.len() % 2 == 0) && s.get(..2).expect("failed to get prefix") == "0x" {
-            let result: Result<Vec<u8>, _> = (2..s.len())
-                .step_by(2)
-                .map(|i| u8::from_str_radix(s.get(i..i + 2).expect("failed to get slice"), 16))
-                .collect();
-            result.map_err(serde::de::Error::custom)
+        let s = Cow::from(s.strip_prefix("0x").unwrap_or(&s));
+
+        // Pad with 0 if odd length. This is necessary because [`hex::decode`] requires an even
+        // number of characters, whereas a valid input is also `0x0`.
+        let s = if s.len() % 2 == 0 {
+            s
         } else {
-            Err(serde::de::Error::custom("Invalid hex"))
-        }
+            let mut s = s.into_owned();
+            s.insert(0, '0');
+            Cow::Owned(s)
+        };
+
+        hex::decode(s.as_ref()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -598,6 +603,56 @@ mod fixme {
                 HasLotusJson::from_lotus_json(lotus_json.2),
                 HasLotusJson::from_lotus_json(lotus_json.3),
             )
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ipld_core::serde::SerdeError;
+    use serde::de::{value::StringDeserializer, IntoDeserializer};
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct HexifyVecBytesTest {
+        #[serde(with = "hexify_vec_bytes")]
+        value: Vec<u8>,
+    }
+
+    #[test]
+    fn test_hexify_vec_bytes_serialize() {
+        let cases = [(vec![], "0x"), (vec![0], "0x00"), (vec![42, 66], "0x2a42")];
+
+        for (input, expected) in cases.into_iter() {
+            let hexify = HexifyVecBytesTest { value: input };
+            let serialized = serde_json::to_string(&hexify).unwrap();
+            self::assert_eq!(serialized, format!("{{\"value\":\"{}\"}}", expected));
+        }
+    }
+
+    #[test]
+    fn test_hexify_vec_bytes_deserialize() {
+        let cases = [
+            ("0x", vec![]),
+            ("0x0", vec![0]),
+            ("0xF", vec![15]),
+            ("0x2a42", vec![42, 66]),
+            ("0x2A42", vec![42, 66]),
+        ];
+
+        for (input, expected) in cases.into_iter() {
+            let deserializer: StringDeserializer<SerdeError> =
+                String::from_str(input).unwrap().into_deserializer();
+            let deserialized = hexify_vec_bytes::deserialize(deserializer).unwrap();
+            self::assert_eq!(deserialized, expected);
+        }
+
+        let fail_cases = ["cthulhu", "x", "0xazathoth"];
+        for input in fail_cases.into_iter() {
+            let deserializer: StringDeserializer<SerdeError> =
+                String::from_str(input).unwrap().into_deserializer();
+            let deserialized = hexify_vec_bytes::deserialize(deserializer);
+            assert!(deserialized.is_err());
         }
     }
 }
