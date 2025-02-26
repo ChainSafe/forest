@@ -81,42 +81,6 @@ pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     );
     metric
 });
-pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "network_head_evaluation_errors",
-        "Total number of network head evaluation errors",
-        metric.clone(),
-    );
-    metric
-});
-pub static BOOTSTRAP_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "bootstrap_errors",
-        "Total number of bootstrap attempts failures",
-        metric.clone(),
-    );
-    metric
-});
-pub static FOLLOW_NETWORK_INTERRUPTIONS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "follow_network_interruptions",
-        "Total number of follow network interruptions, where it unexpectedly ended",
-        metric.clone(),
-    );
-    metric
-});
-pub static FOLLOW_NETWORK_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "follow_network_errors",
-        "Total number of follow network errors",
-        metric.clone(),
-    );
-    metric
-});
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Libp2pMessageKindLabel(&'static str);

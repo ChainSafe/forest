@@ -15,7 +15,6 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext, VMEvent,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
@@ -277,7 +276,6 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
-    sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
@@ -291,7 +289,6 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
-        sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
@@ -302,7 +299,6 @@ where
             events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
-            sync_config,
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -318,10 +314,6 @@ where
 
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         &self.chain_config
-    }
-
-    pub fn sync_config(&self) -> &Arc<SyncConfig> {
-        &self.sync_config
     }
 
     /// Gets the state tree

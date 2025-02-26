@@ -10,7 +10,6 @@ use crate::chain_sync::SyncStage;
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
-use itertools::Itertools as _;
 use ticker::Ticker;
 
 use crate::cli::subcommands::format_vec_pretty;

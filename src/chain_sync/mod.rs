@@ -13,8 +13,8 @@ mod validation;
 
 pub use self::{
     bad_block_cache::BadBlockCache,
-    chain_follower::{chain_follower, ChainFollower},
-    chain_muxer::{ChainMuxer, SyncConfig},
+    chain_follower::ChainFollower,
+    chain_muxer::SyncConfig,
     consensus::collect_errs,
     sync_state::{SyncStage, SyncState},
     validation::{TipsetValidationError, TipsetValidator},

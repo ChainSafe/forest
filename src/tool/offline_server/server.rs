@@ -4,7 +4,7 @@
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::chain_sync::{SyncConfig, SyncStage};
+use crate::chain_sync::SyncStage;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::populate_eth_mappings;
@@ -60,7 +60,6 @@ pub async fn start_offline_server(
 
     db.read_only_files(snapshot_files.iter().cloned())?;
     let chain_config = Arc::new(handle_chain_config(&chain)?);
-    let sync_config = Arc::new(SyncConfig::default());
     let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
         genesis.as_deref(),
@@ -75,11 +74,7 @@ pub async fn start_offline_server(
         chain_config.clone(),
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(
-        chain_store.clone(),
-        chain_config,
-        sync_config,
-    )?);
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
     populate_eth_mappings(&state_manager, &head_ts)?;

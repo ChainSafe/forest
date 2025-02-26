@@ -3,7 +3,7 @@
 
 use crate::{
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
+    chain_sync::{network_context::SyncNetworkContext, SyncStage},
     db::{
         car::{AnyCar, ManyCar},
         MemoryDB,
@@ -91,7 +91,6 @@ async fn ctx(
 )> {
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
-    let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(
@@ -104,8 +103,7 @@ async fn ctx(
         )
         .unwrap(),
     );
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config).unwrap());
     let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),

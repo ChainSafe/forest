@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     blocks::TipsetKey,
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
+    chain_sync::{network_context::SyncNetworkContext, SyncStage},
     daemon::db_util::load_all_forest_cars,
     db::{
         db_engine::open_db, parity_db::ParityDb, EthMappingsStore, HeaviestTipsetKeyProvider,
@@ -77,7 +77,6 @@ async fn ctx(
 )> {
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
-    let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
 
@@ -92,8 +91,7 @@ async fn ctx(
         .unwrap(),
     );
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config).unwrap());
     let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),

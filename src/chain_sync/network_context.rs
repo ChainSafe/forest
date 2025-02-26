@@ -15,8 +15,7 @@ use crate::{
     blocks::{FullTipset, Tipset, TipsetKey},
     libp2p::{
         chain_exchange::{
-            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-            MESSAGES,
+            ChainExchangeRequest, ChainExchangeResponse, TipsetBundle, HEADERS, MESSAGES,
         },
         hello::{HelloRequest, HelloResponse},
         rpc::RequestResponseError,
@@ -157,47 +156,6 @@ where
             count,
             HEADERS,
             |tipsets: &Vec<Arc<Tipset>>| validate_network_tipsets(tipsets, tsk),
-        )
-        .await
-    }
-    /// Send a `chain_exchange` request for only messages (ignore block
-    /// headers). If `peer_id` is `None`, requests will be sent to a set of
-    /// shuffled peers.
-    pub async fn chain_exchange_messages(
-        &self,
-        peer_id: Option<PeerId>,
-        tipsets: &[Arc<Tipset>],
-    ) -> Result<Vec<CompactedMessages>, String> {
-        let head = tipsets
-            .last()
-            .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
-        let tsk = head.key();
-        tracing::trace!(
-            "ChainExchange message sync tipsets: epoch: {}, len: {}",
-            head.epoch(),
-            tipsets.len()
-        );
-        self.handle_chain_exchange_request(
-            peer_id,
-            tsk,
-            NonZeroU64::new(tipsets.len() as _).expect("Infallible"),
-            MESSAGES,
-            |compacted_messages_vec: &Vec<CompactedMessages>| {
-                for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
-                    let header_len = ts.block_headers().len();
-                    if header_len != msg.bls_msg_includes.len()
-                        || header_len != msg.secp_msg_includes.len()
-                    {
-                        tracing::warn!(
-                            "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
-                            msg.bls_msg_includes.len(),
-                            msg.secp_msg_includes.len()
-                        );
-                        return false;
-                    }
-                }
-                true
-            },
         )
         .await
     }

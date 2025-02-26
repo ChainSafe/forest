@@ -35,7 +35,7 @@ use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -270,7 +270,6 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            // info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
