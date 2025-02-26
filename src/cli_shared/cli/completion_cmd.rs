@@ -1,9 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::cli::subcommands::Cli as ForestCliSubCommand;
-use crate::tool::subcommands::Cli as ForestToolSubCommand;
-use crate::wallet::subcommands::Cli as ForestWalletSubCommand;
-use crate::daemon::main::Cli as ForestDaemonSubCommand;
+use crate::cli::subcommands::Cli as ForestCli;
+use crate::daemon::main::Cli as ForestDaemonCli;
+use crate::tool::subcommands::Cli as ForestToolCli;
+use crate::wallet::subcommands::Cli as ForestWalletCli;
 use ahash::HashMap;
 use clap::{Command, CommandFactory};
 use clap_complete::aot::{generate, Shell};
@@ -21,18 +21,16 @@ pub struct CompletionCommand {
 }
 
 impl CompletionCommand {
-    pub fn run(self) -> anyhow::Result<()> {
+    pub fn run<W: std::io::Write>(self, writer: &mut W) -> anyhow::Result<()> {
         let mut bin_cmd_map: HashMap<String, Command> = HashMap::from_iter([
-            ("forest".to_string(), ForestDaemonSubCommand::command()),
-            ("forest-cli".to_string(), ForestCliSubCommand::command()),
-            ("forest-wallet".to_string(), ForestWalletSubCommand::command()),
-            ("forest-tool".to_string(), ForestToolSubCommand::command()),
+            ("forest".to_string(), ForestDaemonCli::command()),
+            ("forest-cli".to_string(), ForestCli::command()),
+            ("forest-wallet".to_string(), ForestWalletCli::command()),
+            ("forest-tool".to_string(), ForestToolCli::command()),
         ]);
 
         let valid_binaries = bin_cmd_map.keys().cloned().collect::<Vec<_>>();
-        let binaries = self
-            .binaries
-            .unwrap_or_else(|| valid_binaries.clone());
+        let binaries = self.binaries.unwrap_or_else(|| valid_binaries.clone());
 
         for b in binaries {
             let cmd = bin_cmd_map.get_mut(&b).ok_or_else(|| {
@@ -47,7 +45,7 @@ impl CompletionCommand {
                 self.shell,
                 cmd,
                 cmd.get_bin_name().unwrap().to_string(),
-                &mut std::io::stdout(),
+                writer,
             );
         }
         Ok(())
@@ -66,19 +64,27 @@ mod tests {
         };
 
         // Execution should succeed
-        let result = cmd.run();
-        assert!(result.is_ok(), "Expected command to succeed, got: {:?}", result);
+        let result = cmd.run(&mut std::io::sink());
+        assert!(
+            result.is_ok(),
+            "Expected command to succeed, got: {:?}",
+            result
+        );
     }
 
     #[test]
     fn test_completion_binaries_succeeds() {
         let cmd = CompletionCommand {
             binaries: Some(vec!["forest-cli".to_string(), "forest-tool".to_string()]),
-            shell: clap_complete::Shell::Bash,
+            shell: Shell::Bash,
         };
 
-        let result = cmd.run();
-        assert!(result.is_ok(), "Expected command to succeed, got {:?}", result);
+        let result = cmd.run(&mut std::io::sink());
+        assert!(
+            result.is_ok(),
+            "Expected command to succeed, got {:?}",
+            result
+        );
     }
 
     #[test]
@@ -88,8 +94,11 @@ mod tests {
             shell: Shell::Bash,
         };
 
-        let result = cmd.run();
-        assert!(result.is_err(), "Expected command to fail, but it succeeded");
+        let result = cmd.run(&mut std::io::sink());
+        assert!(
+            result.is_err(),
+            "Expected command to fail, but it succeeded"
+        );
 
         let err = result.unwrap_err().to_string();
         assert!(
@@ -103,12 +112,18 @@ mod tests {
     fn test_completion_mixed_valid_invalid_fails() {
         // Create a completion command with mix of valid and invalid binaries
         let cmd = CompletionCommand {
-            binaries: Some(vec!["forest-cli".to_string(), "non-existent-binary".to_string()]),
+            binaries: Some(vec![
+                "forest-cli".to_string(),
+                "non-existent-binary".to_string(),
+            ]),
             shell: Shell::Bash,
         };
 
-        let result = cmd.run();
-        assert!(result.is_err(), "Expected command to fail, but it succeeded");
+        let result = cmd.run(&mut std::io::sink());
+        assert!(
+            result.is_err(),
+            "Expected command to fail, but it succeeded"
+        );
 
         let err = result.unwrap_err().to_string();
         assert!(
