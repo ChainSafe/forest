@@ -1232,22 +1232,30 @@ fn eth_tests() -> Vec<RpcTest> {
                 .unwrap(),
             ));
         }
-        tests.push(RpcTest::basic(
-            EthNewFilter::request_with_alias(
-                (EthFilterSpec {
-                    from_block: None,
-                    to_block: None,
-                    address: vec![EthAddress::from_str(
-                        "0xff38c072f286e3b20b3954ca9f99c05fbecc64aa",
-                    )
-                    .unwrap()],
-                    topics: None,
-                    block_hash: None,
-                },),
-                use_alias,
-            )
-            .unwrap(),
-        ));
+
+        let cases = [
+            EthAddressList::List(vec![]),
+            EthAddressList::List(vec![
+                EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap(),
+                EthAddress::from_str("0x89beb26addec4bc7e9f475aacfd084300d6de719").unwrap(),
+            ]),
+            EthAddressList::Single(
+                EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap(),
+            ),
+        ];
+
+        for address in cases {
+            tests.push(RpcTest::basic(
+                EthNewFilter::request_with_alias(
+                    (EthFilterSpec {
+                        address,
+                        ..Default::default()
+                    },),
+                    use_alias,
+                )
+                .unwrap(),
+            ));
+        }
         tests.push(RpcTest::basic(
             EthNewPendingTransactionFilter::request_with_alias((), use_alias).unwrap(),
         ));
@@ -1380,11 +1388,30 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
-        RpcTest::identity(EthGetBlockReceipts::request((block_hash.clone(),)).unwrap()),
+        RpcTest::identity(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
+                block_hash.clone(),
+                true,
+            ),))
+            .unwrap(),
+        ),
+        // Nodes might be synced to different epochs, so we can't assert the exact result here.
+        // Regardless, we want to check if the node returns a valid response and accepts predefined
+        // values.
+        RpcTest::basic(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
+                .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
-        RpcTest::identity(EthGetBlockReceiptsLimited::request((block_hash.clone(), 800)).unwrap()),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+                800,
+            ))
+            .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
                 .unwrap(),
@@ -1576,7 +1603,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: vec![],
+                address: Default::default(),
                 topics: None,
                 block_hash: None,
             },))
@@ -1587,7 +1614,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: vec![],
+                address: Default::default(),
                 topics: None,
                 block_hash: None,
             },))

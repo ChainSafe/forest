@@ -75,6 +75,10 @@
 
 - [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
 
+- [#5342](https://github.com/ChainSafe/forest/pull/5342) Improved the ergonomics of handling addresses in the `Filecoin.EthGetLogs` and `Filecoin.EthNewFilter` to accept both single addresses and arrays of addresses. This conforms to the Ethereum RPC API.
+
+- [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
+
 - [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
 
 ### Changed
@@ -86,6 +90,8 @@
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
 
 ### Removed
+
+- [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
 
 ### Fixed
 
@@ -103,6 +109,8 @@
   `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
 
 - [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
+
+- [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 
 ## Forest v.0.23.3 "Plumber"
 
