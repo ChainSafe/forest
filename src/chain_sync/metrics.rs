@@ -54,29 +54,11 @@ pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
     );
     metric
 });
-pub static TIPSET_RANGE_SYNC_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "tipset_range_sync_failure_total",
-        "Total number of errors produced by TipsetRangeSyncers",
-        metric.clone(),
-    );
-    metric
-});
 pub static HEAD_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
     crate::metrics::default_registry().register(
         "head_epoch",
         "Latest epoch synchronized to the node",
-        metric.clone(),
-    );
-    metric
-});
-pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
-    let metric = Gauge::default();
-    crate::metrics::default_registry().register(
-        "last_validated_tipset_epoch",
-        "Last validated tipset epoch",
         metric.clone(),
     );
     metric

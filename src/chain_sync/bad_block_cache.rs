@@ -37,12 +37,6 @@ impl BadBlockCache {
     }
 
     /// Returns `Some` with the reason if the block CID is in bad block cache.
-    /// This also updates the key to the head of the cache.
-    pub fn get(&self, c: &Cid) -> Option<String> {
-        self.cache.lock().get(c).cloned()
-    }
-
-    /// Returns `Some` with the reason if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<String> {
         self.cache.lock().peek(c).cloned()

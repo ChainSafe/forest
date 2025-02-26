@@ -127,13 +127,6 @@ impl SyncState {
     pub fn set_target(&mut self, target: Option<Arc<Tipset>>) {
         self.target = target;
     }
-
-    /// Sets error for the sync.
-    pub fn error(&mut self, err: String) {
-        self.message = err;
-        self.stage = SyncStage::Error;
-        self.end = Some(Utc::now());
-    }
 }
 
 mod lotus_json {

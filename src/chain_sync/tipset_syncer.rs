@@ -129,6 +129,8 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
         return Ok(());
     }
 
+    let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+
     let epoch = full_tipset.epoch();
     let full_tipset_key = full_tipset.key().clone();
 
@@ -169,6 +171,7 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
             }
         }
     }
+    drop(timer);
     Ok(())
 }
 

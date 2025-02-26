@@ -5,7 +5,7 @@ mod bad_block_cache;
 mod chain_follower;
 mod chain_muxer;
 pub mod consensus;
-mod metrics;
+pub mod metrics;
 pub mod network_context;
 mod sync_state;
 mod tipset_syncer;
