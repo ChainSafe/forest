@@ -1395,6 +1395,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ),))
             .unwrap(),
         ),
+        // Nodes might be synced to different epochs, so we can't assert the exact result here.
+        // Regardless, we want to check if the node returns a valid response and accepts predefined
+        // values.
+        RpcTest::basic(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_predefined(Predefined::Latest),))
+                .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
