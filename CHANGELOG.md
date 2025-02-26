@@ -85,6 +85,8 @@
 
 ### Removed
 
+- [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
+
 ### Fixed
 
 - [#5111](https://github.com/ChainSafe/forest/issues/5111) Make F3 work when the node Kademlia is disabled.
