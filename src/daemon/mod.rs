@@ -406,7 +406,7 @@ fn maybe_start_eth_mapping_collection_service(
     config: &Config,
     state_manager: &StateManager<DbType>,
 ) {
-    if let Some(ttl) = config.client.eth_mapping_ttl {
+    if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
         let chain_store = state_manager.chain_store().clone();
         let chain_config = state_manager.chain_config().clone();
         services.spawn(async move {
@@ -414,7 +414,7 @@ fn maybe_start_eth_mapping_collection_service(
             let mut collector = EthMappingCollector::new(
                 chain_store.db.clone(),
                 chain_config.eth_chain_id,
-                Duration::from_secs(ttl.into()),
+                retention_epochs.into(),
             );
             collector.run().await
         });

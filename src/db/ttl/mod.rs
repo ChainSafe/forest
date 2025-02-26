@@ -4,6 +4,7 @@
 use crate::eth::EthChainId;
 use crate::message::ChainMessage;
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,11 +20,13 @@ pub struct EthMappingCollector<DB> {
 impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollector<DB> {
     /// Creates a `TTL` collector for the Ethereum mapping.
     ///
-    pub fn new(db: Arc<DB>, eth_chain_id: EthChainId, ttl: Duration) -> Self {
+    pub fn new(db: Arc<DB>, eth_chain_id: EthChainId, retention_epochs: ChainEpoch) -> Self {
+        // Convert retention_epochs to number of seconds
+        let secs = EPOCH_DURATION_SECONDS * retention_epochs;
         Self {
             db,
             eth_chain_id,
-            ttl,
+            ttl: Duration::from_secs(secs as u64),
         }
     }
 

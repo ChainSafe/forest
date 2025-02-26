@@ -79,7 +79,7 @@ impl Default for FevmConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ChainIndexerConfig {
-    gc_retention_epochs: Option<u32>,
+    pub gc_retention_epochs: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
