@@ -79,6 +79,7 @@ impl Default for FevmConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ChainIndexerConfig {
+    /// Number of retention epochs for indexed entries. Set to `None` to disable reclamation.
     pub gc_retention_epochs: Option<u32>,
 }
 
