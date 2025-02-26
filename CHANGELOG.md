@@ -85,6 +85,9 @@
 
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
 
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[fevm]` section or via the 
+  `FOREST_FEVM_ENABLE_ETH_RPC` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+
 ### Removed
 
 - [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
