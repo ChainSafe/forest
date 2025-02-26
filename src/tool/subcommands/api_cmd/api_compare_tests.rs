@@ -1388,11 +1388,23 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         ),
-        RpcTest::identity(EthGetBlockReceipts::request((block_hash.clone(),)).unwrap()),
+        RpcTest::identity(
+            EthGetBlockReceipts::request((BlockNumberOrHash::from_block_hash_object(
+                block_hash.clone(),
+                true,
+            ),))
+            .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
-        RpcTest::identity(EthGetBlockReceiptsLimited::request((block_hash.clone(), 800)).unwrap()),
+        RpcTest::identity(
+            EthGetBlockReceiptsLimited::request((
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+                800,
+            ))
+            .unwrap(),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
                 .unwrap(),
