@@ -169,20 +169,6 @@ where
         Ok(())
     }
 
-    /// Writes the delegated message `Cid`s to the blockstore for `EthAPI` queries.
-    pub fn put_delegated_message_hashes<'a>(
-        &self,
-        headers: impl Iterator<Item = &'a CachingBlockHeader>,
-    ) -> Result<(), Error> {
-        tracing::debug!("persist eth mapping");
-
-        // The messages will be ordered from most recent block to less recent
-        let delegated_messages = self.headers_delegated_messages(headers)?;
-
-        self.process_signed_messages(&delegated_messages)?;
-        Ok(())
-    }
-
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
     pub fn get_required_tipset_key(&self, hash: &EthHash) -> Result<TipsetKey, Error> {
         let tsk = self

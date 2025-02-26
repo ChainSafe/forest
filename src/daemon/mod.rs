@@ -663,9 +663,7 @@ fn maybe_start_indexer_service(
             loop {
                 let msg = receiver.recv().await?;
 
-                let ts = match msg {
-                    HeadChange::Apply(ts) => ts,
-                };
+                let HeadChange::Apply(ts) = msg;
                 tracing::debug!("Indexing tipset {}", ts.key());
 
                 state_manager.chain_store().put_tipset_key(ts.key())?;
