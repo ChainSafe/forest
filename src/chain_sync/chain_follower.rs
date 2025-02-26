@@ -1,10 +1,13 @@
+use std::time::SystemTime;
 use std::{ops::Deref as _, sync::Arc};
 
+use crate::libp2p::hello::HelloRequest;
 use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
 use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
@@ -101,6 +104,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             self.network,
             self.mem_pool,
             self.sync_states,
+            self._genesis,
         )
         .await
     }
@@ -115,6 +119,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     sync_states: Arc<RwLock<Vec<SyncState>>>,
+    genesis: Arc<Tipset>,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
     let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
@@ -133,8 +138,15 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let network = network.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
-                // inc metrics (TODO)
-                // update peer manager (TODO)
+                inc_gossipsub_event_metrics(&event);
+
+                upd_peer_information(
+                    &event,
+                    network.clone(),
+                    state_manager.chain_store().clone(),
+                    &genesis,
+                );
+
                 let Ok(tipset) = (match event {
                     NetworkEvent::HelloResponseOutbound { request, source } => {
                         let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
@@ -261,6 +273,109 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     });
     set.join_all().await;
     Ok(())
+}
+
+// Increment the gossipsub event metrics.
+fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
+    let label = match event {
+        NetworkEvent::HelloRequestInbound => metrics::values::HELLO_REQUEST_INBOUND,
+        NetworkEvent::HelloResponseOutbound { .. } => metrics::values::HELLO_RESPONSE_OUTBOUND,
+        NetworkEvent::HelloRequestOutbound => metrics::values::HELLO_REQUEST_OUTBOUND,
+        NetworkEvent::HelloResponseInbound => metrics::values::HELLO_RESPONSE_INBOUND,
+        NetworkEvent::PeerConnected(_) => metrics::values::PEER_CONNECTED,
+        NetworkEvent::PeerDisconnected(_) => metrics::values::PEER_DISCONNECTED,
+        NetworkEvent::PubsubMessage { message } => match message {
+            PubsubMessage::Block(_) => metrics::values::PUBSUB_BLOCK,
+            PubsubMessage::Message(_) => metrics::values::PUBSUB_MESSAGE,
+        },
+        NetworkEvent::ChainExchangeRequestOutbound => {
+            metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND
+        }
+        NetworkEvent::ChainExchangeResponseInbound => {
+            metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND
+        }
+        NetworkEvent::ChainExchangeRequestInbound => {
+            metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND
+        }
+        NetworkEvent::ChainExchangeResponseOutbound => {
+            metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND
+        }
+    };
+
+    metrics::LIBP2P_MESSAGE_TOTAL.get_or_create(&label).inc();
+}
+
+// Keep our peer manager up to date.
+fn upd_peer_information<DB: Blockstore + Sync + Send + 'static>(
+    event: &NetworkEvent,
+    network: SyncNetworkContext<DB>,
+    chain_store: Arc<ChainStore<DB>>,
+    genesis: &Tipset,
+) {
+    match event {
+        NetworkEvent::PeerConnected(peer_id) => {
+            let genesis_cid = *genesis.block_headers().first().cid();
+            // Spawn and immediately move on to the next event
+            tokio::task::spawn(handle_peer_connected_event(
+                network,
+                chain_store,
+                *peer_id,
+                genesis_cid,
+            ));
+        }
+        NetworkEvent::PeerDisconnected(peer_id) => {
+            handle_peer_disconnected_event(network, *peer_id);
+        }
+        _ => {}
+    }
+}
+
+async fn handle_peer_connected_event<DB: Blockstore + Sync + Send + 'static>(
+    network: SyncNetworkContext<DB>,
+    chain_store: Arc<ChainStore<DB>>,
+    peer_id: PeerId,
+    genesis_block_cid: Cid,
+) {
+    // Query the heaviest TipSet from the store
+    if network.peer_manager().is_peer_new(&peer_id) {
+        // Since the peer is new, send them a hello request
+        // Query the heaviest TipSet from the store
+        let heaviest = chain_store.heaviest_tipset();
+        let request = HelloRequest {
+            heaviest_tip_set: heaviest.cids(),
+            heaviest_tipset_height: heaviest.epoch(),
+            heaviest_tipset_weight: heaviest.weight().clone().into(),
+            genesis_cid: genesis_block_cid,
+        };
+        let (peer_id, moment_sent, response) = match network.hello_request(peer_id, request).await {
+            Ok(response) => response,
+            Err(e) => {
+                debug!("Hello request failed: {}", e);
+                return;
+            }
+        };
+        let dur = SystemTime::now()
+            .duration_since(moment_sent)
+            .unwrap_or_default();
+
+        // Update the peer metadata based on the response
+        match response {
+            Some(_) => {
+                network.peer_manager().log_success(&peer_id, dur);
+            }
+            None => {
+                network.peer_manager().log_failure(&peer_id, dur);
+            }
+        }
+    }
+}
+
+fn handle_peer_disconnected_event<DB: Blockstore + Sync + Send + 'static>(
+    network: SyncNetworkContext<DB>,
+    peer_id: PeerId,
+) {
+    network.peer_manager().remove_peer(&peer_id);
+    network.peer_manager().unmark_peer_bad(&peer_id);
 }
 
 async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
