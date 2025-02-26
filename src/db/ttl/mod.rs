@@ -95,7 +95,7 @@ mod test {
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
     const EPS_DURATION: Duration = Duration::from_secs(1);
-    const TTL_DURATION: Duration = Duration::from_secs(60);
+    const RETENTION_EPOCHS: i64 = 2;
 
     use super::*;
 
@@ -139,26 +139,33 @@ mod test {
         let (_, tx1) = eth_tx_from_signed_eth_message(&secp1, ETH_CHAIN_ID).unwrap();
         let key1 = tx1.eth_hash().unwrap().into();
 
+        let ttl_duration = Duration::from_secs(
+            (RETENTION_EPOCHS * EPOCH_DURATION_SECONDS)
+                .try_into()
+                .unwrap(),
+        );
+
         blockstore
             .write_obj(
                 &key1,
                 &(
                     secp1.cid(),
-                    unix_timestamp.timestamp() as u64 + 2 * TTL_DURATION.as_secs(),
+                    unix_timestamp.timestamp() as u64 + 2 * ttl_duration.as_secs(),
                 ),
             )
             .unwrap();
 
         assert!(blockstore.exists(&key1).unwrap());
 
-        let collector = EthMappingCollector::new(blockstore.clone(), ETH_CHAIN_ID, TTL_DURATION);
+        let collector =
+            EthMappingCollector::new(blockstore.clone(), ETH_CHAIN_ID, RETENTION_EPOCHS);
 
         collector.ttl_workflow(ZERO_DURATION).unwrap();
 
         assert!(blockstore.exists(&key0).unwrap());
         assert!(blockstore.exists(&key1).unwrap());
 
-        collector.ttl_workflow(TTL_DURATION + EPS_DURATION).unwrap();
+        collector.ttl_workflow(ttl_duration + EPS_DURATION).unwrap();
 
         assert!(!blockstore.exists(&key0).unwrap());
         assert!(blockstore.exists(&key1).unwrap());
