@@ -580,7 +580,8 @@ pub enum GetManifestFromContract {}
 
 impl GetManifestFromContract {
     pub fn create_eth_call_message(contract: EthAddress) -> EthCallMessage {
-        // method ID of activationInformation()
+        // method ID of activationInformation(),
+        // see <https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/ignition/deployments/chain-314/build-info/a0bc9e457fcc01c34ae281e6c20340e7.json#L11770>
         static METHOD_ID: Lazy<EthBytes> =
             Lazy::new(|| EthBytes::from_str("0x2587660d").expect("Infallible"));
         EthCallMessage {
