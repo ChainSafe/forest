@@ -40,6 +40,7 @@ process.
 | `FOREST_F3_BOOTSTRAP_EPOCH`                               | integer                          | -1                                             | 100                                                           | Set the bootstrap epoch for F3                                                   |
 | `FOREST_DRAND_MAINNET_CONFIG`                             | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_MAINNET` config                                                  |
 | `FOREST_DRAND_QUICKNET_CONFIG`                            | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_QUICKNET` config                                                 |
+| `FOREST_FEVM_ENABLE_ETH_RPC`                              | 1 or true                        | empty                                          | 1                                                             | Whether or not to index the chain to support the Ethereum RPC API                |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
