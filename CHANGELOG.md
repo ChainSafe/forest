@@ -77,6 +77,8 @@
 
 - [#5342](https://github.com/ChainSafe/forest/pull/5342) Improved the ergonomics of handling addresses in the `Filecoin.EthGetLogs` and `Filecoin.EthNewFilter` to accept both single addresses and arrays of addresses. This conforms to the Ethereum RPC API.
 
+- [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
