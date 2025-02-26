@@ -640,17 +640,17 @@ fn maybe_populate_eth_mappings_in_background(
 fn maybe_start_indexer_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
-    _config: &Config,
+    config: &Config,
     _db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
 ) {
-    if !opts.stateless && !state_manager.chain_config().is_devnet() {
+    if config.fevm.enable_eth_rpc && !opts.stateless && !state_manager.chain_config().is_devnet() {
         let state_manager = state_manager.clone();
 
         let mut receiver = state_manager.chain_store().publisher().subscribe();
 
         services.spawn(async move {
-            tracing::info!("Start indexer service");
+            tracing::info!("Starting indexer service");
 
             // Continuously listen for head changes
             loop {

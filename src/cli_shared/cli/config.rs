@@ -4,11 +4,14 @@
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::misc::env::is_env_set_and_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::client::Client;
+
+const FOREST_FEVM_ENABLE_ETH_RPC: &str = "FOREST_FEVM_ENABLE_ETH_RPC";
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -55,6 +58,30 @@ impl Default for EventsConfig {
     }
 }
 
+/// Structure that defines FEVM configuration
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct FevmConfig {
+    pub enable_eth_rpc: bool,
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
+    pub eth_trace_filter_max_results: usize,
+}
+
+impl Default for FevmConfig {
+    fn default() -> Self {
+        Self {
+            enable_eth_rpc: is_env_set_and_truthy(FOREST_FEVM_ENABLE_ETH_RPC).unwrap_or(false),
+            eth_trace_filter_max_results: 500,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Eq, Default, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct ChainIndexerConfig {
+    gc_retention_epochs: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -66,6 +93,8 @@ pub struct Config {
     pub sync: SyncConfig,
     pub daemon: DaemonConfig,
     pub events: EventsConfig,
+    pub fevm: FevmConfig,
+    pub chain_indexer: ChainIndexerConfig,
 }
 
 impl Config {
