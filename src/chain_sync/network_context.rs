@@ -229,6 +229,21 @@ where
         Ok(fts.remove(0))
     }
 
+    pub async fn chain_exchange_full_tipsets(
+        &self,
+        peer_id: Option<PeerId>,
+        tsk: &TipsetKey,
+    ) -> Result<Vec<FullTipset>, String> {
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            NonZeroU64::new(16).expect("Infallible"),
+            HEADERS | MESSAGES,
+            |_| true,
+        )
+        .await
+    }
+
     /// Helper function to handle the peer retrieval if no peer supplied as well
     /// as the logging and updating of the peer info in the `PeerManager`.
     async fn handle_chain_exchange_request<T, F>(
@@ -315,7 +330,7 @@ where
 
                 let make_failure_message = || {
                     CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_failure();
-                    tracing::info!(
+                    tracing::debug!(
                         "Increased chain exchange timeout to {}ms",
                         CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()
                     );
@@ -339,7 +354,7 @@ where
                     .ok_or_else(make_failure_message)?;
                 if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
                     if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
-                        tracing::info!(
+                        tracing::debug!(
                             "Decreased chain exchange timeout to {}ms. Current average: {}ms",
                             CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
                             mean,

@@ -4,6 +4,7 @@ use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
 use crate::state_manager::StateManager;
 use ahash::HashSet;
+use chrono::Utc;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
@@ -71,9 +72,14 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     ) -> Self {
+        let heaviest = state_manager.chain_store().heaviest_tipset();
+        let mut main_sync_state = SyncState::default();
+        main_sync_state.init(heaviest.clone(), heaviest.clone());
+        main_sync_state.set_epoch(heaviest.epoch());
+        main_sync_state.set_stage(SyncStage::Messages);
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
-            sync_states: Default::default(),
+            sync_states: Arc::new(RwLock::new(vec![main_sync_state])),
             state_manager,
             network,
             _genesis: genesis,
@@ -207,20 +213,30 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 let mut tasks_set = tasks.lock();
                 let (task_vec, states) = state_machine.lock().tasks();
 
-                let heaviest = state_manager.chain_store().heaviest_tipset();
-                sync_states
-                    .write()
-                    .first_mut()
-                    .unwrap()
-                    .set_epoch(heaviest.epoch());
-                // *sync_states.write().first_mut().unwrap().set_target()
-                *sync_states.write() = states;
+                {
+                    let heaviest = state_manager.chain_store().heaviest_tipset();
+                    let mut sync_states_guard = sync_states.write();
+                    // info!("Number of sync states: {}", sync_states_guard.len());
+                    sync_states_guard.truncate(1);
+                    let first = sync_states_guard.first_mut().unwrap();
+                    first.set_epoch(heaviest.epoch());
+                    first.set_target(state_machine.lock().heaviest_tipset());
+                    let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
+                    let time_diff =
+                        (Utc::now().timestamp() as u64).saturating_sub(heaviest.min_timestamp());
+                    if time_diff < seconds_per_epoch as u64 * 2 {
+                        first.set_stage(SyncStage::Complete);
+                    } else {
+                        first.set_stage(SyncStage::Messages);
+                    }
+                    sync_states_guard.extend(states);
+                }
 
                 for task in task_vec {
                     // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
                     let new = tasks_set.insert(task.clone());
                     if new {
-                        info!("Spawning task: {}", task);
+                        // info!("Spawning task: {}", task);
                         let tasks_clone = tasks.clone();
                         let action = task.clone().execute(
                             network.clone(),
@@ -273,6 +289,35 @@ async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
     chain_store.put_tipset_key(tipset.key())?;
 
     Ok(tipset)
+}
+
+async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
+    network: SyncNetworkContext<DB>,
+    chain_store: Arc<ChainStore<DB>>,
+    peer_id: Option<PeerId>,
+    tipset_keys: TipsetKey,
+) -> anyhow::Result<Vec<FullTipset>> {
+    // Attempt to load from the store
+    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys.clone()) {
+        return Ok(vec![full_tipset]);
+    }
+    // Load from the network
+    let tipsets = network
+        .chain_exchange_full_tipsets(peer_id, &tipset_keys.clone())
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
+
+    for tipset in tipsets.iter() {
+        for block in tipset.blocks() {
+            block.persist(&chain_store.db)?;
+            crate::chain::persist_objects(&chain_store.db, block.bls_messages.iter())?;
+            crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
+        }
+        // This is needed for the Ethereum mapping
+        chain_store.put_tipset_key(tipset.key())?;
+    }
+
+    Ok(tipsets)
 }
 
 fn load_full_tipset<DB: Blockstore>(
@@ -357,6 +402,13 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         chains
     }
 
+    fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        self.tipsets
+            .values()
+            .max_by_key(|ts| ts.weight())
+            .map(|ts| Arc::new(ts.deref().clone().into_tipset()))
+    }
+
     fn is_validated(&self, tipset: &FullTipset) -> bool {
         let db = self.cs.blockstore();
         db.has(tipset.parent_state()).unwrap_or(false)
@@ -389,12 +441,12 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         let time_diff = epoch_diff * (self.chain_config.block_delay_secs as i64);
 
         if time_diff > SECONDS_IN_DAY {
-            info!(
-                "Add tipset: Ignoring old tipset. epoch: {}, heaviest: {}, diff: {}s",
-                tipset.epoch(),
-                heaviest.epoch(),
-                time_diff
-            );
+            // info!(
+            //     "Add tipset: Ignoring old tipset. epoch: {}, heaviest: {}, diff: {}s",
+            //     tipset.epoch(),
+            //     heaviest.epoch(),
+            //     time_diff
+            // );
             self.mark_bad_tipset(tipset, "old tipset".to_string());
             return;
         }
@@ -577,8 +629,15 @@ impl SyncTask {
                     debug!("Skipping fetch of bad tipset: {}", reason);
                     return None;
                 }
-                if let Ok(parent) = get_full_tipset(network.clone(), cs.clone(), None, key).await {
-                    Some(SyncEvent::NewFullTipsets(vec![Arc::new(parent)]))
+                if let Ok(parents) =
+                    get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
+                {
+                    if parents.len() > 1 {
+                        info!("Fetched {} tipsets", parents.len());
+                    }
+                    Some(SyncEvent::NewFullTipsets(
+                        parents.into_iter().map(Arc::new).collect(),
+                    ))
                 } else {
                     None
                 }

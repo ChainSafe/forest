@@ -124,8 +124,8 @@ impl SyncState {
     }
 
     /// Sets the target tipset for the sync state.
-    pub fn set_target(&mut self, target: Arc<Tipset>) {
-        self.target = Some(target);
+    pub fn set_target(&mut self, target: Option<Arc<Tipset>>) {
+        self.target = target;
     }
 
     /// Sets error for the sync.

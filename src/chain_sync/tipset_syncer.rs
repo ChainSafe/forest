@@ -1189,10 +1189,10 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let mut validations = FuturesUnordered::new();
     let blocks = full_tipset.into_blocks();
 
-    info!(
-        "Validating tipset: EPOCH = {epoch}, N blocks = {}",
-        blocks.len()
-    );
+    // info!(
+    //     "Validating tipset: EPOCH = {epoch}, N blocks = {}",
+    //     blocks.len()
+    // );
     trace!("Tipset keys: {full_tipset_key}");
 
     for b in blocks {

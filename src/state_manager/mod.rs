@@ -473,7 +473,6 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
-    #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         let StateOutput {
             state_root,
@@ -483,7 +482,6 @@ where
         Ok((state_root, receipt_root))
     }
 
-    #[instrument(skip(self))]
     pub async fn tipset_state_output(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
@@ -491,6 +489,11 @@ where
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
+                info!(
+                    "Evaluating tipset: EPOCH = {}, blocks = {}",
+                    tipset.epoch(),
+                    tipset.len(),
+                );
                 let ts_state = self
                     .compute_tipset_state(
                         Arc::clone(tipset),
