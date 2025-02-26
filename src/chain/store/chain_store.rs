@@ -6,7 +6,6 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::db::{EthMappingsStore, EthMappingsStoreExt};
 use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -24,6 +23,10 @@ use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
 };
+use crate::{
+    chain_sync::metrics,
+    db::{EthMappingsStore, EthMappingsStoreExt},
+};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -35,7 +38,7 @@ use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, trace, warn};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -270,7 +273,7 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
+            metrics::HEAD_EPOCH.set(ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
