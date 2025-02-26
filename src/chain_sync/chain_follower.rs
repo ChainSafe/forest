@@ -742,6 +742,7 @@ impl SyncTask {
                 }
             }
             SyncTask::FetchTipset(key) => {
+                let heaviest = state_manager.chain_store().heaviest_tipset().epoch();
                 if let Some(reason) = bad_block_cache.peek_tipset_key(&key) {
                     debug!("Skipping fetch of bad tipset: {}", reason);
                     return None;
@@ -750,7 +751,16 @@ impl SyncTask {
                     get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
                 {
                     if parents.len() > 1 {
-                        info!("Fetched {} tipsets", parents.len());
+                        let epoch = parents.last().unwrap().epoch();
+                        if epoch >= heaviest.saturating_sub(parents.len() as i64) {
+                            info!(
+                                "Fetched {} tipsets, missing: {}",
+                                parents.len(),
+                                (epoch - heaviest).max(0)
+                            );
+                        } else {
+                            info!("Fetched {} tipsets, from fork", parents.len());
+                        }
                     }
                     Some(SyncEvent::NewFullTipsets(
                         parents.into_iter().map(Arc::new).collect(),
