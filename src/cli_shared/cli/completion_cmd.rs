@@ -53,3 +53,68 @@ impl CompletionCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_completion_no_binaries_succeeds() {
+        let cmd = CompletionCommand {
+            binaries: None,
+            shell: Shell::Bash,
+        };
+
+        // Execution should succeed
+        let result = cmd.run();
+        assert!(result.is_ok(), "Expected command to succeed, got: {:?}", result);
+    }
+
+    #[test]
+    fn test_completion_binaries_succeeds() {
+        let cmd = CompletionCommand {
+            binaries: Some(vec!["forest-cli".to_string(), "forest-tool".to_string()]),
+            shell: clap_complete::Shell::Bash,
+        };
+
+        let result = cmd.run();
+        assert!(result.is_ok(), "Expected command to succeed, got {:?}", result);
+    }
+
+    #[test]
+    fn test_completion_binaries_fails() {
+        let cmd = CompletionCommand {
+            binaries: Some(vec!["non-existent-binary".to_string()]),
+            shell: Shell::Bash,
+        };
+
+        let result = cmd.run();
+        assert!(result.is_err(), "Expected command to fail, but it succeeded");
+
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("Unknown binary") && err.contains("non-existent-binary"),
+            "Error message '{}' did not contain expected text",
+            err
+        );
+    }
+
+    #[test]
+    fn test_completion_mixed_valid_invalid_fails() {
+        // Create a completion command with mix of valid and invalid binaries
+        let cmd = CompletionCommand {
+            binaries: Some(vec!["forest-cli".to_string(), "non-existent-binary".to_string()]),
+            shell: Shell::Bash,
+        };
+
+        let result = cmd.run();
+        assert!(result.is_err(), "Expected command to fail, but it succeeded");
+
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("Unknown binary") && err.contains("non-existent-binary"),
+            "Error message '{}' did not contain expected text",
+            err
+        );
+    }
+}
