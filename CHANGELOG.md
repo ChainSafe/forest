@@ -75,6 +75,8 @@
 
 - [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
 
+- [#5342](https://github.com/ChainSafe/forest/pull/5342) Improved the ergonomics of handling addresses in the `Filecoin.EthGetLogs` and `Filecoin.EthNewFilter` to accept both single addresses and arrays of addresses. This conforms to the Ethereum RPC API.
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
@@ -84,6 +86,8 @@
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
 
 ### Removed
+
+- [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
 
 ### Fixed
 
