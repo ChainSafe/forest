@@ -9,7 +9,8 @@ use clap::Parser;
 
 /// Command-line options for the `forest-wallet` binary
 #[derive(Parser)]
-#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(name = env!("CARGO_PKG_NAME"), bin_name = "forest-wallet", author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION")
+)]
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
     #[clap(flatten)]

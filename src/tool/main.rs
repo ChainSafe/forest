@@ -35,6 +35,7 @@ where
                 Subcommand::Api(cmd) => cmd.run().await,
                 Subcommand::Net(cmd) => cmd.run().await,
                 Subcommand::Shed(cmd) => cmd.run(client).await,
+                Subcommand::Completion(cmd) => cmd.run(&mut std::io::stdout()),
             }
         })
 }

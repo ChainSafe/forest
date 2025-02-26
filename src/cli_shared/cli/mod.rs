@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod client;
+mod completion_cmd;
 mod config;
 
 use std::{
@@ -18,7 +19,7 @@ use directories::ProjectDirs;
 use libp2p::Multiaddr;
 use tracing::error;
 
-pub use self::{client::*, config::*};
+pub use self::{client::*, completion_cmd::*, config::*};
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}
