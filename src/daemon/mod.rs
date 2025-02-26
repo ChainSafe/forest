@@ -401,26 +401,6 @@ fn maybe_start_gc_service(
     }
 }
 
-fn maybe_start_eth_mapping_collection_service(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    config: &Config,
-    state_manager: &StateManager<DbType>,
-) {
-    if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
-        let chain_store = state_manager.chain_store().clone();
-        let chain_config = state_manager.chain_config().clone();
-        services.spawn(async move {
-            tracing::info!("Starting collector for eth_mappings");
-            let mut collector = EthMappingCollector::new(
-                chain_store.db.clone(),
-                chain_config.eth_chain_id,
-                retention_epochs.into(),
-            );
-            collector.run().await
-        });
-    }
-}
-
 async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
@@ -652,10 +632,8 @@ fn maybe_start_indexer_service(
     state_manager: &Arc<StateManager<DbType>>,
 ) {
     if config.fevm.enable_eth_rpc && !opts.stateless && !state_manager.chain_config().is_devnet() {
-        let state_manager = state_manager.clone();
-
         let mut receiver = state_manager.chain_store().publisher().subscribe();
-
+        let chain_store = state_manager.chain_store().clone();
         services.spawn(async move {
             tracing::info!("Starting indexer service");
 
@@ -666,17 +644,29 @@ fn maybe_start_indexer_service(
                 let HeadChange::Apply(ts) = msg;
                 tracing::debug!("Indexing tipset {}", ts.key());
 
-                state_manager.chain_store().put_tipset_key(ts.key())?;
+                chain_store.put_tipset_key(ts.key())?;
 
-                let delegated_messages = state_manager
-                    .chain_store()
-                    .headers_delegated_messages(ts.block_headers().iter())?;
+                let delegated_messages =
+                    chain_store.headers_delegated_messages(ts.block_headers().iter())?;
 
-                state_manager
-                    .chain_store()
-                    .process_signed_messages(&delegated_messages)?;
+                chain_store.process_signed_messages(&delegated_messages)?;
             }
         });
+
+        // Run the collector only if ETH RPC is enabled
+        if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
+            let chain_store = state_manager.chain_store().clone();
+            let chain_config = state_manager.chain_config().clone();
+            services.spawn(async move {
+                tracing::info!("Starting collector for eth_mappings");
+                let mut collector = EthMappingCollector::new(
+                    chain_store.db.clone(),
+                    chain_config.eth_chain_id,
+                    retention_epochs.into(),
+                );
+                collector.run().await
+            });
+        }
     }
 }
 
@@ -707,7 +697,6 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
-    maybe_start_eth_mapping_collection_service(&mut services, &config, &state_manager);
     maybe_start_metrics_service(&mut services, &config, &db, &state_manager).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &db, &state_manager);
     let p2p_service = create_p2p_service(
