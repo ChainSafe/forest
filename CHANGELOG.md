@@ -79,6 +79,8 @@
 
 - [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
 
+- [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
