@@ -27,7 +27,6 @@ func NewContractManifestProvider(initialValue *manifest.Manifest, contract_manif
 		f3Api:           f3Api,
 		ch:              make(chan *manifest.Manifest),
 	}
-	p.Update(p.initialManifest)
 	return &p, nil
 }
 
@@ -51,6 +50,10 @@ func (p *ContractManifestProvider) Start(ctx context.Context) error {
 	p.started = &started
 	go func() {
 		for started && ctx.Err() == nil {
+			if p.currentManifest == nil && p.initialManifest != nil {
+				p.Update(p.initialManifest)
+				p.initialManifest = nil
+			}
 			logger.Debugf("Polling manifest from contract...\n")
 			m, err := p.f3Api.GetManifestFromContract(ctx)
 			if err == nil {
