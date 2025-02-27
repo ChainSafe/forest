@@ -15,8 +15,7 @@ use crate::{
     blocks::{FullTipset, Tipset, TipsetKey},
     libp2p::{
         chain_exchange::{
-            ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-            MESSAGES,
+            ChainExchangeRequest, ChainExchangeResponse, TipsetBundle, HEADERS, MESSAGES,
         },
         hello::{HelloRequest, HelloResponse},
         rpc::RequestResponseError,
@@ -160,47 +159,6 @@ where
         )
         .await
     }
-    /// Send a `chain_exchange` request for only messages (ignore block
-    /// headers). If `peer_id` is `None`, requests will be sent to a set of
-    /// shuffled peers.
-    pub async fn chain_exchange_messages(
-        &self,
-        peer_id: Option<PeerId>,
-        tipsets: &[Arc<Tipset>],
-    ) -> Result<Vec<CompactedMessages>, String> {
-        let head = tipsets
-            .last()
-            .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
-        let tsk = head.key();
-        tracing::trace!(
-            "ChainExchange message sync tipsets: epoch: {}, len: {}",
-            head.epoch(),
-            tipsets.len()
-        );
-        self.handle_chain_exchange_request(
-            peer_id,
-            tsk,
-            NonZeroU64::new(tipsets.len() as _).expect("Infallible"),
-            MESSAGES,
-            |compacted_messages_vec: &Vec<CompactedMessages>| {
-                for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
-                    let header_len = ts.block_headers().len();
-                    if header_len != msg.bls_msg_includes.len()
-                        || header_len != msg.secp_msg_includes.len()
-                    {
-                        tracing::warn!(
-                            "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
-                            msg.bls_msg_includes.len(),
-                            msg.secp_msg_includes.len()
-                        );
-                        return false;
-                    }
-                }
-                true
-            },
-        )
-        .await
-    }
 
     /// Send a `chain_exchange` request for a single full tipset (includes
     /// messages) If `peer_id` is `None`, requests will be sent to a set of
@@ -227,6 +185,21 @@ where
             ));
         }
         Ok(fts.remove(0))
+    }
+
+    pub async fn chain_exchange_full_tipsets(
+        &self,
+        peer_id: Option<PeerId>,
+        tsk: &TipsetKey,
+    ) -> Result<Vec<FullTipset>, String> {
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            NonZeroU64::new(16).expect("Infallible"),
+            HEADERS | MESSAGES,
+            |_| true,
+        )
+        .await
     }
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
@@ -315,7 +288,7 @@ where
 
                 let make_failure_message = || {
                     CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_failure();
-                    tracing::info!(
+                    tracing::debug!(
                         "Increased chain exchange timeout to {}ms",
                         CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()
                     );
@@ -339,7 +312,7 @@ where
                     .ok_or_else(make_failure_message)?;
                 if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
                     if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
-                        tracing::info!(
+                        tracing::debug!(
                             "Decreased chain exchange timeout to {}ms. Current average: {}ms",
                             CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
                             mean,
