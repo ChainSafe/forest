@@ -262,8 +262,8 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
-            f3_enabled: false,
-            f3_consensus: false,
+            f3_enabled: true,
+            f3_consensus: true,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
             f3_contract_address: Some(

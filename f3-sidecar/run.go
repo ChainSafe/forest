@@ -84,19 +84,8 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	m.CatchUpAlignment = blockDelay / 2
 	m.CertificateExchange.MinimumPollInterval = blockDelay
 	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
-
-	head, err := ec.GetHead(ctx)
-	if err != nil {
-		return err
-	}
 	m.EC.Finality = finality
-	if bootstrapEpoch < 0 {
-		// This is temporary logic to make the dummy bootstrap epoch work locally.
-		// It should be removed once bootstrapEpochs are determinted.
-		m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
-	} else {
-		m.BootstrapEpoch = bootstrapEpoch
-	}
+	m.BootstrapEpoch = bootstrapEpoch
 	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
 	manifestProvider, err := NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)

@@ -17,9 +17,6 @@ type ContractManifestProvider struct {
 }
 
 func NewContractManifestProvider(initialValue *manifest.Manifest, contract_manifest_poll_interval_seconds uint64, f3Api *F3Api) (*ContractManifestProvider, error) {
-	if err := initialValue.Validate(); err != nil {
-		return nil, err
-	}
 	started := false
 	pollInterval := time.Duration(contract_manifest_poll_interval_seconds) * time.Second
 	p := ContractManifestProvider{
@@ -30,17 +27,23 @@ func NewContractManifestProvider(initialValue *manifest.Manifest, contract_manif
 		f3Api:           f3Api,
 		ch:              make(chan *manifest.Manifest),
 	}
+	p.Update(p.initialManifest)
 	return &p, nil
 }
 
 func (p *ContractManifestProvider) Update(m *manifest.Manifest) {
-	p.currentManifest = m
-	p.ch <- m
+	err := m.Validate()
+	if err == nil {
+		p.currentManifest = m
+		p.ch <- m
+	} else {
+		logger.Warnf("Invalid manifest, skip updating, %s\n", err)
+	}
 }
 
 func (p *ContractManifestProvider) Start(ctx context.Context) error {
 	if *p.started {
-		logger.Warnf("ContractManifestProvider has already been started\n")
+		logger.Warnln("ContractManifestProvider has already been started")
 		return nil
 	}
 
@@ -48,18 +51,15 @@ func (p *ContractManifestProvider) Start(ctx context.Context) error {
 	p.started = &started
 	go func() {
 		for started && ctx.Err() == nil {
-			if p.currentManifest == nil {
-				p.Update(p.initialManifest)
-			}
 			logger.Debugf("Polling manifest from contract...\n")
 			m, err := p.f3Api.GetManifestFromContract(ctx)
 			if err == nil {
 				if m != nil {
 					if !m.Equal(p.currentManifest) {
-						logger.Infof("Successfully polled manifest from contract, updating...\n")
+						logger.Infoln("Successfully polled manifest from contract, updating...")
 						p.Update(m)
 					} else {
-						logger.Infof("Successfully polled unchanged manifest from contract\n")
+						logger.Infoln("Successfully polled unchanged manifest from contract")
 					}
 				}
 			} else {
