@@ -6,6 +6,7 @@ use std::{ops::Deref as _, sync::Arc};
 use crate::libp2p::hello::HelloRequest;
 use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
+use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
@@ -220,6 +221,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_machine = state_machine.clone();
         let state_changed = state_changed.clone();
         let bad_block_cache = bad_block_cache.clone();
+        let tasks = tasks.clone();
         async move {
             loop {
                 state_changed.notified().await;
@@ -273,6 +275,65 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
             }
         }
     });
+
+    // Add status reporting task
+    set.spawn({
+        let state_manager = state_manager.clone();
+        let state_machine = state_machine.clone();
+        async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                let (tasks_set, _) = state_machine.lock().tasks();
+                let heaviest_epoch = state_manager.chain_store().heaviest_tipset().epoch();
+                let fork_cutoff = heaviest_epoch
+                    - SECONDS_IN_DAY / (state_manager.chain_config().block_delay_secs as i64);
+
+                // Count tipsets to fetch for main chain and forks
+                let mut main_chain_epochs = Vec::new();
+                let mut fork_tipsets = 0;
+
+                for task in tasks_set.iter() {
+                    if let SyncTask::FetchTipset(_, epoch) = task {
+                        let diff = epoch - heaviest_epoch;
+                        if diff >= 0 {
+                            main_chain_epochs.push(diff);
+                        } else {
+                            // This is a fork - we'll download a fixed number of tipsets
+                            fork_tipsets = fork_tipsets.max(epoch - fork_cutoff);
+                        }
+                    }
+                }
+
+                // Sort epochs for consistent display
+                main_chain_epochs.sort();
+
+                match (!main_chain_epochs.is_empty(), fork_tipsets > 0) {
+                    (true, true) => info!(
+                        "Fetching tipsets: {}, Forks: {} tipsets to fetch",
+                        main_chain_epochs
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        fork_tipsets
+                    ),
+                    (true, false) => info!(
+                        "Fetching tipsets: {}",
+                        main_chain_epochs
+                            .iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                    (false, true) => {
+                        info!("Fetching tipsets: Forks: {} tipsets to fetch", fork_tipsets)
+                    }
+                    (false, false) => {}
+                }
+            }
+        }
+    });
+
     set.join_all().await;
     Ok(())
 }
@@ -679,7 +740,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                 state.set_epoch(first_ts.epoch());
                 if !self.is_ready_for_validation(first_ts) {
                     state.set_stage(SyncStage::Headers);
-                    tasks.push(SyncTask::FetchTipset(first_ts.parents().clone()));
+                    tasks.push(SyncTask::FetchTipset(
+                        first_ts.parents().clone(),
+                        first_ts.epoch(),
+                    ));
                 } else {
                     if last.epoch() - first_ts.epoch() > 5 {
                         state.set_stage(SyncStage::Messages);
@@ -698,16 +762,21 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 enum SyncTask {
     ValidateTipset(Arc<FullTipset>),
-    FetchTipset(TipsetKey),
+    FetchTipset(TipsetKey, ChainEpoch),
 }
 
 impl std::fmt::Display for SyncTask {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SyncTask::ValidateTipset(ts) => write!(f, "ValidateTipset(epoch: {})", ts.epoch()),
-            SyncTask::FetchTipset(key) => {
+            SyncTask::FetchTipset(key, epoch) => {
                 let s = key.to_string();
-                write!(f, "FetchTipset({})", &s[s.len().saturating_sub(8)..])
+                write!(
+                    f,
+                    "FetchTipset({}, epoch: {})",
+                    &s[s.len().saturating_sub(8)..],
+                    epoch
+                )
             }
         }
     }
@@ -741,8 +810,7 @@ impl SyncTask {
                     }
                 }
             }
-            SyncTask::FetchTipset(key) => {
-                let heaviest = state_manager.chain_store().heaviest_tipset().epoch();
+            SyncTask::FetchTipset(key, _epoch) => {
                 if let Some(reason) = bad_block_cache.peek_tipset_key(&key) {
                     debug!("Skipping fetch of bad tipset: {}", reason);
                     return None;
@@ -750,18 +818,6 @@ impl SyncTask {
                 if let Ok(parents) =
                     get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
                 {
-                    if parents.len() > 1 {
-                        let epoch = parents.last().unwrap().epoch();
-                        if epoch >= heaviest.saturating_sub(parents.len() as i64) {
-                            info!(
-                                "Fetched {} tipsets, missing: {}",
-                                parents.len(),
-                                (epoch - heaviest).max(0)
-                            );
-                        } else {
-                            info!("Fetched {} tipsets, from fork", parents.len());
-                        }
-                    }
                     Some(SyncEvent::NewFullTipsets(
                         parents.into_iter().map(Arc::new).collect(),
                     ))
