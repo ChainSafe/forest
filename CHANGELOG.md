@@ -134,6 +134,8 @@ Non-mandatory release without network upgrades. It includes a number of potentia
 
 - [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 
+- [#5356](https://github.com/ChainSafe/forest/issues/5356) Fixed slow (and incorrect!) `Filecoin.EthGasPrice` RPC method. The method now returns the correct gas price of the latest tipset.
+
 ## Forest v.0.23.3 "Plumber"
 
 Mandatory release for calibnet node operators. It fixes a sync error at epoch 2281645.
