@@ -87,6 +87,8 @@
 
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
 
+- [#5359](https://github.com/ChainSafe/forest/pull/5359) Eth RPC API methods' params are now all in _camelCase_. This aligns with the Ethereum RPC API. Note that this change is only for the OpenRPC documentation and does not affect the actual RPC methods which accepted correct _camelCase_ params before.
+
 ### Removed
 
 - [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
