@@ -7,7 +7,7 @@ pub mod main;
 
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
-use crate::chain::ChainStore;
+use crate::chain::{ChainStore, HeadChange};
 use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
@@ -401,26 +401,6 @@ fn maybe_start_gc_service(
     }
 }
 
-fn maybe_start_eth_mapping_collection_service(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    config: &Config,
-    state_manager: &StateManager<DbType>,
-) {
-    if let Some(ttl) = config.client.eth_mapping_ttl {
-        let chain_store = state_manager.chain_store().clone();
-        let chain_config = state_manager.chain_config().clone();
-        services.spawn(async move {
-            tracing::info!("Starting collector for eth_mappings");
-            let mut collector = EthMappingCollector::new(
-                chain_store.db.clone(),
-                chain_config.eth_chain_id,
-                Duration::from_secs(ttl.into()),
-            );
-            collector.run().await
-        });
-    }
-}
-
 async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
@@ -627,19 +607,66 @@ fn maybe_start_f3_service(
 fn maybe_populate_eth_mappings_in_background(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
-    config: Config,
+    config: &Config,
     db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
 ) {
     if !opts.stateless && !state_manager.chain_config().is_devnet() {
         let state_manager = state_manager.clone();
         let settings = db.writer().clone();
+        let config = config.clone();
         services.spawn(async move {
             if let Err(err) = init_ethereum_mapping(state_manager, &settings, &config) {
                 tracing::warn!("Init Ethereum mapping failed: {}", err)
             }
             Ok(())
         });
+    }
+}
+
+fn maybe_start_indexer_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    _db: &DbType,
+    state_manager: &Arc<StateManager<DbType>>,
+) {
+    if config.fevm.enable_eth_rpc && !opts.stateless && !state_manager.chain_config().is_devnet() {
+        let mut receiver = state_manager.chain_store().publisher().subscribe();
+        let chain_store = state_manager.chain_store().clone();
+        services.spawn(async move {
+            tracing::info!("Starting indexer service");
+
+            // Continuously listen for head changes
+            loop {
+                let msg = receiver.recv().await?;
+
+                let HeadChange::Apply(ts) = msg;
+                tracing::debug!("Indexing tipset {}", ts.key());
+
+                chain_store.put_tipset_key(ts.key())?;
+
+                let delegated_messages =
+                    chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+
+                chain_store.process_signed_messages(&delegated_messages)?;
+            }
+        });
+
+        // Run the collector only if ETH RPC is enabled
+        if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
+            let chain_store = state_manager.chain_store().clone();
+            let chain_config = state_manager.chain_config().clone();
+            services.spawn(async move {
+                tracing::info!("Starting collector for eth_mappings");
+                let mut collector = EthMappingCollector::new(
+                    chain_store.db.clone(),
+                    chain_config.eth_chain_id,
+                    retention_epochs.into(),
+                );
+                collector.run().await
+            });
+        }
     }
 }
 
@@ -670,7 +697,6 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
-    maybe_start_eth_mapping_collection_service(&mut services, &config, &state_manager);
     maybe_start_metrics_service(&mut services, &config, &db, &state_manager).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &db, &state_manager);
     let p2p_service = create_p2p_service(
@@ -716,7 +742,8 @@ pub(super) async fn start(
         &chain_muxer,
     )
     .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &db, &state_manager);
+    maybe_populate_eth_mappings_in_background(&mut services, &opts, &config, &db, &state_manager);
+    maybe_start_indexer_service(&mut services, &opts, &config, &db, &state_manager);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }
