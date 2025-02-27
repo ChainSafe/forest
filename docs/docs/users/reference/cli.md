@@ -343,7 +343,6 @@ SUBCOMMANDS:
   snapshot     Manage snapshots
   send         Send funds between accounts
   info         Print node info
-  attach       `[REMOVED]` Attach to daemon via a JavaScript console
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
   f3           Manages Filecoin Fast Finality (F3) interactions
