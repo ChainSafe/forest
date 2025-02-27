@@ -2354,7 +2354,7 @@ pub enum EthCall {}
 impl RpcMethod<2> for EthCall {
     const NAME: &'static str = "Filecoin.EthCall";
     const NAME_ALIAS: Option<&'static str> = Some("eth_call");
-    const N_REQUIRED_PARAMS: usize = 1;
+    const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 2] = ["tx", "block_param"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
@@ -2372,9 +2372,13 @@ impl RpcMethod<2> for EthCall {
             Ok(EthBytes::default())
         } else {
             let msg_rct = invoke_result.msg_rct.context("no message receipt")?;
-
-            let bytes = decode_payload(&msg_rct.return_data(), CBOR)?;
-            Ok(bytes)
+            let return_data = msg_rct.return_data();
+            if return_data.is_empty() {
+                Ok(Default::default())
+            } else {
+                let bytes = decode_payload(&return_data, CBOR)?;
+                Ok(bytes)
+            }
         }
     }
 }

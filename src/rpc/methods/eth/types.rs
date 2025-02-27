@@ -296,7 +296,8 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    pub data: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
@@ -329,7 +330,11 @@ impl TryFrom<EthCallMessage> for Message {
                 EthAddress::default().to_filecoin_address()?
             }
         };
-        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
+        let params = tx
+            .data
+            .map(EthCallMessage::convert_data_to_message_params)
+            .transpose()?
+            .unwrap_or_default();
         let (to, method_num) = if let Some(to) = tx.to {
             (
                 to.to_filecoin_address()?,
