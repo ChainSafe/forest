@@ -79,6 +79,8 @@
 
 - [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
 
+- [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
@@ -86,6 +88,8 @@
 - [#5329](https://github.com/ChainSafe/forest/pull/5329) `Filecoin.Web3ClientVersion` now returns the name of the node and its version, e.g., `forest/0.23.3+git.32a34e92`.
 
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
+
+- [#5359](https://github.com/ChainSafe/forest/pull/5359) Eth RPC API methods' params are now all in _camelCase_. This aligns with the Ethereum RPC API. Note that this change is only for the OpenRPC documentation and does not affect the actual RPC methods which accepted correct _camelCase_ params before.
 
 ### Removed
 

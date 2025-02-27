@@ -67,7 +67,8 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
-#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(name = env!("CARGO_PKG_NAME"), bin_name = "forest", author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION")
+)]
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
     #[clap(flatten)]
