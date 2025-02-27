@@ -179,6 +179,7 @@ mod tests {
                 db.clone(),
                 db.clone(),
                 db,
+                todo!(),
                 Arc::new(ChainConfig::default()),
                 gen_block,
             )

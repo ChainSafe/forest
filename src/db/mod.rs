@@ -182,6 +182,32 @@ impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
     }
 }
 
+pub trait IndicesStore {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()>;
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool>;
+}
+
+pub trait IndicesStoreExt {
+    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()>;
+}
+
+impl<T: ?Sized + IndicesStore> IndicesStoreExt for T {
+    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>> {
+        match self.read_bin(key)? {
+            Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()> {
+        self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
+    }
+}
+
 /// Traits for collecting DB stats
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {

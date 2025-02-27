@@ -15,8 +15,9 @@ use crate::ipld::DfsIter;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
+use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
@@ -78,9 +79,37 @@ impl RpcMethod<1> for ChainGetEvents {
         Some("Returns the events under the given event AMT root CID.");
 
     type Params = (Cid,);
-    type Ok = Vec<types::Event>;
-    async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    type Ok = Vec<Event>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (root_cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tsk = ctx
+            .state_manager
+            .chain_store()
+            .get_tipset_key(&root_cid)?
+            .with_context(|| format!("can't find events with cid {root_cid}"))?;
+        dbg!(format!("{}", tsk));
+
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        let mut events = vec![];
+        EthEventHandler::collect_events(
+            &ctx,
+            &ts,
+            None::<&ParsedFilter>,
+            SkipEvent::Never,
+            &mut events,
+        )
+        .await?;
+
+        Ok(events
+            .into_iter()
+            .map(|ce| Event {
+                entries: ce.entries,
+                emitter: 0, // TODO
+            })
+            .collect())
     }
 }
 
@@ -1032,6 +1061,7 @@ mod tests {
                 db,
                 Arc::new(MemoryDB::default()),
                 Arc::new(MemoryDB::default()),
+                todo!(),
                 Arc::new(ChainConfig::calibnet()),
                 genesis_block_header,
             )

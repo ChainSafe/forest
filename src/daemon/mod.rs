@@ -315,6 +315,7 @@ async fn create_state_manager(
         Arc::clone(db),
         Arc::new(db.clone()),
         db.writer().clone(),
+        db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
