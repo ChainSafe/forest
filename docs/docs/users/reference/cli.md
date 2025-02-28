@@ -984,6 +984,7 @@ SUBCOMMANDS:
   api              API tooling
   net              Network utilities
   shed             Miscellaneous, semver-exempt commands for developer use
+  completion       Completion Command for generating shell completions for the CLI
   help             Print this message or the help of the given subcommand(s)
 
 OPTIONS:
