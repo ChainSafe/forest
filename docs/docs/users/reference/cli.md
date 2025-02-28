@@ -984,6 +984,7 @@ SUBCOMMANDS:
   api              API tooling
   net              Network utilities
   shed             Miscellaneous, semver-exempt commands for developer use
+  completion       Completion Command for generating shell completions for the CLI
   help             Print this message or the help of the given subcommand(s)
 
 OPTIONS:
@@ -1005,6 +1006,21 @@ Commands:
 
 Options:
   -h, --help  Print help
+```
+
+### `forest-tool completion`
+
+```
+Completion Command for generating shell completions for the CLI
+
+Usage: forest-tool completion [OPTIONS] [BINARIES]...
+
+Arguments:
+  [BINARIES]...  The binaries for which to generate completions (e.g., 'forest-cli,forest-tool,forest-wallet'). If omitted, completions for all known binaries will be generated
+
+Options:
+      --shell <SHELL>  The Shell type to generate completions for [default: bash] [possible values: bash, elvish, fish, powershell, zsh]
+  -h, --help           Print help
 ```
 
 ### `forest-tool backup create`
