@@ -1201,18 +1201,26 @@ fn eth_tests() -> Vec<RpcTest> {
         let cases = [
             (
                 Some(EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap()),
-                "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
-                    .parse()
-                    .unwrap(),
+                Some(
+                    "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
+                        .parse()
+                        .unwrap(),
+                ),
+            ),
+            (
+                Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap()),
+                None,
             ),
             // Assert contract creation, which is invoked via setting the `to` field to `None` and
             // providing the contract bytecode in the `data` field.
             (
                 None,
-                EthBytes::from_str(
-                    concat!("0x", include_str!("./contracts/invoke_cthulhu.hex")).trim(),
-                )
-                .unwrap(),
+                Some(
+                    EthBytes::from_str(
+                        concat!("0x", include_str!("./contracts/invoke_cthulhu.hex")).trim(),
+                    )
+                    .unwrap(),
+                ),
             ),
         ];
 
@@ -1676,7 +1684,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                         EthCallMessage {
                             to: Some(eth_to_addr),
                             value: Some(msg.value.clone().into()),
-                            data: msg.params.clone().into(),
+                            data: Some(msg.params.clone().into()),
                             ..Default::default()
                         },
                         Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
