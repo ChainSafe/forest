@@ -64,6 +64,3 @@ environment variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
 F3 sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
 opt in.
-
-Set dynamic manifest server via `FOREST_F3_MANIFEST_SERVER`, e.g.
-`FOREST_F3_MANIFEST_SERVER=12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7`
