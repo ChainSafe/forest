@@ -77,10 +77,17 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
 }
 
 impl<S> WithProgress<S> {
-    pub fn wrap_async_read(message: &str, read: S, total_items: u64) -> WithProgress<S> {
+    pub fn wrap_sync_read_with_callback(
+        message: &str,
+        read: S,
+        total_items: u64,
+        callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    ) -> WithProgress<S> {
         WithProgress {
             inner: read,
-            progress: Progress::new(message).with_total(total_items),
+            progress: Progress::new(message)
+                .with_callback(callback)
+                .with_total(total_items),
         }
     }
 
@@ -90,8 +97,8 @@ impl<S> WithProgress<S> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Progress {
+#[derive(Clone)]
+pub struct Progress {
     completed_items: u64,
     total_items: Option<u64>,
     last_logged_items: u64,
@@ -99,6 +106,7 @@ struct Progress {
     last_logged: Instant,
     message: String,
     item_type: ItemType,
+    callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -118,7 +126,13 @@ impl Progress {
             last_logged: now,
             message: message.into(),
             item_type: ItemType::Items,
+            callback: None,
         }
+    }
+
+    fn with_callback(mut self, callback: Option<Arc<dyn Fn(String) + Sync + Send>>) -> Self {
+        self.callback = callback;
+        self
     }
 
     fn with_total(mut self, total: u64) -> Self {
@@ -177,7 +191,11 @@ impl Progress {
             ItemType::Items => format!("{diff:.0} items/s"),
         };
 
-        format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}")
+        let msg = format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}");
+        if let Some(cb) = &self.callback {
+            cb(msg.clone());
+        }
+        msg
     }
 
     fn emit_log_if_required(&mut self) {
@@ -191,6 +209,21 @@ impl Progress {
             self.last_logged = now;
             self.last_logged_items = self.completed_items;
         }
+    }
+}
+
+// Derive Debug for Progress, skipping the callback field
+impl std::fmt::Debug for Progress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Progress")
+            .field("completed_items", &self.completed_items)
+            .field("total_items", &self.total_items)
+            .field("last_logged_items", &self.last_logged_items)
+            .field("start", &self.start)
+            .field("last_logged", &self.last_logged)
+            .field("message", &self.message)
+            .field("item_type", &self.item_type)
+            .finish()
     }
 }
 

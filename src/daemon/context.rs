@@ -22,6 +22,7 @@ use crate::db::parity_db::ParityDb;
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
+use crate::rpc::sync::SnapshotTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
 
@@ -34,6 +35,7 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub network_name: String,
+    pub snapshot_tracker: Arc<parking_lot::RwLock<Option<SnapshotTracker>>>,
 }
 
 impl AppContext {
@@ -44,6 +46,7 @@ impl AppContext {
         let state_manager = create_state_manager(&cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(&opts, &cfg).await?;
         let network_name = state_manager.get_network_name_from_genesis()?;
+        let snapshot_progress = Arc::new(parking_lot::RwLock::new(None));
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -53,15 +56,19 @@ impl AppContext {
             keystore,
             admin_jwt,
             network_name,
+            snapshot_tracker: snapshot_progress,
         })
     }
 
-    pub fn get_db_root_dir(&self) -> PathBuf {
-        self.db_meta_data.get_root_dir()
-    }
+    pub fn create_snapshot_callback(&self) -> Option<Arc<dyn Fn(String) + Send + Sync>> {
+        let snapshot_progress = self.snapshot_tracker.clone();
 
-    pub fn get_forest_car_db_dir(&self) -> PathBuf {
-        self.db_meta_data.get_forest_car_db_dir()
+        Some(Arc::new(move |msg: String| {
+            let mut progress = snapshot_progress.write();
+            if let Some(p) = progress.as_mut() {
+                p.set_message(msg.clone());
+            }
+        }))
     }
 }
 
@@ -176,11 +183,11 @@ pub(crate) struct DbMetadata {
 }
 
 impl DbMetadata {
-    fn get_root_dir(&self) -> PathBuf {
+    pub(crate) fn get_root_dir(&self) -> PathBuf {
         self.db_root_dir.clone()
     }
 
-    fn get_forest_car_db_dir(&self) -> PathBuf {
+    pub(crate) fn get_forest_car_db_dir(&self) -> PathBuf {
         self.forest_car_db_dir.clone()
     }
 }

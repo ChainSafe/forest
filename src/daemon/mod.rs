@@ -167,7 +167,7 @@ async fn maybe_import_snapshot(
             chain_config,
             ctx.state_manager.chain_store().heaviest_tipset().epoch(),
             opts.auto_download_snapshot,
-            &ctx.get_db_root_dir(),
+            &ctx.db_meta_data.get_root_dir(),
         )
         .await?;
     }
@@ -177,8 +177,9 @@ async fn maybe_import_snapshot(
         if let Some(path) = &config.client.snapshot_path {
             let (car_db_path, ts) = import_chain_as_forest_car(
                 path,
-                &ctx.get_forest_car_db_dir(),
+                &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
+                ctx.create_snapshot_callback(),
             )
             .await?;
             ctx.db.read_only_files(std::iter::once(car_db_path.clone()))?;
@@ -421,7 +422,7 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_muxer.tipset_sender().clone();
             let keystore = ctx.keystore.clone();
             let network_name = ctx.network_name.clone();
-
+            let snapshot_tracker = ctx.snapshot_tracker.clone();
             async move {
                 start_rpc(
                     RPCState {
@@ -436,6 +437,7 @@ fn maybe_start_rpc_service(
                         start_time,
                         shutdown,
                         tipset_send,
+                        snapshot_tracker,
                     },
                     rpc_address,
                     filter_list,

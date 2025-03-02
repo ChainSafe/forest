@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod types;
+
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
@@ -13,6 +15,7 @@ use nunny::{vec as nonempty, Vec as NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+pub use types::*;
 
 use crate::chain;
 use crate::chain_sync::{SyncStage, TipsetValidator};

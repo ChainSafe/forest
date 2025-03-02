@@ -381,6 +381,7 @@ use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 
 use openrpc_types::{self, ParamStructure};
+use crate::rpc::sync::SnapshotTracker;
 
 pub const DEFAULT_PORT: u16 = 2345;
 
@@ -408,6 +409,7 @@ pub struct RPCState<DB> {
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
+    pub snapshot_tracker: Arc<parking_lot::RwLock<Option<SnapshotTracker>>>,
     pub shutdown: mpsc::Sender<()>,
 }
 
