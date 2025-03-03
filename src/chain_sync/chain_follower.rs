@@ -8,14 +8,13 @@ use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use chrono::Utc;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use std::collections::HashMap;
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, info, trace, warn};
 
@@ -113,6 +112,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 // We receive new full tipsets from the p2p swarm, and from miners that use Forest as their frontend.
 pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
@@ -642,6 +642,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
         // Find any existing tipsets with same epoch and parents
         let mut to_remove = Vec::new();
+        #[allow(clippy::mutable_key_type)]
         let mut merged_blocks: HashSet<_> = tipset.blocks().iter().cloned().collect();
 
         // Collect all parent references from existing tipsets
@@ -668,7 +669,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
 
         // Create and insert new merged tipset
-        if let Ok(merged_tipset) = FullTipset::new(merged_blocks.into_iter()) {
+        if let Ok(merged_tipset) = FullTipset::new(merged_blocks) {
             self.tipsets
                 .insert(merged_tipset.key().clone(), Arc::new(merged_tipset));
         }
@@ -795,7 +796,7 @@ impl SyncTask {
                 let genesis = cs.genesis_tipset();
                 match validate_tipset(
                     state_manager.clone(),
-                    &cs,
+                    cs,
                     &bad_block_cache,
                     tipset.deref().clone(),
                     &genesis,
@@ -803,7 +804,12 @@ impl SyncTask {
                 )
                 .await
                 {
-                    Ok(()) => Some(SyncEvent::ValidatedTipset(tipset)),
+                    Ok(()) => {
+                        let _ = cs.put_delegated_message_hashes(
+                            tipset.blocks().iter().map(|b| b.header()),
+                        );
+                        Some(SyncEvent::ValidatedTipset(tipset))
+                    }
                     Err(e) => {
                         warn!("Error validating tipset: {}", e);
                         Some(SyncEvent::BadTipset(tipset, e.to_string()))
