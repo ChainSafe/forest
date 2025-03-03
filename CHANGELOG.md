@@ -112,7 +112,7 @@
 
 - [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
 
-- [#5357](https://github.com/ChainSafe/forest/issues/5357) Make data field in EthCallMessage optional. Effected RPC methods are `Filecoin.EthEstimateGas`(`eth_estimateGas`) and `Filecoin.EthCall`(`eth_call`)
+- [#5357](https://github.com/ChainSafe/forest/issues/5357) Make data field in EthCallMessage optional. Affected RPC methods are `Filecoin.EthEstimateGas`(`eth_estimateGas`) and `Filecoin.EthCall`(`eth_call`)
 
 - [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 
