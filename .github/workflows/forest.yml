@@ -559,7 +559,7 @@ jobs:
     # Note that running this step on non-draft PR does not save the cost as it always re-run
     # all the jobs when a PR is moved out of draft. Also this parity test will be stale soon
     # once we start including the F3(fast finality) metadata in the Forest snapshots.
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
@@ -570,7 +570,7 @@ jobs:
           name: 'forest-${{ runner.os }}'
       - name: Run snapshot parity tests
         run: ./scripts/tests/snapshot_parity/setup.sh
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+        timeout-minutes: 120
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
