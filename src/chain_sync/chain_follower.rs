@@ -45,7 +45,7 @@ pub struct ChainFollower<DB> {
     pub network: SyncNetworkContext<DB>,
 
     /// Genesis tipset
-    _genesis: Arc<Tipset>,
+    genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all children as bad in this bounded
@@ -87,7 +87,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             sync_states: Arc::new(RwLock::new(vec![main_sync_state])),
             state_manager,
             network,
-            _genesis: genesis,
+            genesis,
             bad_blocks: Default::default(),
             net_handler,
             tipset_sender,
@@ -106,7 +106,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             self.network,
             self.mem_pool,
             self.sync_states,
-            self._genesis,
+            self.genesis,
         )
         .await
     }
