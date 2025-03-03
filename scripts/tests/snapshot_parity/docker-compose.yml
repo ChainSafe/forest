@@ -2,7 +2,7 @@
 version: "3.8"
 
 services:
-  init: 
+  init:
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -13,7 +13,7 @@ services:
       - snapshot-parity-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -40,22 +40,32 @@ services:
       - snapshot-parity-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
-          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
           --import-mode=symlink &
         sleep 15
         forest-cli sync wait
         forest-cli snapshot export -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
         kill -KILL $!
+        forest-tool db destroy --chain ${CHAIN}
+        pushd /data/exported
+        apt-get update
+        apt-get install -y zstd
+        zstd -d --rm forest.car.zst
+        sha256sum forest.car | cut -d" " -f 1 > forest.car.sha256sum
+        cat forest.car.sha256sum
+        rm forest.car
+        popd
   lotus:
     depends_on:
       init:
+        condition: service_completed_successfully
+      # Run snapshot sequentially due to limited RAM on GH hosted runners
+      forest:
         condition: service_completed_successfully
       # To force the daemons run sequentially on CI to get rid of OOM
       # forest:
@@ -70,13 +80,13 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
-      - LOTUS_EVENTS_ENABLEACTOREVENTSAPI=1
-      - LOTUS_FEVM_ENABLEETHRPC=1
-      - LOTUS_CHAININDEXER_ENABLEINDEXER=1
+      - LOTUS_EVENTS_ENABLEACTOREVENTSAPI=0
+      - LOTUS_FEVM_ENABLEETHRPC=0
+      - LOTUS_CHAININDEXER_ENABLEINDEXER=0
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
       - LOTUS_SYNC_BOOTSTRAP_PEERS=1
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -85,7 +95,12 @@ services:
         lotus sync wait
         lotus chain export --tipset @$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) --recent-stateroots ${EXPORT_EPOCHS} --skip-old-msgs /data/exported/lotus.car
         kill -KILL $!
-  compare: 
+        pushd /data/exported
+        sha256sum lotus.car | cut -d" " -f 1 > lotus.car.sha256sum
+        cat lotus.car.sha256sum
+        rm lotus.car
+        popd
+  compare:
     depends_on:
       forest:
         condition: service_completed_successfully
@@ -98,23 +113,12 @@ services:
       - node-data:/data
     networks:
       - snapshot-parity-tests
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
         pushd /data/exported
-        # Skip the CAR format line
-        forest-tool archive info forest.car.zst | tail -n +2 > forest.txt
-        cat forest.txt
-        # Skip the CAR format line
-        forest-tool archive info lotus.car | tail -n +2 > lotus.txt
-        cat lotus.txt
-        diff forest.txt lotus.txt
-        # Do byte-to-byte comparison
-        apt-get update
-        apt-get install -y zstd
-        zstd -d forest.car.zst
-        cmp forest.car lotus.car
+        diff forest.car.sha256sum lotus.car.sha256sum
         popd
   post-setup:
     depends_on:
@@ -123,7 +127,7 @@ services:
     image: busybox
     networks:
       - snapshot-parity-tests
-    entrypoint: [ "/bin/sh", "-c" ]
+    entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -euxo pipefail
