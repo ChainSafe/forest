@@ -23,6 +23,7 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
+use crate::utils::misc::env::is_env_truthy;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
@@ -129,7 +130,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     }));
 
     // Beacon values check
-    if std::env::var(IGNORE_DRAND_VAR) != Ok("1".to_owned()) {
+    if !is_env_truthy(IGNORE_DRAND_VAR) {
         validations.push(tokio::task::spawn({
             let block = Arc::clone(&block);
             let parent_epoch = base_tipset.epoch();
