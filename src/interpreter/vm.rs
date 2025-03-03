@@ -76,7 +76,8 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
-pub type ApplyBlockResult = anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error>;
+pub type ApplyBlockResult =
+    anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>, Vec<Cid>), anyhow::Error>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -357,6 +358,7 @@ where
     ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
+        let mut events_roots = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
         for block in messages.iter() {
@@ -389,6 +391,12 @@ where
 
                 if enable_event_pushing.is_pushed() {
                     events.push(ret.events());
+                }
+                if enable_event_pushing.is_pushed_events_root() {
+                    // Push the event AMT root CID if any
+                    if let Some(events_root) = ret.msg_receipt().events_root() {
+                        events_roots.push(events_root);
+                    }
                 }
 
                 // Add processed Cid to set of processed messages
@@ -436,7 +444,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((receipts, events))
+        Ok((receipts, events, events_roots))
     }
 
     /// Applies single message through VM and returns result from execution.
@@ -604,6 +612,8 @@ impl VMTrace {
 pub enum VMEvent {
     /// Push event during [`VM::apply_block_messages`]
     Pushed,
+    /// Push events root during [`VM::apply_block_messages`]
+    PushedEventsRoot,
     /// Do not push event
     #[default]
     NotPushed,
@@ -613,5 +623,10 @@ impl VMEvent {
     /// Should event be pushed?
     pub fn is_pushed(&self) -> bool {
         matches!(self, VMEvent::Pushed)
+    }
+
+    /// Should events root be pushed?
+    pub fn is_pushed_events_root(&self) -> bool {
+        matches!(self, VMEvent::PushedEventsRoot)
     }
 }

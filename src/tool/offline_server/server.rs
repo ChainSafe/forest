@@ -72,6 +72,7 @@ pub async fn start_offline_server(
         db.clone(),
         db.clone(),
         db.clone(),
+        todo!(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
