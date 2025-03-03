@@ -268,6 +268,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::Finalize);
         $callback!($crate::rpc::f3::ProtectPeer);
         $callback!($crate::rpc::f3::SignMessage);
+        $callback!($crate::rpc::f3::GetManifestFromContract);
 
         // misc
         $callback!($crate::rpc::misc::GetActorEventsRaw);
