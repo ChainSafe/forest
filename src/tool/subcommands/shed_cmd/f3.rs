@@ -42,7 +42,7 @@ impl F3Commands {
             Self::CheckActivationRaw { contract } => {
                 let eth_call_message = EthCallMessage {
                     to: Some(contract),
-                    data: EthBytes::from_str("0x2587660d")?, // method ID of activationInformation()
+                    data: Some(EthBytes::from_str("0x2587660d")?), // method ID of activationInformation()
                     ..Default::default()
                 };
                 let filecoin_message = Message::try_from(eth_call_message)?;
