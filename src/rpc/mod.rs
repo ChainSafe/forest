@@ -231,6 +231,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::sync::SyncCheckBad);
         $callback!($crate::rpc::sync::SyncMarkBad);
         $callback!($crate::rpc::sync::SyncState);
+        $callback!($crate::rpc::sync::SyncStatus);
         $callback!($crate::rpc::sync::SyncSubmitBlock);
 
         // wallet vertical

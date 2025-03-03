@@ -46,7 +46,7 @@ impl AppContext {
         let state_manager = create_state_manager(&cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(&opts, &cfg).await?;
         let network_name = state_manager.get_network_name_from_genesis()?;
-        let snapshot_progress = Arc::new(parking_lot::RwLock::new(None));
+        let snapshot_progress = Arc::new(parking_lot::RwLock::new(Some(SnapshotTracker::default())));
         Ok(Self {
             net_keypair,
             p2p_peer_id,

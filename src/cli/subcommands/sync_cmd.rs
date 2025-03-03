@@ -25,6 +25,8 @@ pub enum SyncCommands {
     },
     /// Check sync status
     Status,
+    /// Check snapshot progress
+    Progress,
     /// Check if a given block is marked bad, and for what reason
     CheckBad {
         #[arg(short)]
@@ -42,6 +44,19 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
+            Self::Progress => {
+                let ticker = Ticker::new(0.., Duration::from_secs(5));
+                for _ in ticker {
+                    let progress = SyncStatus::call(&client, ()).await?;
+                    if progress.message.is_empty() {
+                        println!("Snapshot download is completed.");
+                        return Ok(());
+                    }
+
+                    println!("Snapshot download is in progress: {}", progress.message);
+                }
+                Ok(())
+            }
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();

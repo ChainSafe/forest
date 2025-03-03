@@ -15,6 +15,7 @@ use nunny::{vec as nonempty, Vec as NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::info;
 pub use types::*;
 
 use crate::chain;
@@ -71,6 +72,26 @@ impl RpcMethod<0> for SyncState {
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
         Ok(RPCSyncState { active_syncs })
+    }
+}
+
+pub enum SyncStatus {}
+impl RpcMethod<0> for SyncStatus {
+    const NAME: &'static str = "Filecoin.SyncStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = ();
+    type Ok = SnapshotTracker;
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let mut msg = "".to_string();
+        if let Some(p) = ctx.snapshot_tracker.read().clone() {
+            msg = p.message.clone()
+        }
+
+        Ok(SnapshotTracker {
+            message: msg,
+        })
     }
 }
 
@@ -235,6 +256,7 @@ mod tests {
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
+            snapshot_tracker: Arc::new(parking_lot::RwLock::new(Default::default())),
         });
         (state, network_rx)
     }

@@ -538,6 +538,30 @@ pub(super) async fn start(
     if opts.exit_after_init {
         return Ok(());
     }
+    let p2p_service = create_p2p_service(
+        &mut services,
+        &mut config,
+        &ctx,
+    ).await?;
+
+    let chain_muxer = create_chain_muxer(
+        &mut services,
+        &opts,
+        &p2p_service,
+        &ctx,
+    )?;
+
+    info!("Starting network:: {}", get_actual_chain_name(&ctx.network_name));
+
+    maybe_start_rpc_service(
+        &mut services,
+        &config,
+        &chain_muxer,
+        start_time,
+        shutdown_send.clone(),
+        &ctx,
+    )?;
+
     maybe_import_snapshot(&opts, &mut config, &ctx).await?;
     if opts.halt_after_import {
         // Cancel all async services
@@ -547,26 +571,6 @@ pub(super) async fn start(
     maybe_start_eth_mapping_collection_service(&mut services, &config, &ctx);
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
-    let p2p_service = create_p2p_service(
-        &mut services,
-        &mut config,
-        &ctx,
-    )
-    .await?;
-    let chain_muxer = create_chain_muxer(
-        &mut services,
-        &opts,
-        &p2p_service,
-        &ctx,
-    )?;
-    maybe_start_rpc_service(
-        &mut services,
-        &config,
-        &chain_muxer,
-        start_time,
-        shutdown_send.clone(),
-        &ctx,
-    )?;
     maybe_start_f3_service(
         &mut services,
         &opts,

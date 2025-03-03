@@ -191,20 +191,21 @@ impl Progress {
             ItemType::Items => format!("{diff:.0} items/s"),
         };
 
-        let msg = format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}");
-        if let Some(cb) = &self.callback {
-            cb(msg.clone());
-        }
-        msg
+        format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}")
     }
 
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
         if (now - self.last_logged) > UPDATE_FREQUENCY {
+            let msg = self.msg(now);
+            if let Some(cb) = &self.callback {
+                cb(msg.clone());
+            }
+
             tracing::info!(
                 target: "forest::progress",
                 "{}",
-                self.msg(now)
+                msg
             );
             self.last_logged = now;
             self.last_logged_items = self.completed_items;
