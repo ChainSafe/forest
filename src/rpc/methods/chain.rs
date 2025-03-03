@@ -15,8 +15,7 @@ use crate::ipld::DfsIter;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
-use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -37,7 +36,7 @@ use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::{any::Any, collections::VecDeque, path::PathBuf, sync::Arc};
+use std::{collections::VecDeque, path::PathBuf, sync::Arc};
 use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
     Mutex,
@@ -94,22 +93,9 @@ impl RpcMethod<1> for ChainGetEvents {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let mut events = vec![];
-        EthEventHandler::collect_events(
-            &ctx,
-            &ts,
-            None::<&ParsedFilter>,
-            SkipEvent::Never,
-            &mut events,
-        )
-        .await?;
+        EthEventHandler::collect_chain_events(&ctx, &ts, &mut events).await?;
 
-        Ok(events
-            .into_iter()
-            .map(|ce| Event {
-                entries: ce.entries,
-                emitter: 0, // TODO
-            })
-            .collect())
+        Ok(events)
     }
 }
 

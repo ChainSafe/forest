@@ -34,7 +34,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::eth::EVM_WORD_LENGTH;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::reflect::Ctx;
-use crate::rpc::types::EventEntry;
+use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Entry;
@@ -356,6 +356,47 @@ impl EthEventHandler {
                     collected_events.push(ce);
                     event_count += 1;
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        chain_events: &mut Vec<Event>,
+    ) -> anyhow::Result<()> {
+        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
+
+        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
+
+        ensure!(
+            messages.len() == events.len(),
+            "Length of messages and events do not match"
+        );
+
+        for events in events.into_iter() {
+            for event in events.iter() {
+                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+
+                let entries: Vec<EventEntry> = entries
+                    .into_iter()
+                    .map(|entry| {
+                        let (flags, key, codec, value) = entry.into_parts();
+                        EventEntry {
+                            flags,
+                            key,
+                            codec,
+                            value: value.into(),
+                        }
+                    })
+                    .collect();
+
+                chain_events.push(Event {
+                    entries,
+                    emitter: event.emitter(),
+                });
             }
         }
 
