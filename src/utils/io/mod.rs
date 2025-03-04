@@ -13,7 +13,7 @@ use std::{
 };
 
 pub use mmap::EitherMmapOrRandomAccessFile;
-pub use progress_log::{WithProgress, WithProgressRaw};
+pub use progress_log::WithProgress;
 pub use writer_checksum::*;
 
 /// Writes bytes to a specified file. Creates the desired path if it does not

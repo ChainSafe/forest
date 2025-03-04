@@ -233,6 +233,8 @@ impl PartialEq for CachingBlockHeader {
     }
 }
 
+impl Eq for CachingBlockHeader {}
+
 impl Clone for CachingBlockHeader {
     fn clone(&self) -> Self {
         Self {
