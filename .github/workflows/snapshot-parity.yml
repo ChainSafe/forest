@@ -3,9 +3,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * 0" # Runs at 00:00, only on Sunday
-  pull_request:
-    branches:
-      - main
 jobs:
   snapshot-parity:
     name: Snapshot parity test
