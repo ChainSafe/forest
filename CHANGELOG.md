@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.24.0 "Treebeard"
+
+Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.
+
+### Breaking
+
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
 - [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
