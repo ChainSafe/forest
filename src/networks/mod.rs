@@ -356,8 +356,11 @@ impl ChainConfig {
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: Default::default(),
-            f3_contract_address: Default::default(),
-            f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            f3_contract_address: Some(
+                EthAddress::from_str("0x9fd3B2D38EE4C920c9954DA752eDF810887501c1")
+                    .expect("invalid f3 contract eth address"),
+            ),
+            f3_contract_poll_interval: Duration::from_secs(60),
         }
     }
 
