@@ -26,6 +26,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, str::FromStr, sync::Arc};
 use tokio::{sync::mpsc, task::JoinSet};
+use crate::rpc::sync::SnapshotTracker;
 
 #[derive(Default, Hash, Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec<u8>);
@@ -162,6 +163,7 @@ async fn ctx(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_tracker: Arc::new(RwLock::new(Some(SnapshotTracker::new()))),
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))

@@ -17,6 +17,7 @@ use std::{
     path::{Path, PathBuf},
     time,
 };
+use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use url::Url;
@@ -92,6 +93,7 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
+    callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
 
@@ -112,6 +114,7 @@ pub async fn import_chain_as_forest_car(
                     &url,
                     &downloaded_car_temp_path,
                     DownloadFileOption::Resumable,
+                    callback,
                 )
                 .await?;
             } else {
@@ -390,7 +393,7 @@ mod test {
 
         let temp_db_dir = tempfile::Builder::new().tempdir()?;
         let (path, ts) =
-            import_chain_as_forest_car(file_path, temp_db_dir.path(), import_mode).await?;
+            import_chain_as_forest_car(file_path, temp_db_dir.path(), import_mode, None).await?;
         match import_mode {
             ImportMode::Symlink => {
                 assert_eq!(
