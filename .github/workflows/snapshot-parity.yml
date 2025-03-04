@@ -1,0 +1,27 @@
+name: Snapshot parity test
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0" # Runs at 00:00, only on Sunday
+  pull_request:
+    branches:
+      - main
+jobs:
+  snapshot-parity:
+    name: Snapshot parity test
+    runs-on: buildjet-4vcpu-ubuntu-2204
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - name: Run snapshot parity test
+        run: ./scripts/tests/snapshot_parity/setup.sh
+        timeout-minutes: 60
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - uses: JasonEtco/create-an-issue@v2
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/SNAPSHOT_PARITY_ISSUE_TEMPLATE.md
