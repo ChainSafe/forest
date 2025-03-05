@@ -13,7 +13,7 @@ use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
-use rand::{prelude::SliceRandom, thread_rng};
+use rand::prelude::SliceRandom;
 
 use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
@@ -385,7 +385,9 @@ where
         if gas_limit >= MIN_GAS {
             let mut random_count = 0;
 
-            chains.key_vec.shuffle(&mut thread_rng());
+            chains
+                .key_vec
+                .shuffle(&mut crate::utils::rand::forest_rng());
 
             for i in 0..chains.len() {
                 if gas_limit < MIN_GAS {

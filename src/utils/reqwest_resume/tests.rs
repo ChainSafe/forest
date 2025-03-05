@@ -19,7 +19,7 @@ const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
 static RANDOM_BYTES: Lazy<Bytes> = Lazy::new(|| {
-    let mut rng = rand::thread_rng();
+    let mut rng = crate::utils::rand::forest_rng();
     (0..8192).map(|_| rng.gen()).collect()
 });
 

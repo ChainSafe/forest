@@ -130,7 +130,7 @@ impl PeerManager {
             .collect();
 
         // Shuffle top peers, to avoid sending all requests to same predictable peer.
-        peers.shuffle(&mut rand::rngs::OsRng);
+        peers.shuffle(&mut crate::utils::rand::forest_rng());
         peers
     }
 

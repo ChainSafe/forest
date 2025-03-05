@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
+
 ### Changed
 
 ### Removed

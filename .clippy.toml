@@ -24,6 +24,18 @@ use parking_lot::Mutex instead to silently ignore panics."""
 path = "multihash_codetable::Code"
 reason = """use `crate::utils::multihash::MultihashCode` instead which has `Identity` code back-filled."""
 
+[[disallowed-types]]
+path = "rand::rngs::ThreadRng"
+reason = """use `crate::utils::forest_rng` instead."""
+
+[[disallowed-types]]
+path = "rand::rngs::OsRng"
+reason = """use `crate::utils::forest_os_rng` instead."""
+
+[[disallowed-methods]]
+path = "rand::thread_rng"
+reason = """use `crate::utils::forest_rng` instead."""
+
 [[disallowed-methods]]
 path = "tempfile::NamedTempFile::new"
 reason = """The temporary files created by this method are not persistable if the temporary directory lives on a different filesystem than the target directory. While it is valid in other contexts (if not persisting files), it was misused many times and so we are banning it. Consider using `tempfile::NamedTempFile::new_in` or `tempfile::NamedTempFile::Builder"""
