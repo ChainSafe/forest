@@ -100,7 +100,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
 
 /// Generate a new private key
 pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
-    let rng = &mut crate::utils::rand::forest_rng();
+    let rng = &mut crate::utils::rand::forest_os_rng();
     match sig_type {
         SignatureType::Bls => {
             let key = BlsPrivate::generate(rng);

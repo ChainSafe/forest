@@ -359,7 +359,7 @@ impl EncryptedKeyStore {
             Some(prev_salt) => prev_salt,
             None => {
                 let mut salt = [0; RECOMMENDED_SALT_LEN];
-                crate::utils::rand::forest_rng().fill_bytes(&mut salt);
+                crate::utils::rand::forest_os_rng().fill_bytes(&mut salt);
                 salt
             }
         };
@@ -395,7 +395,7 @@ impl EncryptedKeyStore {
 
     fn encrypt(encryption_key: &[u8], msg: &[u8]) -> anyhow::Result<Vec<u8>> {
         let mut nonce = [0; NONCE_SIZE];
-        crate::utils::rand::forest_rng().fill_bytes(&mut nonce);
+        crate::utils::rand::forest_os_rng().fill_bytes(&mut nonce);
         let nonce = GenericArray::from_slice(&nonce);
         let key = GenericArray::from_slice(encryption_key);
         let cipher = XSalsa20Poly1305::new(key);
