@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.23.3"
+version = "0.24.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -219,7 +219,7 @@ walkdir = "2"
 zstd = "0.13"
 
 # optional dependencies
-clap_complete = "4.5.45"
+clap_complete = "4.5.46"
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 mimalloc = { version = "0.1", optional = true, default-features = false }
@@ -254,7 +254,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.266"
+ra_ap_syntax = "0.0.267"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

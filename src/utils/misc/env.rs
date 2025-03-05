@@ -23,7 +23,7 @@ pub fn is_env_truthy(env: &str) -> bool {
 pub fn is_env_set_and_truthy(env: &str) -> Option<bool> {
     std::env::var(env)
         .ok()
-        .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true"))
+        .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true" | "yes" | "_yes_"))
 }
 
 #[cfg(test)]

@@ -586,7 +586,7 @@ impl GetManifestFromContract {
             Lazy::new(|| EthBytes::from_str("0x2587660d").expect("Infallible"));
         EthCallMessage {
             to: Some(contract),
-            data: METHOD_ID.clone(),
+            data: Some(METHOD_ID.clone()),
             ..Default::default()
         }
     }

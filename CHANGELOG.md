@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.24.0 "Treebeard"
+
+Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.
+
+### Breaking
+
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
 - [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
@@ -113,6 +127,8 @@
   `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
 
 - [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
+
+- [#5357](https://github.com/ChainSafe/forest/issues/5357) Make data field in EthCallMessage optional. Affected RPC methods are `Filecoin.EthEstimateGas`(`eth_estimateGas`) and `Filecoin.EthCall`(`eth_call`)
 
 - [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 
