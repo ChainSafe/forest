@@ -123,11 +123,9 @@ impl SyncState {
         self.epoch = epoch;
     }
 
-    /// Sets error for the sync.
-    pub fn error(&mut self, err: String) {
-        self.message = err;
-        self.stage = SyncStage::Error;
-        self.end = Some(Utc::now());
+    /// Sets the target tipset for the sync state.
+    pub fn set_target(&mut self, target: Option<Arc<Tipset>>) {
+        self.target = target;
     }
 }
 
