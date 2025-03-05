@@ -303,8 +303,8 @@ fn get_fil_reserve_disbursed<DB: Blockstore>(
     // https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0100.md#special-handling-for-calibration-network
     // for details.
     let is_calibnet = matches!(chain_config.network, NetworkChain::Calibnet);
-    let is_after_nv25 = chain_config.network_version(height) >= NetworkVersion::V25;
-    let use_fip100_reserve = is_calibnet && is_after_nv25;
+    let is_nv25_or_later = chain_config.network_version(height) >= NetworkVersion::V25;
+    let use_fip100_reserve = is_calibnet && is_nv25_or_later;
     let fil_reserved: TokenAmount = if use_fip100_reserve {
         TokenAmount::from_whole(900_000_000)
     } else {
