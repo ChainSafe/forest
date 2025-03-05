@@ -1,30 +1,34 @@
-use std::cell::RefCell;
-use std::future::Future;
-use std::path::PathBuf;
-use std::sync::Arc;
-use anyhow::Context;
-use dialoguer::console::Term;
-use futures::FutureExt;
-use fvm_shared4::address::Network;
-use tokio::sync::RwLock;
-use tracing::{info, warn};
-use crate::cli_shared::cli::CliOpts;
-use crate::{Config, KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, JWT_IDENTIFIER};
+// Copyright 2019-2025 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use crate::auth::{create_token, generate_priv_key, ADMIN};
 use crate::chain::ChainStore;
 use crate::cli_shared::chain_path;
+use crate::cli_shared::cli::CliOpts;
+use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
-use crate::daemon::db_util::{load_all_forest_cars};
-use crate::db::CAR_DB_DIR_NAME;
+use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
+use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
-use crate::rpc::sync::SnapshotTracker;
+use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
+use crate::{
+    Config, KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
+    JWT_IDENTIFIER,
+};
+use anyhow::Context;
+use dialoguer::console::Term;
+use fvm_shared4::address::Network;
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{info, warn};
 
 pub struct AppContext {
     pub net_keypair: Keypair,
@@ -35,18 +39,17 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub network_name: String,
-    pub snapshot_tracker: Arc<parking_lot::RwLock<Option<SnapshotTracker>>>,
+    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<Option<SnapshotProgressTracker>>>,
 }
 
 impl AppContext {
     pub async fn init(opts: &CliOpts, cfg: &Config) -> anyhow::Result<AppContext> {
         let chain_cfg = get_chain_config_and_set_network(cfg);
-        let (net_keypair, p2p_peer_id) = get_or_create_p2p_keypair_and_peer_id(&cfg)?;
-        let (db, db_meta_data) = setup_db(&opts, &cfg).await?;
-        let state_manager = create_state_manager(&cfg, &db, &chain_cfg).await?;
-        let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(&opts, &cfg).await?;
+        let (net_keypair, p2p_peer_id) = get_or_create_p2p_keypair_and_peer_id(cfg)?;
+        let (db, db_meta_data) = setup_db(opts, cfg).await?;
+        let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
+        let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let network_name = state_manager.get_network_name_from_genesis()?;
-        let snapshot_progress = Arc::new(parking_lot::RwLock::new(Some(SnapshotTracker::default())));
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -56,19 +59,38 @@ impl AppContext {
             keystore,
             admin_jwt,
             network_name,
-            snapshot_tracker: snapshot_progress,
+            snapshot_progress_tracker: Arc::new(parking_lot::RwLock::new(None)),
         })
     }
 
-    pub fn create_snapshot_callback(&self) -> Option<Arc<dyn Fn(String) + Send + Sync>> {
-        let snapshot_progress = self.snapshot_tracker.clone();
+    /// Initializes the snapshot progress tracker and returns a callback function that updates the tracker
+    pub fn create_snapshot_progress_tracker_callback(
+        &self,
+    ) -> Option<Arc<dyn Fn(String) + Send + Sync>> {
+        let snapshot_progress_tracker = self.snapshot_progress_tracker.clone();
+
+        // Initialize the snapshot progress tracker, so that we can start progress tracking
+        // only when the callback is created (snapshot download starts)
+        {
+            let mut tracker = snapshot_progress_tracker.write();
+            *tracker = Some(SnapshotProgressTracker::default());
+        }
 
         Some(Arc::new(move |msg: String| {
-            let mut progress = snapshot_progress.write();
-            if let Some(p) = progress.as_mut() {
+            let mut tracker = snapshot_progress_tracker.write();
+            if let Some(p) = tracker.as_mut() {
                 p.set_message(msg.clone());
+            } else {
+                // This should never happen
+                warn!("Snapshot progress tracker not initialized");
             }
         }))
+    }
+
+    /// Resets the snapshot progress tracker, once the snapshot download is finished
+    pub fn reset_snapshot_progress_tracker(&self) {
+        let mut tracker = self.snapshot_progress_tracker.write();
+        *tracker = None;
     }
 }
 
@@ -121,7 +143,7 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             config.client.data_dir.clone(),
             passphrase,
         ))
-            .map_err(anyhow::Error::new),
+        .map_err(anyhow::Error::new),
 
         // need encryption, we've not been given a password
         (true, Err(error)) => {
@@ -230,7 +252,7 @@ async fn create_state_manager(
         chain_config.genesis_bytes(db).await?.as_deref(),
         db,
     )
-        .await?;
+    .await?;
 
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(db),
@@ -250,18 +272,6 @@ async fn create_state_manager(
     Ok(state_manager)
 }
 
-
-/// Run the closure on a thread where blocking is allowed
-///
-/// # Panics
-/// If the closure panics
-fn asyncify<T>(f: impl FnOnce() -> T + Send + 'static) -> impl Future<Output=T>
-where
-    T: Send + 'static,
-{
-    tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
-}
-
 /// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
@@ -277,7 +287,7 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Re
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
         )
-            .into());
+        .into());
     }
 
     dialoguer::Password::new()
@@ -311,7 +321,7 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
         )
-            .into());
+        .into());
     }
     dialoguer::Password::new()
         .with_prompt(prompt)

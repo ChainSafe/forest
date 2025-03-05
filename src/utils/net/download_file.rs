@@ -6,12 +6,12 @@ use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use md5::{Digest as _, Md5};
+use std::sync::Arc;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
     time::Duration,
 };
-use std::sync::Arc;
 use url::Url;
 
 #[derive(Debug, Copy, Clone)]

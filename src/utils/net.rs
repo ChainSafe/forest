@@ -108,7 +108,8 @@ pub async fn reader(
     };
 
     Ok(tokio::io::BufReader::new(
-        WithProgress::wrap_sync_read_with_callback("Loading", stream, content_length, callback).bytes(),
+        WithProgress::wrap_sync_read_with_callback("Loading", stream, content_length, callback)
+            .bytes(),
     ))
 }
 

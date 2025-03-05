@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod bundle;
+mod context;
 pub mod db_util;
 pub mod main;
-mod context;
 
 use crate::blocks::Tipset;
 use crate::chain_sync::ChainMuxer;
@@ -13,6 +13,7 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
+use crate::daemon::context::{AppContext, DbType};
 use crate::daemon::db_util::{
     import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
 };
@@ -54,7 +55,6 @@ use tokio::{
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
-use crate::daemon::context::{AppContext, DbType};
 
 static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
     Builder::new()
@@ -179,14 +179,17 @@ async fn maybe_import_snapshot(
                 path,
                 &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
-                ctx.create_snapshot_callback(),
+                ctx,
             )
             .await?;
-            ctx.db.read_only_files(std::iter::once(car_db_path.clone()))?;
+            ctx.db
+                .read_only_files(std::iter::once(car_db_path.clone()))?;
             let ts_epoch = ts.epoch();
             // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
             // in the current setting store
-            ctx.state_manager.chain_store().set_heaviest_tipset(ts.into())?;
+            ctx.state_manager
+                .chain_store()
+                .set_heaviest_tipset(ts.into())?;
             debug!(
                 "Loaded car DB at {} and set current head to epoch {ts_epoch}",
                 car_db_path.display(),
@@ -205,10 +208,12 @@ async fn maybe_import_snapshot(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => {
-                ctx.state_manager.validate_range((current_height + validate_from)..=current_height)?
-            }
-            false => ctx.state_manager.validate_range(validate_from..=current_height)?,
+            true => ctx
+                .state_manager
+                .validate_range((current_height + validate_from)..=current_height)?,
+            false => ctx
+                .state_manager
+                .validate_range(validate_from..=current_height)?,
         }
     }
 
@@ -250,7 +255,10 @@ async fn maybe_start_metrics_service(
         crate::metrics::default_registry().register_collector(Box::new(
             networks::metrics::NetworkHeightCollector::new(
                 ctx.state_manager.chain_config().block_delay_secs,
-                ctx.state_manager.chain_store().genesis_block_header().timestamp,
+                ctx.state_manager
+                    .chain_store()
+                    .genesis_block_header()
+                    .timestamp,
             ),
         ));
     }
@@ -378,7 +386,11 @@ async fn maybe_start_health_check_service(
         let forest_state = crate::health::ForestState {
             config: config.clone(),
             chain_config: ctx.state_manager.chain_config().clone(),
-            genesis_timestamp: ctx.state_manager.chain_store().genesis_block_header().timestamp,
+            genesis_timestamp: ctx
+                .state_manager
+                .chain_store()
+                .genesis_block_header()
+                .timestamp,
             sync_state: chain_muxer.sync_state().clone(),
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
@@ -422,7 +434,7 @@ fn maybe_start_rpc_service(
             let tipset_send = chain_muxer.tipset_sender().clone();
             let keystore = ctx.keystore.clone();
             let network_name = ctx.network_name.clone();
-            let snapshot_tracker = ctx.snapshot_tracker.clone();
+            let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
             async move {
                 start_rpc(
                     RPCState {
@@ -437,7 +449,7 @@ fn maybe_start_rpc_service(
                         start_time,
                         shutdown,
                         tipset_send,
-                        snapshot_tracker,
+                        snapshot_progress_tracker: snapshot_tracker,
                     },
                     rpc_address,
                     filter_list,
@@ -467,7 +479,7 @@ fn maybe_start_f3_service(
     if !opts.halt_after_import && !opts.stateless {
         let rpc_address = config.client.rpc_address;
         let state_manager = &ctx.state_manager;
-        let p2p_peer_id = ctx.p2p_peer_id.clone();
+        let p2p_peer_id = ctx.p2p_peer_id;
         let admin_jwt = ctx.admin_jwt.clone();
         services.spawn_blocking({
             crate::rpc::f3::F3_LEASE_MANAGER
@@ -533,25 +545,22 @@ pub(super) async fn start(
     let mut services = JoinSet::new();
     maybe_start_track_peak_rss_service(&mut services, &opts);
     let ctx = AppContext::init(&opts, &config).await?;
-    info!("Using network :: {}", get_actual_chain_name(&ctx.network_name));
+    info!(
+        "Using network :: {}",
+        get_actual_chain_name(&ctx.network_name)
+    );
     utils::misc::display_chain_logo(config.chain());
     if opts.exit_after_init {
         return Ok(());
     }
-    let p2p_service = create_p2p_service(
-        &mut services,
-        &mut config,
-        &ctx,
-    ).await?;
+    let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
 
-    let chain_muxer = create_chain_muxer(
-        &mut services,
-        &opts,
-        &p2p_service,
-        &ctx,
-    )?;
+    let chain_muxer = create_chain_muxer(&mut services, &opts, &p2p_service, &ctx)?;
 
-    info!("Starting network:: {}", get_actual_chain_name(&ctx.network_name));
+    info!(
+        "Starting network:: {}",
+        get_actual_chain_name(&ctx.network_name)
+    );
 
     maybe_start_rpc_service(
         &mut services,
@@ -571,20 +580,9 @@ pub(super) async fn start(
     maybe_start_eth_mapping_collection_service(&mut services, &config, &ctx);
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
-    maybe_start_f3_service(
-        &mut services,
-        &opts,
-        &config,
-        &ctx,
-    );
-    maybe_start_health_check_service(
-        &mut services,
-        &config,
-        &p2p_service,
-        &chain_muxer,
-        &ctx,
-    )
-    .await?;
+    maybe_start_f3_service(&mut services, &opts, &config, &ctx);
+    maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_muxer, &ctx)
+        .await?;
     maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &ctx);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;

@@ -40,6 +40,7 @@ use human_bytes::human_bytes;
 use humantime::format_duration;
 use std::time::{Duration, Instant};
 
+use educe::Educe;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::io;
@@ -97,7 +98,8 @@ impl<S> WithProgress<S> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Educe)]
+#[educe(Debug)]
 pub struct Progress {
     completed_items: u64,
     total_items: Option<u64>,
@@ -106,6 +108,7 @@ pub struct Progress {
     last_logged: Instant,
     message: String,
     item_type: ItemType,
+    #[educe(Debug(ignore))]
     callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
 }
 
@@ -210,21 +213,6 @@ impl Progress {
             self.last_logged = now;
             self.last_logged_items = self.completed_items;
         }
-    }
-}
-
-// Derive Debug for Progress, skipping the callback field
-impl std::fmt::Debug for Progress {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Progress")
-            .field("completed_items", &self.completed_items)
-            .field("total_items", &self.total_items)
-            .field("last_logged_items", &self.last_logged_items)
-            .field("start", &self.start)
-            .field("last_logged", &self.last_logged)
-            .field("message", &self.message)
-            .field("item_type", &self.item_type)
-            .finish()
     }
 }
 

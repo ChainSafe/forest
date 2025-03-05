@@ -1,24 +1,25 @@
+// Copyright 2019-2025 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 // Add to src/rpc/types.rs or a similar appropriate location
 
+use crate::lotus_json::lotus_json_with_self;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::lotus_json::lotus_json_with_self;
 
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct SnapshotTracker {
-    pub message: String,  // The formatted progress message
+pub struct SnapshotProgressTracker {
+    pub message: String, // The formatted progress message
 }
 
-impl SnapshotTracker {
+impl SnapshotProgressTracker {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn set_message(&mut self, message: String) {
-        tracing::info!("tracking snapshot message: {}", message.clone());
         self.message = message;
     }
 }
 
-lotus_json_with_self!(SnapshotTracker);
+lotus_json_with_self!(SnapshotProgressTracker);
