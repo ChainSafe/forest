@@ -10,7 +10,6 @@ use crate::shim::{
 use crate::utils::encoding::{blake2b_256, keccak_256};
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
-use rand::rngs::OsRng;
 
 /// Return the public key for a given private key and [`SignatureType`]
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {
@@ -101,7 +100,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
 
 /// Generate a new private key
 pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
-    let rng = &mut OsRng;
+    let rng = &mut crate::utils::rand::forest_rng();
     match sig_type {
         SignatureType::Bls => {
             let key = BlsPrivate::generate(rng);

@@ -21,7 +21,7 @@ use crypto_secretbox::{
     aead::{generic_array::GenericArray, Aead},
     KeyInit, SecretBox, XSalsa20Poly1305,
 };
-use rand::{rngs::OsRng, RngCore};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{error, warn};
@@ -359,7 +359,7 @@ impl EncryptedKeyStore {
             Some(prev_salt) => prev_salt,
             None => {
                 let mut salt = [0; RECOMMENDED_SALT_LEN];
-                OsRng.fill_bytes(&mut salt);
+                crate::utils::rand::forest_rng().fill_bytes(&mut salt);
                 salt
             }
         };
@@ -395,7 +395,7 @@ impl EncryptedKeyStore {
 
     fn encrypt(encryption_key: &[u8], msg: &[u8]) -> anyhow::Result<Vec<u8>> {
         let mut nonce = [0; NONCE_SIZE];
-        OsRng.fill_bytes(&mut nonce);
+        crate::utils::rand::forest_rng().fill_bytes(&mut nonce);
         let nonce = GenericArray::from_slice(&nonce);
         let key = GenericArray::from_slice(encryption_key);
         let cipher = XSalsa20Poly1305::new(key);

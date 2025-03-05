@@ -1,0 +1,65 @@
+// Copyright 2019-2025 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use rand::{CryptoRng, Rng, RngCore, SeedableRng as _};
+
+/// A wrapper of [`rand::thread_rng`] that can be overridden by reproducible seeded
+/// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable
+pub fn forest_rng() -> impl Rng + CryptoRng {
+    const ENV_KEY: &str = "FOREST_TEST_RNG_FIXED_SEED";
+    if let Ok(v) = std::env::var(ENV_KEY) {
+        if let Ok(seed) = v.parse() {
+            tracing::warn!("[security] using test RNG with fixed seed {seed} set by {ENV_KEY}");
+            return Either::Left(rand_chacha::ChaChaRng::seed_from_u64(seed));
+        } else {
+            tracing::warn!("invalid u64 seed set by {ENV_KEY}: {v}");
+        }
+    }
+    Either::Right(rand::thread_rng())
+}
+
+enum Either<A, B> {
+    Left(A),
+    Right(B),
+}
+
+impl<A, B> RngCore for Either<A, B>
+where
+    A: RngCore,
+    B: RngCore,
+{
+    fn next_u32(&mut self) -> u32 {
+        match self {
+            Self::Left(i) => i.next_u32(),
+            Self::Right(i) => i.next_u32(),
+        }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        match self {
+            Self::Left(i) => i.next_u64(),
+            Self::Right(i) => i.next_u64(),
+        }
+    }
+
+    fn fill_bytes(&mut self, dst: &mut [u8]) {
+        match self {
+            Self::Left(i) => i.fill_bytes(dst),
+            Self::Right(i) => i.fill_bytes(dst),
+        }
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        match self {
+            Self::Left(i) => i.try_fill_bytes(dest),
+            Self::Right(i) => i.try_fill_bytes(dest),
+        }
+    }
+}
+
+impl<A, B> CryptoRng for Either<A, B>
+where
+    A: RngCore,
+    B: RngCore,
+{
+}
