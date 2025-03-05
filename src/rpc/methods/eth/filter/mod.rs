@@ -539,6 +539,11 @@ fn parse_block_range(
         _ => bail!("Unsupported type for to_block"),
     };
 
+    ensure!(
+        max_height >= 0 || max_height == -1,
+        "max_height requested is less than 0"
+    );
+
     if min_height == -1 && max_height > 0 {
         ensure!(
             max_height - heaviest <= max_range,
@@ -821,6 +826,102 @@ mod tests {
             heaviest,
             BlockNumberOrHash::from_str("earliest").unwrap(),
             BlockNumberOrHash::from_str("0x100").unwrap(),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 5: from_block = "latest", to_block = "earliest"
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 6: from_block = "earliest", to_block = "earliest"
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 0);
+        assert_eq!(max_height, 0);
+
+        // Test case 7: from_block = "latest", to_block = "latest"
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, heaviest);
+        assert_eq!(max_height, -1);
+
+        // Test case 8: from_block = "earliest", to_block = ""
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            BlockNumberOrHash::from_str("").unwrap(),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, 0);
+        assert_eq!(max_height, -1);
+
+        // Test case 9: from_block = "", to_block = "earliest"
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("").unwrap(),
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 10: from_block = "", to_block = "latest"
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("").unwrap(),
+            BlockNumberOrHash::from_str("latest").unwrap(),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, heaviest);
+        assert_eq!(max_height, -1);
+
+        // Test case 11: from_block = "", to_block = ""
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("").unwrap(),
+            BlockNumberOrHash::from_str("").unwrap(),
+            max_range,
+        );
+        assert!(result.is_ok());
+        let (min_height, max_height) = result.unwrap();
+        assert_eq!(min_height, heaviest);
+        assert_eq!(max_height, -1);
+
+        // Test case 12: Both blocks are non-negative but from_block > to_block.
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("0xA").unwrap(),
+            BlockNumberOrHash::from_str("0x1").unwrap(),
+            max_range,
+        );
+        assert!(result.is_err());
+
+        // Test case 13: Both blocks are non-negative, order is correct, but the range is too large.
+        let result = parse_block_range(
+            heaviest,
+            BlockNumberOrHash::from_str("earliest").unwrap(),
+            BlockNumberOrHash::from_str("0x65").unwrap(),
             max_range,
         );
         assert!(result.is_err());
