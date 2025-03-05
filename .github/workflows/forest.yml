@@ -487,9 +487,21 @@ jobs:
               echo "Disk space before cleanup"
               df -h
               sudo rm -rf /usr/share/dotnet
+              df -h
               sudo rm -rf /usr/local/lib/android
+              df -h
               sudo rm -rf /opt/ghc
+              df -h
               sudo rm -rf /opt/hostedtoolcache/CodeQL
+              df -h
+              sudo docker image prune --all --force
+              df -h
+              sudo apt-get clean
+              df -h
+              sudo rm -rf /var/lib/apt/lists/*
+              df -h
+              sudo rm -rf /tmp/*
+              df -h
 
               echo "Disk space after cleanup"
               df -h
