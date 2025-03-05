@@ -1629,6 +1629,13 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         )
         .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                ..Default::default()
+            },))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
