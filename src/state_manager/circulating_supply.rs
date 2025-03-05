@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use crate::chain::*;
-use crate::networks::{ChainConfig, Height};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::rpc::types::CirculatingSupply;
 use crate::shim::actors::{
     is_account_actor, is_ethaccount_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
@@ -96,7 +96,7 @@ impl GenesisInfo {
         let network_version = self.chain_config.network_version(height);
         let fil_locked = get_fil_locked(&state_tree, network_version)?;
         let fil_reserve_disbursed = if height > self.chain_config.epoch(Height::Assembly) {
-            get_fil_reserve_disbursed(&state_tree)?
+            get_fil_reserve_disbursed(&self.chain_config, height, &state_tree)?
         } else {
             TokenAmount::default()
         };
@@ -294,9 +294,22 @@ fn get_fil_power_locked<DB: Blockstore>(
 }
 
 fn get_fil_reserve_disbursed<DB: Blockstore>(
+    chain_config: &ChainConfig,
+    height: ChainEpoch,
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
+    // FIP-0100 introduced a different hard-coded reserve amount for calibnet.
+    // On calibnet, after NV25, the reserve amount is 900M. See
+    // https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0100.md#special-handling-for-calibration-network
+    // for details.
+    let is_calibnet = matches!(chain_config.network, NetworkChain::Calibnet);
+    let is_after_nv25 = chain_config.network_version(height) >= NetworkVersion::V25;
+    let use_fip100_reserve = is_calibnet && is_after_nv25;
+    let fil_reserved: TokenAmount = if use_fip100_reserve {
+        TokenAmount::from_whole(900_000_000)
+    } else {
+        TokenAmount::from_whole(300_000_000)
+    };
     let reserve_actor = get_actor_state(state_tree, &Address::RESERVE_ACTOR)?;
 
     // If money enters the reserve actor, this could lead to a negative term
