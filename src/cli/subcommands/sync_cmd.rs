@@ -98,6 +98,18 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
+                let ticker = Ticker::new(0.., Duration::from_secs(5));
+                for _ in ticker {
+                    let progress = SyncSnapshotProgress::call(&client, ()).await?;
+                    if let Some(progress) = progress {
+                        println!("Snapshot download is in progress: {}", progress.message);
+                        continue;
+                    }
+
+                    println!("Snapshot download is either finished or not yet started.");
+                    break;
+                }
+
                 let resp = SyncState::call(&client, ()).await?;
                 let state = resp.active_syncs.first();
 
