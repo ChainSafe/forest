@@ -1631,6 +1631,9 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .sort_policy(SortPolicy::All),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
+                address: EthAddressList::Single(
+                    EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                ),
                 ..Default::default()
             },))
             .unwrap(),
