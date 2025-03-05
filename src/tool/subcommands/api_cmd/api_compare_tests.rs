@@ -41,6 +41,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use num_traits::Signed as _;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -1161,9 +1162,10 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             EthChainId::request_with_alias((), use_alias).unwrap(),
         ));
-        // There is randomness in the result of this API
-        tests.push(RpcTest::basic(
+        // There is randomness in the result of this API, but at least check that the results are non-zero.
+        tests.push(RpcTest::validate(
             EthGasPrice::request_with_alias((), use_alias).unwrap(),
+            |forest, lotus| forest.0.is_positive() && lotus.0.is_positive(),
         ));
         tests.push(RpcTest::basic(
             EthSyncing::request_with_alias((), use_alias).unwrap(),
