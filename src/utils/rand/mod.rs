@@ -35,7 +35,9 @@ fn forest_rng_internal(mode: ForestRngMode) -> impl Rng + CryptoRng {
         }
     }
     match mode {
+        #[allow(clippy::disallowed_methods)]
         ForestRngMode::ThreadRng => Either::Right(Either::Left(rand::thread_rng())),
+        #[allow(clippy::disallowed_types)]
         ForestRngMode::OsRng => Either::Right(Either::Right(rand::rngs::OsRng)),
     }
 }
