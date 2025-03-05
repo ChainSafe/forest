@@ -7,17 +7,22 @@ use rand::{CryptoRng, Rng, RngCore, SeedableRng as _};
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.
 pub fn forest_rng() -> impl Rng + CryptoRng {
-    forest_rng_internal(false)
+    forest_rng_internal(ForestRngMode::ThreadRng)
 }
 
 /// A wrapper of [`rand::rngs::OsRng`] that can be overridden by reproducible seeded
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.
 pub fn forest_os_rng() -> impl Rng + CryptoRng {
-    forest_rng_internal(true)
+    forest_rng_internal(ForestRngMode::OsRng)
 }
 
-fn forest_rng_internal(prefer_os_rng_for_enhanced_security: bool) -> impl Rng + CryptoRng {
+enum ForestRngMode {
+    ThreadRng,
+    OsRng,
+}
+
+fn forest_rng_internal(mode: ForestRngMode) -> impl Rng + CryptoRng {
     const ENV_KEY: &str = "FOREST_TEST_RNG_FIXED_SEED";
     if let Ok(v) = std::env::var(ENV_KEY) {
         if let Ok(seed) = v.parse() {
@@ -29,10 +34,9 @@ fn forest_rng_internal(prefer_os_rng_for_enhanced_security: bool) -> impl Rng + 
             );
         }
     }
-    if prefer_os_rng_for_enhanced_security {
-        Either::Right(Either::Left(rand::rngs::OsRng))
-    } else {
-        Either::Right(Either::Right(rand::thread_rng()))
+    match mode {
+        ForestRngMode::ThreadRng => Either::Right(Either::Left(rand::thread_rng())),
+        ForestRngMode::OsRng => Either::Right(Either::Right(rand::rngs::OsRng)),
     }
 }
 
