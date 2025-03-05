@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix `max_height` error in `Filecoin.EthGetLogs`.
+- [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix incorrect handling of `max_height` for `latest` predefined block in `Filecoin.EthGetLogs`.
 
 ## Forest v0.24.0 "Treebeard"
 
