@@ -7,29 +7,25 @@ use rand::{CryptoRng, Rng, RngCore, SeedableRng as _};
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.
 pub fn forest_rng() -> impl Rng + CryptoRng {
-    const ENV_KEY: &str = "FOREST_TEST_RNG_FIXED_SEED";
-    forest_rng_internal(ENV_KEY, false)
+    forest_rng_internal(false)
 }
 
 /// A wrapper of [`rand::rngs::OsRng`] that can be overridden by reproducible seeded
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.
 pub fn forest_os_rng() -> impl Rng + CryptoRng {
-    const ENV_KEY: &str = "FOREST_TEST_OS_RNG_FIXED_SEED";
-    forest_rng_internal(ENV_KEY, true)
+    forest_rng_internal(true)
 }
 
-fn forest_rng_internal(
-    env_key: &str,
-    prefer_os_rng_for_enhanced_security: bool,
-) -> impl Rng + CryptoRng {
-    if let Ok(v) = std::env::var(env_key) {
+fn forest_rng_internal(prefer_os_rng_for_enhanced_security: bool) -> impl Rng + CryptoRng {
+    const ENV_KEY: &str = "FOREST_TEST_RNG_FIXED_SEED";
+    if let Ok(v) = std::env::var(ENV_KEY) {
         if let Ok(seed) = v.parse() {
-            tracing::warn!("[security] using test RNG with fixed seed {seed} set by {env_key}");
+            tracing::warn!("[security] using test RNG with fixed seed {seed} set by {ENV_KEY}");
             return Either::Left(rand_chacha::ChaChaRng::seed_from_u64(seed));
         } else {
             tracing::warn!(
-                "invalid u64 seed set by {env_key}: {v}. Falling back to the default RNG."
+                "invalid u64 seed set by {ENV_KEY}: {v}. Falling back to the default RNG."
             );
         }
     }
