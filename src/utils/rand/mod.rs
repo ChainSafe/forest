@@ -17,7 +17,7 @@ pub fn forest_os_rng() -> impl Rng + CryptoRng {
     forest_rng_internal(ForestRngMode::OsRng)
 }
 
-const FIXED_RNG_SEED_ENV: &str = "FOREST_TEST_RNG_FIXED_SEED";
+pub const FIXED_RNG_SEED_ENV: &str = "FOREST_TEST_RNG_FIXED_SEED";
 
 enum ForestRngMode {
     ThreadRng,
