@@ -112,7 +112,7 @@ impl AsyncWrite for VoidAsyncWriter {
 
 #[cfg(test)]
 mod test {
-    use rand::{rngs::OsRng, RngCore};
+    use rand::RngCore;
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};
 
@@ -128,7 +128,7 @@ mod test {
             AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(temp_file), true);
         for _ in 0..1024 {
             let mut bytes = [0; 1024];
-            OsRng.fill_bytes(&mut bytes);
+            crate::utils::rand::forest_rng().fill_bytes(&mut bytes);
             temp_file_writer.write_all(&bytes).await.unwrap();
         }
 

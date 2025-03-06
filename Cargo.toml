@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.23.3"
+version = "0.24.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -78,6 +78,7 @@ fil_actor_reward_state = { version = "19" }
 fil_actor_system_state = { version = "19" }
 fil_actor_verifreg_state = { version = "19" }
 fil_actors_shared = { version = "19", features = ["json"] }
+flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
@@ -162,6 +163,7 @@ prometheus-client = "0.22"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
 rand = "0.8"
+rand_chacha = "0.3"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1"
@@ -218,6 +220,7 @@ walkdir = "2"
 zstd = "0.13"
 
 # optional dependencies
+clap_complete = "4.5.46"
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
@@ -251,7 +254,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.264"
+ra_ap_syntax = "0.0.267"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

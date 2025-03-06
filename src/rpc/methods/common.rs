@@ -99,6 +99,6 @@ pub struct ShiftingVersion(u32);
 
 impl ShiftingVersion {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
+        Self(((major as u32) << 16) | ((minor as u32) << 8) | (patch as u32))
     }
 }

@@ -79,6 +79,7 @@ preload
 preloaded
 Q4
 README
+RNG
 Roadmap
 roadmap
 RPC
@@ -86,6 +87,7 @@ rustup
 S3-compatible
 semver
 serverless
+stateroots
 subcommands
 swappiness
 TabItem
