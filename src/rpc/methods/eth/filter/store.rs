@@ -21,6 +21,7 @@ pub trait Filter: Send + Sync + std::fmt::Debug {
 pub trait FilterStore: Send + Sync {
     fn add(&self, filter: Arc<dyn Filter>) -> Result<()>;
     fn get(&self, id: &FilterID) -> Result<Arc<dyn Filter>>;
+    fn update(&self, filter: Arc<dyn Filter>);
     fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>>;
 }
 
@@ -58,7 +59,13 @@ impl FilterStore for MemFilterStore {
         filters
             .get(id)
             .cloned()
-            .ok_or_else(|| anyhow!("Filter with the given ID not found"))
+            .ok_or_else(|| anyhow!("filter not found"))
+    }
+
+    fn update(&self, filter: Arc<dyn Filter>) {
+        let mut filters = self.filters.write();
+
+        filters.insert(filter.id().clone(), filter);
     }
 
     fn remove(&self, id: &FilterID) -> Option<Arc<dyn Filter>> {

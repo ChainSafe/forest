@@ -6,7 +6,7 @@ use anyhow::ensure;
 use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
-use std::hash::Hash;
+use std::{hash::Hash, ops::Deref};
 use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -281,15 +281,23 @@ pub struct GasReward {
     pub premium: TokenAmount,
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallMessage {
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from: Option<EthAddress>,
+    // `to` is required as per [eth_call](https://www.quicknode.com/docs/ethereum/eth_call) documentation.
+    // In the Filecoin context, though, it is optional due to special handling of the Ethereum
+    // Account Manager.
     pub to: Option<EthAddress>,
-    pub gas: EthUint64,
-    pub gas_price: EthBigInt,
-    pub value: EthBigInt,
-    pub data: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gas: Option<EthUint64>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gas_price: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub value: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
@@ -322,7 +330,11 @@ impl TryFrom<EthCallMessage> for Message {
                 EthAddress::default().to_filecoin_address()?
             }
         };
-        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
+        let params = tx
+            .data
+            .map(EthCallMessage::convert_data_to_message_params)
+            .transpose()?
+            .unwrap_or_default();
         let (to, method_num) = if let Some(to) = tx.to {
             (
                 to.to_filecoin_address()?,
@@ -337,7 +349,7 @@ impl TryFrom<EthCallMessage> for Message {
         Ok(Message {
             from,
             to,
-            value: tx.value.0.into(),
+            value: tx.value.unwrap_or_default().0.into(),
             method_num,
             params,
             gas_limit: BLOCK_GAS_LIMIT,
@@ -394,6 +406,44 @@ pub enum EthHashList {
 #[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct EthTopicSpec(pub Vec<EthHashList>);
 
+/// Represents an [`EthAddress`] or a collection of thereof. This allows the caller to either use,
+/// e.g., `0x1234...` or `["0x1234...", "0x5678..."]` as the address parameter.
+#[derive(PartialEq, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(untagged)]
+pub enum EthAddressList {
+    List(Vec<EthAddress>),
+    Single(EthAddress),
+}
+
+impl Default for EthAddressList {
+    fn default() -> Self {
+        EthAddressList::List(Vec::new())
+    }
+}
+
+impl From<EthAddress> for EthAddressList {
+    fn from(addr: EthAddress) -> Self {
+        EthAddressList::Single(addr)
+    }
+}
+
+impl From<Vec<EthAddress>> for EthAddressList {
+    fn from(addrs: Vec<EthAddress>) -> Self {
+        EthAddressList::List(addrs)
+    }
+}
+
+impl Deref for EthAddressList {
+    type Target = [EthAddress];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            EthAddressList::List(addrs) => addrs,
+            EthAddressList::Single(addr) => std::slice::from_ref(addr),
+        }
+    }
+}
+
 /// Represents a filter specification for querying Ethereum event logs.
 /// This struct can be used to specify criteria for filtering Ethereum event logs based on block range,
 /// address, topics, and block hash. It is useful for making requests to Ethereum nodes to fetch logs
@@ -433,7 +483,7 @@ pub struct EthFilterSpec {
     pub from_block: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_block: Option<String>,
-    pub address: Vec<EthAddress>,
+    pub address: EthAddressList,
     pub topics: Option<EthTopicSpec>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub block_hash: Option<EthHash>,

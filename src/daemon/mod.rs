@@ -14,7 +14,6 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-
 use crate::daemon::db_util::{
     import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
 };
@@ -258,14 +257,21 @@ async fn maybe_import_snapshot(
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, _ts) = import_chain_as_forest_car(
+            let (car_db_path, ts) = import_chain_as_forest_car(
                 path,
                 &db_meta.forest_car_db_dir,
                 config.client.import_mode,
             )
             .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            debug!("Loaded car DB at {}", car_db_path.display());
+            let ts_epoch = ts.epoch();
+            // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
+            // in the current setting store
+            state_manager.chain_store().set_heaviest_tipset(ts.into())?;
+            debug!(
+                "Loaded car DB at {} and set current head to epoch {ts_epoch}",
+                car_db_path.display(),
+            );
         }
     }
 
@@ -597,7 +603,6 @@ fn maybe_start_f3_service(
                 chain_finality,
                 bootstrap_epoch,
                 initial_power_table,
-                manifest_server,
             } = crate::f3::get_f3_sidecar_params(&chain_config);
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
@@ -610,7 +615,6 @@ fn maybe_start_f3_service(
                     chain_finality,
                     std::env::var("FOREST_F3_ROOT")
                         .unwrap_or(default_f3_root.display().to_string()),
-                    manifest_server.map(|i| i.to_string()).unwrap_or_default(),
                 );
                 Ok(())
             }

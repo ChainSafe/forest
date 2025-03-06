@@ -27,9 +27,27 @@
 
 ### Breaking
 
+### Added
+
+- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.24.0 "Treebeard"
+
+Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.
+
+### Breaking
+
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
 - [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
+
+- [#5329](https://github.com/ChainSafe/forest/pull/5329) Changed JSON-RPC alias for `Filecoin.NetListening`, `Filecoin.NetVersion`, `Filecoin.EthTraceBlock`, `Filecoin.EthTraceReplayBlockTransactions` to adhere to Lotus API.
 
 ### Added
 
@@ -61,11 +79,37 @@
 
 - [#4751](https://github.com/ChainSafe/forest/issues/4751) Add support for `Filecoin.GetActorEventsRaw` RPC method.
 
+- [#4671](https://github.com/ChainSafe/forest/issues/4671) Add support for `Filecoin.EthGetFilterLogs` RPC method.
+
+- [#5309](https://github.com/ChainSafe/forest/issues/5309) Add `forest-tool shed f3 check-activation-raw` command.
+
+- [#5242](https://github.com/ChainSafe/forest/issues/5242) Fix existing signature verification and add `delegated` signature
+
+- [#5314](https://github.com/ChainSafe/forest/pull/5314) Add omit fields option for OpenRPC spec generation.
+
+- [#5293](https://github.com/ChainSafe/forest/issues/5293) Extend RPC test snapshots to support Eth methods that require an index.
+
+- [#5319](https://github.com/ChainSafe/forest/pull/5319) Improve the ergonomics of the `forest-tool api generate-test-snapshot` subcommand.
+
+- [#5342](https://github.com/ChainSafe/forest/pull/5342) Improved the ergonomics of handling addresses in the `Filecoin.EthGetLogs` and `Filecoin.EthNewFilter` to accept both single addresses and arrays of addresses. This conforms to the Ethereum RPC API.
+
+- [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
+
+- [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
 
+- [#5329](https://github.com/ChainSafe/forest/pull/5329) `Filecoin.Web3ClientVersion` now returns the name of the node and its version, e.g., `forest/0.23.3+git.32a34e92`.
+
+- [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
+
+- [#5359](https://github.com/ChainSafe/forest/pull/5359) Eth RPC API methods' params are now all in _camelCase_. This aligns with the Ethereum RPC API. Note that this change is only for the OpenRPC documentation and does not affect the actual RPC methods which accepted correct _camelCase_ params before.
+
 ### Removed
+
+- [#5344](https://github.com/ChainSafe/forest/pull/5344) Removed the last traces of the `forest-cli attach` command.
 
 ### Fixed
 
@@ -83,6 +127,10 @@
   `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
 
 - [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
+
+- [#5357](https://github.com/ChainSafe/forest/issues/5357) Make data field in EthCallMessage optional. Affected RPC methods are `Filecoin.EthEstimateGas`(`eth_estimateGas`) and `Filecoin.EthCall`(`eth_call`)
+
+- [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 
 ## Forest v.0.23.3 "Plumber"
 

@@ -5,7 +5,9 @@ mod api_compare_tests;
 mod generate_test_snapshot;
 mod test_snapshot;
 
+use crate::cli_shared::{chain_path, read_config};
 use crate::db::car::ManyCar;
+use crate::db::db_engine::db_root;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
 use crate::networks::NetworkChain;
@@ -14,6 +16,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
+use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{bail, ensure, Context as _};
 use cid::Cid;
@@ -118,8 +121,8 @@ pub enum ApiCommands {
         #[arg(num_args = 1.., required = true)]
         test_dump_files: Vec<PathBuf>,
         /// Path to the database folder that powers a Forest node
-        #[arg(long, required = true)]
-        db: PathBuf,
+        #[arg(long)]
+        db: Option<PathBuf>,
         /// Filecoin network chain
         #[arg(long, required = true)]
         chain: NetworkChain,
@@ -218,6 +221,12 @@ impl ApiCommands {
                 if !out_dir.is_dir() {
                     std::fs::create_dir_all(&out_dir)?;
                 }
+                let db = if let Some(db) = db {
+                    db
+                } else {
+                    let (_, config) = read_config(None, Some(chain.clone()))?;
+                    db_root(&chain_path(&config))?
+                };
                 let tracking_db = generate_test_snapshot::load_db(&db)?;
                 for test_dump_file in test_dump_files {
                     let out_path = out_dir
@@ -237,11 +246,14 @@ impl ApiCommands {
                                 tracking_db.ensure_chain_head_is_tracked()?;
                                 let mut db = vec![];
                                 tracking_db.export_forest_car(&mut db).await?;
+                                let index =
+                                    generate_test_snapshot::build_index(tracking_db.clone());
                                 RpcTestSnapshot {
                                     chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
                                     response: test_dump.forest_response,
+                                    index,
                                     db,
                                 }
                             };

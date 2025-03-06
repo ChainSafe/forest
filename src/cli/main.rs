@@ -7,7 +7,6 @@ use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
-use anyhow::bail;
 use clap::Parser;
 use std::ffi::OsString;
 
@@ -45,7 +44,6 @@ where
                 Subcommand::Send(cmd) => cmd.run(client).await,
                 Subcommand::Info(cmd) => cmd.run(client).await,
                 Subcommand::Snapshot(cmd) => cmd.run(client).await,
-                Subcommand::Attach { .. } => bail!("the `attach` subcommand has been removed. Please raise an issue if this breaks a workflow for you"),
                 Subcommand::Shutdown(cmd) => cmd.run(client).await,
                 Subcommand::Healthcheck(cmd) => cmd.run(client).await,
                 Subcommand::F3(cmd) => cmd.run(client).await,

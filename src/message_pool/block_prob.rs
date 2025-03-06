@@ -102,13 +102,13 @@ fn test_block_probability() {
 
 #[test]
 fn test_winner_probability() {
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
     let n = 1_000_000;
     let winner_prob = no_winners_prob();
     let mut sum = 0.0;
 
     // Generates a radnom number from 0 to not including 1
-    let mut rng = thread_rng();
+    let mut rng = crate::utils::rand::forest_rng();
 
     for _ in 0..n {
         let mut miners_rand: f64 = rng.gen::<f64>() * f64::MAX;
