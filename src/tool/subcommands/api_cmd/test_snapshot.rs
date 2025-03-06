@@ -239,15 +239,35 @@ mod tests {
                         .to_lowercase()
                 }),
         );
+        let ignored = HashSet::from_iter(
+            include_str!("test_snapshots_ignored.txt")
+                .trim()
+                .split("\n")
+                .map(str::to_lowercase),
+        );
+
+        let mut uncovered = vec![];
+
         macro_rules! print_uncovered {
             ($ty:ty) => {
                 let name = <$ty>::NAME.to_lowercase();
-                if !covered.contains(&name) {
-                    println!("{} is uncovered.", <$ty>::NAME);
+                if !covered.contains(&name) && !ignored.contains(&name) {
+                    uncovered.push(<$ty>::NAME);
                 }
             };
         }
 
         crate::for_each_rpc_method!(print_uncovered);
+
+        if !uncovered.is_empty() {
+            uncovered.sort();
+            println!("Uncovered RPC methods:");
+            for i in uncovered.iter() {
+                println!("{i}");
+            }
+        }
+
+        // Uncomment once we have full coverage
+        // assert!(uncovered.is_empty());
     }
 }
