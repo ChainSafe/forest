@@ -276,7 +276,9 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         }
     });
 
-    // Add status reporting task
+    // Periodically report progress if there are any tipsets left to be fetched.
+    // Once we're in steady-state (i.e. caught up to HEAD) and there are no
+    // active forks, this will not report anything.
     set.spawn({
         let state_manager = state_manager.clone();
         let state_machine = state_machine.clone();
