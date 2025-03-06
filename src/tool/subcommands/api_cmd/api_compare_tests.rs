@@ -641,7 +641,7 @@ fn miner_create_block_test(
     secp_messages: Vec<SignedMessage>,
 ) -> RpcTest {
     // randomly sign BLS messages so we can test the BLS signature aggregation
-    let priv_key = bls_signatures::PrivateKey::generate(&mut rand::thread_rng());
+    let priv_key = bls_signatures::PrivateKey::generate(&mut crate::utils::rand::forest_rng());
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
