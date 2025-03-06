@@ -141,8 +141,10 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let network = network.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
+                // FIXME: Event metrics are not related to the chain follower. Should be moved elsewhere.
                 inc_gossipsub_event_metrics(&event);
 
+                // FIXME: Keeping peer information up to date is not related to the chain follower. Should be moved elsewhere.
                 upd_peer_information(
                     &event,
                     network.clone(),
