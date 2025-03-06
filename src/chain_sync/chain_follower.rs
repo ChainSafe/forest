@@ -134,6 +134,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
     let mut set = JoinSet::new();
 
+    // Increment metrics, update peer information, and forward tipsets to the state machine.
     set.spawn({
         let state_manager = state_manager.clone();
         let state_changed = state_changed.clone();
@@ -199,8 +200,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         }
     });
 
-    // spawn a task to tipsets to the state machine. These tipsets are received
-    // from the p2p swarm and from directly-connected miners.
+    // Forward tipsets from miners into the state machine.
     set.spawn({
         let state_changed = state_changed.clone();
         let state_machine = state_machine.clone();
@@ -214,7 +214,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     state_changed.notify_one();
                 }
             }
-            // tipset_receiver is closed, shutdown gracefully
         }
     });
 
@@ -234,7 +233,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 {
                     let heaviest = state_manager.chain_store().heaviest_tipset();
                     let mut sync_states_guard = sync_states.write();
-                    // info!("Number of sync states: {}", sync_states_guard.len());
+
                     sync_states_guard.truncate(1);
                     let first = sync_states_guard.first_mut().unwrap();
                     first.set_epoch(heaviest.epoch());
@@ -254,7 +253,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     // insert task into tasks. If task is already in tasks, skip. If it is not, spawn it.
                     let new = tasks_set.insert(task.clone());
                     if new {
-                        // info!("Spawning task: {}", task);
                         let tasks_clone = tasks.clone();
                         let action = task.clone().execute(
                             network.clone(),
