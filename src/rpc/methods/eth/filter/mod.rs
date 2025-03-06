@@ -15,9 +15,9 @@
 //! - **TipSet Filter**: Tracks changes in the blockchain's tipset (the latest set of blocks).
 //! - **Mempool Filter**: Monitors the Ethereum mempool for new pending transactions that meet certain criteria.
 pub mod event;
-mod mempool;
+pub mod mempool;
 mod store;
-mod tipset;
+pub mod tipset;
 
 use super::get_tipset_from_hash;
 use super::BlockNumberOrHash;

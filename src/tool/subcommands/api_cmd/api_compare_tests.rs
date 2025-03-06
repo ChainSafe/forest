@@ -1631,6 +1631,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(EthGetFilterChanges::request((FilterID::new().unwrap(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
             EthTraceBlock::request((ExtBlockNumberOrHash::from_block_number(
