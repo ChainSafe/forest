@@ -37,6 +37,8 @@
 
 ### Fixed
 
+- [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix incorrect handling of `max_height` for `latest` predefined block in `Filecoin.EthGetLogs`.
+
 ## Forest v0.24.0 "Treebeard"
 
 Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.
