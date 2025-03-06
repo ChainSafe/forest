@@ -171,6 +171,7 @@ async fn ctx(
 mod tests {
     use super::*;
     use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+    use ahash::HashSet;
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
@@ -219,5 +220,34 @@ mod tests {
             run_test_from_snapshot(&file_path).await.unwrap();
             println!("  succeeded.");
         }
+    }
+
+    #[test]
+    fn rpc_regression_tests_print_uncovered() {
+        let pattern = lazy_regex::regex!(r#"^(?P<name>filecoin_.+)_\d+\.rpcsnap\.json\.zst$"#);
+        let covered = HashSet::from_iter(
+            include_str!("test_snapshots.txt")
+                .trim()
+                .split("\n")
+                .map(|i| {
+                    let captures = pattern.captures(i).expect("pattern capture failure");
+                    captures
+                        .name("name")
+                        .expect("no named capture group")
+                        .as_str()
+                        .replace("_", ".")
+                        .to_lowercase()
+                }),
+        );
+        macro_rules! print_uncovered {
+            ($ty:ty) => {
+                let name = <$ty>::NAME.to_lowercase();
+                if !covered.contains(&name) {
+                    println!("{} is uncovered.", <$ty>::NAME);
+                }
+            };
+        }
+
+        crate::for_each_rpc_method!(print_uncovered);
     }
 }
