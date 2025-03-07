@@ -16,7 +16,7 @@ use std::any::Any;
 pub struct MempoolFilter {
     pub id: FilterID,       // Unique id used to identify the filter
     pub max_results: usize, // maximum number of results to collect''
-    pub collected: ChainEpoch,
+    pub collected: Option<ChainEpoch>,
 }
 
 impl MempoolFilter {
@@ -25,7 +25,7 @@ impl MempoolFilter {
         Ok(Arc::new(Self {
             id,
             max_results,
-            collected: 0,
+            collected: None,
         }))
     }
 }

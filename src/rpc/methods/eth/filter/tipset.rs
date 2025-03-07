@@ -14,7 +14,7 @@ use std::any::Any;
 pub struct TipSetFilter {
     pub id: FilterID,
     pub max_results: usize,
-    pub collected: ChainEpoch,
+    pub collected: Option<ChainEpoch>,
 }
 
 impl TipSetFilter {
@@ -23,7 +23,7 @@ impl TipSetFilter {
         Ok(Arc::new(Self {
             id,
             max_results,
-            collected: 0,
+            collected: None,
         }))
     }
 }
