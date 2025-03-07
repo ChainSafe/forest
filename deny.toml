@@ -23,17 +23,27 @@ allow = [
 ]
 
 exceptions = [
-  { allow = ["OpenSSL"], crate = "ring" },
-  { allow = ["MPL-2.0"], crate = "webpki-roots" },
-  { allow = ["MPL-2.0"], crate = "option-ext" },
-  { allow = ["MPL-2.0"], crate = "colored" },
-  { allow = ["MPL-2.0"], crate = "cbindgen" },
-  { allow = ["MPL-2.0"], crate = "attohttpc" },
+  { allow = [
+    "OpenSSL",
+  ], crate = "ring" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "webpki-roots" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "option-ext" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "colored" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "cbindgen" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "attohttpc" },
 ]
 
 [[licenses.clarify]]
 crate = "ring"
 expression = "MIT AND ISC AND OpenSSL"
-license-files = [
-  { path = "LICENSE", hash = 0xbd0eed23 },
-]
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
