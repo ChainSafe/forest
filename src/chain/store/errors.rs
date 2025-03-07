@@ -70,3 +70,9 @@ impl<T> From<flume::SendError<T>> for Error {
         Error::Other(e.to_string())
     }
 }
+
+impl Error {
+    pub fn state(msg: impl std::fmt::Display) -> Self {
+        Self::State(msg.to_string())
+    }
+}
