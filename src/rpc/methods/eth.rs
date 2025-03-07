@@ -2915,9 +2915,12 @@ impl RpcMethod<1> for EthTraceTransaction {
     const NAME: &'static str = "Filecoin.EthTraceTransaction";
     const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const PARAM_NAMES: [&'static str; 1] = ["txhash"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for a specific transaction.");
+
     type Params = (String,);
     type Ok = Vec<EthBlockTrace>;
     async fn handle(
