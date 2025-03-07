@@ -643,6 +643,13 @@ pub struct ParsedFilter {
 }
 
 impl ParsedFilter {
+    pub fn new_with_tipset(tipsets: ParsedFilterTipsets) -> Self {
+        ParsedFilter {
+            tipsets,
+            addresses: vec![],
+            keys: HashMap::new(),
+        }
+    }
     pub fn from_actor_event_filter(
         chain_height: ChainEpoch,
         _max_filter_height_range: ChainEpoch,

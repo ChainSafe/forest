@@ -52,6 +52,7 @@ use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use cid::Cid;
+use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use ipld_core::ipld::Ipld;
@@ -59,6 +60,7 @@ use itertools::Itertools;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
 use utils::{decode_payload, lookup_eth_address};
@@ -2730,6 +2732,34 @@ where
         .collect()
 }
 
+fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
+    let mut collected = Vec::new();
+    for event in events {
+        let hash = event.tipset_key.cid()?.into();
+        collected.push(hash);
+    }
+    Ok(collected)
+}
+
+fn eth_filter_logs_from_messages<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<Vec<EthHash>> {
+    let mut collected = Vec::new();
+    for event in events {
+        if let Some(hash) = eth_tx_hash_from_message_cid(
+            ctx.store(),
+            &event.msg_cid,
+            ctx.state_manager.chain_config().eth_chain_id,
+        )? {
+            collected.push(hash);
+        } else {
+            tracing::warn!("Ignoring event");
+        };
+    }
+    Ok(collected)
+}
+
 fn eth_filter_logs_from_events<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
@@ -2771,6 +2801,19 @@ fn eth_filter_result_from_events<DB: Blockstore>(
     events: &[CollectedEvent],
 ) -> anyhow::Result<EthFilterResult> {
     Ok(EthFilterResult::Logs(eth_filter_logs_from_events(
+        ctx, events,
+    )?))
+}
+
+fn eth_filter_result_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Txs(eth_filter_logs_from_tipsets(events)?))
+}
+
+fn eth_filter_result_from_messages<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Txs(eth_filter_logs_from_messages(
         ctx, events,
     )?))
 }
@@ -2889,8 +2932,50 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 store.update(filter);
                 return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
             }
-            if let Some(tipset_filter) = filter.as_any().downcast_ref::<TipSetFilter>() {}
-            if let Some(mempool_filter) = filter.as_any().downcast_ref::<MempoolFilter>() {}
+            if let Some(tipset_filter) = filter.as_any().downcast_ref::<TipSetFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .get_events_for_parsed_filter(
+                        &ctx,
+                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                            RangeInclusive::new(tipset_filter.collected, -1),
+                        )),
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let filter = Arc::new(TipSetFilter {
+                    id: tipset_filter.id.clone(),
+                    max_results: tipset_filter.max_results.clone(),
+                    collected: events
+                        .last()
+                        .map(|e| e.height)
+                        .unwrap_or(tipset_filter.collected),
+                });
+                store.update(filter);
+                return Ok(eth_filter_result_from_tipsets(&events)?);
+            }
+            if let Some(mempool_filter) = filter.as_any().downcast_ref::<MempoolFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .get_events_for_parsed_filter(
+                        &ctx,
+                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                            RangeInclusive::new(mempool_filter.collected, -1),
+                        )),
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let filter = Arc::new(MempoolFilter {
+                    id: mempool_filter.id.clone(),
+                    max_results: mempool_filter.max_results.clone(),
+                    collected: events
+                        .last()
+                        .map(|e| e.height)
+                        .unwrap_or(mempool_filter.collected),
+                });
+                store.update(filter);
+                return Ok(eth_filter_result_from_messages(&ctx, &events)?);
+            }
         }
         return Err(anyhow::anyhow!("method not supported").into());
     }
