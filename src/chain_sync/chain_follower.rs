@@ -1,5 +1,20 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+//! This module contains the logic for driving Forest forward in the Filecoin
+//! blockchain.
+//!
+//! Forest keeps track of the current heaviest tipset, and receives information
+//! about new blocks and tipsets from peers as well as connected miners. The
+//! state machine has the following rules:
+//! - A tipset is invalid if its parent is invalid.
+//! - If a tipset's parent isn't in our database, request it from the network.
+//! - If a tipset's parent has been validated, validate the tipset.
+//! - If a tipset is 1 day older than the heaviest tipset, the tipset is
+//!   invalid. This prevents Forest from following forks that will never be
+//!   accepted.
+//!
+//! The state machine does not do any network requests or validation. Those are
+//! handled by an external actor.
 use std::time::SystemTime;
 use std::{ops::Deref as _, sync::Arc};
 
@@ -61,6 +76,7 @@ pub struct ChainFollower<DB> {
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
 
+    // FIXME: Stateless mode is temporarily disabled.
     /// When `stateless_mode` is true, forest connects to the P2P network but does not sync to HEAD.
     _stateless_mode: bool,
 
