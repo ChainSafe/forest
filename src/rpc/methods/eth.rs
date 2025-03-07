@@ -2928,7 +2928,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                     tipsets: event_filter.tipsets.clone(),
                     addresses: event_filter.addresses.clone(),
                     keys_with_codec: event_filter.keys_with_codec.clone(),
-                    max_results: event_filter.max_results.clone(),
+                    max_results: event_filter.max_results,
                     collected: events.clone(),
                 });
                 store.update(filter);
@@ -2959,7 +2959,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 if let Some(height) = new_collected {
                     let filter = Arc::new(TipSetFilter {
                         id: tipset_filter.id.clone(),
-                        max_results: tipset_filter.max_results.clone(),
+                        max_results: tipset_filter.max_results,
                         collected: Some(height),
                     });
                     store.update(filter);
@@ -2991,7 +2991,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 if let Some(height) = new_collected {
                     let filter = Arc::new(MempoolFilter {
                         id: mempool_filter.id.clone(),
-                        max_results: mempool_filter.max_results.clone(),
+                        max_results: mempool_filter.max_results,
                         collected: Some(height),
                     });
                     store.update(filter);
@@ -2999,7 +2999,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
                 return Ok(eth_filter_result_from_messages(&ctx, &events)?);
             }
         }
-        return Err(anyhow::anyhow!("method not supported").into());
+        Err(anyhow::anyhow!("method not supported").into())
     }
 }
 
