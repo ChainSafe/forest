@@ -2231,7 +2231,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, None).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
     }
 }
 
@@ -2250,16 +2250,16 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
     }
 }
 
 async fn get_eth_transaction_by_hash(
-    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-    tx_hash: EthHash,
+    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: &EthHash,
     limit: Option<ChainEpoch>,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2906,6 +2906,37 @@ async fn trace_block<B: Blockstore + Send + Sync + 'static>(
         }
     }
     Ok(all_traces)
+}
+
+pub enum EthTraceTransaction {}
+impl RpcMethod<1> for EthTraceTransaction {
+    const NAME: &'static str = "Filecoin.EthTraceTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (String,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_hash = EthHash::from_str(&tx_hash)?;
+        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+            .await?
+            .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+        let traces = trace_block(
+            ctx,
+            ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
+        )
+        .await?
+        .into_iter()
+        .filter(|trace| trace.transaction_hash == eth_hash)
+        .collect();
+        Ok(traces)
+    }
 }
 
 pub enum EthTraceReplayBlockTransactions {}
