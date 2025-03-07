@@ -39,6 +39,8 @@
 
 - [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix incorrect handling of `max_height` for `latest` predefined block in `Filecoin.EthGetLogs`.
 
+- [#5356](https://github.com/ChainSafe/forest/issues/5356) Fixed slow (and incorrect!) `Filecoin.EthGasPrice` RPC method. The method now returns the correct gas price of the latest tipset.
+
 ## Forest v0.24.0 "Treebeard"
 
 Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.

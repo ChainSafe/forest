@@ -214,6 +214,11 @@ mod tests {
             }
         }));
 
+        // We need to set RNG seed so that tests are run with deterministic
+        // output. The snapshots should be generated with a node running with the same seed, if
+        // they are testing methods that are not deterministic, e.g.,
+        // `[`crate::rpc::methods::gas::estimate_gas_premium`]`.
+        std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666");
         while let Some((filename, file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
             run_test_from_snapshot(&file_path).await.unwrap();

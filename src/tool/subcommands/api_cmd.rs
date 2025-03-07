@@ -129,6 +129,10 @@ pub enum ApiCommands {
         #[arg(long, required = true)]
         /// Folder into which test snapshots are dumped
         out_dir: PathBuf,
+        /// Allow generating snapshot even if Lotus generated a different response. This is useful
+        /// when the response is not deterministic.
+        #[arg(long)]
+        allow_response_mismatch: bool,
     },
     DumpTests {
         #[command(flatten)]
@@ -216,6 +220,7 @@ impl ApiCommands {
                 db,
                 chain,
                 out_dir,
+                allow_response_mismatch,
             } => {
                 std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
                 if !out_dir.is_dir() {
@@ -238,6 +243,7 @@ impl ApiCommands {
                         &test_dump,
                         tracking_db.clone(),
                         &chain,
+                        allow_response_mismatch,
                     )
                     .await
                     {
