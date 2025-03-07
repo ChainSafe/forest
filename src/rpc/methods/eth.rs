@@ -2859,59 +2859,53 @@ impl RpcMethod<1> for EthTraceBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+        trace_block(ctx, block_param).await
+    }
+}
 
-        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-
-        let cid = ts.key().cid()?;
-
-        let block_hash: EthHash = cid.into();
-
-        let mut all_traces = vec![];
-        let mut msg_idx = 0;
-        for ir in trace.into_iter() {
-            // ignore messages from system actor
-            if ir.msg.from == system::ADDRESS.into() {
-                continue;
-            }
-
-            msg_idx += 1;
-
-            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
-
-            let tx_hash = tx_hash
-                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-            let mut env = trace::base_environment(&state, &ir.msg.from)
-                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-            if let Some(execution_trace) = ir.execution_trace {
-                trace::build_traces(&mut env, &[], execution_trace)?;
-
-                for trace in env.traces {
-                    all_traces.push(EthBlockTrace {
-                        trace: EthTrace {
-                            r#type: trace.r#type,
-                            subtraces: trace.subtraces,
-                            trace_address: trace.trace_address,
-                            action: trace.action,
-                            result: trace.result,
-                            error: trace.error,
-                        },
-
-                        block_hash: block_hash.clone(),
-                        block_number: ts.epoch(),
-                        transaction_hash: tx_hash.clone(),
-                        transaction_position: msg_idx as i64,
-                    });
-                }
+async fn trace_block<B: Blockstore + Send + Sync + 'static>(
+    ctx: Ctx<B>,
+    block_param: ExtBlockNumberOrHash,
+) -> Result<Vec<EthBlockTrace>, ServerError> {
+    let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+    let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let cid = ts.key().cid()?;
+    let block_hash: EthHash = cid.into();
+    let mut all_traces = vec![];
+    let mut msg_idx = 0;
+    for ir in trace.into_iter() {
+        // ignore messages from system actor
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+        msg_idx += 1;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+        let mut env = trace::base_environment(&state, &ir.msg.from)
+            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+        if let Some(execution_trace) = ir.execution_trace {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+            for trace in env.traces {
+                all_traces.push(EthBlockTrace {
+                    trace: EthTrace {
+                        r#type: trace.r#type,
+                        subtraces: trace.subtraces,
+                        trace_address: trace.trace_address,
+                        action: trace.action,
+                        result: trace.result,
+                        error: trace.error,
+                    },
+                    block_hash: block_hash.clone(),
+                    block_number: ts.epoch(),
+                    transaction_hash: tx_hash.clone(),
+                    transaction_position: msg_idx as i64,
+                });
             }
         }
-
-        Ok(all_traces)
     }
+    Ok(all_traces)
 }
 
 pub enum EthTraceReplayBlockTransactions {}
