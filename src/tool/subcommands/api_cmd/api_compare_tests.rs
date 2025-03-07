@@ -394,7 +394,7 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
-        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+        RpcTest::identity(ChainGetTipSetByHeight::request((
             tipset.epoch(),
             Default::default(),
         ))?),
