@@ -62,7 +62,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::{ops::Add, sync::Arc};
+use std::sync::Arc;
 use utils::{decode_payload, lookup_eth_address};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -748,6 +748,7 @@ impl RpcMethod<0> for EthGasPrice {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current gas price in attoFIL");
 
     type Params = ();
     type Ok = GasPriceResult;
@@ -756,15 +757,16 @@ impl RpcMethod<0> for EthGasPrice {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        // According to Geth's implementation, eth_gasPrice should return base + tip
+        // Ref: https://github.com/ethereum/pm/issues/328#issuecomment-853234014
         let ts = ctx.chain_store().heaviest_tipset();
         let block0 = ts.block_headers().first();
-        let base_fee = &block0.parent_base_fee;
-        if let Ok(premium) = gas::estimate_gas_premium(&ctx, 10000).await {
-            let gas_price = base_fee.add(premium);
-            Ok(EthBigInt(gas_price.atto().clone()))
-        } else {
-            Ok(EthBigInt(BigInt::zero()))
-        }
+        let base_fee = block0.parent_base_fee.atto();
+        let tip = crate::rpc::gas::estimate_gas_premium(&ctx, 0)
+            .await
+            .map(|gas_premium| gas_premium.atto().to_owned())
+            .unwrap_or_default();
+        Ok(EthBigInt(base_fee + tip))
     }
 }
 
