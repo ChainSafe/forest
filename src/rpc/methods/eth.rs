@@ -2283,7 +2283,7 @@ async fn get_eth_transaction_by_hash(
             return_dec: ipld,
         };
 
-        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+        if let Ok(tx) = new_eth_tx_from_message_lookup(ctx, &message_lookup, None) {
             return Ok(Some(tx));
         }
     }
