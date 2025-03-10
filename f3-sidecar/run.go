@@ -65,7 +65,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	verif := blssig.VerifierWithKeyOnG1()
 	m := manifest.LocalDevnetManifest()
 	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
-	case err == nil && initialPowerTable != cid.Undef:
+	case err == nil && isCidDefined(initialPowerTable):
 		logger.Infof("InitialPowerTable is %s", initialPowerTable)
 		m.InitialPowerTable = initialPowerTable
 	default:
