@@ -5,8 +5,6 @@ ignore = [
   # https://github.com/filecoin-project/ref-fvm/issues/1843
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
-  "RUSTSEC-2025-0009", # panic in `ring`, need libp2p update
-  "RUSTSEC-2025-0010", # Versions of *ring* prior to 0.17 are unmaintained
   "RUSTSEC-2024-0436", # paste is unmaintained
 ]
 
@@ -25,9 +23,6 @@ allow = [
 ]
 
 exceptions = [
-  { allow = [
-    "OpenSSL",
-  ], crate = "ring" },
   { allow = [
     "MPL-2.0",
   ], crate = "webpki-roots" },
