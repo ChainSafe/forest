@@ -852,3 +852,121 @@ impl SyncTask {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{chain4u, Chain4U, HeaderBuilder};
+    use crate::db::MemoryDB;
+    use crate::networks::ChainConfig;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+    use num_bigint::BigInt;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_sync_state_machine_validation_order() {
+        // Initialize test logger
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::from_default_env()
+                    .add_directive(tracing::Level::DEBUG.into()),
+            )
+            .try_init()
+            .unwrap();
+
+        // Create a test environment
+        let db = Arc::new(MemoryDB::default());
+        // Populate DB with message roots used by chain4u
+        {
+            let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
+            db.put_cbor_default(&crate::blocks::TxMeta {
+                bls_message_root: empty_amt,
+                secp_message_root: empty_amt,
+            })
+            .unwrap();
+        }
+        let dummy_state = |i| db.put_cbor_default(&i).unwrap();
+        let dummy_node = |i: ChainEpoch| HeaderBuilder {
+            state_root: dummy_state(i).into(),
+            weight: BigInt::from(i).into(),
+            ..Default::default()
+        };
+
+        let chain_config = Arc::new(ChainConfig::default());
+        let bad_block_cache = Arc::new(BadBlockCache::default());
+        // Create a chain of 5 tipsets using Chain4U
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis_header = dummy_node(0)]
+            -> [a = dummy_node(1)] -> [b = dummy_node(2)] -> [c = dummy_node(3)] -> [d = dummy_node(4)] -> [e = dummy_node(5)]
+        };
+
+        let cs = Arc::new(
+            ChainStore::new(
+                db.clone(),
+                db.clone(),
+                db.clone(),
+                chain_config.clone(),
+                genesis_header.clone().into(),
+            )
+            .unwrap(),
+        );
+
+        let genesis_tipset = Arc::new(genesis_header.clone().into());
+        cs.set_heaviest_tipset(genesis_tipset).unwrap();
+
+        // Create the state machine
+        let mut state_machine = SyncStateMachine::new(cs, chain_config, bad_block_cache);
+
+        // Insert tipsets in random order
+        let tipsets = vec![e, b, d, c, a];
+
+        // Convert each block into a FullTipset and add it to the state machine
+        for block in tipsets {
+            let full_tipset = FullTipset::new(vec![Block {
+                header: block.clone().into(),
+                bls_messages: vec![],
+                secp_messages: vec![],
+            }])
+            .unwrap();
+            state_machine.update(SyncEvent::NewFullTipsets(vec![Arc::new(full_tipset)]));
+        }
+
+        // dbg!(state_machine.chains());
+
+        // Record validation order by processing all validation tasks in each iteration
+        let mut validation_tasks = Vec::new();
+        loop {
+            let (tasks, _states) = state_machine.tasks();
+            // dbg!(&tasks);
+
+            // Find all validation tasks
+            let validation_tipsets: Vec<_> = tasks
+                .into_iter()
+                .filter_map(|task| {
+                    if let SyncTask::ValidateTipset(ts) = task {
+                        Some(ts)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if validation_tipsets.is_empty() {
+                break;
+            }
+
+            // Record and mark all tipsets as validated
+            for ts in validation_tipsets {
+                validation_tasks.push(ts.epoch());
+                db.put_cbor_default(&ts.epoch()).unwrap();
+                state_machine.mark_validated_tipset(ts);
+            }
+        }
+
+        // We expect validation tasks for epochs 1 through 5 in order
+        assert_eq!(validation_tasks, vec![1, 2, 3, 4, 5]);
+    }
+}
