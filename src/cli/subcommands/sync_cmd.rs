@@ -7,13 +7,13 @@ use std::{
 };
 
 use crate::chain_sync::SyncStage;
+use crate::cli::subcommands::format_vec_pretty;
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
 use itertools::Itertools as _;
 use ticker::Ticker;
-
-use crate::cli::subcommands::format_vec_pretty;
+use tokio::time;
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
@@ -95,10 +95,13 @@ impl SyncCommands {
                         break;
                     };
                 }
+
                 Ok(())
             }
             Self::Status => {
-                let resp = SyncState::call(&client, ()).await?;
+                check_snapshot_progress(&client).await?;
+
+                let resp = client.call(SyncState::request(())?).await?;
                 let state = resp.active_syncs.first();
 
                 let base = state.base();
@@ -131,6 +134,7 @@ impl SyncCommands {
                 if let Some(duration) = elapsed_time {
                     println!("Elapsed time:\t{}s", duration.num_seconds());
                 }
+
                 Ok(())
             }
             Self::CheckBad { cid } => {
@@ -149,4 +153,21 @@ impl SyncCommands {
             }
         }
     }
+}
+
+/// Check if the snapshot download is in progress, if it is then wait till the snapshot download is done
+async fn check_snapshot_progress(client: &rpc::Client) -> anyhow::Result<()> {
+    let mut interval = time::interval(Duration::from_secs(5));
+    loop {
+        interval.tick().await;
+        let progress = client.call(SyncSnapshotProgress::request(())?).await?;
+        if let Some(p) = progress {
+            println!("Snapshot download is in progress: {}", p.message);
+            continue;
+        }
+        println!("Snapshot download is either finished or not yet started.");
+        break;
+    }
+
+    Ok(())
 }

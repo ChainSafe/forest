@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod types;
+
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
@@ -13,6 +15,7 @@ use nunny::{vec as nonempty, Vec as NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+pub use types::*;
 
 use crate::chain;
 use crate::chain_sync::{SyncStage, TipsetValidator};
@@ -52,6 +55,23 @@ impl RpcMethod<1> for SyncMarkBad {
         ctx.bad_blocks
             .put(cid, "Marked bad manually through RPC API".to_string());
         Ok(())
+    }
+}
+
+pub enum SyncSnapshotProgress {}
+impl RpcMethod<0> for SyncSnapshotProgress {
+    const NAME: &'static str = "Forest.SyncSnapshotProgress";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the snapshot download progress. Return Null if the tracking isn't started");
+
+    type Params = ();
+    type Ok = Option<SnapshotProgressTracker>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.get_snapshot_progress_tracker())
     }
 }
 
@@ -232,6 +252,7 @@ mod tests {
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
+            snapshot_progress_tracker: Arc::new(parking_lot::RwLock::new(Default::default())),
         });
         (state, network_rx)
     }
