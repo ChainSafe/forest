@@ -174,7 +174,11 @@ pub struct F3InstanceProgress {
     pub round: u64,
     pub phase: u8,
     #[schemars(with = "LotusJson<Vec<ECTipSet>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
     pub input: Vec<ECTipSet>,
 }
 lotus_json_with_self!(F3InstanceProgress);
