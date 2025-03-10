@@ -6,22 +6,28 @@ use crate::lotus_json::lotus_json_with_self;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct SnapshotProgressTracker {
-    pub message: String, // The formatted progress message
+pub enum SnapshotProgressState {
+    InProgress { message: String },
+    Completed,
+    NotStarted,
 }
 
-impl SnapshotProgressTracker {
-    pub fn new() -> SnapshotProgressTracker {
-        Self {
-            message: String::new(),
-        }
+impl SnapshotProgressState {
+    pub fn set_in_progress(&mut self, message: String) {
+        *self = Self::InProgress { message };
     }
 
-    pub fn set_message(&mut self, message: String) {
-        self.message = message;
+    pub fn set_completed(&mut self) {
+        *self = Self::Completed;
     }
 }
 
-lotus_json_with_self!(SnapshotProgressTracker);
+impl Default for SnapshotProgressState {
+    fn default() -> Self {
+        Self::NotStarted
+    }
+}
+
+lotus_json_with_self!(SnapshotProgressState);

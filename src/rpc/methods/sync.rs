@@ -68,7 +68,7 @@ impl RpcMethod<0> for SyncSnapshotProgress {
         Some("Returns the snapshot download progress. Return Null if the tracking isn't started");
 
     type Params = ();
-    type Ok = Option<SnapshotProgressTracker>;
+    type Ok = SnapshotProgressState;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(ctx.get_snapshot_progress_tracker())

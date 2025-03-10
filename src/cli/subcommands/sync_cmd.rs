@@ -8,6 +8,7 @@ use std::{
 
 use crate::chain_sync::SyncStage;
 use crate::cli::subcommands::format_vec_pretty;
+use crate::rpc::sync::SnapshotProgressState;
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
@@ -99,8 +100,6 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                check_snapshot_progress(&client).await?;
-
                 let resp = client.call(SyncState::request(())?).await?;
                 let state = resp.active_syncs.first();
 
@@ -124,15 +123,21 @@ impl SyncCommands {
 
                 let height_diff = base_height - target_height;
 
-                println!("sync status:");
-                println!("Base:\t{base_cids}");
-                println!("Target:\t{target_cids} ({target_height})");
-                println!("Height diff:\t{}", height_diff.abs());
-                println!("Stage:\t{}", state.stage());
-                println!("Height:\t{}", state.epoch());
+                // If the base or target tipset is empty, or the height difference is zero,
+                // the node might be in the process of downloading the snapshot.
+                if base_cids.is_empty() && target_cids.is_empty() || height_diff == 0 {
+                    check_snapshot_progress(&client).await?;
+                } else {
+                    println!("sync status:");
+                    println!("Base:\t{base_cids}");
+                    println!("Target:\t{target_cids} ({target_height})");
+                    println!("Height diff:\t{}", height_diff.abs());
+                    println!("Stage:\t{}", state.stage());
+                    println!("Height:\t{}", state.epoch());
 
-                if let Some(duration) = elapsed_time {
-                    println!("Elapsed time:\t{}s", duration.num_seconds());
+                    if let Some(duration) = elapsed_time {
+                        println!("Elapsed time:\t{}s", duration.num_seconds());
+                    }
                 }
 
                 Ok(())
@@ -160,14 +165,26 @@ async fn check_snapshot_progress(client: &rpc::Client) -> anyhow::Result<()> {
     let mut interval = time::interval(Duration::from_secs(5));
     loop {
         interval.tick().await;
-        let progress = client.call(SyncSnapshotProgress::request(())?).await?;
-        if let Some(p) = progress {
-            println!("Snapshot download is in progress: {}", p.message);
-            continue;
+        let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
+        match progress_state {
+            SnapshotProgressState::InProgress { message } => {
+                print!(
+                    "\r{}{}🌳 Snapshot download in progress: {}",
+                    anes::ClearLine::All,
+                    anes::MoveCursorUp(1),
+                    message
+                );
+                stdout().flush()?;
+                continue;
+            }
+            SnapshotProgressState::Completed => {
+                println!("\n✅ Snapshot download completed! Chain will start syncing shortly (retry sync status command in 5 seconds)...");
+            }
+            SnapshotProgressState::NotStarted => {
+                println!("⏳ Snapshot download not started - node is initializing")
+            }
         }
-        println!("Snapshot download is either finished or not yet started.");
-        break;
-    }
 
-    Ok(())
+        return Ok(());
+    }
 }

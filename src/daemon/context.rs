@@ -14,7 +14,7 @@ use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
-use crate::rpc::sync::SnapshotProgressTracker;
+use crate::rpc::sync::SnapshotProgressState;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
 use crate::{
@@ -39,7 +39,7 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub network_name: String,
-    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<Option<SnapshotProgressTracker>>>,
+    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
 }
 
 impl AppContext {
@@ -50,7 +50,7 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let network_name = state_manager.get_network_name_from_genesis()?;
-        let snapshot_progress_tracker = Arc::new(parking_lot::RwLock::new(None));
+        let snapshot_progress_tracker = Arc::new(parking_lot::RwLock::new(Default::default()));
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -70,28 +70,25 @@ impl AppContext {
     ) -> Option<Arc<dyn Fn(String) + Send + Sync>> {
         let snapshot_progress_tracker = self.snapshot_progress_tracker.clone();
 
-        // Initialize the snapshot progress tracker, so that we can start progress tracking
-        // only when the callback is created (snapshot download starts)
+        // Set the snapshot progress tracker to in progress state only
+        // when the callback is created (snapshot download starts)
         {
             let mut tracker = snapshot_progress_tracker.write();
-            *tracker = Some(SnapshotProgressTracker::new());
+            *tracker = SnapshotProgressState::InProgress {
+                message: String::new(),
+            };
         }
 
         Some(Arc::new(move |msg: String| {
-            let mut tracker = snapshot_progress_tracker.write();
-            if let Some(p) = tracker.as_mut() {
-                p.set_message(msg.clone());
-            } else {
-                // This should never happen
-                warn!("Snapshot progress tracker not initialized");
-            }
+            snapshot_progress_tracker
+                .write()
+                .set_in_progress(msg.clone());
         }))
     }
 
     /// Resets the snapshot progress tracker, once the snapshot download is finished
     pub fn reset_snapshot_progress_tracker(&self) {
-        let mut tracker = self.snapshot_progress_tracker.write();
-        *tracker = None;
+        self.snapshot_progress_tracker.write().set_completed();
     }
 }
 

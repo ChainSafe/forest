@@ -381,7 +381,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 
-use crate::rpc::sync::SnapshotProgressTracker;
+use crate::rpc::sync::SnapshotProgressState;
 use openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
@@ -410,7 +410,7 @@ pub struct RPCState<DB> {
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
-    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<Option<SnapshotProgressTracker>>>,
+    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
     pub shutdown: mpsc::Sender<()>,
 }
 
@@ -443,7 +443,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.sync_network_context.network_send()
     }
 
-    pub fn get_snapshot_progress_tracker(&self) -> Option<SnapshotProgressTracker> {
+    pub fn get_snapshot_progress_tracker(&self) -> SnapshotProgressState {
         self.snapshot_progress_tracker.read().clone()
     }
 }
