@@ -322,4 +322,4 @@ rustdoc-args = ["--document-private-items"]
 
 [workspace]
 members = ["interop-tests"]
-resolver = "2"
+resolver = "3"
