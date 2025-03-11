@@ -92,8 +92,7 @@ impl RpcMethod<1> for ChainGetEvents {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let mut events = vec![];
-        EthEventHandler::collect_chain_events(&ctx, &ts, &mut events).await?;
+        let events = EthEventHandler::collect_chain_events(&ctx, &ts).await?;
 
         Ok(events)
     }

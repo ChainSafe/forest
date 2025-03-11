@@ -365,8 +365,7 @@ impl EthEventHandler {
     pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
-        chain_events: &mut Vec<Event>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Vec<Event>> {
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
         let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
@@ -376,9 +375,13 @@ impl EthEventHandler {
             "Length of messages and events do not match"
         );
 
-        for events in events.into_iter() {
+        let mut chain_events = vec![];
+        for (_i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
             for event in events.iter() {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+
+                tracing::debug!("::{} {}", message.message().sequence, event.emitter());
+                // TODO: Should we handle corner case where message nonces are different?
 
                 let entries: Vec<EventEntry> = entries
                     .into_iter()
@@ -400,7 +403,7 @@ impl EthEventHandler {
             }
         }
 
-        Ok(())
+        Ok(chain_events)
     }
 
     pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
