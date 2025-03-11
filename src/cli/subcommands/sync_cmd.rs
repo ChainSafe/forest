@@ -123,11 +123,12 @@ impl SyncCommands {
 
                 let height_diff = base_height - target_height;
 
-                // If the sync state is not in the Complete stage and both base and target tipsets are empty,
+                // If the sync state is not in the Complete stage
+                // and both base and target cid's are empty,
                 // the node might be downloading the snapshot.
                 if state.stage() != SyncStage::Complete
-                    && base_cids.is_empty()
-                    && target_cids.is_empty()
+                    && base_cids.eq("[]")
+                    && target_cids.eq("[]")
                 {
                     check_snapshot_progress(&client).await?;
                 } else {
