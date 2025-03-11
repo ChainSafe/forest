@@ -75,7 +75,7 @@ impl AppContext {
         {
             let mut tracker = snapshot_progress_tracker.write();
             *tracker = SnapshotProgressState::InProgress {
-                message: String::new(),
+                message: "Loading progress...".to_string(),
             };
         }
 
