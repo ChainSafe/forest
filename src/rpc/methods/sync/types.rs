@@ -1,6 +1,5 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// Add to src/rpc/types.rs or a similar appropriate location
 
 use crate::lotus_json::lotus_json_with_self;
 use schemars::JsonSchema;
