@@ -12,8 +12,11 @@ use std::any::Any;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct TipSetFilter {
+    // Unique id used to identify the filter
     pub id: FilterID,
+    // Maximum number of results to collect
     pub max_results: usize,
+    // Epoch at which the results were collected
     pub collected: Option<ChainEpoch>,
 }
 

@@ -2899,9 +2899,12 @@ impl RpcMethod<1> for EthGetFilterChanges {
     const NAME: &'static str = "Filecoin.EthGetFilterChanges";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterChanges");
     const N_REQUIRED_PARAMS: usize = 1;
-    const PARAM_NAMES: [&'static str; 1] = ["filter_id"];
+    const PARAM_NAMES: [&'static str; 1] = ["filterId"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns event logs which occured since the last poll");
+
     type Params = (FilterID,);
     type Ok = EthFilterResult;
     async fn handle(
