@@ -34,7 +34,6 @@ use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, info, trace, warn};
 
 use crate::chain_sync::tipset_syncer::validate_tipset;
-use crate::chain_sync::tipset_syncer::InvalidBlockStrategy;
 use crate::chain_sync::SyncState;
 use crate::{
     blocks::{Block, FullTipset, Tipset, TipsetKey},
@@ -814,15 +813,8 @@ impl SyncTask {
         match self {
             SyncTask::ValidateTipset(tipset) => {
                 let genesis = cs.genesis_tipset();
-                match validate_tipset(
-                    state_manager.clone(),
-                    cs,
-                    &bad_block_cache,
-                    tipset.deref().clone(),
-                    &genesis,
-                    InvalidBlockStrategy::Forgiving,
-                )
-                .await
+                match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
+                    .await
                 {
                     Ok(()) => {
                         let _ = cs.put_delegated_message_hashes(

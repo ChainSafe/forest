@@ -33,9 +33,7 @@ use nunny::Vec as NonEmpty;
 use thiserror::Error;
 use tracing::{error, trace, warn};
 
-use crate::chain_sync::{
-    bad_block_cache::BadBlockCache, consensus::collect_errs, metrics, validation::TipsetValidator,
-};
+use crate::chain_sync::{consensus::collect_errs, metrics, validation::TipsetValidator};
 
 #[derive(Debug, Error)]
 pub enum TipsetProcessorError {
@@ -105,13 +103,6 @@ impl TipsetRangeSyncerError {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum InvalidBlockStrategy {
-    #[allow(dead_code)]
-    Strict,
-    Forgiving,
-}
-
 /// Validates full blocks in the tipset in parallel (since the messages are not
 /// executed), adding the successful ones to the tipset tracker, and the failed
 /// ones to the bad block cache, depending on strategy. Any bad block fails
@@ -119,10 +110,8 @@ pub enum InvalidBlockStrategy {
 pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
-    bad_block_cache: &BadBlockCache,
     full_tipset: FullTipset,
     genesis: &Tipset,
-    invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
     if full_tipset.key().eq(genesis.key()) {
         trace!("Skipping genesis tipset validation");
@@ -156,17 +145,6 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                     epoch,
                     why
                 );
-                // Only do bad block accounting if the function was called with
-                // `is_strict` = true
-                if let InvalidBlockStrategy::Strict = invalid_block_strategy {
-                    match &why {
-                        TipsetRangeSyncerError::TimeTravellingBlock(_, _)
-                        | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
-                        why => {
-                            bad_block_cache.put(cid, why.to_string());
-                        }
-                    }
-                }
                 return Err(why);
             }
         }
