@@ -195,10 +195,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                         }
                         PubsubMessage::Message(m) => {
                             if let Err(why) = mem_pool.add(m) {
-                                debug!(
-                                    "GossipSub message could not be added to the mem pool: {}",
-                                    why
-                                );
+                                debug!("Received invalid GossipSub message: {}", why);
                             }
                             continue;
                         }
@@ -224,16 +221,15 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
         async move {
             while let Ok(tipset) = tipset_receiver.recv_async().await {
-                {
-                    state_machine
-                        .lock()
-                        .update(SyncEvent::NewFullTipsets(vec![tipset]));
-                    state_changed.notify_one();
-                }
+                state_machine
+                    .lock()
+                    .update(SyncEvent::NewFullTipsets(vec![tipset]));
+                state_changed.notify_one();
             }
         }
     });
 
+    // When the state machine is updated, we need to update the sync states and spawn tasks
     set.spawn({
         let state_manager = state_manager.clone();
         let state_machine = state_machine.clone();
@@ -247,6 +243,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 let mut tasks_set = tasks.lock();
                 let (task_vec, states) = state_machine.lock().tasks();
 
+                // Update the sync states
                 {
                     let heaviest = state_manager.chain_store().heaviest_tipset();
                     let mut sync_states_guard = sync_states.write();
