@@ -36,12 +36,6 @@ use tracing::{error, trace, warn};
 use crate::chain_sync::{consensus::collect_errs, metrics, validation::TipsetValidator};
 
 #[derive(Debug, Error)]
-pub enum TipsetProcessorError {
-    #[error("TipsetRangeSyncer error: {0}")]
-    RangeSyncer(#[from] TipsetRangeSyncerError),
-}
-
-#[derive(Debug, Error)]
 pub enum TipsetRangeSyncerError {
     #[error("Block must have a signature")]
     BlockWithoutSignature,
