@@ -398,6 +398,12 @@ where
                         events_roots.push(events_root);
                     }
                 }
+                if enable_event_pushing.is_pushed_all() {
+                    if let Some(events_root) = ret.msg_receipt().events_root() {
+                        events_roots.push(events_root);
+                        events.push(ret.events());
+                    }
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -614,6 +620,8 @@ pub enum VMEvent {
     Pushed,
     /// Push events root during [`VM::apply_block_messages`]
     PushedEventsRoot,
+    /// Push event AND events root during [`VM::apply_block_messages`]
+    PushedAll,
     /// Do not push event
     #[default]
     NotPushed,
@@ -628,5 +636,10 @@ impl VMEvent {
     /// Should events root be pushed?
     pub fn is_pushed_events_root(&self) -> bool {
         matches!(self, VMEvent::PushedEventsRoot)
+    }
+
+    /// Should all be pushed?
+    pub fn is_pushed_all(&self) -> bool {
+        matches!(self, VMEvent::PushedAll)
     }
 }

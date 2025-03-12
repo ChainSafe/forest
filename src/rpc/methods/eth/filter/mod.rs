@@ -42,6 +42,7 @@ use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{anyhow, bail, ensure, Context, Error};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -279,7 +280,8 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
+        let StateEvents { events, .. } =
+            ctx.state_manager.tipset_state_events(tipset, None).await?;
 
         ensure!(
             messages.len() == events.len(),
@@ -365,23 +367,17 @@ impl EthEventHandler {
     pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
         ctx: &Ctx<DB>,
         tipset: &Arc<Tipset>,
+        events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
-        let messages = ctx.chain_store().messages_for_tipset(tipset)?;
-
-        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
-
-        ensure!(
-            messages.len() == events.len(),
-            "Length of messages and events do not match"
-        );
+        let StateEvents { events, .. } = ctx
+            .state_manager
+            .tipset_state_events(tipset, Some(events_root))
+            .await?;
 
         let mut chain_events = vec![];
-        for (_i, (message, events)) in messages.iter().zip(events.into_iter()).enumerate() {
+        for events in events.into_iter() {
             for event in events.iter() {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-
-                tracing::debug!("::{} {}", message.message().sequence, event.emitter());
-                // TODO: Should we handle corner case where message nonces are different?
 
                 let entries: Vec<EventEntry> = entries
                     .into_iter()
