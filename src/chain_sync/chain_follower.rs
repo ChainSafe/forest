@@ -51,7 +51,7 @@ use super::SyncStage;
 
 pub struct ChainFollower<DB> {
     /// Syncing state of chain sync workers.
-    pub sync_states: Arc<RwLock<Vec<SyncState>>>,
+    pub sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -100,7 +100,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         main_sync_state.set_stage(SyncStage::Messages);
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
-            sync_states: Arc::new(RwLock::new(vec![main_sync_state])),
+            sync_states: Arc::new(RwLock::new(nunny::vec![main_sync_state])),
             state_manager,
             network,
             genesis,
@@ -137,7 +137,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    sync_states: Arc<RwLock<Vec<SyncState>>>,
+    sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
     genesis: Arc<Tipset>,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
@@ -250,8 +250,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     let heaviest = state_manager.chain_store().heaviest_tipset();
                     let mut sync_states_guard = sync_states.write();
 
-                    sync_states_guard.truncate(1);
-                    let first = sync_states_guard.first_mut().unwrap();
+                    sync_states_guard.truncate(std::num::NonZeroUsize::new(1).unwrap());
+                    let first = sync_states_guard.first_mut();
                     first.set_epoch(heaviest.epoch());
                     first.set_target(state_machine.lock().heaviest_tipset());
                     let seconds_per_epoch = state_manager.chain_config().block_delay_secs;

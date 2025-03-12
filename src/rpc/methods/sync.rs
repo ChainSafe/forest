@@ -67,7 +67,6 @@ impl RpcMethod<0> for SyncState {
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let active_syncs = ctx.sync_states.as_ref().read().clone();
-        let active_syncs = NonEmpty::new(active_syncs).unwrap();
         Ok(RPCSyncState { active_syncs })
     }
 }
@@ -89,10 +88,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(
-            ctx.sync_states.read().first().unwrap().stage(),
-            SyncStage::Complete
-        ) {
+        if !matches!(ctx.sync_states.read().first().stage(), SyncStage::Complete) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let encoded_message = to_vec(&block_msg)?;
@@ -227,7 +223,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_states: Arc::new(parking_lot::RwLock::new(vec![Default::default()])),
+            sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),

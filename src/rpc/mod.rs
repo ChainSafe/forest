@@ -402,7 +402,7 @@ pub struct RPCState<DB> {
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
-    pub sync_states: Arc<parking_lot::RwLock<Vec<crate::chain_sync::SyncState>>>,
+    pub sync_states: Arc<parking_lot::RwLock<nunny::Vec<crate::chain_sync::SyncState>>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
     pub network_name: String,
