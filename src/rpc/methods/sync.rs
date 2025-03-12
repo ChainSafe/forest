@@ -262,12 +262,8 @@ mod tests {
         assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
 
         // update cloned state
-        st_copy
-            .write()
-            .get_mut(0)
-            .unwrap()
-            .set_stage(SyncStage::Messages);
-        st_copy.write().get_mut(0).unwrap().set_epoch(4);
+        st_copy.write().first_mut().set_stage(SyncStage::Messages);
+        st_copy.write().first_mut().set_epoch(4);
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
 

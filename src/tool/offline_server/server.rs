@@ -140,8 +140,7 @@ pub async fn start_offline_server(
     rpc_state
         .sync_states
         .write()
-        .get_mut(0)
-        .unwrap()
+        .first_mut()
         .set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 

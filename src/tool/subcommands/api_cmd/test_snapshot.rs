@@ -164,8 +164,7 @@ async fn ctx(
     rpc_state
         .sync_states
         .write()
-        .get_mut(0)
-        .unwrap()
+        .first_mut()
         .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
