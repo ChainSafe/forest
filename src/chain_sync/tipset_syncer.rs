@@ -36,7 +36,7 @@ use tracing::{error, trace, warn};
 use crate::chain_sync::{consensus::collect_errs, metrics, validation::TipsetValidator};
 
 #[derive(Debug, Error)]
-pub enum TipsetRangeSyncerError {
+pub enum TipsetSyncerError {
     #[error("Block must have a signature")]
     BlockWithoutSignature,
     #[error("Block without BLS aggregate signature")]
@@ -71,29 +71,23 @@ pub enum TipsetRangeSyncerError {
     ConsensusError(FilecoinConsensusError),
 }
 
-impl<T> From<flume::SendError<T>> for TipsetRangeSyncerError {
-    fn from(err: flume::SendError<T>) -> Self {
-        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{err}"))
-    }
-}
-
-impl From<tokio::task::JoinError> for TipsetRangeSyncerError {
+impl From<tokio::task::JoinError> for TipsetSyncerError {
     fn from(err: tokio::task::JoinError) -> Self {
-        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{err}"))
+        TipsetSyncerError::NetworkTipsetQueryFailed(format!("{err}"))
     }
 }
 
-impl TipsetRangeSyncerError {
+impl TipsetSyncerError {
     /// Concatenate all validation error messages into one comma separated
     /// version.
-    fn concat(errs: NonEmpty<TipsetRangeSyncerError>) -> Self {
+    fn concat(errs: NonEmpty<TipsetSyncerError>) -> Self {
         let msg = errs
             .iter()
             .map(|e| e.to_string())
             .collect::<Vec<_>>()
             .join(", ");
 
-        TipsetRangeSyncerError::Validation(msg)
+        TipsetSyncerError::Validation(msg)
     }
 }
 
@@ -106,7 +100,7 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     chainstore: &ChainStore<DB>,
     full_tipset: FullTipset,
     genesis: &Tipset,
-) -> Result<(), TipsetRangeSyncerError> {
+) -> Result<(), TipsetSyncerError> {
     if full_tipset.key().eq(genesis.key()) {
         trace!("Skipping genesis tipset validation");
         return Ok(());
@@ -169,7 +163,7 @@ pub async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
 async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
-) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
+) -> Result<Arc<Block>, (Cid, TipsetSyncerError)> {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule().clone());
     trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
@@ -202,12 +196,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         // have been committed to the store. When validate_block is called from sync_tipset
         // this guarantee does not exist, so we create a specific error to inform the caller
         // not to add this block to the bad blocks cache.
-        .map_err(|why| {
-            (
-                *block_cid,
-                TipsetRangeSyncerError::TipsetParentNotFound(why),
-            )
-        })?;
+        .map_err(|why| (*block_cid, TipsetSyncerError::TipsetParentNotFound(why)))?;
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
@@ -246,11 +235,11 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let _timer = metric.start_timer();
         let base_fee = crate::chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {e}"))
+                TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
             })?;
         let parent_base_fee = &v_block.header.parent_base_fee;
         if &base_fee != parent_base_fee {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetSyncerError::Validation(format!(
                 "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
             )));
         }
@@ -266,10 +255,10 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
             .get_or_create(&metrics::values::PARENT_WEIGHT_CAL);
         let _timer = metric.start_timer();
         let calc_weight = fil_cns::weight(&v_block_store, &v_base_tipset).map_err(|e| {
-            TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {e}"))
+            TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
         })?;
         if weight != calc_weight {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetSyncerError::Validation(format!(
                 "Parent weight doesn't match: {weight} (header), {calc_weight} (computed)"
             )));
         }
@@ -286,18 +275,18 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
             .tipset_state(&v_base_tipset)
             .await
             .map_err(|e| {
-                TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {e}"))
+                TipsetSyncerError::Calculation(format!("Failed to calculate state: {e}"))
             })?;
 
         if state_root != header.state_root {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root, state_root,
             )));
         }
 
         if receipt_root != header.message_receipts {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetSyncerError::Validation(format!(
                 "Parent receipt root did not match computed root: {} (header), {} (computed)",
                 header.message_receipts, receipt_root
             )));
@@ -326,9 +315,9 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
                 // errors instead of a single one that has all the error messages,
                 // removing the caller's ability to distinguish between them.
 
-                TipsetRangeSyncerError::concat(
+                TipsetSyncerError::concat(
                     errs.into_iter_ne()
-                        .map(TipsetRangeSyncerError::ConsensusError)
+                        .map(TipsetSyncerError::ConsensusError)
                         .collect_vec(),
                 )
             })
@@ -337,7 +326,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Collect the errors from the async validations
     if let Err(errs) = collect_errs(validations).await {
-        return Err((*block_cid, TipsetRangeSyncerError::concat(errs)));
+        return Err((*block_cid, TipsetSyncerError::concat(errs)));
     }
 
     chain_store.mark_block_as_validated(block_cid);
@@ -359,7 +348,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
     base_tipset: Arc<Tipset>,
-) -> Result<(), TipsetRangeSyncerError> {
+) -> Result<(), TipsetSyncerError> {
     let network_version = state_manager
         .chain_config()
         .network_version(block.header.epoch);
@@ -382,13 +371,13 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
             &pub_keys,
             sig,
         ) {
-            return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
+            return Err(TipsetSyncerError::BlsAggregateSignatureInvalid(
                 format!("{sig:?}"),
                 format!("{cids:?}"),
             ));
         }
     } else {
-        return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
+        return Err(TipsetSyncerError::BlockWithoutBlsAggregate);
     }
 
     let price_list = price_list_by_network_version(network_version);
@@ -444,10 +433,10 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let (state_root, _) = state_manager
         .tipset_state(&base_tipset)
         .await
-        .map_err(|e| TipsetRangeSyncerError::Calculation(format!("Could not update state: {e}")))?;
+        .map_err(|e| TipsetSyncerError::Calculation(format!("Could not update state: {e}")))?;
     let tree =
         StateTree::new_from_root(state_manager.blockstore_owned(), &state_root).map_err(|e| {
-            TipsetRangeSyncerError::Calculation(format!(
+            TipsetSyncerError::Calculation(format!(
                 "Could not load from new state root in state manager: {e}"
             ))
         })?;
@@ -455,7 +444,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     // Check validity for BLS messages
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
+            TipsetSyncerError::Validation(format!(
                 "Block had invalid BLS message at index {i}: {e}"
             ))
         })?;
@@ -466,12 +455,12 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         if msg.signature().signature_type() == SignatureType::Delegated
             && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
         {
-            return Err(TipsetRangeSyncerError::Validation(
+            return Err(TipsetSyncerError::Validation(
                 "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
             ));
         }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
+            TipsetSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"
             ))
         })?;
@@ -479,11 +468,11 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         let key_addr = state_manager
             .resolve_to_key_addr(&msg.from(), &base_tipset)
             .await
-            .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
+            .map_err(|e| TipsetSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
             .authenticate_msg(eth_chain_id, msg, &key_addr)
-            .map_err(|e| TipsetRangeSyncerError::MessageSignatureInvalid(e.to_string()))?;
+            .map_err(|e| TipsetSyncerError::MessageSignatureInvalid(e.to_string()))?;
     }
 
     // Validate message root from header matches message root
@@ -492,9 +481,9 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         block.bls_msgs(),
         block.secp_msgs(),
     )
-    .map_err(|err| TipsetRangeSyncerError::ComputingMessageRoot(err.to_string()))?;
+    .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages != msg_root {
-        return Err(TipsetRangeSyncerError::BlockMessageRootInvalid(
+        return Err(TipsetSyncerError::BlockMessageRootInvalid(
             format!("{:?}", block.header().messages),
             format!("{msg_root:?}"),
         ));
@@ -506,21 +495,21 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 /// Checks optional values in header.
 ///
 /// It only looks for fields which are common to all consensus types.
-fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyncerError> {
+fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerError> {
     if header.signature.is_none() {
-        return Err(TipsetRangeSyncerError::BlockWithoutSignature);
+        return Err(TipsetSyncerError::BlockWithoutSignature);
     }
     if header.bls_aggregate.is_none() {
-        return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
+        return Err(TipsetSyncerError::BlockWithoutBlsAggregate);
     }
     Ok(())
 }
 
 /// Check the clock drift.
-fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyncerError> {
+fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerError> {
     let time_now = chrono::Utc::now().timestamp() as u64;
     if header.timestamp > time_now.saturating_add(ALLOWABLE_CLOCK_DRIFT) {
-        return Err(TipsetRangeSyncerError::TimeTravellingBlock(
+        return Err(TipsetSyncerError::TimeTravellingBlock(
             time_now,
             header.timestamp,
         ));
