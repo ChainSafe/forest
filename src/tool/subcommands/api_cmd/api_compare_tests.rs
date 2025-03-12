@@ -21,6 +21,7 @@ use crate::rpc::FilterList;
 use crate::rpc::{prelude::*, Permission};
 use crate::shim::actors::market;
 use crate::shim::actors::MarketActorStateLoad as _;
+use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
@@ -433,6 +434,12 @@ fn chain_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
+        }
+
+        for receipt in Receipt::get_receipts(store, block.message_receipts)? {
+            if let Some(events_root) = receipt.events_root() {
+                tests.extend([RpcTest::identity(ChainGetEvents::request((events_root,))?)]);
+            }
         }
     }
 

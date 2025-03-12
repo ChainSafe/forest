@@ -531,7 +531,7 @@ pub struct EventEntry {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct Event {
     /// Actor ID
