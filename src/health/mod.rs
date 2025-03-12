@@ -115,11 +115,10 @@ mod test {
         };
 
         // instrument the state so that the ready requirements are met
-        sync_states.write().get_mut(0).unwrap().set_epoch(i64::MAX);
+        sync_states.write().first_mut().set_epoch(i64::MAX);
         sync_states
             .write()
-            .get_mut(0)
-            .unwrap()
+            .first_mut()
             .set_stage(SyncStage::Complete);
 
         db.set_eth_mapping_up_to_date().unwrap();
@@ -138,12 +137,8 @@ mod test {
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
-        sync_states
-            .write()
-            .get_mut(0)
-            .unwrap()
-            .set_stage(SyncStage::Error);
-        sync_states.write().get_mut(0).unwrap().set_epoch(0);
+        sync_states.write().first_mut().set_stage(SyncStage::Error);
+        sync_states.write().first_mut().set_epoch(0);
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -206,8 +201,7 @@ mod test {
         // instrument the state so that the live requirements are met
         sync_states
             .write()
-            .get_mut(0)
-            .unwrap()
+            .first_mut()
             .set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
@@ -224,11 +218,7 @@ mod test {
         assert!(text.contains("[+] peers connected"));
 
         // instrument the state so that the live requirements are not met
-        sync_states
-            .write()
-            .get_mut(0)
-            .unwrap()
-            .set_stage(SyncStage::Error);
+        sync_states.write().first_mut().set_stage(SyncStage::Error);
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
@@ -288,11 +278,10 @@ mod test {
         };
 
         // instrument the state so that the health requirements are met
-        sync_states.write().get_mut(0).unwrap().set_epoch(i64::MAX);
+        sync_states.write().first_mut().set_epoch(i64::MAX);
         sync_states
             .write()
-            .get_mut(0)
-            .unwrap()
+            .first_mut()
             .set_stage(SyncStage::Headers);
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
@@ -311,12 +300,8 @@ mod test {
 
         // instrument the state so that the health requirements are not met
         drop(rpc_listener);
-        sync_states
-            .write()
-            .get_mut(0)
-            .unwrap()
-            .set_stage(SyncStage::Error);
-        sync_states.write().get_mut(0).unwrap().set_epoch(0);
+        sync_states.write().first_mut().set_stage(SyncStage::Error);
+        sync_states.write().first_mut().set_epoch(0);
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
