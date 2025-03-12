@@ -47,6 +47,7 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use cid::Cid;
@@ -2977,6 +2978,110 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
         }
 
         Ok(all_traces)
+    }
+}
+
+fn get_eth_block_number_from_string<DB: Blockstore>(
+    chain_store: &ChainStore<DB>,
+    block: Option<&str>,
+) -> Result<EthUint64> {
+    let head = chain_store.heaviest_tipset();
+    let block_value = block.unwrap_or("latest");
+    match block_value {
+        "earliest" => bail!("block param \"earliest\" is not supported"),
+        "pending" => Ok(EthUint64(head.epoch() as u64)),
+        "latest" => {
+            let parent = chain_store
+                .chain_index
+                .load_required_tipset(head.parents())
+                .context("cannot get parent tipset")?;
+            Ok(EthUint64(parent.epoch() as u64))
+        }
+        "safe" => {
+            let latest_height = head.epoch() - 1;
+            let safe_height = latest_height - SAFE_EPOCH_DELAY;
+            Ok(EthUint64(safe_height as u64))
+        }
+        _ => {
+            let block_num = EthUint64(
+                hex_str_to_epoch(block_value).context("cannot parse block number")? as u64,
+            );
+            Ok(block_num)
+        }
+    }
+}
+
+pub enum EthTraceFilter {}
+impl RpcMethod<1> for EthTraceFilter {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Filecoin.EthTraceFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    type Params = (EthTraceFilterCriteria,);
+    type Ok = Vec<EthBlockTrace>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let from_block =
+            get_eth_block_number_from_string(ctx.chain_store(), filter.from_block.as_deref())
+                .context("cannot parse fromBlock")?;
+
+        let to_block =
+            get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
+                .context("cannot parse toBlock")?;
+        let mut results = vec![];
+        let count = filter.count.unwrap_or(EthUint64(0)).0;
+        if count == 0 {
+            return Ok(results);
+        }
+        let trace_filter_max_results = env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500);
+        if count > trace_filter_max_results {
+            return Err(anyhow::anyhow!(
+                "invalid response count, requested {}, maximum supported is {}",
+                count,
+                trace_filter_max_results
+            )
+            .into());
+        }
+        let mut trace_counter = 0;
+        for blk_num in from_block.0..=to_block.0 {
+            let block_traces = EthTraceBlock::handle(
+                ctx.clone(),
+                (ExtBlockNumberOrHash::from_block_number(blk_num as i64),),
+            )
+            .await?;
+            for block_trace in block_traces {
+                if block_trace
+                    .trace
+                    .match_filter_criteria(&filter.from_address, &filter.to_address)?
+                {
+                    trace_counter += 1;
+                    if let Some(after) = filter.after.clone() {
+                        if trace_counter <= after.0 {
+                            continue;
+                        }
+                    }
+
+                    results.push(block_trace);
+
+                    if results.len() >= count as usize {
+                        return Ok(results);
+                    } else if results.len() > trace_filter_max_results as usize {
+                        return Err(anyhow::anyhow!(
+            "too many results, maximum supported is {}, try paginating requests with after and count",
+            trace_filter_max_results
+            )
+            .into());
+                    }
+                }
+            }
+        }
+
+        Ok(results)
     }
 }
 
