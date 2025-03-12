@@ -386,7 +386,7 @@ where
     pub fn get_network_name(&self, state_cid: Cid) -> anyhow::Result<String> {
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
-            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;
         Ok(State::load(self.blockstore(), init_act.code, init_act.state)?.into_network_name())
     }
 
@@ -394,7 +394,7 @@ where
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
         let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -420,7 +420,7 @@ where
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
         let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -429,7 +429,7 @@ where
         if let Some(maddr) = addr {
             let m_pow = spas
                 .miner_power(self.blockstore(), &maddr.into())?
-                .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
+                .ok_or_else(|| Error::state(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config.policy,
@@ -452,7 +452,7 @@ where
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            .ok_or_else(|| Error::state("Miner actor not found"))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
         state.load_sectors_ext(self.blockstore(), None)
     }
@@ -755,13 +755,13 @@ where
 
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
         let power_state = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Miner actor address could not be resolved"))?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -921,7 +921,7 @@ where
         let message_sequence = message.sequence();
         let mut current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?;
+            .map_err(Error::state)?;
         let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
@@ -1148,8 +1148,8 @@ where
         match kaddr.into_payload() {
             Payload::BLS(key) => BlsPublicKey::from_bytes(&key)
                 .map_err(|e| Error::Other(format!("Failed to construct bls public key: {e}"))),
-            _ => Err(Error::State(
-                "Address must be BLS address to load bls public key".to_owned(),
+            _ => Err(Error::state(
+                "Address must be BLS address to load bls public key",
             )),
         }
     }
@@ -1203,7 +1203,7 @@ where
     pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            .ok_or_else(|| Error::state("Miner actor not found"))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         Ok(state.info(self.blockstore())?)
@@ -1227,7 +1227,7 @@ where
     ) -> Result<BitField, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            .ok_or_else(|| Error::state("Miner actor not found"))?;
 
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -1389,7 +1389,7 @@ where
     ) -> anyhow::Result<bool> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
         let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
@@ -1464,8 +1464,8 @@ where
     ) -> anyhow::Result<verifreg::State> {
         let act = self
             .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| Error::State("actor not found".to_string()))?;
+            .map_err(Error::state)?
+            .ok_or_else(|| Error::state("actor not found"))?;
         verifreg::State::load(self.blockstore(), act.code, act.state)
     }
     pub fn get_claim(
@@ -1521,8 +1521,8 @@ where
 
         let act = self
             .get_actor(&Address::DATACAP_TOKEN_ACTOR, *ts.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            .map_err(Error::state)?
+            .ok_or_else(|| Error::state("Miner actor not found"))?;
 
         let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
 
