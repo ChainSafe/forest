@@ -3,6 +3,7 @@
 
 use crate::rpc::eth::{filter::Filter, filter::FilterManager, FilterID};
 use crate::rpc::Arc;
+use crate::shim::fvm_shared_latest::clock::ChainEpoch;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
@@ -11,14 +12,22 @@ use std::any::Any;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub struct TipSetFilter {
-    id: FilterID,
-    max_results: usize,
+    // Unique id used to identify the filter
+    pub id: FilterID,
+    // Maximum number of results to collect
+    pub max_results: usize,
+    // Epoch at which the results were collected
+    pub collected: Option<ChainEpoch>,
 }
 
 impl TipSetFilter {
     pub fn new(max_results: usize) -> Result<Arc<Self>, uuid::Error> {
         let id = FilterID::new()?;
-        Ok(Arc::new(Self { id, max_results }))
+        Ok(Arc::new(Self {
+            id,
+            max_results,
+            collected: None,
+        }))
     }
 }
 
