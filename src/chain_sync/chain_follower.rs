@@ -75,8 +75,10 @@ pub struct ChainFollower<DB> {
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
 
-    // FIXME: Stateless mode is temporarily disabled.
-    /// When `stateless_mode` is true, forest connects to the P2P network but does not sync to HEAD.
+    // FIXME: Stateless mode is temporarily disabled. Tracking issue:
+    // https://github.com/ChainSafe/forest/issues/5404
+    /// When `stateless_mode` is true, forest connects to the P2P network but
+    /// does not sync to HEAD.
     _stateless_mode: bool,
 
     /// Message pool
