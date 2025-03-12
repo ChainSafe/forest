@@ -3034,10 +3034,10 @@ impl RpcMethod<1> for EthTraceFilter {
             get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
                 .context("cannot parse toBlock")?;
         let mut results = vec![];
-        let count = filter.count.unwrap_or(EthUint64(0)).0;
-        if count == 0 {
+        if let Some(EthUint64(0)) = filter.count {
             return Ok(results);
         }
+        let count = filter.count.unwrap_or(EthUint64(0)).0;
         let trace_filter_max_results = env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500);
         if count > trace_filter_max_results {
             return Err(anyhow::anyhow!(
