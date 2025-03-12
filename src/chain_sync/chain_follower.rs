@@ -611,7 +611,9 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn is_ready_for_validation(&self, tipset: &FullTipset) -> bool {
-        if let Ok(full_tipset) = load_full_tipset(&self.cs, tipset.parents().clone()) {
+        if tipset.epoch() == 0 {
+            true
+        } else if let Ok(full_tipset) = load_full_tipset(&self.cs, tipset.parents().clone()) {
             self.is_validated(&full_tipset)
         } else {
             false
