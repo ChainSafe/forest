@@ -35,8 +35,8 @@
 
 - [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
 
-- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[fevm]` section or via the 
-  `FOREST_FEVM_ENABLE_ETH_RPC` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[chain_indexer]` section or via the 
+  `FOREST_CHAIN_INDEXER_ENABLED` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
 
 ### Changed
 

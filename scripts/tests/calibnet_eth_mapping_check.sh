@@ -6,7 +6,7 @@ set -eu
 
 source "$(dirname "$0")/harness.sh"
 
-export FOREST_FEVM_ENABLE_ETH_RPC=1
+export FOREST_CHAIN_INDEXER_ENABLED=1
 forest_init
 
 FOREST_URL='http://127.0.0.1:2345/rpc/v1'

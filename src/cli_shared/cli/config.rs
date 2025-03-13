@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 use super::client::Client;
 
-const FOREST_FEVM_ENABLE_ETH_RPC: &str = "FOREST_FEVM_ENABLE_ETH_RPC";
+const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -62,7 +62,6 @@ impl Default for EventsConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct FevmConfig {
-    pub enable_eth_rpc: bool,
     #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub eth_trace_filter_max_results: usize,
 }
@@ -70,17 +69,27 @@ pub struct FevmConfig {
 impl Default for FevmConfig {
     fn default() -> Self {
         Self {
-            enable_eth_rpc: is_env_set_and_truthy(FOREST_FEVM_ENABLE_ETH_RPC).unwrap_or(false),
             eth_trace_filter_max_results: 500,
         }
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ChainIndexerConfig {
+    /// Enable indexing Ethereum mappings
+    pub enable_indexer: bool,
     /// Number of retention epochs for indexed entries. Set to `None` to disable garbage collection.
     pub gc_retention_epochs: Option<u32>,
+}
+
+impl Default for ChainIndexerConfig {
+    fn default() -> Self {
+        Self {
+            enable_indexer: is_env_set_and_truthy(FOREST_CHAIN_INDEXER_ENABLED).unwrap_or(false),
+            gc_retention_epochs: None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]

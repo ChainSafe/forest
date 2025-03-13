@@ -631,7 +631,10 @@ fn maybe_start_indexer_service(
     _db: &DbType,
     state_manager: &Arc<StateManager<DbType>>,
 ) {
-    if config.fevm.enable_eth_rpc && !opts.stateless && !state_manager.chain_config().is_devnet() {
+    if config.chain_indexer.enable_indexer
+        && !opts.stateless
+        && !state_manager.chain_config().is_devnet()
+    {
         let mut receiver = state_manager.chain_store().publisher().subscribe();
         let chain_store = state_manager.chain_store().clone();
         services.spawn(async move {
