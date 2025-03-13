@@ -3086,6 +3086,7 @@ dependencies = [
  "reqwest",
  "rlimit",
  "rlp",
+ "rs-car",
  "rust2go",
  "schemars",
  "scopeguard",
@@ -7539,6 +7540,19 @@ dependencies = [
  "memoffset 0.9.1",
  "rustc-hash 1.1.0",
  "text-size",
+]
+
+[[package]]
+name = "rs-car"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "660d1576a918f8ccab9a98025367f6c1996e7551d5059833ddf0995e2f444cbf"
+dependencies = [
+ "blake2b_simd",
+ "futures",
+ "ipld-core",
+ "serde_ipld_dagcbor",
+ "sha2 0.10.8",
 ]
 
 [[package]]

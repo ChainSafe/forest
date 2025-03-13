@@ -1,4 +1,4 @@
-use super::super::super::rs_car::{CarDecodeError, Cid};
+use rs_car::{CarDecodeError, Cid};
 
 #[derive(Debug)]
 pub enum ReadSingleFileError {

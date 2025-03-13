@@ -1,4 +1,4 @@
-use super::super::super::rs_car::{CarHeader, Cid};
+use rs_car::{CarHeader, Cid};
 
 use super::super::pb::PBLink;
 

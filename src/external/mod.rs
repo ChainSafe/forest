@@ -10,5 +10,4 @@
 #![allow(warnings)]
 #![allow(clippy::indexing_slicing)]
 
-pub mod rs_car;
 pub mod rs_car_ipfs;

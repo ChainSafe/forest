@@ -1,5 +1,5 @@
-use super::super::super::rs_car::{CarReader, Cid};
 use futures::{AsyncRead, AsyncWrite, AsyncWriteExt, StreamExt};
+use rs_car::{CarReader, Cid};
 use std::collections::HashMap;
 
 use super::super::pb::{FlatUnixFs, UnixFsType};

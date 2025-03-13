@@ -10,4 +10,4 @@
 mod pb;
 pub mod single_file;
 
-pub use super::rs_car::Cid;
+pub use rs_car::Cid;

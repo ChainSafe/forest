@@ -1,7 +1,7 @@
-use super::super::super::rs_car::{CarReader, Cid};
 use futures::{
     AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt, StreamExt,
 };
+use rs_car::{CarReader, Cid};
 use std::{collections::HashMap, io::SeekFrom};
 
 use super::super::pb::{FlatUnixFs, UnixFsType};
