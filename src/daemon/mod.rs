@@ -583,7 +583,6 @@ fn maybe_start_f3_service(
                 chain_finality,
                 bootstrap_epoch,
                 initial_power_table,
-                manifest_server,
             } = crate::f3::get_f3_sidecar_params(&chain_config);
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
@@ -591,12 +590,13 @@ fn maybe_start_f3_service(
                     format!("http://{rpc_address}/rpc/v1"),
                     admin_jwt,
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
-                    initial_power_table.to_string(),
+                    initial_power_table
+                        .map(|i| i.to_string())
+                        .unwrap_or_default(),
                     bootstrap_epoch,
                     chain_finality,
                     std::env::var("FOREST_F3_ROOT")
                         .unwrap_or(default_f3_root.display().to_string()),
-                    manifest_server.map(|i| i.to_string()).unwrap_or_default(),
                 );
                 Ok(())
             }

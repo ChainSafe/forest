@@ -90,6 +90,7 @@ generate_markdown_section "forest-cli" "f3 powertable get-proportion"
 generate_markdown_section "forest-tool" ""
 
 generate_markdown_section "forest-tool" "backup"
+generate_markdown_section "forest-tool" "completion"
 generate_markdown_section "forest-tool" "backup create"
 generate_markdown_section "forest-tool" "backup restore"
 

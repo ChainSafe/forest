@@ -41,6 +41,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use num_traits::Signed as _;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -394,7 +395,7 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
-        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+        RpcTest::identity(ChainGetTipSetByHeight::request((
             tipset.epoch(),
             Default::default(),
         ))?),
@@ -641,7 +642,7 @@ fn miner_create_block_test(
     secp_messages: Vec<SignedMessage>,
 ) -> RpcTest {
     // randomly sign BLS messages so we can test the BLS signature aggregation
-    let priv_key = bls_signatures::PrivateKey::generate(&mut rand::thread_rng());
+    let priv_key = bls_signatures::PrivateKey::generate(&mut crate::utils::rand::forest_rng());
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
@@ -1161,9 +1162,10 @@ fn eth_tests() -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             EthChainId::request_with_alias((), use_alias).unwrap(),
         ));
-        // There is randomness in the result of this API
-        tests.push(RpcTest::basic(
+        // There is randomness in the result of this API, but at least check that the results are non-zero.
+        tests.push(RpcTest::validate(
             EthGasPrice::request_with_alias((), use_alias).unwrap(),
+            |forest, lotus| forest.0.is_positive() && lotus.0.is_positive(),
         ));
         tests.push(RpcTest::basic(
             EthSyncing::request_with_alias((), use_alias).unwrap(),
@@ -1201,18 +1203,26 @@ fn eth_tests() -> Vec<RpcTest> {
         let cases = [
             (
                 Some(EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap()),
-                "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
-                    .parse()
-                    .unwrap(),
+                Some(
+                    "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
+                        .parse()
+                        .unwrap(),
+                ),
+            ),
+            (
+                Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap()),
+                None,
             ),
             // Assert contract creation, which is invoked via setting the `to` field to `None` and
             // providing the contract bytecode in the `data` field.
             (
                 None,
-                EthBytes::from_str(
-                    concat!("0x", include_str!("./contracts/invoke_cthulhu.hex")).trim(),
-                )
-                .unwrap(),
+                Some(
+                    EthBytes::from_str(
+                        concat!("0x", include_str!("./contracts/invoke_cthulhu.hex")).trim(),
+                    )
+                    .unwrap(),
+                ),
             ),
         ];
 
@@ -1621,7 +1631,19 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             .unwrap(),
         )
         .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                address: EthAddressList::Single(
+                    EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                ),
+                ..Default::default()
+            },))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(EthGetFilterChanges::request((FilterID::new().unwrap(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
@@ -1676,7 +1698,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                         EthCallMessage {
                             to: Some(eth_to_addr),
                             value: Some(msg.value.clone().into()),
-                            data: msg.params.clone().into(),
+                            data: Some(msg.params.clone().into()),
                             ..Default::default()
                         },
                         Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
@@ -1713,6 +1735,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
                 (tx.hash.clone(), shared_tipset.epoch()),
             )?));
+            tests.push(RpcTest::identity(
+                EthTraceTransaction::request((tx.hash.to_string(),)).unwrap(),
+            ));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {

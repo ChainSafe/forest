@@ -27,6 +27,33 @@
 
 ### Breaking
 
+### Added
+
+- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
+
+- [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
+
+- [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
+
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[fevm]` section or via the 
+  `FOREST_FEVM_ENABLE_ETH_RPC` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix incorrect handling of `max_height` for `latest` predefined block in `Filecoin.EthGetLogs`.
+
+- [#5356](https://github.com/ChainSafe/forest/issues/5356) Fixed slow (and incorrect!) `Filecoin.EthGasPrice` RPC method. The method now returns the correct gas price of the latest tipset.
+
+## Forest v0.24.0 "Treebeard"
+
+Non-mandatory release without network upgrades. It includes a number of potentially breaking changes (see below), new RPC methods, fixes and other improvements.
+
+### Breaking
+
 - [#5236](https://github.com/ChainSafe/forest/pull/5236) Dropped support for migrating from ancient versions of Forest. The latest supported version for migration is [v0.19.2](https://github.com/ChainSafe/forest/releases/tag/v0.19.2).
 
 - [#4261](https://github.com/ChainSafe/forest/issues/4261) Remove the short flags from `forest-wallet list` and `forest-wallet balance` commands.
@@ -79,6 +106,8 @@
 
 - [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
 
+- [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.
@@ -87,8 +116,7 @@
 
 - [#5332](https://github.com/ChainSafe/forest/pull/5332) Adhere to the Ethereum RPC API for `eth_call` by not requiring the `from`, `gas`, `gas_price` and `value` parameters. `data` is still required.
 
-- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[fevm]` section or via the 
-  `FOREST_FEVM_ENABLE_ETH_RPC` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+- [#5359](https://github.com/ChainSafe/forest/pull/5359) Eth RPC API methods' params are now all in _camelCase_. This aligns with the Ethereum RPC API. Note that this change is only for the OpenRPC documentation and does not affect the actual RPC methods which accepted correct _camelCase_ params before.
 
 ### Removed
 
@@ -110,6 +138,8 @@
   `Filecoin.EthGetTransactionReceiptLimited` RPC methods on some blocks.
 
 - [#5213](https://github.com/ChainSafe/forest/issues/5213) Fix incorrect results for the `Filecoin.EthGetLogs` RPC method on ranges that include null tipsets.
+
+- [#5357](https://github.com/ChainSafe/forest/issues/5357) Make data field in EthCallMessage optional. Affected RPC methods are `Filecoin.EthEstimateGas`(`eth_estimateGas`) and `Filecoin.EthCall`(`eth_call`)
 
 - [#5345](https://github.com/ChainSafe/forest/pull/5345) Fixed handling of odd-length hex strings in some Eth RPC methods. Now, the methods should not return error if provided with, e.g., `0x0` (which would be expanded to `0x00`).
 

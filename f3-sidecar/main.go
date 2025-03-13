@@ -41,13 +41,14 @@ func main() {
 	flag.Int64Var(&finality, "finality", 900, "chain finality epochs")
 	var root string
 	flag.StringVar(&root, "root", "f3-data", "path to the f3 data directory")
-	var manifestServer string
-	flag.StringVar(&manifestServer, "manifest-server", "", "the peer id of the dynamic manifest server")
+	var contract_poll_interval uint64
+	flag.Uint64Var(&contract_poll_interval, "contract-poll-interval", 900, "contract manifest poll interval seconds")
+
 	flag.Parse()
 
 	ctx := context.Background()
 
-	err := run(ctx, rpcEndpoint, jwt, f3RpcEndpoint, initialPowerTable, bootstrapEpoch, finality, root, manifestServer)
+	err := run(ctx, rpcEndpoint, jwt, f3RpcEndpoint, initialPowerTable, bootstrapEpoch, finality, root, contract_poll_interval)
 	if err != nil {
 		panic(err)
 	}

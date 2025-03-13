@@ -11,7 +11,7 @@ mod tests {
     use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
     use libp2p_swarm_test::SwarmExt as _;
     use parking_lot::RwLock;
-    use rand::{rngs::OsRng, Rng};
+    use rand::Rng;
     use std::{sync::Arc, time::Duration};
     use tokio::{select, task::JoinSet};
 
@@ -26,7 +26,7 @@ mod tests {
         // 1. Set up N servers, one of them have `block_exist` in its store
         let mut joinset = JoinSet::new();
         let mut server_addr_vec = vec![];
-        let server_index_with_block = OsRng.gen_range(0..N_SERVER);
+        let server_index_with_block = crate::utils::rand::forest_rng().gen_range(0..N_SERVER);
         for i in 0..N_SERVER {
             let (server, server_peer_id, server_peer_addr) = create_swarm().await.unwrap();
             println!("Server peer id: {server_peer_id}, address: {server_peer_addr}");
@@ -143,7 +143,7 @@ mod tests {
     ) -> anyhow::Result<Block<<TestStoreInner as BitswapStoreReadWrite>::Hashes, 64>> {
         // 100KB
         let mut data = vec![0; 100 * 1024];
-        OsRng.fill(&mut data[..]);
+        crate::utils::rand::forest_rng().fill(&mut data[..]);
         let cid = Cid::new_v0(MultihashCode::Sha2_256.digest(data.as_slice()))?;
         Block::new(cid, data)
     }

@@ -47,7 +47,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -74,7 +74,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -97,7 +97,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
@@ -544,32 +544,6 @@ jobs:
           name: 'forest-${{ runner.os }}'
       - name: Run bootstrap tests
         run: ./scripts/tests/bootstrapper/test_bootstrapper.sh lotus
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
-      - name: Dump docker logs
-        if: always()
-        uses: jwalton/gh-docker-logs@v2
-  snapshot-parity-checks:
-    needs:
-      - build-ubuntu
-    name: Calibnet snapshot parity checks
-    runs-on: ubuntu-24.04
-    # Run the job only on main to limit the runner cost.
-    # The downside is that the offending commit can only be caught after being merged
-    # and a manual revert is required.
-    # Note that running this step on non-draft PR does not save the cost as it always re-run
-    # all the jobs when a PR is moved out of draft. Also this parity test will be stale soon
-    # once we start including the F3(fast finality) metadata in the Forest snapshots.
-    if: github.ref == 'refs/heads/main'
-    env:
-      # We use a custom Dockerfile for CI to speed up the build process.
-      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-      - name: Run snapshot parity tests
-        run: ./scripts/tests/snapshot_parity/setup.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Dump docker logs
         if: always()

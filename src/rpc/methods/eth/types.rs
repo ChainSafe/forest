@@ -7,7 +7,6 @@ use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use std::{hash::Hash, ops::Deref};
-use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -296,7 +295,8 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    pub data: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
@@ -329,7 +329,11 @@ impl TryFrom<EthCallMessage> for Message {
                 EthAddress::default().to_filecoin_address()?
             }
         };
-        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
+        let params = tx
+            .data
+            .map(EthCallMessage::convert_data_to_message_params)
+            .transpose()?
+            .unwrap_or_default();
         let (to, method_num) = if let Some(to) = tx.to {
             (
                 to.to_filecoin_address()?,
@@ -379,7 +383,7 @@ lotus_json_with_self!(FilterID);
 
 impl FilterID {
     pub fn new() -> Result<Self, uuid::Error> {
-        let raw_id = Uuid::new_v4();
+        let raw_id = crate::utils::rand::new_uuid_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
         Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))

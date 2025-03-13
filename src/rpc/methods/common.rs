@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use uuid::Uuid;
 
-static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
+static SESSION_UUID: Lazy<Uuid> = Lazy::new(crate::utils::rand::new_uuid_v4);
 
 /// The returned session UUID uniquely identifies the API node.
 pub enum Session {}

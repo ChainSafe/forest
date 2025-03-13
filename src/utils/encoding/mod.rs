@@ -216,7 +216,7 @@ mod tests {
         struct B(#[serde(with = "cs_serde_bytes")] Vec<u8>);
 
         let mut array = [0; 1024];
-        rand::rngs::OsRng.fill(&mut array);
+        crate::utils::rand::forest_rng().fill(&mut array);
 
         let a = A(array.to_vec());
         let b = B(array.to_vec());

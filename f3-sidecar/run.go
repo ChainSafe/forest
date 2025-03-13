@@ -15,13 +15,10 @@ import (
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	leveldb "github.com/ipfs/go-ds-leveldb"
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, manifestServer string) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
@@ -29,9 +26,16 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 	defer closer()
-	network, err := api.StateNetworkName(ctx)
-	if err != nil {
-		return err
+	var network string
+	for {
+		network, err = api.StateNetworkName(ctx)
+		if err == nil {
+			logger.Infoln("Forest RPC server is online")
+			break
+		} else {
+			logger.Warnln("waiting for Forest RPC server")
+			time.Sleep(5 * time.Second)
+		}
 	}
 	listenAddrs, err := api.NetAddrsListen(ctx)
 	if err != nil {
@@ -61,7 +65,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	verif := blssig.VerifierWithKeyOnG1()
 	m := manifest.LocalDevnetManifest()
 	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
-	case err == nil && initialPowerTable != cid.Undef:
+	case err == nil && isCidDefined(initialPowerTable):
 		logger.Infof("InitialPowerTable is %s", initialPowerTable)
 		m.InitialPowerTable = initialPowerTable
 	default:
@@ -80,54 +84,17 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	m.CatchUpAlignment = blockDelay / 2
 	m.CertificateExchange.MinimumPollInterval = blockDelay
 	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
+	m.EC.Finality = finality
+	m.BootstrapEpoch = bootstrapEpoch
+	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
-	head, err := ec.GetHead(ctx)
+	manifestProvider, err := NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)
 	if err != nil {
 		return err
 	}
-	m.EC.Finality = finality
-	if bootstrapEpoch < 0 {
-		// This is temporary logic to make the dummy bootstrap epoch work locally.
-		// It should be removed once bootstrapEpochs are determinted.
-		m.BootstrapEpoch = max(m.EC.Finality+1, head.Epoch()-m.EC.Finality+1)
-	} else {
-		m.BootstrapEpoch = bootstrapEpoch
+	if err := manifestProvider.Start(ctx); err != nil {
+		return err
 	}
-	m.CommitteeLookback = manifest.DefaultCommitteeLookback
-
-	var manifestProvider manifest.ManifestProvider
-	switch manifestServerID, err := peer.Decode(manifestServer); {
-	case err != nil:
-		logger.Info("Using static manifest provider")
-		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
-			return err
-		}
-	default:
-		logger.Infof("Using dynamic manifest provider at %s", manifestServerID)
-		manifestDS := namespace.Wrap(ds, datastore.NewKey("/f3-dynamic-manifest"))
-		primaryNetworkName := m.NetworkName
-		filter := func(m *manifest.Manifest) error {
-			if m.EC.Finalize {
-				return fmt.Errorf("refusing dynamic manifest that finalizes tipsets")
-			}
-			if m.NetworkName == primaryNetworkName {
-				return fmt.Errorf(
-					"refusing dynamic manifest with network name %q that clashes with initial manifest",
-					primaryNetworkName,
-				)
-			}
-			return nil
-		}
-		if manifestProvider, err = manifest.NewDynamicManifestProvider(
-			p2p.PubSub,
-			manifestServerID,
-			manifest.DynamicManifestProviderWithInitialManifest(m),
-			manifest.DynamicManifestProviderWithDatastore(manifestDS),
-			manifest.DynamicManifestProviderWithFilter(filter)); err != nil {
-			return err
-		}
-	}
-
 	f3Module, err := f3.New(ctx, manifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {
