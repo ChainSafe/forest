@@ -30,6 +30,27 @@ forest-filecoin 0.19.0+git.671c30c
   </TabItem>
   <TabItem value="docker" label="Docker">
 
+<h3>Nix Flake</h3>
+
+To install Forest as a Nix flake:
+
+```shell
+nix profile install github:ChainSafe/forest
+```
+
+This will make the `forest`, `forest-cli`, `forest-tool`, and `forest-wallet`
+commands available in your shell.
+
+```shell
+forest --version
+```
+
+Sample output:
+
+```console
+forest-filecoin 0.19.0+git.671c30c
+```
+
 <h3>Images</h3>
 
 Images are available via Github Container Registry:
