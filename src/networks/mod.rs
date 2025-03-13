@@ -237,7 +237,7 @@ pub struct ChainConfig {
     // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
     pub f3_bootstrap_epoch: i64,
-    pub f3_initial_power_table: Cid,
+    pub f3_initial_power_table: Option<Cid>,
     #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
     f3_contract_address: Option<EthAddress>,
     f3_contract_poll_interval: Duration,
@@ -265,7 +265,7 @@ impl ChainConfig {
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
-            f3_initial_power_table: Default::default(),
+            f3_initial_power_table: None,
             f3_contract_address: Some(
                 EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50")
                     .expect("invalid f3 contract eth address"),
@@ -298,11 +298,12 @@ impl ChainConfig {
             f3_consensus: true,
             // 2024-10-24T13:30:00Z
             f3_bootstrap_epoch: 2_081_674,
-            f3_initial_power_table:
+            f3_initial_power_table: Some(
                 "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
                     .parse()
                     .expect("invalid f3_initial_power_table"),
-            f3_contract_address: Default::default(),
+            ),
+            f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
         }
     }
@@ -325,8 +326,8 @@ impl ChainConfig {
             f3_enabled: false,
             f3_consensus: false,
             f3_bootstrap_epoch: -1,
-            f3_initial_power_table: Default::default(),
-            f3_contract_address: Default::default(),
+            f3_initial_power_table: None,
+            f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
         }
     }
@@ -355,7 +356,7 @@ impl ChainConfig {
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
-            f3_initial_power_table: Default::default(),
+            f3_initial_power_table: None,
             f3_contract_address: Some(
                 EthAddress::from_str("0x9fd3B2D38EE4C920c9954DA752eDF810887501c1")
                     .expect("invalid f3 contract eth address"),

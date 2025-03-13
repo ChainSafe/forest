@@ -60,6 +60,14 @@ func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
 	return h.f3.Progress()
 }
 
-func (h *F3ServerHandler) F3GetManifest(_ context.Context) *manifest.Manifest {
-	return h.f3.Manifest()
+func (h *F3ServerHandler) F3GetManifest(ctx context.Context) *manifest.Manifest {
+	m := h.f3.Manifest()
+	if m != nil && !isCidDefined(m.InitialPowerTable) {
+		if cert0, err := h.f3.GetCert(ctx, 0); err == nil {
+			mCopy := *m
+			m = &mCopy
+			m.InitialPowerTable = cert0.ECChain.Base().PowerTable
+		}
+	}
+	return m
 }
