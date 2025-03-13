@@ -84,3 +84,4 @@ Filecoin.Web3ClientVersion
 Forest.NetInfo
 Forest.StateCompute
 Forest.StateFetchRoot
+Forest.SyncSnapshotProgress
