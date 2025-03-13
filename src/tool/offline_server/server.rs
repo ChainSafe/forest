@@ -72,6 +72,7 @@ pub async fn start_offline_server(
         db.clone(),
         db.clone(),
         db.clone(),
+        todo!(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -229,7 +230,7 @@ async fn handle_snapshots(
     Ok(vec![downloaded_snapshot_path])
 }
 
-fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
+pub fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
     info!("Using chain config for {chain}");
     let chain_config = ChainConfig::from_chain(chain);
     if chain_config.is_testnet() {
