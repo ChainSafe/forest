@@ -105,6 +105,8 @@ Non-mandatory release without network upgrades. It includes a number of potentia
 
 - [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
 
+- [#5368](https://github.com/ChainSafe/forest/pull/5368) Add `Forest.SyncSnapshotProgress` RPC and track the progress in `forest-cli sync status`
+
 ### Changed
 
 - [#5237](https://github.com/ChainSafe/forest/pull/5237) Stylistic changes to FIL pretty printing.

@@ -232,6 +232,7 @@ macro_rules! for_each_rpc_method {
         // sync vertical
         $callback!($crate::rpc::sync::SyncCheckBad);
         $callback!($crate::rpc::sync::SyncMarkBad);
+        $callback!($crate::rpc::sync::SyncSnapshotProgress);
         $callback!($crate::rpc::sync::SyncState);
         $callback!($crate::rpc::sync::SyncSubmitBlock);
 
@@ -382,6 +383,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 
+use crate::rpc::sync::SnapshotProgressState;
 use openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
@@ -410,6 +412,7 @@ pub struct RPCState<DB> {
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
+    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
     pub shutdown: mpsc::Sender<()>,
 }
 
@@ -440,6 +443,10 @@ impl<DB: Blockstore> RPCState<DB> {
 
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
         self.sync_network_context.network_send()
+    }
+
+    pub fn get_snapshot_progress_tracker(&self) -> SnapshotProgressState {
+        self.snapshot_progress_tracker.read().clone()
     }
 }
 
