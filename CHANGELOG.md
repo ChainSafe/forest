@@ -31,6 +31,8 @@
 
 - [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
 
+- [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
+
 ### Changed
 
 ### Removed
