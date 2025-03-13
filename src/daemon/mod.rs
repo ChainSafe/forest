@@ -608,7 +608,6 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
-    //maybe_start_eth_mapping_collection_service(&mut services, &config, &ctx);
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
     maybe_start_f3_service(&mut services, &opts, &config, &ctx);
