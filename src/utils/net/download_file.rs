@@ -6,6 +6,7 @@ use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use md5::{Digest as _, Md5};
+use std::sync::Arc;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -76,6 +77,7 @@ pub async fn download_file_with_cache(
                     )
                 })?,
             option,
+            None,
         )
         .await?;
     }
@@ -133,6 +135,7 @@ pub async fn download_http(
     directory: &Path,
     filename: &str,
     option: DownloadFileOption,
+    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
     if !directory.is_dir() {
         std::fs::create_dir_all(directory)?;
@@ -140,7 +143,7 @@ pub async fn download_http(
     let dst_path = directory.join(filename);
     let destination = dst_path.display();
     tracing::info!(%url, %destination, "downloading snapshot");
-    let mut reader = crate::utils::net::reader(url.as_str(), option).await?;
+    let mut reader = crate::utils::net::reader(url.as_str(), option, callback).await?;
     let tmp_dst_path = {
         // like `crdownload` for the chrome browser
         const DOWNLOAD_EXTENSION: &str = "frdownload";
@@ -171,13 +174,14 @@ pub async fn download_file_with_retry(
     directory: &Path,
     filename: &str,
     option: DownloadFileOption,
+    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
     Ok(retry(
         RetryArgs {
             timeout: None,
             ..Default::default()
         },
-        || download_http(url, directory, filename, option),
+        || download_http(url, directory, filename, option, callback.clone()),
     )
     .await?)
 }
@@ -186,6 +190,7 @@ pub async fn download_to(
     url: &Url,
     destination: &Path,
     option: DownloadFileOption,
+    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<()> {
     download_file_with_retry(
         url,
@@ -200,6 +205,7 @@ pub async fn download_to(
             .and_then(OsStr::to_str)
             .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
         option,
+        callback,
     )
     .await?;
 

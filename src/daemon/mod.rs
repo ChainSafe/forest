@@ -2,37 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod bundle;
+mod context;
 pub mod db_util;
 pub mod main;
 
-use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::HeadChange;
 use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
+use crate::daemon::context::{AppContext, DbType};
 use crate::daemon::db_util::{
     import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
 };
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{db_root, open_db};
-use crate::db::parity_db::ParityDb;
 use crate::db::SettingsStore;
-use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, CAR_DB_DIR_NAME};
-use crate::genesis::read_genesis_header;
-use crate::key_management::{
-    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
-};
+use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt};
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig};
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
-use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
@@ -42,19 +36,15 @@ use crate::utils::{
     version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context as _};
-use bundle::load_actor_bundles;
-use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p::identity::Keypair;
-use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::time::Duration;
-use std::{cell::RefCell, cmp, path::PathBuf, sync::Arc};
+use std::{cmp, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
     net::TcpListener,
@@ -62,7 +52,7 @@ use tokio::{
         ctrl_c,
         unix::{signal, SignalKind},
     },
-    sync::{mpsc, RwLock},
+    sync::mpsc,
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
@@ -145,13 +135,6 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 // Garbage collection interval, currently set at 10 hours.
 const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
 
-type DbType = ManyCar<Arc<ParityDb>>;
-
-struct DbMetadata {
-    db_root_dir: PathBuf,
-    forest_car_db_dir: PathBuf,
-}
-
 /// This function initialize Forest with below steps
 /// - increase file descriptor limit (for parity-db)
 /// - setup proofs parameter cache directory
@@ -172,84 +155,20 @@ fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
-    let chain_config = Arc::new(ChainConfig::from_chain(config.chain()));
-    if chain_config.is_testnet() {
-        CurrentNetwork::set_global(Network::Testnet);
-    }
-    chain_config
-}
-
-fn get_or_create_p2p_keypair_and_peer_id(config: &Config) -> anyhow::Result<(Keypair, PeerId)> {
-    let path = config.client.data_dir.join("libp2p");
-    let keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
-    let peer_id = keypair.public().to_peer_id();
-    Ok((keypair, peer_id))
-}
-
-async fn load_or_create_keystore_and_configure_jwt(
-    opts: &CliOpts,
-    config: &Config,
-) -> anyhow::Result<(Arc<RwLock<KeyStore>>, String)> {
-    let mut keystore = load_or_create_keystore(config).await?;
-    if keystore.get(JWT_IDENTIFIER).is_err() {
-        keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
-    }
-    let admin_jwt = handle_admin_token(opts, &keystore)?;
-    let keystore = Arc::new(RwLock::new(keystore));
-    Ok((keystore, admin_jwt))
-}
-
-fn maybe_migrate_db(config: &Config) {
-    // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
-    // to avoid breaking the node.
-    let db_migration = crate::db::migration::DbMigration::new(config);
-    if let Err(e) = db_migration.migrate() {
-        warn!("Failed to migrate database: {e}");
-    }
-}
-
-/// This function configures database with below steps
-/// - migrate database auto-magically on Forest version bump
-/// - load parity-db
-/// - load CAR database
-/// - load actor bundles
-async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType>, DbMetadata)> {
-    maybe_migrate_db(config);
-    let chain_data_path = chain_path(config);
-    let db_root_dir = db_root(&chain_data_path)?;
-    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
-    let db = Arc::new(ManyCar::new(db_writer.clone()));
-    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
-    load_all_forest_cars(&db, &forest_car_db_dir)?;
-    if config.client.load_actors && !opts.stateless {
-        load_actor_bundles(&db, config.chain()).await?;
-    }
-    Ok((
-        db,
-        DbMetadata {
-            db_root_dir,
-            forest_car_db_dir,
-        },
-    ))
-}
-
 async fn maybe_import_snapshot(
     opts: &CliOpts,
     config: &mut Config,
-    db: &DbType,
-    db_meta: &DbMetadata,
-    state_manager: &Arc<StateManager<DbType>>,
+    ctx: &AppContext,
 ) -> anyhow::Result<()> {
-    let chain_config = state_manager.chain_config();
+    let chain_config = ctx.state_manager.chain_config();
     // Sets the latest snapshot if needed for downloading later
     if config.client.snapshot_path.is_none() && !opts.stateless {
         maybe_set_snapshot_path(
             config,
             chain_config,
-            state_manager.chain_store().heaviest_tipset().epoch(),
+            ctx.state_manager.chain_store().heaviest_tipset().epoch(),
             opts.auto_download_snapshot,
-            &db_meta.db_root_dir,
+            &ctx.db_meta_data.get_root_dir(),
         )
         .await?;
     }
@@ -259,15 +178,19 @@ async fn maybe_import_snapshot(
         if let Some(path) = &config.client.snapshot_path {
             let (car_db_path, ts) = import_chain_as_forest_car(
                 path,
-                &db_meta.forest_car_db_dir,
+                &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
+                ctx,
             )
             .await?;
-            db.read_only_files(std::iter::once(car_db_path.clone()))?;
+            ctx.db
+                .read_only_files(std::iter::once(car_db_path.clone()))?;
             let ts_epoch = ts.epoch();
             // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
             // in the current setting store
-            state_manager.chain_store().set_heaviest_tipset(ts.into())?;
+            ctx.state_manager
+                .chain_store()
+                .set_heaviest_tipset(ts.into())?;
             debug!(
                 "Loaded car DB at {} and set current head to epoch {ts_epoch}",
                 car_db_path.display(),
@@ -282,51 +205,20 @@ async fn maybe_import_snapshot(
         let current_height = config
             .client
             .snapshot_head
-            .unwrap_or_else(|| state_manager.chain_store().heaviest_tipset().epoch());
+            .unwrap_or_else(|| ctx.state_manager.chain_store().heaviest_tipset().epoch());
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => {
-                state_manager.validate_range((current_height + validate_from)..=current_height)?
-            }
-            false => state_manager.validate_range(validate_from..=current_height)?,
+            true => ctx
+                .state_manager
+                .validate_range((current_height + validate_from)..=current_height)?,
+            false => ctx
+                .state_manager
+                .validate_range(validate_from..=current_height)?,
         }
     }
 
     Ok(())
-}
-
-async fn create_state_manager(
-    config: &Config,
-    db: &Arc<DbType>,
-    chain_config: &Arc<ChainConfig>,
-) -> anyhow::Result<Arc<StateManager<DbType>>> {
-    // Read Genesis file
-    // * When snapshot command implemented, this genesis does not need to be
-    //   initialized
-    let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_deref(),
-        chain_config.genesis_bytes(db).await?.as_deref(),
-        db,
-    )
-    .await?;
-
-    let chain_store = Arc::new(ChainStore::new(
-        Arc::clone(db),
-        Arc::new(db.clone()),
-        db.writer().clone(),
-        chain_config.clone(),
-        genesis_header.clone(),
-    )?);
-
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(chain_config),
-        Arc::new(config.sync.clone()),
-    )?);
-
-    Ok(state_manager)
 }
 
 fn maybe_start_track_peak_rss_service(services: &mut JoinSet<anyhow::Result<()>>, opts: &CliOpts) {
@@ -342,8 +234,7 @@ fn maybe_start_track_peak_rss_service(services: &mut JoinSet<anyhow::Result<()>>
 async fn maybe_start_metrics_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    db: &DbType,
-    state_manager: &StateManager<DbType>,
+    ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
@@ -355,7 +246,7 @@ async fn maybe_start_metrics_service(
             config.client.metrics_address
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
-        let db = db.writer().clone();
+        let db = ctx.db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
                 .await
@@ -364,8 +255,11 @@ async fn maybe_start_metrics_service(
 
         crate::metrics::default_registry().register_collector(Box::new(
             networks::metrics::NetworkHeightCollector::new(
-                state_manager.chain_config().block_delay_secs,
-                state_manager.chain_store().genesis_block_header().timestamp,
+                ctx.state_manager.chain_config().block_delay_secs,
+                ctx.state_manager
+                    .chain_store()
+                    .genesis_block_header()
+                    .timestamp,
             ),
         ));
     }
@@ -376,24 +270,23 @@ fn maybe_start_gc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    db: &DbType,
-    state_manager: &StateManager<DbType>,
+    ctx: &AppContext,
 ) {
     if !opts.no_gc {
         let mut db_garbage_collector = {
-            let chain_store = state_manager.chain_store().clone();
+            let chain_store = ctx.state_manager.chain_store().clone();
             let depth = cmp::max(
-                state_manager.chain_config().policy.chain_finality * 2,
+                ctx.state_manager.chain_config().policy.chain_finality * 2,
                 config.sync.recent_state_roots,
             );
 
             let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
 
             MarkAndSweep::new(
-                db.writer().clone(),
+                ctx.db.writer().clone(),
                 get_heaviest_tipset,
                 depth,
-                Duration::from_secs(state_manager.chain_config().block_delay_secs as u64),
+                Duration::from_secs(ctx.state_manager.chain_config().block_delay_secs as u64),
             )
         };
 
@@ -404,13 +297,11 @@ fn maybe_start_gc_service(
 async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
-    state_manager: &StateManager<DbType>,
-    net_keypair: Keypair,
-    network_name: &str,
+    ctx: &AppContext,
 ) -> anyhow::Result<Libp2pService<DbType>> {
     // if bootstrap peers are not set, set them
     if config.network.bootstrap_peers.is_empty() {
-        config.network.bootstrap_peers = state_manager.chain_config().bootstrap_peers.clone();
+        config.network.bootstrap_peers = ctx.state_manager.chain_config().bootstrap_peers.clone();
     }
 
     let peer_manager = Arc::new(PeerManager::default());
@@ -418,11 +309,11 @@ async fn create_p2p_service(
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
-        Arc::clone(state_manager.chain_store()),
+        Arc::clone(ctx.state_manager.chain_store()),
         peer_manager.clone(),
-        net_keypair,
-        network_name,
-        *state_manager.chain_store().genesis_block_header().cid(),
+        ctx.net_keypair.clone(),
+        ctx.network_name.as_str(),
+        *ctx.state_manager.chain_store().genesis_block_header().cid(),
     )
     .await?;
     Ok(p2p_service)
@@ -431,29 +322,27 @@ async fn create_p2p_service(
 fn create_chain_muxer(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
-    db: &DbType,
-    state_manager: &Arc<StateManager<DbType>>,
     p2p_service: &Libp2pService<DbType>,
-    network_name: String,
+    ctx: &AppContext,
 ) -> anyhow::Result<ChainMuxer<DbType, MpoolRpcProvider<DbType>>> {
-    let publisher = state_manager.chain_store().publisher();
-    let provider = MpoolRpcProvider::new(publisher.clone(), state_manager.clone());
+    let publisher = ctx.state_manager.chain_store().publisher();
+    let provider = MpoolRpcProvider::new(publisher.clone(), ctx.state_manager.clone());
     let mpool = Arc::new(MessagePool::new(
         provider,
-        network_name,
+        ctx.network_name.clone(),
         p2p_service.network_sender().clone(),
-        MpoolConfig::load_config(db.writer().as_ref())?,
-        state_manager.chain_config().clone(),
+        MpoolConfig::load_config(ctx.db.writer().as_ref())?,
+        ctx.state_manager.chain_config().clone(),
         services,
     )?);
     let chain_muxer = ChainMuxer::new(
-        state_manager.clone(),
+        ctx.state_manager.clone(),
         p2p_service.peer_manager().clone(),
         mpool.clone(),
         p2p_service.network_sender().clone(),
         p2p_service.network_receiver(),
         Arc::new(Tipset::from(
-            state_manager.chain_store().genesis_block_header(),
+            ctx.state_manager.chain_store().genesis_block_header(),
         )),
         opts.stateless,
     )?;
@@ -470,19 +359,22 @@ fn start_chain_muxer_service(
 async fn maybe_start_health_check_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    db: &DbType,
-    state_manager: &StateManager<DbType>,
     p2p_service: &Libp2pService<DbType>,
     chain_muxer: &ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
+    ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_health_check {
         let forest_state = crate::health::ForestState {
             config: config.clone(),
-            chain_config: state_manager.chain_config().clone(),
-            genesis_timestamp: state_manager.chain_store().genesis_block_header().timestamp,
+            chain_config: ctx.state_manager.chain_config().clone(),
+            genesis_timestamp: ctx
+                .state_manager
+                .chain_store()
+                .genesis_block_header()
+                .timestamp,
             sync_state: chain_muxer.sync_state().clone(),
             peer_manager: p2p_service.peer_manager().clone(),
-            settings_store: db.writer().clone(),
+            settings_store: ctx.db.writer().clone(),
         };
         let listener =
             tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
@@ -499,12 +391,10 @@ async fn maybe_start_health_check_service(
 fn maybe_start_rpc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &Config,
-    keystore: Arc<RwLock<KeyStore>>,
-    state_manager: &Arc<StateManager<DbType>>,
     chain_muxer: &ChainMuxer<DbType, MpoolRpcProvider<DbType>>,
     start_time: chrono::DateTime<chrono::Utc>,
-    network_name: String,
     shutdown: mpsc::Sender<()>,
+    ctx: &AppContext,
 ) -> anyhow::Result<()> {
     if config.client.enable_rpc {
         let rpc_address = config.client.rpc_address;
@@ -517,12 +407,15 @@ fn maybe_start_rpc_service(
         info!("JSON-RPC endpoint will listen at {rpc_address}");
         let eth_event_handler = Arc::new(EthEventHandler::from_config(&config.events));
         services.spawn({
-            let state_manager = state_manager.clone();
+            let state_manager = ctx.state_manager.clone();
             let mpool = chain_muxer.mpool().clone();
             let bad_blocks = chain_muxer.bad_blocks().clone();
             let sync_state = chain_muxer.sync_state().clone();
             let sync_network_context = chain_muxer.sync_network_context().clone();
             let tipset_send = chain_muxer.tipset_sender().clone();
+            let keystore = ctx.keystore.clone();
+            let network_name = ctx.network_name.clone();
+            let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             async move {
                 start_rpc(
                     RPCState {
@@ -537,6 +430,7 @@ fn maybe_start_rpc_service(
                         start_time,
                         shutdown,
                         tipset_send,
+                        snapshot_progress_tracker,
                     },
                     rpc_address,
                     filter_list,
@@ -554,12 +448,10 @@ fn maybe_start_f3_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    state_manager: &Arc<StateManager<DbType>>,
-    p2p_peer_id: PeerId,
-    admin_jwt: String,
+    ctx: &AppContext,
 ) {
     if !config.client.enable_rpc {
-        if crate::f3::is_sidecar_ffi_enabled(state_manager.chain_config()) {
+        if crate::f3::is_sidecar_ffi_enabled(ctx.state_manager.chain_config()) {
             tracing::warn!("F3 sidecar is enabled but not run because RPC is disabled. ")
         }
         return;
@@ -567,6 +459,9 @@ fn maybe_start_f3_service(
 
     if !opts.halt_after_import && !opts.stateless {
         let rpc_address = config.client.rpc_address;
+        let state_manager = &ctx.state_manager;
+        let p2p_peer_id = ctx.p2p_peer_id;
+        let admin_jwt = ctx.admin_jwt.clone();
         services.spawn_blocking({
             crate::rpc::f3::F3_LEASE_MANAGER
                 .set(crate::rpc::f3::F3LeaseManager::new(
@@ -607,14 +502,12 @@ fn maybe_start_f3_service(
 fn maybe_populate_eth_mappings_in_background(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
-    config: &Config,
-    db: &DbType,
-    state_manager: &Arc<StateManager<DbType>>,
+    config: Config,
+    ctx: &AppContext,
 ) {
-    if !opts.stateless && !state_manager.chain_config().is_devnet() {
-        let state_manager = state_manager.clone();
-        let settings = db.writer().clone();
-        let config = config.clone();
+    if !opts.stateless && !ctx.state_manager.chain_config().is_devnet() {
+        let state_manager = ctx.state_manager.clone();
+        let settings = ctx.db.writer().clone();
         services.spawn(async move {
             if let Err(err) = init_ethereum_mapping(state_manager, &settings, &config) {
                 tracing::warn!("Init Ethereum mapping failed: {}", err)
@@ -628,15 +521,14 @@ fn maybe_start_indexer_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
-    _db: &DbType,
-    state_manager: &Arc<StateManager<DbType>>,
+    ctx: &AppContext,
 ) {
     if config.chain_indexer.enable_indexer
         && !opts.stateless
-        && !state_manager.chain_config().is_devnet()
+        && !ctx.state_manager.chain_config().is_devnet()
     {
-        let mut receiver = state_manager.chain_store().publisher().subscribe();
-        let chain_store = state_manager.chain_store().clone();
+        let mut receiver = ctx.state_manager.chain_store().publisher().subscribe();
+        let chain_store = ctx.state_manager.chain_store().clone();
         services.spawn(async move {
             tracing::info!("Starting indexer service");
 
@@ -656,10 +548,10 @@ fn maybe_start_indexer_service(
             }
         });
 
-        // Run the collector only if ETH RPC is enabled
+        // Run the collector only if chain indexer is enabled
         if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
-            let chain_store = state_manager.chain_store().clone();
-            let chain_config = state_manager.chain_config().clone();
+            let chain_store = ctx.state_manager.chain_store().clone();
+            let chain_config = ctx.state_manager.chain_config().clone();
             services.spawn(async move {
                 tracing::info!("Starting collector for eth_mappings");
                 let mut collector = EthMappingCollector::new(
@@ -683,70 +575,47 @@ pub(super) async fn start(
     startup_init(&opts, &config)?;
     let mut services = JoinSet::new();
     maybe_start_track_peak_rss_service(&mut services, &opts);
-    let chain_config = get_chain_config_and_set_network(&config);
-    let (net_keypair, p2p_peer_id) = get_or_create_p2p_keypair_and_peer_id(&config)?;
-    let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(&opts, &config).await?;
-    let (db, db_meta) = setup_db(&opts, &config).await?;
-    let state_manager = create_state_manager(&config, &db, &chain_config).await?;
-    let network_name = state_manager.get_network_name_from_genesis()?;
-    info!("Using network :: {}", get_actual_chain_name(&network_name));
+    let ctx = AppContext::init(&opts, &config).await?;
+    info!(
+        "Using network :: {}",
+        get_actual_chain_name(&ctx.network_name)
+    );
     utils::misc::display_chain_logo(config.chain());
     if opts.exit_after_init {
         return Ok(());
     }
-    maybe_import_snapshot(&opts, &mut config, &db, &db_meta, &state_manager).await?;
+    let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
+
+    let chain_muxer = create_chain_muxer(&mut services, &opts, &p2p_service, &ctx)?;
+
+    info!(
+        "Starting network:: {}",
+        get_actual_chain_name(&ctx.network_name)
+    );
+
+    maybe_start_rpc_service(
+        &mut services,
+        &config,
+        &chain_muxer,
+        start_time,
+        shutdown_send.clone(),
+        &ctx,
+    )?;
+
+    maybe_import_snapshot(&opts, &mut config, &ctx).await?;
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
         return Ok(());
     }
-    maybe_start_metrics_service(&mut services, &config, &db, &state_manager).await?;
-    maybe_start_gc_service(&mut services, &opts, &config, &db, &state_manager);
-    let p2p_service = create_p2p_service(
-        &mut services,
-        &mut config,
-        &state_manager,
-        net_keypair,
-        &network_name,
-    )
-    .await?;
-    let chain_muxer = create_chain_muxer(
-        &mut services,
-        &opts,
-        &db,
-        &state_manager,
-        &p2p_service,
-        network_name.clone(),
-    )?;
-    maybe_start_rpc_service(
-        &mut services,
-        &config,
-        keystore,
-        &state_manager,
-        &chain_muxer,
-        start_time,
-        network_name,
-        shutdown_send.clone(),
-    )?;
-    maybe_start_f3_service(
-        &mut services,
-        &opts,
-        &config,
-        &state_manager,
-        p2p_peer_id,
-        admin_jwt,
-    );
-    maybe_start_health_check_service(
-        &mut services,
-        &config,
-        &db,
-        &state_manager,
-        &p2p_service,
-        &chain_muxer,
-    )
-    .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, &config, &db, &state_manager);
-    maybe_start_indexer_service(&mut services, &opts, &config, &db, &state_manager);
+    //maybe_start_eth_mapping_collection_service(&mut services, &config, &ctx);
+    maybe_start_metrics_service(&mut services, &config, &ctx).await?;
+    maybe_start_gc_service(&mut services, &opts, &config, &ctx);
+    maybe_start_f3_service(&mut services, &opts, &config, &ctx);
+    maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_muxer, &ctx)
+        .await?;
+    maybe_populate_eth_mappings_in_background(&mut services, &opts, config.clone(), &ctx);
+    maybe_start_indexer_service(&mut services, &opts, &config, &ctx);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }
@@ -835,38 +704,6 @@ async fn maybe_set_snapshot_path(
     Ok(())
 }
 
-/// Generates, prints and optionally writes to a file the administrator JWT
-/// token.
-fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<String> {
-    let ki = keystore.get(JWT_IDENTIFIER)?;
-    // Lotus admin tokens do not expire but Forest requires all JWT tokens to
-    // have an expiration date. So we set the expiration date to 100 years in
-    // the future to match user-visible behavior of Lotus.
-    let token_exp = chrono::Duration::days(365 * 100);
-    let token = create_token(
-        ADMIN.iter().map(ToString::to_string).collect(),
-        ki.private_key(),
-        token_exp,
-    )?;
-    info!("Admin token: {token}");
-    if let Some(path) = opts.save_token.as_ref() {
-        if let Some(dir) = path.parent() {
-            if !dir.is_dir() {
-                std::fs::create_dir_all(dir).with_context(|| {
-                    format!(
-                        "Failed to create `--save-token` directory {}",
-                        dir.display()
-                    )
-                })?;
-            }
-        }
-        std::fs::write(path, &token)
-            .with_context(|| format!("Failed to save admin token to {}", path.display()))?;
-    }
-
-    Ok(token)
-}
-
 /// returns the first error with which any of the services end, or never returns at all
 // This should return anyhow::Result<!> once the `Never` type is stabilized
 async fn propagate_error(
@@ -892,72 +729,6 @@ pub fn get_actual_chain_name(internal_network_name: &str) -> &str {
     }
 }
 
-/// This may:
-/// - create a [`KeyStore`]
-/// - load a [`KeyStore`]
-/// - ask a user for password input
-async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
-    use std::env::VarError;
-
-    let passphrase_from_env = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
-    let require_encryption = config.client.encrypt_keystore;
-    let keystore_already_exists = config
-        .client
-        .data_dir
-        .join(ENCRYPTED_KEYSTORE_NAME)
-        .is_dir();
-
-    match (require_encryption, passphrase_from_env) {
-        // don't need encryption, we can implicitly create a keystore
-        (false, maybe_passphrase) => {
-            warn!("Forest has encryption disabled");
-            if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
-                warn!(
-                    "Ignoring passphrase provided in {} - encryption is disabled",
-                    FOREST_KEYSTORE_PHRASE_ENV
-                )
-            }
-            KeyStore::new(KeyStoreConfig::Persistent(config.client.data_dir.clone()))
-                .map_err(anyhow::Error::new)
-        }
-
-        // need encryption, the user has provided the password through env
-        (true, Ok(passphrase)) => KeyStore::new(KeyStoreConfig::Encrypted(
-            config.client.data_dir.clone(),
-            passphrase,
-        ))
-        .map_err(anyhow::Error::new),
-
-        // need encryption, we've not been given a password
-        (true, Err(error)) => {
-            // prompt for passphrase and try and load the keystore
-
-            if let VarError::NotUnicode(_) = error {
-                // If we're ignoring the user's password, tell them why
-                warn!(
-                    "Ignoring passphrase provided in {} - it's not utf-8",
-                    FOREST_KEYSTORE_PHRASE_ENV
-                )
-            }
-
-            let data_dir = config.client.data_dir.clone();
-
-            match keystore_already_exists {
-                true => asyncify(move || input_password_to_load_encrypted_keystore(data_dir))
-                    .await
-                    .context("Couldn't load keystore"),
-                false => {
-                    let password =
-                        asyncify(|| create_password("Create a password for Forest's keystore"))
-                            .await?;
-                    KeyStore::new(KeyStoreConfig::Encrypted(data_dir, password))
-                        .context("Couldn't create keystore")
-                }
-            }
-        }
-    }
-}
-
 /// Run the closure on a thread where blocking is allowed
 ///
 /// # Panics
@@ -967,67 +738,6 @@ where
     T: Send + 'static,
 {
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
-}
-
-/// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
-///
-/// This code makes blocking syscalls.
-fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Result<KeyStore> {
-    let keystore = RefCell::new(None);
-    let term = Term::stderr();
-
-    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
-    // so do that check ourselves.
-    // This means users can't pipe their password from stdin.
-    if !term.is_term() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "cannot read password from non-terminal",
-        )
-        .into());
-    }
-
-    dialoguer::Password::new()
-        .with_prompt("Enter the password for Forest's keystore")
-        .allow_empty_password(true) // let validator do validation
-        .validate_with(|input: &String| {
-            KeyStore::new(KeyStoreConfig::Encrypted(data_dir.clone(), input.clone()))
-                .map(|created| *keystore.borrow_mut() = Some(created))
-                .context(
-                    "Error: couldn't load keystore with this password. Try again or press Ctrl+C to abort.",
-                )
-        })
-        .interact_on(&term)?;
-
-    Ok(keystore
-        .into_inner()
-        .expect("validation succeeded, so keystore must be emplaced"))
-}
-
-/// Loops until the user provides two matching passwords.
-///
-/// This code makes blocking syscalls
-fn create_password(prompt: &str) -> dialoguer::Result<String> {
-    let term = Term::stderr();
-
-    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
-    // so do that check ourselves.
-    // This means users can't pipe their password from stdin.
-    if !term.is_term() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "cannot read password from non-terminal",
-        )
-        .into());
-    }
-    dialoguer::Password::new()
-        .with_prompt(prompt)
-        .allow_empty_password(false)
-        .with_confirmation(
-            "Confirm password",
-            "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
-        )
-        .interact_on(&term)
 }
 
 fn init_ethereum_mapping<DB: Blockstore>(
