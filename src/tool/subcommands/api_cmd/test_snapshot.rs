@@ -273,7 +273,9 @@ mod tests {
             }
         }
 
-        // Uncomment once we have full coverage
-        // assert!(uncovered.is_empty());
+        assert!(
+            uncovered.is_empty(),
+            "either ignore or upload test snapshots for uncovered RPC methods"
+        );
     }
 }
