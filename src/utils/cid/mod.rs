@@ -23,9 +23,3 @@ pub trait CidCborExt {
 }
 
 impl CidCborExt for Cid {}
-
-/// A temporary utility for converting [`cid::Cid`] to [`cid_0_10::Cid`]
-pub fn cid_11_to_10(cid: &cid::Cid) -> cid_0_10::Cid {
-    let bytes = cid.to_bytes();
-    cid_0_10::Cid::read_bytes(bytes.as_slice()).unwrap()
-}
