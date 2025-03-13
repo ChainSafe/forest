@@ -3,10 +3,10 @@ module f3-sidecar/v2
 go 1.23.0
 
 require (
-	github.com/filecoin-project/go-f3 v0.8.3-0.20250309185854-a2b54f14ca22
+	github.com/filecoin-project/go-f3 v0.8.3-0.20250310173836-b432f54aa4e6
 	github.com/filecoin-project/go-jsonrpc v0.7.1
 	github.com/filecoin-project/go-state-types v0.15.0
-	github.com/ihciah/rust2go v0.0.0-20250306075030-7736bb909121
+	github.com/ihciah/rust2go v0.0.0-20250312161018-7394c455c373
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-ds-leveldb v0.5.2
 	github.com/ipfs/go-log/v2 v2.5.1
@@ -19,9 +19,9 @@ require (
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.21.0 // indirect
+	github.com/bits-and-blooms/bitset v1.22.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/consensys/bavard v0.1.29 // indirect
+	github.com/consensys/bavard v0.1.30 // indirect
 	github.com/consensys/gnark-crypto v0.16.0 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -94,16 +94,16 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
-	github.com/pion/dtls/v3 v3.0.4 // indirect
+	github.com/pion/dtls/v3 v3.0.5 // indirect
 	github.com/pion/ice/v4 v4.0.7 // indirect
 	github.com/pion/interceptor v0.1.37 // indirect
 	github.com/pion/logging v0.2.3 // indirect
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.15 // indirect
-	github.com/pion/rtp v1.8.12 // indirect
+	github.com/pion/rtp v1.8.13 // indirect
 	github.com/pion/sctp v1.8.37 // indirect
-	github.com/pion/sdp/v3 v3.0.10 // indirect
+	github.com/pion/sdp/v3 v3.0.11 // indirect
 	github.com/pion/srtp/v3 v3.0.4 // indirect
 	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/stun/v3 v3.0.0 // indirect
