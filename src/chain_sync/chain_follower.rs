@@ -75,11 +75,9 @@ pub struct ChainFollower<DB> {
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
 
-    // FIXME: Stateless mode is temporarily disabled. Tracking issue:
-    // https://github.com/ChainSafe/forest/issues/5404
     /// When `stateless_mode` is true, forest connects to the P2P network but
     /// does not sync to HEAD.
-    _stateless_mode: bool,
+    stateless_mode: bool,
 
     /// Message pool
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
@@ -109,7 +107,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             net_handler,
             tipset_sender,
             tipset_receiver,
-            _stateless_mode: stateless_mode,
+            stateless_mode,
             mem_pool,
         }
     }
@@ -124,6 +122,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             self.mem_pool,
             self.sync_states,
             self.genesis,
+            self.stateless_mode,
         )
         .await
     }
@@ -140,12 +139,14 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
     genesis: Arc<Tipset>,
+    stateless_mode: bool,
 ) -> anyhow::Result<()> {
     let state_changed = Arc::new(Notify::new());
     let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
         state_manager.chain_store().clone(),
         state_manager.chain_config().clone(),
         bad_block_cache.clone(),
+        stateless_mode,
     )));
     let tasks: Arc<Mutex<HashSet<SyncTask>>> = Arc::new(Mutex::new(HashSet::default()));
 
@@ -272,6 +273,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                             network.clone(),
                             state_manager.clone(),
                             bad_block_cache.clone(),
+                            stateless_mode,
                         );
                         tokio::spawn({
                             let state_machine = state_machine.clone();
@@ -552,6 +554,7 @@ struct SyncStateMachine<DB> {
     bad_block_cache: Arc<BadBlockCache>,
     // Map from TipsetKey to FullTipset
     tipsets: HashMap<TipsetKey, Arc<FullTipset>>,
+    stateless_mode: bool,
 }
 
 impl<DB: Blockstore> SyncStateMachine<DB> {
@@ -559,12 +562,14 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         bad_block_cache: Arc<BadBlockCache>,
+        stateless_mode: bool,
     ) -> Self {
         Self {
             cs,
             chain_config,
             bad_block_cache,
             tipsets: HashMap::default(),
+            stateless_mode,
         }
     }
 
@@ -605,7 +610,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
     fn is_validated(&self, tipset: &FullTipset) -> bool {
         let db = self.cs.blockstore();
-        db.has(tipset.parent_state()).unwrap_or(false)
+        self.stateless_mode || db.has(tipset.parent_state()).unwrap_or(false)
     }
 
     fn is_ready_for_validation(&self, tipset: &FullTipset) -> bool {
@@ -730,7 +735,21 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         assert!(self.is_validated(&tipset), "Tipset must be validated");
         self.tipsets.remove(tipset.key());
         let tipset = tipset.deref().clone().into_tipset();
-        let _ = self.cs.put_tipset(&tipset);
+        if self.stateless_mode {
+            let heaviest = self.cs.heaviest_tipset();
+            let epoch = tipset.epoch();
+            if heaviest.weight() < tipset.weight() {
+                if let Err(e) = self.cs.set_heaviest_tipset(Arc::new(tipset)) {
+                    info!("Error setting heaviest tipset: {}", e);
+                } else {
+                    info!("Heaviest tipset: {}", epoch);
+                }
+            }
+        } else {
+            if let Err(e) = self.cs.put_tipset(&tipset) {
+                info!("Error putting tipset: {}", e);
+            }
+        }
     }
 
     pub fn update(&mut self, event: SyncEvent) {
@@ -807,9 +826,13 @@ impl SyncTask {
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
+        stateless_mode: bool,
     ) -> Option<SyncEvent> {
         let cs = state_manager.chain_store();
         match self {
+            SyncTask::ValidateTipset(tipset) if stateless_mode => {
+                Some(SyncEvent::ValidatedTipset(tipset))
+            }
             SyncTask::ValidateTipset(tipset) => {
                 let genesis = cs.genesis_tipset();
                 match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
