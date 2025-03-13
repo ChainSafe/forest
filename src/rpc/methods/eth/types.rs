@@ -7,7 +7,6 @@ use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use std::{hash::Hash, ops::Deref};
-use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -384,7 +383,7 @@ lotus_json_with_self!(FilterID);
 
 impl FilterID {
     pub fn new() -> Result<Self, uuid::Error> {
-        let raw_id = Uuid::new_v4();
+        let raw_id = crate::utils::rand::new_uuid_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
         Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))

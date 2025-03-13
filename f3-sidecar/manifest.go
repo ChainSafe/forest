@@ -5,27 +5,34 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-f3/manifest"
+	"github.com/ipfs/go-cid"
 )
 
 type ContractManifestProvider struct {
-	started         *bool
-	pollInterval    time.Duration
-	initialManifest *manifest.Manifest
-	currentManifest *manifest.Manifest
-	f3Api           *F3Api
-	ch              chan *manifest.Manifest
+	started                 *bool
+	pollInterval            time.Duration
+	initialManifest         *manifest.Manifest
+	currentManifest         *manifest.Manifest
+	staticInitialPowerTable cid.Cid
+	f3Api                   *F3Api
+	ch                      chan *manifest.Manifest
 }
 
 func NewContractManifestProvider(initialValue *manifest.Manifest, contract_manifest_poll_interval_seconds uint64, f3Api *F3Api) (*ContractManifestProvider, error) {
 	started := false
 	pollInterval := time.Duration(contract_manifest_poll_interval_seconds) * time.Second
+	var staticInitialPowerTable cid.Cid = cid.Undef
+	if initialValue != nil && isCidDefined(initialValue.InitialPowerTable) {
+		staticInitialPowerTable = initialValue.InitialPowerTable
+	}
 	p := ContractManifestProvider{
-		started:         &started,
-		pollInterval:    pollInterval,
-		initialManifest: initialValue,
-		currentManifest: nil,
-		f3Api:           f3Api,
-		ch:              make(chan *manifest.Manifest),
+		started:                 &started,
+		pollInterval:            pollInterval,
+		initialManifest:         initialValue,
+		currentManifest:         nil,
+		staticInitialPowerTable: staticInitialPowerTable,
+		f3Api:                   f3Api,
+		ch:                      make(chan *manifest.Manifest),
 	}
 	return &p, nil
 }
@@ -56,6 +63,9 @@ func (p *ContractManifestProvider) Start(ctx context.Context) error {
 			}
 			logger.Debugf("Polling manifest from contract...\n")
 			m, err := p.f3Api.GetManifestFromContract(ctx)
+			if m != nil && !isCidDefined(m.InitialPowerTable) {
+				m.InitialPowerTable = p.staticInitialPowerTable
+			}
 			if err == nil {
 				if m != nil {
 					if !m.Equal(p.currentManifest) {

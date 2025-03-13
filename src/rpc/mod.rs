@@ -92,6 +92,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetCode);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
+        $callback!($crate::rpc::eth::EthGetFilterChanges);
         $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!($crate::rpc::eth::EthGetStorageAt);
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
@@ -110,6 +111,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthUninstallFilter);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);

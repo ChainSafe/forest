@@ -31,11 +31,19 @@
 
 - [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
 
+- [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
+
+- [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#5377](https://github.com/ChainSafe/forest/pull/5377) Fix incorrect handling of `max_height` for `latest` predefined block in `Filecoin.EthGetLogs`.
+
+- [#5356](https://github.com/ChainSafe/forest/issues/5356) Fixed slow (and incorrect!) `Filecoin.EthGasPrice` RPC method. The method now returns the correct gas price of the latest tipset.
 
 ## Forest v0.24.0 "Treebeard"
 
