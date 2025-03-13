@@ -4,7 +4,7 @@
 use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
 use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
-use crate::db::{GarbageCollectable, PersistentStore};
+use crate::db::{GarbageCollectable, IndicesStore, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::db::car_stream::CarBlock;
@@ -130,6 +130,20 @@ impl EthMappingsStore for MemoryDB {
             lock.remove(hash);
         }
         Ok(())
+    }
+}
+
+impl IndicesStore for MemoryDB {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        todo!()
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        todo!()
     }
 }
 

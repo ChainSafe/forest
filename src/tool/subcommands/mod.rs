@@ -8,6 +8,7 @@ mod benchmark_cmd;
 mod car_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
+mod index_cmd;
 mod net_cmd;
 mod shed_cmd;
 mod snapshot_cmd;
@@ -58,6 +59,10 @@ pub enum Subcommand {
     /// Database management
     #[command(subcommand)]
     DB(db_cmd::DBCommands),
+
+    /// Index database management
+    #[command(subcommand)]
+    Index(index_cmd::IndexCommands),
 
     /// Utilities for manipulating CAR files
     #[command(subcommand)]
