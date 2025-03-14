@@ -8,7 +8,7 @@ fn test_manifest_template() {
     // lotus f3 manifest --output json
     let lotus_json = serde_json::json!({
       "Pause": false,
-      "ProtocolVersion": 5,
+      "ProtocolVersion": 7,
       "InitialInstance": 0,
       "BootstrapEpoch": 2081674,
       "NetworkName": "calibrationnet",
@@ -54,7 +54,10 @@ fn test_manifest_template() {
         "MaximumPollInterval": 120000000000_u64
       },
       "PubSub": {
-        "CompressionEnabled": false
+        "CompressionEnabled": false,
+        "ChainCompressionEnabled": true,
+        "GMessageSubscriptionBufferSize": 128,
+        "ValidatedMessageBufferSize": 128
       },
       "ChainExchange": {
         "SubscriptionBufferSize": 32,
@@ -64,6 +67,15 @@ fn test_manifest_template() {
         "MaxWantedChainsPerInstance": 1000,
         "RebroadcastInterval": 2000000000_u64,
         "MaxTimestampAge": 8000000000_u64
+      },
+      "PartialMessageManager": {
+        "PendingDiscoveredChainsBufferSize": 100,
+        "PendingPartialMessagesBufferSize": 100,
+        "PendingChainBroadcastsBufferSize": 100,
+        "PendingInstanceRemovalBufferSize": 10,
+        "CompletedMessagesBufferSize": 100,
+        "MaxBufferedMessagesPerInstance": 25000,
+        "MaxCachedValidatedMessagesPerInstance": 25000
       }
     });
     let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();
@@ -73,11 +85,13 @@ fn test_manifest_template() {
 #[test]
 fn test_progress_template() {
     let lotus_json = serde_json::json!({
-      "ID": 1000,
-      "Round": 0,
-      "Phase": 0
+      "instant": {
+        "ID": 1000,
+        "Round": 0,
+        "Phase": 0
+      }
     });
-    let progress: F3Instant = serde_json::from_value(lotus_json).unwrap();
+    let progress: F3InstanceProgress = serde_json::from_value(lotus_json).unwrap();
     println!("{}", render_progress_template(&progress).unwrap());
 }
 

@@ -11,7 +11,7 @@ use crate::{
     lotus_json::HasLotusJson as _,
     rpc::{
         self,
-        f3::{F3Instant, F3Manifest, F3PowerEntry, FinalityCertificate},
+        f3::{F3InstanceProgress, F3Manifest, F3PowerEntry, FinalityCertificate},
         prelude::*,
     },
     shim::fvm_shared_latest::ActorID,
@@ -449,7 +449,7 @@ fn render_certificate_template(template: &FinalityCertificate) -> anyhow::Result
         .to_owned())
 }
 
-fn render_progress_template(template: &F3Instant) -> anyhow::Result<String> {
+fn render_progress_template(template: &F3InstanceProgress) -> anyhow::Result<String> {
     let mut context = tera::Context::from_serialize(template)?;
     context.insert("phase_string", template.phase_string());
     Ok(TEMPLATES
