@@ -222,6 +222,7 @@ zstd = "0.13"
 # optional dependencies
 clap_complete = "4.5.46"
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
+educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }

@@ -129,6 +129,7 @@ pub async fn start_offline_server(
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(keystore)),
@@ -141,6 +142,7 @@ pub async fn start_offline_server(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Arc::new(parking_lot::RwLock::new(Default::default())),
     };
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
@@ -223,6 +225,7 @@ async fn handle_snapshots(
         &snapshot_url,
         &downloaded_snapshot_path,
         DownloadFileOption::Resumable,
+        None,
     )
     .await?;
     info!("Snapshot downloaded");

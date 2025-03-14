@@ -2237,7 +2237,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, None).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
     }
 }
 
@@ -2256,16 +2256,16 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
     }
 }
 
 async fn get_eth_transaction_by_hash(
-    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-    tx_hash: EthHash,
+    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: &EthHash,
     limit: Option<ChainEpoch>,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2289,7 +2289,7 @@ async fn get_eth_transaction_by_hash(
             return_dec: ipld,
         };
 
-        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+        if let Ok(tx) = new_eth_tx_from_message_lookup(ctx, &message_lookup, None) {
             return Ok(Some(tx));
         }
     }
@@ -3022,58 +3022,86 @@ impl RpcMethod<1> for EthTraceBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+        trace_block(ctx, block_param).await
+    }
+}
 
-        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-
-        let cid = ts.key().cid()?;
-
-        let block_hash: EthHash = cid.into();
-
-        let mut all_traces = vec![];
-        let mut msg_idx = 0;
-        for ir in trace.into_iter() {
-            // ignore messages from system actor
-            if ir.msg.from == system::ADDRESS.into() {
-                continue;
-            }
-
-            msg_idx += 1;
-
-            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
-
-            let tx_hash = tx_hash
-                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-            let mut env = trace::base_environment(&state, &ir.msg.from)
-                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-            if let Some(execution_trace) = ir.execution_trace {
-                trace::build_traces(&mut env, &[], execution_trace)?;
-
-                for trace in env.traces {
-                    all_traces.push(EthBlockTrace {
-                        trace: EthTrace {
-                            r#type: trace.r#type,
-                            subtraces: trace.subtraces,
-                            trace_address: trace.trace_address,
-                            action: trace.action,
-                            result: trace.result,
-                            error: trace.error,
-                        },
-
-                        block_hash: block_hash.clone(),
-                        block_number: ts.epoch(),
-                        transaction_hash: tx_hash.clone(),
-                        transaction_position: msg_idx as i64,
-                    });
-                }
+async fn trace_block<B: Blockstore + Send + Sync + 'static>(
+    ctx: Ctx<B>,
+    block_param: ExtBlockNumberOrHash,
+) -> Result<Vec<EthBlockTrace>, ServerError> {
+    let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+    let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let cid = ts.key().cid()?;
+    let block_hash: EthHash = cid.into();
+    let mut all_traces = vec![];
+    let mut msg_idx = 0;
+    for ir in trace.into_iter() {
+        // ignore messages from system actor
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+        msg_idx += 1;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+        let mut env = trace::base_environment(&state, &ir.msg.from)
+            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+        if let Some(execution_trace) = ir.execution_trace {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+            for trace in env.traces {
+                all_traces.push(EthBlockTrace {
+                    trace: EthTrace {
+                        r#type: trace.r#type,
+                        subtraces: trace.subtraces,
+                        trace_address: trace.trace_address,
+                        action: trace.action,
+                        result: trace.result,
+                        error: trace.error,
+                    },
+                    block_hash: block_hash.clone(),
+                    block_number: ts.epoch(),
+                    transaction_hash: tx_hash.clone(),
+                    transaction_position: msg_idx as i64,
+                });
             }
         }
+    }
+    Ok(all_traces)
+}
 
-        Ok(all_traces)
+pub enum EthTraceTransaction {}
+impl RpcMethod<1> for EthTraceTransaction {
+    const NAME: &'static str = "Filecoin.EthTraceTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for a specific transaction.");
+
+    type Params = (String,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_hash = EthHash::from_str(&tx_hash)?;
+        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+            .await?
+            .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+        let traces = trace_block(
+            ctx,
+            ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
+        )
+        .await?
+        .into_iter()
+        .filter(|trace| trace.transaction_hash == eth_hash)
+        .collect();
+        Ok(traces)
     }
 }
 
