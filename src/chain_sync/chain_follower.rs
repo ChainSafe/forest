@@ -936,7 +936,7 @@ mod tests {
         cs.set_heaviest_tipset(genesis_tipset).unwrap();
 
         // Create the state machine
-        let mut state_machine = SyncStateMachine::new(cs, chain_config, bad_block_cache);
+        let mut state_machine = SyncStateMachine::new(cs, chain_config, bad_block_cache, false);
 
         // Insert tipsets in random order
         let tipsets = vec![e, b, d, c, a];
