@@ -4,6 +4,7 @@
 use crate::eth::EthChainId;
 use crate::message::ChainMessage;
 use crate::rpc::eth::{eth_tx_from_signed_eth_message, types::EthHash};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,11 +20,13 @@ pub struct EthMappingCollector<DB> {
 impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollector<DB> {
     /// Creates a `TTL` collector for the Ethereum mapping.
     ///
-    pub fn new(db: Arc<DB>, eth_chain_id: EthChainId, ttl: Duration) -> Self {
+    pub fn new(db: Arc<DB>, eth_chain_id: EthChainId, retention_epochs: ChainEpoch) -> Self {
+        // Convert retention_epochs to number of seconds
+        let secs = EPOCH_DURATION_SECONDS * retention_epochs;
         Self {
             db,
             eth_chain_id,
-            ttl,
+            ttl: Duration::from_secs(secs as u64),
         }
     }
 
@@ -92,7 +95,7 @@ mod test {
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
     const EPS_DURATION: Duration = Duration::from_secs(1);
-    const TTL_DURATION: Duration = Duration::from_secs(60);
+    const RETENTION_EPOCHS: i64 = 2;
 
     use super::*;
 
@@ -136,26 +139,33 @@ mod test {
         let (_, tx1) = eth_tx_from_signed_eth_message(&secp1, ETH_CHAIN_ID).unwrap();
         let key1 = tx1.eth_hash().unwrap().into();
 
+        let ttl_duration = Duration::from_secs(
+            (RETENTION_EPOCHS * EPOCH_DURATION_SECONDS)
+                .try_into()
+                .unwrap(),
+        );
+
         blockstore
             .write_obj(
                 &key1,
                 &(
                     secp1.cid(),
-                    unix_timestamp.timestamp() as u64 + 2 * TTL_DURATION.as_secs(),
+                    unix_timestamp.timestamp() as u64 + 2 * ttl_duration.as_secs(),
                 ),
             )
             .unwrap();
 
         assert!(blockstore.exists(&key1).unwrap());
 
-        let collector = EthMappingCollector::new(blockstore.clone(), ETH_CHAIN_ID, TTL_DURATION);
+        let collector =
+            EthMappingCollector::new(blockstore.clone(), ETH_CHAIN_ID, RETENTION_EPOCHS);
 
         collector.ttl_workflow(ZERO_DURATION).unwrap();
 
         assert!(blockstore.exists(&key0).unwrap());
         assert!(blockstore.exists(&key1).unwrap());
 
-        collector.ttl_workflow(TTL_DURATION + EPS_DURATION).unwrap();
+        collector.ttl_workflow(ttl_duration + EPS_DURATION).unwrap();
 
         assert!(!blockstore.exists(&key0).unwrap());
         assert!(blockstore.exists(&key1).unwrap());

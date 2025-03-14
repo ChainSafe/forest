@@ -4,11 +4,14 @@
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::misc::env::is_env_set_and_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use super::client::Client;
+
+const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -55,6 +58,40 @@ impl Default for EventsConfig {
     }
 }
 
+/// Structure that defines `FEVM` configuration
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct FevmConfig {
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
+    pub eth_trace_filter_max_results: usize,
+}
+
+impl Default for FevmConfig {
+    fn default() -> Self {
+        Self {
+            eth_trace_filter_max_results: 500,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct ChainIndexerConfig {
+    /// Enable indexing Ethereum mappings
+    pub enable_indexer: bool,
+    /// Number of retention epochs for indexed entries. Set to `None` to disable garbage collection.
+    pub gc_retention_epochs: Option<u32>,
+}
+
+impl Default for ChainIndexerConfig {
+    fn default() -> Self {
+        Self {
+            enable_indexer: is_env_set_and_truthy(FOREST_CHAIN_INDEXER_ENABLED).unwrap_or(false),
+            gc_retention_epochs: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -66,6 +103,8 @@ pub struct Config {
     pub sync: SyncConfig,
     pub daemon: DaemonConfig,
     pub events: EventsConfig,
+    pub fevm: FevmConfig,
+    pub chain_indexer: ChainIndexerConfig,
 }
 
 impl Config {

@@ -16,7 +16,7 @@ pub mod migration;
 
 use crate::blocks::TipsetKey;
 use crate::rpc::eth::types::EthHash;
-use anyhow::Context as _;
+use anyhow::{bail, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
 use serde::de::DeserializeOwned;
@@ -161,6 +161,33 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         EthMappingsStore::delete(self.as_ref(), keys)
+    }
+}
+
+pub struct DummyStore {}
+
+const INDEXER_ERROR: &str =
+    "indexer disabled, enable with chain_indexer.enable_indexer / FOREST_CHAIN_INDEXER_ENABLED";
+
+impl EthMappingsStore for DummyStore {
+    fn read_bin(&self, _key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn write_bin(&self, _key: &EthHash, _value: &[u8]) -> anyhow::Result<()> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn exists(&self, _key: &EthHash) -> anyhow::Result<bool> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        bail!(INDEXER_ERROR)
+    }
+
+    fn delete(&self, _keys: Vec<EthHash>) -> anyhow::Result<()> {
+        bail!(INDEXER_ERROR)
     }
 }
 

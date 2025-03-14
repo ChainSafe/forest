@@ -60,7 +60,7 @@ accept traffic. In our case, we require:
 - The node is in sync with the network
 - The current epoch of the node is not too far behind the network
 - The RPC server is running
-- The Ethereum mapping is up to date
+- The Ethereum mappings are up to date (if chain indexer in enabled)
 
 If any of these conditions are not met, the node is **not** ready to serve
 requests.
@@ -75,7 +75,7 @@ Sample _ready_ response:
 [+] sync complete
 [+] epoch up to date
 [+] rpc server running
-[+] eth mapping up to date
+[+] eth mappings up to date
 [+] f3 running⏎
 ```
 
@@ -85,7 +85,7 @@ Sample _not ready_ response:
 [!] sync incomplete
 [!] epoch outdated
 [+] rpc server running
-[+] eth mapping up to date
+[+] eth mappings up to date
 [+] f3 running⏎
 ```
 

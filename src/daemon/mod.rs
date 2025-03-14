@@ -7,6 +7,7 @@ pub mod db_util;
 pub mod main;
 
 use crate::blocks::Tipset;
+use crate::chain::HeadChange;
 use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
@@ -293,26 +294,6 @@ fn maybe_start_gc_service(
     }
 }
 
-fn maybe_start_eth_mapping_collection_service(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    config: &Config,
-    ctx: &AppContext,
-) {
-    if let Some(ttl) = config.client.eth_mapping_ttl {
-        let chain_store = ctx.state_manager.chain_store().clone();
-        let chain_config = ctx.state_manager.chain_config().clone();
-        services.spawn(async move {
-            info!("Starting collector for eth_mappings");
-            let mut collector = EthMappingCollector::new(
-                chain_store.db.clone(),
-                chain_config.eth_chain_id,
-                Duration::from_secs(ttl.into()),
-            );
-            collector.run().await
-        });
-    }
-}
-
 async fn create_p2p_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     config: &mut Config,
@@ -524,7 +505,10 @@ fn maybe_populate_eth_mappings_in_background(
     config: Config,
     ctx: &AppContext,
 ) {
-    if !opts.stateless && !ctx.state_manager.chain_config().is_devnet() {
+    if config.chain_indexer.enable_indexer
+        && !opts.stateless
+        && !ctx.state_manager.chain_config().is_devnet()
+    {
         let state_manager = ctx.state_manager.clone();
         let settings = ctx.db.writer().clone();
         services.spawn(async move {
@@ -533,6 +517,54 @@ fn maybe_populate_eth_mappings_in_background(
             }
             Ok(())
         });
+    }
+}
+
+fn maybe_start_indexer_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    ctx: &AppContext,
+) {
+    if config.chain_indexer.enable_indexer
+        && !opts.stateless
+        && !ctx.state_manager.chain_config().is_devnet()
+    {
+        let mut receiver = ctx.state_manager.chain_store().publisher().subscribe();
+        let chain_store = ctx.state_manager.chain_store().clone();
+        services.spawn(async move {
+            tracing::info!("Starting indexer service");
+
+            // Continuously listen for head changes
+            loop {
+                let msg = receiver.recv().await?;
+
+                let HeadChange::Apply(ts) = msg;
+                tracing::debug!("Indexing tipset {}", ts.key());
+
+                chain_store.put_tipset_key(ts.key())?;
+
+                let delegated_messages =
+                    chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+
+                chain_store.process_signed_messages(&delegated_messages)?;
+            }
+        });
+
+        // Run the collector only if chain indexer is enabled
+        if let Some(retention_epochs) = config.chain_indexer.gc_retention_epochs {
+            let chain_store = ctx.state_manager.chain_store().clone();
+            let chain_config = ctx.state_manager.chain_config().clone();
+            services.spawn(async move {
+                tracing::info!("Starting collector for eth_mappings");
+                let mut collector = EthMappingCollector::new(
+                    chain_store.db.clone(),
+                    chain_config.eth_chain_id,
+                    retention_epochs.into(),
+                );
+                collector.run().await
+            });
+        }
     }
 }
 
@@ -579,13 +611,13 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
-    maybe_start_eth_mapping_collection_service(&mut services, &config, &ctx);
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
     maybe_start_f3_service(&mut services, &opts, &config, &ctx);
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_muxer, &ctx)
         .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, config, &ctx);
+    maybe_populate_eth_mappings_in_background(&mut services, &opts, config.clone(), &ctx);
+    maybe_start_indexer_service(&mut services, &opts, &config, &ctx);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }
