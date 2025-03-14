@@ -5,7 +5,7 @@ name: Update Lotus version in API tests
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 0 * * *"
 
 jobs:
   update-lotus:

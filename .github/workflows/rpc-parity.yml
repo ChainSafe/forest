@@ -1,0 +1,38 @@
+name: RPC parity tests
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  rpc-parity:
+    name: RPC parity tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - name: Run api compare tests on calibnet
+        shell: bash
+        run: |
+          IMAGE=${{ github.event.inputs.image }}
+          if [ -z "$IMAGE" ]; then
+            IMAGE="ghcr.io/chainsafe/forest:edge-fat"
+          fi
+          echo "FROM $IMAGE" > Dockerfile-RPC
+          export FOREST_DOCKERFILE_OVERRIDE=Dockerfile-RPC
+          ./scripts/tests/api_compare/setup.sh
+        timeout-minutes: 30
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Dump Docker usage
+        if: always()
+        run: |
+          docker system df
+          docker system df --verbose
+          df -h
+      - uses: JasonEtco/create-an-issue@v2
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/RPC_PARITY_ISSUE_TEMPLATE.md
