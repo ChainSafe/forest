@@ -47,11 +47,11 @@ done
 
 echo "Done"
 
-echo "Waiting eth mapping to be up to date"
+echo "Waiting eth mappings to be up to date"
 $FOREST_CLI_PATH healthcheck ready --wait
 
 ERROR=0
-echo "Testing Ethereum mapping"
+echo "Testing Ethereum mappings"
 
 for hash in "${ETH_BLOCK_HASHES[@]}"; do
   JSON=$(curl -s -X POST "$FOREST_URL" \
