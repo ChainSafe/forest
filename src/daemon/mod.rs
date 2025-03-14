@@ -505,7 +505,10 @@ fn maybe_populate_eth_mappings_in_background(
     config: Config,
     ctx: &AppContext,
 ) {
-    if !opts.stateless && !ctx.state_manager.chain_config().is_devnet() {
+    if config.chain_indexer.enable_indexer
+        && !opts.stateless
+        && !ctx.state_manager.chain_config().is_devnet()
+    {
         let state_manager = ctx.state_manager.clone();
         let settings = ctx.db.writer().clone();
         services.spawn(async move {
