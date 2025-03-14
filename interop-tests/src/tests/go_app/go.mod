@@ -1,6 +1,6 @@
 module test/v2
 
-go 1.23.0
+go 1.23.7
 
 require (
 	github.com/ihciah/rust2go v0.0.0-20250125181647-c5957947a3c0
