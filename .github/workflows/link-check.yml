@@ -3,8 +3,7 @@ name: Link Checker
 on:
   workflow_dispatch:
   schedule:
-    # Run daily at 9am
-    - cron: "00 9 * * *"
+    - cron: "0 0 * * *"
   push:
     branches:
       - main
