@@ -141,6 +141,7 @@ where
 
     /// Sets heaviest tipset
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+        metrics::HEAD_EPOCH.set(ts.epoch());
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
@@ -273,7 +274,6 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            metrics::HEAD_EPOCH.set(ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
