@@ -115,6 +115,7 @@ pin_project! {
         seen: CidHashSet,
         stateroot_limit: ChainEpoch,
         fail_on_dead_links: bool,
+        include_receipts: bool
     }
 }
 
@@ -144,6 +145,7 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
     db: DB,
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
+    include_receipts: bool,
 ) -> ChainStream<DB, ITER> {
     ChainStream {
         tipset_iter,
@@ -152,6 +154,7 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         seen: CidHashSet::default(),
         stateroot_limit,
         fail_on_dead_links: true,
+        include_receipts,
     }
 }
 
@@ -161,6 +164,7 @@ pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
     db: DB,
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
+    include_receipts: bool,
 ) -> ChainStream<DB, ITER> {
     ChainStream {
         tipset_iter,
@@ -169,6 +173,7 @@ pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         seen: CidHashSet::default(),
         stateroot_limit,
         fail_on_dead_links: false,
+        include_receipts,
     }
 }
 
@@ -252,6 +257,14 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         if block.epoch > stateroot_limit {
                             this.dfs.push_back(Iterate(
                                 DfsIter::from(block.messages)
+                                    .filter_map(ipld_to_cid)
+                                    .collect(),
+                            ));
+                        }
+
+                        if *this.include_receipts {
+                            this.dfs.push_back(Iterate(
+                                DfsIter::from(block.message_receipts)
                                     .filter_map(ipld_to_cid)
                                     .collect(),
                             ));

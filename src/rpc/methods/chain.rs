@@ -202,6 +202,7 @@ impl RpcMethod<1> for ChainExport {
             tipset_keys: ApiTipsetKey(tsk),
             skip_checksum,
             dry_run,
+            include_receipts,
         } = params;
 
         static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -232,6 +233,7 @@ impl RpcMethod<1> for ChainExport {
                 VoidAsyncWriter,
                 CidHashSet::default(),
                 skip_checksum,
+                false,
             )
             .await
         } else {
@@ -243,6 +245,7 @@ impl RpcMethod<1> for ChainExport {
                 file,
                 CidHashSet::default(),
                 skip_checksum,
+                include_receipts,
             )
             .await
         } {
@@ -805,6 +808,7 @@ pub struct ChainExportParams {
     pub tipset_keys: ApiTipsetKey,
     pub skip_checksum: bool,
     pub dry_run: bool,
+    pub include_receipts: bool,
 }
 lotus_json_with_self!(ChainExportParams);
 

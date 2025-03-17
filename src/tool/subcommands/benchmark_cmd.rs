@@ -164,7 +164,7 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = stream_graph(&store, heaviest.chain(&store), 0);
+    let mut s = stream_graph(&store, heaviest.chain(&store), 0, false);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
@@ -242,6 +242,7 @@ async fn benchmark_exporting(
         Arc::clone(&store),
         ts.deref().clone().chain_owned(Arc::clone(&store)),
         stateroot_lookup_limit,
+        false,
     );
 
     let frames = crate::db::car::forest::Encoder::compress_stream(

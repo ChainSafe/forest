@@ -346,7 +346,7 @@ where
             pb.set_message(format!("{} remaining epochs (spine)", height));
         }
     });
-    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain(&db, tipsets, epoch_limit, false);
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");

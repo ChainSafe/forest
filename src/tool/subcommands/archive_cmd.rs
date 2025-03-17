@@ -444,7 +444,7 @@ async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(store.clone(), &ts, depth, writer, seen, true).await?;
+    crate::chain::export::<Sha256>(store.clone(), &ts, depth, writer, seen, true, false).await?;
 
     Ok(())
 }
@@ -487,7 +487,7 @@ async fn merge_snapshots(
     )?);
 
     // Stream all available blocks from heaviest_tipset to genesis.
-    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0, false);
 
     // Encode Ipld key-value pairs in zstd frames
     let frames = forest::Encoder::compress_stream_default(blocks);

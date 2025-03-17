@@ -34,6 +34,9 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
+        /// Don't write the archive.
+        #[arg(long)]
+        include_receipts: bool,
     },
 }
 
@@ -46,6 +49,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                include_receipts,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -82,6 +86,7 @@ impl SnapshotCommands {
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
                     skip_checksum,
                     dry_run,
+                    include_receipts,
                 };
 
                 let handle = tokio::spawn({

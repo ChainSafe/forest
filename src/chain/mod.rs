@@ -23,6 +23,7 @@ pub async fn export<D: Digest>(
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
     skip_checksum: bool,
+    include_receipts: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let roots = tipset.key().to_cids();
@@ -41,6 +42,7 @@ pub async fn export<D: Digest>(
             Arc::clone(&db),
             tipset.clone().chain_owned(Arc::clone(&db)),
             stateroot_lookup_limit,
+            include_receipts,
         )
         .with_seen(seen),
     );

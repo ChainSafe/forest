@@ -137,7 +137,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = stream_graph(self.db.clone(), tipset.chain_arc(&self.db), depth);
+        let mut stream = stream_graph(self.db.clone(), tipset.chain_arc(&self.db), depth, false);
         while let Some(block) = stream.next().await {
             let block = block?;
             self.marked.remove(&block.cid);
