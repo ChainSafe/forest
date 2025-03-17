@@ -416,6 +416,7 @@ fn maybe_start_rpc_service(
             let keystore = ctx.keystore.clone();
             let network_name = ctx.network_name.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
+            let msgs_in_tipset = Arc::new(crate::chain::MsgsInTipsetCache::default());
             async move {
                 start_rpc(
                     RPCState {
@@ -423,6 +424,7 @@ fn maybe_start_rpc_service(
                         keystore,
                         mpool,
                         bad_blocks,
+                        msgs_in_tipset,
                         sync_state,
                         eth_event_handler,
                         sync_network_context,
