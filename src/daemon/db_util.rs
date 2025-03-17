@@ -28,6 +28,7 @@ use crate::rpc::eth::types::EthHash;
 #[cfg(doc)]
 use crate::blocks::TipsetKey;
 
+use crate::daemon::context::AppContext;
 #[cfg(doc)]
 use cid::Cid;
 
@@ -92,6 +93,7 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
+    ctx: &AppContext,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
 
@@ -112,8 +114,12 @@ pub async fn import_chain_as_forest_car(
                     &url,
                     &downloaded_car_temp_path,
                     DownloadFileOption::Resumable,
+                    ctx.create_snapshot_progress_tracker_callback(),
                 )
                 .await?;
+
+                // reset the snapshot progress tracker
+                ctx.reset_snapshot_progress_tracker();
             } else {
                 move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
             }
@@ -286,6 +292,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::cli_shared::cli::CliOpts;
+    use crate::{Client, Config};
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {
@@ -389,8 +397,21 @@ mod test {
         let file_path = temp_file.path();
 
         let temp_db_dir = tempfile::Builder::new().tempdir()?;
-        let (path, ts) =
-            import_chain_as_forest_car(file_path, temp_db_dir.path(), import_mode).await?;
+        let cfg = Config {
+            client: Client {
+                encrypt_keystore: false,
+                data_dir: PathBuf::from(temp_db_dir.path()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (path, ts) = import_chain_as_forest_car(
+            file_path,
+            temp_db_dir.path(),
+            import_mode,
+            &AppContext::init(&CliOpts::default(), &cfg).await.unwrap(),
+        )
+        .await?;
         match import_mode {
             ImportMode::Symlink => {
                 assert_eq!(

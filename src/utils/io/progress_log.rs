@@ -25,7 +25,7 @@
 //!     let mut reader = tokio::io::BufReader::new(data.as_bytes());
 //!     let len = 0; // Compute total read length or find of way to estimate it
 //!     // We just need to wrap our reader and use the wrapped version
-//!     let reader_wp = tokio::io::BufReader::new(WithProgress::wrap_async_read("reading", reader, len));
+//!     let reader_wp = tokio::io::BufReader::new(WithProgress::wrap_sync_read_with_callback("reading", reader, len, None));
 //!     let mut stream = reader_wp.lines();
 //!     while let Some(line) = stream.next_line().await.unwrap() {
 //!         // Do something with the line
@@ -38,8 +38,10 @@
 
 use human_bytes::human_bytes;
 use humantime::format_duration;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use educe::Educe;
 use pin_project_lite::pin_project;
 use std::io;
 use std::pin::Pin;
@@ -75,10 +77,17 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
 }
 
 impl<S> WithProgress<S> {
-    pub fn wrap_async_read(message: &str, read: S, total_items: u64) -> WithProgress<S> {
+    pub fn wrap_sync_read_with_callback(
+        message: &str,
+        read: S,
+        total_items: u64,
+        callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    ) -> WithProgress<S> {
         WithProgress {
             inner: read,
-            progress: Progress::new(message).with_total(total_items),
+            progress: Progress::new(message)
+                .with_callback(callback)
+                .with_total(total_items),
         }
     }
 
@@ -88,8 +97,9 @@ impl<S> WithProgress<S> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Progress {
+#[derive(Clone, Educe)]
+#[educe(Debug)]
+pub struct Progress {
     completed_items: u64,
     total_items: Option<u64>,
     last_logged_items: u64,
@@ -97,6 +107,8 @@ struct Progress {
     last_logged: Instant,
     message: String,
     item_type: ItemType,
+    #[educe(Debug(ignore))]
+    callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,7 +128,13 @@ impl Progress {
             last_logged: now,
             message: message.into(),
             item_type: ItemType::Items,
+            callback: None,
         }
+    }
+
+    fn with_callback(mut self, callback: Option<Arc<dyn Fn(String) + Sync + Send>>) -> Self {
+        self.callback = callback;
+        self
     }
 
     fn with_total(mut self, total: u64) -> Self {
@@ -182,10 +200,15 @@ impl Progress {
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
         if (now - self.last_logged) > UPDATE_FREQUENCY {
+            let msg = self.msg(now);
+            if let Some(cb) = &self.callback {
+                cb(msg.clone());
+            }
+
             tracing::info!(
                 target: "forest::progress",
                 "{}",
-                self.msg(now)
+                msg
             );
             self.last_logged = now;
             self.last_logged_items = self.completed_items;
