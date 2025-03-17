@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task (disabled by default). It can be configured in the `[chain_indexer]` section or via the `FOREST_CHAIN_INDEXER_ENABLED` environment variable. The `client.eth_mapping_ttl` option has been moved to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+
 ### Added
 
 - [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
@@ -34,9 +36,6 @@
 - [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
 
 - [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
-
-- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task. It is configurable in the `[chain_indexer]` section or via the 
-  `FOREST_CHAIN_INDEXER_ENABLED` environment variable. Moved `client.eth_mapping_ttl` to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
 
 ### Changed
 
