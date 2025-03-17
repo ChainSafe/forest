@@ -3,7 +3,7 @@ module test/v2
 go 1.23.7
 
 require (
-	github.com/ihciah/rust2go v0.0.0-20250125181647-c5957947a3c0
+	github.com/ihciah/rust2go v0.0.0-20250312161018-7394c455c373
 	github.com/ipfs/boxo v0.27.4
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-datastore v0.6.0
