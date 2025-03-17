@@ -11,7 +11,7 @@ use crate::message::signed_message::SignedMessage;
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types
-#[derive(Clone, Debug, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum ChainMessage {
     Unsigned(Message),
