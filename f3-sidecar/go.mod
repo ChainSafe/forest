@@ -3,7 +3,7 @@ module f3-sidecar/v2
 go 1.23.7
 
 require (
-	github.com/filecoin-project/go-f3 v0.8.3-0.20250313222023-6c27189a6a94
+	github.com/filecoin-project/go-f3 v0.8.3
 	github.com/filecoin-project/go-jsonrpc v0.7.1
 	github.com/filecoin-project/go-state-types v0.15.0
 	github.com/ihciah/rust2go v0.0.0-20250312161018-7394c455c373
@@ -42,7 +42,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/pprof v0.0.0-20250302191652-9094ed2288e7 // indirect
+	github.com/google/pprof v0.0.0-20250315033105-103756e64e1d // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
