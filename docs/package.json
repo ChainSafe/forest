@@ -24,7 +24,7 @@
     "@easyops-cn/docusaurus-search-local": "^0.48.5",
     "@metamask/docusaurus-openrpc": "^0.4.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.4.1",
+    "mermaid": "^11.5.0",
     "prettier": "^3.5.3",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.0.0",
