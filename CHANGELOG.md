@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task (disabled by default). It can be configured in the `[chain_indexer]` section or via the `FOREST_CHAIN_INDEXER_ENABLED` environment variable. The `client.eth_mapping_ttl` option has been moved to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+
 ### Added
 
 - [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.

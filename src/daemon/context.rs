@@ -10,7 +10,7 @@ use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
-use crate::db::CAR_DB_DIR_NAME;
+use crate::db::{DummyStore, EthMappingsStore, CAR_DB_DIR_NAME};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
@@ -252,10 +252,16 @@ async fn create_state_manager(
     )
     .await?;
 
+    let eth_mappings: Arc<dyn EthMappingsStore + Sync + Send> =
+        if config.chain_indexer.enable_indexer {
+            db.writer().clone()
+        } else {
+            Arc::new(DummyStore {})
+        };
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(db),
         Arc::new(db.clone()),
-        db.writer().clone(),
+        eth_mappings,
         chain_config.clone(),
         genesis_header.clone(),
     )?);

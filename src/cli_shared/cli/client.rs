@@ -67,8 +67,6 @@ pub struct Client {
     pub healthcheck_address: SocketAddr,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
     pub load_actors: bool,
-    /// `TTL` to set for Ethereum `Hash` to `Cid` entries or `None` to never reclaim them.
-    pub eth_mapping_ttl: Option<u32>,
 }
 
 impl Default for Client {
@@ -96,7 +94,6 @@ impl Default for Client {
                 crate::health::DEFAULT_HEALTHCHECK_PORT,
             ),
             load_actors: true,
-            eth_mapping_ttl: None,
         }
     }
 }
