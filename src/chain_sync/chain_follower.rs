@@ -21,6 +21,7 @@ use std::{ops::Deref as _, sync::Arc};
 use crate::libp2p::hello::HelloRequest;
 use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
+use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use ahash::{HashMap, HashSet};
@@ -322,29 +323,29 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     }
                 }
 
-                // Sort epochs for consistent display
-                main_chain_epochs.sort();
+                let to_download = main_chain_epochs
+                    .iter()
+                    .max()
+                    .copied()
+                    .unwrap_or_default()
+                    .max(fork_tipsets);
+                let expected_head = calculate_expected_epoch(
+                    Utc::now().timestamp() as u64,
+                    state_manager.chain_store().genesis_block_header().timestamp,
+                    state_manager.chain_config().block_delay_secs,
+                );
 
-                match (!main_chain_epochs.is_empty(), fork_tipsets > 0) {
+                match (expected_head as i64 - heaviest_epoch > 10, to_download > 0) {
                     (true, true) => info!(
-                        "Fetching tipsets: {}, Forks: {} tipsets to fetch",
-                        main_chain_epochs
-                            .iter()
-                            .map(|e| e.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        fork_tipsets
+                        "Catching up to HEAD: {} -> {}, downloading {} tipsets",
+                        heaviest_epoch, expected_head, to_download
                     ),
                     (true, false) => info!(
-                        "Fetching tipsets: {}",
-                        main_chain_epochs
-                            .iter()
-                            .map(|e| e.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
+                        "Catching up to HEAD: {} -> {}",
+                        heaviest_epoch, expected_head,
                     ),
                     (false, true) => {
-                        info!("Fetching tipsets: Forks: {} tipsets to fetch", fork_tipsets)
+                        info!("Downloading {} tipsets", to_download,)
                     }
                     (false, false) => {}
                 }
