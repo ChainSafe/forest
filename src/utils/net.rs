@@ -47,12 +47,8 @@ pub async fn download_ipfs_file_trustlessly(
             .await?
             .compat();
         let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-        crate::external::rs_car_ipfs::single_file::read_single_file_seek(
-            &mut reader,
-            &mut writer,
-            Some(cid),
-        )
-        .await?;
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
+            .await?;
         writer.flush().await?;
         writer.close().await?;
     }

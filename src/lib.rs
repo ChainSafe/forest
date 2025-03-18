@@ -49,7 +49,6 @@ mod daemon;
 mod db;
 mod documentation;
 mod eth;
-mod external;
 mod f3;
 mod fil_cns;
 mod genesis;

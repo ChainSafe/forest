@@ -174,7 +174,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
 rlp = "0.6"
-rs-car = "0.5"
+rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
@@ -244,7 +244,6 @@ fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
-hex-literal = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }

@@ -16,7 +16,6 @@ allow = [
   "CC0-1.0",
   "ISC",
   "MIT",
-  "MPL-2.0",
   "Unicode-3.0",
   "Unlicense",
   "Zlib",
@@ -26,6 +25,9 @@ exceptions = [
   { allow = [
     "MPL-2.0",
   ], crate = "webpki-roots" },
+  { allow = [
+    "MPL-2.0",
+  ], crate = "webpki-root-certs" },
   { allow = [
     "MPL-2.0",
   ], crate = "option-ext" },
