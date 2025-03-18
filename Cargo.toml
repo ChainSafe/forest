@@ -61,7 +61,7 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
-educe = { version = "0.6.0", features = ["Debug", "Default"], default-features = false }
+educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
@@ -182,7 +182,6 @@ schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
-serde_default_utils = "0.3"
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_tuple = "1"
