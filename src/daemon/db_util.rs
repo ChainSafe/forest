@@ -399,6 +399,7 @@ mod test {
         let temp_db_dir = tempfile::Builder::new().tempdir()?;
         let cfg = Config {
             client: Client {
+                load_actors: false,
                 encrypt_keystore: false,
                 data_dir: PathBuf::from(temp_db_dir.path()),
                 ..Default::default()

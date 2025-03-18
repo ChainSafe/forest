@@ -314,7 +314,6 @@ pub struct F3Manifest {
     pub certificate_exchange: CertificateExchangeConfig,
     pub pub_sub: PubSubConfig,
     pub chain_exchange: ChainExchangeConfig,
-    #[serde(default)]
     pub partial_message_manager: PartialMessageManagerConfig,
 }
 lotus_json_with_self!(F3Manifest);

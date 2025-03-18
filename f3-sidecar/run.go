@@ -90,10 +90,12 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 
 	var manifestProvider manifest.ManifestProvider
 	if err := m.Validate(); err == nil {
+		logger.Infoln("Using static manifest")
 		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
 			return err
 		}
 	} else {
+		logger.Infoln("Using contract manifest")
 		if manifestProvider, err = NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api); err != nil {
 			return err
 		}
