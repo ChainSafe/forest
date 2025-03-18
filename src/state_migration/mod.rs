@@ -79,7 +79,8 @@ where
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
                 (Height::TukTuk, nv24::run_migration::<DB>),
-                (Height::Teep, nv25::run_migration::<DB>),
+                // TODO(forest): To be re-enabled with FIP-0100 migration.
+                // (Height::Teep, nv25::run_migration::<DB>),
             ]
         }
     };
