@@ -62,6 +62,7 @@ impl IntoResponse for AppError {
 mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+    use crate::cli_shared::cli::ChainIndexerConfig;
     use crate::db::SettingsExt;
     use crate::{chain_sync::SyncStage, Client};
 
@@ -80,6 +81,10 @@ mod test {
 
         let forest_state = ForestState {
             config: Config {
+                chain_indexer: ChainIndexerConfig {
+                    enable_indexer: true,
+                    gc_retention_epochs: None,
+                },
                 client: Client {
                     healthcheck_address,
                     rpc_address: rpc_listener.local_addr().unwrap(),
@@ -133,7 +138,7 @@ mod test {
         assert!(text.contains("[+] sync complete"));
         assert!(text.contains("[+] epoch up to date"));
         assert!(text.contains("[+] rpc server running"));
-        assert!(text.contains("[+] eth mapping up to date"));
+        assert!(text.contains("[+] eth mappings up to date"));
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
@@ -151,7 +156,7 @@ mod test {
         assert!(text.contains("[!] sync incomplete"));
         assert!(text.contains("[!] epoch outdated"));
         assert!(text.contains("[!] rpc server not running"));
-        assert!(text.contains("[+] eth mapping up to date"));
+        assert!(text.contains("[+] eth mappings up to date"));
     }
 
     #[tokio::test]

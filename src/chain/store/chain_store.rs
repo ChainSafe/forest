@@ -162,8 +162,6 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.put_tipset_key(expanded.key())?;
-
         self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
@@ -172,20 +170,6 @@ where
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
         let hash = tsk.cid()?.into();
         self.eth_mappings.write_obj(&hash, tsk)?;
-        Ok(())
-    }
-
-    /// Writes the delegated message `Cid`s to the blockstore for `EthAPI` queries.
-    pub fn put_delegated_message_hashes<'a>(
-        &self,
-        headers: impl Iterator<Item = &'a CachingBlockHeader>,
-    ) -> Result<(), Error> {
-        tracing::debug!("persist eth mapping");
-
-        // The messages will be ordered from most recent block to less recent
-        let delegated_messages = self.headers_delegated_messages(headers)?;
-
-        self.process_signed_messages(&delegated_messages)?;
         Ok(())
     }
 

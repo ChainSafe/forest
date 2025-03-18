@@ -482,9 +482,6 @@ async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
         crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
     }
 
-    // This is needed for the Ethereum mapping
-    chain_store.put_tipset_key(tipset.key())?;
-
     Ok(tipset)
 }
 
@@ -510,8 +507,6 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
             crate::chain::persist_objects(&chain_store.db, block.bls_messages.iter())?;
             crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
         }
-        // This is needed for the Ethereum mapping
-        chain_store.put_tipset_key(tipset.key())?;
     }
 
     Ok(tipsets)
@@ -841,12 +836,7 @@ impl SyncTask {
                 match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
                     .await
                 {
-                    Ok(()) => {
-                        let _ = cs.put_delegated_message_hashes(
-                            tipset.blocks().iter().map(|b| b.header()),
-                        );
-                        Some(SyncEvent::ValidatedTipset(tipset))
-                    }
+                    Ok(()) => Some(SyncEvent::ValidatedTipset(tipset)),
                     Err(e) => {
                         warn!("Error validating tipset: {}", e);
                         Some(SyncEvent::BadTipset(tipset, e.to_string()))
