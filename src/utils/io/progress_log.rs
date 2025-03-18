@@ -38,13 +38,13 @@
 
 use human_bytes::human_bytes;
 use humantime::format_duration;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use educe::Educe;
 use pin_project_lite::pin_project;
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 
