@@ -32,7 +32,7 @@ use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::Mutex;
 use tokio::{sync::Notify, task::JoinSet};
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::tipset_syncer::validate_tipset;
 use crate::chain_sync::SyncState;
@@ -610,9 +610,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn is_ready_for_validation(&self, tipset: &FullTipset) -> bool {
-        if self.stateless_mode {
-            true
-        } else if tipset.key() == self.cs.genesis_tipset().key() {
+        if self.stateless_mode || tipset.key() == self.cs.genesis_tipset().key() {
             true
         } else if let Ok(full_tipset) = load_full_tipset(&self.cs, tipset.parents().clone()) {
             self.is_validated(&full_tipset)
@@ -733,20 +731,19 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         assert!(self.is_validated(&tipset), "Tipset must be validated");
         self.tipsets.remove(tipset.key());
         let tipset = tipset.deref().clone().into_tipset();
+        // cs.put_tipset requires state and doesn't work in stateless mode
         if self.stateless_mode {
             let heaviest = self.cs.heaviest_tipset();
             let epoch = tipset.epoch();
             if heaviest.weight() < tipset.weight() {
                 if let Err(e) = self.cs.set_heaviest_tipset(Arc::new(tipset)) {
-                    info!("Error setting heaviest tipset: {}", e);
+                    error!("Error setting heaviest tipset: {}", e);
                 } else {
                     info!("Heaviest tipset: {}", epoch);
                 }
             }
-        } else {
-            if let Err(e) = self.cs.put_tipset(&tipset) {
-                info!("Error putting tipset: {}", e);
-            }
+        } else if let Err(e) = self.cs.put_tipset(&tipset) {
+            error!("Error putting tipset: {}", e);
         }
     }
 
