@@ -251,7 +251,12 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     sync_states_guard.truncate(std::num::NonZeroUsize::new(1).unwrap());
                     let first = sync_states_guard.first_mut();
                     first.set_epoch(heaviest.epoch());
-                    first.set_target(state_machine.lock().heaviest_tipset());
+                    first.set_target(Some(
+                        state_machine
+                            .lock()
+                            .heaviest_tipset()
+                            .unwrap_or(heaviest.clone()),
+                    ));
                     let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
                     let time_diff =
                         (Utc::now().timestamp() as u64).saturating_sub(heaviest.min_timestamp());
