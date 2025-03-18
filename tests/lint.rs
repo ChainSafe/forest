@@ -279,7 +279,7 @@ where
 {
     type Storage = String;
 
-    fn fetch(&mut self, id: &Id) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
+    fn fetch(&mut self, id: &Id) -> Result<&Source<Self::Storage>, impl std::fmt::Debug> {
         fn id_not_found_error(id: impl AsRef<str>) -> Box<dyn std::fmt::Debug> {
             Box::new(format!("{} not in cache", id.as_ref()))
         }
@@ -290,7 +290,7 @@ where
             .ok_or_else(|| id_not_found_error(id))
     }
 
-    fn display<'a>(&self, id: &'a Id) -> Option<Box<dyn std::fmt::Display + 'a>> {
+    fn display<'a>(&self, id: &'a Id) -> Option<impl std::fmt::Display + 'a> {
         Some(Box::new(id.as_ref()))
     }
 }

@@ -137,6 +137,7 @@ async fn ctx(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Arc::new(RwLock::new(Default::default())),
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))

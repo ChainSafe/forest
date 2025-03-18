@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task (disabled by default). It can be configured in the `[chain_indexer]` section or via the `FOREST_CHAIN_INDEXER_ENABLED` environment variable. The `client.eth_mapping_ttl` option has been moved to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
+
 ### Added
 
 - [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
@@ -104,6 +106,8 @@ Non-mandatory release without network upgrades. It includes a number of potentia
 - [#5346](https://github.com/ChainSafe/forest/pull/5346) `Filecoin.EthGetBlockReceipts` and `Filecoin.EthGetBlockReceiptsLimited` now accepts predefined block parameters on top of the block hash, e.g., `latest`, `earliest`, `pending`.
 
 - [#5324](https://github.com/ChainSafe/forest/pull/5324) Add shell completion subcommand in `forest-tool`
+
+- [#5368](https://github.com/ChainSafe/forest/pull/5368) Add `Forest.SyncSnapshotProgress` RPC and track the progress in `forest-cli sync status`
 
 ### Changed
 
