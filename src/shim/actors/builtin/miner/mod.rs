@@ -1182,10 +1182,10 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: from_token_v4_to_v2(&info.initial_pledge),
-            expected_day_reward: from_token_v4_to_v2(&info.expected_day_reward),
-            expected_storage_pledge: from_token_v4_to_v2(&info.expected_storage_pledge),
+            expected_day_reward: from_opt_token_v4_to_v2(&info.expected_day_reward),
+            expected_storage_pledge: from_opt_token_v4_to_v2(&info.expected_storage_pledge),
             replaced_sector_age: ChainEpoch::default(),
-            replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
+            replaced_day_reward: from_opt_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
         }
