@@ -641,20 +641,9 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         let time_diff = epoch_diff * (self.chain_config.block_delay_secs as i64);
 
         if time_diff > SECONDS_IN_DAY {
-            // info!(
-            //     "Add tipset: Ignoring old tipset. epoch: {}, heaviest: {}, diff: {}s",
-            //     tipset.epoch(),
-            //     heaviest.epoch(),
-            //     time_diff
-            // );
             self.mark_bad_tipset(tipset, "old tipset".to_string());
             return;
         }
-
-        // if self.is_validated(&tipset) {
-        //     info!("Add tipset: Already validated. epoch: {:?}", tipset.epoch());
-        //     return;
-        // }
 
         // Check if tipset already exists
         if self.tipsets.contains_key(tipset.key()) {
