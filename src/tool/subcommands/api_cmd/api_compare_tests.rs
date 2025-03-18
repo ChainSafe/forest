@@ -1643,6 +1643,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         .sort_policy(SortPolicy::All),
         RpcTest::identity(EthGetFilterLogs::request((FilterID::new().unwrap(),)).unwrap())
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        RpcTest::identity(EthGetFilterChanges::request((FilterID::new().unwrap(),)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
         RpcTest::identity(
             EthTraceBlock::request((ExtBlockNumberOrHash::from_block_number(
@@ -1741,6 +1743,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             tests.push(RpcTest::identity(EthGetTransactionByHashLimited::request(
                 (tx.hash.clone(), shared_tipset.epoch()),
             )?));
+            tests.push(RpcTest::identity(
+                EthTraceTransaction::request((tx.hash.to_string(),)).unwrap(),
+            ));
             if smsg.message.from.protocol() == Protocol::Delegated
                 && smsg.message.to.protocol() == Protocol::Delegated
             {

@@ -6,7 +6,6 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
   "RUSTSEC-2024-0436", # paste is unmaintained
-  "RUSTSEC-2025-0014", # humantime is unmaintained
 ]
 
 [licenses]
