@@ -206,9 +206,18 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: info
+                .expected_day_reward
+                .unwrap_or(TokenAmount::default().into())
+                .into(),
+            expected_storage_pledge: info
+                .expected_storage_pledge
+                .unwrap_or(TokenAmount::default().into())
+                .into(),
+            replaced_day_reward: info
+                .replaced_day_reward
+                .unwrap_or(TokenAmount::default().into())
+                .into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
         }
