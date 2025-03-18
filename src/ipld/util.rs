@@ -263,11 +263,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         }
 
                         if *this.include_receipts {
-                            this.dfs.push_back(Iterate(
-                                DfsIter::from(block.message_receipts)
-                                    .filter_map(ipld_to_cid)
-                                    .collect(),
-                            ));
+                            let receipt_root = block.message_receipts;
+
+                            this.dfs.push_back(Emit(receipt_root));
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`

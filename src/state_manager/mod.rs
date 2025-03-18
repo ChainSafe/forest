@@ -1842,6 +1842,7 @@ where
 
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
+        println!("constructing receipt root {} @{}", receipt_root, epoch);
         let state_root = vm.flush()?;
 
         Ok(StateOutput {
