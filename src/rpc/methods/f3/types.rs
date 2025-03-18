@@ -11,6 +11,7 @@ use crate::{
 };
 use byteorder::ByteOrder as _;
 use cid::Cid;
+use educe::Educe;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use flate2::read::DeflateDecoder;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
@@ -21,6 +22,7 @@ use num::Zero as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_default_utils::{default_bool, default_i32};
 use serde_with::{serde_as, DisplayFromStr};
 use std::io::Read as _;
 use std::{cmp::Ordering, time::Duration};
@@ -253,13 +255,13 @@ pub struct CertificateExchangeConfig {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PubSubConfig {
-    #[serde(default)]
+    #[serde(default = "default_bool::<true>")]
     pub compression_enabled: bool,
-    #[serde(default)]
+    #[serde(default = "default_bool::<true>")]
     pub chain_compression_enabled: bool,
-    #[serde(default)]
+    #[serde(default = "default_i32::<128>")]
     pub g_message_subscription_buffer_size: i32,
-    #[serde(default)]
+    #[serde(default = "default_i32::<128>")]
     pub validated_message_buffer_size: i32,
 }
 
@@ -279,22 +281,31 @@ pub struct ChainExchangeConfig {
     pub max_timestamp_age: Duration,
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Educe)]
+#[educe(Default)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PartialMessageManagerConfig {
-    #[serde(default)]
+    #[educe(Default = 100)]
+    #[serde(default = "default_i32::<100>")]
     pub pending_discovered_chains_buffer_size: i32,
-    #[serde(default)]
+    #[educe(Default = 100)]
+    #[serde(default = "default_i32::<100>")]
     pub pending_partial_messages_buffer_size: i32,
-    #[serde(default)]
+    #[educe(Default = 100)]
+    #[serde(default = "default_i32::<100>")]
     pub pending_chain_broadcasts_buffer_size: i32,
-    #[serde(default)]
+    #[educe(Default = 10)]
+    #[serde(default = "default_i32::<10>")]
     pub pending_instance_removal_buffer_size: i32,
-    #[serde(default)]
+    #[educe(Default = 100)]
+    #[serde(default = "default_i32::<100>")]
     pub completed_messages_buffer_size: i32,
-    #[serde(default)]
+    #[educe(Default = 25000)]
+    #[serde(default = "default_i32::<25000>")]
     pub max_buffered_messages_per_instance: i32,
-    #[serde(default)]
+    #[educe(Default = 25000)]
+    #[serde(default = "default_i32::<25000>")]
     pub max_cached_validated_messages_per_instance: i32,
 }
 
@@ -1002,10 +1013,8 @@ mod tests {
         let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
         assert_eq!(
             manifest,
-            serde_json::from_str::<F3Manifest>(include_str!(
-                "contract_manifest_golden.json"
-            ))
-            .unwrap(),
+            serde_json::from_str::<F3Manifest>(include_str!("contract_manifest_golden.json"))
+                .unwrap(),
         );
     }
 }

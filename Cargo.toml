@@ -61,6 +61,7 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
+educe = { version = "0.6.0", features = ["Debug", "Default"], default-features = false }
 either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
@@ -181,6 +182,7 @@ schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
+serde_default_utils = "0.3"
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_tuple = "1"
@@ -222,7 +224,6 @@ zstd = "0.13"
 # optional dependencies
 clap_complete = "4.5.46"
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
-educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
