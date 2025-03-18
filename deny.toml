@@ -6,7 +6,6 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0370", # proc-macro-error is unmaintained
   "RUSTSEC-2024-0436", # paste is unmaintained
-  "RUSTSEC-2025-0014", # humantime is unmaintained
 ]
 
 [licenses]
@@ -18,6 +17,7 @@ allow = [
   "CC0-1.0",
   "ISC",
   "MIT",
+  "MPL-2.0",
   "Unicode-3.0",
   "Unlicense",
   "Zlib",

@@ -10,5 +10,5 @@
     "md-fmt": "prettier --write '**/*.md'",
     "md-check": "prettier --check '**/*.md'"
   },
-  "packageManager": "yarn@4.6.0"
+  "packageManager": "yarn@4.7.0"
 }
