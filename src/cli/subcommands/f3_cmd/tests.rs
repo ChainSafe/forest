@@ -85,11 +85,9 @@ fn test_manifest_template() {
 #[test]
 fn test_progress_template() {
     let lotus_json = serde_json::json!({
-      "instant": {
-        "ID": 1000,
-        "Round": 0,
-        "Phase": 0
-      }
+      "ID": 1000,
+      "Round": 0,
+      "Phase": 0
     });
     let progress: F3InstanceProgress = serde_json::from_value(lotus_json).unwrap();
     println!("{}", render_progress_template(&progress).unwrap());

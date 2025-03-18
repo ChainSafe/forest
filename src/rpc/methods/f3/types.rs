@@ -253,9 +253,13 @@ pub struct CertificateExchangeConfig {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PubSubConfig {
+    #[serde(default)]
     pub compression_enabled: bool,
+    #[serde(default)]
     pub chain_compression_enabled: bool,
+    #[serde(default)]
     pub g_message_subscription_buffer_size: i32,
+    #[serde(default)]
     pub validated_message_buffer_size: i32,
 }
 
@@ -275,15 +279,22 @@ pub struct ChainExchangeConfig {
     pub max_timestamp_age: Duration,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PartialMessageManagerConfig {
+    #[serde(default)]
     pub pending_discovered_chains_buffer_size: i32,
+    #[serde(default)]
     pub pending_partial_messages_buffer_size: i32,
+    #[serde(default)]
     pub pending_chain_broadcasts_buffer_size: i32,
+    #[serde(default)]
     pub pending_instance_removal_buffer_size: i32,
+    #[serde(default)]
     pub completed_messages_buffer_size: i32,
+    #[serde(default)]
     pub max_buffered_messages_per_instance: i32,
+    #[serde(default)]
     pub max_cached_validated_messages_per_instance: i32,
 }
 
@@ -314,6 +325,7 @@ pub struct F3Manifest {
     pub certificate_exchange: CertificateExchangeConfig,
     pub pub_sub: PubSubConfig,
     pub chain_exchange: ChainExchangeConfig,
+    #[serde(default)]
     pub partial_message_manager: PartialMessageManagerConfig,
 }
 lotus_json_with_self!(F3Manifest);
@@ -989,8 +1001,8 @@ mod tests {
         let eth_return = hex::decode(eth_return_hex).unwrap();
         let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
         assert_eq!(
-            serde_json::to_value(&manifest).unwrap(),
-            serde_json::from_str::<serde_json::Value>(include_str!(
+            manifest,
+            serde_json::from_str::<F3Manifest>(include_str!(
                 "contract_manifest_golden.json"
             ))
             .unwrap(),
