@@ -150,11 +150,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(9999999999),
             get_bundle_cid("v15.0.0-rc1")
         ),
-        make_height!(
-            Teep,
-            get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(9999999999),
-            get_bundle_cid("v16.0.0-dev1")
-        ),
+        // TODO(forest): To be re-enabled with FIP-0100 migration.
+        make_height!(Teep, i64::MAX),
     ])
 });
 
