@@ -161,10 +161,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let network = network.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
-                // XXX(lemmih): Event metrics are not related to the chain follower. Should be moved elsewhere.
                 inc_gossipsub_event_metrics(&event);
 
-                // XXX(lemmih): Keeping peer information up to date is not related to the chain follower. Should be moved elsewhere.
                 upd_peer_information(
                     &event,
                     network.clone(),
@@ -727,7 +725,6 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>) {
-        // XXX(lemmih): Should navigate to the heaviest tipset in the chain
         assert!(self.is_validated(&tipset), "Tipset must be validated");
         self.tipsets.remove(tipset.key());
         let tipset = tipset.deref().clone().into_tipset();
