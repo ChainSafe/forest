@@ -10,7 +10,9 @@
 mod types;
 mod util;
 
-pub use self::types::{F3Instant, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate};
+pub use self::types::{
+    F3InstanceProgress, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate,
+};
 use self::{types::*, util::*};
 use super::{eth::types::EthAddress, wallet::WalletSign};
 use crate::{
@@ -742,7 +744,7 @@ impl RpcMethod<0> for F3IsRunning {
 pub enum F3GetProgress {}
 
 impl F3GetProgress {
-    async fn run() -> anyhow::Result<F3Instant> {
+    async fn run() -> anyhow::Result<F3InstanceProgress> {
         let client = get_rpc_http_client()?;
         let response = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response)
@@ -756,7 +758,7 @@ impl RpcMethod<0> for F3GetProgress {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = F3Instant;
+    type Ok = F3InstanceProgress;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
