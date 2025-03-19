@@ -48,7 +48,6 @@ cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { workspace = true }
-cid_0_10 = { package = "cid", version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "3"
 crypto_secretbox = "0.1"
@@ -61,35 +60,36 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
+educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { version = "19" }
-fil_actor_cron_state = { version = "19" }
-fil_actor_datacap_state = { version = "19" }
-fil_actor_eam_state = { version = "19" }
-fil_actor_evm_state = { version = "19" }
-fil_actor_init_state = { version = "19" }
-fil_actor_market_state = { version = "19" }
-fil_actor_miner_state = { version = "19" }
-fil_actor_multisig_state = { version = "19" }
-fil_actor_power_state = { version = "19" }
-fil_actor_reward_state = { version = "19" }
-fil_actor_system_state = { version = "19" }
-fil_actor_verifreg_state = { version = "19" }
-fil_actors_shared = { version = "19", features = ["json"] }
+fil_actor_account_state = { version = "21" }
+fil_actor_cron_state = { version = "21" }
+fil_actor_datacap_state = { version = "21" }
+fil_actor_eam_state = { version = "21" }
+fil_actor_evm_state = { version = "21" }
+fil_actor_init_state = { version = "21" }
+fil_actor_market_state = { version = "21" }
+fil_actor_miner_state = { version = "21" }
+fil_actor_multisig_state = { version = "21" }
+fil_actor_power_state = { version = "21" }
+fil_actor_reward_state = { version = "21" }
+fil_actor_system_state = { version = "21" }
+fil_actor_verifreg_state = { version = "21" }
+fil_actors_shared = { version = "21", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.10", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.12", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.5.3", features = ["arb", "verify-signature"] }
+fvm3 = { package = "fvm", version = "~3.12", default-features = false }
+fvm4 = { package = "fvm", version = "~4.6", default-features = false, features = ["verify-signature"] }
 fvm_ipld_blockstore = "0.3"
 fvm_ipld_encoding = "0.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["proofs"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
@@ -175,7 +175,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
 rlp = "0.6"
-rs-car-ipfs = "0.3"
+rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
@@ -242,7 +242,7 @@ cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.5.3", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
@@ -254,7 +254,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.267"
+ra_ap_syntax = "0.0.270"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
@@ -322,4 +322,4 @@ rustdoc-args = ["--document-private-items"]
 
 [workspace]
 members = ["interop-tests"]
-resolver = "2"
+resolver = "3"

@@ -31,9 +31,10 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
-use parking_lot::Mutex;
+use lru::LruCache;
+use parking_lot::{Mutex, RwLock};
 use serde::{de::DeserializeOwned, Serialize};
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, info, trace, warn};
 
@@ -158,8 +159,6 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.put_tipset_key(expanded.key())?;
-
         self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
@@ -168,20 +167,6 @@ where
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
         let hash = tsk.cid()?.into();
         self.eth_mappings.write_obj(&hash, tsk)?;
-        Ok(())
-    }
-
-    /// Writes the delegated message `Cid`s to the blockstore for `EthAPI` queries.
-    pub fn put_delegated_message_hashes<'a>(
-        &self,
-        headers: impl Iterator<Item = &'a CachingBlockHeader>,
-    ) -> Result<(), Error> {
-        tracing::debug!("persist eth mapping");
-
-        // The messages will be ordered from most recent block to less recent
-        let delegated_messages = self.headers_delegated_messages(headers)?;
-
-        self.process_signed_messages(&delegated_messages)?;
         Ok(())
     }
 
@@ -549,7 +534,79 @@ where
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
+/// A cache structure mapping tipset keys to messages. The regular [`messages_for_tipset`], based
+/// on performance measurements, is resource-intensive and can be a bottleneck for certain
+/// use-cases. This cache is intended to be used with a complementary function;
+/// [`messages_for_tipset_with_cache`].
+pub struct MsgsInTipsetCache {
+    cache: RwLock<LruCache<TipsetKey, Vec<ChainMessage>>>,
+}
+
+impl MsgsInTipsetCache {
+    pub fn new(cap: usize) -> anyhow::Result<Self> {
+        Ok(Self {
+            cache: RwLock::new(LruCache::new(
+                NonZeroUsize::new(cap).context("cache capacity must be greater than 0")?,
+            )),
+        })
+    }
+
+    pub fn get(&self, key: &TipsetKey) -> Option<Vec<ChainMessage>> {
+        self.cache.write().get(key).cloned()
+    }
+
+    pub fn get_or_insert_with<F>(&self, key: &TipsetKey, f: F) -> anyhow::Result<Vec<ChainMessage>>
+    where
+        F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
+    {
+        if self.cache.read().contains(key) {
+            Ok(self.get(key).expect("cache entry disappeared!"))
+        } else {
+            let v = f()?;
+            self.insert(key.clone(), v.clone());
+            Ok(v)
+        }
+    }
+
+    pub fn insert(&self, key: TipsetKey, value: Vec<ChainMessage>) {
+        self.cache.write().put(key, value);
+    }
+
+    /// Reads the intended cache size for this process from the environment or uses the default.
+    fn read_cache_size() -> usize {
+        std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(100) // Arbitrary number, can be adjusted
+    }
+}
+
+impl Default for MsgsInTipsetCache {
+    fn default() -> Self {
+        Self::new(Self::read_cache_size()).expect("failed to create default cache")
+    }
+}
+
+/// Same as [`messages_for_tipset`] but uses a cache to store messages for each tipset.
+pub fn messages_for_tipset_with_cache<DB>(
+    db: Arc<DB>,
+    ts: &Tipset,
+    cache: Arc<MsgsInTipsetCache>,
+) -> Result<Vec<ChainMessage>, Error>
+where
+    DB: Blockstore,
+{
+    let key = ts.key();
+    cache
+        .get_or_insert_with(key, || {
+            messages_for_tipset(Arc::clone(&db), ts).context("failed to get messages for tipset")
+        })
+        .map_err(Into::into)
+}
+
 /// Given a tipset this function will return all unique messages in that tipset.
+/// Note: This function is resource-intensive and can be a bottleneck for certain use-cases.
+/// Consider using [`messages_for_tipset_with_cache`] for better performance.
 pub fn messages_for_tipset<DB>(db: Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
@@ -705,5 +762,38 @@ mod tests {
 
         cs.mark_block_as_validated(&cid);
         assert!(cs.is_block_validated(&cid));
+    }
+
+    #[test]
+    fn test_messages_in_tipset_cache() {
+        let cache = MsgsInTipsetCache::new(2).unwrap();
+        let key1 = TipsetKey::from(nunny::vec![Cid::new_v1(
+            DAG_CBOR,
+            MultihashCode::Blake2b256.digest(&[1])
+        )]);
+        assert!(cache.get(&key1).is_none());
+
+        let msgs = vec![ChainMessage::Unsigned(Message::default())];
+        cache.insert(key1.clone(), msgs.clone());
+        assert_eq!(msgs, cache.get(&key1).unwrap());
+
+        let inserter_executed: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        let key_inserter = || {
+            inserter_executed.store(true, std::sync::atomic::Ordering::Relaxed);
+            Ok(msgs.clone())
+        };
+
+        assert_eq!(msgs, cache.get_or_insert_with(&key1, key_inserter).unwrap());
+        assert!(!inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
+
+        let key2 = TipsetKey::from(nunny::vec![Cid::new_v1(
+            DAG_CBOR,
+            MultihashCode::Blake2b256.digest(&[2])
+        )]);
+
+        assert!(cache.get(&key2).is_none());
+        assert_eq!(msgs, cache.get_or_insert_with(&key2, key_inserter).unwrap());
+        assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
     }
 }

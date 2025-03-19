@@ -43,6 +43,8 @@ process.
 | `FOREST_F3_MANIFEST_POLL_INTERVAL`                        | string                           | empty                                          | `15m`                                                         | Set the contract manifest poll interval for F3                                                                        |
 | `FOREST_DRAND_MAINNET_CONFIG`                             | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_MAINNET` config                                                                                       |
 | `FOREST_DRAND_QUICKNET_CONFIG`                            | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_QUICKNET` config                                                                                      |
+| `FOREST_CHAIN_INDEXER_ENABLED`                            | 1 or true                        | false                                          | 1                                                             | Whether or not to index the chain to support the Ethereum RPC API                                                     |
+| `FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE`                    | positive integer                 | 100                                            | 42                                                            | The size of an internal cache of tipsets to messages                                                                  |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 

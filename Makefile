@@ -13,6 +13,9 @@ install-slim-quick:
 install-minimum:
 	cargo install --no-default-features --locked --path . --force
 
+install-lto-fat:
+	cargo install --locked --force --profile release-lto-fat --path .
+
 install-minimum-quick:
 	cargo install --profile quick --no-default-features --locked --path . --force
 

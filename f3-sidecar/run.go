@@ -65,7 +65,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	verif := blssig.VerifierWithKeyOnG1()
 	m := manifest.LocalDevnetManifest()
 	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
-	case err == nil && initialPowerTable != cid.Undef:
+	case err == nil && isCidDefined(initialPowerTable):
 		logger.Infof("InitialPowerTable is %s", initialPowerTable)
 		m.InitialPowerTable = initialPowerTable
 	default:
@@ -81,19 +81,24 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
 	m.EC.Period = blockDelay
 	m.EC.HeadLookback = 4
+	m.EC.Finality = finality
+	m.EC.Finalize = true
 	m.CatchUpAlignment = blockDelay / 2
+	m.BootstrapEpoch = bootstrapEpoch
 	m.CertificateExchange.MinimumPollInterval = blockDelay
 	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
-	m.EC.Finality = finality
-	m.BootstrapEpoch = bootstrapEpoch
-	m.CommitteeLookback = manifest.DefaultCommitteeLookback
 
-	manifestProvider, err := NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api)
-	if err != nil {
-		return err
-	}
-	if err := manifestProvider.Start(ctx); err != nil {
-		return err
+	var manifestProvider manifest.ManifestProvider
+	if err := m.Validate(); err == nil {
+		logger.Infoln("Using static manifest")
+		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
+			return err
+		}
+	} else {
+		logger.Infoln("Using contract manifest")
+		if manifestProvider, err = NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api); err != nil {
+			return err
+		}
 	}
 	f3Module, err := f3.New(ctx, manifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)

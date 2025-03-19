@@ -166,19 +166,24 @@ impl PartialOrd for F3PowerEntry {
     }
 }
 
-/// represents a particular moment in the progress of GPBFT, captured by
-/// instance ID, round and phase.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3Instant {
+pub struct F3InstanceProgress {
     #[serde(rename = "ID")]
     pub id: u64,
     pub round: u64,
     pub phase: u8,
+    #[schemars(with = "LotusJson<Vec<ECTipSet>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub input: Vec<ECTipSet>,
 }
-lotus_json_with_self!(F3Instant);
+lotus_json_with_self!(F3InstanceProgress);
 
-impl F3Instant {
+impl F3InstanceProgress {
     pub fn phase_string(&self) -> &'static str {
         match self.phase {
             0 => "INITIAL",
@@ -249,6 +254,9 @@ pub struct CertificateExchangeConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct PubSubConfig {
     pub compression_enabled: bool,
+    pub chain_compression_enabled: bool,
+    pub g_message_subscription_buffer_size: i32,
+    pub validated_message_buffer_size: i32,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -265,6 +273,18 @@ pub struct ChainExchangeConfig {
     #[schemars(with = "u64")]
     #[serde(with = "crate::lotus_json")]
     pub max_timestamp_age: Duration,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct PartialMessageManagerConfig {
+    pub pending_discovered_chains_buffer_size: i32,
+    pub pending_partial_messages_buffer_size: i32,
+    pub pending_chain_broadcasts_buffer_size: i32,
+    pub pending_instance_removal_buffer_size: i32,
+    pub completed_messages_buffer_size: i32,
+    pub max_buffered_messages_per_instance: i32,
+    pub max_cached_validated_messages_per_instance: i32,
 }
 
 #[serde_as]
@@ -294,6 +314,7 @@ pub struct F3Manifest {
     pub certificate_exchange: CertificateExchangeConfig,
     pub pub_sub: PubSubConfig,
     pub chain_exchange: ChainExchangeConfig,
+    pub partial_message_manager: PartialMessageManagerConfig,
 }
 lotus_json_with_self!(F3Manifest);
 
@@ -819,7 +840,7 @@ mod tests {
         // lotus f3 manifest --output json
         let lotus_json = serde_json::json!({
           "Pause": false,
-          "ProtocolVersion": 5,
+          "ProtocolVersion": 7,
           "InitialInstance": 0,
           "BootstrapEpoch": 2081674,
           "NetworkName": "calibrationnet",
@@ -865,7 +886,10 @@ mod tests {
             "MaximumPollInterval": 120000000000_u64
           },
           "PubSub": {
-            "CompressionEnabled": false
+            "CompressionEnabled": false,
+            "ChainCompressionEnabled": true,
+            "GMessageSubscriptionBufferSize": 128,
+            "ValidatedMessageBufferSize": 128
           },
           "ChainExchange": {
             "SubscriptionBufferSize": 32,
@@ -875,6 +899,15 @@ mod tests {
             "MaxWantedChainsPerInstance": 1000,
             "RebroadcastInterval": 2000000000_u64,
             "MaxTimestampAge": 8000000000_u64
+          },
+          "PartialMessageManager": {
+            "PendingDiscoveredChainsBufferSize": 100,
+            "PendingPartialMessagesBufferSize": 100,
+            "PendingChainBroadcastsBufferSize": 100,
+            "PendingInstanceRemovalBufferSize": 10,
+            "CompletedMessagesBufferSize": 100,
+            "MaxBufferedMessagesPerInstance": 25000,
+            "MaxCachedValidatedMessagesPerInstance": 25000
           }
         });
         let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
@@ -956,11 +989,9 @@ mod tests {
         let eth_return = hex::decode(eth_return_hex).unwrap();
         let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
         assert_eq!(
-            serde_json::to_value(&manifest).unwrap(),
-            serde_json::from_str::<serde_json::Value>(include_str!(
-                "contract_manifest_golden.json"
-            ))
-            .unwrap(),
+            manifest,
+            serde_json::from_str::<F3Manifest>(include_str!("contract_manifest_golden.json"))
+                .unwrap(),
         );
     }
 }

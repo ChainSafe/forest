@@ -1,0 +1,59 @@
+name: RPC parity tests
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  rpc-parity:
+    name: RPC parity tests
+    runs-on: ubuntu-24.04
+    steps:
+      # Remove some unnecessary software to free up space. This should free up around 15-20 GB.
+      # This is required because of the limited space on the runner,
+      # and disk space-hungry snapshots used in the setup.
+      # This is taken from:
+      # https://github.com/easimon/maximize-build-space/blob/fc881a613ad2a34aca9c9624518214ebc21dfc0c/action.yml#L121-L136
+      # Using the action directly is not feasible as it does some more modifications that break the setup in our case.
+      - name: Remove unnecessary software
+        run: |
+            echo "Disk space before cleanup"
+            df -h
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /usr/local/lib/android
+            sudo rm -rf /opt/ghc
+            sudo rm -rf /opt/hostedtoolcache/CodeQL
+            echo "Disk space after cleanup"
+            df -h
+      - uses: actions/checkout@v4
+      - name: Run api compare tests on calibnet
+        shell: bash
+        run: |
+          IMAGE=${{ github.event.inputs.image }}
+          if [ -z "$IMAGE" ]; then
+            IMAGE="ghcr.io/chainsafe/forest:edge-fat"
+          fi
+          echo "FROM $IMAGE" > Dockerfile-RPC
+          export FOREST_DOCKERFILE_OVERRIDE=Dockerfile-RPC
+          ./scripts/tests/api_compare/setup.sh
+        timeout-minutes: 30
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Dump Docker usage
+        if: always()
+        run: |
+          docker system df
+          docker system df --verbose
+          df -h
+      - name: Set WORKFLOW_URL
+        if: always()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo ${WORKFLOW_URL}
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+      - uses: JasonEtco/create-an-issue@v2
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/RPC_PARITY_ISSUE_TEMPLATE.md

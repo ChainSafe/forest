@@ -31,6 +31,7 @@ pub async fn run_test_with_dump(
     test_dump: &TestDump,
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain: &NetworkChain,
+    allow_response_mismatch: bool,
 ) -> anyhow::Result<()> {
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
@@ -45,7 +46,8 @@ pub async fn run_test_with_dump(
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params).await?;
                 anyhow::ensure!(
-                    test_dump.forest_response == Ok(result.into_lotus_json_value()?),
+                    allow_response_mismatch
+                        || test_dump.forest_response == Ok(result.into_lotus_json_value()?),
                     "Response mismatch between Forest and Lotus"
                 );
                 run = true;
@@ -128,6 +130,7 @@ async fn ctx(
         )?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
+        msgs_in_tipset: Default::default(),
         sync_state: Arc::new(RwLock::new(Default::default())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
@@ -135,6 +138,7 @@ async fn ctx(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Arc::new(RwLock::new(Default::default())),
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))

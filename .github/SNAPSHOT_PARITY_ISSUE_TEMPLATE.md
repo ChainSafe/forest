@@ -5,4 +5,4 @@ labels: ["Bug"]
 
 ## Description
 
-Latest snapshot parity test failed. Please [check the logs](https://github.com/ChainSafe/forest/actions/workflows/snapshot-parity.yml) for more information.
+Latest snapshot parity test failed. Please [check the logs]({{ env.WORKFLOW_URL }}) for more information.

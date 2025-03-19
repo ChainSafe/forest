@@ -155,6 +155,7 @@ async fn ctx(
         )?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
+        msgs_in_tipset: Default::default(),
         sync_state: Arc::new(RwLock::new(Default::default())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
@@ -162,6 +163,7 @@ async fn ctx(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Arc::new(RwLock::new(Default::default())),
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
@@ -171,6 +173,7 @@ async fn ctx(
 mod tests {
     use super::*;
     use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+    use ahash::HashSet;
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
@@ -214,10 +217,66 @@ mod tests {
             }
         }));
 
+        // We need to set RNG seed so that tests are run with deterministic
+        // output. The snapshots should be generated with a node running with the same seed, if
+        // they are testing methods that are not deterministic, e.g.,
+        // `[`crate::rpc::methods::gas::estimate_gas_premium`]`.
+        std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666");
         while let Some((filename, file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
             run_test_from_snapshot(&file_path).await.unwrap();
             println!("  succeeded.");
         }
+    }
+
+    #[test]
+    fn rpc_regression_tests_print_uncovered() {
+        let pattern = lazy_regex::regex!(r#"^(?P<name>filecoin_.+)_\d+\.rpcsnap\.json\.zst$"#);
+        let covered = HashSet::from_iter(
+            include_str!("test_snapshots.txt")
+                .trim()
+                .split("\n")
+                .map(|i| {
+                    let captures = pattern.captures(i).expect("pattern capture failure");
+                    captures
+                        .name("name")
+                        .expect("no named capture group")
+                        .as_str()
+                        .replace("_", ".")
+                        .to_lowercase()
+                }),
+        );
+        let ignored = HashSet::from_iter(
+            include_str!("test_snapshots_ignored.txt")
+                .trim()
+                .split("\n")
+                .map(str::to_lowercase),
+        );
+
+        let mut uncovered = vec![];
+
+        macro_rules! print_uncovered {
+            ($ty:ty) => {
+                let name = <$ty>::NAME.to_lowercase();
+                if !covered.contains(&name) && !ignored.contains(&name) {
+                    uncovered.push(<$ty>::NAME);
+                }
+            };
+        }
+
+        crate::for_each_rpc_method!(print_uncovered);
+
+        if !uncovered.is_empty() {
+            uncovered.sort();
+            println!("Uncovered RPC methods:");
+            for i in uncovered.iter() {
+                println!("{i}");
+            }
+        }
+
+        assert!(
+            uncovered.is_empty(),
+            "either ignore or upload test snapshots for uncovered RPC methods"
+        );
     }
 }

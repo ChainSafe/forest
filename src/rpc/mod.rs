@@ -92,6 +92,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthGetCode);
         $callback!($crate::rpc::eth::EthGetLogs);
         $callback!($crate::rpc::eth::EthGetFilterLogs);
+        $callback!($crate::rpc::eth::EthGetFilterChanges);
         $callback!($crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!($crate::rpc::eth::EthGetStorageAt);
         $callback!($crate::rpc::eth::EthGetTransactionByHash);
@@ -110,6 +111,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthUninstallFilter);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
+        $callback!($crate::rpc::eth::EthTraceTransaction);
         $callback!($crate::rpc::eth::EthTraceReplayBlockTransactions);
         $callback!($crate::rpc::eth::Web3ClientVersion);
         $callback!($crate::rpc::eth::EthSendRawTransaction);
@@ -230,6 +232,7 @@ macro_rules! for_each_rpc_method {
         // sync vertical
         $callback!($crate::rpc::sync::SyncCheckBad);
         $callback!($crate::rpc::sync::SyncMarkBad);
+        $callback!($crate::rpc::sync::SyncSnapshotProgress);
         $callback!($crate::rpc::sync::SyncState);
         $callback!($crate::rpc::sync::SyncSubmitBlock);
 
@@ -380,6 +383,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 
+use crate::rpc::sync::SnapshotProgressState;
 use openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
@@ -402,12 +406,14 @@ pub struct RPCState<DB> {
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
+    pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
     pub network_name: String,
     pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
+    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
     pub shutdown: mpsc::Sender<()>,
 }
 
@@ -438,6 +444,10 @@ impl<DB: Blockstore> RPCState<DB> {
 
     pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
         self.sync_network_context.network_send()
+    }
+
+    pub fn get_snapshot_progress_tracker(&self) -> SnapshotProgressState {
+        self.snapshot_progress_tracker.read().clone()
     }
 }
 
