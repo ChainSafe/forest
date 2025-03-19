@@ -2589,5 +2589,97 @@
       ],
       "actor_list_cid": "bafy2bzaceakdqsy5u3lptqnqag44sgrgazi6l2u6ukdxopcpdprtsnet5mobk"
     }
+  },
+  {
+    "network": {
+      "type": "mainnet"
+    },
+    "version": "v16.0.0-rc3",
+    "bundle_cid": "bafy2bzaceaj3s3rrfbibikplap264uw74qor5yl35mqwokv4lwst4plpwry36",
+    "manifest": {
+      "actors": [
+        [
+          "system",
+          1,
+          "bafk2bzacec2peekriytrgir2hywednfqm7knrzqo4iipdn2cumowaelyjroqe"
+        ],
+        [
+          "init",
+          2,
+          "bafk2bzacebk4pn7s7cl5ljp3pjfyewgzchybh5khgs66fvk4sjk5z7bae5ebi"
+        ],
+        [
+          "cron",
+          3,
+          "bafk2bzacec5zieykqe2qmrlwesc2f7deez2rsiil5acjbv3u2hurmcexvvig6"
+        ],
+        [
+          "account",
+          4,
+          "bafk2bzacec5ozi2c34ekahcae7ddflen4drqlbvumxdmos4oemwejnd6fng7i"
+        ],
+        [
+          "storagepower",
+          5,
+          "bafk2bzacedguasiz7jmqgyasjyv7qki4fkedilv6jxwpllshpe67v2juy6562"
+        ],
+        [
+          "storageminer",
+          6,
+          "bafk2bzaceadh3kotsa6sgmb7hhey2k3a7x7r2cdcuoeuccvbxquncahgqv27a"
+        ],
+        [
+          "storagemarket",
+          7,
+          "bafk2bzacecak6aoz2hikbboywrzdrocdi4kg7ygpvr24mfbrizl37wvkpoh62"
+        ],
+        [
+          "paymentchannel",
+          8,
+          "bafk2bzacecze447ktzreixnwomr6f7pk4yy37aqqbg2n5gfkrtxttknxj3etc"
+        ],
+        [
+          "multisig",
+          9,
+          "bafk2bzaceag6xetwcqs6jn6gad3gnxs2mdc625z7tiitzagyzywdctbrfqwq4"
+        ],
+        [
+          "reward",
+          10,
+          "bafk2bzacebfth3o6nb6l6cncbh26tz47y35puzotb6qfekdpfzza5jq3xkktq"
+        ],
+        [
+          "verifiedregistry",
+          11,
+          "bafk2bzaceaprpkxgqzkgozro36f4nxonwqjouazvi2tjsvzixtgd7uyw3pki6"
+        ],
+        [
+          "datacap",
+          12,
+          "bafk2bzaceaelkguldxjrbdxv6wmmsniejzwbpt6ur53xyvrtkv6l5dqmm43fk"
+        ],
+        [
+          "placeholder",
+          13,
+          "bafk2bzacedfvut2myeleyq67fljcrw4kkmn5pb5dpyozovj7jpoez5irnc3ro"
+        ],
+        [
+          "evm",
+          14,
+          "bafk2bzacednixjutzxqqry6tjitf6tm7afjzcn2c7nlw7wlxe2d6rvjjzlv5k"
+        ],
+        [
+          "eam",
+          15,
+          "bafk2bzacebpa6slssjr3ph3yuosghid766ydll3istxrru5dk2patbpfzfbxo"
+        ],
+        [
+          "ethaccount",
+          16,
+          "bafk2bzacedxv3cxhoqlsq32zv3e3cy7xvi5ftg4x2feas3455uqwx5gvmp2di"
+        ]
+      ],
+      "actor_list_cid": "bafy2bzacecqfqxpmsa75qb36n4r2gnojyyih7yjr52hfrlp5sdvwenv4pxe4a"
+    }
   }
 ]
