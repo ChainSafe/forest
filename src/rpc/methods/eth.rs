@@ -3261,7 +3261,7 @@ impl RpcMethod<1> for EthTraceFilter {
                         return Ok(results);
                     } else if results.len() > trace_filter_max_results as usize {
                         return Err(anyhow::anyhow!(
-            "too many results, maximum supported is {}, try paginating requests with after and count",
+            "too many results, maximum supported is {}, try paginating requests with After and Count",
             trace_filter_max_results
             )
             .into());
