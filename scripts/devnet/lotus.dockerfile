@@ -1,5 +1,5 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
-FROM golang:1.22-bookworm AS lotus-builder
+FROM golang:1.23-bookworm AS lotus-builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
@@ -13,8 +13,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# FIP-0097 support
-RUN git clone --depth 1 https://github.com/filecoin-project/lotus.git . && git reset --hard a526c48
+RUN git clone --depth 1 https://github.com/filecoin-project/lotus.git .
 
 # https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
