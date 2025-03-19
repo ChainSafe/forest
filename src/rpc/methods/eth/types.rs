@@ -652,39 +652,30 @@ impl EthTrace {
         let (trace_to, trace_from) = match &self.action {
             TraceAction::Call(action) => (action.to.clone(), action.from.clone()),
             TraceAction::Create(action) => {
-                if let TraceResult::Create(result) = &self.result {
-                    if let Some(address) = &result.address {
-                        (Some(address.clone()), action.from.clone())
-                    } else {
-                        bail!("address is nil in create trace result");
-                    }
-                } else {
-                    bail!("invalid create trace result");
-                }
+                let address = match &self.result {
+                    TraceResult::Create(result) => result
+                        .address
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
+                    _ => bail!("invalid create trace result"),
+                };
+                (Some(address), action.from.clone())
             }
         };
 
         // Match FromAddress
         if let Some(from_addresses) = from_decoded_addresses {
-            if !from_addresses.is_empty() {
-                let from_match = from_addresses.iter().any(|addr| *addr == trace_from);
-                if !from_match {
-                    return Ok(false);
-                }
+            if !from_addresses.is_empty() && !from_addresses.iter().any(|addr| *addr == trace_from)
+            {
+                return Ok(false);
             }
         }
 
         // Match ToAddress
         if let Some(to_addresses) = to_decoded_addresses {
-            if !to_addresses.is_empty() {
-                if let Some(trace_to) = trace_to {
-                    let to_match = to_addresses.iter().any(|addr| *addr == trace_to);
-                    if !to_match {
-                        return Ok(false);
-                    }
-                } else {
-                    return Ok(false);
-                }
+            if !to_addresses.is_empty() && !trace_to.map_or(false, |to| to_addresses.contains(&to))
+            {
+                return Ok(false);
             }
         }
 

@@ -3037,7 +3037,7 @@ impl RpcMethod<1> for EthTraceFilter {
         if let Some(EthUint64(0)) = filter.count {
             return Ok(results);
         }
-        let count = filter.count.unwrap_or(EthUint64(0)).0;
+        let count = filter.count.clone().unwrap_or(EthUint64(0)).0;
         let trace_filter_max_results = env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500);
         if count > trace_filter_max_results {
             return Err(anyhow::anyhow!(
@@ -3068,14 +3068,13 @@ impl RpcMethod<1> for EthTraceFilter {
 
                     results.push(block_trace);
 
-                    if results.len() >= count as usize {
+                    if filter.count.is_some() && results.len() >= count as usize {
                         return Ok(results);
                     } else if results.len() > trace_filter_max_results as usize {
                         return Err(anyhow::anyhow!(
-            "too many results, maximum supported is {}, try paginating requests with after and count",
-            trace_filter_max_results
-            )
-            .into());
+                            "too many results, maximum supported is {}, try paginating requests with After and Count",
+                            trace_filter_max_results
+                        ).into());
                     }
                 }
             }

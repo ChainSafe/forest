@@ -1687,7 +1687,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
         RpcTest::identity(
             EthTraceFilter::request((EthTraceFilterCriteria {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
-                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                to_block: Some(format!("0x{:x}", shared_tipset.epoch() - SAFE_EPOCH_DELAY)),
                 ..Default::default()
             },))
             .unwrap(),
