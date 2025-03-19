@@ -726,13 +726,13 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         let tipset = tipset.deref().clone().into_tipset();
         // cs.put_tipset requires state and doesn't work in stateless mode
         if self.stateless_mode {
-            let heaviest = self.cs.heaviest_tipset();
             let epoch = tipset.epoch();
-            if heaviest.weight() < tipset.weight() {
+            let terse_key = tipset.key().terse();
+            if self.cs.heaviest_tipset().weight() < tipset.weight() {
                 if let Err(e) = self.cs.set_heaviest_tipset(Arc::new(tipset)) {
                     error!("Error setting heaviest tipset: {}", e);
                 } else {
-                    info!("Heaviest tipset: {}", epoch);
+                    info!("Heaviest tipset: {} ({})", epoch, terse_key);
                 }
             }
         } else if let Err(e) = self.cs.put_tipset(&tipset) {

@@ -67,6 +67,24 @@ impl TipsetKey {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Terse representation of the tipset key.
+    /// 'bafy2bzaceaqrqoasufr7gdwrbhvlfy2xmc4e5sdzekjgyha2kldxigu73gilo'
+    /// becomes 'eaq...ilo'. The 'bafy2bzac' prefix is removed.
+    pub fn terse(&self) -> String {
+        fn terse_cid(cid: Cid) -> String {
+            let s = cid::multibase::encode(
+                cid::multibase::Base::Base32Lower,
+                cid.to_bytes().as_slice(),
+            );
+            format!("{}...{}", &s[9..12], &s[s.len() - 3..])
+        }
+        self.to_cids()
+            .into_iter()
+            .map(terse_cid)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
