@@ -192,7 +192,7 @@ impl From<Height> for NetworkVersion {
             Height::Waffle => NetworkVersion::V23,
             Height::TukTuk => NetworkVersion::V24,
             Height::Teep => NetworkVersion::V25,
-            Height::Tock => NetworkVersion::V25,
+            Height::Tock => NetworkVersion::V26,
         }
     }
 }
