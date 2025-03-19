@@ -190,6 +190,20 @@ pub trait IndicesStore {
     fn exists(&self, key: &Cid) -> anyhow::Result<bool>;
 }
 
+impl<T: IndicesStore> IndicesStore for Arc<T> {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        IndicesStore::read_bin(self.as_ref(), key)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        IndicesStore::write_bin(self.as_ref(), key, value)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        IndicesStore::exists(self.as_ref(), key)
+    }
+}
+
 pub trait IndicesStoreExt {
     fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>>;
     fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()>;
