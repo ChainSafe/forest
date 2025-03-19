@@ -29,7 +29,8 @@ impl TypeMigration<DeadlineV15, DeadlineV16> for TypeMigrator {
         };
         // Sum up live power in the partitions of this deadline
         partitions.for_each(|_, p| {
-            to.live_power += &PowerPairV16::new(p.live_power.raw.clone(), p.live_power.qa.clone());
+            to.live_power.raw += &p.live_power.raw;
+            to.live_power.qa += &p.live_power.qa;
             Ok(())
         })?;
         Ok(to)
