@@ -64,20 +64,20 @@ displaydoc = "0.2"
 either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { version = "20" }
-fil_actor_cron_state = { version = "20" }
-fil_actor_datacap_state = { version = "20" }
-fil_actor_eam_state = { version = "20" }
-fil_actor_evm_state = { version = "20" }
-fil_actor_init_state = { version = "20" }
-fil_actor_market_state = { version = "20" }
-fil_actor_miner_state = { version = "20" }
-fil_actor_multisig_state = { version = "20" }
-fil_actor_power_state = { version = "20" }
-fil_actor_reward_state = { version = "20" }
-fil_actor_system_state = { version = "20" }
-fil_actor_verifreg_state = { version = "20" }
-fil_actors_shared = { version = "20", features = ["json"] }
+fil_actor_account_state = { version = "21" }
+fil_actor_cron_state = { version = "21" }
+fil_actor_datacap_state = { version = "21" }
+fil_actor_eam_state = { version = "21" }
+fil_actor_evm_state = { version = "21" }
+fil_actor_init_state = { version = "21" }
+fil_actor_market_state = { version = "21" }
+fil_actor_miner_state = { version = "21" }
+fil_actor_multisig_state = { version = "21" }
+fil_actor_power_state = { version = "21" }
+fil_actor_reward_state = { version = "21" }
+fil_actor_system_state = { version = "21" }
+fil_actor_verifreg_state = { version = "21" }
+fil_actors_shared = { version = "21", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
