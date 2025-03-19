@@ -617,21 +617,21 @@ pub struct EthTraceFilterCriteria {
     pub to_block: Option<String>,
 
     /// Actor address or a list of addresses from which transactions that generate traces should originate.
-    /// Optional, default: nil.
+    /// Optional, default: None.
     /// The JSON decoding must treat a string as equivalent to an array with one value, for example
     /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub from_address: Option<EthAddressList>,
 
     /// Actor address or a list of addresses to which transactions that generate traces are sent.
-    /// Optional, default: nil.
+    /// Optional, default: None.
     /// The JSON decoding must treat a string as equivalent to an array with one value, for example
     /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to_address: Option<EthAddressList>,
 
     /// After specifies the offset for pagination of trace results. The number of traces to skip before returning results.
-    /// Optional, default: nil.
+    /// Optional, default: None.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub after: Option<EthUint64>,
 
@@ -672,8 +672,7 @@ impl EthTrace {
 
         // Match ToAddress
         if let Some(to_addresses) = to_decoded_addresses {
-            if !to_addresses.is_empty() && !trace_to.map_or(false, |to| to_addresses.contains(&to))
-            {
+            if !to_addresses.is_empty() && !trace_to.is_some_and(|to| to_addresses.contains(&to)) {
                 return Ok(false);
             }
         }
