@@ -19,6 +19,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 use super::evm::EvmMigrator;
+use super::miner::MinerMigrator;
 use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
@@ -47,11 +48,16 @@ impl<BS: Blockstore> StateMigration<BS> {
             current_manifest.get_system(),
             system::system_migrator(new_manifest),
         );
-
         self.add_migrator(
             current_manifest.get(BuiltinActor::EVM)?,
             Arc::new(EvmMigrator {
                 new_code_cid: new_manifest.get(BuiltinActor::EVM)?,
+            }),
+        );
+        self.add_migrator(
+            current_manifest.get(BuiltinActor::Miner)?,
+            Arc::new(MinerMigrator {
+                new_code_cid: new_manifest.get(BuiltinActor::Miner)?,
             }),
         );
 
