@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::blocks::{ElectionProof, Ticket, Tipset};
+use crate::chain::ChainStore;
+use crate::chain_sync::SyncConfig;
 use crate::db::car::ManyCar;
 use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
@@ -30,6 +32,9 @@ use crate::shim::{
     message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
+use crate::state_manager::StateManager;
+use crate::tool::offline_server::server::handle_chain_config;
+use crate::tool::subcommands::api_cmd::NetworkChain;
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use cid::Cid;
@@ -47,7 +52,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
-use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
+use std::{borrow::Cow, path::Path, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use tabled::{builder::Builder, settings::Style};
 use tokio::sync::Semaphore;
 use tracing::debug;
@@ -1872,7 +1877,7 @@ fn sample_signed_messages<'a>(
         .unique()
 }
 
-pub(super) fn create_tests(
+pub(super) async fn create_tests(
     CreateTestsArgs {
         n_tipsets,
         miner_address,
@@ -1894,6 +1899,7 @@ pub(super) fn create_tests(
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        revalidate_chain(store.clone(), 40).await?;
         tests.extend(snapshot_tests(
             store,
             n_tipsets,
@@ -1903,6 +1909,38 @@ pub(super) fn create_tests(
     }
     tests.sort_by_key(|test| test.request.method_name.clone());
     Ok(tests)
+}
+
+async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
+    let chain_config = Arc::new(handle_chain_config(&NetworkChain::Calibnet)?);
+    let sync_config = Arc::new(SyncConfig::default());
+
+    let genesis: Option<&Path> = None;
+    let genesis_header = crate::genesis::read_genesis_header(
+        genesis.as_deref(),
+        chain_config.genesis_bytes(&db).await?.as_deref(),
+        &db,
+    )
+    .await?;
+    let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
+        db.clone(),
+        db.clone(),
+        db.clone(),
+        chain_config.clone(),
+        genesis_header.clone(),
+    )?);
+    let state_manager = Arc::new(StateManager::new(
+        chain_store.clone(),
+        chain_config,
+        sync_config,
+    )?);
+    let head_ts = Arc::new(db.heaviest_tipset()?);
+    if n_ts_to_validate > 0 {
+        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
+    }
+
+    Ok(())
 }
 
 pub(super) fn create_tests_pass_2(
