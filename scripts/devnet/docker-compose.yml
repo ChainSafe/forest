@@ -25,6 +25,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c" ]
@@ -73,6 +74,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -115,6 +117,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -152,6 +155,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
     entrypoint: ["/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -199,6 +203,7 @@ services:
       - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - FOREST_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - FOREST_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - FOREST_TOCK_HEIGHT=${TOCK_HEIGHT}
     networks:
       - devnet
     ports:
@@ -247,6 +252,7 @@ services:
       - FOREST_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - FOREST_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - FOREST_TEEP_HEIGHT=${TEEP_HEIGHT}
+      - FOREST_TOCK_HEIGHT=${TOCK_HEIGHT}
     networks:
       - devnet
     ports:
