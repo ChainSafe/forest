@@ -44,6 +44,7 @@ process.
 | `FOREST_DRAND_MAINNET_CONFIG`                             | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_MAINNET` config                                                                                       |
 | `FOREST_DRAND_QUICKNET_CONFIG`                            | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_QUICKNET` config                                                                                      |
 | `FOREST_TRACE_FILTER_MAX_RESULT`                          | positive integer                 | 500                                            | 1000                                                          | Sets the maximum results returned per request by `trace_filter`                                                       |
+| `FOREST_CHAIN_INDEXER_ENABLED`                            | 1 or true                        | false                                          | 1                                                             | Whether or not to index the chain to support the Ethereum RPC API                                                     |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 

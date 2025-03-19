@@ -24,7 +24,9 @@ use crate::interpreter::VMTrace;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::eth::filter::{event::EventFilter, SkipEvent};
+use crate::rpc::eth::filter::{
+    event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter, SkipEvent,
+};
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::EthEventHandler;
@@ -51,6 +53,7 @@ use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use cid::Cid;
+use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use ipld_core::ipld::Ipld;
@@ -58,6 +61,7 @@ use itertools::Itertools;
 use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
 use utils::{decode_payload, lookup_eth_address};
@@ -2234,7 +2238,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, None).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, None).await
     }
 }
 
@@ -2253,16 +2257,16 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_eth_transaction_by_hash(ctx, tx_hash, Some(limit)).await
+        get_eth_transaction_by_hash(&ctx, &tx_hash, Some(limit)).await
     }
 }
 
 async fn get_eth_transaction_by_hash(
-    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-    tx_hash: EthHash,
+    ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+    tx_hash: &EthHash,
     limit: Option<ChainEpoch>,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(&tx_hash)?.unwrap_or_else(|| {
+    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2286,7 +2290,7 @@ async fn get_eth_transaction_by_hash(
             return_dec: ipld,
         };
 
-        if let Ok(tx) = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None) {
+        if let Ok(tx) = new_eth_tx_from_message_lookup(ctx, &message_lookup, None) {
             return Ok(Some(tx));
         }
     }
@@ -2731,6 +2735,36 @@ where
         .collect()
 }
 
+fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
+    events
+        .iter()
+        .map(|event| event.tipset_key.cid().map(Into::into))
+        .collect()
+}
+
+fn eth_filter_logs_from_messages<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<Vec<EthHash>> {
+    events
+        .iter()
+        .filter_map(|event| {
+            match eth_tx_hash_from_message_cid(
+                ctx.store(),
+                &event.msg_cid,
+                ctx.state_manager.chain_config().eth_chain_id,
+            ) {
+                Ok(Some(hash)) => Some(Ok(hash)),
+                Ok(None) => {
+                    tracing::warn!("Ignoring event");
+                    None
+                }
+                Err(err) => Some(Err(err)),
+            }
+        })
+        .collect()
+}
+
 fn eth_filter_logs_from_events<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
@@ -2772,6 +2806,19 @@ fn eth_filter_result_from_events<DB: Blockstore>(
     events: &[CollectedEvent],
 ) -> anyhow::Result<EthFilterResult> {
     Ok(EthFilterResult::Logs(eth_filter_logs_from_events(
+        ctx, events,
+    )?))
+}
+
+fn eth_filter_result_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Txs(eth_filter_logs_from_tipsets(events)?))
+}
+
+fn eth_filter_result_from_messages<DB: Blockstore>(
+    ctx: &Ctx<DB>,
+    events: &[CollectedEvent],
+) -> anyhow::Result<EthFilterResult> {
+    Ok(EthFilterResult::Txs(eth_filter_logs_from_messages(
         ctx, events,
     )?))
 }
@@ -2848,6 +2895,120 @@ impl RpcMethod<1> for EthGetFilterLogs {
     }
 }
 
+pub enum EthGetFilterChanges {}
+impl RpcMethod<1> for EthGetFilterChanges {
+    const NAME: &'static str = "Filecoin.EthGetFilterChanges";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterChanges");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["filterId"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Write;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns event logs which occured since the last poll");
+
+    type Params = (FilterID,);
+    type Ok = EthFilterResult;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_event_handler = ctx.eth_event_handler.clone();
+        if let Some(store) = &eth_event_handler.filter_store {
+            let filter = store.get(&filter_id)?;
+            if let Some(event_filter) = filter.as_any().downcast_ref::<EventFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .get_events_for_parsed_filter(
+                        &ctx,
+                        &event_filter.into(),
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let recent_events: Vec<CollectedEvent> = events
+                    .clone()
+                    .into_iter()
+                    .filter(|event| !event_filter.collected.contains(event))
+                    .collect();
+                let filter = Arc::new(EventFilter {
+                    id: event_filter.id.clone(),
+                    tipsets: event_filter.tipsets.clone(),
+                    addresses: event_filter.addresses.clone(),
+                    keys_with_codec: event_filter.keys_with_codec.clone(),
+                    max_results: event_filter.max_results,
+                    collected: events.clone(),
+                });
+                store.update(filter);
+                return Ok(eth_filter_result_from_events(&ctx, &recent_events)?);
+            }
+            if let Some(tipset_filter) = filter.as_any().downcast_ref::<TipSetFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .get_events_for_parsed_filter(
+                        &ctx,
+                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                            // heaviest tipset doesn't have events because its messages haven't been executed yet
+                            RangeInclusive::new(
+                                tipset_filter
+                                    .collected
+                                    .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
+                                // Use -1 to indicate that the range extends until the latest available tipset.
+                                -1,
+                            ),
+                        )),
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let new_collected = events
+                    .iter()
+                    .max_by_key(|event| event.height)
+                    .map(|e| e.height);
+                if let Some(height) = new_collected {
+                    let filter = Arc::new(TipSetFilter {
+                        id: tipset_filter.id.clone(),
+                        max_results: tipset_filter.max_results,
+                        collected: Some(height),
+                    });
+                    store.update(filter);
+                }
+                return Ok(eth_filter_result_from_tipsets(&events)?);
+            }
+            if let Some(mempool_filter) = filter.as_any().downcast_ref::<MempoolFilter>() {
+                let events = ctx
+                    .eth_event_handler
+                    .get_events_for_parsed_filter(
+                        &ctx,
+                        &ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
+                            // heaviest tipset doesn't have events because its messages haven't been executed yet
+                            RangeInclusive::new(
+                                mempool_filter
+                                    .collected
+                                    .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
+                                // Use -1 to indicate that the range extends until the latest available tipset.
+                                -1,
+                            ),
+                        )),
+                        SkipEvent::OnUnresolvedAddress,
+                    )
+                    .await?;
+                let new_collected = events
+                    .iter()
+                    .max_by_key(|event| event.height)
+                    .map(|e| e.height);
+                if let Some(height) = new_collected {
+                    let filter = Arc::new(MempoolFilter {
+                        id: mempool_filter.id.clone(),
+                        max_results: mempool_filter.max_results,
+                        collected: Some(height),
+                    });
+                    store.update(filter);
+                }
+                return Ok(eth_filter_result_from_messages(&ctx, &events)?);
+            }
+        }
+        Err(anyhow::anyhow!("method not supported").into())
+    }
+}
+
 pub enum EthTraceBlock {}
 impl RpcMethod<1> for EthTraceBlock {
     const NAME: &'static str = "Filecoin.EthTraceBlock";
@@ -2862,58 +3023,86 @@ impl RpcMethod<1> for EthTraceBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+        trace_block(ctx, block_param).await
+    }
+}
 
-        let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
-
-        let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
-
-        let cid = ts.key().cid()?;
-
-        let block_hash: EthHash = cid.into();
-
-        let mut all_traces = vec![];
-        let mut msg_idx = 0;
-        for ir in trace.into_iter() {
-            // ignore messages from system actor
-            if ir.msg.from == system::ADDRESS.into() {
-                continue;
-            }
-
-            msg_idx += 1;
-
-            let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
-
-            let tx_hash = tx_hash
-                .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
-
-            let mut env = trace::base_environment(&state, &ir.msg.from)
-                .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
-
-            if let Some(execution_trace) = ir.execution_trace {
-                trace::build_traces(&mut env, &[], execution_trace)?;
-
-                for trace in env.traces {
-                    all_traces.push(EthBlockTrace {
-                        trace: EthTrace {
-                            r#type: trace.r#type,
-                            subtraces: trace.subtraces,
-                            trace_address: trace.trace_address,
-                            action: trace.action,
-                            result: trace.result,
-                            error: trace.error,
-                        },
-
-                        block_hash: block_hash.clone(),
-                        block_number: ts.epoch(),
-                        transaction_hash: tx_hash.clone(),
-                        transaction_position: msg_idx as i64,
-                    });
-                }
+async fn trace_block<B: Blockstore + Send + Sync + 'static>(
+    ctx: Ctx<B>,
+    block_param: ExtBlockNumberOrHash,
+) -> Result<Vec<EthBlockTrace>, ServerError> {
+    let ts = tipset_by_ext_block_number_or_hash(ctx.chain_store(), block_param)?;
+    let (state_root, trace) = ctx.state_manager.execution_trace(&ts)?;
+    let state = StateTree::new_from_root(ctx.store_owned(), &state_root)?;
+    let cid = ts.key().cid()?;
+    let block_hash: EthHash = cid.into();
+    let mut all_traces = vec![];
+    let mut msg_idx = 0;
+    for ir in trace.into_iter() {
+        // ignore messages from system actor
+        if ir.msg.from == system::ADDRESS.into() {
+            continue;
+        }
+        msg_idx += 1;
+        let tx_hash = EthGetTransactionHashByCid::handle(ctx.clone(), (ir.msg_cid,)).await?;
+        let tx_hash = tx_hash
+            .with_context(|| format!("cannot find transaction hash for cid {}", ir.msg_cid))?;
+        let mut env = trace::base_environment(&state, &ir.msg.from)
+            .map_err(|e| format!("when processing message {}: {}", ir.msg_cid, e))?;
+        if let Some(execution_trace) = ir.execution_trace {
+            trace::build_traces(&mut env, &[], execution_trace)?;
+            for trace in env.traces {
+                all_traces.push(EthBlockTrace {
+                    trace: EthTrace {
+                        r#type: trace.r#type,
+                        subtraces: trace.subtraces,
+                        trace_address: trace.trace_address,
+                        action: trace.action,
+                        result: trace.result,
+                        error: trace.error,
+                    },
+                    block_hash: block_hash.clone(),
+                    block_number: ts.epoch(),
+                    transaction_hash: tx_hash.clone(),
+                    transaction_position: msg_idx as i64,
+                });
             }
         }
+    }
+    Ok(all_traces)
+}
 
-        Ok(all_traces)
+pub enum EthTraceTransaction {}
+impl RpcMethod<1> for EthTraceTransaction {
+    const NAME: &'static str = "Filecoin.EthTraceTransaction";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for a specific transaction.");
+
+    type Params = (String,);
+    type Ok = Vec<EthBlockTrace>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let eth_hash = EthHash::from_str(&tx_hash)?;
+        let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None)
+            .await?
+            .ok_or(ServerError::internal_error("transaction not found", None))?;
+
+        let traces = trace_block(
+            ctx,
+            ExtBlockNumberOrHash::from_block_number(eth_txn.block_number.0 as i64),
+        )
+        .await?
+        .into_iter()
+        .filter(|trace| trace.transaction_hash == eth_hash)
+        .collect();
+        Ok(traces)
     }
 }
 

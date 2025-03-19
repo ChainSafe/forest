@@ -3,6 +3,13 @@
 
 use rand::{CryptoRng, Rng, RngCore, SeedableRng as _};
 
+/// A wrapper of [`uuid::Builder::from_random_bytes`] that uses [`forest_rng`] internally
+pub fn new_uuid_v4() -> uuid::Uuid {
+    let mut random_bytes = uuid::Bytes::default();
+    forest_rng().fill(&mut random_bytes);
+    uuid::Builder::from_random_bytes(random_bytes).into_uuid()
+}
+
 /// A wrapper of [`rand::thread_rng`] that can be overridden by reproducible seeded
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.

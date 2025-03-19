@@ -16,7 +16,7 @@ use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
 pub struct F3Options {
     pub chain_finality: i64,
     pub bootstrap_epoch: i64,
-    pub initial_power_table: Cid,
+    pub initial_power_table: Option<Cid>,
 }
 
 pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
@@ -37,15 +37,27 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
         .unwrap_or(chain_config.policy.chain_finality);
     // This will be used post-bootstrap to hard-code the initial F3's initial power table CID.
     // Read from an environment variable for now before the hard-coded value is determined.
-    let initial_power_table = std::env::var("FOREST_F3_INITIAL_POWER_TABLE")
-        .ok()
-        .and_then(|i| i.parse().ok())
-        .inspect(|i| {
-            tracing::info!(
-                "Using F3 initial power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE"
-            )
-        })
-        .unwrap_or(chain_config.f3_initial_power_table);
+    let initial_power_table = match std::env::var("FOREST_F3_INITIAL_POWER_TABLE") {
+        Ok(i) if i.is_empty() => {
+            tracing::info!("F3 initial power table cid is unset by FOREST_F3_INITIAL_POWER_TABLE");
+            None
+        }
+        Ok(i) => {
+            if let Ok(cid) = i.parse() {
+                tracing::info!(
+                    "Using F3 initial power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE"
+                );
+                Some(cid)
+            } else {
+                tracing::warn!(
+                    "Invalid power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE, fallback to chain config"
+                );
+                chain_config.f3_initial_power_table
+            }
+        }
+        _ => chain_config.f3_initial_power_table,
+    };
+
     let bootstrap_epoch = std::env::var("FOREST_F3_BOOTSTRAP_EPOCH")
         .ok()
         .and_then(|i| i.parse().ok())
@@ -136,9 +148,21 @@ mod tests {
             F3Options {
                 chain_finality: 100,
                 bootstrap_epoch: 100,
-                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
-                    .parse()
-                    .unwrap(),
+                initial_power_table: Some(
+                    "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
+                        .parse()
+                        .unwrap()
+                ),
+            }
+        );
+        // Unset initial power table
+        std::env::set_var("FOREST_F3_INITIAL_POWER_TABLE", "");
+        assert_eq!(
+            get_f3_sidecar_params(&chain_config),
+            F3Options {
+                chain_finality: 100,
+                bootstrap_epoch: 100,
+                initial_power_table: None,
             }
         );
     }
