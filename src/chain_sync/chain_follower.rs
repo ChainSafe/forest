@@ -79,7 +79,7 @@ pub struct ChainFollower<DB> {
     /// When `stateless_mode` is true, forest connects to the P2P network but
     /// does not execute any state transitions. This drastically reduces the
     /// memory and disk footprint of Forest but also means that Forest will not
-    /// be able to validate any tipsets.
+    /// be able to validate the correctness of the chain.
     stateless_mode: bool,
 
     /// Message pool
