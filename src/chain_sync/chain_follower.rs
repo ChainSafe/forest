@@ -77,7 +77,9 @@ pub struct ChainFollower<DB> {
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
 
     /// When `stateless_mode` is true, forest connects to the P2P network but
-    /// does not sync to HEAD.
+    /// does not execute any state transitions. This drastically reduces the
+    /// memory and disk footprint of Forest but also means that Forest will not
+    /// be able to validate any tipsets.
     stateless_mode: bool,
 
     /// Message pool
