@@ -10,6 +10,7 @@ use crate::cli_shared::{car_db_path, chain_path, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
+use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::interpreter::VMEvent;
 use crate::interpreter::VMTrace;
@@ -49,16 +50,17 @@ impl IndexCommands {
             } => {
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
-                let dir = db_root(&chain_path(&config))?;
-                println!("Database path: {}", dir.display());
+                let chain_data_path = chain_path(&config);
+                let db_root_dir = db_root(&chain_data_path)?;
+                println!("Database path: {}", db_root_dir.display());
                 println!("From epoch:    {}", from);
                 println!("To epoch:      {}", to);
 
-                let car_db_path = car_db_path(&config)?;
-                let db_writer = Arc::new(open_db(car_db_path.clone(), config.db_config().clone())?);
+                let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
                 let db = Arc::new(ManyCar::new(db_writer.clone()));
+                let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
 
-                load_all_forest_cars(&db, &car_db_path)?;
+                load_all_forest_cars(&db, &forest_car_db_dir)?;
                 let head_ts = db.heaviest_tipset()?;
 
                 let chain_config = Arc::new(handle_chain_config(&config.chain)?);
