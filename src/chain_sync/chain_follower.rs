@@ -165,7 +165,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
 
-                upd_peer_information(
+                update_peer_info(
                     &event,
                     network.clone(),
                     state_manager.chain_store().clone(),
@@ -340,6 +340,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                     state_manager.chain_config().block_delay_secs,
                 );
 
+                // Only print 'Catching up to HEAD' if we're more than 10 epochs
+                // behind. Otherwise it can be too spammy.
                 match (expected_head as i64 - heaviest_epoch > 10, to_download > 0) {
                     (true, true) => info!(
                         "Catching up to HEAD: {} -> {}, downloading {} tipsets",
@@ -393,7 +395,7 @@ fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
 }
 
 // Keep our peer manager up to date.
-fn upd_peer_information<DB: Blockstore + Sync + Send + 'static>(
+fn update_peer_info<DB: Blockstore + Sync + Send + 'static>(
     event: &NetworkEvent,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -649,7 +651,6 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
         // Check if tipset already exists
         if self.tipsets.contains_key(tipset.key()) {
-            // info!("Add tipset: Already in map. epoch: {:?}", tipset.epoch());
             return;
         }
 
@@ -933,13 +934,10 @@ mod tests {
             state_machine.update(SyncEvent::NewFullTipsets(vec![Arc::new(full_tipset)]));
         }
 
-        // dbg!(state_machine.chains());
-
         // Record validation order by processing all validation tasks in each iteration
         let mut validation_tasks = Vec::new();
         loop {
             let (tasks, _states) = state_machine.tasks();
-            // dbg!(&tasks);
 
             // Find all validation tasks
             let validation_tipsets: Vec<_> = tasks
