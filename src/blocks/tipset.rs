@@ -69,8 +69,8 @@ impl TipsetKey {
     }
 
     /// Terse representation of the tipset key.
-    /// 'bafy2bzaceaqrqoasufr7gdwrbhvlfy2xmc4e5sdzekjgyha2kldxigu73gilo'
-    /// becomes 'eaq...ilo'. The 'bafy2bzac' prefix is removed.
+    /// `bafy2bzaceaqrqoasufr7gdwrbhvlfy2xmc4e5sdzekjgyha2kldxigu73gilo`
+    /// becomes `eaq...ilo`. The `bafy2bzac` prefix is removed.
     pub fn terse(&self) -> String {
         fn terse_cid(cid: Cid) -> String {
             let s = cid::multibase::encode(
