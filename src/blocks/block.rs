@@ -14,11 +14,17 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 
 /// A complete Filecoin block. This contains the block header as well as all BLS
 /// and SECP messages.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub header: CachingBlockHeader,
     pub bls_messages: Vec<Message>,
     pub secp_messages: Vec<SignedMessage>,
+}
+
+impl std::hash::Hash for Block {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(self.cid(), state)
+    }
 }
 
 impl Block {

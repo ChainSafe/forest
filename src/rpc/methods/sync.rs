@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nunny::{vec as nonempty, Vec as NonEmpty};
+use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -86,7 +86,7 @@ impl RpcMethod<0> for SyncState {
     type Ok = RPCSyncState;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
+        let active_syncs = ctx.sync_states.as_ref().read().clone();
         Ok(RPCSyncState { active_syncs })
     }
 }
@@ -108,7 +108,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_state.read().stage(), SyncStage::Complete) {
+        if !matches!(ctx.sync_states.read().first().stage(), SyncStage::Complete) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let encoded_message = to_vec(&block_msg)?;
@@ -133,7 +133,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
             .context("failed to validate the tipset")?;
 
         ctx.tipset_send
-            .try_send(Arc::new(ts.into_tipset()))
+            .try_send(Arc::new(ts))
             .context("tipset queue is full")?;
 
         ctx.network_send().send(NetworkMessage::PubsubMessage {
@@ -162,7 +162,7 @@ mod tests {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::network_context::SyncNetworkContext;
-    use crate::chain_sync::{SyncConfig, SyncStage};
+    use crate::chain_sync::SyncStage;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::{NetworkMessage, PeerManager};
@@ -184,7 +184,6 @@ mod tests {
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
-        let sync_config = Arc::new(SyncConfig::default());
 
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
@@ -203,8 +202,7 @@ mod tests {
             .unwrap(),
         );
 
-        let state_manager =
-            Arc::new(StateManager::new(cs_arc.clone(), chain_config, sync_config).unwrap());
+        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let mpool_network_send = network_send.clone();
@@ -246,7 +244,7 @@ mod tests {
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             msgs_in_tipset: Default::default(),
-            sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+            sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),
@@ -280,17 +278,17 @@ mod tests {
     async fn sync_state_test() {
         let (ctx, _) = ctx();
 
-        let st_copy = ctx.sync_state.clone();
+        let st_copy = ctx.sync_states.clone();
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
-        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
+        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
 
         // update cloned state
-        st_copy.write().set_stage(SyncStage::Messages);
-        st_copy.write().set_epoch(4);
+        st_copy.write().first_mut().set_stage(SyncStage::Messages);
+        st_copy.write().first_mut().set_epoch(4);
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
 
-        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
+        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
     }
 }
