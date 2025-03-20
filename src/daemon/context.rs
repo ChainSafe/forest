@@ -270,7 +270,6 @@ async fn create_state_manager(
     let state_manager = Arc::new(StateManager::new(
         Arc::clone(&chain_store),
         Arc::clone(chain_config),
-        Arc::new(config.sync.clone()),
     )?);
 
     Ok(state_manager)
