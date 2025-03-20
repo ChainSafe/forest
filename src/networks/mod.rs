@@ -19,6 +19,7 @@ use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
+use crate::shim::econ::TokenAmount;
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
@@ -46,6 +47,8 @@ const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
 const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 const DEFAULT_F3_CONTRACT_POLL_INTERVAL: Duration = Duration::from_secs(15 * 60);
+
+static INITIAL_FIL_RESERVED: Lazy<TokenAmount> = Lazy::new(|| TokenAmount::from_whole(300_000_000));
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -235,6 +238,8 @@ pub struct ChainConfig {
     pub breeze_gas_tamping_duration: i64,
     // FIP0081 gradually comes into effect over this many epochs.
     pub fip0081_ramp_duration_epochs: u64,
+    // See FIP-0100 and https://github.com/filecoin-project/lotus/pull/12938 for why this exists
+    pub upgrade_teep_initial_fil_reserved: Option<TokenAmount>,
     pub f3_enabled: bool,
     // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
@@ -264,6 +269,7 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
+            upgrade_teep_initial_fil_reserved: None,
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
@@ -294,6 +300,8 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // 3 days on calibnet
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
+            // FIP-0100: 300M -> 1.2B FIL
+            upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_200_000_000)),
             // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
             // (state tree of epoch 2_081_674 - 900 has to be present in the database if `f3_initial_power_table` is not set)
             f3_enabled: true,
@@ -325,6 +333,8 @@ impl ChainConfig {
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
             // Devnet ramp is 200 epochs in Lotus (subject to change).
             fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
+            // FIP-0100: 300M -> 1.4B FIL
+            upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_400_000_000)),
             f3_enabled: false,
             f3_consensus: false,
             f3_bootstrap_epoch: -1,
@@ -355,6 +365,8 @@ impl ChainConfig {
                 ENV_PLEDGE_RULE_RAMP,
                 365 * EPOCHS_IN_DAY as u64,
             ),
+            // FIP-0100: 300M -> 1.6B FIL
+            upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_600_000_000)),
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
@@ -452,6 +464,18 @@ impl ChainConfig {
 
     pub fn genesis_network_version(&self) -> NetworkVersion {
         self.genesis_network
+    }
+
+    pub fn initial_fil_reserved(&self, network_version: NetworkVersion) -> &TokenAmount {
+        match &self.upgrade_teep_initial_fil_reserved {
+            Some(fil) if network_version >= NetworkVersion::V25 => fil,
+            _ => &INITIAL_FIL_RESERVED,
+        }
+    }
+
+    pub fn initial_fil_reserved_at_height(&self, height: i64) -> &TokenAmount {
+        let network_version = self.network_version(height);
+        self.initial_fil_reserved(network_version)
     }
 
     #[allow(dead_code)]
