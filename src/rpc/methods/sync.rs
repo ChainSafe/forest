@@ -243,6 +243,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
+            msgs_in_tipset: Default::default(),
             sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,

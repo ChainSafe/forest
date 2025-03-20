@@ -17,6 +17,7 @@ jobs:
         if: always()
         uses: jwalton/gh-docker-logs@v2
       - name: Set WORKFLOW_URL
+        if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo ${WORKFLOW_URL}

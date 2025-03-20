@@ -47,8 +47,7 @@ pub async fn download_ipfs_file_trustlessly(
             .await?
             .compat();
         let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-        let cid_v10 = crate::utils::cid::cid_11_to_10(cid);
-        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(&cid_v10))
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
             .await?;
         writer.flush().await?;
         writer.close().await?;

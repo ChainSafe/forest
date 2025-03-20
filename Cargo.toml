@@ -48,7 +48,6 @@ cfg-if = "1"
 cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { workspace = true }
-cid_0_10 = { package = "cid", version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "3"
 crypto_secretbox = "0.1"
@@ -61,6 +60,7 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
+educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 either = "1"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
@@ -175,7 +175,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
 rlp = "0.6"
-rs-car-ipfs = "0.3"
+rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
@@ -222,7 +222,6 @@ zstd = "0.13"
 # optional dependencies
 clap_complete = "4.5.46"
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
-educe = { version = "0.6.0", features = ["Debug"], default-features = false }
 mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
