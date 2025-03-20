@@ -7,7 +7,11 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
+use crate::{
+    eth::EthChainId,
+    make_height,
+    shim::{clock::EPOCHS_IN_DAY, version::NetworkVersion},
+};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -74,9 +78,12 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         // 2024-07-11 12:00:00Z
         make_height!(Waffle, 1_779_094, get_bundle_cid("v14.0.0-rc.1")),
         // 2024-10-23T13:30:00Z
-        make_height!(TukTuk, 2_078_794, get_bundle_cid("v15.0.0-rc1")),
-        // Scheduled for early 2025, TBA
-        make_height!(Teep, i64::MAX),
+        make_height!(TukTuk, 2_078_794, get_bundle_cid("v15.0.0")),
+        // 2025-03-26T23:00:00Z
+        make_height!(Teep, 2_523_454, get_bundle_cid("v16.0.0-rc3")),
+        // This epoch, 7 days after Teep is the completion of FIP-0100 where actors will start applying
+        // the new daily fee to pre-Teep sectors being extended. This is 90 days on mainnet.
+        make_height!(Tock, 2_523_454 + 7 * EPOCHS_IN_DAY),
     ])
 });
 
