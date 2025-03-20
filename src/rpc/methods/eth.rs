@@ -59,12 +59,16 @@ use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
+use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
 use utils::{decode_payload, lookup_eth_address};
+
+static FOREST_TRACE_FILTER_MAX_RESULT: Lazy<u64> =
+    Lazy::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -3237,12 +3241,11 @@ async fn trace_filter(
         return Ok(results);
     }
     let count = filter.count.clone().unwrap_or(EthUint64(0)).0;
-    let trace_filter_max_results = env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500);
     ensure!(
-        count <= trace_filter_max_results,
+        count <= *FOREST_TRACE_FILTER_MAX_RESULT,
         "invalid response count, requested {}, maximum supported is {}",
         count,
-        trace_filter_max_results
+        *FOREST_TRACE_FILTER_MAX_RESULT
     );
 
     let mut trace_counter = 0;
@@ -3268,10 +3271,10 @@ async fn trace_filter(
 
                 if filter.count.is_some() && results.len() >= count as usize {
                     return Ok(results);
-                } else if results.len() > trace_filter_max_results as usize {
+                } else if results.len() > *FOREST_TRACE_FILTER_MAX_RESULT as usize {
                     bail!(
                         "too many results, maximum supported is {}, try paginating requests with After and Count",
-                        trace_filter_max_results
+                        *FOREST_TRACE_FILTER_MAX_RESULT
                     );
                 }
             }
