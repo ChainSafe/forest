@@ -41,7 +41,6 @@ use humantime::format_duration;
 use std::time::{Duration, Instant};
 
 use educe::Educe;
-use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::io;
 use std::pin::Pin;
@@ -149,6 +148,7 @@ impl Progress {
         self.emit_log_if_required();
     }
 
+    #[cfg(test)]
     fn set(&mut self, value: u64) {
         self.completed_items = value;
 
@@ -213,27 +213,6 @@ impl Progress {
             self.last_logged = now;
             self.last_logged_items = self.completed_items;
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WithProgressRaw {
-    sync: Arc<Mutex<WithProgress<()>>>,
-}
-
-impl WithProgressRaw {
-    #[deprecated]
-    pub fn new(message: &str, _total_items: u64) -> Self {
-        WithProgressRaw {
-            sync: Arc::new(Mutex::new(WithProgress {
-                inner: (),
-                progress: Progress::new(message),
-            })),
-        }
-    }
-
-    pub fn set(&self, value: u64) {
-        self.sync.lock().progress.set(value);
     }
 }
 

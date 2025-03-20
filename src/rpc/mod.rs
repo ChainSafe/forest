@@ -369,7 +369,7 @@ pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
-use crate::blocks::Tipset;
+use crate::blocks::FullTipset;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
@@ -407,11 +407,11 @@ pub struct RPCState<DB> {
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
     pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
-    pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
+    pub sync_states: Arc<parking_lot::RwLock<nunny::Vec<crate::chain_sync::SyncState>>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
     pub network_name: String,
-    pub tipset_send: flume::Sender<Arc<Tipset>>,
+    pub tipset_send: flume::Sender<Arc<FullTipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
     pub shutdown: mpsc::Sender<()>,

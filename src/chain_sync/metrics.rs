@@ -54,65 +54,11 @@ pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
     );
     metric
 });
-pub static TIPSET_RANGE_SYNC_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "tipset_range_sync_failure_total",
-        "Total number of errors produced by TipsetRangeSyncers",
-        metric.clone(),
-    );
-    metric
-});
 pub static HEAD_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
     crate::metrics::default_registry().register(
         "head_epoch",
         "Latest epoch synchronized to the node",
-        metric.clone(),
-    );
-    metric
-});
-pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
-    let metric = Gauge::default();
-    crate::metrics::default_registry().register(
-        "last_validated_tipset_epoch",
-        "Last validated tipset epoch",
-        metric.clone(),
-    );
-    metric
-});
-pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "network_head_evaluation_errors",
-        "Total number of network head evaluation errors",
-        metric.clone(),
-    );
-    metric
-});
-pub static BOOTSTRAP_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "bootstrap_errors",
-        "Total number of bootstrap attempts failures",
-        metric.clone(),
-    );
-    metric
-});
-pub static FOLLOW_NETWORK_INTERRUPTIONS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "follow_network_interruptions",
-        "Total number of follow network interruptions, where it unexpectedly ended",
-        metric.clone(),
-    );
-    metric
-});
-pub static FOLLOW_NETWORK_ERRORS: Lazy<Counter> = Lazy::new(|| {
-    let metric = Counter::default();
-    crate::metrics::default_registry().register(
-        "follow_network_errors",
-        "Total number of follow network errors",
         metric.clone(),
     );
     metric
