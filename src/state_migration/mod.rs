@@ -49,8 +49,7 @@ where
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
                 (Height::TukTuk, nv24::run_migration::<DB>),
-                // TODO(forest): https://github.com/ChainSafe/forest/issues/5041
-                // (Height::Teep, nv25::run_migration::<DB>),
+                (Height::Teep, nv25::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -65,6 +64,7 @@ where
                 (Height::DragonFix, nv22fix::run_migration::<DB>),
                 (Height::Waffle, nv23::run_migration::<DB>),
                 (Height::TukTuk, nv24::run_migration::<DB>),
+                (Height::Teep, nv25::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
