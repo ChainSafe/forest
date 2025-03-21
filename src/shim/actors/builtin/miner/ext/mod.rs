@@ -1,12 +1,16 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod deadline;
 mod partition;
 mod state;
 
-use crate::shim::actors::{
-    miner::{DeadlineInfo, State},
-    Policy,
+use crate::shim::{
+    actors::{
+        miner::{Deadline, DeadlineInfo, State},
+        Policy,
+    },
+    econ::TokenAmount,
 };
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -47,4 +51,8 @@ pub trait PartitionExt {
     // An expiration may be an "on-time" scheduled expiration, or early "faulty" expiration.
     // Keys are quantized to last-in-deadline epochs.
     fn expirations_epochs(&self) -> Cid;
+}
+
+pub trait DeadlineExt {
+    fn daily_fee(&self) -> TokenAmount;
 }
