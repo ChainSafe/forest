@@ -3178,30 +3178,13 @@ fn get_eth_block_number_from_string<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
     block: Option<&str>,
 ) -> Result<EthUint64> {
-    let head = chain_store.heaviest_tipset();
-    let block_value = block.unwrap_or("latest");
-    match block_value {
-        "earliest" => bail!("block param \"earliest\" is not supported"),
-        "pending" => Ok(EthUint64(head.epoch() as u64)),
-        "latest" => {
-            let parent = chain_store
-                .chain_index
-                .load_required_tipset(head.parents())
-                .context("cannot get parent tipset")?;
-            Ok(EthUint64(parent.epoch() as u64))
-        }
-        "safe" => {
-            let latest_height = head.epoch() - 1;
-            let safe_height = latest_height - SAFE_EPOCH_DELAY;
-            Ok(EthUint64(safe_height as u64))
-        }
-        _ => {
-            let block_num = EthUint64(
-                hex_str_to_epoch(block_value).context("cannot parse block number")? as u64,
-            );
-            Ok(block_num)
-        }
-    }
+    let block_param = match block {
+        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
+        None => bail!("cannot parse fromBlock"),
+    };
+    Ok(EthUint64(
+        tipset_by_ext_block_number_or_hash(chain_store, block_param)?.epoch() as u64,
+    ))
 }
 
 pub enum EthTraceFilter {}
