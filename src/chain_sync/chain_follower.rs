@@ -317,8 +317,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                         _ => None,
                     })
                     .max()
-                    .unwrap_or(0)
-                    .max(0);
+                    .unwrap_or(0);
 
                 let expected_head = calculate_expected_epoch(
                     Utc::now().timestamp() as u64,
