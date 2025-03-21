@@ -309,31 +309,17 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 let (tasks_set, _) = state_machine.lock().tasks();
                 let heaviest_epoch = state_manager.chain_store().heaviest_tipset().epoch();
-                let fork_cutoff = heaviest_epoch
-                    - SECONDS_IN_DAY / (state_manager.chain_config().block_delay_secs as i64);
 
-                // Count tipsets to fetch for main chain and forks
-                let mut main_chain_epochs = Vec::new();
-                let mut fork_tipsets = 0;
-
-                for task in tasks_set.iter() {
-                    if let SyncTask::FetchTipset(_, epoch) = task {
-                        let diff = epoch - heaviest_epoch;
-                        if diff >= 0 {
-                            main_chain_epochs.push(diff);
-                        } else {
-                            // This is a fork - we'll download a fixed number of tipsets
-                            fork_tipsets = fork_tipsets.max(epoch - fork_cutoff);
-                        }
-                    }
-                }
-
-                let to_download = main_chain_epochs
+                let to_download = tasks_set
                     .iter()
+                    .filter_map(|task| match task {
+                        SyncTask::FetchTipset(_, epoch) => Some(epoch - heaviest_epoch),
+                        _ => None,
+                    })
                     .max()
-                    .copied()
-                    .unwrap_or_default()
-                    .max(fork_tipsets);
+                    .unwrap_or(0)
+                    .max(0);
+
                 let expected_head = calculate_expected_epoch(
                     Utc::now().timestamp() as u64,
                     state_manager.chain_store().genesis_block_header().timestamp,
