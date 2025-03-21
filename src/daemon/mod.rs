@@ -181,7 +181,7 @@ async fn maybe_import_snapshot(
                 path,
                 &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
-                ctx,
+                ctx.snapshot_progress_tracker.clone(),
             )
             .await?;
             ctx.db
