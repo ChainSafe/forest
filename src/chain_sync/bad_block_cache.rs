@@ -8,6 +8,8 @@ use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 
+use crate::blocks::TipsetKey;
+
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate
 /// work.
@@ -35,14 +37,20 @@ impl BadBlockCache {
     }
 
     /// Returns `Some` with the reason if the block CID is in bad block cache.
-    /// This also updates the key to the head of the cache.
-    pub fn get(&self, c: &Cid) -> Option<String> {
-        self.cache.lock().get(c).cloned()
-    }
-
-    /// Returns `Some` with the reason if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<String> {
         self.cache.lock().peek(c).cloned()
+    }
+
+    /// Returns `Some` with the reason if there are any known bad blocks in the tipset.
+    /// This function does not update the head position of the `Cid` key.
+    pub fn peek_tipset_key(&self, tipset_key: &TipsetKey) -> Option<String> {
+        let cache = self.cache.lock();
+        for block in tipset_key.iter() {
+            if let Some(reason) = cache.peek(&block) {
+                return Some(reason.clone());
+            }
+        }
+        None
     }
 }
