@@ -5,6 +5,7 @@ use crate::blocks::Tipset;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
 use crate::networks::Height;
+use crate::rpc::sync::SnapshotProgressTracker;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -28,7 +29,6 @@ use crate::rpc::eth::types::EthHash;
 #[cfg(doc)]
 use crate::blocks::TipsetKey;
 
-use crate::daemon::context::AppContext;
 #[cfg(doc)]
 use cid::Cid;
 
@@ -93,7 +93,7 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
-    ctx: &AppContext,
+    snapshot_progress_tracker: SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
 
@@ -114,12 +114,12 @@ pub async fn import_chain_as_forest_car(
                     &url,
                     &downloaded_car_temp_path,
                     DownloadFileOption::Resumable,
-                    ctx.create_snapshot_progress_tracker_callback(),
+                    snapshot_progress_tracker.create_callback(),
                 )
                 .await?;
 
                 // reset the snapshot progress tracker
-                ctx.reset_snapshot_progress_tracker();
+                snapshot_progress_tracker.reset();
             } else {
                 move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
             }
@@ -292,8 +292,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::cli_shared::cli::CliOpts;
-    use crate::{Client, Config};
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {
@@ -397,20 +395,12 @@ mod test {
         let file_path = temp_file.path();
 
         let temp_db_dir = tempfile::Builder::new().tempdir()?;
-        let cfg = Config {
-            client: Client {
-                load_actors: false,
-                encrypt_keystore: false,
-                data_dir: PathBuf::from(temp_db_dir.path()),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
+
         let (path, ts) = import_chain_as_forest_car(
             file_path,
             temp_db_dir.path(),
             import_mode,
-            &AppContext::init(&CliOpts::default(), &cfg).await.unwrap(),
+            SnapshotProgressTracker::default(),
         )
         .await?;
         match import_mode {

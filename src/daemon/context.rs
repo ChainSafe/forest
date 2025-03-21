@@ -14,7 +14,7 @@ use crate::db::{DummyStore, EthMappingsStore, CAR_DB_DIR_NAME};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
-use crate::rpc::sync::SnapshotProgressState;
+use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
 use crate::{
@@ -39,7 +39,7 @@ pub struct AppContext {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
     pub network_name: String,
-    pub snapshot_progress_tracker: Arc<parking_lot::RwLock<SnapshotProgressState>>,
+    pub snapshot_progress_tracker: SnapshotProgressTracker,
 }
 
 impl AppContext {
@@ -50,7 +50,7 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let network_name = state_manager.get_network_name_from_genesis()?;
-        let snapshot_progress_tracker = Arc::new(parking_lot::RwLock::new(Default::default()));
+        let snapshot_progress_tracker = SnapshotProgressTracker::default();
         Ok(Self {
             net_keypair,
             p2p_peer_id,
@@ -62,33 +62,6 @@ impl AppContext {
             network_name,
             snapshot_progress_tracker,
         })
-    }
-
-    /// Initializes the snapshot progress tracker and returns a callback function that updates the tracker
-    pub fn create_snapshot_progress_tracker_callback(
-        &self,
-    ) -> Option<Arc<dyn Fn(String) + Send + Sync>> {
-        let snapshot_progress_tracker = self.snapshot_progress_tracker.clone();
-
-        // Set the snapshot progress tracker to in progress state only
-        // when the callback is created (snapshot download starts)
-        {
-            let mut tracker = snapshot_progress_tracker.write();
-            *tracker = SnapshotProgressState::InProgress {
-                message: "Loading progress...".to_string(),
-            };
-        }
-
-        Some(Arc::new(move |msg: String| {
-            snapshot_progress_tracker
-                .write()
-                .set_in_progress(msg.clone());
-        }))
-    }
-
-    /// Resets the snapshot progress tracker, once the snapshot download is finished
-    pub fn reset_snapshot_progress_tracker(&self) {
-        self.snapshot_progress_tracker.write().set_completed();
     }
 }
 
