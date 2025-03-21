@@ -3,6 +3,7 @@
 
 mod types;
 use crate::shim::actors::init;
+use crate::shim::actors::miner::ext::DeadlineExt;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
@@ -781,6 +782,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
             res.push(ApiDeadline {
                 post_submissions: deadline.partitions_posted(),
                 disputable_proof_count: deadline.disputable_proof_count(ctx.store())?,
+                daily_fee: deadline.daily_fee(),
             });
             Ok(())
         })?;
