@@ -3195,6 +3195,8 @@ impl RpcMethod<1> for EthTraceFilter {
     const PARAM_NAMES: [&'static str; 1] = ["filter"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for transactions matching the filter criteria.");
     type Params = (EthTraceFilterCriteria,);
     type Ok = Vec<EthBlockTrace>;
 
