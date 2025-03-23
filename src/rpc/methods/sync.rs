@@ -251,7 +251,7 @@ mod tests {
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
-            snapshot_progress_tracker: Arc::new(parking_lot::RwLock::new(Default::default())),
+            snapshot_progress_tracker: Default::default(),
         });
         (state, network_rx)
     }

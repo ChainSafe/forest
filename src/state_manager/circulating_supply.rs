@@ -96,7 +96,7 @@ impl GenesisInfo {
         let network_version = self.chain_config.network_version(height);
         let fil_locked = get_fil_locked(&state_tree, network_version)?;
         let fil_reserve_disbursed = if height > self.chain_config.epoch(Height::Assembly) {
-            get_fil_reserve_disbursed(&state_tree)?
+            get_fil_reserve_disbursed(&self.chain_config, height, &state_tree)?
         } else {
             TokenAmount::default()
         };
@@ -294,13 +294,18 @@ fn get_fil_power_locked<DB: Blockstore>(
 }
 
 fn get_fil_reserve_disbursed<DB: Blockstore>(
+    chain_config: &ChainConfig,
+    height: ChainEpoch,
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
+    // FIP-0100 introduced a different hard-coded reserved amount for testnets.
+    // See <https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0100.md#special-handling-for-calibration-network>
+    // for details.
+    let fil_reserved = chain_config.initial_fil_reserved_at_height(height);
     let reserve_actor = get_actor_state(state_tree, &Address::RESERVE_ACTOR)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    Ok(TokenAmount::from(&*fil_reserved - &reserve_actor.balance))
+    Ok(fil_reserved - TokenAmount::from(&reserve_actor.balance))
 }
 
 fn get_fil_locked<DB: Blockstore>(
