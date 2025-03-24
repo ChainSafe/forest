@@ -59,7 +59,9 @@ pub(crate) async fn readyz(
     ready &= check_sync_state_complete(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
-    ready &= check_eth_mapping_up_to_date(&state, &mut acc);
+    if state.config.chain_indexer.enable_indexer {
+        ready &= check_eth_mappings_up_to_date(&state, &mut acc);
+    }
     ready &= check_f3_running(&state, &mut acc).await;
 
     if ready {
@@ -93,7 +95,7 @@ pub(crate) async fn healthz(
 
 fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_state.read().stage() == SyncStage::Complete {
+    if state.sync_states.read().first().stage() == SyncStage::Complete {
         acc.push_ok("sync complete");
         true
     } else {
@@ -104,7 +106,7 @@ fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) 
 
 fn check_sync_state_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_state.read().stage() != SyncStage::Error {
+    if state.sync_states.read().first().stage() != SyncStage::Error {
         acc.push_ok("sync ok");
         true
     } else {
@@ -126,7 +128,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
     ) as i64;
 
     // The current epoch of the node must be not too far behind the network
-    if state.sync_state.read().epoch() >= now_epoch - MAX_EPOCH_DIFF {
+    if state.sync_states.read().first().epoch() >= now_epoch - MAX_EPOCH_DIFF {
         acc.push_ok("epoch up to date");
         true
     } else {
@@ -162,14 +164,14 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
     }
 }
 
-fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+fn check_eth_mappings_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     match state.settings_store.eth_mapping_up_to_date() {
         Ok(Some(true)) => {
-            acc.push_ok("eth mapping up to date");
+            acc.push_ok("eth mappings up to date");
             true
         }
         Ok(None) | Ok(Some(false)) | Err(_) => {
-            acc.push_err("no eth mapping");
+            acc.push_err("no eth mappings");
             false
         }
     }

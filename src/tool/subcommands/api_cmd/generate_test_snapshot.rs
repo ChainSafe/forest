@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     blocks::TipsetKey,
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncConfig, SyncStage},
+    chain_sync::{network_context::SyncNetworkContext, SyncStage},
     daemon::db_util::load_all_forest_cars,
     db::{
         db_engine::open_db, parity_db::ParityDb, EthMappingsStore, HeaviestTipsetKeyProvider,
@@ -31,6 +31,7 @@ pub async fn run_test_with_dump(
     test_dump: &TestDump,
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain: &NetworkChain,
+    allow_response_mismatch: bool,
 ) -> anyhow::Result<()> {
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
@@ -45,7 +46,8 @@ pub async fn run_test_with_dump(
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params).await?;
                 anyhow::ensure!(
-                    test_dump.forest_response == Ok(result.into_lotus_json_value()?),
+                    allow_response_mismatch
+                        || test_dump.forest_response == Ok(result.into_lotus_json_value()?),
                     "Response mismatch between Forest and Lotus"
                 );
                 run = true;
@@ -90,7 +92,6 @@ async fn ctx(
 )> {
     let (network_send, network_rx) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
-    let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
 
@@ -106,8 +107,7 @@ async fn ctx(
         .unwrap(),
     );
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config, sync_config).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config).unwrap());
     let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
@@ -129,15 +129,21 @@ async fn ctx(
         )?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        sync_state: Arc::new(RwLock::new(Default::default())),
+        msgs_in_tipset: Default::default(),
+        sync_states: Arc::new(RwLock::new(nunny::vec![Default::default()])),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Default::default(),
     });
-    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
+    rpc_state
+        .sync_states
+        .write()
+        .first_mut()
+        .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
 

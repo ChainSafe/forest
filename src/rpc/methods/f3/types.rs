@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::utils::multihash::prelude::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
     lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson, LotusJson},
     networks::NetworkChain,
+    shim::executor::Receipt,
+    utils::multihash::prelude::*,
 };
+use byteorder::ByteOrder as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use flate2::read::DeflateDecoder;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_shared4::ActorID;
 use itertools::Itertools as _;
@@ -19,6 +22,7 @@ use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
+use std::io::Read as _;
 use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;
@@ -162,19 +166,24 @@ impl PartialOrd for F3PowerEntry {
     }
 }
 
-/// represents a particular moment in the progress of GPBFT, captured by
-/// instance ID, round and phase.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3Instant {
+pub struct F3InstanceProgress {
     #[serde(rename = "ID")]
     pub id: u64,
     pub round: u64,
     pub phase: u8,
+    #[schemars(with = "LotusJson<Vec<ECTipSet>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Vec::is_empty",
+        default
+    )]
+    pub input: Vec<ECTipSet>,
 }
-lotus_json_with_self!(F3Instant);
+lotus_json_with_self!(F3InstanceProgress);
 
-impl F3Instant {
+impl F3InstanceProgress {
     pub fn phase_string(&self) -> &'static str {
         match self.phase {
             0 => "INITIAL",
@@ -245,6 +254,9 @@ pub struct CertificateExchangeConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct PubSubConfig {
     pub compression_enabled: bool,
+    pub chain_compression_enabled: bool,
+    pub g_message_subscription_buffer_size: i32,
+    pub validated_message_buffer_size: i32,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -261,6 +273,18 @@ pub struct ChainExchangeConfig {
     #[schemars(with = "u64")]
     #[serde(with = "crate::lotus_json")]
     pub max_timestamp_age: Duration,
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct PartialMessageManagerConfig {
+    pub pending_discovered_chains_buffer_size: i32,
+    pub pending_partial_messages_buffer_size: i32,
+    pub pending_chain_broadcasts_buffer_size: i32,
+    pub pending_instance_removal_buffer_size: i32,
+    pub completed_messages_buffer_size: i32,
+    pub max_buffered_messages_per_instance: i32,
+    pub max_cached_validated_messages_per_instance: i32,
 }
 
 #[serde_as]
@@ -290,8 +314,119 @@ pub struct F3Manifest {
     pub certificate_exchange: CertificateExchangeConfig,
     pub pub_sub: PubSubConfig,
     pub chain_exchange: ChainExchangeConfig,
+    pub partial_message_manager: PartialMessageManagerConfig,
 }
 lotus_json_with_self!(F3Manifest);
+
+impl F3Manifest {
+    pub fn get_eth_return_from_message_receipt(receipt: &Receipt) -> anyhow::Result<Vec<u8>> {
+        anyhow::ensure!(
+            receipt.exit_code().is_success(),
+            "unsuccessful exit code {}",
+            receipt.exit_code()
+        );
+        let return_data = receipt.return_data();
+        let eth_return =
+            fvm_ipld_encoding::from_slice::<fvm_ipld_encoding::BytesDe>(&return_data)?.0;
+        Ok(eth_return)
+    }
+
+    pub fn parse_contract_return(eth_return: &[u8]) -> anyhow::Result<Self> {
+        const INDEXING_SLICING_ERROR: &str = "unexpected overflow in indexing slicling";
+        const MAX_PAYLOAD_LEN: usize = 4 << 10;
+        const SLOT_SIZE: usize = 32;
+        const SLOT_COUNT: usize = 3;
+
+        // 3*32 because there should be 3 slots minimum
+        anyhow::ensure!(
+            eth_return.len() >= SLOT_COUNT * SLOT_SIZE,
+            "no activation information"
+        );
+        let (slot_activation_epoch, slot_offset, slot_payload_len, payload) = (
+            eth_return
+                .get(..SLOT_SIZE)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE..SLOT_SIZE * 2)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE * 2..SLOT_SIZE * 3)
+                .context(INDEXING_SLICING_ERROR)?,
+            &eth_return
+                .get(SLOT_SIZE * 3..)
+                .context(INDEXING_SLICING_ERROR)?,
+        );
+        // parse activation epoch from slot 1
+        let activation_epoch = byteorder::BigEndian::read_u64(
+            slot_activation_epoch.last_chunk::<8>().expect("infallible"),
+        );
+        // slot 2 is the offset to variable length bytes
+        // it is always the same 0x00000...0040
+        for (i, &v) in slot_offset
+            .get(..SLOT_SIZE - 1)
+            .context(INDEXING_SLICING_ERROR)?
+            .iter()
+            .enumerate()
+        {
+            anyhow::ensure!(
+                v == 0,
+                "wrong value for offset (padding): slot[{i}] = 0x{v:x} != 0x00"
+            );
+        }
+        let slot_offset_last = *slot_offset.last().context("unexpected empty slot_offset")?;
+        anyhow::ensure!(
+            slot_offset_last == 0x40,
+            "wrong value for offest : slot[31] = 0x{slot_offset_last:x} != 0x40",
+        );
+        // parse payload length from slot 3
+        let payload_len =
+            byteorder::BigEndian::read_u64(slot_payload_len.last_chunk::<8>().expect("infallible"))
+                as usize;
+        anyhow::ensure!(
+            payload_len <= MAX_PAYLOAD_LEN,
+            "too long declared payload: {payload_len} > {MAX_PAYLOAD_LEN}"
+        );
+        anyhow::ensure!(
+            payload_len <= payload.len(),
+            "not enough remaining bytes: {payload_len} > {}",
+            payload.len()
+        );
+        anyhow::ensure!(
+            activation_epoch < u64::MAX && payload_len > 0,
+            "no active activation"
+        );
+        let compressed_manifest_bytes = payload
+            .get(..payload_len)
+            .context("not enough remaining bytes in payload")?;
+        let mut deflater = DeflateDecoder::new(compressed_manifest_bytes);
+        let mut manifest_bytes = vec![];
+        deflater.read_to_end(&mut manifest_bytes)?;
+        let manifest: F3Manifest = serde_json::from_slice(&manifest_bytes)?;
+        anyhow::ensure!(
+            manifest.bootstrap_epoch >= 0 && manifest.bootstrap_epoch as u64 == activation_epoch,
+            "bootstrap epoch does not match: {} != {activation_epoch}",
+            manifest.bootstrap_epoch
+        );
+        Ok(manifest)
+    }
+}
+
+impl TryFrom<&Receipt> for F3Manifest {
+    type Error = anyhow::Error;
+
+    fn try_from(receipt: &Receipt) -> Result<Self, Self::Error> {
+        let eth_return = Self::get_eth_return_from_message_receipt(receipt)?;
+        Self::parse_contract_return(&eth_return)
+    }
+}
+
+impl TryFrom<Receipt> for F3Manifest {
+    type Error = anyhow::Error;
+
+    fn try_from(receipt: Receipt) -> Result<Self, Self::Error> {
+        Self::try_from(&receipt)
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -705,7 +840,7 @@ mod tests {
         // lotus f3 manifest --output json
         let lotus_json = serde_json::json!({
           "Pause": false,
-          "ProtocolVersion": 5,
+          "ProtocolVersion": 7,
           "InitialInstance": 0,
           "BootstrapEpoch": 2081674,
           "NetworkName": "calibrationnet",
@@ -751,7 +886,10 @@ mod tests {
             "MaximumPollInterval": 120000000000_u64
           },
           "PubSub": {
-            "CompressionEnabled": false
+            "CompressionEnabled": false,
+            "ChainCompressionEnabled": true,
+            "GMessageSubscriptionBufferSize": 128,
+            "ValidatedMessageBufferSize": 128
           },
           "ChainExchange": {
             "SubscriptionBufferSize": 32,
@@ -761,6 +899,15 @@ mod tests {
             "MaxWantedChainsPerInstance": 1000,
             "RebroadcastInterval": 2000000000_u64,
             "MaxTimestampAge": 8000000000_u64
+          },
+          "PartialMessageManager": {
+            "PendingDiscoveredChainsBufferSize": 100,
+            "PendingPartialMessagesBufferSize": 100,
+            "PendingChainBroadcastsBufferSize": 100,
+            "PendingInstanceRemovalBufferSize": 10,
+            "CompletedMessagesBufferSize": 100,
+            "MaxBufferedMessagesPerInstance": 25000,
+            "MaxCachedValidatedMessagesPerInstance": 25000
           }
         });
         let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
@@ -833,5 +980,18 @@ mod tests {
         let cert: FinalityCertificate = serde_json::from_value(lotus_json.clone()).unwrap();
         let serialized = serde_json::to_value(cert.clone()).unwrap();
         assert_eq!(lotus_json, serialized);
+    }
+
+    #[test]
+    fn test_f3_manifest_parse_contract_return() {
+        // The solidity contract: https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/contracts/F3Parameters.sol
+        let eth_return_hex = include_str!("contract_return.hex").trim();
+        let eth_return = hex::decode(eth_return_hex).unwrap();
+        let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
+        assert_eq!(
+            manifest,
+            serde_json::from_str::<F3Manifest>(include_str!("contract_manifest_golden.json"))
+                .unwrap(),
+        );
     }
 }

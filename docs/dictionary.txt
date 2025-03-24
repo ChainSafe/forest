@@ -23,6 +23,7 @@ datacap
 devnet
 Devops
 Devs
+DHT
 Drand
 Ethereum
 F3
@@ -42,6 +43,7 @@ GC
 GiB
 Github
 Grafana
+hardcoded
 hotfix
 ie.
 Implementers
@@ -52,6 +54,7 @@ JSON
 JSON-RPC
 JWT
 JWTs
+keypair
 keystore
 Kubernetes
 kubernetes
@@ -72,6 +75,7 @@ NV24
 NVMe
 onwards
 Organisation
+P2P
 p2p
 performant
 pre-compiled
@@ -79,6 +83,7 @@ preload
 preloaded
 Q4
 README
+RNG
 Roadmap
 roadmap
 RPC

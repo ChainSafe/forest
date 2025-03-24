@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
-use crate::cli_shared::{car_db_path, chain_path, read_config};
+use crate::cli_shared::{chain_path, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
@@ -81,11 +81,7 @@ impl IndexCommands {
                     genesis_header.clone(),
                 )?);
 
-                let state_manager = Arc::new(StateManager::new(
-                    chain_store.clone(),
-                    chain_config,
-                    sync_config,
-                )?);
+                let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
 
                 println!("Head epoch:    {}", head_ts.epoch());
 

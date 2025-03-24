@@ -9,7 +9,6 @@ mod go_ffi;
 use go_ffi::*;
 
 use cid::Cid;
-use libp2p::PeerId;
 
 use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
 
@@ -17,8 +16,7 @@ use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
 pub struct F3Options {
     pub chain_finality: i64,
     pub bootstrap_epoch: i64,
-    pub initial_power_table: Cid,
-    pub manifest_server: Option<PeerId>,
+    pub initial_power_table: Option<Cid>,
 }
 
 pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
@@ -39,15 +37,27 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
         .unwrap_or(chain_config.policy.chain_finality);
     // This will be used post-bootstrap to hard-code the initial F3's initial power table CID.
     // Read from an environment variable for now before the hard-coded value is determined.
-    let initial_power_table = std::env::var("FOREST_F3_INITIAL_POWER_TABLE")
-        .ok()
-        .and_then(|i| i.parse().ok())
-        .inspect(|i| {
-            tracing::info!(
-                "Using F3 initial power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE"
-            )
-        })
-        .unwrap_or(chain_config.f3_initial_power_table);
+    let initial_power_table = match std::env::var("FOREST_F3_INITIAL_POWER_TABLE") {
+        Ok(i) if i.is_empty() => {
+            tracing::info!("F3 initial power table cid is unset by FOREST_F3_INITIAL_POWER_TABLE");
+            None
+        }
+        Ok(i) => {
+            if let Ok(cid) = i.parse() {
+                tracing::info!(
+                    "Using F3 initial power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE"
+                );
+                Some(cid)
+            } else {
+                tracing::warn!(
+                    "Invalid power table cid {i} set by FOREST_F3_INITIAL_POWER_TABLE, fallback to chain config"
+                );
+                chain_config.f3_initial_power_table
+            }
+        }
+        _ => chain_config.f3_initial_power_table,
+    };
+
     let bootstrap_epoch = std::env::var("FOREST_F3_BOOTSTRAP_EPOCH")
         .ok()
         .and_then(|i| i.parse().ok())
@@ -55,34 +65,11 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
             tracing::info!("Using F3 bootstrap epoch {i} set by FOREST_F3_BOOTSTRAP_EPOCH")
         })
         .unwrap_or(chain_config.f3_bootstrap_epoch);
-    let manifest_server = match std::env::var("FOREST_F3_MANIFEST_SERVER") {
-        Ok(v) => {
-            if v.is_empty() {
-                None
-            } else {
-                match v.parse() {
-                    Ok(i) => Some(i),
-                    _ => {
-                        tracing::warn!(
-                            "Invalid libp2p peer id {v} set by FOREST_F3_MANIFEST_SERVER"
-                        );
-                        None
-                    }
-                }
-                .inspect(|i| {
-                    tracing::info!("Using F3 manifest server {i} set by FOREST_F3_MANIFEST_SERVER")
-                })
-                .or(chain_config.f3_manifest_server)
-            }
-        }
-        _ => chain_config.f3_manifest_server,
-    };
 
     F3Options {
         chain_finality,
         bootstrap_epoch,
         initial_power_table,
-        manifest_server,
     }
 }
 
@@ -95,7 +82,6 @@ pub fn run_f3_sidecar_if_enabled(
     _bootstrap_epoch: i64,
     _finality: i64,
     _f3_root: String,
-    _manifest_server: String,
 ) {
     if is_sidecar_ffi_enabled(chain_config) {
         #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
@@ -109,7 +95,7 @@ pub fn run_f3_sidecar_if_enabled(
                 _bootstrap_epoch,
                 _finality,
                 _f3_root,
-                _manifest_server,
+                chain_config.f3_contract_poll_interval().as_secs(),
             );
         }
     }
@@ -147,7 +133,6 @@ mod tests {
                 chain_finality: chain_config.policy.chain_finality,
                 bootstrap_epoch: chain_config.f3_bootstrap_epoch,
                 initial_power_table: chain_config.f3_initial_power_table,
-                manifest_server: chain_config.f3_manifest_server,
             }
         );
 
@@ -158,38 +143,26 @@ mod tests {
             "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i",
         );
         std::env::set_var("FOREST_F3_BOOTSTRAP_EPOCH", "100");
-        // mainnet server
-        std::env::set_var(
-            "FOREST_F3_MANIFEST_SERVER",
-            "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7",
-        );
         assert_eq!(
             get_f3_sidecar_params(&chain_config),
             F3Options {
                 chain_finality: 100,
                 bootstrap_epoch: 100,
-                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
-                    .parse()
-                    .unwrap(),
-                manifest_server: Some(
-                    "12D3KooWENMwUF9YxvQxar7uBWJtZkA6amvK4xWmKXfSiHUo2Qq7"
+                initial_power_table: Some(
+                    "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
                         .parse()
                         .unwrap()
                 ),
             }
         );
-
-        // Unset FOREST_F3_MANIFEST_SERVER
-        std::env::set_var("FOREST_F3_MANIFEST_SERVER", "");
+        // Unset initial power table
+        std::env::set_var("FOREST_F3_INITIAL_POWER_TABLE", "");
         assert_eq!(
             get_f3_sidecar_params(&chain_config),
             F3Options {
                 chain_finality: 100,
                 bootstrap_epoch: 100,
-                initial_power_table: "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i"
-                    .parse()
-                    .unwrap(),
-                manifest_server: None,
+                initial_power_table: None,
             }
         );
     }

@@ -118,7 +118,11 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         }
         let pts = data.chain_index().load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
-        let msgs = crate::chain::messages_for_tipset(data.store_owned(), &pts)?;
+        let msgs = crate::chain::messages_for_tipset_with_cache(
+            data.store_owned(),
+            &pts,
+            data.msgs_in_tipset.clone(),
+        )?;
 
         prices.append(
             &mut msgs
@@ -163,7 +167,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     // mean 1, stddev 0.005 => 95% within +-1%
     let noise: f64 = Normal::new(1.0, 0.005)
         .unwrap()
-        .sample(&mut rand::thread_rng());
+        .sample(&mut crate::utils::rand::forest_rng());
 
     premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
         .context("failed to convert gas premium f64 to bigint")?;

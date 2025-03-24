@@ -7,7 +7,6 @@ use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
 use serde::de::{value::StringDeserializer, IntoDeserializer};
 use std::{hash::Hash, ops::Deref};
-use uuid::Uuid;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
@@ -296,7 +295,8 @@ pub struct EthCallMessage {
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
-    pub data: EthBytes,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub data: Option<EthBytes>,
 }
 lotus_json_with_self!(EthCallMessage);
 
@@ -329,7 +329,11 @@ impl TryFrom<EthCallMessage> for Message {
                 EthAddress::default().to_filecoin_address()?
             }
         };
-        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
+        let params = tx
+            .data
+            .map(EthCallMessage::convert_data_to_message_params)
+            .transpose()?
+            .unwrap_or_default();
         let (to, method_num) = if let Some(to) = tx.to {
             (
                 to.to_filecoin_address()?,
@@ -379,7 +383,7 @@ lotus_json_with_self!(FilterID);
 
 impl FilterID {
     pub fn new() -> Result<Self, uuid::Error> {
-        let raw_id = Uuid::new_v4();
+        let raw_id = crate::utils::rand::new_uuid_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
         Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))
@@ -595,6 +599,87 @@ pub struct EthReplayBlockTransactionTrace {
     pub vm_trace: Option<String>,
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);
+
+// EthTraceFilterCriteria defines the criteria for filtering traces.
+#[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceFilterCriteria {
+    /// Interpreted as an epoch (in hex) or one of "latest" for last mined block, "pending" for not yet committed messages.
+    /// Optional, default: "latest".
+    /// Note: "earliest" is not a permitted value.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from_block: Option<String>,
+
+    /// Interpreted as an epoch (in hex) or one of "latest" for last mined block, "pending" for not yet committed messages.
+    /// Optional, default: "latest".
+    /// Note: "earliest" is not a permitted value.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_block: Option<String>,
+
+    /// Actor address or a list of addresses from which transactions that generate traces should originate.
+    /// Optional, default: None.
+    /// The JSON decoding must treat a string as equivalent to an array with one value, for example
+    /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from_address: Option<EthAddressList>,
+
+    /// Actor address or a list of addresses to which transactions that generate traces are sent.
+    /// Optional, default: None.
+    /// The JSON decoding must treat a string as equivalent to an array with one value, for example
+    /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_address: Option<EthAddressList>,
+
+    /// After specifies the offset for pagination of trace results. The number of traces to skip before returning results.
+    /// Optional, default: None.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub after: Option<EthUint64>,
+
+    /// Limits the number of traces returned.
+    /// Optional, default: all traces.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub count: Option<EthUint64>,
+}
+lotus_json_with_self!(EthTraceFilterCriteria);
+
+impl EthTrace {
+    pub fn match_filter_criteria(
+        &self,
+        from_decoded_addresses: &Option<EthAddressList>,
+        to_decoded_addresses: &Option<EthAddressList>,
+    ) -> Result<bool> {
+        let (trace_to, trace_from) = match &self.action {
+            TraceAction::Call(action) => (action.to.clone(), action.from.clone()),
+            TraceAction::Create(action) => {
+                let address = match &self.result {
+                    TraceResult::Create(result) => result
+                        .address
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
+                    _ => bail!("invalid create trace result"),
+                };
+                (Some(address), action.from.clone())
+            }
+        };
+
+        // Match FromAddress
+        if let Some(from_addresses) = from_decoded_addresses {
+            if !from_addresses.is_empty() && !from_addresses.iter().any(|addr| *addr == trace_from)
+            {
+                return Ok(false);
+            }
+        }
+
+        // Match ToAddress
+        if let Some(to_addresses) = to_decoded_addresses {
+            if !to_addresses.is_empty() && !trace_to.is_some_and(|to| to_addresses.contains(&to)) {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+}
 
 #[cfg(test)]
 mod tests {

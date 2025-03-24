@@ -9,7 +9,7 @@ title: Snapshot & Archival Data Service
 ChainSafe provides a snapshot service for the Filecoin network. The latest snapshots are generated approximately hourly and are available for the mainnet and calibration networks. The snapshots are stored on the [ChainSafe Filecoin Snapshot Service](https://forest-archive.chainsafe.dev/list). They store the last 2000 tipsets and are enough to bootstrap a new node. A checksum is provided for each snapshot to ensure its integrity.
 
 :::info
-The snapshots are compressed with the `zstd` algorithm. Both Forest and Lotus can read them, so there's no need for a manual decompression. On top of that, the snapshots include an index (hence the extension `.forest.car.zstd`) that allows them to be read-in place without importing it to a database (only Forest supports this feature). See the [Forest CAR format documentation](https://docs.rs/forest-filecoin/latest/forest_filecoin/db/car/forest/index.html) for more details. You might also want to watch [Filecoin Snapshots Explained](https://www.youtube.com/watch?v=GZ9VhCveRdA).
+The snapshots are compressed with the `zstd` algorithm. Both Forest and Lotus can read them, so there's no need for a manual decompression. On top of that, the snapshots include an index (hence the extension `.forest.car.zstd`) that allows them to be read-in place without importing it to a database (only Forest supports this feature). See the [Forest CAR format documentation](https://docs.rs/forest-filecoin/latest/forest/db/car/forest/index.html) for more details. You might also want to watch [Filecoin Snapshots Explained](https://www.youtube.com/watch?v=GZ9VhCveRdA).
 :::
 
 ## Archival snapshots

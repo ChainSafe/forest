@@ -35,6 +35,8 @@ use fvm_shared4::sector::RegisteredPoStProof as RegisteredPoStProofV4;
 use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
 use fvm_shared4::sector::SectorSize as SectorSizeV4;
 use fvm_shared4::smooth::FilterEstimate as FilterEstimateV4;
+use num_bigint::BigInt;
+use num_traits::FromPrimitive;
 
 pub fn from_padded_piece_size_v4_to_v2(size: PaddedPieceSizeV4) -> PaddedPieceSizeV2 {
     PaddedPieceSizeV2(size.0)
@@ -101,6 +103,12 @@ pub fn from_token_v3_to_v4(token: &TokenAmountV3) -> TokenAmountV4 {
 
 pub fn from_token_v4_to_v2(token: &TokenAmountV4) -> TokenAmountV2 {
     TokenAmountV2::from_atto(token.atto().clone())
+}
+
+pub fn from_opt_token_v4_to_v2(token: &Option<TokenAmountV4>) -> TokenAmountV2 {
+    token.as_ref().map_or(TokenAmountV2::default(), |t| {
+        TokenAmountV2::from_atto(t.atto().clone())
+    })
 }
 
 pub fn from_token_v2_to_v3(token: &TokenAmountV2) -> TokenAmountV3 {
@@ -586,8 +594,6 @@ pub fn from_policy_v13_to_v16(policy: &PolicyV13) -> PolicyV16 {
         min_aggregated_sectors: policy.min_aggregated_sectors,
         max_aggregated_proof_size: policy.max_aggregated_proof_size,
         max_replica_update_proof_size: policy.max_replica_update_proof_size,
-        pre_commit_sector_batch_max_size: policy.pre_commit_sector_batch_max_size,
-        prove_replica_updates_max_size: policy.prove_replica_updates_max_size,
         expired_pre_commit_clean_up_delay: policy.expired_pre_commit_clean_up_delay,
         wpost_proving_period: policy.wpost_proving_period,
         wpost_challenge_window: policy.wpost_challenge_window,
@@ -600,7 +606,6 @@ pub fn from_policy_v13_to_v16(policy: &PolicyV13) -> PolicyV16 {
         max_peer_id_length: policy.max_peer_id_length,
         max_multiaddr_data: policy.max_multiaddr_data,
         addressed_partitions_max: policy.addressed_partitions_max,
-        declarations_max: policy.declarations_max,
         addressed_sectors_max: policy.addressed_sectors_max,
         max_pre_commit_randomness_lookback: policy.max_pre_commit_randomness_lookback,
         valid_prove_commit_ni_proof_type:
@@ -622,6 +627,15 @@ pub fn from_policy_v13_to_v16(policy: &PolicyV13) -> PolicyV16 {
         consensus_fault_ineligibility_duration: policy.consensus_fault_ineligibility_duration,
         new_sectors_per_period_max: policy.new_sectors_per_period_max,
         chain_finality: policy.chain_finality,
+        daily_fee_circulating_supply_qap_multiplier_num: BigInt::from_u64(
+            fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_NUM,
+        )
+        .unwrap(),
+        daily_fee_circulating_supply_qap_multiplier_denom: BigInt::from_u128(
+            fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_DENOM,
+        )
+        .unwrap(),
+        daily_fee_block_reward_cap_denom: fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
         valid_post_proof_type,
         valid_pre_commit_proof_type,
         minimum_verified_allocation_size: policy.minimum_verified_allocation_size.clone(),

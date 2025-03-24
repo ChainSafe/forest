@@ -67,6 +67,24 @@ impl TipsetKey {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Terse representation of the tipset key.
+    /// `bafy2bzaceaqrqoasufr7gdwrbhvlfy2xmc4e5sdzekjgyha2kldxigu73gilo`
+    /// becomes `eaq...ilo`. The `bafy2bzac` prefix is removed.
+    pub fn terse(&self) -> String {
+        fn terse_cid(cid: Cid) -> String {
+            let s = cid::multibase::encode(
+                cid::multibase::Base::Base32Lower,
+                cid.to_bytes().as_slice(),
+            );
+            format!("{}...{}", &s[9..12], &s[s.len() - 3..])
+        }
+        self.to_cids()
+            .into_iter()
+            .map(terse_cid)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
@@ -412,11 +430,17 @@ impl Tipset {
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
 /// and messages.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 pub struct FullTipset {
     blocks: NonEmpty<Block>,
     // key is lazily initialized via `fn key()`.
     key: OnceCell<TipsetKey>,
+}
+
+impl std::hash::Hash for FullTipset {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key().hash(state)
+    }
 }
 
 // Constructing a FullTipset from a single Block is infallible.
@@ -479,6 +503,10 @@ impl FullTipset {
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
         &self.first_block().header().state_root
+    }
+    /// Returns the state root for the tipset parent.
+    pub fn parents(&self) -> &TipsetKey {
+        &self.first_block().header().parents
     }
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {

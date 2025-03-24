@@ -328,6 +328,9 @@ pub struct ApiDeadline {
     #[serde(with = "crate::lotus_json")]
     pub post_submissions: BitField,
     pub disputable_proof_count: u64,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    pub daily_fee: TokenAmount,
 }
 
 lotus_json_with_self!(ApiDeadline);

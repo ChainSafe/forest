@@ -289,6 +289,24 @@ impl Chain4UInner {
         });
         header.state_root.close_with(Cid::default);
 
+        // Message root
+        ///////////////
+        header.messages.close_with(|| {
+            use crate::utils::db::CborStoreExt as _;
+            use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+
+            let blockstore = MemoryDB::default();
+            let bls_message_root = Amt::<Cid, _>::new(&blockstore).flush().unwrap();
+            let secp_message_root = Amt::<Cid, _>::new(&blockstore).flush().unwrap();
+            let meta = TxMeta {
+                bls_message_root,
+                secp_message_root,
+            };
+
+            // Store message roots and receive meta_root CID
+            blockstore.put_cbor_default(&meta).unwrap()
+        });
+
         // Miner
         ////////
         let sibling_miner_addresses = siblings

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod client;
+mod completion_cmd;
 mod config;
 
 use std::{
@@ -18,7 +19,7 @@ use directories::ProjectDirs;
 use libp2p::Multiaddr;
 use tracing::error;
 
-pub use self::{client::*, config::*};
+pub use self::{client::*, completion_cmd::*, config::*};
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}
@@ -216,13 +217,6 @@ impl CliOpts {
         }
         // (where to find these flags, should be easy to do with structops)
 
-        // check and set syncing configurations
-        if let Some(req_window) = self.req_window {
-            cfg.sync.request_window = req_window;
-        }
-        if let Some(tipset_sample_size) = self.tipset_sample_size {
-            cfg.sync.tipset_sample_size = tipset_sample_size.into();
-        }
         if let Some(encrypt_keystore) = self.encrypt_keystore {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }

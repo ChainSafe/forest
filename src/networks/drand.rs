@@ -142,9 +142,21 @@ mod tests {
             .await
         };
 
+        let mut remote_chain_info_list = vec![];
         for server in &config.servers {
-            let remote_chain_info = get_remote_chain_info(server).await.unwrap();
-            assert_eq!(&config.chain_info, &remote_chain_info);
+            if let Ok(remote_chain_info) = get_remote_chain_info(server).await {
+                remote_chain_info_list.push(remote_chain_info);
+            }
         }
+        assert!(
+            !remote_chain_info_list.is_empty(),
+            "all drand servers on the list are down"
+        );
+        assert!(
+            remote_chain_info_list
+                .iter()
+                .all(|i| i == &config.chain_info),
+            "some servers on the list serve different networks"
+        );
     }
 }

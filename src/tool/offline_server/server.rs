@@ -4,7 +4,7 @@
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::chain_sync::{SyncConfig, SyncStage};
+use crate::chain_sync::SyncStage;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::populate_eth_mappings;
@@ -60,7 +60,6 @@ pub async fn start_offline_server(
 
     db.read_only_files(snapshot_files.iter().cloned())?;
     let chain_config = Arc::new(handle_chain_config(&chain)?);
-    let sync_config = Arc::new(SyncConfig::default());
     let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
         genesis.as_deref(),
@@ -76,11 +75,7 @@ pub async fn start_offline_server(
         chain_config.clone(),
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(
-        chain_store.clone(),
-        chain_config,
-        sync_config,
-    )?);
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
     populate_eth_mappings(&state_manager, &head_ts)?;
@@ -130,20 +125,27 @@ pub async fn start_offline_server(
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(keystore)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
-        sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        msgs_in_tipset: Default::default(),
+        sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        snapshot_progress_tracker: Default::default(),
     };
-    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
+    rpc_state
+        .sync_states
+        .write()
+        .first_mut()
+        .set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())
@@ -224,6 +226,7 @@ async fn handle_snapshots(
         &snapshot_url,
         &downloaded_snapshot_path,
         DownloadFileOption::Resumable,
+        None,
     )
     .await?;
     info!("Snapshot downloaded");

@@ -3,13 +3,14 @@
 
 mod types;
 use crate::shim::actors::init;
+use crate::shim::actors::miner::ext::DeadlineExt;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use types::*;
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
@@ -42,7 +43,7 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{MarketBalance, StateOutput};
+use crate::state_manager::{MarketBalance, StateManager, StateOutput};
 use crate::utils::db::{
     car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
@@ -77,6 +78,22 @@ const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
 
 pub enum StateCall {}
+
+impl StateCall {
+    pub fn run<DB: Blockstore + Send + Sync + 'static>(
+        state_manager: &Arc<StateManager<DB>>,
+        message: &Message,
+        tsk: Option<TipsetKey>,
+    ) -> anyhow::Result<ApiInvocResult> {
+        let tipset = state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        // Handle expensive fork error?
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+        Ok(state_manager.call(message, Some(tipset))?)
+    }
+}
+
 impl RpcMethod<2> for StateCall {
     const NAME: &'static str = "Filecoin.StateCall";
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
@@ -91,10 +108,7 @@ impl RpcMethod<2> for StateCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (message, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        // Handle expensive fork error?
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
-        Ok(ctx.state_manager.call(&message, Some(tipset))?)
+        Ok(Self::run(&ctx.state_manager, &message, tsk)?)
     }
 }
 
@@ -768,6 +782,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
             res.push(ApiDeadline {
                 post_submissions: deadline.partitions_posted(),
                 disputable_proof_count: deadline.disputable_proof_count(ctx.store())?,
+                daily_fee: deadline.daily_fee(),
             });
             Ok(())
         })?;

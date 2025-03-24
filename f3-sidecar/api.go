@@ -21,6 +21,7 @@ type F3Api struct {
 	GetParticipatingMinerIDs func(context.Context) ([]uint64, error)
 	SignMessage              func(context.Context, []byte, []byte) (*crypto.Signature, error)
 	Finalize                 func(context.Context, gpbft.TipSetKey) error
+	GetManifestFromContract  func(context.Context) (*manifest.Manifest, error)
 }
 
 type FilecoinApi struct {
@@ -55,10 +56,18 @@ func (h *F3ServerHandler) F3IsRunning(_ context.Context) bool {
 	return h.f3.IsRunning()
 }
 
-func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.Instant {
+func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.InstanceProgress {
 	return h.f3.Progress()
 }
 
-func (h *F3ServerHandler) F3GetManifest(_ context.Context) *manifest.Manifest {
-	return h.f3.Manifest()
+func (h *F3ServerHandler) F3GetManifest(ctx context.Context) *manifest.Manifest {
+	m := h.f3.Manifest()
+	if m != nil && !isCidDefined(m.InitialPowerTable) {
+		if cert0, err := h.f3.GetCert(ctx, 0); err == nil {
+			mCopy := *m
+			m = &mCopy
+			m.InitialPowerTable = cert0.ECChain.Base().PowerTable
+		}
+	}
+	return m
 }
