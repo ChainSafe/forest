@@ -49,8 +49,9 @@ use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
-use anyhow::{anyhow, bail, Context, Error, Result};
+use anyhow::{anyhow, bail, ensure, Context, Error, Result};
 use cid::Cid;
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
@@ -58,12 +59,16 @@ use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
+use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
 use utils::{decode_payload, lookup_eth_address};
+
+static FOREST_TRACE_FILTER_MAX_RESULT: Lazy<u64> =
+    Lazy::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -3167,6 +3172,101 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
 
         Ok(all_traces)
     }
+}
+
+fn get_eth_block_number_from_string<DB: Blockstore>(
+    chain_store: &ChainStore<DB>,
+    block: Option<&str>,
+) -> Result<EthUint64> {
+    let block_param = match block {
+        Some(block_str) => ExtBlockNumberOrHash::from_str(block_str)?,
+        None => bail!("cannot parse fromBlock"),
+    };
+    Ok(EthUint64(
+        tipset_by_ext_block_number_or_hash(chain_store, block_param)?.epoch() as u64,
+    ))
+}
+
+pub enum EthTraceFilter {}
+impl RpcMethod<1> for EthTraceFilter {
+    const N_REQUIRED_PARAMS: usize = 1;
+    const NAME: &'static str = "Filecoin.EthTraceFilter";
+    const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
+    const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the traces for transactions matching the filter criteria.");
+    type Params = (EthTraceFilterCriteria,);
+    type Ok = Vec<EthBlockTrace>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (filter,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let from_block =
+            get_eth_block_number_from_string(ctx.chain_store(), filter.from_block.as_deref())
+                .context("cannot parse fromBlock")?;
+
+        let to_block =
+            get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
+                .context("cannot parse toBlock")?;
+        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+    }
+}
+
+async fn trace_filter(
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+    filter: EthTraceFilterCriteria,
+    from_block: EthUint64,
+    to_block: EthUint64,
+) -> Result<Vec<EthBlockTrace>> {
+    let mut results = vec![];
+    if let Some(EthUint64(0)) = filter.count {
+        return Ok(results);
+    }
+    let count = filter.count.clone().unwrap_or(EthUint64(0)).0;
+    ensure!(
+        count <= *FOREST_TRACE_FILTER_MAX_RESULT,
+        "invalid response count, requested {}, maximum supported is {}",
+        count,
+        *FOREST_TRACE_FILTER_MAX_RESULT
+    );
+
+    let mut trace_counter = 0;
+    for blk_num in from_block.0..=to_block.0 {
+        let block_traces = EthTraceBlock::handle(
+            ctx.clone(),
+            (ExtBlockNumberOrHash::from_block_number(blk_num as i64),),
+        )
+        .await?;
+        for block_trace in block_traces {
+            if block_trace
+                .trace
+                .match_filter_criteria(&filter.from_address, &filter.to_address)?
+            {
+                trace_counter += 1;
+                if let Some(after) = filter.after.clone() {
+                    if trace_counter <= after.0 {
+                        continue;
+                    }
+                }
+
+                results.push(block_trace);
+
+                if filter.count.is_some() && results.len() >= count as usize {
+                    return Ok(results);
+                } else if results.len() > *FOREST_TRACE_FILTER_MAX_RESULT as usize {
+                    bail!(
+                        "too many results, maximum supported is {}, try paginating requests with After and Count",
+                        *FOREST_TRACE_FILTER_MAX_RESULT
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 #[cfg(test)]

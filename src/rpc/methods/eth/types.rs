@@ -600,6 +600,87 @@ pub struct EthReplayBlockTransactionTrace {
 }
 lotus_json_with_self!(EthReplayBlockTransactionTrace);
 
+// EthTraceFilterCriteria defines the criteria for filtering traces.
+#[derive(Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthTraceFilterCriteria {
+    /// Interpreted as an epoch (in hex) or one of "latest" for last mined block, "pending" for not yet committed messages.
+    /// Optional, default: "latest".
+    /// Note: "earliest" is not a permitted value.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from_block: Option<String>,
+
+    /// Interpreted as an epoch (in hex) or one of "latest" for last mined block, "pending" for not yet committed messages.
+    /// Optional, default: "latest".
+    /// Note: "earliest" is not a permitted value.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_block: Option<String>,
+
+    /// Actor address or a list of addresses from which transactions that generate traces should originate.
+    /// Optional, default: None.
+    /// The JSON decoding must treat a string as equivalent to an array with one value, for example
+    /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub from_address: Option<EthAddressList>,
+
+    /// Actor address or a list of addresses to which transactions that generate traces are sent.
+    /// Optional, default: None.
+    /// The JSON decoding must treat a string as equivalent to an array with one value, for example
+    /// "0x8888f1f195afa192cfee86069858" must be decoded as [ "0x8888f1f195afa192cfee86069858" ]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub to_address: Option<EthAddressList>,
+
+    /// After specifies the offset for pagination of trace results. The number of traces to skip before returning results.
+    /// Optional, default: None.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub after: Option<EthUint64>,
+
+    /// Limits the number of traces returned.
+    /// Optional, default: all traces.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub count: Option<EthUint64>,
+}
+lotus_json_with_self!(EthTraceFilterCriteria);
+
+impl EthTrace {
+    pub fn match_filter_criteria(
+        &self,
+        from_decoded_addresses: &Option<EthAddressList>,
+        to_decoded_addresses: &Option<EthAddressList>,
+    ) -> Result<bool> {
+        let (trace_to, trace_from) = match &self.action {
+            TraceAction::Call(action) => (action.to.clone(), action.from.clone()),
+            TraceAction::Create(action) => {
+                let address = match &self.result {
+                    TraceResult::Create(result) => result
+                        .address
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("address is nil in create trace result"))?,
+                    _ => bail!("invalid create trace result"),
+                };
+                (Some(address), action.from.clone())
+            }
+        };
+
+        // Match FromAddress
+        if let Some(from_addresses) = from_decoded_addresses {
+            if !from_addresses.is_empty() && !from_addresses.iter().any(|addr| *addr == trace_from)
+            {
+                return Ok(false);
+            }
+        }
+
+        // Match ToAddress
+        if let Some(to_addresses) = to_decoded_addresses {
+            if !to_addresses.is_empty() && !trace_to.is_some_and(|to| to_addresses.contains(&to)) {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
