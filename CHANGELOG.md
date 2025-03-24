@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.25.0 "Bombadil"
+
+This is a mandatory release for calibnet node operators. It includes the revised NV25 _Teep_ network upgrade at epoch `2_523_454` which corresponds to `2025-03-26T23:00:00Z`. This release also includes a number of new RPC methods, fixes and other improvements. Be sure to check the breaking changes before upgrading.
+
+### Breaking
+
 - [#4505](https://github.com/ChainSafe/forest/issues/4505) The Ethereum RPC API indexer now runs as a background task (disabled by default). It can be configured in the `[chain_indexer]` section or via the `FOREST_CHAIN_INDEXER_ENABLED` environment variable. The `client.eth_mapping_ttl` option has been moved to `chain_indexer.gc_retention_epochs`, which is now specified as a number of epochs.
 
 ### Added
@@ -36,10 +50,6 @@
 - [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
 
 - [#5383](https://github.com/ChainSafe/forest/pull/5383) Add support for `Filecoin.EthGetFilterChanges` RPC method.
-
-### Changed
-
-### Removed
 
 ### Fixed
 
