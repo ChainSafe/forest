@@ -5,7 +5,6 @@
 
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::Config;
-use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
 use tracing::info;
@@ -35,15 +34,12 @@ impl MigrationOperation for MigrationVoid {
         }
 
         info!(
-            "copying old database from {source_db} to {temp_db_path}",
+            "hard linking old database from {source_db} to {temp_db_path}",
             source_db = source_db.display(),
             temp_db_path = temp_db_path.display()
         );
-        fs_extra::copy_items(
-            &[source_db.as_path()],
-            temp_db_path.clone(),
-            &CopyOptions::default().copy_inside(true),
-        )?;
+
+        crate::utils::fs::hard_link_dir(source_db.as_path(), &temp_db_path)?;
 
         Ok(temp_db_path)
     }
