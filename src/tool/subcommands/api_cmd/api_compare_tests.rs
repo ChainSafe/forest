@@ -443,7 +443,8 @@ fn chain_tests_with_tipset<DB: Blockstore>(
 
         for receipt in Receipt::get_receipts(store, block.message_receipts)? {
             if let Some(events_root) = receipt.events_root() {
-                tests.extend([RpcTest::identity(ChainGetEvents::request((events_root,))?)]);
+                tests.extend([RpcTest::identity(ChainGetEvents::request((events_root,))?)
+                    .sort_policy(SortPolicy::All)]);
             }
         }
     }
