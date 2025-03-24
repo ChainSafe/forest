@@ -227,10 +227,6 @@ fn validate_miner<DB: Blockstore>(
     miner_addr: &Address,
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .get_or_create(&metrics::values::VALIDATE_MINER);
-    let _timer = metric.start_timer();
-
     let actor = state_manager
         .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
