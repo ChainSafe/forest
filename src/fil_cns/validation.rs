@@ -7,7 +7,6 @@ use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
-use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::actors::power;
 use crate::shim::actors::PowerActorStateLoad as _;
@@ -33,7 +32,7 @@ use fvm_ipld_encoding::{bytes_32, to_vec};
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 
-use crate::fil_cns::{metrics, FilecoinConsensusError};
+use crate::fil_cns::FilecoinConsensusError;
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
     NonEmpty::of(e.into())
@@ -52,8 +51,6 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();
-
     let chain_store = state_manager.chain_store().clone();
     let header = block.header();
 
