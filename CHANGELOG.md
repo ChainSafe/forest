@@ -33,6 +33,8 @@
 
 ### Removed
 
+- [#5449](https://github.com/ChainSafe/forest/pull/5449) Remove unnecessary/duplicate metrics.
+
 ### Fixed
 
 ## Forest v0.25.0 "Bombadil"
