@@ -5,7 +5,6 @@ pub mod cid;
 pub mod db;
 pub mod encoding;
 pub mod flume;
-pub mod fs;
 pub mod io;
 pub mod misc;
 pub mod monitoring;
