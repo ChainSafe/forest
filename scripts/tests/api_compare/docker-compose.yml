@@ -146,7 +146,6 @@ services:
       - LOTUS_CHAININDEXER_ENABLEINDEXER=1
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
       - LOTUS_SYNC_BOOTSTRAP_PEERS=1
-      - FOREST_FEVM_ENABLE_ETH_RPC=1
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
     entrypoint: [ "/bin/bash", "-c" ]
     command:

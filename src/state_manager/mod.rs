@@ -48,7 +48,6 @@ use crate::shim::{
 };
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
-use crate::utils::misc::env::is_env_set_and_truthy;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -82,8 +81,6 @@ pub use utils::is_valid_for_sending;
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
 const DEFAULT_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
-
-const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -483,7 +480,7 @@ where
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<StateOutput> {
-        let vm_event = if is_env_set_and_truthy(FOREST_CHAIN_INDEXER_ENABLED).unwrap_or(false) {
+        let vm_event = if self.chain_config.enable_indexer {
             VMEvent::PushedEventsRoot
         } else {
             VMEvent::NotPushed

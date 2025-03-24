@@ -6,7 +6,6 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::db::IndicesStoreExt;
 use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -26,7 +25,7 @@ use crate::{
 };
 use crate::{
     chain_sync::metrics,
-    db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore},
+    db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
