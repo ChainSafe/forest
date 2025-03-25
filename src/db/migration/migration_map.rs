@@ -15,7 +15,7 @@ use itertools::Itertools;
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
 use semver::Version;
-use tracing::{debug, info};
+use tracing::debug;
 
 use super::void_migration::MigrationVoid;
 
@@ -25,18 +25,96 @@ pub(super) trait MigrationOperation {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized;
+    /// From version
+    fn from(&self) -> &Version;
+    /// To version
+    fn to(&self) -> &Version;
     /// Performs pre-migration checks. This is the place to check if the database is in a valid
     /// state and if the migration can be performed. Note that some of the higher-level checks
     /// (like checking if the database exists) are performed by the [`Migration`].
-    fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
+    fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
+        let old_db = self.old_db_path(chain_data_path);
+        anyhow::ensure!(
+            old_db.is_dir(),
+            "source database {} does not exist",
+            old_db.display()
+        );
+        let new_db = self.new_db_path(chain_data_path);
+        anyhow::ensure!(
+            !new_db.exists(),
+            "target database {} already exists",
+            new_db.display()
+        );
+        let temp_db = self.temporary_db_path(chain_data_path);
+        if temp_db.exists() {
+            tracing::info!("Removing old temporary database {}", temp_db.display());
+            std::fs::remove_dir_all(&temp_db)?;
+        }
+        Ok(())
+    }
     /// Performs the actual migration. All the logic should be implemented here.
     /// Ideally, the migration should use as little of the Forest codebase as possible to avoid
     /// potential issues with the migration code itself and having to update it in the future.
     /// Returns the path to the migrated database (which is not yet validated)
-    fn migrate(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<PathBuf>;
+    fn migrate_core(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<PathBuf>;
+    fn migrate(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<()> {
+        self.pre_checks(chain_data_path)?;
+        let migrated_db = self.migrate_core(chain_data_path, config)?;
+        self.post_checks(chain_data_path)?;
+
+        let new_db = self.new_db_path(chain_data_path);
+        debug!(
+            "Renaming database {} to {}",
+            migrated_db.display(),
+            new_db.display()
+        );
+        std::fs::rename(migrated_db, new_db)?;
+
+        let old_db = self.old_db_path(chain_data_path);
+        debug!("Deleting database {}", old_db.display());
+        std::fs::remove_dir_all(old_db)?;
+
+        Ok(())
+    }
     /// Performs post-migration checks. This is the place to check if the migration database is
     /// ready to be used by Forest and renamed into a versioned database.
-    fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
+    fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
+        let temp_db_path = self.temporary_db_path(chain_data_path);
+        anyhow::ensure!(
+            temp_db_path.exists(),
+            "temp db {} does not exist",
+            temp_db_path.display()
+        );
+        Ok(())
+    }
+}
+
+pub trait MigrationOperationExt {
+    fn old_db_path(&self, chain_data_path: &Path) -> PathBuf;
+
+    fn new_db_path(&self, chain_data_path: &Path) -> PathBuf;
+
+    fn temporary_db_name(&self) -> String;
+
+    fn temporary_db_path(&self, chain_data_path: &Path) -> PathBuf;
+}
+
+impl<T: ?Sized + MigrationOperation> MigrationOperationExt for T {
+    fn old_db_path(&self, chain_data_path: &Path) -> PathBuf {
+        chain_data_path.join(self.from().to_string())
+    }
+
+    fn new_db_path(&self, chain_data_path: &Path) -> PathBuf {
+        chain_data_path.join(self.to().to_string())
+    }
+
+    fn temporary_db_name(&self) -> String {
+        format!("migration_{}_{}", self.from(), self.to()).replace('.', "_")
+    }
+
+    fn temporary_db_path(&self, chain_data_path: &Path) -> PathBuf {
+        chain_data_path.join(self.temporary_db_name())
+    }
 }
 
 /// Migrations map. The key is the starting version and the value is the tuple of the target version
@@ -78,71 +156,13 @@ create_migrations!(
     "0.22.0" -> "0.22.1" @ Migration0_22_0_0_22_1,
 );
 
-pub struct Migration {
-    from: Version,
-    to: Version,
-    migrator: Migrator,
-}
-
-impl Migration {
-    pub fn migrate(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<()> {
-        info!(
-            "Migrating database from version {} to {}",
-            self.from, self.to
-        );
-
-        self.pre_checks(chain_data_path)?;
-        let migrated_db = self.migrator.migrate(chain_data_path, config)?;
-        self.post_checks(chain_data_path)?;
-
-        let new_db = chain_data_path.join(format!("{}", self.to));
-        debug!(
-            "Renaming database {} to {}",
-            migrated_db.display(),
-            new_db.display()
-        );
-        std::fs::rename(migrated_db, new_db)?;
-
-        let old_db = chain_data_path.join(format!("{}", self.from));
-        debug!("Deleting database {}", old_db.display());
-        std::fs::remove_dir_all(old_db)?;
-
-        info!("Database migration complete");
-        Ok(())
-    }
-
-    fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        let source_db = chain_data_path.join(self.from.to_string());
-        if !source_db.exists() {
-            bail!(
-                "source database {source_db} does not exist",
-                source_db = source_db.display()
-            );
-        }
-
-        let target_db = chain_data_path.join(self.to.to_string());
-        if target_db.exists() {
-            bail!(
-                "target database {target_db} already exists",
-                target_db = target_db.display()
-            );
-        }
-
-        self.migrator.pre_checks(chain_data_path)
-    }
-
-    fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        self.migrator.post_checks(chain_data_path)
-    }
-}
-
 /// Creates a migration chain from `start` to `goal`. The chain is chosen to be the shortest
 /// possible. If there are multiple shortest paths, any of them is chosen. This method will use
 /// the pre-defined migrations map.
 pub(super) fn create_migration_chain(
     start: &Version,
     goal: &Version,
-) -> anyhow::Result<Vec<Migration>> {
+) -> anyhow::Result<Vec<Arc<dyn MigrationOperation + Send + Sync>>> {
     create_migration_chain_from_migrations(start, goal, &MIGRATIONS, |from, to| {
         Arc::new(MigrationVoid::new(from.clone(), to.clone()))
     })
@@ -154,7 +174,7 @@ fn create_migration_chain_from_migrations(
     goal: &Version,
     migrations_map: &MigrationsMap,
     void_migration: impl Fn(&Version, &Version) -> Arc<dyn MigrationOperation + Send + Sync>,
-) -> anyhow::Result<Vec<Migration>> {
+) -> anyhow::Result<Vec<Arc<dyn MigrationOperation + Send + Sync>>> {
     let sorted_from_versions = migrations_map.keys().sorted().collect_vec();
     let result = pathfinding::directed::bfs::bfs(
         start,
@@ -180,7 +200,7 @@ fn create_migration_chain_from_migrations(
     .iter()
     .tuple_windows()
     .map(|(from, to)| {
-        let migrator = migrations_map
+        migrations_map
             .get_vec(from)
             .map(|v| {
                 v.iter()
@@ -193,13 +213,7 @@ fn create_migration_chain_from_migrations(
                     })
                     .expect("Migration must exist")
             })
-            .unwrap_or_else(|| void_migration(from, to));
-
-        Migration {
-            from: from.clone(),
-            to: to.clone(),
-            migrator,
-        }
+            .unwrap_or_else(|| void_migration(from, to))
     })
     .collect_vec();
 
@@ -214,16 +228,10 @@ fn create_migration_chain_from_migrations(
     Ok(result)
 }
 
-/// Returns the name of the temporary database that will be created during the migration.
-pub(crate) fn temporary_db_name(from: &Version, to: &Version) -> String {
-    format!("migration_{}_{}", from, to).replace('.', "_")
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use crate::db::migration::migration_map::temporary_db_name;
     use tempfile::TempDir;
 
     use super::*;
@@ -284,14 +292,21 @@ mod tests {
     }
 
     #[derive(Debug, Clone)]
-    struct EmptyMigration;
+    struct EmptyMigration {
+        from: Version,
+        to: Version,
+    }
 
     impl MigrationOperation for EmptyMigration {
         fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
             Ok(())
         }
 
-        fn migrate(&self, _chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
+        fn migrate_core(
+            &self,
+            _chain_data_path: &Path,
+            _config: &Config,
+        ) -> anyhow::Result<PathBuf> {
             Ok("".into())
         }
 
@@ -299,33 +314,44 @@ mod tests {
             Ok(())
         }
 
-        fn new(_from: Version, _to: Version) -> Self
+        fn new(from: Version, to: Version) -> Self
         where
             Self: Sized,
         {
-            Self {}
+            Self { from, to }
         }
+
+        fn from(&self) -> &Version {
+            &self.from
+        }
+
+        fn to(&self) -> &Version {
+            &self.to
+        }
+    }
+
+    fn map_empty_migration(
+        (from, to): (Version, Version),
+    ) -> (
+        Version,
+        (Version, Arc<dyn MigrationOperation + Send + Sync>),
+    ) {
+        (
+            from.clone(),
+            (to.clone(), Arc::new(EmptyMigration::new(from, to)) as _),
+        )
     }
 
     #[test]
     fn test_migration_should_use_shortest_path() {
         let migrations = MigrationsMap::from_iter(
             [
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 2, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 2, 0),
-                    (Version::new(0, 3, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 3, 0), Arc::new(EmptyMigration) as _),
-                ),
+                (Version::new(0, 1, 0), Version::new(0, 2, 0)),
+                (Version::new(0, 2, 0), Version::new(0, 3, 0)),
+                (Version::new(0, 1, 0), Version::new(0, 3, 0)),
             ]
-            .iter()
-            .cloned(),
+            .into_iter()
+            .map(map_empty_migration),
         );
 
         let migrations = create_migration_chain_from_migrations(
@@ -338,33 +364,21 @@ mod tests {
 
         // The shortest path is 0.1.0 to 0.3.0 (without going through 0.2.0)
         assert_eq!(1, migrations.len());
-        assert_eq!(Version::new(0, 1, 0), migrations[0].from);
-        assert_eq!(Version::new(0, 3, 0), migrations[0].to);
+        assert_eq!(&Version::new(0, 1, 0), migrations[0].from());
+        assert_eq!(&Version::new(0, 3, 0), migrations[0].to());
     }
 
     #[test]
     fn test_migration_complex_path() {
         let migrations = MigrationsMap::from_iter(
             [
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 2, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 2, 0),
-                    (Version::new(0, 3, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 3, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 3, 0),
-                    (Version::new(0, 3, 1), Arc::new(EmptyMigration) as _),
-                ),
+                (Version::new(0, 1, 0), Version::new(0, 2, 0)),
+                (Version::new(0, 2, 0), Version::new(0, 3, 0)),
+                (Version::new(0, 1, 0), Version::new(0, 3, 0)),
+                (Version::new(0, 3, 0), Version::new(0, 3, 1)),
             ]
-            .iter()
-            .cloned(),
+            .into_iter()
+            .map(map_empty_migration),
         );
 
         let migrations = create_migration_chain_from_migrations(
@@ -377,73 +391,55 @@ mod tests {
 
         // The shortest path is 0.1.0 -> 0.3.0 -> 0.3.1
         assert_eq!(2, migrations.len());
-        assert_eq!(Version::new(0, 1, 0), migrations[0].from);
-        assert_eq!(Version::new(0, 3, 0), migrations[0].to);
-        assert_eq!(Version::new(0, 3, 0), migrations[1].from);
-        assert_eq!(Version::new(0, 3, 1), migrations[1].to);
+        assert_eq!(&Version::new(0, 1, 0), migrations[0].from());
+        assert_eq!(&Version::new(0, 3, 0), migrations[0].to());
+        assert_eq!(&Version::new(0, 3, 0), migrations[1].from());
+        assert_eq!(&Version::new(0, 3, 1), migrations[1].to());
     }
 
     #[test]
     fn test_void_migration() {
         let migrations = MigrationsMap::from_iter(
             [
-                (
-                    Version::new(0, 12, 1),
-                    (Version::new(0, 13, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 15, 2),
-                    (Version::new(0, 16, 0), Arc::new(EmptyMigration) as _),
-                ),
+                (Version::new(0, 12, 1), Version::new(0, 13, 0)),
+                (Version::new(0, 15, 2), Version::new(0, 16, 0)),
             ]
-            .iter()
-            .cloned(),
+            .into_iter()
+            .map(map_empty_migration),
         );
 
         let start = Version::new(0, 12, 0);
         let goal = Version::new(1, 0, 0);
         let migrations =
-            create_migration_chain_from_migrations(&start, &goal, &migrations, |_, _| {
-                Arc::new(EmptyMigration)
+            create_migration_chain_from_migrations(&start, &goal, &migrations, |from, to| {
+                Arc::new(EmptyMigration::new(from.clone(), to.clone()))
             })
             .unwrap();
 
         // The shortest path is 0.12.0 -> 0.12.1 -> 0.13.0 -> 0.15.2 -> 0.16.0 -> 1.0.0
         assert_eq!(5, migrations.len());
         for (a, b) in migrations.iter().zip(migrations.iter().skip(1)) {
-            assert_eq!(a.to, b.from);
+            assert_eq!(a.to(), b.from());
         }
-        assert_eq!(start, migrations[0].from);
-        assert_eq!(Version::new(0, 12, 1), migrations[1].from);
-        assert_eq!(Version::new(0, 13, 0), migrations[2].from);
-        assert_eq!(Version::new(0, 15, 2), migrations[3].from);
-        assert_eq!(Version::new(0, 16, 0), migrations[4].from);
-        assert_eq!(goal, migrations[4].to);
+        assert_eq!(&start, migrations[0].from());
+        assert_eq!(&Version::new(0, 12, 1), migrations[1].from());
+        assert_eq!(&Version::new(0, 13, 0), migrations[2].from());
+        assert_eq!(&Version::new(0, 15, 2), migrations[3].from());
+        assert_eq!(&Version::new(0, 16, 0), migrations[4].from());
+        assert_eq!(&goal, migrations[4].to());
     }
 
     #[test]
     fn test_same_distance_paths_should_yield_any() {
         let migrations = MigrationsMap::from_iter(
             [
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 2, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 2, 0),
-                    (Version::new(0, 4, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 1, 0),
-                    (Version::new(0, 3, 0), Arc::new(EmptyMigration) as _),
-                ),
-                (
-                    Version::new(0, 3, 0),
-                    (Version::new(0, 4, 0), Arc::new(EmptyMigration) as _),
-                ),
+                (Version::new(0, 1, 0), Version::new(0, 2, 0)),
+                (Version::new(0, 2, 0), Version::new(0, 4, 0)),
+                (Version::new(0, 1, 0), Version::new(0, 3, 0)),
+                (Version::new(0, 3, 0), Version::new(0, 4, 0)),
             ]
-            .iter()
-            .cloned(),
+            .into_iter()
+            .map(map_empty_migration),
         );
 
         let migrations = create_migration_chain_from_migrations(
@@ -459,16 +455,16 @@ mod tests {
         // 0.1.0 -> 0.3.0 -> 0.4.0
         // Both of them are correct and should be accepted.
         assert_eq!(2, migrations.len());
-        if migrations[0].to == Version::new(0, 2, 0) {
-            assert_eq!(Version::new(0, 1, 0), migrations[0].from);
-            assert_eq!(Version::new(0, 2, 0), migrations[0].to);
-            assert_eq!(Version::new(0, 2, 0), migrations[1].from);
-            assert_eq!(Version::new(0, 4, 0), migrations[1].to);
+        if migrations[0].to() == &Version::new(0, 2, 0) {
+            assert_eq!(&Version::new(0, 1, 0), migrations[0].from());
+            assert_eq!(&Version::new(0, 2, 0), migrations[0].to());
+            assert_eq!(&Version::new(0, 2, 0), migrations[1].from());
+            assert_eq!(&Version::new(0, 4, 0), migrations[1].to());
         } else {
-            assert_eq!(Version::new(0, 1, 0), migrations[0].from);
-            assert_eq!(Version::new(0, 3, 0), migrations[0].to);
-            assert_eq!(Version::new(0, 3, 0), migrations[1].from);
-            assert_eq!(Version::new(0, 4, 0), migrations[1].to);
+            assert_eq!(&Version::new(0, 1, 0), migrations[0].from());
+            assert_eq!(&Version::new(0, 3, 0), migrations[0].to());
+            assert_eq!(&Version::new(0, 3, 0), migrations[1].from());
+            assert_eq!(&Version::new(0, 4, 0), migrations[1].to());
         }
     }
 
@@ -478,26 +474,14 @@ mod tests {
     }
 
     impl MigrationOperation for SimpleMigration0_1_0_0_2_0 {
-        fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join(self.from.to_string());
-            if !path.exists() {
-                anyhow::bail!("{} does not exist", self.from);
-            }
-            Ok(())
-        }
-
-        fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
-            let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
+        fn migrate_core(
+            &self,
+            chain_data_path: &Path,
+            _config: &Config,
+        ) -> anyhow::Result<PathBuf> {
+            let temp_db_path = self.temporary_db_path(chain_data_path);
             fs::create_dir(&temp_db_path).unwrap();
             Ok(temp_db_path)
-        }
-
-        fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
-            if !path.exists() {
-                anyhow::bail!("{} does not exist", path.display());
-            }
-            Ok(())
         }
 
         fn new(from: Version, to: Version) -> Self
@@ -506,17 +490,21 @@ mod tests {
         {
             Self { from, to }
         }
+
+        fn from(&self) -> &Version {
+            &self.from
+        }
+
+        fn to(&self) -> &Version {
+            &self.to
+        }
     }
 
     #[test]
     fn test_migration_map_migration() {
         let from = Version::new(0, 1, 0);
         let to = Version::new(0, 2, 0);
-        let migration = Migration {
-            from: from.clone(),
-            to: to.clone(),
-            migrator: Arc::new(SimpleMigration0_1_0_0_2_0::new(from, to)),
-        };
+        let migration = Arc::new(SimpleMigration0_1_0_0_2_0::new(from, to));
 
         let temp_dir = TempDir::new().unwrap();
 

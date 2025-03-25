@@ -65,23 +65,25 @@ impl DbMigration {
         let latest_db_version = get_latest_versioned_database(&self.chain_data_path())?
             .unwrap_or_else(|| FOREST_VERSION.clone());
 
-        info!(
-            "Migrating database from version {} to {}",
-            latest_db_version, *FOREST_VERSION
-        );
-
         let target_db_version = &FOREST_VERSION;
 
         let migrations = create_migration_chain(&latest_db_version, target_db_version)?;
 
         for migration in migrations {
+            info!(
+                "Migrating database from version {} to {}",
+                migration.from(),
+                migration.to()
+            );
+            let start = std::time::Instant::now();
             migration.migrate(&self.chain_data_path(), &self.config)?;
+            info!(
+                "Successfully migrated from version {} to {}, took {}",
+                migration.from(),
+                migration.to(),
+                humantime::format_duration(std::time::Instant::now() - start),
+            );
         }
-
-        info!(
-            "Migration to version {} complete",
-            target_db_version.to_string()
-        );
 
         Ok(())
     }
@@ -89,9 +91,8 @@ impl DbMigration {
 
 #[cfg(test)]
 mod tests {
-    use crate::db::db_mode::FOREST_DB_DEV_MODE;
-
     use super::*;
+    use crate::db::db_mode::FOREST_DB_DEV_MODE;
 
     #[test]
     fn test_migration_not_required_no_chain_path() {
