@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
+
 ### Removed
 
 - [#5449](https://github.com/ChainSafe/forest/pull/5449) Remove unnecessary/duplicate metrics.
