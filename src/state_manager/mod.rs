@@ -4,7 +4,6 @@
 pub mod chain_rand;
 pub mod circulating_supply;
 mod errors;
-mod metrics;
 pub mod utils;
 pub use self::errors::*;
 use self::utils::structured;
@@ -22,7 +21,6 @@ use crate::interpreter::{
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
-use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
@@ -1762,8 +1760,6 @@ where
             events: vec![],
         });
     }
-
-    let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
     let rand = ChainRand::new(
         Arc::clone(&chain_config),

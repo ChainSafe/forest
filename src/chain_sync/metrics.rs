@@ -7,8 +7,6 @@ use prometheus_client::{
     metrics::{counter::Counter, family::Family, gauge::Gauge, histogram::Histogram},
 };
 
-use crate::metrics::TypeLabel;
-
 pub static TIPSET_PROCESSING_TIME: Lazy<Histogram> = Lazy::new(|| {
     let metric = crate::metrics::default_histogram();
     crate::metrics::default_registry().register(
@@ -23,15 +21,6 @@ pub static BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
     crate::metrics::default_registry().register(
         "block_validation_time",
         "Duration of routine which validate blocks with no cache hit",
-        metric.clone(),
-    );
-    metric
-});
-pub static BLOCK_VALIDATION_TASKS_TIME: Lazy<Family<TypeLabel, Histogram>> = Lazy::new(|| {
-    let metric = Family::new_with_constructor(crate::metrics::default_histogram as _);
-    crate::metrics::default_registry().register(
-        "block_validation_tasks_time",
-        "Duration of subroutines inside block validation",
         metric.clone(),
     );
     metric
@@ -86,7 +75,6 @@ impl EncodeLabelSet for Libp2pMessageKindLabel {
 
 pub mod values {
     use super::Libp2pMessageKindLabel;
-    use crate::metrics::TypeLabel;
 
     // libp2p_message_total
     pub const HELLO_REQUEST_INBOUND: Libp2pMessageKindLabel =
@@ -113,9 +101,4 @@ pub mod values {
         Libp2pMessageKindLabel::new("chain_exchange_request_in");
     pub const CHAIN_EXCHANGE_RESPONSE_OUTBOUND: Libp2pMessageKindLabel =
         Libp2pMessageKindLabel::new("chain_exchange_response_out");
-
-    // block validation tasks
-    pub const BASE_FEE_CHECK: TypeLabel = TypeLabel::new("base_fee_check");
-    pub const PARENT_WEIGHT_CAL: TypeLabel = TypeLabel::new("parent_weight_check");
-    pub const BLOCK_SIGNATURE_CHECK: TypeLabel = TypeLabel::new("block_signature_check");
 }
