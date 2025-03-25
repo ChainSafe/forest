@@ -20,9 +20,9 @@ title: Metrics
 | `forest_db_size`               | Gauge     | Bytes   | Size of Forest database in bytes                                                             |
 | `bitswap_message_count`        | Counter   | Count   | Number of `bitswap` messages. Indexed by `type`                                              |
 | `bitswap_container_capacities` | Gauge     | Count   | Capacity for each `bitswap` container. Indexed by `type`                                     |
-| `bitswap_get_block_time`       | Histogram | Seconds | Duration of get_block                                                                        |
+| `bitswap_get_block_time`       | Histogram | Seconds | Duration of `get_block`                                                                      |
 | `mpool_message_total`          | Gauge     | Count   | Total number of messages in the message pool                                                 |
-| `build_info`                   | Gauge     | N/A     | Semantic version of the forest binary. Indexed by `version`.                                 |
+| `build_info`                   | Gauge     | N/A     | Semantic version of the forest binary. Indexed by `version`                                  |
 | `process_start_time_seconds`   | Gauge     | Seconds | Time that the process started (in seconds since the UNIX epoch)                              |
 | `process_uptime_seconds`       | Counter   | Seconds | Total time since the process started                                                         |
 | `libp2p_bandwidth_bytes_total` | Counter   | Bytes   | Bandwidth usage by direction and transport protocols. Indexed by `protocols` and `direction` |
