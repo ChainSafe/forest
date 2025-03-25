@@ -2,31 +2,30 @@
 title: Metrics
 ---
 
-
-| Metric | Type | Unit | Description |
-|--------|------|------|-------------|
-| `tipset_processing_time` | Histogram | Seconds | Duration of routine which processes `tipsets` to include them in the store |
-| `block_validation_time` | Histogram | Seconds | Duration of routine which validate blocks with no cache hit |
-| `libp2p_message_total` | Counter | Count | Total number of `libp2p` messages by type |
-| `invalid_tipset_total` | Counter | Count | Total number of invalid tipsets received over `gossipsub` |
-| `head_epoch` | Gauge | Epoch | Latest epoch synchronized to the node |
-| `lru_cache_hit` | Counter | Count | Stats of `lru` cache hit. Indexed by `kind` |
-| `lru_cache_miss` | Counter | Count | Stats of `lru` cache miss. Indexed by `kind` |
-| `rpc_method_failure` | Counter | Count | Number of failed RPC calls. Indexed by `method` |
-| `rpc_processing_time` | Histogram | Seconds | Duration of RPC method processing. Indexed by `method` |
-| `peer_failure_total` | Counter | Count | Total number of failed peer requests |
-| `full_peers` | Gauge | Count | Number of healthy peers recognized by the node |
-| `bad_peers` | Gauge | Count | Number of bad peers recognized by the node |
-| `expected_network_height` | Gauge | Count | The expected network height based on the current time and the genesis block time |
-| `forest_db_size` | Gauge | Bytes | Size of Forest database in bytes |
-| `bitswap_message_count` | Counter | Count | Number of `bitswap` messages. Indexed by `type` |
-| `bitswap_container_capacities` | Gauge | Count | Capacity for each `bitswap` container. Indexed by `type` |
-| `bitswap_get_block_time` | Histogram | Seconds | Duration of get_block |
-| `mpool_message_total` | Gauge | Count | Total number of messages in the message pool |
-| `build_info` | Gauge | N/A | Semantic version of the forest binary. Indexed by `version`. |
-| `process_start_time_seconds` | Gauge | Seconds | Time that the process started (in seconds since the UNIX epoch) |
-| `process_uptime_seconds` | Counter | Seconds | Total time since the process started |
-| `libp2p_bandwidth_bytes_total` | Counter | Bytes | Bandwidth usage by direction and transport protocols. Indexed by `protocols` and `direction` |
+| Metric                         | Type      | Unit    | Description                                                                                  |
+| ------------------------------ | --------- | ------- | -------------------------------------------------------------------------------------------- |
+| `tipset_processing_time`       | Histogram | Seconds | Duration of routine which processes `tipsets` to include them in the store                   |
+| `block_validation_time`        | Histogram | Seconds | Duration of routine which validate blocks with no cache hit                                  |
+| `libp2p_message_total`         | Counter   | Count   | Total number of `libp2p` messages by type                                                    |
+| `invalid_tipset_total`         | Counter   | Count   | Total number of invalid tipsets received over `gossipsub`                                    |
+| `head_epoch`                   | Gauge     | Epoch   | Latest epoch synchronized to the node                                                        |
+| `lru_cache_hit`                | Counter   | Count   | Stats of `lru` cache hit. Indexed by `kind`                                                  |
+| `lru_cache_miss`               | Counter   | Count   | Stats of `lru` cache miss. Indexed by `kind`                                                 |
+| `rpc_method_failure`           | Counter   | Count   | Number of failed RPC calls. Indexed by `method`                                              |
+| `rpc_processing_time`          | Histogram | Seconds | Duration of RPC method processing. Indexed by `method`                                       |
+| `peer_failure_total`           | Counter   | Count   | Total number of failed peer requests                                                         |
+| `full_peers`                   | Gauge     | Count   | Number of healthy peers recognized by the node                                               |
+| `bad_peers`                    | Gauge     | Count   | Number of bad peers recognized by the node                                                   |
+| `expected_network_height`      | Gauge     | Count   | The expected network height based on the current time and the genesis block time             |
+| `forest_db_size`               | Gauge     | Bytes   | Size of Forest database in bytes                                                             |
+| `bitswap_message_count`        | Counter   | Count   | Number of `bitswap` messages. Indexed by `type`                                              |
+| `bitswap_container_capacities` | Gauge     | Count   | Capacity for each `bitswap` container. Indexed by `type`                                     |
+| `bitswap_get_block_time`       | Histogram | Seconds | Duration of get_block                                                                        |
+| `mpool_message_total`          | Gauge     | Count   | Total number of messages in the message pool                                                 |
+| `build_info`                   | Gauge     | N/A     | Semantic version of the forest binary. Indexed by `version`.                                 |
+| `process_start_time_seconds`   | Gauge     | Seconds | Time that the process started (in seconds since the UNIX epoch)                              |
+| `process_uptime_seconds`       | Counter   | Seconds | Total time since the process started                                                         |
+| `libp2p_bandwidth_bytes_total` | Counter   | Bytes   | Bandwidth usage by direction and transport protocols. Indexed by `protocols` and `direction` |
 
 <details>
   <summary>Example `bitswap_message_count_total` output</summary>
@@ -46,7 +45,6 @@ bitswap_message_count_total{type="inbound_stream_count"} 2
 bitswap_container_capacities{type="peer_container_capacity"} 27
 ```
 </details>
-
 
 <details>
   <summary>Example `bitswap_get_block_time` output</summary>
