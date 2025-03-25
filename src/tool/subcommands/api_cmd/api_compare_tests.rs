@@ -1933,7 +1933,8 @@ pub(super) async fn create_tests(
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        revalidate_chain(store.clone(), 40).await?;
+        dbg!(&n_tipsets);
+        revalidate_chain(store.clone(), n_tipsets * 4).await?; // TODO(elmattic): fix revalidation
         tests.extend(snapshot_tests(
             store,
             n_tipsets,
