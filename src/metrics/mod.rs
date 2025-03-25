@@ -148,17 +148,6 @@ impl KindLabel {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
-pub struct TypeLabel {
-    r#type: &'static str,
-}
-
-impl TypeLabel {
-    pub const fn new(t: &'static str) -> Self {
-        Self { r#type: t }
-    }
-}
-
 pub mod values {
     use super::KindLabel;
 

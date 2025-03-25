@@ -7,7 +7,6 @@ use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
-use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::actors::power;
 use crate::shim::actors::PowerActorStateLoad as _;
@@ -33,7 +32,7 @@ use fvm_ipld_encoding::{bytes_32, to_vec};
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 
-use crate::fil_cns::{metrics, FilecoinConsensusError};
+use crate::fil_cns::FilecoinConsensusError;
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
     NonEmpty::of(e.into())
@@ -52,8 +51,6 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();
-
     let chain_store = state_manager.chain_store().clone();
     let header = block.header();
 
@@ -227,10 +224,6 @@ fn validate_miner<DB: Blockstore>(
     miner_addr: &Address,
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .get_or_create(&metrics::values::VALIDATE_MINER);
-    let _timer = metric.start_timer();
-
     let actor = state_manager
         .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
@@ -255,10 +248,6 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     work_addr: &Address,
     state_manager: &StateManager<DB>,
 ) -> Result<(), FilecoinConsensusError> {
-    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .get_or_create(&metrics::values::VALIDATE_WINNER_ELECTION);
-    let _timer = metric.start_timer();
-
     // Safe to unwrap because checked to `Some` in sanity check
     let election_proof = header.election_proof.as_ref().unwrap();
     if election_proof.win_count < 1 {
@@ -310,10 +299,6 @@ fn validate_ticket_election(
     work_addr: &Address,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
-    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .get_or_create(&metrics::values::VALIDATE_TICKET_ELECTION);
-    let _timer = metric.start_timer();
-
     let mut miner_address_buf = to_vec(&header.miner_address)?;
     let smoke_height = chain_config.epoch(Height::Smoke);
 
@@ -362,10 +347,6 @@ fn verify_winning_post_proof<DB: Blockstore>(
     prev_beacon_entry: &BeaconEntry,
     lookback_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    let metric = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .get_or_create(&metrics::values::VERIFY_WINNING_POST_PROOF);
-    let _timer = metric.start_timer();
-
     let miner_addr_buf = to_vec(&header.miner_address)?;
     let rand_base = header
         .beacon_entries
