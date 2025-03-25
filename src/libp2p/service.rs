@@ -76,6 +76,11 @@ pub(in crate::libp2p) mod metrics {
     }
 }
 
+const LIBP2P_METRICS: &str = "FOREST_LIBP2P_METRICS";
+fn enable_libp2p_metrics() -> bool {
+    crate::utils::misc::env::is_env_truthy(LIBP2P_METRICS)
+}
+
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
@@ -295,7 +300,11 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let metrics = Metrics::new(&mut crate::metrics::default_registry());
+        let metrics = if enable_libp2p_metrics() {
+            Some(Metrics::new(&mut crate::metrics::default_registry()))
+        } else {
+            None
+        };
 
         const BOOTSTRAP_PEER_DIALER_INTERVAL: tokio::time::Duration =
             tokio::time::Duration::from_secs(60);
@@ -310,7 +319,9 @@ where
                 swarm_event = swarm_stream.next() => match swarm_event {
                     // outbound events
                     Some(SwarmEvent::Behaviour(event)) => {
-                        metrics.record(&event);
+                        if let Some(m) = &metrics {
+                            m.record(&event);
+                        }
                         handle_forest_behaviour_event(
                             swarm_stream.get_mut(),
                             &bitswap_request_manager,
