@@ -3,6 +3,8 @@
 
 mod f3;
 use f3::*;
+mod migration;
+use migration::*;
 
 use crate::{
     libp2p::keypair::get_keypair,
@@ -67,6 +69,8 @@ pub enum ShedCommands {
     /// F3 related commands.
     #[command(subcommand)]
     F3(F3Commands),
+    /// Run a network upgrade migration
+    MigrateState(MigrateStateCommand),
 }
 
 #[derive(Debug, Clone, ValueEnum, PartialEq)]
@@ -171,6 +175,7 @@ impl ShedCommands {
                 println!("{}", serde_json::to_string_pretty(&openrpc_doc)?);
             }
             ShedCommands::F3(cmd) => cmd.run(client).await?,
+            ShedCommands::MigrateState(cmd) => cmd.run(client).await?,
         }
         Ok(())
     }

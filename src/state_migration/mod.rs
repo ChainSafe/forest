@@ -29,17 +29,11 @@ mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
-/// Run state migrations
-pub fn run_state_migrations<DB>(
-    epoch: ChainEpoch,
-    chain_config: &ChainConfig,
-    db: &Arc<DB>,
-    parent_state: &Cid,
-) -> anyhow::Result<Option<Cid>>
+pub fn get_migrations<DB>(chain: &NetworkChain) -> Vec<(Height, RunMigration<DB>)>
 where
     DB: Blockstore + Send + Sync,
 {
-    let mappings: Vec<(_, RunMigration<DB>)> = match chain_config.network {
+    match chain {
         NetworkChain::Mainnet => {
             vec![
                 (Height::Shark, nv17::run_migration::<DB>),
@@ -82,7 +76,20 @@ where
                 (Height::Teep, nv25::run_migration::<DB>),
             ]
         }
-    };
+    }
+}
+
+/// Run state migrations
+pub fn run_state_migrations<DB>(
+    epoch: ChainEpoch,
+    chain_config: &ChainConfig,
+    db: &Arc<DB>,
+    parent_state: &Cid,
+) -> anyhow::Result<Option<Cid>>
+where
+    DB: Blockstore + Send + Sync,
+{
+    let mappings = get_migrations(&chain_config.network);
 
     // Make sure bundle is defined.
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
@@ -106,7 +113,7 @@ where
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
             let new_state = migrate(chain_config, db, parent_state, epoch)?;
-            let elapsed = start_time.elapsed().as_secs_f32();
+            let elapsed = start_time.elapsed();
             // `new_state_actors` is the Go state migration output, log for comparision
             let new_state_actors = db
                 .get_cbor::<StateRoot>(&new_state)
@@ -116,9 +123,9 @@ where
                 .unwrap_or_default();
             if new_state != *parent_state {
                 crate::utils::misc::reveal_upgrade_logo(height.into());
-                tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
+                tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}.", elapsed = humantime::format_duration(elapsed));
             } else {
-                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");
+                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}.", elapsed = humantime::format_duration(elapsed));
             }
 
             return Ok(Some(new_state));
