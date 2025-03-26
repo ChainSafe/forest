@@ -6,7 +6,7 @@ title: Metrics
 | ------------------------------ | --------- | ------- | -------------------------------------------------------------------------------------------- |
 | `tipset_processing_time`       | Histogram | Seconds | Duration of routine which processes `tipsets` to include them in the store                   |
 | `block_validation_time`        | Histogram | Seconds | Duration of routine which validate blocks with no cache hit                                  |
-| `libp2p_message_total`         | Counter   | Count   | Total number of `libp2p` messages by type                                                    |
+| `libp2p_messsage_total`        | Counter   | Count   | Total number of `libp2p` messages by type                                                    |
 | `invalid_tipset_total`         | Counter   | Count   | Total number of invalid tipsets received over `gossipsub`                                    |
 | `head_epoch`                   | Gauge     | Epoch   | Latest epoch synchronized to the node                                                        |
 | `lru_cache_hit`                | Counter   | Count   | Stats of `lru` cache hit. Indexed by `kind`                                                  |
