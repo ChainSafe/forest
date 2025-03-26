@@ -678,31 +678,33 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     // Mark all descendants of tipsets as bad.
     // Remove all bad tipsets from the tipset map.
     fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>, reason: String) {
-        self.tipsets.remove(tipset.key());
-        // Mark all blocks in the tipset as bad
-        for block in tipset.blocks() {
-            self.bad_block_cache.put(*block.cid(), reason.clone());
-        }
+        let mut stack = vec![tipset];
 
-        // Find all descendant tipsets (tipsets that have this tipset as a parent)
-        let mut to_remove = Vec::new();
-        let mut descendants = Vec::new();
-
-        for (key, ts) in self.tipsets.iter() {
-            if ts.parents() == tipset.key() {
-                to_remove.push(key.clone());
-                descendants.push(ts.clone());
+        while let Some(tipset) = stack.pop() {
+            self.tipsets.remove(tipset.key());
+            // Mark all blocks in the tipset as bad
+            for block in tipset.blocks() {
+                self.bad_block_cache.put(*block.cid(), reason.clone());
             }
-        }
 
-        // Remove bad tipsets from the map
-        for key in to_remove {
-            self.tipsets.remove(&key);
-        }
+            // Find all descendant tipsets (tipsets that have this tipset as a parent)
+            let mut to_remove = Vec::new();
+            let mut descendants = Vec::new();
 
-        // Recursively mark descendants as bad
-        for descendant in descendants {
-            self.mark_bad_tipset(descendant, reason.clone());
+            for (key, ts) in self.tipsets.iter() {
+                if ts.parents() == tipset.key() {
+                    to_remove.push(key.clone());
+                    descendants.push(ts.clone());
+                }
+            }
+
+            // Remove bad tipsets from the map
+            for key in to_remove {
+                self.tipsets.remove(&key);
+            }
+
+            // Mark descendants as bad
+            stack.extend(descendants);
         }
     }
 

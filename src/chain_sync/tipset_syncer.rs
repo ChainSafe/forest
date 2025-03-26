@@ -230,9 +230,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let v_block_store = state_manager.blockstore_owned();
     let v_block = Arc::clone(&block);
     validations.push(tokio::task::spawn_blocking(move || {
-        let metric =
-            &*metrics::BLOCK_VALIDATION_TASKS_TIME.get_or_create(&metrics::values::BASE_FEE_CHECK);
-        let _timer = metric.start_timer();
         let base_fee = crate::chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetSyncerError::Validation(format!("Could not compute base fee: {e}"))
@@ -251,9 +248,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight.clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        let metric = &*metrics::BLOCK_VALIDATION_TASKS_TIME
-            .get_or_create(&metrics::values::PARENT_WEIGHT_CAL);
-        let _timer = metric.start_timer();
         let calc_weight = fil_cns::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetSyncerError::Calculation(format!("Error calculating weight: {e}"))
         })?;
@@ -297,9 +291,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Block signature check
     let v_block = block.clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        let metric = &*metrics::BLOCK_VALIDATION_TASKS_TIME
-            .get_or_create(&metrics::values::BLOCK_SIGNATURE_CHECK);
-        let _timer = metric.start_timer();
         v_block.header().verify_signature_against(&work_addr)?;
         Ok(())
     }));

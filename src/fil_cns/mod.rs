@@ -12,7 +12,6 @@ use fvm_ipld_encoding::Error as ForestEncodingError;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
 
-mod metrics;
 mod validation;
 mod weight;
 

@@ -3,12 +3,10 @@
 
 //! Migration logic from any version that requires no migration logic.
 
-use crate::db::migration::migration_map::temporary_db_name;
+use super::migration_map::MigrationOperationExt as _;
 use crate::Config;
-use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
@@ -18,44 +16,20 @@ pub(super) struct MigrationVoid {
 }
 
 impl MigrationOperation for MigrationVoid {
-    fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
-        Ok(())
+    fn migrate_core(&self, _: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
+        unimplemented!("Overriding migrate implementation instead")
     }
 
-    fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
-        let source_db = chain_data_path.join(self.from.to_string());
-
-        let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
-        if temp_db_path.exists() {
-            info!(
-                "removing old temporary database {temp_db_path}",
-                temp_db_path = temp_db_path.display()
-            );
-            std::fs::remove_dir_all(&temp_db_path)?;
-        }
-
-        info!(
-            "copying old database from {source_db} to {temp_db_path}",
-            source_db = source_db.display(),
-            temp_db_path = temp_db_path.display()
+    fn migrate(&self, chain_data_path: &Path, _: &Config) -> anyhow::Result<()> {
+        self.pre_checks(chain_data_path)?;
+        let old_db = self.old_db_path(chain_data_path);
+        let new_db = self.new_db_path(chain_data_path);
+        tracing::debug!(
+            "Renaming database {} to {}",
+            old_db.display(),
+            new_db.display()
         );
-        fs_extra::copy_items(
-            &[source_db.as_path()],
-            temp_db_path.clone(),
-            &CopyOptions::default().copy_inside(true),
-        )?;
-
-        Ok(temp_db_path)
-    }
-
-    fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        let temp_db_name = temporary_db_name(&self.from, &self.to);
-        if !chain_data_path.join(&temp_db_name).exists() {
-            anyhow::bail!(
-                "migration database {} does not exist",
-                chain_data_path.join(temp_db_name).display()
-            );
-        }
+        std::fs::rename(old_db, new_db)?;
         Ok(())
     }
 
@@ -64,6 +38,14 @@ impl MigrationOperation for MigrationVoid {
         Self: Sized,
     {
         Self { from, to }
+    }
+
+    fn from(&self) -> &Version {
+        &self.from
+    }
+
+    fn to(&self) -> &Version {
+        &self.to
     }
 }
 
@@ -88,18 +70,14 @@ mod test {
         std::fs::write(content_file, chant).unwrap();
 
         let path = chain_data_path.path();
-        migration.pre_checks(path).unwrap();
-        let temp_db_path = migration.migrate(path, &Config::default()).unwrap();
-        migration.post_checks(path).unwrap();
+        migration.migrate(path, &Config::default()).unwrap();
+        let new_db_path = migration.new_db_path(path);
 
-        // check that the temporary database directory exists and contains the file with the
+        // check that the target database directory exists and contains the file with the
         // expected content.
-        let temp_db_content_dir = temp_db_path.join("R'lyeh");
-        let temp_db_content_file = temp_db_content_dir.join("cthulhu");
-        assert!(temp_db_content_file.exists());
-        assert_eq!(
-            std::fs::read_to_string(temp_db_content_file).unwrap(),
-            chant
-        );
+        let new_db_content_dir = new_db_path.join("R'lyeh");
+        let new_db_content_file = new_db_content_dir.join("cthulhu");
+        assert!(new_db_content_file.exists());
+        assert_eq!(std::fs::read_to_string(new_db_content_file).unwrap(), chant);
     }
 }

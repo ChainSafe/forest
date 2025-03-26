@@ -31,9 +31,15 @@
 
 ### Changed
 
+- [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
+
 ### Removed
 
+- [#5449](https://github.com/ChainSafe/forest/pull/5449) Remove unnecessary/duplicate metrics.
+
 ### Fixed
+
+- [#5458](https://github.com/ChainSafe/forest/pull/5458) Fix stack overflow occurring when running Forest in debug mode.
 
 ## Forest v0.25.0 "Bombadil"
 

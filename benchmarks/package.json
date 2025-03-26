@@ -1,0 +1,21 @@
+{
+  "name": "k6-forest",
+  "version": "1.0.0",
+  "scripts": {
+    "js-lint": "eslint  '**/*.js'",
+    "js-fmt": "prettier --write '**/*.js'",
+    "js-fmt-check": "prettier --check '**/*.js'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "description": "",
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@types/k6": "^0.57.1",
+    "eslint": "^9.22.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3"
+  },
+  "packageManager": "yarn@4.7.0"
+}

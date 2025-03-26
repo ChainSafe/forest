@@ -231,8 +231,7 @@ pub struct SectorOnChainInfo {
     /// `CommR`
     pub sealed_cid: Cid,
 
-    #[schemars(with = "LotusJson<Vec<DealID>>")]
-    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
+    #[serde(skip)]
     pub deal_ids: Vec<DealID>,
 
     /// Epoch during which the sector proof was accepted
