@@ -39,6 +39,8 @@
 
 ### Fixed
 
+- [#5458](https://github.com/ChainSafe/forest/pull/5458) Fix stack overflow occurring when running Forest in debug mode.
+
 ## Forest v0.25.0 "Bombadil"
 
 This is a mandatory release for calibnet node operators. It includes the revised NV25 _Teep_ network upgrade at epoch `2_523_454` which corresponds to `2025-03-26T23:00:00Z`. This release also includes a number of new RPC methods, fixes and other improvements. Be sure to check the breaking changes before upgrading.
