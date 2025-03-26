@@ -30,10 +30,10 @@ pub enum IndexCommands {
         /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
-        /// The starting tipset epoch for backfilling (inclusive)
+        /// The starting tipset epoch for back-filling (inclusive)
         #[arg(long)]
         from: ChainEpoch,
-        /// The ending tipset epoch for backfilling (inclusive)
+        /// The ending tipset epoch for back-filling (inclusive)
         #[arg(long)]
         to: ChainEpoch,
     },
