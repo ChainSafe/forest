@@ -1934,7 +1934,7 @@ pub(super) async fn create_tests(
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
         dbg!(&n_tipsets);
-        revalidate_chain(store.clone(), n_tipsets * 4).await?; // TODO(elmattic): fix revalidation
+        revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
             n_tipsets,
@@ -1948,7 +1948,6 @@ pub(super) async fn create_tests(
 
 async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
     let chain_config = Arc::new(handle_chain_config(&NetworkChain::Calibnet)?);
-    let sync_config = Arc::new(SyncConfig::default());
 
     let genesis: Option<&Path> = None;
     let genesis_header = crate::genesis::read_genesis_header(
@@ -1968,7 +1967,11 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
     if n_ts_to_validate > 0 {
-        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
+        state_manager.validate_tipsets(
+            head_ts
+                .chain_arc(&db)
+                .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
+        )?;
     }
 
     Ok(())
