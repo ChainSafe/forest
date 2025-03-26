@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#5464](https://github.com/ChainSafe/forest/pull/5464) Changed the `allow_response_mismatch` flag to `use_response_from` in the `forest-tool api generate-test-snapshot` subcommand. This allows specifying the source of the response to use when generating test snapshots and creating failing tests.
+
 ### Added
 
 ### Changed
