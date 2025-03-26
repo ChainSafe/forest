@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{IndicesStore, EthMappingsStore, PersistentStore, SettingsStore};
+use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
 use crate::cid_collections::CidHashSet;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
