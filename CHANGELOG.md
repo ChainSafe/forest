@@ -36,6 +36,8 @@
 ### Removed
 
 - [#5449](https://github.com/ChainSafe/forest/pull/5449) Remove unnecessary/duplicate metrics.
+- [#5457](https://github.com/ChainSafe/forest/pull/5457) Remove most prometheus
+  metrics starting with `libp2p_`.
 
 ### Fixed
 
