@@ -1,5 +1,5 @@
 ---
-title: "[automated] RPC parity test failure"
+title: "[automated] RPC parity test failure @ {{ date | date('D/M/YY:HH:mm') }}"
 labels: ["Bug"]
 ---
 
