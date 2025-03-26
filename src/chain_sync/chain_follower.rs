@@ -895,6 +895,7 @@ mod tests {
                 db.clone(),
                 db.clone(),
                 db.clone(),
+                db.clone(),
                 chain_config.clone(),
                 genesis_header.clone().into(),
             )

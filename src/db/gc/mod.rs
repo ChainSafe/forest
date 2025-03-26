@@ -286,6 +286,7 @@ mod test {
                     db.clone(),
                     db.clone(),
                     db.clone(),
+                    db.clone(),
                     Arc::new(config),
                     gen_block,
                 )

@@ -88,6 +88,7 @@ pub struct StateOutput {
     pub state_root: Cid,
     pub receipt_root: Cid,
     pub events: Vec<Vec<StampedEvent>>,
+    pub events_roots: Vec<Cid>,
 }
 
 #[derive(Clone)]
@@ -102,6 +103,7 @@ impl From<StateOutputValue> for StateOutput {
             state_root: value.state_root,
             receipt_root: value.receipt_root,
             events: vec![],
+            events_roots: vec![],
         }
     }
 }
@@ -476,6 +478,11 @@ where
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<StateOutput> {
+        let vm_event = if self.chain_config.enable_indexer {
+            VMEvent::PushedEventsRoot
+        } else {
+            VMEvent::NotPushed
+        };
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
@@ -484,15 +491,20 @@ where
                     tipset.epoch(),
                     tipset.len(),
                 );
-                let ts_state = self
+                let state_output = self
                     .compute_tipset_state(
                         Arc::clone(tipset),
                         NO_CALLBACK,
                         VMTrace::NotTraced,
-                        VMEvent::NotPushed,
+                        vm_event,
                     )
-                    .await?
-                    .into();
+                    .await?;
+                for events_root in state_output.events_roots.iter() {
+                    trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
+
+                    self.chain_store().put_index(events_root, key)?;
+                }
+                let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
             })
@@ -504,6 +516,7 @@ where
     pub async fn tipset_state_events(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
+        events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
         self.events_cache
@@ -513,13 +526,29 @@ where
                         Arc::clone(tipset),
                         NO_CALLBACK,
                         VMTrace::NotTraced,
-                        VMEvent::Pushed,
+                        if events_root.is_some() {
+                            VMEvent::PushedAll
+                        } else {
+                            VMEvent::Pushed
+                        },
                     )
                     .await?;
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
-                Ok(StateEvents {
-                    events: ts_state.events,
-                })
+
+                if let Some(events_root_cid) = events_root {
+                    let events = ts_state
+                        .events_roots
+                        .into_iter()
+                        .zip(ts_state.events)
+                        .filter(|(cid, _)| cid == events_root_cid)
+                        .map(|(_, v)| v)
+                        .collect();
+                    Ok(StateEvents { events })
+                } else {
+                    Ok(StateEvents {
+                        events: ts_state.events,
+                    })
+                }
             })
             .await
     }
@@ -1758,6 +1787,7 @@ where
             state_root: *tipset.parent_state(),
             receipt_root: message_receipts,
             events: vec![],
+            events_roots: vec![],
         });
     }
 
@@ -1828,7 +1858,7 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // step 4: apply tipset messages
-        let (receipts, events) =
+        let (receipts, events, events_roots) =
             vm.apply_block_messages(&block_messages, epoch, callback, enable_event_pushing)?;
 
         // step 5: construct receipt root from receipts and flush the state-tree
@@ -1839,6 +1869,7 @@ where
             state_root,
             receipt_root,
             events,
+            events_roots,
         })
     })
 }
