@@ -67,16 +67,16 @@ pub async fn start_offline_server(
         &db,
     )
     .await?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db.clone(),
         db.clone(),
-        todo!(),
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
 
     populate_eth_mappings(&state_manager, &head_ts)?;
 

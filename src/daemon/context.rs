@@ -10,7 +10,7 @@ use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
-use crate::db::{DummyStore, EthMappingsStore, IndicesStore, CAR_DB_DIR_NAME};
+use crate::db::{DummyStore, EthMappingsStore, CAR_DB_DIR_NAME};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;

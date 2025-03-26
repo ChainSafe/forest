@@ -761,7 +761,7 @@ mod tests {
             db.clone(),
             db.clone(),
             db.clone(),
-            todo!(),
+            db,
             chain_config,
             gen_block.clone(),
         )
@@ -783,7 +783,7 @@ mod tests {
             db.clone(),
             db.clone(),
             db.clone(),
-            todo!(),
+            db,
             chain_config,
             gen_block,
         )

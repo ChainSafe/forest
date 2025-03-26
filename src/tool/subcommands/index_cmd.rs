@@ -64,7 +64,6 @@ impl IndexCommands {
                 let head_ts = db.heaviest_tipset()?;
 
                 let chain_config = Arc::new(handle_chain_config(&config.chain)?);
-                let sync_config = Arc::new(config.sync);
                 let genesis_header = read_genesis_header(
                     None,
                     chain_config.genesis_bytes(&db).await?.as_deref(),
