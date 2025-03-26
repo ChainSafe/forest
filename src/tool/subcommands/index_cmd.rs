@@ -74,7 +74,7 @@ impl IndexCommands {
                 let chain_store = Arc::new(ChainStore::new(
                     db.clone(),
                     db.clone(),
-                    db.writer().clone(),
+                    db.clone(),
                     db.writer().clone(),
                     chain_config.clone(),
                     genesis_header.clone(),

@@ -14,7 +14,6 @@ use crate::db::{DummyStore, EthMappingsStore, CAR_DB_DIR_NAME};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
-
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
