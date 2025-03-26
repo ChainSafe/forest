@@ -504,7 +504,7 @@ impl FullTipset {
     pub fn parent_state(&self) -> &Cid {
         &self.first_block().header().state_root
     }
-    /// Returns the state root for the tipset parent.
+    /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKey {
         &self.first_block().header().parents
     }

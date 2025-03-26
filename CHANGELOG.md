@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#5461](https://github.com/ChainSafe/forest/pull/5461) Add `forest-tool shed migrate-state` command.
+
 ### Changed
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
