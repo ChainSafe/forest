@@ -5,7 +5,6 @@ mod types;
 use crate::shim::actors::init;
 use crate::shim::actors::miner::ext::DeadlineExt;
 use fil_actors_shared::fvm_ipld_amt::Amt;
-use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use types::*;
@@ -17,7 +16,7 @@ use crate::eth::EthChainId;
 use crate::interpreter::VMEvent;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::state_load::*;
@@ -2760,36 +2759,10 @@ impl RpcMethod<0> for StateGetNetworkParams {
         let config = ctx.chain_config().as_ref();
         let policy = &config.policy;
 
-        // This is the correct implementation, but for conformance with Lotus,
-        // until resolved there, we have to use a workaround. Replace this
-        // once a version of Lotus is released with the correct implementation.
-        // The change is already in the Lotus master branch.
-        //let supported_proof_types = policy
-        //    .valid_pre_commit_proof_type
-        //    .iter()
-        //    .map(|p| i64::from(*p))
-        //    .sorted()
-        //    .map(|p| p.into())
-        //    .collect();
-
-        use crate::shim::sector::RegisteredSealProofV3::*;
-        let supported_proof_types = match config.network {
-            NetworkChain::Mainnet | NetworkChain::Calibnet => {
-                vec![StackedDRG32GiBV1, StackedDRG64GiBV1]
-            }
-            NetworkChain::Butterflynet => {
-                vec![StackedDRG512MiBV1, StackedDRG32GiBV1, StackedDRG64GiBV1]
-            }
-            NetworkChain::Devnet(_) => {
-                vec![StackedDRG2KiBV1, StackedDRG8MiBV1]
-            }
-        };
-
         let params = NetworkParams {
             network_name: ctx.network_name.clone(),
             block_delay_secs: config.block_delay_secs as u64,
             consensus_miner_min_power: policy.minimum_consensus_power.clone(),
-            supported_proof_types,
             pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
             fork_upgrade_params: ForkUpgradeParams::try_from(config)
                 .context("Failed to get fork upgrade params")?,
@@ -2808,8 +2781,6 @@ pub struct NetworkParams {
     #[schemars(with = "crate::lotus_json::LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     consensus_miner_min_power: BigInt,
-    #[schemars(with = "crate::lotus_json::LotusJson<i64>")]
-    supported_proof_types: Vec<RegisteredSealProof>,
     pre_commit_challenge_delay: ChainEpoch,
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]

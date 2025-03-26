@@ -7,7 +7,7 @@
 
 use crate::blocks::TipsetKey;
 use crate::db::db_engine::Db;
-use crate::db::migration::migration_map::temporary_db_name;
+use crate::db::migration::migration_map::MigrationOperationExt as _;
 use crate::db::migration::v0_22_1::paritydb_0_22_0::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::rpc::eth::types::EthHash;
@@ -38,45 +38,41 @@ impl MigrationOperation for Migration0_22_0_0_22_1 {
         Self { from, to }
     }
 
-    fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
-        Ok(())
+    fn from(&self) -> &Version {
+        &self.from
     }
 
-    fn migrate(&self, chain_data_path: &Path, _: &Config) -> anyhow::Result<PathBuf> {
-        let source_db = chain_data_path.join(self.from.to_string());
+    fn to(&self) -> &Version {
+        &self.to
+    }
 
-        let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
-        if temp_db_path.exists() {
-            info!(
-                "Removing old temporary database {temp_db_path}",
-                temp_db_path = temp_db_path.display()
-            );
-            std::fs::remove_dir_all(&temp_db_path)?;
-        }
+    fn migrate_core(&self, chain_data_path: &Path, _: &Config) -> anyhow::Result<PathBuf> {
+        let old_db = self.old_db_path(chain_data_path);
+        let temp_db = self.temporary_db_path(chain_data_path);
 
-        let old_car_db_path = source_db.join(CAR_DB_DIR_NAME);
-        let new_car_db_path = temp_db_path.join(CAR_DB_DIR_NAME);
+        let old_car_db_path = old_db.join(CAR_DB_DIR_NAME);
+        let temp_car_db_path = temp_db.join(CAR_DB_DIR_NAME);
 
         // Make sure `car_db` dir exists as it might not be the case when migrating
         // from older versions.
         if old_car_db_path.is_dir() {
             info!(
-                "Copying snapshot from {source_db} to {temp_db_path}",
-                source_db = old_car_db_path.display(),
-                temp_db_path = new_car_db_path.display()
+                "Copying snapshot from {} to {}",
+                old_db.display(),
+                temp_db.display()
             );
 
             fs_extra::copy_items(
                 &[old_car_db_path.as_path()],
-                new_car_db_path,
+                temp_car_db_path,
                 &CopyOptions::default().copy_inside(true),
             )?;
         }
 
-        let db = ParityDb::open(source_db)?;
+        let db = ParityDb::open(old_db)?;
 
         // open the new database to migrate data from the old one.
-        let new_db = paritydb_0_22_1::ParityDb::open(&temp_db_path)?;
+        let new_db = paritydb_0_22_1::ParityDb::open(&temp_db)?;
 
         for col in DbColumn::iter() {
             info!("Migrating column {}", col);
@@ -150,18 +146,7 @@ impl MigrationOperation for Migration0_22_0_0_22_1 {
 
         drop(new_db);
 
-        Ok(temp_db_path)
-    }
-
-    fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        let temp_db_name = temporary_db_name(&self.from, &self.to);
-        if !chain_data_path.join(&temp_db_name).exists() {
-            anyhow::bail!(
-                "migration database {} does not exist",
-                chain_data_path.join(temp_db_name).display()
-            );
-        }
-        Ok(())
+        Ok(temp_db)
     }
 }
 
