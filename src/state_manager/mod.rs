@@ -542,7 +542,7 @@ where
                         .events_roots
                         .into_iter()
                         .zip(ts_state.events)
-                        //.filter(|(cid, _)| cid == events_root_cid)
+                        .filter(|(cid, _)| cid == events_root_cid)
                         .map(|(_, v)| v)
                         .collect();
                     Ok(StateEvents { events })
