@@ -46,7 +46,7 @@ This provides the base for the state migrations and network-aware node changes. 
 State migrations are described in detail in the relevant FIPs, including the steps required to perform them. Note that naive state migrations might take a significant amount of time and resources. It is up to the implementation team to decide whether to optimize them.
 
 :::note
-Testing the state migration on a relevant network is crucial before the upgrade epoch. This is done by changing the upgrade epoch in both Lotus and Forest and ensuring both migrations produce the same state root. This is done locally, but it might be facilitated in the future.
+Testing the state migration on a relevant network is crucial before the upgrade epoch. This could be done by either changing the upgrade epoch in both Lotus and Forest and ensuring both migrations produce the same state root, or comparing the output of `forest-tool shed migrate-state` and `lotus-shed migrate-state` commands.
 
 This also allows for assessing the duration of the state migration and determining whether it is feasible to perform it on the mainnet.
 :::
