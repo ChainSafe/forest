@@ -76,9 +76,8 @@ pub(in crate::libp2p) mod metrics {
     }
 }
 
-const LIBP2P_METRICS: &str = "FOREST_LIBP2P_METRICS";
-fn enable_libp2p_metrics() -> bool {
-    crate::utils::misc::env::is_env_truthy(LIBP2P_METRICS)
+fn libp2p_metrics_enabled() -> bool {
+    crate::utils::misc::env::is_env_truthy(FOREST_LIBP2P_METRICS_ENABLED)
 }
 
 /// `Gossipsub` Filecoin blocks topic identifier.
@@ -300,7 +299,7 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let metrics = if enable_libp2p_metrics() {
+        let metrics = if libp2p_metrics_enabled() {
             Some(Metrics::new(&mut crate::metrics::default_registry()))
         } else {
             None
