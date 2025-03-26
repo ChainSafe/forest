@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method.
+
 ### Changed
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
