@@ -2,3 +2,4 @@
 # They should be considered bugged, and not used until the root cause is resolved.
 # Disable until next Lotus release with go-f3 0.8.0
 !Filecoin.F3GetManifest
+!Filecoin.EthTraceFilter
