@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod errors;
+pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
 mod trace;
@@ -1683,13 +1683,14 @@ impl RpcMethod<2> for EthEstimateGas {
                 // information.
                 msg.set_gas_limit(BLOCK_GAS_LIMIT);
                 if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
-                    if let Some(EthErrors::ExecutionReverted { .. }) = e.downcast_ref::<EthErrors>()
-                    {
+                    if let Some(eth_error) = e.downcast_ref::<EthErrors>() {
                         // if the error is an execution reverted, return it directly
-                        return Err(e.into());
-                    } else {
-                        err = e.into();
+                        return match eth_error {
+                            EthErrors::ExecutionReverted { .. } => Err(eth_error.clone().into()),
+                        };
                     }
+
+                    err = e.into();
                 }
 
                 Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
@@ -1709,7 +1710,7 @@ async fn apply_message<DB>(
     ctx: &Ctx<DB>,
     tipset: Option<Arc<Tipset>>,
     msg: Message,
-) -> Result<ApiInvocResult>
+) -> Result<ApiInvocResult, Error>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1727,7 +1728,7 @@ where
                 let (data, reason) = decode_revert_reason(receipt.return_data());
 
                 return Err(EthErrors::execution_reverted(
-                    receipt.exit_code(),
+                    ExitCode::from(receipt.exit_code()),
                     reason.as_str(),
                     invoc_res.error.as_str(),
                     data.as_slice(),

@@ -3,6 +3,7 @@
 
 use std::fmt::{self, Display};
 
+use crate::rpc::eth::errors::EthErrors;
 use jsonrpsee::{
     core::ClientError,
     types::error::{self, ErrorCode, ErrorObjectOwned},
@@ -23,6 +24,8 @@ pub(crate) mod implementation_defined_errors {
     /// node. Note that it's not the same as not found, as we are explicitly not supporting it,
     /// e.g., because it's deprecated or Lotus is doing the same.
     pub(crate) const UNSUPPORTED_METHOD: i32 = -32001;
+
+    pub(crate) const EXECUTION_REVERTED: i32 = -32002;
 }
 
 impl ServerError {
@@ -138,6 +141,18 @@ from2internal! {
     fil_actors_shared::v16::ActorError,
     serde_json::Error,
     jsonrpsee::core::client::error::Error,
+}
+
+impl From<EthErrors> for ServerError {
+    fn from(e: EthErrors) -> Self {
+        match e {
+            EthErrors::ExecutionReverted { message, data } => Self::new(
+                implementation_defined_errors::EXECUTION_REVERTED,
+                message,
+                data.map(serde_json::Value::String),
+            ),
+        }
+    }
 }
 
 impl From<ServerError> for ClientError {

@@ -1,12 +1,18 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared4::error::ExitCode;
-use std::fmt;
+use crate::shim::error::ExitCode;
+use serde::Serialize;
 use std::fmt::Debug;
+use thiserror::Error;
 
+#[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
-    ExecutionReverted { message: String, data: String },
+    #[error("{message}")]
+    ExecutionReverted {
+        message: String,
+        data: Option<String>,
+    },
 }
 
 impl EthErrors {
@@ -17,38 +23,7 @@ impl EthErrors {
                 "message execution failed (exit=[{}], revert reason=[{}], vm error=[{}])",
                 exit_code, reason, error
             ),
-            data: format!("0x{}", hex::encode(data)),
+            data: (!data.is_empty()).then(|| format!("0x{}", hex::encode(data))),
         }
     }
 }
-
-impl fmt::Display for EthErrors {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ExecutionReverted { message, data } => {
-                if data == "0x" {
-                    write!(f, "message: {message}")
-                } else {
-                    write!(f, "message: {message}, data: {data}")
-                }
-            }
-        }
-    }
-}
-
-impl Debug for EthErrors {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ExecutionReverted { message, data } => {
-                if data == "0x" {
-                    write!(f, "message: {message}")
-                } else {
-                    write!(f, "message: {message}, data: {data}")
-                }
-            }
-        }
-    }
-}
-
-// Implement standard Error trait
-impl std::error::Error for EthErrors {}
