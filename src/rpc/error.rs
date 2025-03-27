@@ -16,6 +16,13 @@ pub struct ServerError {
     inner: ErrorObjectOwned,
 }
 
+/// Custom error codes for the Forest node.
+pub enum ForestError {
+    /// This error indicates that the execution reverted while executing the message.
+    /// Code is taken from https://github.com/filecoin-project/lotus/blob/master/api/api_errors.go#L27
+    ExecutionReverted = 11,
+}
+
 /// According to the [JSON-RPC 2.0 spec](https://www.jsonrpc.org/specification#response_object),
 /// the error codes from -32000 to -32099 are reserved for implementation-defined server-errors.
 /// We define them here.
@@ -24,8 +31,6 @@ pub(crate) mod implementation_defined_errors {
     /// node. Note that it's not the same as not found, as we are explicitly not supporting it,
     /// e.g., because it's deprecated or Lotus is doing the same.
     pub(crate) const UNSUPPORTED_METHOD: i32 = -32001;
-
-    pub(crate) const EXECUTION_REVERTED: i32 = -32002;
 }
 
 impl ServerError {
@@ -147,7 +152,7 @@ impl From<EthErrors> for ServerError {
     fn from(e: EthErrors) -> Self {
         match e {
             EthErrors::ExecutionReverted { message, data } => Self::new(
-                implementation_defined_errors::EXECUTION_REVERTED,
+                ForestError::ExecutionReverted as i32,
                 message,
                 data.map(serde_json::Value::String),
             ),
