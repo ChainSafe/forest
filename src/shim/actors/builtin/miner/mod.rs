@@ -992,6 +992,15 @@ pub struct SectorOnChainInfo {
     pub sector_key_cid: Option<Cid>,
     // Flag for QA power mechanism introduced in fip 0045
     pub simple_qa_power: bool,
+    /// The total fee payable per day for this sector. The value of this field is set at the time of
+    /// sector activation, extension and whenever a sector's QAP is changed. This fee is payable for
+    /// the lifetime of the sector and is aggregated in the deadline's `daily_fee` field.
+    ///
+    /// This field is not included in the serialised form of the struct prior to the activation of
+    /// FIP-0100, and is added as the 16th element of the array after that point only for new sectors
+    /// or sectors that are updated after that point. For old sectors, the value of this field will
+    /// always be zero.
+    pub daily_fee: TokenAmount,
 }
 
 impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
@@ -1012,6 +1021,7 @@ impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: TokenAmount::default(),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1034,6 +1044,7 @@ impl From<fil_actor_miner_state::v9::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward,
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1056,6 +1067,7 @@ impl From<fil_actor_miner_state::v10::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v3_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1078,6 +1090,7 @@ impl From<fil_actor_miner_state::v11::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v3_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: info.simple_qa_power,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1100,6 +1113,7 @@ impl From<fil_actor_miner_state::v12::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1122,6 +1136,7 @@ impl From<fil_actor_miner_state::v13::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1144,6 +1159,7 @@ impl From<fil_actor_miner_state::v14::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1166,6 +1182,7 @@ impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: Default::default(),
         }
     }
 }
@@ -1188,6 +1205,7 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: from_opt_token_v4_to_v2(&info.replaced_day_reward),
             sector_key_cid: info.sector_key_cid,
             simple_qa_power: bool::default(),
+            daily_fee: from_token_v4_to_v2(&info.daily_fee),
         }
     }
 }

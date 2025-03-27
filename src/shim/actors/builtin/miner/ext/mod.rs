@@ -15,19 +15,22 @@ use crate::shim::{
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
+use num::BigInt;
 
 use crate::rpc::types::{SectorOnChainInfo, SectorPreCommitOnChainInfo};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::CborStoreExt as _;
 
 pub trait MinerStateExt {
+    fn sectors(&self) -> &Cid;
+
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed
     /// in, return all.
     fn load_sectors_ext<BS: Blockstore>(
         &self,
         store: &BS,
         sectors: Option<&BitField>,
-    ) -> anyhow::Result<Vec<SectorOnChainInfo>>;
+    ) -> anyhow::Result<Vec<(u64, SectorOnChainInfo)>>;
 
     /// Loads the allocated sector numbers
     fn load_allocated_sector_numbers<BS: Blockstore>(&self, store: &BS)
@@ -55,4 +58,6 @@ pub trait PartitionExt {
 
 pub trait DeadlineExt {
     fn daily_fee(&self) -> TokenAmount;
+
+    fn live_power_qa(&self) -> BigInt;
 }

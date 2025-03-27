@@ -1,8 +1,11 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-use std::{fmt, sync::OnceLock};
+use std::{
+    fmt,
+    str::FromStr,
+    sync::{Arc, OnceLock},
+};
 
 use crate::cid_collections::SmallCidNonEmptyVec;
 use crate::networks::{calibnet, mainnet};
@@ -102,6 +105,33 @@ impl fmt::Display for TipsetKey {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{}]", s)
+    }
+}
+
+impl FromStr for TipsetKey {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut s = s.trim();
+        anyhow::ensure!(!s.is_empty(), "value cannot be empty");
+
+        // from display
+        if let Some(stripped) = s.strip_prefix('[').and_then(|i| i.strip_suffix(']')) {
+            s = stripped;
+        }
+
+        let mut keys = vec![];
+
+        for i in s.split(",") {
+            let cid: Cid = i.trim().parse()?;
+            keys.push(cid);
+        }
+
+        if let Ok(keys) = nunny::Vec::new(keys) {
+            Ok(keys.into())
+        } else {
+            anyhow::bail!("no cids found")
+        }
     }
 }
 
@@ -815,5 +845,29 @@ mod test {
             Tipset::new(iter::empty::<RawBlockHeader>()).unwrap_err(),
             CreateTipsetError::Empty
         );
+    }
+
+    #[test]
+    fn test_parse_tipset_key() {
+        let expected_tsk: TipsetKey = nunny::vec![
+            "bafy2bzacear67vciqyqjyzn77pb75rvtvagsmydfhgupbija2kpdtewkvq2gy"
+                .parse()
+                .unwrap(),
+            "bafy2bzacecoyawspvaoevxx6le5ud65euuplg4pq6au7bmv4dd6dhwiiwlzuq"
+                .parse()
+                .unwrap()
+        ]
+        .into();
+        let tsk: TipsetKey = "bafy2bzacear67vciqyqjyzn77pb75rvtvagsmydfhgupbija2kpdtewkvq2gy,bafy2bzacecoyawspvaoevxx6le5ud65euuplg4pq6au7bmv4dd6dhwiiwlzuq".parse().unwrap();
+        assert_eq!(expected_tsk, tsk);
+
+        let tsk: TipsetKey = "bafy2bzacear67vciqyqjyzn77pb75rvtvagsmydfhgupbija2kpdtewkvq2gy, bafy2bzacecoyawspvaoevxx6le5ud65euuplg4pq6au7bmv4dd6dhwiiwlzuq".parse().unwrap();
+        assert_eq!(expected_tsk, tsk);
+
+        println!("{expected_tsk}");
+        let tsk_from_display: TipsetKey = expected_tsk.to_string().parse().unwrap();
+        assert_eq!(expected_tsk, tsk_from_display);
+
+        TipsetKey::from_str("").unwrap_err();
     }
 }

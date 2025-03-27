@@ -23,6 +23,7 @@ impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: TokenAmount::default(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -49,6 +50,7 @@ impl From<fil_actor_miner_state::v9::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -75,6 +77,7 @@ impl From<fil_actor_miner_state::v10::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -101,6 +104,7 @@ impl From<fil_actor_miner_state::v11::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -123,6 +127,7 @@ impl From<fil_actor_miner_state::v12::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -145,6 +150,7 @@ impl From<fil_actor_miner_state::v13::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -167,6 +173,7 @@ impl From<fil_actor_miner_state::v14::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -189,6 +196,7 @@ impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
             replaced_day_reward: info.replaced_day_reward.into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
+            daily_fee: Default::default(),
         }
     }
 }
@@ -220,6 +228,7 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
                 .into(),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
+            daily_fee: info.daily_fee.into(),
         }
     }
 }

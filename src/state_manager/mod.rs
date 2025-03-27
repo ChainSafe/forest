@@ -452,7 +452,11 @@ where
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::state("Miner actor not found"))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-        state.load_sectors_ext(self.blockstore(), None)
+        Ok(state
+            .load_sectors_ext(self.blockstore(), None)?
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect())
     }
 }
 

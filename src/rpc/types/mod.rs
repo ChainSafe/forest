@@ -280,6 +280,10 @@ pub struct SectorOnChainInfo {
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json", rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
+
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    pub daily_fee: TokenAmount,
 }
 
 lotus_json_with_self!(SectorOnChainInfo);

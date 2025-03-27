@@ -5,6 +5,8 @@ mod f3;
 use f3::*;
 mod migration;
 use migration::*;
+mod miner;
+use miner::*;
 
 use crate::{
     libp2p::keypair::get_keypair,
@@ -66,6 +68,8 @@ pub enum ShedCommands {
         #[arg(long, value_delimiter = ',')]
         omit: Option<Vec<OmitField>>,
     },
+    #[command(subcommand)]
+    Miner(MinerCommands),
     /// F3 related commands.
     #[command(subcommand)]
     F3(F3Commands),
@@ -174,6 +178,7 @@ impl ShedCommands {
 
                 println!("{}", serde_json::to_string_pretty(&openrpc_doc)?);
             }
+            ShedCommands::Miner(cmd) => cmd.run(client).await?,
             ShedCommands::F3(cmd) => cmd.run(client).await?,
             ShedCommands::MigrateState(cmd) => cmd.run(client).await?,
         }
