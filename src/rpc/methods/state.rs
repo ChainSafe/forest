@@ -569,8 +569,11 @@ impl RpcMethod<2> for StateMinerActiveSectors {
                 Ok(())
             })
         })?;
-        let sectors =
-            miner_state.load_sectors_ext(ctx.store(), Some(&BitField::union(&active_sectors)))?;
+        let sectors = miner_state
+            .load_sectors_ext(ctx.store(), Some(&BitField::union(&active_sectors)))?
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect();
         Ok(sectors)
     }
 }
@@ -659,7 +662,11 @@ impl RpcMethod<3> for StateMinerSectors {
         let miner_state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &address)?;
-        Ok(miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?)
+        Ok(miner_state
+            .load_sectors_ext(ctx.store(), sectors.as_ref())?
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect())
     }
 }
 

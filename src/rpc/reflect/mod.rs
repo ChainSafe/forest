@@ -132,7 +132,11 @@ pub enum ApiPath {
 
 /// Utility methods, defined as an extension trait to avoid having to specify
 /// `ARITY` in user code.
-pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
+pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY>
+where
+    Self::Params: Send + Sync + 'static,
+    Self::Ok: Send + Sync + 'static,
+{
     /// Convert from typed handler parameters to un-typed JSON-RPC parameters.
     ///
     /// Exposes errors from [`Params::unparse`]
@@ -292,8 +296,9 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call_raw(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-    ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
-    {
+    ) -> impl Future<
+        Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>,
+    > + Send {
         async {
             // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
             //               Client::call has an inappropriate HasLotusJson
@@ -305,15 +310,33 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>> {
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>> + Send {
         async {
             Self::call_raw(client, params)
                 .await
                 .map(Self::Ok::from_lotus_json)
         }
     }
+    fn call_sync(
+        client: Arc<crate::rpc::client::Client>,
+        params: Self::Params,
+    ) -> Result<Self::Ok, jsonrpsee::core::ClientError> {
+        let (tx, rx) = flume::bounded(1);
+        tokio::task::spawn(async move {
+            let r = Self::call(&client, params).await;
+            tx.send(r)
+        });
+        rx.recv()
+            .map_err(|e| jsonrpsee::core::ClientError::Custom(e.to_string()))?
+    }
 }
-impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> {}
+impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T
+where
+    T: RpcMethod<ARITY>,
+    <T as RpcMethod<ARITY>>::Params: Send + Sync + 'static,
+    <T as RpcMethod<ARITY>>::Ok: Send + Sync + 'static,
+{
+}
 
 /// A tuple of `ARITY` arguments.
 ///
