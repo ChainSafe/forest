@@ -36,6 +36,7 @@
 ### Changed
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
+- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for EthEstimateGas and EthCall
 
 ### Removed
 

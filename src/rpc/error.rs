@@ -3,6 +3,7 @@
 
 use std::fmt::{self, Display};
 
+use crate::rpc::eth::errors::EthErrors;
 use jsonrpsee::{
     core::ClientError,
     types::error::{self, ErrorCode, ErrorObjectOwned},
@@ -13,6 +14,13 @@ use jsonrpsee::{
 #[derive(derive_more::From, derive_more::Into, Debug, PartialEq)]
 pub struct ServerError {
     inner: ErrorObjectOwned,
+}
+
+/// Custom error codes for the Forest node.
+pub enum ForestError {
+    /// This error indicates that the execution reverted while executing the message.
+    /// Code is taken from https://github.com/filecoin-project/lotus/blob/master/api/api_errors.go#L27
+    ExecutionReverted = 11,
 }
 
 /// According to the [JSON-RPC 2.0 spec](https://www.jsonrpc.org/specification#response_object),
@@ -138,6 +146,18 @@ from2internal! {
     fil_actors_shared::v16::ActorError,
     serde_json::Error,
     jsonrpsee::core::client::error::Error,
+}
+
+impl From<EthErrors> for ServerError {
+    fn from(e: EthErrors) -> Self {
+        match e {
+            EthErrors::ExecutionReverted { message, data } => Self::new(
+                ForestError::ExecutionReverted as i32,
+                message,
+                data.map(serde_json::Value::String),
+            ),
+        }
+    }
 }
 
 impl From<ServerError> for ClientError {

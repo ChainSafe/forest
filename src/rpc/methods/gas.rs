@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
@@ -20,8 +21,6 @@ use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
-
-use super::state::InvocResult;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -239,7 +238,7 @@ impl GasEstimateGasLimit {
             _ => ChainMessage::Unsigned(msg),
         };
 
-        let (invoc_res, apply_ret) = data
+        let (invoc_res, apply_ret, _) = data
             .state_manager
             .call_with_gas(
                 &mut chain_msg,
@@ -259,11 +258,17 @@ impl GasEstimateGasLimit {
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced).await?;
+        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced)
+            .await
+            .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
         match res.msg_rct {
             Some(rct) => {
-                if rct.exit_code().value() != 0 {
-                    return Ok(-1);
+                if !rct.exit_code().is_success() {
+                    return Err(anyhow::anyhow!(
+                        "message execution failed: exit code: {}, reason: {}",
+                        rct.exit_code().value(),
+                        res.error.unwrap_or_default()
+                    ));
                 }
                 Ok(rct.gas_used() as i64)
             }
