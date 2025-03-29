@@ -204,21 +204,19 @@ async fn check_snapshot_progress(
         let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
         match &progress_state {
             SnapshotProgressState::InProgress { message } => {
+                println!("🌳 Snapshot download in progress: {message}");
                 // if wait is true, wait till snapshot download is completed
                 match wait {
-                    false => {
-                        println!("🌳 Snapshot download in progress");
-                        return Ok(progress_state);
-                    }
-                    _ => {
-                        println!("🌳 Snapshot download in progress: {}", message);
+                    true => {
                         write!(
                             stdout,
                             "\r{}{}",
                             anes::ClearLine::All,
                             anes::MoveCursorUp(1)
                         )?;
-                        continue;
+                    }
+                    false => {
+                        return Ok(progress_state);
                     }
                 }
             }
@@ -232,7 +230,7 @@ async fn check_snapshot_progress(
                 println!("\n✅ Snapshot download completed! Chain will start syncing shortly");
             }
             SnapshotProgressState::NotStarted => {
-                println!("⏳ Snapshot download not started - node might be initializing wait and retry in sometime")
+                println!("⏳ Snapshot download not started - node might be initializing. Wait a couple of seconds and retry.")
             }
         }
 
