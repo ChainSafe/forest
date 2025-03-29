@@ -201,7 +201,7 @@ impl Progress {
         let now = Instant::now();
         if (now - self.last_logged) > UPDATE_FREQUENCY {
             let msg = self.msg(now);
-            if let Some(cb) = &self.callback {
+            if let Some(cb) = self.callback.as_ref() {
                 cb(msg.clone());
             }
 
