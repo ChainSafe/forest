@@ -8,7 +8,7 @@ use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Allocation")]
 pub struct AllocationLotusJson {

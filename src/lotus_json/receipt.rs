@@ -7,7 +7,7 @@ use fvm_ipld_encoding::RawBytes;
 use super::*;
 use crate::shim::executor::Receipt;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Receipt")]
 pub struct ReceiptLotusJson {

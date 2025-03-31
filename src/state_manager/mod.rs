@@ -246,7 +246,9 @@ impl<V: Clone> TipsetStateCache<V> {
 }
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema)]
+#[derive(
+    Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema,
+)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -842,6 +844,56 @@ where
             self.beacon_schedule().clone(),
             &self.engine,
             tipset,
+            callback,
+            enable_tracing,
+            enable_event_pushing,
+        )?)
+    }
+
+    #[instrument(skip_all)]
+    pub async fn compute_state(
+        self: &Arc<Self>,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.compute_state_blocking(
+                height,
+                messages,
+                tipset,
+                callback,
+                enable_tracing,
+                enable_event_pushing,
+            )
+        })
+        .await?
+    }
+
+    /// Blocking version of `compute_state`
+    #[tracing::instrument(skip_all)]
+    pub fn compute_state_blocking(
+        &self,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        Ok(compute_state(
+            height,
+            messages,
+            tipset,
+            self.chain_store().genesis_block_header().timestamp,
+            Arc::clone(&self.chain_store().chain_index),
+            Arc::clone(&self.chain_config),
+            self.beacon_schedule().clone(),
+            &self.engine,
             callback,
             enable_tracing,
             enable_event_pushing,
@@ -1736,7 +1788,7 @@ pub fn apply_block_messages<DB>(
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     enable_event_pushing: VMEvent,
-) -> Result<StateOutput, anyhow::Error>
+) -> anyhow::Result<StateOutput>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1841,4 +1893,40 @@ where
             events,
         })
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_state<DB>(
+    _height: ChainEpoch,
+    messages: Vec<Message>,
+    tipset: Arc<Tipset>,
+    genesis_timestamp: u64,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule>,
+    engine: &crate::shim::machine::MultiEngine,
+    callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+    enable_tracing: VMTrace,
+    enable_event_pushing: VMEvent,
+) -> anyhow::Result<StateOutput>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    if !messages.is_empty() {
+        anyhow::bail!("Applying messages is not yet implemented.");
+    }
+
+    let output = apply_block_messages(
+        genesis_timestamp,
+        chain_index,
+        chain_config,
+        beacon,
+        engine,
+        tipset,
+        callback,
+        enable_tracing,
+        enable_event_pushing,
+    )?;
+
+    Ok(output)
 }

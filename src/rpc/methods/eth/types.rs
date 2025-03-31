@@ -493,7 +493,7 @@ lotus_json_with_self!(EthFilterSpec);
 /// - A list of block hashes
 /// - A list of transaction hashes
 /// - Or a list of logs
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthFilterResult {
     Blocks(Vec<EthHash>),
@@ -501,6 +501,27 @@ pub enum EthFilterResult {
     Logs(Vec<EthLog>),
 }
 lotus_json_with_self!(EthFilterResult);
+
+impl EthFilterResult {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Blocks(v) => v.is_empty(),
+            Self::Txs(v) => v.is_empty(),
+            Self::Logs(v) => v.is_empty(),
+        }
+    }
+}
+
+impl PartialEq for EthFilterResult {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Blocks(a), Self::Blocks(b)) => a == b,
+            (Self::Txs(a), Self::Txs(b)) => a == b,
+            (Self::Logs(a), Self::Logs(b)) => a == b,
+            _ => self.is_empty() && other.is_empty(),
+        }
+    }
+}
 
 #[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]

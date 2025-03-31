@@ -15,31 +15,32 @@ use crate::shim::{
 };
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
+use num::Zero as _;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ComputeStateOutput {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub root: Cid,
-    #[schemars(with = "LotusJson<Message>")]
+    #[schemars(with = "LotusJson<ApiInvocResult>")]
     #[serde(with = "crate::lotus_json")]
     pub trace: Vec<ApiInvocResult>,
 }
 
 lotus_json_with_self!(ComputeStateOutput);
 
-#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Message>")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Cid>")]
     pub msg_cid: Cid,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Message>")]
+    pub msg: Message,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Option<Receipt>>")]
     pub msg_rct: Option<Receipt>,
@@ -63,7 +64,7 @@ impl PartialEq for ApiInvocResult {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
@@ -95,17 +96,31 @@ pub struct MessageGasCost {
 lotus_json_with_self!(MessageGasCost);
 
 impl MessageGasCost {
+    fn is_zero_cost(&self) -> bool {
+        self.base_fee_burn.is_zero()
+            && self.over_estimation_burn.is_zero()
+            && self.miner_penalty.is_zero()
+            && self.miner_tip.is_zero()
+            && self.refund.is_zero()
+            && self.total_cost.is_zero()
+    }
+
     pub fn new(message: &Message, apply_ret: &ApplyRet) -> anyhow::Result<Self> {
-        Ok(Self {
-            message: Some(message.cid()),
-            gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
+        let mut cost = Self {
+            message: None,
+            gas_used: TokenAmount::zero(),
             base_fee_burn: apply_ret.base_fee_burn(),
             over_estimation_burn: apply_ret.over_estimation_burn(),
             miner_penalty: apply_ret.penalty(),
             miner_tip: apply_ret.miner_tip(),
             refund: apply_ret.refund(),
             total_cost: message.required_funds() - &apply_ret.refund(),
-        })
+        };
+        if !cost.is_zero_cost() {
+            cost.message = Some(message.cid());
+            cost.gas_used = TokenAmount::from_atto(apply_ret.msg_receipt().gas_used());
+        }
+        Ok(cost)
     }
 }
 

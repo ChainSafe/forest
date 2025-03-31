@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::actors::miner::MinerPower;
 use crate::shim::actors::power::Claim;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "MinerPower")]
 pub struct MinerPowerLotusJson {
