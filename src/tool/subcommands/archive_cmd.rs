@@ -126,6 +126,10 @@ pub enum ArchiveCommands {
         #[arg(long)]
         depth: Option<u64>,
     },
+    SyncBucket {
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+    },
 }
 
 impl ArchiveCommands {
@@ -174,7 +178,7 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => show_tipset_diff(snapshot_files, epoch, depth).await,
-        }
+            Self::SyncBucket { snapshot_files } => sync_bucket(snapshot_files).await,
     }
 }
 
@@ -577,6 +581,22 @@ async fn show_tipset_diff(
     } else {
         println!("Computed state matches expected state.");
     }
+
+    Ok(())
+}
+
+// This command is used for keeping the S3 bucket of archival snapshots
+// up-to-date. It takes a set of snapshot files and queries the S3 bucket to see
+// what is missing. If the input set of snapshot files can be used to generate
+// missing lite or diff snapshots, they'll be generated and uploaded to the S3
+// bucket.
+async fn sync_bucket(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+    // Compute the range of epochs that are covered by the input snapshot files.
+    let store = ManyCar::try_from(snapshot_files)?;
+    let heaviest_tipset = store.heaviest_tipset()?;
+    let genesis = heaviest_tipset.genesis(&store)?;
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+    
 
     Ok(())
 }
