@@ -13,7 +13,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
-use crate::interpreter::VMEvent;
+use crate::interpreter::{MessageCallbackCtx, VMEvent};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
@@ -41,8 +41,9 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{MarketBalance, StateManager, StateOutput};
+use crate::state_manager::{
+    circulating_supply::GenesisInfo, utils::structured, MarketBalance, StateManager, StateOutput,
+};
 use crate::utils::db::{
     car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
@@ -1407,9 +1408,9 @@ impl RpcMethod<2> for StateFetchRoot {
     }
 }
 
-pub enum StateCompute {}
+pub enum ForestStateCompute {}
 
-impl RpcMethod<1> for StateCompute {
+impl RpcMethod<1> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
@@ -1438,6 +1439,63 @@ impl RpcMethod<1> for StateCompute {
             .await?;
 
         Ok(state_root)
+    }
+}
+
+pub enum StateCompute {}
+
+impl RpcMethod<3> for StateCompute {
+    const NAME: &'static str = "Filecoin.StateCompute";
+    const PARAM_NAMES: [&'static str; 3] = ["epoch", "messages", "tipsetKey"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("A flexible command that applies the given messages on the given tipset");
+
+    type Params = (ChainEpoch, Vec<Message>, ApiTipsetKey);
+    type Ok = ComputeStateOutput;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (epoch, messages, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_index().tipset_by_height(
+            epoch,
+            ctx.chain_store().heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        let (root, trace) = {
+            let (tx, rx) = flume::unbounded();
+            let callback = move |ctx: MessageCallbackCtx<'_>| {
+                tx.send(ApiInvocResult {
+                    msg_cid: ctx.message.cid(),
+                    msg: ctx.message.message().clone(),
+                    msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                    error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                    duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                    gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                    execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                        .unwrap_or_default(),
+                })?;
+                Ok(())
+            };
+            let StateOutput { state_root, .. } = ctx
+                .state_manager
+                .compute_tipset_state(
+                    tipset,
+                    Some(callback),
+                    crate::interpreter::VMTrace::Traced,
+                    VMEvent::NotPushed,
+                )
+                .await?;
+            let mut trace = vec![];
+            while let Ok(v) = rx.try_recv() {
+                trace.push(v);
+            }
+            (state_root, trace)
+        };
+        Ok(ComputeStateOutput { root, trace })
     }
 }
 

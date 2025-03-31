@@ -20,6 +20,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+pub struct ComputeStateOutput {
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub root: Cid,
+    #[schemars(with = "LotusJson<Message>")]
+    #[serde(with = "crate::lotus_json")]
+    pub trace: Vec<ApiInvocResult>,
+}
+
+lotus_json_with_self!(ComputeStateOutput);
+
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Message>")]
