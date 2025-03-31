@@ -2327,7 +2327,7 @@ impl RpcMethod<3> for StateSectorExpiration {
                         on_time = 0;
                         return Ok(());
                     }
-                    let expirations: Amt<fil_actor_miner_state::v13::ExpirationSet, _> =
+                    let expirations: Amt<fil_actor_miner_state::v16::ExpirationSet, _> =
                         Amt::load(&partition.expirations_epochs(), store)?;
                     expirations.for_each(|epoch, expiration| {
                         if expiration.early_sectors.get(sector_number) {

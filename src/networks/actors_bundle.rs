@@ -100,7 +100,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e" @ "v13.0.0" for "mainnet",
         "bafy2bzacecbueuzsropvqawsri27owo7isa5gp2qtluhrfsto2qg7wpgxnkba" @ "v14.0.0" for "mainnet",
         "bafy2bzaceakwje2hyinucrhgtsfo44p54iw4g6otbv5ghov65vajhxgntr53u" @ "v15.0.0" for "mainnet",
-        "bafy2bzaceaj3s3rrfbibikplap264uw74qor5yl35mqwokv4lwst4plpwry36" @ "v16.0.0-rc3" for "mainnet",
+        "bafy2bzaceaj3s3rrfbibikplap264uw74qor5yl35mqwokv4lwst4plpwry36" @ "v16.0.0" for "mainnet",
     ])
 });
 
