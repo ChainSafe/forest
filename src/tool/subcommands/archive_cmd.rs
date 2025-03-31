@@ -53,6 +53,7 @@ use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use sha2::Sha256;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -138,7 +139,7 @@ impl ArchiveCommands {
             Self::Info { snapshot } => {
                 println!(
                     "{}",
-                    ArchiveInfo::from_store(AnyCar::try_from(snapshot.as_path())?)?
+                    ArchiveInfo::from_store(&AnyCar::try_from(snapshot.as_path())?)?
                 );
                 Ok(())
             }
@@ -179,6 +180,7 @@ impl ArchiveCommands {
                 depth,
             } => show_tipset_diff(snapshot_files, epoch, depth).await,
             Self::SyncBucket { snapshot_files } => sync_bucket(snapshot_files).await,
+        }
     }
 }
 
@@ -213,7 +215,7 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
+    fn from_store(store: &AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
         Self::from_store_with(store, true)
     }
 
@@ -221,7 +223,7 @@ impl ArchiveInfo {
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
+        store: &AnyCar<impl RandomAccessFileReader>,
         progress: bool,
     ) -> anyhow::Result<Self> {
         let root = store.heaviest_tipset()?;
@@ -298,6 +300,10 @@ impl ArchiveInfo {
             messages: lowest_message_epoch,
             root,
         })
+    }
+
+    fn epoch_range(&self) -> Range<ChainEpoch> {
+        self.tipsets..self.epoch
     }
 }
 
@@ -592,12 +598,49 @@ async fn show_tipset_diff(
 // bucket.
 async fn sync_bucket(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     // Compute the range of epochs that are covered by the input snapshot files.
-    let store = ManyCar::try_from(snapshot_files)?;
-    let heaviest_tipset = store.heaviest_tipset()?;
-    let genesis = heaviest_tipset.genesis(&store)?;
-    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
-    
+    let infos = snapshot_files
+        .iter()
+        .map(|snapshot_file| {
+            let store = AnyCar::try_from(snapshot_file.as_path())?;
+            let info = ArchiveInfo::from_store(&store)?;
+            Ok(info)
+        })
+        .collect::<anyhow::Result<Vec<ArchiveInfo>>>()?;
 
+    let first_info = infos.first().context("no snapshot files provided")?;
+    let network = &first_info.network;
+
+    for info in &infos {
+        if &info.network != network {
+            bail!(
+                "Snapshot files are from different networks, {} != {}",
+                network,
+                info.network
+            );
+        }
+    }
+
+    let mut ranges = infos
+        .iter()
+        .map(|info| info.epoch_range())
+        .collect::<Vec<_>>();
+    ranges.sort_by_key(|range| range.end);
+    let mut merged_range = ranges.first().cloned().expect("No ranges to merge");
+    for range in &ranges[1..] {
+        if !merged_range.contains(&range.end) {
+            bail!(
+                "Gap detected between ranges {:?} and {:?}",
+                merged_range,
+                range
+            );
+        }
+        merged_range.start = range.start;
+    }
+    println!("Network: {}", network);
+    println!(
+        "Merged Range: {} to {}",
+        merged_range.start, merged_range.end
+    );
     Ok(())
 }
 
@@ -646,7 +689,7 @@ mod tests {
     #[test]
     fn archive_info_calibnet() {
         let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap(),
+            &AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap(),
             false,
         )
         .unwrap();
@@ -657,7 +700,7 @@ mod tests {
     #[test]
     fn archive_info_mainnet() {
         let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap(),
+            &AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap(),
             false,
         )
         .unwrap();
