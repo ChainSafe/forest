@@ -1450,7 +1450,7 @@ impl RpcMethod<3> for StateCompute {
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
-        Some("A flexible command that applies the given messages on the given tipset");
+        Some("Applies the given messages on the given tipset");
 
     type Params = (ChainEpoch, Vec<Message>, ApiTipsetKey);
     type Ok = ComputeStateOutput;

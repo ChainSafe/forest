@@ -32,7 +32,7 @@
 ### Added
 
 - [#5461](https://github.com/ChainSafe/forest/pull/5461) Add `forest-tool shed migrate-state` command.
-- [#5488](https://github.com/ChainSafe/forest/pull/5488) Add paritial support for the `Filecoin.StateCompute` RPC method.
+- [#5488](https://github.com/ChainSafe/forest/pull/5488) Add partial support for the `Filecoin.StateCompute` RPC method.
 
 ### Changed
 
