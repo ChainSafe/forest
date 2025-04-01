@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use clap::Args;
-use num::{BigInt, Zero as _};
+use num::Zero as _;
 use once_cell::sync::Lazy;
 
 use crate::{

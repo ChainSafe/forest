@@ -168,6 +168,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateAccountKey);
         $callback!($crate::rpc::state::StateCall);
         $callback!($crate::rpc::state::StateCirculatingSupply);
+        $callback!($crate::rpc::state::ForestStateCompute);
         $callback!($crate::rpc::state::StateCompute);
         $callback!($crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!($crate::rpc::state::StateFetchRoot);

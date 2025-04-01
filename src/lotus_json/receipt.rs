@@ -7,7 +7,7 @@ use fvm_ipld_encoding::RawBytes;
 use super::*;
 use crate::shim::executor::Receipt;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Receipt")]
 pub struct ReceiptLotusJson {
@@ -98,7 +98,6 @@ fn shapshots() {
 ///
 /// See <https://github.com/ChainSafe/forest/issues/3459>.
 #[test]
-#[should_panic = "cannot serialize to v2 AND v3 from the same input"]
 fn cannot_call_arbitrary_tests_on_receipt() {
     use pretty_assertions::assert_eq;
 
@@ -130,19 +129,9 @@ fn cannot_call_arbitrary_tests_on_receipt() {
         json
     );
 
-    // both of these cannot pass at the same time...
-    assert_eq!(
-        v2,
-        serde_json::from_value::<LotusJson<_>>(json.clone())
-            .unwrap()
-            .into_inner(),
-        "cannot serialize to v2 AND v3 from the same input"
-    );
-    assert_eq!(
-        v3,
-        serde_json::from_value::<LotusJson<_>>(json)
-            .unwrap()
-            .into_inner(),
-        "cannot serialize to v2 AND v3 from the same input"
-    );
+    let deserialized = serde_json::from_value::<LotusJson<Receipt>>(json)
+        .unwrap()
+        .into_inner();
+    assert!(matches!(deserialized, Receipt::V3(_)));
+    assert_eq!(v3, deserialized);
 }

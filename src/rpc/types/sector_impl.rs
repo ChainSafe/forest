@@ -18,12 +18,12 @@ impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: TokenAmount::default(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: None,
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -45,12 +45,12 @@ impl From<fil_actor_miner_state::v9::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -72,12 +72,12 @@ impl From<fil_actor_miner_state::v10::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -99,12 +99,12 @@ impl From<fil_actor_miner_state::v11::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.activation,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -122,12 +122,12 @@ impl From<fil_actor_miner_state::v12::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -145,12 +145,12 @@ impl From<fil_actor_miner_state::v13::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -168,12 +168,12 @@ impl From<fil_actor_miner_state::v14::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -191,12 +191,12 @@ impl From<fil_actor_miner_state::v15::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_day_reward: info.replaced_day_reward.into(),
+            expected_day_reward: Some(info.expected_day_reward.into()),
+            expected_storage_pledge: Some(info.expected_storage_pledge.into()),
+            replaced_day_reward: Some(info.replaced_day_reward.into()),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
-            daily_fee: Default::default(),
+            daily_fee: TokenAmount::default(),
         }
     }
 }
@@ -214,18 +214,9 @@ impl From<fil_actor_miner_state::v16::SectorOnChainInfo> for SectorOnChainInfo {
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
             initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info
-                .expected_day_reward
-                .unwrap_or(TokenAmount::default().into())
-                .into(),
-            expected_storage_pledge: info
-                .expected_storage_pledge
-                .unwrap_or(TokenAmount::default().into())
-                .into(),
-            replaced_day_reward: info
-                .replaced_day_reward
-                .unwrap_or(TokenAmount::default().into())
-                .into(),
+            expected_day_reward: info.expected_day_reward.map(Into::into),
+            expected_storage_pledge: info.expected_storage_pledge.map(Into::into),
+            replaced_day_reward: info.replaced_day_reward.map(Into::into),
             sector_key_cid: info.sector_key_cid,
             power_base_epoch: info.power_base_epoch,
             daily_fee: info.daily_fee.into(),

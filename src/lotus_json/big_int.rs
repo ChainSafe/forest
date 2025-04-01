@@ -5,7 +5,7 @@ use super::*;
 
 use num::BigInt;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "BigInt")]
 pub struct BigIntLotusJson(
     #[schemars(with = "String")]

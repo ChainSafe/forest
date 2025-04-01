@@ -10,7 +10,7 @@ use parking_lot::RwLock;
 
 use crate::rpc::{prelude::ChainReadObj, Client, RpcMethodExt as _};
 
-/// A blocktore backed by Filecoin RPC APIs
+/// A blockstore backed by Filecoin RPC APIs
 pub struct RpcDb {
     client: Arc<Client>,
     cache: RwLock<HashMap<Cid, Option<Vec<u8>>>>,

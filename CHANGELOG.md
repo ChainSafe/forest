@@ -32,6 +32,7 @@
 ### Added
 
 - [#5461](https://github.com/ChainSafe/forest/pull/5461) Add `forest-tool shed migrate-state` command.
+- [#5488](https://github.com/ChainSafe/forest/pull/5488) Add partial support for the `Filecoin.StateCompute` RPC method.
 
 ### Changed
 
@@ -46,6 +47,7 @@
 ### Fixed
 
 - [#5458](https://github.com/ChainSafe/forest/pull/5458) Fix stack overflow occurring when running Forest in debug mode.
+- [#5475](https://github.com/ChainSafe/forest/pull/5475) Added missing fields for state sector RPC methods that were added in the recent network upgrade.
 
 ## Forest v0.25.0 "Bombadil"
 

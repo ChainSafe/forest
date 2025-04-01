@@ -585,7 +585,7 @@ mod lotus_json {
 
     use super::TipsetKey;
 
-    #[derive(Clone, JsonSchema)]
+    #[derive(Debug, PartialEq, Clone, JsonSchema)]
     #[schemars(rename = "Tipset")]
     pub struct TipsetLotusJson(#[schemars(with = "TipsetLotusJsonInner")] Tipset);
 

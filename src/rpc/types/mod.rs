@@ -167,7 +167,8 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ClaimLotusJson {
     // The provider storing the data (from allocation).
@@ -191,7 +192,7 @@ pub struct ClaimLotusJson {
     pub sector: SectorNumber,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -207,7 +208,7 @@ pub struct ApiActorState {
 
 lotus_json_with_self!(ApiActorState);
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiState {
     #[schemars(with = "serde_json::Value")]
@@ -258,29 +259,37 @@ pub struct SectorOnChainInfo {
     /// Pledge collected to commit this sector
     pub initial_pledge: TokenAmount,
 
-    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[schemars(with = "LotusJson<Option<TokenAmount>>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected one day projection of reward for sector computed at activation
     /// time
-    pub expected_day_reward: TokenAmount,
+    pub expected_day_reward: Option<TokenAmount>,
 
     /// Epoch at which this sector's power was most recently updated
     pub power_base_epoch: ChainEpoch,
 
-    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[schemars(with = "LotusJson<Option<TokenAmount>>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
-    pub expected_storage_pledge: TokenAmount,
+    pub expected_storage_pledge: Option<TokenAmount>,
 
-    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[schemars(with = "LotusJson<Option<TokenAmount>>")]
     #[serde(with = "crate::lotus_json")]
-    pub replaced_day_reward: TokenAmount,
+    pub replaced_day_reward: Option<TokenAmount>,
 
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json", rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
 
+    /// The total fee payable per day for this sector. The value of this field is set at the time of
+    /// sector activation, extension and whenever a sector's `QAP` is changed. This fee is payable for
+    /// the lifetime of the sector and is aggregated in the deadline's `daily_fee` field.
+    ///
+    /// This field is not included in the serialized form of the struct prior to the activation of
+    /// FIP-0100, and is added as the 16th element of the array after that point only for new sectors
+    /// or sectors that are updated after that point. For old sectors, the value of this field will
+    /// always be zero.
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub daily_fee: TokenAmount,
@@ -324,7 +333,7 @@ pub struct SectorPreCommitInfo {
 
 lotus_json_with_self!(SectorPreCommitInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDeadline {
     #[schemars(with = "LotusJson<BitField>")]
@@ -338,7 +347,7 @@ pub struct ApiDeadline {
 
 lotus_json_with_self!(ApiDeadline);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ApiDeadlineInfo(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]
@@ -371,7 +380,7 @@ pub struct CirculatingSupply {
 
 lotus_json_with_self!(CirculatingSupply);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerSectors {
     live: u64,
@@ -390,7 +399,7 @@ impl MinerSectors {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPartitions {
     #[schemars(with = "LotusJson<BitField>")]
@@ -500,7 +509,7 @@ pub struct DealCollateralBounds {
 
 lotus_json_with_self!(DealCollateralBounds);
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfo {
     #[serde(with = "crate::lotus_json")]
