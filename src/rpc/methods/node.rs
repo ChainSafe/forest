@@ -69,28 +69,28 @@ impl RpcMethod<0> for NodeStatus {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone, JsonSchema)]
 pub struct NodeSyncStatus {
     pub epoch: u64,
     pub behind: u64,
 }
 lotus_json_with_self!(NodeSyncStatus);
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone, JsonSchema)]
 pub struct NodePeerStatus {
     pub peers_to_publish_msgs: u32,
     pub peers_to_publish_blocks: u32,
 }
 lotus_json_with_self!(NodePeerStatus);
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Default, Clone, JsonSchema)]
 pub struct NodeChainStatus {
     pub blocks_per_tipset_last_100: f64,
     pub blocks_per_tipset_last_finality: f64,
 }
 lotus_json_with_self!(NodeChainStatus);
 
-#[derive(Debug, Deserialize, Default, Serialize, Clone, JsonSchema)]
+#[derive(Debug, Deserialize, Default, Serialize, Clone, JsonSchema, PartialEq)]
 pub struct NodeStatusResult {
     pub sync_status: NodeSyncStatus,
     pub peer_status: NodePeerStatus,

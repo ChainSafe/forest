@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::address::Address;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "Address")]
 pub struct AddressLotusJson(
     #[schemars(with = "String")]

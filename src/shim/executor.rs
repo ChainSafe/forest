@@ -125,12 +125,21 @@ impl ApplyRet {
 
 // Note: it's impossible to properly derive Deserialize.
 // To deserialize into `Receipt`, refer to `fn get_parent_receipt`
-#[derive(PartialEq, Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum Receipt {
     V2(Receipt_v2),
     V3(Receipt_v3),
     V4(Receipt_v4),
+}
+
+impl PartialEq for Receipt {
+    fn eq(&self, other: &Self) -> bool {
+        self.exit_code() == other.exit_code()
+            && self.return_data() == other.return_data()
+            && self.gas_used() == other.gas_used()
+            && self.events_root() == other.events_root()
+    }
 }
 
 impl Receipt {

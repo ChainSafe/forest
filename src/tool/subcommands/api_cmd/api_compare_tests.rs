@@ -804,6 +804,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
             u16::MAX as _, // Invalid deal id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateCompute::request((
+            tipset.epoch(),
+            vec![],
+            tipset.key().into(),
+        ))?),
     ];
 
     for &pending_deal_id in
