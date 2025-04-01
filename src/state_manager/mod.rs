@@ -573,7 +573,6 @@ where
         )?;
 
         for m in prior_messsages {
-            log::info!("call_raw");
             vm.apply_message(m)?;
         }
 
