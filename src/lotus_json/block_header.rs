@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocks::{CachingBlockHeader, RawBlockHeader};
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "BlockHeader")]
 pub struct BlockHeaderLotusJson {
