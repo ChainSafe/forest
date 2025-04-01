@@ -104,37 +104,7 @@ If you are running a public RPC node, it is recommended to filter certain method
 # Creates a snapshot of the chain and writes it to a file. Very resource-intensive.
 !Filecoin.ChainExport
 # Potentially resource-intensive.
-!Filecoin.EthCall
-!eth_call
-!Filecoin.EthFeeHistory
-!eth_feeHistory
-!Filecoin.EthGetBlockByHash
-!eth_getBlockByHash
-!Filecoin.EthGetBlockByNumber
-!eth_getBlockByNumber
-!Filecoin.EthGetBlockReceipts
-!eth_getBlockReceipts
-!Filecoin.EthGetCode
-!eth_getCode
-!Filecoin.EthGetLogs
-!eth_getLogs
-!Filecoin.EthGetStorageAt
-!eth_getStorageAt
-!Filecoin.EthGetTransactionReceipt
-!eth_getTransactionReceipt
-!Filecoin.EthGetTransactionReceiptLimited
-!eth_getTransactionReceiptLimited
-!Filecoin.EthTraceBlock
-!trace_block
-!Filecoin.EthTraceFilter
-!trace_filter
-!Filecoin.EthTraceReplayBlockTransactions
-!trace_replayBlockTransactions
-!Filecoin.EthTraceTransaction
-!trace_transaction
 !Filecoin.GasEstimateGasLimit
-!Filecoin.GetActorEventsRaw
-!Filecoin.StateCall
 !Filecoin.StateCompute
 !Filecoin.StateReplay
 ```
