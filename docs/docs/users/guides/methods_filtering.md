@@ -106,4 +106,5 @@ If you are running a public RPC node, it is recommended to filter certain method
 # Potentially resource-intensive.
 !Filecoin.EthCall
 !eth_call
+!Filecoin.StateCompute
 ```
