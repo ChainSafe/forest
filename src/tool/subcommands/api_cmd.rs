@@ -28,6 +28,7 @@ use std::{
     io,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Instant,
 };
 use test_snapshot::RpcTestSnapshot;
 
@@ -288,9 +289,13 @@ impl ApiCommands {
             Self::Test { files } => {
                 for path in files {
                     print!("Running RPC test with snapshot {} ...", path.display());
+                    let start = Instant::now();
                     match test_snapshot::run_test_from_snapshot(&path).await {
                         Ok(_) => {
-                            println!("  Succeeded");
+                            println!(
+                                "  succeeded, took {}.",
+                                humantime::format_duration(start.elapsed())
+                            );
                         }
                         Err(e) => {
                             println!(" Failed: {e}");
