@@ -2,23 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use crate::shim::actors::init;
-use crate::shim::actors::miner::ext::DeadlineExt;
-use fil_actors_shared::fvm_ipld_amt::Amt;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
-use crate::interpreter::VMEvent;
+use crate::interpreter::{MessageCallbackCtx, VMEvent, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
+use crate::shim::actors::init;
 use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::market::DealState;
+use crate::shim::actors::miner::ext::DeadlineExt;
 use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
 use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
@@ -41,8 +38,9 @@ use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
-use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{MarketBalance, StateManager, StateOutput};
+use crate::state_manager::{
+    circulating_supply::GenesisInfo, utils::structured, MarketBalance, StateManager, StateOutput,
+};
 use crate::utils::db::{
     car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
@@ -57,6 +55,7 @@ use anyhow::Result;
 use cid::Cid;
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actor_verifreg_state::v13::ClaimID;
+use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -68,6 +67,8 @@ use num_bigint::BigInt;
 use num_traits::Euclid;
 use nunny::{vec as nonempty, Vec as NonEmpty};
 use parking_lot::Mutex;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -1057,7 +1058,7 @@ pub enum StateGetReceipt {}
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V0; // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, ApiTipsetKey);
@@ -1407,9 +1408,9 @@ impl RpcMethod<2> for StateFetchRoot {
     }
 }
 
-pub enum StateCompute {}
+pub enum ForestStateCompute {}
 
-impl RpcMethod<1> for StateCompute {
+impl RpcMethod<1> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
@@ -1432,12 +1433,66 @@ impl RpcMethod<1> for StateCompute {
             .compute_tipset_state(
                 tipset,
                 crate::state_manager::NO_CALLBACK,
-                crate::interpreter::VMTrace::NotTraced,
+                VMTrace::NotTraced,
                 VMEvent::NotPushed,
             )
             .await?;
 
         Ok(state_root)
+    }
+}
+
+pub enum StateCompute {}
+
+impl RpcMethod<3> for StateCompute {
+    const NAME: &'static str = "Filecoin.StateCompute";
+    const PARAM_NAMES: [&'static str; 3] = ["height", "messages", "tipsetKey"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Applies the given messages on the given tipset");
+
+    type Params = (ChainEpoch, Vec<Message>, ApiTipsetKey);
+    type Ok = ComputeStateOutput;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (height, messages, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let (tx, rx) = flume::unbounded();
+        let callback = move |ctx: MessageCallbackCtx<'_>| {
+            tx.send(ApiInvocResult {
+                msg_cid: ctx.message.cid(),
+                msg: ctx.message.message().clone(),
+                msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                    .unwrap_or_default(),
+            })?;
+            Ok(())
+        };
+        let StateOutput { state_root, .. } = ctx
+            .state_manager
+            .compute_state(
+                height,
+                messages,
+                ts,
+                Some(callback),
+                VMTrace::Traced,
+                VMEvent::NotPushed,
+            )
+            .await?;
+        let mut trace = vec![];
+        while let Ok(v) = rx.try_recv() {
+            trace.push(v);
+        }
+        Ok(ComputeStateOutput {
+            root: state_root,
+            trace,
+        })
     }
 }
 

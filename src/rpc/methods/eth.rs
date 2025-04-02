@@ -414,11 +414,30 @@ impl ExtBlockNumberOrHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
     Hash(Vec<String>),
     Full(Vec<ApiEthTx>),
+}
+
+impl Transactions {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Hash(v) => v.is_empty(),
+            Self::Full(v) => v.is_empty(),
+        }
+    }
+}
+
+impl PartialEq for Transactions {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Hash(a), Self::Hash(b)) => a == b,
+            (Self::Full(a), Self::Full(b)) => a == b,
+            _ => self.is_empty() && other.is_empty(),
+        }
+    }
 }
 
 impl Default for Transactions {
@@ -521,7 +540,7 @@ impl ApiEthTx {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EthSyncingResult {
     pub done_sync: bool,
     pub starting_block: i64,
@@ -529,7 +548,7 @@ pub struct EthSyncingResult {
     pub highest_block: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthSyncingResultLotusJson {
     DoneSync(bool),

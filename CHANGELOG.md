@@ -27,11 +27,26 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.25.1 "Goldberry"
+
+This is a mandatory release for mainnet node operators. It includes the NV25 _Teep_ network upgrade at epoch `4_867_320` which corresponds to `10 Apr 23:00:00 UTC 2025`. This release also includes a few fixes, most notably a database migration speed up that used to give certain important people a massive headache. Forest Prometheus metrics have been cleaned and you can look them up in the [documentation](https://docs.forest.chainsafe.io/reference/metrics).
+
+### Breaking
+
 - [#5464](https://github.com/ChainSafe/forest/pull/5464) Changed the `allow_response_mismatch` flag to `use_response_from` in the `forest-tool api generate-test-snapshot` subcommand. This allows specifying the source of the response to use when generating test snapshots and creating failing tests.
 
 ### Added
 
 - [#5461](https://github.com/ChainSafe/forest/pull/5461) Add `forest-tool shed migrate-state` command.
+- [#5488](https://github.com/ChainSafe/forest/pull/5488) Add partial support for the `Filecoin.StateCompute` RPC method.
 
 ### Changed
 

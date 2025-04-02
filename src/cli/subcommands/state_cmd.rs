@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::rpc::state::StateCompute;
+use crate::rpc::state::ForestStateCompute;
 use crate::rpc::{self, prelude::*};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
@@ -51,7 +51,7 @@ impl StateCommands {
             }
             StateCommands::Compute { epoch } => {
                 let ret = client
-                    .call(StateCompute::request((epoch,))?.with_timeout(Duration::MAX))
+                    .call(ForestStateCompute::request((epoch,))?.with_timeout(Duration::MAX))
                     .await?;
                 println!("{ret}");
             }

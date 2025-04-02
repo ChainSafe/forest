@@ -3,7 +3,7 @@
 
 use super::*;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "Cid")]
 pub struct CidLotusJson {
     #[schemars(with = "String")]

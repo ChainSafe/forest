@@ -40,6 +40,7 @@ use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
+    machine::{MultiEngine, GLOBAL_MULTI_ENGINE},
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -249,7 +250,9 @@ impl<V: Clone> TipsetStateCache<V> {
 }
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema)]
+#[derive(
+    Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema,
+)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -267,8 +270,8 @@ lotus_json_with_self!(MarketBalance);
 /// the chain. The state manager not only allows interfacing with state, but
 /// also is used when performing state transitions.
 pub struct StateManager<DB> {
+    /// Chain store
     cs: Arc<ChainStore<DB>>,
-
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache<StateOutputValue>,
     /// This is a cache dedicated to tipset events.
@@ -277,7 +280,7 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
-    engine: crate::shim::machine::MultiEngine,
+    engine: Arc<MultiEngine>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -291,6 +294,14 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
+        Self::new_with_engine(cs, chain_config, GLOBAL_MULTI_ENGINE.clone())
+    }
+
+    pub fn new_with_engine(
+        cs: Arc<ChainStore<DB>>,
+        chain_config: Arc<ChainConfig>,
+        engine: Arc<MultiEngine>,
+    ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
@@ -300,7 +311,7 @@ where
             events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
-            engine: crate::shim::machine::MultiEngine::default(),
+            engine,
         })
     }
 
@@ -891,6 +902,56 @@ where
             self.beacon_schedule().clone(),
             &self.engine,
             tipset,
+            callback,
+            enable_tracing,
+            enable_event_pushing,
+        )?)
+    }
+
+    #[instrument(skip_all)]
+    pub async fn compute_state(
+        self: &Arc<Self>,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.compute_state_blocking(
+                height,
+                messages,
+                tipset,
+                callback,
+                enable_tracing,
+                enable_event_pushing,
+            )
+        })
+        .await?
+    }
+
+    /// Blocking version of `compute_state`
+    #[tracing::instrument(skip_all)]
+    pub fn compute_state_blocking(
+        &self,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        Ok(compute_state(
+            height,
+            messages,
+            tipset,
+            self.chain_store().genesis_block_header().timestamp,
+            Arc::clone(&self.chain_store().chain_index),
+            Arc::clone(&self.chain_config),
+            self.beacon_schedule().clone(),
+            &self.engine,
             callback,
             enable_tracing,
             enable_event_pushing,
@@ -1650,7 +1711,7 @@ pub fn validate_tipsets<DB, T>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
 where
@@ -1780,12 +1841,12 @@ pub fn apply_block_messages<DB>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     enable_event_pushing: VMEvent,
-) -> Result<StateOutput, anyhow::Error>
+) -> anyhow::Result<StateOutput>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1890,4 +1951,40 @@ where
             events,
         })
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_state<DB>(
+    _height: ChainEpoch,
+    messages: Vec<Message>,
+    tipset: Arc<Tipset>,
+    genesis_timestamp: u64,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule>,
+    engine: &MultiEngine,
+    callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+    enable_tracing: VMTrace,
+    enable_event_pushing: VMEvent,
+) -> anyhow::Result<StateOutput>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    if !messages.is_empty() {
+        anyhow::bail!("Applying messages is not yet implemented.");
+    }
+
+    let output = apply_block_messages(
+        genesis_timestamp,
+        chain_index,
+        chain_config,
+        beacon,
+        engine,
+        tipset,
+        callback,
+        enable_tracing,
+        enable_event_pushing,
+    )?;
+
+    Ok(output)
 }

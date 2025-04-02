@@ -12,7 +12,7 @@ pub struct ObjStat {
 }
 lotus_json_with_self!(ObjStat);
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct Event {
     /// Actor ID
