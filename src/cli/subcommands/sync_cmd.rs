@@ -214,6 +214,7 @@ async fn check_snapshot_progress(
                             anes::ClearLine::All,
                             anes::MoveCursorUp(1)
                         )?;
+                        continue;
                     }
                     false => {
                         return Ok(progress_state);
