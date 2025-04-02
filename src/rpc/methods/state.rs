@@ -1058,7 +1058,7 @@ pub enum StateGetReceipt {}
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V0; // deprecated in V1
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, ApiTipsetKey);
