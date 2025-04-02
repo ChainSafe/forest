@@ -15,7 +15,7 @@ use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
-use crate::shim::machine::MultiEngine;
+use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{apply_block_messages, StateOutput};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::ensure_proof_params_downloaded;
@@ -439,7 +439,7 @@ where
         chain_index.clone(),
         chain_config,
         beacon,
-        &MultiEngine::default(),
+        &GLOBAL_MULTI_ENGINE,
         tipsets,
     )?;
 
@@ -487,7 +487,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         Arc::new(chain_index),
         Arc::new(chain_config),
         beacon,
-        &MultiEngine::default(),
+        &GLOBAL_MULTI_ENGINE,
         tipset,
         if json {
             Some(|ctx: MessageCallbackCtx<'_>| {

@@ -183,6 +183,7 @@ mod tests {
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
+    use std::time::Instant;
     use tokio::sync::Semaphore;
     use url::Url;
 
@@ -230,8 +231,12 @@ mod tests {
         std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666");
         while let Some((filename, file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
+            let start = Instant::now();
             run_test_from_snapshot(&file_path).await.unwrap();
-            println!("  succeeded.");
+            println!(
+                "  succeeded, took {}.",
+                humantime::format_duration(start.elapsed())
+            );
         }
     }
 
