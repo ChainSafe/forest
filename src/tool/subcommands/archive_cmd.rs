@@ -41,7 +41,7 @@ use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::fvm_shared_latest::address::Network;
-use crate::shim::machine::MultiEngine;
+use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{apply_block_messages, StateOutput, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::DateTime;
@@ -551,7 +551,7 @@ async fn show_tipset_diff(
         Arc::new(chain_index),
         Arc::new(chain_config),
         beacon,
-        &MultiEngine::default(),
+        &GLOBAL_MULTI_ENGINE,
         tipset,
         NO_CALLBACK,
         VMTrace::NotTraced,
