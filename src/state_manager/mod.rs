@@ -39,6 +39,7 @@ use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
+    machine::{MultiEngine, GLOBAL_MULTI_ENGINE},
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -266,8 +267,8 @@ lotus_json_with_self!(MarketBalance);
 /// the chain. The state manager not only allows interfacing with state, but
 /// also is used when performing state transitions.
 pub struct StateManager<DB> {
+    /// Chain store
     cs: Arc<ChainStore<DB>>,
-
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache<StateOutputValue>,
     /// This is a cache dedicated to tipset events.
@@ -276,7 +277,7 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
-    engine: crate::shim::machine::MultiEngine,
+    engine: Arc<MultiEngine>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -290,6 +291,14 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
+        Self::new_with_engine(cs, chain_config, GLOBAL_MULTI_ENGINE.clone())
+    }
+
+    pub fn new_with_engine(
+        cs: Arc<ChainStore<DB>>,
+        chain_config: Arc<ChainConfig>,
+        engine: Arc<MultiEngine>,
+    ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
@@ -299,7 +308,7 @@ where
             events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
-            engine: crate::shim::machine::MultiEngine::default(),
+            engine,
         })
     }
 
@@ -1653,7 +1662,7 @@ pub fn validate_tipsets<DB, T>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
 where
@@ -1783,7 +1792,7 @@ pub fn apply_block_messages<DB>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
@@ -1904,7 +1913,7 @@ pub fn compute_state<DB>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     enable_event_pushing: VMEvent,

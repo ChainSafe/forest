@@ -1,11 +1,16 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod manifest;
+pub use manifest::{BuiltinActor, BuiltinActorManifest};
+
 use fvm2::machine::MultiEngine as MultiEngine_v2;
 use fvm3::engine::MultiEngine as MultiEngine_v3;
 use fvm4::engine::MultiEngine as MultiEngine_v4;
-pub use manifest::{BuiltinActor, BuiltinActorManifest};
-mod manifest;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
+
+pub static GLOBAL_MULTI_ENGINE: Lazy<Arc<MultiEngine>> = Lazy::new(Default::default);
 
 pub struct MultiEngine {
     pub v2: MultiEngine_v2,
