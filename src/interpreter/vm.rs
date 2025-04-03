@@ -359,7 +359,7 @@ where
         let mut receipts = Vec::new();
         let mut events = Vec::new();
         let mut events_roots = Vec::new();
-        let mut processed = HashSet::<Cid>::default();
+        let mut processed = HashSet::default();
 
         for block in messages.iter() {
             let mut penalty = TokenAmount::zero();

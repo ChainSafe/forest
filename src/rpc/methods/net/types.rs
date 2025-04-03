@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 // Net API
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
@@ -27,7 +27,7 @@ impl AddrInfo {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 pub struct NetInfoResult {
     pub num_peers: usize,
     pub num_connections: u32,
@@ -52,7 +52,7 @@ impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct NatStatusResult {
     pub reachability: i32,

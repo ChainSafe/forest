@@ -6,7 +6,7 @@ use super::*;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::RawBytes;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Message")]
 pub struct MessageLotusJson {

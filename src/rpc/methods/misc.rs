@@ -69,7 +69,7 @@ pub struct ActorEventBlock {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActorEvent {
     pub entries: Vec<EventEntry>,

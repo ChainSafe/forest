@@ -99,7 +99,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         let mut main_sync_state = SyncState::default();
         main_sync_state.init(heaviest.clone(), heaviest.clone());
         main_sync_state.set_epoch(heaviest.epoch());
-        main_sync_state.set_stage(SyncStage::Messages);
+        main_sync_state.set_stage(SyncStage::Idle);
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
             sync_states: Arc::new(RwLock::new(nunny::vec![main_sync_state])),

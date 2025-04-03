@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::str::FromStr;
 
 use crate::lotus_json::lotus_json_with_self;
 
@@ -118,6 +120,21 @@ impl From<NetworkVersion> for NetworkVersion_v3 {
 impl From<NetworkVersion> for NetworkVersion_v4 {
     fn from(other: NetworkVersion) -> Self {
         other.0
+    }
+}
+
+impl FromStr for NetworkVersion {
+    type Err = <u32 as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let v: u32 = s.parse()?;
+        Ok(v.into())
+    }
+}
+
+impl fmt::Display for NetworkVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

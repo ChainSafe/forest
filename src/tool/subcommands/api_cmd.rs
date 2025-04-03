@@ -28,8 +28,15 @@ use std::{
     io,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Instant,
 };
 use test_snapshot::RpcTestSnapshot;
+
+#[derive(Debug, Copy, Clone, PartialEq, ValueEnum)]
+pub enum NodeType {
+    Forest,
+    Lotus,
+}
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -130,9 +137,11 @@ pub enum ApiCommands {
         /// Folder into which test snapshots are dumped
         out_dir: PathBuf,
         /// Allow generating snapshot even if Lotus generated a different response. This is useful
-        /// when the response is not deterministic.
+        /// when the response is not deterministic or a failing test is expected.
+        /// If generating a failing test, use `Lotus` as the argument to ensure the test passes
+        /// only when the response from Forest is fixed and matches the response from Lotus.
         #[arg(long)]
-        allow_response_mismatch: bool,
+        use_response_from: Option<NodeType>,
     },
     DumpTests {
         #[command(flatten)]
@@ -220,7 +229,7 @@ impl ApiCommands {
                 db,
                 chain,
                 out_dir,
-                allow_response_mismatch,
+                use_response_from,
             } => {
                 std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
                 if !out_dir.is_dir() {
@@ -239,6 +248,7 @@ impl ApiCommands {
                         .with_extension("rpcsnap.json");
                     let test_dump = serde_json::from_reader(std::fs::File::open(&test_dump_file)?)?;
                     print!("Generating RPC snapshot at {} ...", out_path.display());
+                    let allow_response_mismatch = use_response_from.is_some();
                     match generate_test_snapshot::run_test_with_dump(
                         &test_dump,
                         tracking_db.clone(),
@@ -258,7 +268,10 @@ impl ApiCommands {
                                     chain: chain.clone(),
                                     name: test_dump.request.method_name.to_string(),
                                     params: test_dump.request.params,
-                                    response: test_dump.forest_response,
+                                    response: match use_response_from {
+                                        Some(NodeType::Forest) | None => test_dump.forest_response,
+                                        Some(NodeType::Lotus) => test_dump.lotus_response,
+                                    },
                                     index,
                                     db,
                                 }
@@ -276,9 +289,13 @@ impl ApiCommands {
             Self::Test { files } => {
                 for path in files {
                     print!("Running RPC test with snapshot {} ...", path.display());
+                    let start = Instant::now();
                     match test_snapshot::run_test_from_snapshot(&path).await {
                         Ok(_) => {
-                            println!("  Succeeded");
+                            println!(
+                                "  succeeded, took {}.",
+                                humantime::format_duration(start.elapsed())
+                            );
                         }
                         Err(e) => {
                             println!(" Failed: {e}");

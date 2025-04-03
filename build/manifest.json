@@ -2594,7 +2594,7 @@
     "network": {
       "type": "mainnet"
     },
-    "version": "v16.0.0-rc3",
+    "version": "v16.0.0",
     "bundle_cid": "bafy2bzaceaj3s3rrfbibikplap264uw74qor5yl35mqwokv4lwst4plpwry36",
     "manifest": {
       "actors": [

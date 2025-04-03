@@ -12,7 +12,7 @@ use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fvm_ipld_encoding::BytesDe;
 use libp2p::PeerId;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "MinerInfo")]
 pub struct MinerInfoLotusJson {

@@ -763,7 +763,7 @@ fn load_api_messages_from_tipset(
     Ok(messages)
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Vec<Message>>")]

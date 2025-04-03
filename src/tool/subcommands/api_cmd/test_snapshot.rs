@@ -15,7 +15,7 @@ use crate::{
     networks::{ChainConfig, NetworkChain},
     rpc::{
         eth::{filter::EthEventHandler, types::EthHash},
-        RPCState, RpcMethod as _, RpcMethodExt as _,
+        RPCState, RpcMethod, RpcMethodExt as _,
     },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
@@ -94,9 +94,13 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await
-                    .map_err(|e| e.to_string())
-                    .and_then(|r| r.into_lotus_json_value().map_err(|e| e.to_string()));
-                assert_eq!(expected_response, result);
+                    .map(|r| r.into_lotus_json())
+                    .map_err(|e| e.to_string());
+                let expected = match expected_response.clone() {
+                    Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
+                    Err(e) => Err(e),
+                };
+                assert_eq!(result, expected);
                 run = true;
             }
         };
@@ -104,7 +108,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
 
     crate::for_each_rpc_method!(run_test);
 
-    assert!(run, "RPC method not found");
+    assert!(run, "RPC method {method_name} not found");
 
     Ok(())
 }
@@ -180,6 +184,7 @@ mod tests {
     use directories::ProjectDirs;
     use futures::{stream::FuturesUnordered, StreamExt};
     use itertools::Itertools as _;
+    use std::time::Instant;
     use tokio::sync::Semaphore;
     use url::Url;
 
@@ -227,8 +232,12 @@ mod tests {
         std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666");
         while let Some((filename, file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
+            let start = Instant::now();
             run_test_from_snapshot(&file_path).await.unwrap();
-            println!("  succeeded.");
+            println!(
+                "  succeeded, took {}.",
+                humantime::format_duration(start.elapsed())
+            );
         }
     }
 

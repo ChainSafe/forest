@@ -7,7 +7,7 @@ use schemars::schema::*;
 // This code looks odd so we can
 // - use #[serde(with = "...")]
 // - de/ser empty vecs as null
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct VecU8LotusJson(Option<Inner>);
 
 impl JsonSchema for VecU8LotusJson {
@@ -26,7 +26,7 @@ impl JsonSchema for VecU8LotusJson {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 struct Inner(#[serde(with = "base64_standard")] Vec<u8>);
 
 impl HasLotusJson for Vec<u8> {

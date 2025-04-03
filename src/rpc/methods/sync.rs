@@ -144,7 +144,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
     #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
