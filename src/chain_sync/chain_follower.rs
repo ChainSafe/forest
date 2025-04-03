@@ -579,8 +579,8 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                 chain.push(tipset.clone());
                 remaining_tipsets.remove(tipset.key());
 
-                // Find parent in remaining tipsets
-                current = remaining_tipsets.get(tipset.parents()).cloned();
+                // Find parent in tipsets map
+                current = self.tipsets.get(tipset.parents()).cloned();
             }
             chain.reverse();
             chains.push(chain);
@@ -822,10 +822,6 @@ impl SyncTask {
                 }
             }
             SyncTask::FetchTipset(key, _epoch) => {
-                if let Some(reason) = bad_block_cache.peek_tipset_key(&key) {
-                    debug!("Skipping fetch of bad tipset: {}", reason);
-                    return None;
-                }
                 if let Ok(parents) =
                     get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
                 {
