@@ -278,7 +278,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                         let action = task.clone().execute(
                             network.clone(),
                             state_manager.clone(),
-                            bad_block_cache.clone(),
                             stateless_mode,
                         );
                         tokio::spawn({
@@ -802,7 +801,6 @@ impl SyncTask {
         self,
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,
-        bad_block_cache: Arc<BadBlockCache>,
         stateless_mode: bool,
     ) -> Option<SyncEvent> {
         let cs = state_manager.chain_store();
