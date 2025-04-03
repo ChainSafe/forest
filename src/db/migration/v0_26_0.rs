@@ -1,13 +1,13 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.25.0 to 0.26.0 version.
+//! Migration logic for 0.25.1 to 0.26.0 version.
 //! A new `Indices` column has been added to enable the storage of CID-indexed data.
 
 use crate::blocks::TipsetKey;
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::MigrationOperationExt as _;
-use crate::db::migration::v0_26_0::paritydb_0_25_0::{DbColumn, ParityDb};
+use crate::db::migration::v0_26_0::paritydb_0_25_1::{DbColumn, ParityDb};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
@@ -23,13 +23,13 @@ use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-pub(super) struct Migration0_25_0_0_26_0 {
+pub(super) struct Migration0_25_1_0_26_0 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.25.0 to 0.26.0
-impl MigrationOperation for Migration0_25_0_0_26_0 {
+/// Migrates the database from version 0.25.1 to 0.26.0
+impl MigrationOperation for Migration0_25_1_0_26_0 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
@@ -149,8 +149,8 @@ impl MigrationOperation for Migration0_25_0_0_26_0 {
     }
 }
 
-/// Database settings from Forest `v0.25.0`
-mod paritydb_0_25_0 {
+/// Database settings from Forest `v0.25.1`
+mod paritydb_0_25_1 {
     use parity_db::{CompressionType, Db, Options};
     use std::path::PathBuf;
     use strum::{Display, EnumIter, IntoEnumIterator};
