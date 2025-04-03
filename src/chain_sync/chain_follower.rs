@@ -840,17 +840,15 @@ mod tests {
     use num_traits::ToPrimitive;
     use std::sync::Arc;
 
-    fn setup() -> Arc<MemoryDB> {
+    fn setup() -> (Arc<ChainStore<MemoryDB>>, Chain4U<Arc<MemoryDB>>) {
         // Initialize test logger
-        tracing_subscriber::fmt()
+        let _ = tracing_subscriber::fmt()
             .with_env_filter(
                 tracing_subscriber::EnvFilter::from_default_env()
-                    .add_directive(tracing::Level::TRACE.into()),
+                    .add_directive(tracing::Level::DEBUG.into()),
             )
-            .try_init()
-            .unwrap();
+            .try_init();
 
-        // Create a test environment
         let db = Arc::new(MemoryDB::default());
 
         // Populate DB with message roots used by chain4u
@@ -863,25 +861,11 @@ mod tests {
             .unwrap();
         }
 
-        db
-    }
-
-    #[test]
-    fn test_sync_state_machine_validation_order() {
-        let db = setup();
-        let dummy_state = |i| db.put_cbor_default(&i).unwrap();
-        let dummy_node = |i: ChainEpoch| HeaderBuilder {
-            state_root: dummy_state(i).into(),
-            weight: BigInt::from(i).into(),
-            ..Default::default()
-        };
-
         // Create a chain of 5 tipsets using Chain4U
         let c4u = Chain4U::with_blockstore(db.clone());
         chain4u! {
             in c4u;
-            [genesis_header = dummy_node(0)]
-            -> [a = dummy_node(1)] -> [b = dummy_node(2)] -> [c = dummy_node(3)] -> [d = dummy_node(4)] -> [e = dummy_node(5)]
+            [genesis_header = dummy_node(&db, 0)]
         };
 
         let cs = Arc::new(
@@ -895,11 +879,37 @@ mod tests {
             .unwrap(),
         );
 
-        let genesis_tipset = Arc::new(genesis_header.clone().into());
-        cs.set_heaviest_tipset(genesis_tipset).unwrap();
+        cs.set_heaviest_tipset(Arc::new(cs.genesis_tipset()))
+            .unwrap();
+
+        (cs, c4u)
+    }
+
+    fn dummy_state(db: impl Blockstore, i: ChainEpoch) -> Cid {
+        db.put_cbor_default(&i).unwrap()
+    }
+
+    fn dummy_node(db: impl Blockstore, i: ChainEpoch) -> HeaderBuilder {
+        HeaderBuilder {
+            state_root: dummy_state(db, i).into(),
+            weight: BigInt::from(i).into(),
+            epoch: i.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_sync_state_machine_validation_order() {
+        let (cs, c4u) = setup();
+        let db = cs.db.clone();
+
+        chain4u! {
+            from [genesis_header] in c4u;
+            [a = dummy_node(&db, 1)] -> [b = dummy_node(&db, 2)] -> [c = dummy_node(&db, 3)] -> [d = dummy_node(&db, 4)] -> [e = dummy_node(&db, 5)]
+        };
 
         // Create the state machine
-        let mut state_machine = SyncStateMachine::new(cs, Default::default(), false);
+        let mut state_machine = SyncStateMachine::new(cs, Default::default(), true);
 
         // Insert tipsets in random order
         let tipsets = vec![e, b, d, c, a];
@@ -950,43 +960,20 @@ mod tests {
 
     #[test]
     fn test_sync_state_machine_chain_fragments() {
-        let db = setup();
-
-        let dummy_state = |i| db.put_cbor_default(&i).unwrap();
-        let dummy_node = |i: ChainEpoch| HeaderBuilder {
-            state_root: dummy_state(i).into(),
-            weight: BigInt::from(i).into(),
-            epoch: i.into(),
-            ..Default::default()
-        };
+        let (cs, c4u) = setup();
+        let db = cs.db.clone();
 
         // Create a forked chain
         // genesis -> a -> b
         //            \--> d
-        let c4u = Chain4U::with_blockstore(db.clone());
         chain4u! {
             in c4u;
-            [genesis_header = dummy_node(0)]
-            -> [a = dummy_node(1)] -> [b = dummy_node(2)]
+            [a = dummy_node(&db, 1)] -> [b = dummy_node(&db, 2)]
         };
         chain4u! {
             from [a] in c4u;
-            [c = dummy_node(3)]
+            [c = dummy_node(&db, 3)]
         };
-
-        let cs = Arc::new(
-            ChainStore::new(
-                db.clone(),
-                db.clone(),
-                db.clone(),
-                Default::default(),
-                genesis_header.clone().into(),
-            )
-            .unwrap(),
-        );
-
-        cs.set_heaviest_tipset(Arc::new(cs.genesis_tipset()))
-            .unwrap();
 
         // Create the state machine
         let mut state_machine = SyncStateMachine::new(cs, Default::default(), false);
@@ -1011,6 +998,8 @@ mod tests {
                     .collect()
             })
             .collect::<Vec<Vec<_>>>();
+
+        // Both chains should start at the same tipset
         assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);
     }
 }
