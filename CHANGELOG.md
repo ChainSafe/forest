@@ -51,6 +51,7 @@ This is a mandatory release for mainnet node operators. It includes the NV25 _Te
 ### Changed
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
+- [#5479](https://github.com/ChainSafe/forest/pull/5479) Move the snapshot progress tracking to sync wait command 
 
 ### Removed
 
