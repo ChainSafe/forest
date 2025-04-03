@@ -575,12 +575,13 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             let mut chain = Vec::new();
             let mut current = Some(heaviest);
 
-            while let Some(tipset) = current {
-                chain.push(tipset.clone());
+            while let Some(tipset) = current.take() {
                 remaining_tipsets.remove(tipset.key());
 
                 // Find parent in tipsets map
                 current = self.tipsets.get(tipset.parents()).cloned();
+
+                chain.push(tipset);
             }
             chain.reverse();
             chains.push(chain);
