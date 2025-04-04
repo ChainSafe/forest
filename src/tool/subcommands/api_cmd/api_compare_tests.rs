@@ -1698,8 +1698,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 ..Default::default()
             },))
             .unwrap(),
-        )
-        .sort_policy(SortPolicy::All),
+        ),
     ];
 
     for block in shared_tipset.block_headers() {

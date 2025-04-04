@@ -3241,7 +3241,14 @@ impl RpcMethod<1> for EthTraceFilter {
         Ok(trace_filter(ctx, filter, from_block, to_block)
             .await?
             .into_iter()
-            .collect())
+            .sorted_by_key(|trace| {
+                (
+                    trace.block_number,
+                    trace.transaction_position,
+                    trace.trace.trace_address.clone(),
+                )
+            })
+            .collect::<Vec<_>>())
     }
 }
 
