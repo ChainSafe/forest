@@ -62,6 +62,7 @@ use num::{BigInt, Zero as _};
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -105,6 +106,8 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -161,6 +164,8 @@ impl Bloom {
 }
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -3230,7 +3235,10 @@ impl RpcMethod<1> for EthTraceFilter {
         let to_block =
             get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
                 .context("cannot parse toBlock")?;
-        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+        Ok(trace_filter(ctx, filter, from_block, to_block)
+            .await?
+            .into_iter()
+            .collect())
     }
 }
 
@@ -3239,8 +3247,8 @@ async fn trace_filter(
     filter: EthTraceFilterCriteria,
     from_block: EthUint64,
     to_block: EthUint64,
-) -> Result<Vec<EthBlockTrace>> {
-    let mut results = vec![];
+) -> Result<HashSet<EthBlockTrace>> {
+    let mut results = HashSet::new();
     if let Some(EthUint64(0)) = filter.count {
         return Ok(results);
     }
@@ -3271,7 +3279,7 @@ async fn trace_filter(
                     }
                 }
 
-                results.push(block_trace);
+                results.insert(block_trace);
 
                 if filter.count.is_some() && results.len() >= count as usize {
                     return Ok(results);
