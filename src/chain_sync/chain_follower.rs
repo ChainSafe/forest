@@ -41,7 +41,6 @@ use crate::{
     chain::ChainStore,
     chain_sync::{bad_block_cache::BadBlockCache, metrics, TipsetValidator},
     libp2p::{NetworkEvent, PubsubMessage},
-    networks::ChainConfig,
     shim::clock::SECONDS_IN_DAY,
 };
 use parking_lot::RwLock;
@@ -147,7 +146,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     let state_changed = Arc::new(Notify::new());
     let state_machine = Arc::new(Mutex::new(SyncStateMachine::new(
         state_manager.chain_store().clone(),
-        state_manager.chain_config().clone(),
         bad_block_cache.clone(),
         stateless_mode,
     )));
@@ -236,7 +234,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
         let state_manager = state_manager.clone();
         let state_machine = state_machine.clone();
         let state_changed = state_changed.clone();
-        let bad_block_cache = bad_block_cache.clone();
         let tasks = tasks.clone();
         async move {
             loop {
@@ -278,7 +275,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                         let action = task.clone().execute(
                             network.clone(),
                             state_manager.clone(),
-                            bad_block_cache.clone(),
                             stateless_mode,
                         );
                         tokio::spawn({
@@ -537,7 +533,6 @@ enum SyncEvent {
 }
 
 struct SyncStateMachine<DB> {
-    chain_config: Arc<ChainConfig>,
     cs: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     // Map from TipsetKey to FullTipset
@@ -548,13 +543,11 @@ struct SyncStateMachine<DB> {
 impl<DB: Blockstore> SyncStateMachine<DB> {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
-        chain_config: Arc<ChainConfig>,
         bad_block_cache: Arc<BadBlockCache>,
         stateless_mode: bool,
     ) -> Self {
         Self {
             cs,
-            chain_config,
             bad_block_cache,
             tipsets: HashMap::default(),
             stateless_mode,
@@ -575,12 +568,13 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             let mut chain = Vec::new();
             let mut current = Some(heaviest);
 
-            while let Some(tipset) = current {
-                chain.push(tipset.clone());
+            while let Some(tipset) = current.take() {
                 remaining_tipsets.remove(tipset.key());
 
-                // Find parent in remaining tipsets
-                current = remaining_tipsets.get(tipset.parents()).cloned();
+                // Find parent in tipsets map
+                current = self.tipsets.get(tipset.parents()).cloned();
+
+                chain.push(tipset);
             }
             chain.reverse();
             chains.push(chain);
@@ -616,7 +610,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             &self.cs,
             Some(&self.bad_block_cache),
             &self.cs.genesis_tipset(),
-            self.chain_config.block_delay_secs,
+            self.cs.chain_config.block_delay_secs,
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             trace!("Skipping invalid tipset: {}", why);
@@ -627,7 +621,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         // Check if tipset is older than a day compared to heaviest tipset
         let heaviest = self.cs.heaviest_tipset();
         let epoch_diff = heaviest.epoch() - tipset.epoch();
-        let time_diff = epoch_diff * (self.chain_config.block_delay_secs as i64);
+        let time_diff = epoch_diff * (self.cs.chain_config.block_delay_secs as i64);
 
         if time_diff > SECONDS_IN_DAY {
             self.mark_bad_tipset(tipset, "old tipset".to_string());
@@ -801,7 +795,6 @@ impl SyncTask {
         self,
         network: SyncNetworkContext<DB>,
         state_manager: Arc<StateManager<DB>>,
-        bad_block_cache: Arc<BadBlockCache>,
         stateless_mode: bool,
     ) -> Option<SyncEvent> {
         let cs = state_manager.chain_store();
@@ -822,10 +815,6 @@ impl SyncTask {
                 }
             }
             SyncTask::FetchTipset(key, _epoch) => {
-                if let Some(reason) = bad_block_cache.peek_tipset_key(&key) {
-                    debug!("Skipping fetch of bad tipset: {}", reason);
-                    return None;
-                }
                 if let Ok(parents) =
                     get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
                 {
@@ -845,25 +834,23 @@ mod tests {
     use super::*;
     use crate::blocks::{chain4u, Chain4U, HeaderBuilder};
     use crate::db::MemoryDB;
-    use crate::networks::ChainConfig;
     use crate::utils::db::CborStoreExt as _;
     use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
     use num_bigint::BigInt;
+    use num_traits::ToPrimitive;
     use std::sync::Arc;
 
-    #[test]
-    fn test_sync_state_machine_validation_order() {
+    fn setup() -> (Arc<ChainStore<MemoryDB>>, Chain4U<Arc<MemoryDB>>) {
         // Initialize test logger
-        tracing_subscriber::fmt()
+        let _ = tracing_subscriber::fmt()
             .with_env_filter(
                 tracing_subscriber::EnvFilter::from_default_env()
                     .add_directive(tracing::Level::DEBUG.into()),
             )
-            .try_init()
-            .unwrap();
+            .try_init();
 
-        // Create a test environment
         let db = Arc::new(MemoryDB::default());
+
         // Populate DB with message roots used by chain4u
         {
             let empty_amt = Amt::<Cid, _>::new(&db).flush().unwrap();
@@ -873,21 +860,12 @@ mod tests {
             })
             .unwrap();
         }
-        let dummy_state = |i| db.put_cbor_default(&i).unwrap();
-        let dummy_node = |i: ChainEpoch| HeaderBuilder {
-            state_root: dummy_state(i).into(),
-            weight: BigInt::from(i).into(),
-            ..Default::default()
-        };
 
-        let chain_config = Arc::new(ChainConfig::default());
-        let bad_block_cache = Arc::new(BadBlockCache::default());
         // Create a chain of 5 tipsets using Chain4U
         let c4u = Chain4U::with_blockstore(db.clone());
         chain4u! {
             in c4u;
-            [genesis_header = dummy_node(0)]
-            -> [a = dummy_node(1)] -> [b = dummy_node(2)] -> [c = dummy_node(3)] -> [d = dummy_node(4)] -> [e = dummy_node(5)]
+            [genesis_header = dummy_node(&db, 0)]
         };
 
         let cs = Arc::new(
@@ -896,17 +874,43 @@ mod tests {
                 db.clone(),
                 db.clone(),
                 db.clone(),
-                chain_config.clone(),
+                Default::default(),
                 genesis_header.clone().into(),
             )
             .unwrap(),
         );
 
-        let genesis_tipset = Arc::new(genesis_header.clone().into());
-        cs.set_heaviest_tipset(genesis_tipset).unwrap();
+        cs.set_heaviest_tipset(Arc::new(cs.genesis_tipset()))
+            .unwrap();
+
+        (cs, c4u)
+    }
+
+    fn dummy_state(db: impl Blockstore, i: ChainEpoch) -> Cid {
+        db.put_cbor_default(&i).unwrap()
+    }
+
+    fn dummy_node(db: impl Blockstore, i: ChainEpoch) -> HeaderBuilder {
+        HeaderBuilder {
+            state_root: dummy_state(db, i).into(),
+            weight: BigInt::from(i).into(),
+            epoch: i.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_sync_state_machine_validation_order() {
+        let (cs, c4u) = setup();
+        let db = cs.db.clone();
+
+        chain4u! {
+            from [genesis_header] in c4u;
+            [a = dummy_node(&db, 1)] -> [b = dummy_node(&db, 2)] -> [c = dummy_node(&db, 3)] -> [d = dummy_node(&db, 4)] -> [e = dummy_node(&db, 5)]
+        };
 
         // Create the state machine
-        let mut state_machine = SyncStateMachine::new(cs, chain_config, bad_block_cache, false);
+        let mut state_machine = SyncStateMachine::new(cs, Default::default(), true);
 
         // Insert tipsets in random order
         let tipsets = vec![e, b, d, c, a];
@@ -953,5 +957,50 @@ mod tests {
 
         // We expect validation tasks for epochs 1 through 5 in order
         assert_eq!(validation_tasks, vec![1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn test_sync_state_machine_chain_fragments() {
+        let (cs, c4u) = setup();
+        let db = cs.db.clone();
+
+        // Create a forked chain
+        // genesis -> a -> b
+        //            \--> d
+        chain4u! {
+            in c4u;
+            [a = dummy_node(&db, 1)] -> [b = dummy_node(&db, 2)]
+        };
+        chain4u! {
+            from [a] in c4u;
+            [c = dummy_node(&db, 3)]
+        };
+
+        // Create the state machine
+        let mut state_machine = SyncStateMachine::new(cs, Default::default(), false);
+
+        // Convert each block into a FullTipset and add it to the state machine
+        for block in [a, b, c] {
+            let full_tipset = FullTipset::new(vec![Block {
+                header: block.clone().into(),
+                bls_messages: vec![],
+                secp_messages: vec![],
+            }])
+            .unwrap();
+            state_machine.update(SyncEvent::NewFullTipsets(vec![Arc::new(full_tipset)]));
+        }
+
+        let chains = state_machine
+            .chains()
+            .into_iter()
+            .map(|v| {
+                v.into_iter()
+                    .map(|ts| ts.weight().to_i64().unwrap_or(0))
+                    .collect()
+            })
+            .collect::<Vec<Vec<_>>>();
+
+        // Both chains should start at the same tipset
+        assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);
     }
 }

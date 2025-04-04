@@ -271,7 +271,7 @@ impl Chain4UInner {
         // ensure consistency
         for it in [epoch_from_user, epoch_from_parents, epoch_from_siblings] {
             match it {
-                Some(it) if it == epoch => {}
+                Some(it) if it <= epoch => {}
                 Some(it) => panic!("inconsistent epoch: {} vs {}", it, epoch),
                 None => {}
             }
