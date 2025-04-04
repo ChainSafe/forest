@@ -29,7 +29,7 @@
 
 ### Added
 
-- [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method.
+- [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method. Add `index backfill` subcommand to `forest-tool`.
 
 ### Changed
 
