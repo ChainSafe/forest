@@ -7,11 +7,11 @@ use std::{
     sync::Arc,
 };
 
+use crate::Config;
 use crate::db::migration::v0_22_1::Migration0_22_0_0_22_1;
 use crate::db::migration::v0_26_0::Migration0_25_1_0_26_0;
-use crate::Config;
-use anyhow::bail;
 use anyhow::Context as _;
+use anyhow::bail;
 use itertools::Itertools;
 use multimap::MultiMap;
 use once_cell::sync::Lazy;

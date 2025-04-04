@@ -3,7 +3,7 @@
 
 use std::{convert::TryFrom, str::FromStr};
 
-use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
+use super::{KeyInfo, KeyStore, errors::Error, wallet_helpers};
 use crate::shim::{address::Address, crypto::SignatureType};
 use serde::{Deserialize, Serialize};
 
@@ -130,9 +130,9 @@ impl Wallet {
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
             self.keystore.remove("default")?; // This line should
-                                              // unregister current
-                                              // default key then
-                                              // continue
+            // unregister current
+            // default key then
+            // continue
         }
         self.keystore.put("default", key_info)?;
         Ok(())
@@ -256,7 +256,7 @@ mod tests {
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
-    use crate::key_management::{generate, KeyStoreConfig};
+    use crate::key_management::{KeyStoreConfig, generate};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();

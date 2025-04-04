@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::fmt::Display;
 
-use serde::{de::Visitor, forward_to_deserialize_any, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Visitor, forward_to_deserialize_any};
 
 /// "Introspection" by tracing a [`Deserialize`] to see if it's [`Option`]-like.
 ///

@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::{
-    self,
+    self, RpcMethodExt,
     eth::types::EthAddress,
     f3::{F3Manifest, GetManifestFromContract},
     state::StateCall,
-    RpcMethodExt,
 };
 use clap::Subcommand;
 

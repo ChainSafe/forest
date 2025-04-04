@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
@@ -13,7 +13,7 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 
 use super::PostMigrationCheckArc;
-use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
+use super::{Migrator, PostMigratorArc, verifier::MigrationVerifier};
 use crate::state_migration::common::migration_job::{MigrationJob, MigrationJobOutput};
 
 /// Handles several cases of migration:

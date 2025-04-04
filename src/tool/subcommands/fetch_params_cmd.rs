@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use crate::shim::sector::SectorSize;
-use crate::utils::proofs_api::{get_params_default, SectorSizeOpt};
+use crate::utils::proofs_api::{SectorSizeOpt, get_params_default};
 
 use crate::cli::subcommands::cli_error_and_die;
 use crate::cli_shared::read_config;

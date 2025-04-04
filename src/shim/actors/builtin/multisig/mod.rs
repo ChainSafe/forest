@@ -8,7 +8,7 @@ use crate::shim::actors::convert::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared2::{address::Address, clock::ChainEpoch, econ::TokenAmount, MethodNum};
+use fvm_shared2::{MethodNum, address::Address, clock::ChainEpoch, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
 
 /// Multisig actor method.

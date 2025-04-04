@@ -367,23 +367,23 @@ mod methods {
 }
 
 use crate::rpc::auth_layer::AuthLayer;
-use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
+use crate::rpc::channel::RpcModule as FilRpcModule;
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::FullTipset;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
-    server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
     Methods,
+    server::{RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder, stop_channel},
 };
 use once_cell::sync::Lazy;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tower::Service;
 
 use crate::rpc::sync::SnapshotProgressState;
@@ -613,13 +613,14 @@ where
 
 /// If `include` is not [`None`], only methods that are listed will be returned
 pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
-    use schemars::gen::{SchemaGenerator, SchemaSettings};
+    use schemars::r#gen::{SchemaGenerator, SchemaSettings};
+
     let mut methods = vec![];
     // spec says draft07
     let mut settings = SchemaSettings::draft07();
     // ..but uses `components`
     settings.definitions_path = String::from("#/components/schemas/");
-    let mut gen = SchemaGenerator::new(settings);
+    let mut generator = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
             if <$ty>::API_PATHS.contains(path) {
@@ -627,13 +628,13 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
                     Some(include) => match include.contains(&<$ty>::NAME) {
                         true => {
                             methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                                &mut gen,
+                                &mut generator,
                                 ParamStructure::ByPosition,
                                 &<$ty>::NAME,
                             )));
                             if let Some(alias) = &<$ty>::NAME_ALIAS {
                                 methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                                    &mut gen,
+                                    &mut generator,
                                     ParamStructure::ByPosition,
                                     &alias,
                                 )));
@@ -643,13 +644,13 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
                     },
                     None => {
                         methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                            &mut gen,
+                            &mut generator,
                             ParamStructure::ByPosition,
                             &<$ty>::NAME,
                         )));
                         if let Some(alias) = &<$ty>::NAME_ALIAS {
                             methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                                &mut gen,
+                                &mut generator,
                                 ParamStructure::ByPosition,
                                 &alias,
                             )));
@@ -663,7 +664,7 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
     openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {
-            schemas: Some(gen.take_definitions().into_iter().collect()),
+            schemas: Some(generator.take_definitions().into_iter().collect()),
             ..Default::default()
         }),
         openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,

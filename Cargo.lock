@@ -707,9 +707,9 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.70.1"
+version = "0.71.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49d8fed880d473ea71efb9bf597651e77201bdd4893efe54c9e5d65ae04ce6f"
+checksum = "5f58bf3d7db68cfbac37cfc485a8d711e87e064c3d0fe0435b92f7a407f9d6b3"
 dependencies = [
  "bitflags 2.9.0",
  "cexpr",
@@ -720,7 +720,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 1.1.0",
+ "rustc-hash 2.1.1",
  "shlex",
  "syn 2.0.100",
 ]
@@ -1031,9 +1031,9 @@ dependencies = [
 
 [[package]]
 name = "cbindgen"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fce8dd7fcfcbf3a0a87d8f515194b49d6135acab73e18bd380d1d93bb1a15eb"
+checksum = "eadd868a2ce9ca38de7eeafdcec9c7065ef89b42b32f0839278d55f35c54d1ff"
 dependencies = [
  "heck 0.4.1",
  "indexmap 2.8.0",
@@ -2329,9 +2329,9 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "errno"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
+checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
@@ -5875,9 +5875,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.5"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3e04debbb59698c15bacbb6d93584a8c0ca9cc3213cb423d31f760d8843ce5"
+checksum = "ff70ce3e48ae43fa075863cef62e8b43b71a4f2382229920e0df362592919430"
 dependencies = [
  "adler2",
 ]
@@ -7631,9 +7631,9 @@ dependencies = [
 
 [[package]]
 name = "rust2go"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f4c573050b419b1cad4024180a41dead36eb1abf89277525f98a484859711b"
+checksum = "b72d44674ddf3acb250c3cf3a608e928c6a0aa176f0f8fa9f83e7778ae713519"
 dependencies = [
  "bindgen",
  "rust2go-cli",
@@ -7644,13 +7644,13 @@ dependencies = [
 
 [[package]]
 name = "rust2go-cli"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee020c2c649667859a30f3667a5cbf1156928c2274ea424526ce6b3d3abcf419"
+checksum = "5f5b73395abf8ad750730351b7bcb5b8fc637dadf3d900f55dc59953a5b15bf6"
 dependencies = [
  "cbindgen",
  "clap",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "rust2go-common",
 ]
 

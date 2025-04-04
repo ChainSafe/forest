@@ -5,11 +5,10 @@ use std::{fmt::Display, mem};
 use ariadne::Color;
 use proc_macro2::Span;
 use syn::{
-    parse_quote,
+    BinOp, Expr, ItemFn, Macro, ReturnType, Token, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     visit::{self, Visit},
-    BinOp, Expr, ItemFn, Macro, ReturnType, Token,
 };
 
 /// A custom linter.

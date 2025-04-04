@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     blocks::{Tipset, TipsetKey},
-    lotus_json::{base64_standard, lotus_json_with_self, HasLotusJson, LotusJson},
+    lotus_json::{HasLotusJson, LotusJson, base64_standard, lotus_json_with_self},
     networks::NetworkChain,
     shim::executor::Receipt,
     utils::multihash::prelude::*,
@@ -21,7 +21,7 @@ use num::Zero as _;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use std::io::Read as _;
 use std::{cmp::Ordering, time::Duration};
 

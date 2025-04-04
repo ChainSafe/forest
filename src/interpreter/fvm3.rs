@@ -6,32 +6,32 @@ use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{
-    index::{ChainIndex, ResolveNullTipset},
     ChainStore,
+    index::{ChainIndex, ResolveNullTipset},
 };
 use crate::interpreter::errors::Error;
 use crate::interpreter::resolve_to_key_addr;
 use crate::networks::ChainConfig;
-use crate::shim::actors::miner;
 use crate::shim::actors::MinerActorStateLoad as _;
+use crate::shim::actors::miner;
 use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,
 };
 use crate::utils::encoding::from_slice_with_fallback;
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use cid::Cid;
-use fvm3::{
-    externs::{Chain, Consensus, Externs, Rand},
-    gas::{Gas, GasTracker},
-};
 use fvm_ipld_blockstore::{
-    tracking::{BSStats, TrackingBlockstore},
     Blockstore,
+    tracking::{BSStats, TrackingBlockstore},
 };
 use fvm_shared3::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
+};
+use fvm3::{
+    externs::{Chain, Consensus, Externs, Rand},
+    gas::{Gas, GasTracker},
 };
 
 pub struct ForestExterns<DB> {

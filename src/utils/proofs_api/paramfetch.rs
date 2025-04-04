@@ -20,15 +20,15 @@ use crate::{
         net::{download_ipfs_file_trustlessly, global_http_client},
     },
 };
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use backon::{ExponentialBuilder, Retryable};
-use futures::{stream::FuturesUnordered, AsyncWriteExt, TryStreamExt};
+use futures::{AsyncWriteExt, TryStreamExt, stream::FuturesUnordered};
 use tokio::fs::{self};
 use tracing::{debug, info, warn};
 
 use super::parameters::{
-    check_parameter_file, param_dir, ParameterData, ParameterMap, DEFAULT_PARAMETERS,
-    PROOFS_PARAMETER_CACHE_ENV,
+    DEFAULT_PARAMETERS, PROOFS_PARAMETER_CACHE_ENV, ParameterData, ParameterMap,
+    check_parameter_file, param_dir,
 };
 
 /// Default IPFS gateway to use for fetching parameters.

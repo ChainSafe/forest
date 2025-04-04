@@ -12,10 +12,10 @@ use crate::utils::db::CborStoreExt;
 use crate::{make_calibnet_policy, make_mainnet_policy};
 use ahash::HashMap;
 use anyhow::Context as _;
-use cid::{multibase::Base, Cid};
+use cid::{Cid, multibase::Base};
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
-    v9::{util::sector_key, State as MinerStateNew},
+    v9::{State as MinerStateNew, util::sector_key},
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
 use fil_actors_shared::fvm_ipld_amt;

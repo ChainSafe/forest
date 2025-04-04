@@ -3,7 +3,7 @@
 
 pub mod common;
 
-use crate::common::{create_tmp_config, daemon, CommonEnv};
+use crate::common::{CommonEnv, create_tmp_config, daemon};
 
 #[test]
 fn importing_bad_snapshot_should_fail() {

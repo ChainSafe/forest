@@ -103,7 +103,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_fixed_seed_env() {
-        std::env::set_var(FIXED_RNG_SEED_ENV, "0");
+        unsafe { std::env::set_var(FIXED_RNG_SEED_ENV, "0") };
 
         let mut a = [0; 1024];
         let mut b = [0; 1024];
@@ -116,13 +116,13 @@ mod tests {
         forest_os_rng().fill(&mut b);
         assert_eq!(a, b);
 
-        std::env::remove_var(FIXED_RNG_SEED_ENV);
+        unsafe { std::env::remove_var(FIXED_RNG_SEED_ENV) };
     }
 
     #[test]
     #[serial]
     fn test_thread_rng() {
-        std::env::remove_var(FIXED_RNG_SEED_ENV);
+        unsafe { std::env::remove_var(FIXED_RNG_SEED_ENV) };
         let mut a = [0; 1024];
         forest_rng().fill(&mut a);
         let mut b = [0; 1024];
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_os_rng() {
-        std::env::remove_var(FIXED_RNG_SEED_ENV);
+        unsafe { std::env::remove_var(FIXED_RNG_SEED_ENV) };
         let mut a = [0; 1024];
         forest_os_rng().fill(&mut a);
         let mut b = [0; 1024];

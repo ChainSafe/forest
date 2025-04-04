@@ -16,7 +16,7 @@ mod tests;
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::shim::actors::market::AllocationID;
 use crate::shim::actors::market::{DealProposal, DealState};
 use crate::shim::actors::miner::DeadlineInfo;
@@ -33,13 +33,13 @@ use crate::shim::{
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;
+use fvm_shared4::piece::PaddedPieceSize;
 use ipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::str::FromStr;
 
 // Chain API

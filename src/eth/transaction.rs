@@ -5,11 +5,11 @@ use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
 use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest;
-use anyhow::{bail, ensure, Context};
+use anyhow::{Context, bail, ensure};
 use bytes::BytesMut;
-use cbor4ii::core::{dec::Decode as _, utils::SliceReader, Value};
+use cbor4ii::core::{Value, dec::Decode as _, utils::SliceReader};
 use fvm_shared4::METHOD_CONSTRUCTOR;
-use num::{bigint::Sign, BigInt, Signed as _};
+use num::{BigInt, Signed as _, bigint::Sign};
 use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
 use rlp::Rlp;
@@ -21,16 +21,16 @@ use crate::{
 };
 
 use super::{
-    eip_1559_transaction::{EthEip1559TxArgs, EthEip1559TxArgsBuilder, EIP_1559_SIG_LEN},
+    EIP_1559_TX_TYPE, EIP_2930_TX_TYPE, EthChainId,
     eip_155_transaction::{
-        calc_valid_eip155_sig_len, EthLegacyEip155TxArgs, EthLegacyEip155TxArgsBuilder,
-        EIP_155_SIG_PREFIX,
+        EIP_155_SIG_PREFIX, EthLegacyEip155TxArgs, EthLegacyEip155TxArgsBuilder,
+        calc_valid_eip155_sig_len,
     },
+    eip_1559_transaction::{EIP_1559_SIG_LEN, EthEip1559TxArgs, EthEip1559TxArgsBuilder},
     homestead_transaction::{
         EthLegacyHomesteadTxArgs, EthLegacyHomesteadTxArgsBuilder, HOMESTEAD_SIG_LEN,
         HOMESTEAD_SIG_PREFIX,
     },
-    EthChainId, EIP_1559_TX_TYPE, EIP_2930_TX_TYPE,
 };
 // As per `ref-fvm`, which hardcodes it as well.
 #[derive(FromPrimitive)]
@@ -509,7 +509,7 @@ pub(crate) mod tests {
         networks::{calibnet, mainnet},
         shim::{crypto::Signature, econ::TokenAmount},
     };
-    use num::{traits::FromBytes as _, BigInt, Num as _, Zero as _};
+    use num::{BigInt, Num as _, Zero as _, traits::FromBytes as _};
     use num_bigint::ToBigUint as _;
     use quickcheck_macros::quickcheck;
     use std::str::FromStr as _;
@@ -765,9 +765,10 @@ pub(crate) mod tests {
         let tx = EthTx::Eip1559(Box::new(tx_args));
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
-        assert!(tx
-            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
-            .is_ok());
+        assert!(
+            tx.to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
+                .is_ok()
+        );
         assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
         assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
@@ -808,9 +809,10 @@ pub(crate) mod tests {
         let tx = EthTx::Eip155(Box::new(tx_args));
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
-        assert!(tx
-            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
-            .is_ok());
+        assert!(
+            tx.to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
+                .is_ok()
+        );
         assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
         assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
         let expected_hash = ethereum_types::H256::from_str(
@@ -860,9 +862,10 @@ pub(crate) mod tests {
         let tx = EthTx::Homestead(Box::new(tx_args.clone()));
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
-        assert!(tx
-            .to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
-            .is_ok());
+        assert!(
+            tx.to_verifiable_signature(sig.unwrap().bytes().to_vec(), calibnet::ETH_CHAIN_ID)
+                .is_ok()
+        );
         assert!(tx.rlp_unsigned_message(calibnet::ETH_CHAIN_ID).is_ok());
         assert!(tx.get_signed_message(calibnet::ETH_CHAIN_ID).is_ok());
     }
