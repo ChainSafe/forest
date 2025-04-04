@@ -34,6 +34,7 @@
 ### Removed
 
 ### Fixed
+
 - [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
 
 ## Forest v0.26.2 "Fool of a Took"
@@ -48,7 +49,7 @@ See [here](https://github.com/filecoin-project/community/discussions/74#discussi
 
 ### Fixed
 
-- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`. 
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`.
 
 ## Forest v0.25.1 "Goldberry"
 
