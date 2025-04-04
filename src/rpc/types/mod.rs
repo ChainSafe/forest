@@ -545,3 +545,12 @@ pub struct EventEntry {
     pub codec: u64,
     pub value: LotusJson<Vec<u8>>,
 }
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct Event {
+    /// Actor ID
+    pub emitter: u64,
+    pub entries: Vec<EventEntry>,
+}
+lotus_json_with_self!(Event);

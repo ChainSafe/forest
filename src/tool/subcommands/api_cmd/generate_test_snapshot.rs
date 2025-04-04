@@ -9,8 +9,8 @@ use crate::{
     chain_sync::{SyncStage, network_context::SyncNetworkContext},
     daemon::db_util::load_all_forest_cars,
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
-        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, IndicesStore, MemoryDB,
+        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -97,6 +97,7 @@ async fn ctx(
 
     let chain_store = Arc::new(
         ChainStore::new(
+            db.clone(),
             db.clone(),
             db.clone(),
             db,
@@ -291,5 +292,23 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
+    }
+}
+
+impl<T: IndicesStore> IndicesStore for ReadOpsTrackingStore<T> {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            IndicesStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
+        self.inner.read_bin(key)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        self.inner.write_bin(key, value)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        self.inner.exists(key)
     }
 }

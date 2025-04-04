@@ -246,8 +246,9 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
     #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
-    f3_contract_address: Option<EthAddress>,
-    f3_contract_poll_interval: Duration,
+    pub f3_contract_address: Option<EthAddress>,
+    pub f3_contract_poll_interval: Duration,
+    pub enable_indexer: bool,
 }
 
 impl ChainConfig {
@@ -279,6 +280,7 @@ impl ChainConfig {
                     .expect("invalid f3 contract eth address"),
             ),
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -315,6 +317,7 @@ impl ChainConfig {
             ),
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -341,6 +344,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -376,6 +380,7 @@ impl ChainConfig {
                     .expect("invalid f3 contract eth address"),
             ),
             f3_contract_poll_interval: Duration::from_secs(60),
+            enable_indexer: false,
         }
     }
 

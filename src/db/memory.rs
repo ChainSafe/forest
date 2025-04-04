@@ -4,7 +4,7 @@
 use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
 use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
-use crate::db::{GarbageCollectable, PersistentStore};
+use crate::db::{GarbageCollectable, IndicesStore, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::db::car_stream::CarBlock;
@@ -22,6 +22,7 @@ pub struct MemoryDB {
     blockchain_persistent_db: RwLock<HashMap<Cid, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
     pub eth_mappings_db: RwLock<HashMap<EthHash, Vec<u8>>>,
+    pub indices_db: RwLock<HashMap<Cid, Vec<u8>>>,
 }
 
 impl MemoryDB {
@@ -130,6 +131,23 @@ impl EthMappingsStore for MemoryDB {
             lock.remove(hash);
         }
         Ok(())
+    }
+}
+
+impl IndicesStore for MemoryDB {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(self.indices_db.read().get(key).cloned())
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        self.indices_db
+            .write()
+            .insert(key.to_owned(), value.to_vec());
+        Ok(())
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        Ok(self.indices_db.read().contains_key(key))
     }
 }
 

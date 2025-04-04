@@ -67,7 +67,9 @@ pub async fn start_offline_server(
         &db,
     )
     .await?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
     let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
         db.clone(),
         db.clone(),
         db.clone(),
@@ -75,7 +77,6 @@ pub async fn start_offline_server(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
 
     populate_eth_mappings(&state_manager, &head_ts)?;
 
@@ -232,7 +233,7 @@ async fn handle_snapshots(
     Ok(vec![downloaded_snapshot_path])
 }
 
-fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
+pub fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
     info!("Using chain config for {chain}");
     let chain_config = ChainConfig::from_chain(chain);
     if chain_config.is_testnet() {

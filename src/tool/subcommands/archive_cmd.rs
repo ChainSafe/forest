@@ -35,7 +35,7 @@ use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
-use crate::interpreter::{VMEvent, VMTrace};
+use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
@@ -555,7 +555,6 @@ async fn show_tipset_diff(
         tipset,
         NO_CALLBACK,
         VMTrace::NotTraced,
-        VMEvent::NotPushed,
     )?;
 
     if child_tipset.parent_state() != &state_root {

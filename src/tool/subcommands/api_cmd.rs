@@ -206,7 +206,7 @@ impl ApiCommands {
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
 
                 for tests in [
-                    api_compare_tests::create_tests(create_tests_args.clone())?,
+                    api_compare_tests::create_tests(create_tests_args.clone()).await?,
                     api_compare_tests::create_tests_pass_2(create_tests_args)?,
                 ] {
                     api_compare_tests::run_tests(
@@ -318,7 +318,7 @@ impl ApiCommands {
                         },
                     ignore,
                     ..
-                } in api_compare_tests::create_tests(create_tests_args)?
+                } in api_compare_tests::create_tests(create_tests_args).await?
                 {
                     if !api_paths.contains(path) {
                         continue;

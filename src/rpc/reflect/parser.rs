@@ -264,23 +264,23 @@ mod tests {
     fn optional() {
         // no params where optional
         let mut parser = Parser::_new(None, &["p0"], ParamStructure::Either, 0).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
+        assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
 
         // positional optional
         let mut parser =
             Parser::_new(from_value!([]), &["opt"], ParamStructure::Either, 0).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
+        assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
 
         // named optional
         let mut parser =
             Parser::_new(from_value!({}), &["opt"], ParamStructure::Either, 0).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
+        assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
 
         // postional optional with mandatory
         let mut parser =
             Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either, 0).unwrap();
-        assert_eq!(Some(0), parser._parse().unwrap());
-        assert_eq!(None::<i32>, parser._parse().unwrap());
+        assert_eq!(Some(0), parser._parse::<Option<i32>>().unwrap());
+        assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
 
         // named optional with mandatory
         let mut parser = Parser::_new(
@@ -290,8 +290,8 @@ mod tests {
             0,
         )
         .unwrap();
-        assert_eq!(Some(0), parser._parse().unwrap());
-        assert_eq!(None::<i32>, parser._parse().unwrap());
+        assert_eq!(Some(0), parser._parse::<Option<i32>>().unwrap());
+        assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
     }
 
     #[test]
