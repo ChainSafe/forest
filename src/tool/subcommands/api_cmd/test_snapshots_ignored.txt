@@ -11,6 +11,7 @@ F3.SignMessage
 Filecoin.AuthNew
 Filecoin.AuthVerify
 Filecoin.ChainExport
+Filecoin.ChainGetEvents
 Filecoin.ChainGetMinBaseFee
 Filecoin.ChainSetHead
 Filecoin.EthEstimateGas
