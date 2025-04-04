@@ -76,9 +76,31 @@ impl HealthcheckCommand {
         );
 
         for _ in ticker {
-            let response = reqwest::get(&url).await?;
-            let status = response.status();
-            let text = response.text().await?;
+            let (status, text) = {
+                match reqwest::get(&url).await {
+                    Ok(response) => {
+                        let status = response.status();
+                        let text = match response.text().await {
+                            Ok(t) => t,
+                            Err(e) => {
+                                if !wait {
+                                    anyhow::bail!("{e}");
+                                }
+                                e.to_string()
+                            }
+                        };
+                        (status, text)
+                    }
+                    Err(e) => {
+                        if !wait {
+                            anyhow::bail!("{e}");
+                        }
+
+                        eprintln!("{e}");
+                        (http::StatusCode::INTERNAL_SERVER_ERROR, "".into())
+                    }
+                }
+            };
 
             println!("{}", text);
 
