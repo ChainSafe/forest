@@ -85,12 +85,12 @@ fs_extra = "1"
 futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.10", default-features = false }
 fvm3 = { package = "fvm", version = "~3.12", default-features = false }
-fvm4 = { package = "fvm", version = "~4.6", default-features = false, features = ["verify-signature"] }
-fvm_ipld_blockstore = "0.3"
-fvm_ipld_encoding = "0.5"
+fvm4 = { package = "fvm", version = "~4.6.1", default-features = false, features = ["verify-signature"] }
+fvm_ipld_blockstore = "0.3.1"
+fvm_ipld_encoding = "0.5.2"
 fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.6.1", features = ["proofs"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
