@@ -44,6 +44,25 @@ impl Default for SnapshotProgressState {
     }
 }
 
+impl std::fmt::Display for SnapshotProgressState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Initializing => {
+                write!(f, "🔄 Initializing (Checking if snapshot is needed)")
+            }
+            Self::InProgress { message } => {
+                write!(f, "🌳 In Progress: {}", message)
+            }
+            Self::Completed => {
+                write!(f, "✅ Recently Completed! Chain will start syncing shortly")
+            }
+            Self::NotRequired => {
+                write!(f, "⏳ Not Required (Snapshot is not needed)")
+            }
+        }
+    }
+}
+
 lotus_json_with_self!(SnapshotProgressState);
 
 #[derive(Default, Clone)]

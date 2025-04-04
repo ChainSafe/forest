@@ -56,6 +56,7 @@ impl SyncCommands {
                 if check_snapshot_status {
                     println!("Checking snapshot status");
                     wait_for_snapshot_completion(&client).await?;
+                    println!("Start syncing");
                 }
 
                 'wait: for _ in ticker {
@@ -194,59 +195,34 @@ async fn check_snapshot_progress(
     client: &rpc::Client,
     wait: bool,
 ) -> anyhow::Result<SnapshotProgressState> {
-    let mut interval = time::interval(Duration::from_secs(10));
+    let mut interval = time::interval(Duration::from_secs(5));
     let mut stdout = stdout();
     loop {
         interval.tick().await;
+
         let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
 
-        match &progress_state {
-            SnapshotProgressState::Initializing => {
-                println!("Snapshot status: 🔄 initializing (Checking if snapshot is needed)");
+        // Update the previous line
+        write!(
+            stdout,
+            "\r{}{}Snapshot status: {}",
+            anes::MoveCursorUp(1),
+            anes::ClearLine::All,
+            format!("{progress_state}")
+        )?;
+        stdout.flush()?;
 
-                if !wait {
-                    return Ok(progress_state);
-                }
-
-                write!(
-                    stdout,
-                    "\r{}{}",
-                    anes::ClearLine::All,
-                    anes::MoveCursorUp(1)
-                )?;
-                continue;
+        match progress_state {
+            SnapshotProgressState::Completed | SnapshotProgressState::NotRequired => {
+                println!();
+                return Ok(progress_state);
             }
-            SnapshotProgressState::InProgress { message } => {
-                println!("Snapshot status: 🌳 In Progress: {message}");
-                if !wait {
-                    return Ok(progress_state);
-                }
-
-                write!(
-                    stdout,
-                    "\r{}{}",
-                    anes::ClearLine::All,
-                    anes::MoveCursorUp(1)
-                )?;
-                continue;
+            _ if !wait => {
+                println!();
+                return Ok(progress_state);
             }
-            SnapshotProgressState::Completed => {
-                write!(
-                    stdout,
-                    "\r{}{}",
-                    anes::ClearLine::All,
-                    anes::MoveCursorUp(1)
-                )?;
-                println!(
-                    "\nSnapshot status: ✅ Recently Completed! Chain will start syncing shortly"
-                );
-            }
-            SnapshotProgressState::NotRequired => {
-                println!("Snapshot status: ⏳ Not Required (Snapshot is not needed)");
-            }
+            _ => {} // continue
         }
-
-        return Ok(progress_state);
     }
 }
 
