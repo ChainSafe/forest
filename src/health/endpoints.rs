@@ -165,15 +165,20 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
 }
 
 fn check_eth_mappings_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
-    match state.settings_store.eth_mapping_up_to_date() {
-        Ok(Some(true)) => {
-            acc.push_ok("eth mappings up to date");
-            true
+    if state.config.chain_indexer.enable_indexer {
+        match state.settings_store.eth_mapping_up_to_date() {
+            Ok(Some(true)) => {
+                acc.push_ok("eth mappings up to date");
+                true
+            }
+            Ok(None) | Ok(Some(false)) | Err(_) => {
+                acc.push_err("no eth mappings");
+                false
+            }
         }
-        Ok(None) | Ok(Some(false)) | Err(_) => {
-            acc.push_err("no eth mappings");
-            false
-        }
+    } else {
+        acc.push_err("eth mappings disabled");
+        true
     }
 }
 

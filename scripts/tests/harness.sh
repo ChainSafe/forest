@@ -3,17 +3,18 @@
 # the Forest tests. It is meant to be sourced by other scripts and not
 # executed directly.
 
-FOREST_PATH="forest"
-FOREST_CLI_PATH="forest-cli"
-FOREST_WALLET_PATH="forest-wallet"
-FOREST_TOOL_PATH="forest-tool"
+export FOREST_CHAIN_INDEXER_ENABLED="1"
+
+export FOREST_PATH="forest"
+export FOREST_CLI_PATH="forest-cli"
+export FOREST_WALLET_PATH="forest-wallet"
+export FOREST_TOOL_PATH="forest-tool"
 
 TMP_DIR=$(mktemp --directory)
 LOG_DIRECTORY=$TMP_DIR/logs
 
 export TMP_DIR
 export LOG_DIRECTORY
-export FOREST_WALLET_PATH
 
 function forest_import_non_calibnet_snapshot {
   echo "Importing a non calibnet snapshot"

@@ -41,3 +41,12 @@ echo "Test subcommand: net info"
 $FOREST_CLI_PATH net info
 
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
+
+echo "Test subcommand: healthcheck live"
+$FOREST_CLI_PATH healthcheck live --wait
+
+echo "Test subcommand: healthcheck healthy"
+$FOREST_CLI_PATH healthcheck healthy --wait
+
+echo "Test subcommand: healthcheck ready"
+$FOREST_CLI_PATH healthcheck ready --wait
