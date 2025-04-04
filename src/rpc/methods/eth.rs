@@ -62,7 +62,7 @@ use num::{BigInt, Zero as _};
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use ahash::HashSet;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -3251,7 +3251,7 @@ async fn trace_filter(
     from_block: EthUint64,
     to_block: EthUint64,
 ) -> Result<HashSet<EthBlockTrace>> {
-    let mut results = HashSet::new();
+    let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
         return Ok(results);
     }
