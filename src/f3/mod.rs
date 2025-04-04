@@ -136,13 +136,15 @@ mod tests {
             }
         );
 
-        std::env::set_var("FOREST_F3_FINALITY", "100");
-        // A random CID
-        std::env::set_var(
-            "FOREST_F3_INITIAL_POWER_TABLE",
-            "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i",
-        );
-        std::env::set_var("FOREST_F3_BOOTSTRAP_EPOCH", "100");
+        unsafe {
+            std::env::set_var("FOREST_F3_FINALITY", "100");
+            // A random CID
+            std::env::set_var(
+                "FOREST_F3_INITIAL_POWER_TABLE",
+                "bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i",
+            );
+            std::env::set_var("FOREST_F3_BOOTSTRAP_EPOCH", "100");
+        }
         assert_eq!(
             get_f3_sidecar_params(&chain_config),
             F3Options {
@@ -156,7 +158,7 @@ mod tests {
             }
         );
         // Unset initial power table
-        std::env::set_var("FOREST_F3_INITIAL_POWER_TABLE", "");
+        unsafe { std::env::set_var("FOREST_F3_INITIAL_POWER_TABLE", "") };
         assert_eq!(
             get_f3_sidecar_params(&chain_config),
             F3Options {

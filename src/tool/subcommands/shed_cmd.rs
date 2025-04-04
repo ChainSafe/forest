@@ -11,14 +11,13 @@ use miner::*;
 use crate::{
     libp2p::keypair::get_keypair,
     rpc::{
-        self,
+        self, ApiPath, RpcMethodExt as _,
         chain::{ChainGetTipSetByHeight, ChainHead},
         types::ApiTipsetKey,
-        ApiPath, RpcMethodExt as _,
     },
 };
 use anyhow::Context as _;
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use clap::Subcommand;
 use clap::ValueEnum;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
@@ -161,7 +160,7 @@ impl ShedCommands {
                 );
                 if let Some(omit_fields) = omit {
                     for method in &mut openrpc_doc.methods {
-                        if let ReferenceOr::Item(ref mut m) = method {
+                        if let ReferenceOr::Item(m) = method {
                             if omit_fields.contains(&OmitField::Summary) {
                                 m.summary = None;
                             }

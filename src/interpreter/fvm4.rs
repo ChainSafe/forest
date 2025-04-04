@@ -6,32 +6,32 @@ use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{
-    index::{ChainIndex, ResolveNullTipset},
     ChainStore,
+    index::{ChainIndex, ResolveNullTipset},
 };
 use crate::interpreter::errors::Error;
 use crate::interpreter::resolve_to_key_addr;
 use crate::networks::{ChainConfig, Height, NetworkChain};
-use crate::shim::actors::miner;
 use crate::shim::actors::MinerActorStateLoad as _;
+use crate::shim::actors::miner;
 use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,
 };
 use crate::utils::encoding::from_slice_with_fallback;
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use cid::Cid;
-use fvm4::{
-    externs::{Chain, Consensus, Externs, Rand},
-    gas::{Gas, GasTracker},
-};
 use fvm_ipld_blockstore::{
-    tracking::{BSStats, TrackingBlockstore},
     Blockstore,
+    tracking::{BSStats, TrackingBlockstore},
 };
 use fvm_shared4::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
+};
+use fvm4::{
+    externs::{Chain, Consensus, Externs, Rand},
+    gas::{Gas, GasTracker},
 };
 
 pub struct ForestExterns<DB> {
@@ -323,7 +323,7 @@ fn cal_gas_used_from_stats(
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, iter::repeat};
+    use std::cell::RefCell;
 
     use super::*;
 
@@ -371,7 +371,7 @@ mod tests {
         // Simulates logic in old GasBlockStore
         let price_list = price_list_by_network_version(network_version);
         let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
-        repeat(()).take(read_count).for_each(|_| {
+        std::iter::repeat_n((), read_count).for_each(|_| {
             tracker
                 .apply_charge(price_list.on_block_open_base().into())
                 .unwrap()

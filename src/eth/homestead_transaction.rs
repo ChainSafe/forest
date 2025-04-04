@@ -5,7 +5,7 @@ use super::*;
 use crate::message::SignedMessage;
 use crate::shim::address::Address;
 use crate::shim::crypto::SignatureType::Delegated;
-use anyhow::{bail, ensure, Context};
+use anyhow::{Context, bail, ensure};
 use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;

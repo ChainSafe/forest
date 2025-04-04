@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::encoding::from_slice_with_fallback;
-use cid::serde::BytesToCidVisitor;
 use cid::Cid;
-use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
+use cid::serde::BytesToCidVisitor;
 use serde::Deserializer;
+use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use std::fmt;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any

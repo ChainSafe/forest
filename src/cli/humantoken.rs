@@ -108,13 +108,13 @@ mod parse {
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
     use nom::{
+        IResult,
         bytes::complete::tag,
         character::complete::multispace0,
         combinator::{map_res, opt},
         error::{FromExternalError, ParseError},
         number::complete::recognize_float,
         sequence::terminated,
-        IResult,
     };
 
     use super::si;
@@ -304,12 +304,12 @@ mod parse {
 
         #[test]
         fn more_than_96_bits() {
-            use std::iter::{once, repeat};
+            use std::iter::once;
 
             // The previous rust_decimal implementation had at most 96 bits of precision
             // we should be able to exceed that
             let test_str = once('1')
-                .chain(repeat('0').take(98))
+                .chain(std::iter::repeat_n('0', 98))
                 .chain(['1'])
                 .collect::<String>();
             test_dec_scale(&test_str, &test_str, None);

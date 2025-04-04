@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
+    KeyStore, KeyStoreConfig,
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncStage},
+    chain_sync::{SyncStage, network_context::SyncNetworkContext},
     db::{
-        car::{AnyCar, ManyCar},
         MemoryDB,
+        car::{AnyCar, ManyCar},
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -14,12 +15,11 @@ use crate::{
     message_pool::{MessagePool, MpoolRpcProvider},
     networks::{ChainConfig, NetworkChain},
     rpc::{
-        eth::{filter::EthEventHandler, types::EthHash},
         RPCState, RpcMethod, RpcMethodExt as _,
+        eth::{filter::EthEventHandler, types::EthHash},
     },
     shim::address::{CurrentNetwork, Network},
     state_manager::StateManager,
-    KeyStore, KeyStoreConfig,
 };
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
@@ -178,11 +178,12 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+    use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use ahash::HashSet;
     use directories::ProjectDirs;
-    use futures::{stream::FuturesUnordered, StreamExt};
+    use futures::{StreamExt, stream::FuturesUnordered};
     use itertools::Itertools as _;
+    use std::time::Instant;
     use tokio::sync::Semaphore;
     use url::Url;
 
@@ -227,11 +228,15 @@ mod tests {
         // output. The snapshots should be generated with a node running with the same seed, if
         // they are testing methods that are not deterministic, e.g.,
         // `[`crate::rpc::methods::gas::estimate_gas_premium`]`.
-        std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666");
+        unsafe { std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666") };
         while let Some((filename, file_path)) = tasks.next().await {
             print!("Testing {filename} ...");
+            let start = Instant::now();
             run_test_from_snapshot(&file_path).await.unwrap();
-            println!("  succeeded.");
+            println!(
+                "  succeeded, took {}.",
+                humantime::format_duration(start.elapsed())
+            );
         }
     }
 

@@ -25,13 +25,7 @@ fn list_versioned_databases(chain_data_path: &Path) -> anyhow::Result<Vec<Versio
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
-            let version = Version::parse(path.file_name()?.to_str()?);
-            match version {
-                Ok(version) => Some(version),
-                // Ignore any directories that are not valid semver versions. Those might be
-                // development databases.
-                Err(_) => None,
-            }
+            Version::parse(path.file_name()?.to_str()?).ok()
         })
         .collect();
 
@@ -105,17 +99,19 @@ mod tests {
 
     #[test]
     fn test_db_mode() {
-        env::set_var(FOREST_DB_DEV_MODE, "latest");
-        assert_eq!(DbMode::read(), DbMode::Latest);
+        unsafe {
+            env::set_var(FOREST_DB_DEV_MODE, "latest");
+            assert_eq!(DbMode::read(), DbMode::Latest);
 
-        env::set_var(FOREST_DB_DEV_MODE, "current");
-        assert_eq!(DbMode::read(), DbMode::Current);
+            env::set_var(FOREST_DB_DEV_MODE, "current");
+            assert_eq!(DbMode::read(), DbMode::Current);
 
-        env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
-        assert_eq!(DbMode::read(), DbMode::Custom("cthulhu".to_owned()));
+            env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
+            assert_eq!(DbMode::read(), DbMode::Custom("cthulhu".to_owned()));
 
-        env::remove_var(FOREST_DB_DEV_MODE);
-        assert_eq!(DbMode::read(), DbMode::Current);
+            env::remove_var(FOREST_DB_DEV_MODE);
+            assert_eq!(DbMode::read(), DbMode::Current);
+        }
     }
 
     #[test]
@@ -163,12 +159,12 @@ mod tests {
         ];
 
         for (mode, expected) in &cases {
-            env::set_var(FOREST_DB_DEV_MODE, mode);
+            unsafe { env::set_var(FOREST_DB_DEV_MODE, mode) };
             let db = choose_db(path).unwrap();
             assert_eq!(db, *expected);
         }
 
-        env::remove_var(FOREST_DB_DEV_MODE);
+        unsafe { env::remove_var(FOREST_DB_DEV_MODE) };
         let db = choose_db(path).unwrap();
         assert_eq!(db, path.join(FOREST_VERSION.to_string()));
     }

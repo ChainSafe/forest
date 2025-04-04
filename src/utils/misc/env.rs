@@ -32,17 +32,19 @@ mod tests {
 
     #[test]
     fn test_env_or_default() {
-        // variable set, should return its parsed value
-        std::env::set_var("TEST_ENV", "42");
-        assert_eq!(env_or_default("TEST_ENV", 0), 42);
+        unsafe {
+            // variable set, should return its parsed value
+            std::env::set_var("TEST_ENV", "42");
+            assert_eq!(env_or_default("TEST_ENV", 0), 42);
 
-        // variable not set, should return default
-        std::env::remove_var("TEST_ENV");
-        assert_eq!(env_or_default("TEST_ENV", 0), 0);
+            // variable not set, should return default
+            std::env::remove_var("TEST_ENV");
+            assert_eq!(env_or_default("TEST_ENV", 0), 0);
 
-        // unparsable value given the default type, should return default
-        std::env::set_var("TEST_ENV", "42");
-        assert!(!env_or_default("TEST_ENV", false));
+            // unparsable value given the default type, should return default
+            std::env::set_var("TEST_ENV", "42");
+            assert!(!env_or_default("TEST_ENV", false));
+        }
     }
 
     #[test]
@@ -57,7 +59,7 @@ mod tests {
         ];
 
         for (input, expected) in cases.iter() {
-            std::env::set_var("TEST_ENV", input);
+            unsafe { std::env::set_var("TEST_ENV", input) };
             assert_eq!(is_env_truthy("TEST_ENV"), *expected);
         }
     }

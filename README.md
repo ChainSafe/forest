@@ -321,7 +321,7 @@ Forest is dual licensed under [MIT] + [Apache 2.0].
 [Lotus]: https://lotus.filecoin.io/
 [Forest Book]: https://docs.forest.chainsafe.io/
 [Forest Q&A]: https://github.com/ChainSafe/forest/discussions/categories/forest-q-a
-[CONTRIBUTING.md]: documentation/src/developer_documentation/contributing.md
+[CONTRIBUTING.md]: CONTRIBUTING.md
 [Forest IaC]: https://github.com/ChainSafe/forest-iac
 [security at chainsafe dot io]: mailto:security@chainsafe.io
 [MIT]: https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT

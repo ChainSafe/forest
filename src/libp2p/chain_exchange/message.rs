@@ -3,7 +3,7 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
-use crate::blocks::{Block, CachingBlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
+use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, Tipset};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
@@ -216,9 +216,12 @@ fn fts_from_bundle_parts(
     } = messages.ok_or("Tipset bundle did not contain message bundle")?;
 
     if headers.len() != bls_msg_includes.len() || headers.len() != secp_msg_includes.len() {
-        return Err(
-            format!("Invalid formed Tipset bundle, lengths of includes does not match blocks. Header len: {}, bls_msg len: {}, secp_msg len: {}", headers.len(), bls_msg_includes.len(), secp_msg_includes.len()),
-        );
+        return Err(format!(
+            "Invalid formed Tipset bundle, lengths of includes does not match blocks. Header len: {}, bls_msg len: {}, secp_msg len: {}",
+            headers.len(),
+            bls_msg_includes.len(),
+            secp_msg_includes.len()
+        ));
     }
     let zipped = headers
         .into_iter()

@@ -31,10 +31,10 @@ use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
-use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
+use schemars::{JsonSchema, r#gen::SchemaGenerator, schema::Schema};
 use serde::{
-    de::{Error as _, Unexpected},
     Deserialize,
+    de::{Error as _, Unexpected},
 };
 use std::{future::Future, iter, sync::Arc};
 
@@ -171,7 +171,7 @@ where
 
     /// Generate a full `OpenRPC` method definition for this endpoint.
     fn openrpc<'de>(
-        gen: &mut SchemaGenerator,
+        g: &mut SchemaGenerator,
         calling_convention: ParamStructure,
         method_name: &'static str,
     ) -> Method
@@ -180,7 +180,7 @@ where
     {
         Method {
             name: String::from(method_name),
-            params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
+            params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(g))
                 .enumerate()
                 .map(|(pos, (name, (schema, nullable)))| {
                     let required = pos <= Self::N_REQUIRED_PARAMS;
@@ -198,7 +198,7 @@ where
             param_structure: Some(calling_convention),
             result: Some(ReferenceOr::Item(ContentDescriptor {
                 name: format!("{}.Result", method_name),
-                schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
+                schema: g.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()
             })),
@@ -344,7 +344,7 @@ where
 pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
     /// schema-nullable pair for argument, in-order.
-    fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
+    fn schemas(g: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
     /// [`RpcMethod::handle`]
     fn parse(

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use decoder::DagCborDecodingReader;
 use futures::prelude::*;
 use libp2p::request_response::{self, OutboundFailure};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy
 /// [`request_response::Codec`] for Hello and `ChainExchange` protocols without

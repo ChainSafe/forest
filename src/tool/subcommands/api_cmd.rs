@@ -18,7 +18,7 @@ use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{bail, ensure, Context as _};
+use anyhow::{Context as _, bail, ensure};
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fvm_ipld_blockstore::Blockstore;
@@ -28,6 +28,7 @@ use std::{
     io,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Instant,
 };
 use test_snapshot::RpcTestSnapshot;
 
@@ -230,7 +231,7 @@ impl ApiCommands {
                 out_dir,
                 use_response_from,
             } => {
-                std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1");
+                unsafe { std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1") };
                 if !out_dir.is_dir() {
                     std::fs::create_dir_all(&out_dir)?;
                 }
@@ -288,9 +289,13 @@ impl ApiCommands {
             Self::Test { files } => {
                 for path in files {
                     print!("Running RPC test with snapshot {} ...", path.display());
+                    let start = Instant::now();
                     match test_snapshot::run_test_from_snapshot(&path).await {
                         Ok(_) => {
-                            println!("  Succeeded");
+                            println!(
+                                "  succeeded, took {}.",
+                                humantime::format_duration(start.elapsed())
+                            );
                         }
                         Err(e) => {
                             println!(" Failed: {e}");

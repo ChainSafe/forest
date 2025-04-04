@@ -8,10 +8,10 @@ use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::networks::{ChainConfig, Height};
-use crate::shim::actors::power;
 use crate::shim::actors::PowerActorStateLoad as _;
+use crate::shim::actors::power;
 use crate::shim::crypto::{
-    cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
+    TICKET_RANDOMNESS_LOOKBACK, cid_to_replica_commitment_v1, verify_bls_sig,
 };
 use crate::shim::sector::RegisteredSealProof;
 use crate::shim::{
@@ -24,7 +24,7 @@ use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
 use crate::utils::misc::env::is_env_truthy;
 use cid::Cid;
-use fil_actors_shared::filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
+use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;

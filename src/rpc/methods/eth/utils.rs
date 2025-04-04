@@ -7,11 +7,11 @@ use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::StateTree;
 
-use anyhow::{bail, Result};
-use cbor4ii::core::dec::Decode as _;
+use anyhow::{Result, bail};
 use cbor4ii::core::Value;
+use cbor4ii::core::dec::Decode as _;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use serde::de;
 
 pub fn lookup_eth_address<DB: Blockstore>(
