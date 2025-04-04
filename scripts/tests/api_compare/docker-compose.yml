@@ -50,6 +50,10 @@ services:
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --exit-after-init --save-token /data/forest-token
 
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        # backfill the index db
+        forest-tool index backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300))
+
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
