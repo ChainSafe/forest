@@ -152,6 +152,7 @@ pub enum Height {
     TukTuk,
     Teep,
     Tock,
+    TockFix,
 }
 
 impl Default for Height {
@@ -196,6 +197,7 @@ impl From<Height> for NetworkVersion {
             Height::TukTuk => NetworkVersion::V24,
             Height::Teep => NetworkVersion::V25,
             Height::Tock => NetworkVersion::V26,
+            Height::TockFix => NetworkVersion::V26,
         }
     }
 }

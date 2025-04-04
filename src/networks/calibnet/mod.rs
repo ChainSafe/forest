@@ -85,6 +85,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         // This epoch, 7 days after Teep is the completion of FIP-0100 where actors will start applying
         // the new daily fee to pre-Teep sectors being extended. This is 90 days on mainnet.
         make_height!(Tock, 2_523_454 + 7 * EPOCHS_IN_DAY),
+        // Mon  7 Apr 23:00:00 UTC 2025
+        make_height!(TockFix, 2_558_014, get_bundle_cid("v16.0.1")),
     ])
 });
 
