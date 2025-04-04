@@ -17,7 +17,6 @@ services:
     command:
       - |
         set -euxo pipefail
-        # Print forest version
         forest --version
         # fetch parameter files
         forest-tool fetch-params --keys
