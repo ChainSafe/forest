@@ -7,7 +7,7 @@ use super::{
     Error,
 };
 use crate::fil_cns;
-use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
+use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
@@ -348,7 +348,6 @@ where
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
-                VMEvent::NotPushed,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state_root));

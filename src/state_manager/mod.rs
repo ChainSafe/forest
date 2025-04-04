@@ -15,7 +15,7 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::interpreter::{
-    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext, VMEvent,
+    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
@@ -490,11 +490,6 @@ where
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<StateOutput> {
-        let vm_event = if self.chain_config.enable_indexer {
-            VMEvent::PushedEventsRoot
-        } else {
-            VMEvent::NotPushed
-        };
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
@@ -504,12 +499,7 @@ where
                     tipset.len(),
                 );
                 let state_output = self
-                    .compute_tipset_state(
-                        Arc::clone(tipset),
-                        NO_CALLBACK,
-                        VMTrace::NotTraced,
-                        vm_event,
-                    )
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 for events_root in state_output.events_roots.iter() {
                     trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
@@ -534,16 +524,7 @@ where
         self.events_cache
             .get_or_else(key, || async move {
                 let ts_state = self
-                    .compute_tipset_state(
-                        Arc::clone(tipset),
-                        NO_CALLBACK,
-                        VMTrace::NotTraced,
-                        if events_root.is_some() {
-                            VMEvent::PushedAll
-                        } else {
-                            VMEvent::Pushed
-                        },
-                    )
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
 
@@ -747,12 +728,7 @@ where
                 _ => Ok(()), // ignored
             }
         };
-        let result = self.compute_tipset_state_blocking(
-            ts,
-            Some(callback),
-            VMTrace::Traced,
-            VMEvent::NotPushed,
-        );
+        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
         if let Err(error_message) = result {
             if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
@@ -843,16 +819,10 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-        enable_event_pushing: VMEvent,
     ) -> Result<StateOutput, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
-            this.compute_tipset_state_blocking(
-                tipset,
-                callback,
-                enable_tracing,
-                enable_event_pushing,
-            )
+            this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
         })
         .await?
     }
@@ -864,7 +834,6 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-        enable_event_pushing: VMEvent,
     ) -> Result<StateOutput, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
@@ -875,7 +844,6 @@ where
             tipset,
             callback,
             enable_tracing,
-            enable_event_pushing,
         )?)
     }
 
@@ -887,18 +855,10 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
-        enable_event_pushing: VMEvent,
     ) -> Result<StateOutput, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
-            this.compute_state_blocking(
-                height,
-                messages,
-                tipset,
-                callback,
-                enable_tracing,
-                enable_event_pushing,
-            )
+            this.compute_state_blocking(height, messages, tipset, callback, enable_tracing)
         })
         .await?
     }
@@ -912,7 +872,6 @@ where
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
-        enable_event_pushing: VMEvent,
     ) -> Result<StateOutput, Error> {
         Ok(compute_state(
             height,
@@ -925,7 +884,6 @@ where
             &self.engine,
             callback,
             enable_tracing,
-            enable_event_pushing,
         )?)
     }
 
@@ -1670,7 +1628,6 @@ where
             Arc::new(tipset.clone()),
             Some(callback),
             VMTrace::Traced,
-            VMEvent::NotPushed,
         )?;
 
         Ok((state_root, invoc_trace))
@@ -1708,7 +1665,6 @@ where
                 parent,
                 NO_CALLBACK,
                 VMTrace::NotTraced,
-                VMEvent::NotPushed,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts;
@@ -1816,7 +1772,6 @@ pub fn apply_block_messages<DB>(
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-    enable_event_pushing: VMEvent,
 ) -> anyhow::Result<StateOutput>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1911,7 +1866,7 @@ where
 
         // step 4: apply tipset messages
         let (receipts, events, events_roots) =
-            vm.apply_block_messages(&block_messages, epoch, callback, enable_event_pushing)?;
+            vm.apply_block_messages(&block_messages, epoch, callback)?;
 
         // step 5: construct receipt root from receipts and flush the state-tree
         let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
@@ -1938,7 +1893,6 @@ pub fn compute_state<DB>(
     engine: &MultiEngine,
     callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
-    enable_event_pushing: VMEvent,
 ) -> anyhow::Result<StateOutput>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1956,7 +1910,6 @@ where
         tipset,
         callback,
         enable_tracing,
-        enable_event_pushing,
     )?;
 
     Ok(output)

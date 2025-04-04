@@ -354,7 +354,6 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-        enable_event_pushing: VMEvent,
     ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
@@ -599,36 +598,5 @@ impl VMTrace {
     /// Should tracing be collected?
     pub fn is_traced(&self) -> bool {
         matches!(self, VMTrace::Traced)
-    }
-}
-
-/// This controls whether we should push or not events when applying block messages.
-#[derive(Default, Clone, Copy)]
-pub enum VMEvent {
-    /// Push event during [`VM::apply_block_messages`]
-    Pushed,
-    /// Push events root during [`VM::apply_block_messages`]
-    PushedEventsRoot,
-    /// Push event AND events root during [`VM::apply_block_messages`]
-    PushedAll,
-    /// Do not push event
-    #[default]
-    NotPushed,
-}
-
-impl VMEvent {
-    /// Should event be pushed?
-    pub fn is_pushed(&self) -> bool {
-        matches!(self, VMEvent::Pushed)
-    }
-
-    /// Should events root be pushed?
-    pub fn is_pushed_events_root(&self) -> bool {
-        matches!(self, VMEvent::PushedEventsRoot)
-    }
-
-    /// Should all be pushed?
-    pub fn is_pushed_all(&self) -> bool {
-        matches!(self, VMEvent::PushedAll)
     }
 }

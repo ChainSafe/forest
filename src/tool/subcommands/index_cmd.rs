@@ -12,7 +12,6 @@ use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
-use crate::interpreter::VMEvent;
 use crate::interpreter::VMTrace;
 use crate::networks::NetworkChain;
 use crate::shim::clock::ChainEpoch;
@@ -95,12 +94,7 @@ impl IndexCommands {
                     let tsk = ts.key().clone();
 
                     let state_output = state_manager
-                        .compute_tipset_state(
-                            Arc::new(ts),
-                            NO_CALLBACK,
-                            VMTrace::NotTraced,
-                            VMEvent::PushedEventsRoot,
-                        )
+                        .compute_tipset_state(Arc::new(ts), NO_CALLBACK, VMTrace::NotTraced)
                         .await?;
                     for events_root in state_output.events_roots.iter() {
                         println!("Indexing events root @{}: {}", epoch, events_root);
