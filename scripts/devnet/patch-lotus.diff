@@ -1,0 +1,12 @@
+diff --git a/build/buildconstants/params_2k.go b/build/buildconstants/params_2k.go
+index 3e4c3d809..bb259c3e4 100644
+--- a/build/buildconstants/params_2k.go
++++ b/build/buildconstants/params_2k.go
+@@ -173,6 +173,7 @@ func init() {
+ 	UpgradeTuktukHeight = getUpgradeHeight("LOTUS_TUKTUK_HEIGHT", UpgradeTuktukHeight)
+ 	UpgradeTeepHeight = getUpgradeHeight("LOTUS_TEEP_HEIGHT", UpgradeTeepHeight)
+ 	UpgradeTockHeight = getUpgradeHeight("LOTUS_TOCK_HEIGHT", UpgradeTockHeight)
++  UpgradeTockFixHeight = getUpgradeHeight("LOTUS_TOCK_FIX_HEIGHT", UpgradeTockFixHeight)
+ 
+ 	DrandSchedule = map[abi.ChainEpoch]DrandEnum{
+ 		0: DrandQuicknet,

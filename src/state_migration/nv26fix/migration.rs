@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //
-//! This module contains the migration logic for the `nv25fix` upgrade. See the parent module for
+//! This module contains the migration logic for the `nv26fix` upgrade. See the parent module for
 //! details on the fix.
 
 use std::sync::Arc;
@@ -23,7 +23,7 @@ use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore> StateMigration<BS> {
-    pub fn add_nv25fix_migrations(
+    pub fn add_nv26fix_migrations(
         &mut self,
         store: &Arc<BS>,
         state: &Cid,
@@ -52,7 +52,7 @@ impl<BS: Blockstore> StateMigration<BS> {
     }
 }
 
-/// Runs the migration for `nv25fix`. Returns the new state root.
+/// Runs the migration for `nv26fix`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
     blockstore: &Arc<DB>,
@@ -64,21 +64,20 @@ where
 {
     // Technically the manifest for this just won't be there for mainnet, but better safe than
     // sorry.
-    // check if testnet
     ensure!(
         chain_config.network.is_testnet(),
         "this fix migration is only for testnet"
     );
     let new_manifest_cid = chain_config
         .height_infos
-        .get(&Height::TeepFix)
-        .context("no height info for network version nv25fix")?
+        .get(&Height::TockFix)
+        .context("no height info for network version nv26fix")?
         .bundle
         .as_ref()
-        .context("no bundle for network version nv25fix")?;
+        .context("no bundle for network version nv26fix")?;
 
     blockstore.get(new_manifest_cid)?.context(format!(
-        "manifest for network version nv25fix not found in blockstore: {new_manifest_cid}"
+        "manifest for network version nv26fix not found in blockstore: {new_manifest_cid}"
     ))?;
 
     // Add migration specification verification
@@ -86,7 +85,7 @@ where
 
     let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv25fix_migrations(blockstore, state, &new_manifest)?;
+    migration.add_nv26fix_migrations(blockstore, state, &new_manifest)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;

@@ -160,8 +160,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(9999999999)
         ),
         make_height!(
-            TeepFix,
-            get_upgrade_height_from_env("FOREST_TEEP_FIX_HEIGHT").unwrap_or(9999999999),
+            TockFix,
+            get_upgrade_height_from_env("FOREST_TOCK_FIX_HEIGHT").unwrap_or(9999999999),
             get_bundle_cid("v16.0.1")
         ),
     ])

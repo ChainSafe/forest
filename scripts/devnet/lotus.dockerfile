@@ -13,8 +13,12 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# TODO - we'll need to update and push to GHCR once its there
-RUN git clone --depth 1 https://github.com/filecoin-project/lotus.git . && git reset --hard 3d0018c
+# TODO Is it final?
+RUN git clone --depth 1 --branch rvagg/v16-actors-fix https://github.com/filecoin-project/lotus.git .
+
+# Missing `TockFix` override via environment variable
+COPY patch-lotus.diff /lotus/patch-lotus.diff
+RUN git apply patch-lotus.diff
 
 # https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
