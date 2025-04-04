@@ -4,14 +4,14 @@
 //! Migration logic for 0.25.1 to 0.26.0 version.
 //! A new `Indices` column has been added to enable the storage of CID-indexed data.
 
+use crate::Config;
 use crate::blocks::TipsetKey;
+use crate::db::CAR_DB_DIR_NAME;
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::MigrationOperationExt as _;
 use crate::db::migration::v0_26_0::paritydb_0_25_1::{DbColumn, ParityDb};
-use crate::db::CAR_DB_DIR_NAME;
 use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
-use crate::Config;
 use anyhow::Context;
 use cid::Cid;
 use fs_extra::dir::CopyOptions;
