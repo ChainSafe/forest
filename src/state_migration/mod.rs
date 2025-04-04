@@ -25,6 +25,7 @@ mod nv22fix;
 mod nv23;
 mod nv24;
 mod nv25;
+mod nv25fix;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -59,6 +60,7 @@ where
                 (Height::Waffle, nv23::run_migration::<DB>),
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
+                (Height::TeepFix, nv25fix::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
@@ -74,6 +76,7 @@ where
                 (Height::Waffle, nv23::run_migration::<DB>),
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
+                (Height::TeepFix, nv25fix::run_migration::<DB>),
             ]
         }
     }

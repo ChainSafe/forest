@@ -151,6 +151,7 @@ pub enum Height {
     Waffle,
     TukTuk,
     Teep,
+    TeepFix,
     Tock,
 }
 
@@ -195,6 +196,9 @@ impl From<Height> for NetworkVersion {
             Height::Waffle => NetworkVersion::V23,
             Height::TukTuk => NetworkVersion::V24,
             Height::Teep => NetworkVersion::V25,
+            // Technically it could be considered a `TockFix`, but `Tock` was not a real upgrade.
+            // For testnet purposes (where the fix is applied), we assume `TeepFix` happens after `Tock` so we use `V26`.
+            Height::TeepFix => NetworkVersion::V26,
             Height::Tock => NetworkVersion::V26,
         }
     }

@@ -13,6 +13,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# TODO - we'll need to update and push to GHCR once its there
 RUN git clone --depth 1 https://github.com/filecoin-project/lotus.git . && git reset --hard 3d0018c
 
 # https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
