@@ -18,7 +18,7 @@ use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::rpc::eth::types::EthAddress;
-use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::econ::TokenAmount;
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
@@ -27,8 +27,8 @@ use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, mak
 
 mod actors_bundle;
 pub use actors_bundle::{
-    generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
-    ACTOR_BUNDLES_METADATA,
+    ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, generate_actor_bundle,
+    get_actor_bundles_metadata,
 };
 
 mod drand;
@@ -660,14 +660,14 @@ mod tests {
 
     #[test]
     fn test_get_upgrade_height_valid_env_var() {
-        std::env::set_var("FOREST_TEST_VAR_2", "10");
+        unsafe { std::env::set_var("FOREST_TEST_VAR_2", "10") };
         let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_2");
         assert_eq!(epoch, Some(10));
     }
 
     #[test]
     fn test_get_upgrade_height_invalid_env_var() {
-        std::env::set_var("FOREST_TEST_VAR_3", "foo");
+        unsafe { std::env::set_var("FOREST_TEST_VAR_3", "foo") };
         let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
         assert_eq!(epoch, None);
     }

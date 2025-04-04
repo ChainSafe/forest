@@ -4,7 +4,7 @@
 pub mod db;
 
 use crate::db::DBStatistics;
-use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
+use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 use once_cell::sync::Lazy;
 use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
@@ -12,7 +12,7 @@ use prometheus_client::{
     metrics::{
         counter::Counter,
         family::Family,
-        histogram::{exponential_buckets, Histogram},
+        histogram::{Histogram, exponential_buckets},
     },
 };
 use std::sync::Arc;

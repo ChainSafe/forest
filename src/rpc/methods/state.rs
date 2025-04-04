@@ -13,8 +13,8 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
 use crate::shim::actors::init;
-use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::market::DealState;
+use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::miner::ext::DeadlineExt;
 use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
@@ -39,15 +39,15 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::{
-    circulating_supply::GenesisInfo, utils::structured, MarketBalance, StateManager, StateOutput,
+    MarketBalance, StateManager, StateOutput, circulating_supply::GenesisInfo, utils::structured,
 };
 use crate::utils::db::{
-    car_stream::{CarBlock, CarWriter},
     BlockstoreExt as _,
+    car_stream::{CarBlock, CarWriter},
 };
 use crate::{
     beacon::BeaconEntry,
-    rpc::{types::*, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
@@ -65,7 +65,7 @@ use ipld_core::ipld::Ipld;
 use jsonrpsee::types::error::ErrorObject;
 use num_bigint::BigInt;
 use num_traits::Euclid;
-use nunny::{vec as nonempty, Vec as NonEmpty};
+use nunny::{Vec as NonEmpty, vec as nonempty};
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -99,7 +99,9 @@ impl RpcMethod<2> for StateCall {
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.",
+    );
 
     type Params = (Message, ApiTipsetKey);
     type Ok = ApiInvocResult;
@@ -584,7 +586,9 @@ impl RpcMethod<2> for StateMinerAllocated {
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.",
+    );
 
     type Params = (Address, ApiTipsetKey);
     type Ok = BitField;
@@ -647,7 +651,9 @@ impl RpcMethod<3> for StateMinerSectors {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectors", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns information about the given miner's sectors. If no filter is provided, all sectors are included.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns information about the given miner's sectors. If no filter is provided, all sectors are included.",
+    );
 
     type Params = (Address, Option<BitField>, ApiTipsetKey);
     type Ok = Vec<SectorOnChainInfo>;
@@ -1121,7 +1127,9 @@ impl RpcMethod<4> for StateWaitMsg {
         ["messageCid", "confidence", "lookbackLimit", "allowReplaced"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.",
+    );
 
     type Params = (Cid, i64, ChainEpoch, bool);
     type Ok = MessageLookup;
@@ -1327,7 +1335,8 @@ impl RpcMethod<2> for StateFetchRoot {
                             // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
-                                dfs_guard.len(), task_set.len()
+                                dfs_guard.len(),
+                                task_set.len()
                             );
                         }
 
@@ -1563,7 +1572,9 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     const PARAM_NAMES: [&'static str; 4] = ["personalization", "randEpoch", "entropy", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.",
+    );
 
     type Params = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
     type Ok = Vec<u8>;
@@ -1675,7 +1686,9 @@ impl RpcMethod<2> for StateVerifiedClientStatus {
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the data cap for the given address. Returns null if no entry exists in the data cap table.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the data cap for the given address. Returns null if no entry exists in the data cap table.",
+    );
 
     type Params = (Address, ApiTipsetKey);
     type Ok = Option<BigInt>;
@@ -1846,7 +1859,9 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.",
+    );
 
     type Params = (u64, bool, ApiTipsetKey);
     type Ok = DealCollateralBounds;
@@ -1973,7 +1988,9 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.",
+    );
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = Option<SectorPreCommitOnChainInfo>;
@@ -2255,7 +2272,9 @@ impl RpcMethod<3> for StateSectorGetInfo {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.",
+    );
 
     type Params = (Address, u64, ApiTipsetKey);
     type Ok = Option<SectorOnChainInfo>;
@@ -2776,7 +2795,9 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.",
+    );
 
     type Params = (DealID, ApiTipsetKey);
     type Ok = Option<Allocation>;

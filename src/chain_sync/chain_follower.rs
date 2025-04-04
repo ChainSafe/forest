@@ -34,20 +34,20 @@ use parking_lot::Mutex;
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::chain_sync::tipset_syncer::validate_tipset;
 use crate::chain_sync::SyncState;
+use crate::chain_sync::tipset_syncer::validate_tipset;
 use crate::{
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::ChainStore,
-    chain_sync::{bad_block_cache::BadBlockCache, metrics, TipsetValidator},
+    chain_sync::{TipsetValidator, bad_block_cache::BadBlockCache, metrics},
     libp2p::{NetworkEvent, PubsubMessage},
     networks::ChainConfig,
     shim::clock::SECONDS_IN_DAY,
 };
 use parking_lot::RwLock;
 
-use super::network_context::SyncNetworkContext;
 use super::SyncStage;
+use super::network_context::SyncNetworkContext;
 
 pub struct ChainFollower<DB> {
     /// Syncing state of chain sync workers.
@@ -843,7 +843,7 @@ impl SyncTask {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::{chain4u, Chain4U, HeaderBuilder};
+    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
     use crate::db::MemoryDB;
     use crate::networks::ChainConfig;
     use crate::utils::db::CborStoreExt as _;

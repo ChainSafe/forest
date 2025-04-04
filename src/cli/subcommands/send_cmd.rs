@@ -6,7 +6,7 @@ use std::str::FromStr as _;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
-use crate::shim::message::{Message, METHOD_SEND};
+use crate::shim::message::{METHOD_SEND, Message};
 use anyhow::Context as _;
 use num::Zero as _;
 

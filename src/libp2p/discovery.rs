@@ -11,20 +11,20 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::{
-    autonat,
+    StreamProtocol, autonat,
     core::Multiaddr,
     identify,
     identity::{PeerId, PublicKey},
     kad,
-    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
+    mdns::{Event as MdnsEvent, tokio::Behaviour as Mdns},
     multiaddr::Protocol,
     swarm::{
+        NetworkBehaviour, ToSwarm,
         behaviour::toggle::Toggle,
         derive_prelude::*,
         dial_opts::{DialOpts, PeerCondition},
-        NetworkBehaviour, ToSwarm,
     },
-    upnp, StreamProtocol,
+    upnp,
 };
 use tokio::time::Interval;
 use tracing::{debug, info, trace, warn};
@@ -519,7 +519,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         peer_id,
                         handler,
                         event,
-                    })
+                    });
                 }
                 ToSwarm::CloseConnection {
                     peer_id,
@@ -528,20 +528,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     return Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
-                    })
+                    });
                 }
                 ToSwarm::ListenOn { opts } => return Poll::Ready(ToSwarm::ListenOn { opts }),
                 ToSwarm::RemoveListener { id } => {
-                    return Poll::Ready(ToSwarm::RemoveListener { id })
+                    return Poll::Ready(ToSwarm::RemoveListener { id });
                 }
                 ToSwarm::NewExternalAddrCandidate(addr) => {
-                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(addr))
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(addr));
                 }
                 ToSwarm::ExternalAddrConfirmed(addr) => {
-                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr))
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr));
                 }
                 ToSwarm::ExternalAddrExpired(addr) => {
-                    return Poll::Ready(ToSwarm::ExternalAddrExpired(addr))
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(addr));
                 }
                 _ => {}
             }
@@ -554,7 +554,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
 // the async API and does not work inside another tokio runtime
 async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
-    use hickory_resolver::{system_conf, TokioResolver};
+    use hickory_resolver::{TokioResolver, system_conf};
 
     let (cfg, opts) = system_conf::read_system_conf()?;
     let resolver = TokioResolver::tokio(cfg, opts);
@@ -602,8 +602,8 @@ mod tests {
     use super::*;
     use backon::{ExponentialBuilder, Retryable as _};
     use libp2p::{
-        core::transport::MemoryTransport, identity::Keypair, swarm::SwarmEvent, Swarm,
-        Transport as _,
+        Swarm, Transport as _, core::transport::MemoryTransport, identity::Keypair,
+        swarm::SwarmEvent,
     };
     use libp2p_swarm_test::SwarmExt as _;
     use std::str::FromStr as _;
@@ -699,11 +699,7 @@ mod tests {
         // Wait until `c` is connected to `a`
         a.wait(|e| match e {
             SwarmEvent::Behaviour(DiscoveryEvent::PeerConnected(peer_id)) => {
-                if peer_id == c_peer_id {
-                    Some(())
-                } else {
-                    None
-                }
+                if peer_id == c_peer_id { Some(()) } else { None }
             }
             _ => None,
         })

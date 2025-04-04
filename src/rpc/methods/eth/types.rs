@@ -5,7 +5,7 @@ use super::*;
 use anyhow::ensure;
 use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
-use serde::de::{value::StringDeserializer, IntoDeserializer};
+use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
@@ -37,7 +37,7 @@ impl From<RawBytes> for EthBytes {
 
 impl From<Bloom> for EthBytes {
     fn from(value: Bloom) -> Self {
-        Self(value.0 .0.to_vec())
+        Self(value.0.0.to_vec())
     }
 }
 
@@ -705,7 +705,7 @@ impl EthTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::{prelude::BASE64_STANDARD, Engine as _};
+    use base64::{Engine as _, prelude::BASE64_STANDARD};
 
     #[test]
     fn get_bytecode_return_roundtrip() {

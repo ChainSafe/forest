@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    io::{stdout, Write},
+    io::{Write, stdout},
     time::Duration,
 };
 
@@ -184,11 +184,7 @@ impl SyncCommands {
 }
 
 fn format_tipset_cids(cids: &str) -> &str {
-    if cids.is_empty() {
-        "[]"
-    } else {
-        cids
-    }
+    if cids.is_empty() { "[]" } else { cids }
 }
 
 /// Check if the snapshot download is in progress, if wait is true,
@@ -231,7 +227,9 @@ async fn check_snapshot_progress(
                 println!("\n✅ Snapshot download completed! Chain will start syncing shortly");
             }
             SnapshotProgressState::NotStarted => {
-                println!("⏳ Snapshot download not started - node might be initializing. Wait a couple of seconds and retry.")
+                println!(
+                    "⏳ Snapshot download not started - node might be initializing. Wait a couple of seconds and retry."
+                )
             }
         }
 

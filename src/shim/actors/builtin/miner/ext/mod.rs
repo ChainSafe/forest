@@ -7,8 +7,8 @@ mod state;
 
 use crate::shim::{
     actors::{
-        miner::{Deadline, DeadlineInfo, State},
         Policy,
+        miner::{Deadline, DeadlineInfo, State},
     },
     econ::TokenAmount,
 };
@@ -31,7 +31,7 @@ pub trait MinerStateExt {
 
     /// Loads the allocated sector numbers
     fn load_allocated_sector_numbers<BS: Blockstore>(&self, store: &BS)
-        -> anyhow::Result<BitField>;
+    -> anyhow::Result<BitField>;
 
     /// Loads the precommit-on-chain info
     fn load_precommit_on_chain_info<BS: Blockstore>(

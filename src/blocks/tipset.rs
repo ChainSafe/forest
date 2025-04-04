@@ -15,7 +15,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use num::BigInt;
-use nunny::{vec as nonempty, Vec as NonEmpty};
+use nunny::{Vec as NonEmpty, vec as nonempty};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -191,9 +191,13 @@ impl From<FullTipset> for Tipset {
 pub enum CreateTipsetError {
     #[error("tipsets must not be empty")]
     Empty,
-    #[error("parent CID is inconsistent. All block headers in a tipset must agree on their parent tipset")]
+    #[error(
+        "parent CID is inconsistent. All block headers in a tipset must agree on their parent tipset"
+    )]
     BadParents,
-    #[error("state root is inconsistent. All block headers in a tipset must agree on their parent state root")]
+    #[error(
+        "state root is inconsistent. All block headers in a tipset must agree on their parent state root"
+    )]
     BadStateRoot,
     #[error("epoch is inconsistent. All block headers in a tipset must agree on their epoch")]
     BadEpoch,
@@ -551,7 +555,7 @@ mod lotus_json {
     use crate::lotus_json::*;
     use nunny::Vec as NonEmpty;
     use schemars::JsonSchema;
-    use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 
     use super::TipsetKey;
 
@@ -662,7 +666,7 @@ mod test {
     use super::*;
     use crate::blocks::VRFProof;
     use crate::blocks::{
-        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey,
+        CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey, header::RawBlockHeader,
     };
     use crate::shim::address::Address;
     use crate::utils::multihash::prelude::*;

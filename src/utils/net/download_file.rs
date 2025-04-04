@@ -1,10 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::{net::global_http_client, retry, RetryArgs};
+use crate::utils::{RetryArgs, net::global_http_client, retry};
 use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable as _};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use md5::{Digest as _, Md5};
 use std::sync::Arc;
 use std::{
@@ -125,7 +125,9 @@ async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8
             .transpose()?;
         Ok(md5)
     } else {
-        anyhow::bail!("unsupported host, register in HOSTS_WITH_MD5_ETAG if it's known to use md5 as etag algorithm. url: {url}")
+        anyhow::bail!(
+            "unsupported host, register in HOSTS_WITH_MD5_ETAG if it's known to use md5 as etag algorithm. url: {url}"
+        )
     }
 }
 

@@ -4,13 +4,13 @@
 use crate::db::PersistentStore;
 use crate::utils::net::http_get;
 use crate::{
-    networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
+    networks::{ACTOR_BUNDLES, ActorBundleInfo, NetworkChain},
     utils::db::car_stream::{CarBlock, CarStream},
 };
 use ahash::HashSet;
 use cid::Cid;
 use directories::ProjectDirs;
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{TryStreamExt, stream::FuturesUnordered};
 use once_cell::sync::Lazy;
 use std::mem::discriminant;
 use std::path::PathBuf;
@@ -27,7 +27,9 @@ pub async fn load_actor_bundles(
         Ok(path) if !path.is_empty() => Some(path),
         _ => None,
     } {
-        info!("Loading actor bundle from {bundle_path} set by FOREST_ACTOR_BUNDLE_PATH environment variable");
+        info!(
+            "Loading actor bundle from {bundle_path} set by FOREST_ACTOR_BUNDLE_PATH environment variable"
+        );
         load_actor_bundles_from_path(db, network, &bundle_path).await?;
     } else {
         load_actor_bundles_from_server(db, network, &ACTOR_BUNDLES).await?;
@@ -61,8 +63,10 @@ pub async fn load_actor_bundles_from_path(
         discriminant(network) == discriminant(&bundle.network)
     }) {
         anyhow::ensure!(
-                roots.contains(manifest),
-                "actor {manifest} for {network} is missing from {}, try regenerating the bundle with `forest-tool state-migration actor-bundle`", bundle_path.as_ref().display());
+            roots.contains(manifest),
+            "actor {manifest} for {network} is missing from {}, try regenerating the bundle with `forest-tool state-migration actor-bundle`",
+            bundle_path.as_ref().display()
+        );
     }
 
     // Load into DB

@@ -12,12 +12,12 @@ use crate::shim::{
 };
 use crate::state_migration::common::PostMigrationCheck;
 use crate::utils::db::CborStoreExt as _;
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use super::{SystemStateOld, system, verifier::Verifier};
+use crate::state_migration::common::{StateMigration, migrators::nil_migrator};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv21fix2_migrations(

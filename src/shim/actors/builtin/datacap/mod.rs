@@ -6,8 +6,8 @@ use fil_actor_datacap_state::v12::DATACAP_GRANULARITY;
 use fil_actors_shared::ext::TokenStateExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared2::address::{Address, Payload};
-use num::traits::Euclid;
 use num::BigInt;
+use num::traits::Euclid;
 use serde::Serialize;
 
 /// Datacap actor method.

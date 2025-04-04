@@ -5,8 +5,8 @@ use crate::shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
 };
-use fil_actor_init_state::{v10::State as InitStateV10, v9::State as InitStateV9};
-use fil_actors_shared::v10::{make_map_with_root, Map};
+use fil_actor_init_state::{v9::State as InitStateV9, v10::State as InitStateV10};
+use fil_actors_shared::v10::{Map, make_map_with_root};
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::state_migration::common::{TypeMigration, TypeMigrator};

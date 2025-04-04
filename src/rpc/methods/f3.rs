@@ -22,8 +22,8 @@ use crate::{
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
     rpc::{
-        eth::types::EthBytes, state::StateCall, types::ApiTipsetKey, ApiPaths, Ctx, Permission,
-        RpcMethod, ServerError,
+        ApiPaths, Ctx, Permission, RpcMethod, ServerError, eth::types::EthBytes, state::StateCall,
+        types::ApiTipsetKey,
     },
     shim::{
         address::{Address, Protocol},
@@ -38,9 +38,9 @@ use crate::{
     rpc::eth::types::EthCallMessage,
     shim::actors::{
         convert::{
-            from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v12,
-            from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
-            from_policy_v13_to_v9,
+            from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
+            from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
+            from_policy_v13_to_v16,
         },
         miner, power,
     },
@@ -612,7 +612,9 @@ impl RpcMethod<0> for GetManifestFromContract {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.",
+    );
 
     type Params = ();
     type Ok = Option<F3Manifest>;

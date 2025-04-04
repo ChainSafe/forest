@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::metrics;
-use futures::future::BoxFuture;
 use futures::FutureExt;
-use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use futures::future::BoxFuture;
 use jsonrpsee::MethodResponse;
+use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use tower::Layer;
 
 // State-less jsonrpcsee layer for measuring RPC metrics

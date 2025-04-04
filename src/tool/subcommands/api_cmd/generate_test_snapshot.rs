@@ -3,13 +3,14 @@
 
 use super::*;
 use crate::{
+    KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
     chain::ChainStore,
-    chain_sync::{network_context::SyncNetworkContext, SyncStage},
+    chain_sync::{SyncStage, network_context::SyncNetworkContext},
     daemon::db_util::load_all_forest_cars,
     db::{
-        db_engine::open_db, parity_db::ParityDb, EthMappingsStore, HeaviestTipsetKeyProvider,
-        MemoryDB, SettingsStore, SettingsStoreExt, CAR_DB_DIR_NAME,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
+        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -18,13 +19,12 @@ use crate::{
     networks::ChainConfig,
     shim::address::CurrentNetwork,
     state_manager::StateManager,
-    KeyStore, KeyStoreConfig,
 };
 use api_compare_tests::TestDump;
 use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
-use rpc::{eth::filter::EthEventHandler, RPCState, RpcMethod as _};
+use rpc::{RPCState, RpcMethod as _, eth::filter::EthEventHandler};
 use tokio::{sync::mpsc, task::JoinSet};
 
 pub async fn run_test_with_dump(

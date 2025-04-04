@@ -9,8 +9,8 @@ use crate::rpc::sync::SnapshotProgressTracker;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use crate::utils::net::{download_to, DownloadFileOption};
-use anyhow::{bail, Context};
+use crate::utils::net::{DownloadFileOption, download_to};
+use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use std::{
