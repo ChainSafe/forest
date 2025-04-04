@@ -386,9 +386,7 @@ impl Writer {
         slots
             .into_iter()
             .flat_map(|(pre, occ)| {
-                iter::repeat(Slot::Empty)
-                    .take(pre)
-                    .chain(iter::once(Slot::Occupied(occ)))
+                std::iter::repeat_n(Slot::Empty, pre).chain(iter::once(Slot::Occupied(occ)))
             })
             // ensure there are at least `initial_width` slots, else lookups could
             // try and read off the end of the table

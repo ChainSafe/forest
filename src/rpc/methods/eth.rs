@@ -1046,7 +1046,10 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
         .chain(padding.iter())
         .chain(static_args[3].to_be_bytes().iter())
         .chain(data.iter()) // Finally, we copy in the data
-        .chain(std::iter::repeat(&0u8).take(round_up_word(data.len()) - data.len())) // Left pad
+        .chain(std::iter::repeat_n(
+            &0u8,
+            round_up_word(data.len()) - data.len(),
+        )) // Left pad
         .cloned()
         .collect();
 
