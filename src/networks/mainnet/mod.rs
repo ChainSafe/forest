@@ -79,13 +79,11 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Waffle, 4_154_640, get_bundle_cid("v14.0.0")),
         // Wed 20 Nov 23:00:00 UTC 2024
         make_height!(TukTuk, 4_461_240, get_bundle_cid("v15.0.0")),
-        // Thu 10 Apr 23:00:00 UTC 2025
-        // TODO: Should we disable it until decided if its pushed or not?
-        make_height!(Teep, 4_867_320, get_bundle_cid("v16.0.1")),
+        // Mon 14 Apr 23:00:00 UTC 2025
+        make_height!(Teep, 4_878_840, get_bundle_cid("v16.0.1")),
         // This epoch, 90 days after Teep is the completion of FIP-0100 where actors will start applying
         // the new daily fee to pre-Teep sectors being extended.
-        // TODO: Should we disable it until decided if its pushed or not?
-        make_height!(Tock, 4_867_320 + EPOCHS_IN_DAY * 90),
+        make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
     ])
 });
 
