@@ -325,7 +325,7 @@ fn replace_recursive_edge(next_sel: Selector, replace: Option<Selector>) -> Opti
 #[cfg(test)]
 fn has_recursive_edge(next_sel: &Selector) -> bool {
     match next_sel {
-        ExploreRecursiveEdge { .. } => true,
+        ExploreRecursiveEdge => true,
         ExploreUnion(selectors) => selectors.iter().any(has_recursive_edge),
         _ => false,
     }

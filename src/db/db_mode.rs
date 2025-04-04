@@ -25,13 +25,7 @@ fn list_versioned_databases(chain_data_path: &Path) -> anyhow::Result<Vec<Versio
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let path = entry.path();
-            let version = Version::parse(path.file_name()?.to_str()?);
-            match version {
-                Ok(version) => Some(version),
-                // Ignore any directories that are not valid semver versions. Those might be
-                // development databases.
-                Err(_) => None,
-            }
+            Version::parse(path.file_name()?.to_str()?).ok()
         })
         .collect();
 

@@ -304,12 +304,12 @@ mod parse {
 
         #[test]
         fn more_than_96_bits() {
-            use std::iter::{once, repeat};
+            use std::iter::once;
 
             // The previous rust_decimal implementation had at most 96 bits of precision
             // we should be able to exceed that
             let test_str = once('1')
-                .chain(repeat('0').take(98))
+                .chain(std::iter::repeat_n('0', 98))
                 .chain(['1'])
                 .collect::<String>();
             test_dec_scale(&test_str, &test_str, None);
