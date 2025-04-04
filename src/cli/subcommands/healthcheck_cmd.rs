@@ -82,23 +82,16 @@ impl HealthcheckCommand {
                         let status = response.status();
                         let text = match response.text().await {
                             Ok(t) => t,
-                            Err(e) => {
-                                if !wait {
-                                    anyhow::bail!("{e}");
-                                }
-                                e.to_string()
-                            }
+                            Err(e) if wait => e.to_string(),
+                            Err(e) => anyhow::bail!("{e}"),
                         };
                         (status, text)
                     }
-                    Err(e) => {
-                        if !wait {
-                            anyhow::bail!("{e}");
-                        }
-
+                    Err(e) if wait => {
                         eprintln!("{e}");
                         (http::StatusCode::INTERNAL_SERVER_ERROR, "".into())
                     }
+                    Err(e) => anyhow::bail!("{e}"),
                 }
             };
 
