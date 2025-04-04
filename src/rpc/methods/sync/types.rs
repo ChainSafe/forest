@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum SnapshotProgressState {
+    Initializing,
     InProgress { message: String },
     Completed,
-    NotStarted,
+    NotRequired,
 }
 
 impl SnapshotProgressState {
@@ -23,11 +24,23 @@ impl SnapshotProgressState {
     pub fn set_completed(&mut self) {
         *self = Self::Completed;
     }
+
+    pub fn not_required(&mut self) {
+        *self = Self::NotRequired;
+    }
+
+    pub fn is_completed(&self) -> bool {
+        matches!(self, Self::Completed)
+    }
+
+    pub fn is_not_required(&self) -> bool {
+        matches!(self, Self::NotRequired)
+    }
 }
 
 impl Default for SnapshotProgressState {
     fn default() -> Self {
-        Self::NotStarted
+        Self::Initializing
     }
 }
 
@@ -57,11 +70,22 @@ impl SnapshotProgressTracker {
         }))
     }
 
-    /// Resets the snapshot progress tracker, once the snapshot download is finished
-    pub fn reset(&self) {
+    /// Sets the snapshot progress state to completed, once the snapshot download is finished
+    pub fn completed(&self) {
         self.0.write().set_completed();
     }
 
+    /// Sets the snapshot progress state to not required, if downloading the snapshot is not required
+    pub fn not_required(&self) {
+        self.0.write().not_required();
+    }
+
+    /// Returns true if the snapshot progress state is completed
+    pub fn is_completed(&self) -> bool {
+        self.0.read().is_completed()
+    }
+
+    /// Returns the current snapshot progress state
     pub fn state(&self) -> SnapshotProgressState {
         self.0.read().clone()
     }
