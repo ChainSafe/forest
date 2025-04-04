@@ -12,6 +12,8 @@ pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -81,6 +83,8 @@ impl GetStorageAtParams {
 }
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -523,7 +527,7 @@ impl PartialEq for EthFilterResult {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceAction {
     pub call_type: String,
@@ -534,7 +538,7 @@ pub struct EthCallTraceAction {
     pub input: EthBytes,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceAction {
     pub from: EthAddress,
@@ -543,7 +547,7 @@ pub struct EthCreateTraceAction {
     pub init: EthBytes,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum TraceAction {
     Call(EthCallTraceAction),
@@ -556,14 +560,14 @@ impl Default for TraceAction {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceResult {
     pub gas_used: EthUint64,
     pub output: EthBytes,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceResult {
     pub address: Option<EthAddress>,
@@ -571,7 +575,7 @@ pub struct EthCreateTraceResult {
     pub code: EthBytes,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum TraceResult {
     Call(EthCallTraceResult),
@@ -584,7 +588,7 @@ impl Default for TraceResult {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
     pub r#type: String,
@@ -596,7 +600,7 @@ pub struct EthTrace {
     pub error: Option<String>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthBlockTrace {
     #[serde(flatten)]

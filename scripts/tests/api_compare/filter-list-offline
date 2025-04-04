@@ -27,4 +27,3 @@
 !Filecoin.EthGetBlockByNumber
 !eth_getBlockByNumber
 !Filecoin.ChainSetHead
-!Filecoin.EthTraceFilter
