@@ -121,6 +121,7 @@ impl From<StateOutput> for StateOutputValue {
 #[derive(Clone)]
 pub struct StateEvents {
     pub events: Vec<Vec<StampedEvent>>,
+    pub roots: Vec<Cid>,
 }
 
 // Various structures for implementing the tipset state cache
@@ -529,42 +530,29 @@ where
         tipset: &Arc<Tipset>,
         events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
-        // TODO(elmattic): properly handle cache
+        let key = tipset.key();
+        self.events_cache
+            .get_or_else(key, || async move {
+                let ts_state = self
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        if events_root.is_some() {
+                            VMEvent::PushedAll
+                        } else {
+                            VMEvent::Pushed
+                        },
+                    )
+                    .await?;
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
 
-        // let key = tipset.key();
-        // self.events_cache
-        //     .get_or_else(key, || async move {
-        let ts_state = self
-            .compute_tipset_state(
-                Arc::clone(tipset),
-                NO_CALLBACK,
-                VMTrace::NotTraced,
-                if events_root.is_some() {
-                    VMEvent::PushedAll
-                } else {
-                    VMEvent::Pushed
-                },
-            )
-            .await?;
-        trace!("Completed tipset state calculation {:?}", tipset.cids());
-
-        if let Some(events_root_cid) = events_root {
-            let events = ts_state
-                .events_roots
-                .into_iter()
-                .zip(ts_state.events)
-                .filter(|(cid, _)| cid == events_root_cid)
-                .map(|(_, v)| v)
-                .collect();
-            Ok(StateEvents { events })
-        } else {
-            Ok(StateEvents {
-                events: ts_state.events,
+                Ok(StateEvents {
+                    events: ts_state.events,
+                    roots: ts_state.events_roots,
+                })
             })
-        }
-
-        // })
-        // .await
+            .await
     }
 
     #[instrument(skip(self, rand))]

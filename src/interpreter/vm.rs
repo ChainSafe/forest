@@ -389,20 +389,9 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                if enable_event_pushing.is_pushed() {
+                if let Some(events_root) = ret.msg_receipt().events_root() {
+                    events_roots.push(events_root);
                     events.push(ret.events());
-                }
-                if enable_event_pushing.is_pushed_events_root() {
-                    // Push the event AMT root CID if any
-                    if let Some(events_root) = ret.msg_receipt().events_root() {
-                        events_roots.push(events_root);
-                    }
-                }
-                if enable_event_pushing.is_pushed_all() {
-                    if let Some(events_root) = ret.msg_receipt().events_root() {
-                        events_roots.push(events_root);
-                        events.push(ret.events());
-                    }
                 }
 
                 // Add processed Cid to set of processed messages

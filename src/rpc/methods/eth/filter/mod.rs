@@ -369,13 +369,20 @@ impl EthEventHandler {
         tipset: &Arc<Tipset>,
         events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
-        let StateEvents { events, .. } = ctx
+        let state_events = ctx
             .state_manager
             .tipset_state_events(tipset, Some(events_root))
             .await?;
 
+        let filtered_events = state_events
+            .roots
+            .into_iter()
+            .zip(state_events.events)
+            .filter(|(cid, _)| cid == events_root)
+            .map(|(_, v)| v);
+
         let mut chain_events = vec![];
-        for events in events.into_iter() {
+        for events in filtered_events {
             for event in events.iter() {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
 
