@@ -37,7 +37,7 @@ services:
           lotus --version
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
-          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new ${LOTUS_DATA_DIR}/localnet.json
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new  --network-name=devnet ${LOTUS_DATA_DIR}/localnet.json
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
           touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
         fi
@@ -218,9 +218,8 @@ services:
       - |
         set -euxo pipefail
         if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
-          export NETWORK_NAME=$$(grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json)
           cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
-          echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
+          echo name = \"devnet\" >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
