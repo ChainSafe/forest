@@ -17,6 +17,8 @@ services:
     command:
       - |
         set -euxo pipefail
+        # Print forest version
+        forest --version
         # fetch parameter files
         forest-tool fetch-params --keys
         # if there are some files in the data directory, then we don't need to fetch the snapshot
