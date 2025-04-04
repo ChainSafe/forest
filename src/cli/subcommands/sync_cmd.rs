@@ -202,13 +202,12 @@ async fn check_snapshot_progress(
 
         let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
 
-        // Update the previous line
         write!(
             stdout,
             "\r{}{}Snapshot status: {}",
             anes::MoveCursorUp(1),
             anes::ClearLine::All,
-            format!("{progress_state}")
+            progress_state
         )?;
         stdout.flush()?;
 
