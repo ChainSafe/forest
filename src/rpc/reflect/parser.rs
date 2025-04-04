@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 use openrpc_types::ParamStructure;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::{jsonrpc_types::RequestParameters, util::Optional as _};
 use crate::rpc::error::ServerError;
@@ -67,22 +67,22 @@ impl<'a> Parser<'a> {
             (Some(params), _) if names.is_empty() && params.is_empty() => None,
             // contradicts calling convention
             (Some(RequestParameters::ByPosition(_)), ParamStructure::ByName) => {
-                return Err(ParseError::MustBeNamed)
+                return Err(ParseError::MustBeNamed);
             }
             (Some(RequestParameters::ByName(_)), ParamStructure::ByPosition) => {
-                return Err(ParseError::MustBePositional)
+                return Err(ParseError::MustBePositional);
             }
             // In each call to `parse`, we check for unexpected args.
             // But if the caller never calls `parse`, we wouldn't catch unexpected args.
             // this is the case when the caller expects no arguments (when `names.is_empty()`).
             // so do the checking here
             (Some(RequestParameters::ByPosition(it)), _) if names.is_empty() && !it.is_empty() => {
-                return Err(ParseError::UnexpectedPositional(it.len()))
+                return Err(ParseError::UnexpectedPositional(it.len()));
             }
             (Some(RequestParameters::ByName(it)), _) if names.is_empty() && !it.is_empty() => {
                 return Err(ParseError::UnexpectedNamed(
                     it.into_iter().map(|(it, _)| it).collect(),
-                ))
+                ));
             }
             // calling convention matches, continue
             (Some(RequestParameters::ByPosition(it)), _) => {

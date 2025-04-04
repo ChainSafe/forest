@@ -40,7 +40,7 @@ enum MaybeCompactedCid {
 mod imp {
     use super::MaybeCompactedCid;
     use crate::utils::multihash::prelude::*;
-    use cid::{multihash::Multihash, Cid};
+    use cid::{Cid, multihash::Multihash};
     #[cfg(test)]
     use {crate::utils::db::CborStoreExt as _, quickcheck::Arbitrary};
 
@@ -159,7 +159,7 @@ mod imp {
 mod tests {
     use super::*;
     use cid::Cid;
-    use quickcheck::{quickcheck, Arbitrary};
+    use quickcheck::{Arbitrary, quickcheck};
 
     impl Arbitrary for MaybeCompactedCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {

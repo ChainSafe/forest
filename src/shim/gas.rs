@@ -7,12 +7,12 @@ pub use super::fvm_latest::gas::{
     GasOutputs as GasOutputs_latest,
 };
 use fvm2::gas::{
-    price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
-    GasCharge as GasChargeV2, PriceList as PriceListV2,
+    Gas as GasV2, GasCharge as GasChargeV2, PriceList as PriceListV2,
+    price_list_by_network_version as price_list_by_network_version_v2,
 };
 use fvm3::gas::{
-    price_list_by_network_version as price_list_by_network_version_v3, Gas as GasV3,
-    MILLIGAS_PRECISION,
+    Gas as GasV3, MILLIGAS_PRECISION,
+    price_list_by_network_version as price_list_by_network_version_v3,
 };
 pub use fvm3::gas::{GasCharge as GasChargeV3, GasTracker, PriceList as PriceListV3};
 use fvm4::gas::price_list_by_network_version as price_list_by_network_version_v4;

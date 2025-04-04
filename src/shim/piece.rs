@@ -95,7 +95,7 @@ impl From<piece_v4::PaddedPieceSize> for PaddedPieceSize {
 
 impl From<PaddedPieceSize> for piece_v3::PaddedPieceSize {
     fn from(value: PaddedPieceSize) -> Self {
-        Self(value.0 .0)
+        Self(value.0.0)
     }
 }
 
@@ -107,7 +107,7 @@ impl From<piece_v3::PaddedPieceSize> for PaddedPieceSize {
 
 impl From<PaddedPieceSize> for piece_v2::PaddedPieceSize {
     fn from(value: PaddedPieceSize) -> Self {
-        Self(value.0 .0)
+        Self(value.0.0)
     }
 }
 

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use forest::benchmark_private::{
     cid::CidCborExt as _,
-    forest::index::{self, hash, NonMaximalU64},
+    forest::index::{self, NonMaximalU64, hash},
 };
 use futures::executor::block_on;
 use positioned_io::{ReadAt, Size};

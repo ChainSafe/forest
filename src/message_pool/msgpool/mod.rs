@@ -12,7 +12,7 @@ pub(in crate::message_pool) mod utils;
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::Tipset;
-use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
@@ -26,8 +26,8 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
 use crate::message_pool::{
-    msg_chain::{create_message_chains, Chains},
-    msg_pool::{add_helper, remove, MsgSet},
+    msg_chain::{Chains, create_message_chains},
+    msg_pool::{MsgSet, add_helper, remove},
     provider::Provider,
 };
 
@@ -336,7 +336,7 @@ pub mod tests {
 
     use super::*;
     use crate::message_pool::{
-        msg_chain::{create_message_chains, Chains},
+        msg_chain::{Chains, create_message_chains},
         msg_pool::MessagePool,
     };
 

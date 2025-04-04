@@ -10,7 +10,7 @@ use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
+use crate::state_manager::{Error as StateManagerError, StateManager, is_valid_for_sending};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -21,11 +21,11 @@ use crate::{
 };
 use crate::{
     eth::is_valid_eth_tx_for_sending,
-    message::{valid_for_block_inclusion, Message as MessageTrait},
+    message::{Message as MessageTrait, valid_for_block_inclusion},
 };
 use ahash::HashMap;
 use cid::Cid;
-use futures::{stream::FuturesUnordered, StreamExt, TryFutureExt};
+use futures::{StreamExt, TryFutureExt, stream::FuturesUnordered};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;

@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use crate::{
-    db::{setting_keys::MPOOL_CONFIG_KEY, SettingsStore},
+    db::{SettingsStore, setting_keys::MPOOL_CONFIG_KEY},
     shim::address::Address,
     utils::encoding::from_slice_with_fallback,
 };

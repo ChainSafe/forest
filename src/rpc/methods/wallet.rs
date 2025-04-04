@@ -332,7 +332,7 @@ impl RpcMethod<1> for WalletDelete {
 
 #[cfg(test)]
 mod tests {
-    use crate::{shim::crypto::SignatureType, KeyStore};
+    use crate::{KeyStore, shim::crypto::SignatureType};
 
     #[tokio::test]
     async fn wallet_delete_existing_key() {
@@ -372,8 +372,10 @@ mod tests {
         keystore.put(&addr2, key2.key_info.clone()).unwrap();
         keystore.put("default", key2.key_info.clone()).unwrap();
         crate::key_management::remove_key(&key2.address, &mut keystore).unwrap();
-        assert!(crate::key_management::get_default(&keystore)
-            .unwrap()
-            .is_none());
+        assert!(
+            crate::key_management::get_default(&keystore)
+                .unwrap()
+                .is_none()
+        );
     }
 }

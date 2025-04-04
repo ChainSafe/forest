@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::{
-    atomic::{self, AtomicBool},
     Arc,
+    atomic::{self, AtomicBool},
 };
 
 use crate::networks::{ChainConfig, Height, NetworkChain};
@@ -123,9 +123,15 @@ where
                 .unwrap_or_default();
             if new_state != *parent_state {
                 crate::utils::misc::reveal_upgrade_logo(height.into());
-                tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}.", elapsed = humantime::format_duration(elapsed));
+                tracing::info!(
+                    "State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}.",
+                    elapsed = humantime::format_duration(elapsed)
+                );
             } else {
-                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}.", elapsed = humantime::format_duration(elapsed));
+                anyhow::bail!(
+                    "State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}.",
+                    elapsed = humantime::format_duration(elapsed)
+                );
             }
 
             return Ok(Some(new_state));
