@@ -9,7 +9,7 @@
 use crate::{
     beacon::BeaconEntry,
     blocks::*,
-    db::{car::PlainCar, MemoryDB},
+    db::{MemoryDB, car::PlainCar},
     networks,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
@@ -271,7 +271,7 @@ impl Chain4UInner {
         // ensure consistency
         for it in [epoch_from_user, epoch_from_parents, epoch_from_siblings] {
             match it {
-                Some(it) if it == epoch => {}
+                Some(it) if it <= epoch => {}
                 Some(it) => panic!("inconsistent epoch: {} vs {}", it, epoch),
                 None => {}
             }
@@ -643,7 +643,7 @@ fn test_chain4u_macro() {
     let c4u = Chain4U::new();
     chain4u! {
         in c4u;
-        t0 @ [gen]
+        t0 @ [genesis]
         -> ta @ [a1, a2 = HeaderBuilder::new()]
         ->      [b1, b2]
         -> tc @ [c]

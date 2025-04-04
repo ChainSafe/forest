@@ -4,7 +4,7 @@
 use crate::blocks::Tipset;
 use crate::message::Message;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
+use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use ahash::{HashSet, HashSetExt};
 use fvm_ipld_blockstore::Blockstore;
 

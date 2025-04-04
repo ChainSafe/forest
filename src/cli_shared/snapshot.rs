@@ -9,7 +9,7 @@ use std::{
 
 use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_file_with_retry};
 use crate::{networks::NetworkChain, utils::net::DownloadFileOption};
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use chrono::NaiveDate;
 use url::Url;
 
@@ -167,6 +167,7 @@ mod parse {
     use anyhow::{anyhow, bail};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use nom::{
+        Err,
         branch::alt,
         bytes::complete::{tag, take_until},
         character::complete::digit1,
@@ -175,7 +176,6 @@ mod parse {
         error_position,
         multi::many1,
         sequence::tuple,
-        Err,
     };
 
     use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;

@@ -124,8 +124,8 @@
 use crate::shim::actors::miner::DeadlineInfo;
 use derive_more::From;
 use fvm_shared4::piece::PaddedPieceSize;
-use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
-use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+use schemars::{JsonSchema, r#gen::SchemaGenerator, schema::Schema};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned};
 #[cfg(test)]
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
@@ -417,7 +417,7 @@ pub mod hexify {
 pub mod base64_standard {
     use super::*;
 
-    use base64::engine::{general_purpose::STANDARD, Engine as _};
+    use base64::engine::{Engine as _, general_purpose::STANDARD};
 
     pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -474,8 +474,8 @@ where
         T::LotusJson::schema_id()
     }
 
-    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-        T::LotusJson::json_schema(gen)
+    fn json_schema(g: &mut SchemaGenerator) -> Schema {
+        T::LotusJson::json_schema(g)
     }
 }
 
@@ -611,7 +611,7 @@ mod fixme {
 mod tests {
     use super::*;
     use ipld_core::serde::SerdeError;
-    use serde::de::{value::StringDeserializer, IntoDeserializer};
+    use serde::de::{IntoDeserializer, value::StringDeserializer};
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct HexifyVecBytesTest {

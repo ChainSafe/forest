@@ -13,12 +13,12 @@ use crate::networks::ChainConfig;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    gas::{price_list_by_network_version, Gas},
+    gas::{Gas, price_list_by_network_version},
 };
 use ahash::HashMap;
 use fvm_ipld_encoding::to_vec;
 use num_traits::Zero;
-use slotmap::{new_key_type, SlotMap};
+use slotmap::{SlotMap, new_key_type};
 use tracing::warn;
 
 use super::errors::Error;
@@ -127,11 +127,7 @@ impl Chains {
         chains.sort_by(|a, b| {
             let a = self.map.get(*a).unwrap();
             let b = self.map.get(*b).unwrap();
-            if rev {
-                b.compare(a)
-            } else {
-                a.compare(b)
-            }
+            if rev { b.compare(a) } else { a.compare(b) }
         });
         let _ = mem::replace(&mut self.key_vec, chains);
     }

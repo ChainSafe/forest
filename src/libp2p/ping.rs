@@ -4,7 +4,7 @@
 use std::{error::Error, time::Duration};
 
 use futures::stream::StreamExt;
-use libp2p::{core::Multiaddr, noise, ping, swarm::SwarmEvent, tcp, yamux, SwarmBuilder};
+use libp2p::{SwarmBuilder, core::Multiaddr, noise, ping, swarm::SwarmEvent, tcp, yamux};
 
 pub async fn p2p_ping(addr: Multiaddr) -> Result<Duration, ping::Failure> {
     let mut swarm = SwarmBuilder::with_new_identity()

@@ -28,8 +28,8 @@
 
 use crate::blocks::Tipset;
 use crate::chain::{
-    index::{ChainIndex, ResolveNullTipset},
     ChainEpochDelta,
+    index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
@@ -37,17 +37,17 @@ use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::interpreter::{VMEvent, VMTrace};
 use crate::ipld::{stream_graph, unordered_stream_graph};
-use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
-use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
-use crate::state_manager::{apply_block_messages, StateOutput, NO_CALLBACK};
-use anyhow::{bail, Context as _};
+use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
+use anyhow::{Context as _, bail};
 use chrono::DateTime;
 use cid::Cid;
 use clap::Subcommand;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;

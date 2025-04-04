@@ -9,14 +9,14 @@ use std::{
 
 use ahash::HashMap;
 use libp2p::{
-    request_response::{self, OutboundRequestId, ProtocolSupport, ResponseChannel},
-    swarm::{derive_prelude::*, CloseConnection, NetworkBehaviour, THandlerOutEvent},
     PeerId,
+    request_response::{self, OutboundRequestId, ProtocolSupport, ResponseChannel},
+    swarm::{CloseConnection, NetworkBehaviour, THandlerOutEvent, derive_prelude::*},
 };
 use tracing::warn;
 
 use super::*;
-use crate::libp2p::{service::metrics, PeerManager};
+use crate::libp2p::{PeerManager, service::metrics};
 
 type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 
@@ -194,7 +194,7 @@ impl NetworkBehaviour for HelloBehaviour {
         if let Some((&peer_to_disconnect, _)) =
             self.pending_inbound_hello_peers
                 .iter()
-                .find(|(_, &connected_instant)| {
+                .find(|&(_, &connected_instant)| {
                     now.duration_since(connected_instant) > INBOUND_HELLO_WAIT_TIMEOUT
                 })
         {

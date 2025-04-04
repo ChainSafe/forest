@@ -86,7 +86,7 @@ mod wallet;
 pub mod doctest_private {
     pub use crate::{
         blocks::{CachingBlockHeader, Ticket, TipsetKey},
-        cli::humantoken::{parse, TokenAmountPretty},
+        cli::humantoken::{TokenAmountPretty, parse},
         shim::{
             address::Address, crypto::Signature, econ::TokenAmount, error::ExitCode,
             randomness::Randomness, sector::RegisteredSealProof, state_tree::ActorState,
@@ -120,12 +120,12 @@ pub mod interop_tests_private {
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
-pub use auth::{verify_token, JWT_IDENTIFIER};
+pub use auth::{JWT_IDENTIFIER, verify_token};
 pub use cli::main::main as forest_main;
 pub use cli_shared::cli::{Client, Config};
 pub use daemon::main::main as forestd_main;
 pub use key_management::{
-    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
+    ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME, KeyStore, KeyStoreConfig,
 };
 pub use tool::main::main as forest_tool_main;
 pub use wallet::main::main as forest_wallet_main;

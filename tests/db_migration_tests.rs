@@ -3,7 +3,7 @@
 
 pub mod common;
 
-use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
+use crate::common::{CommonArgs, CommonEnv, create_tmp_config, daemon};
 
 #[test]
 fn future_db_should_not_fail_daemon() {
@@ -30,9 +30,11 @@ fn future_db_should_not_fail_daemon() {
     assert!(bad_db_path.exists());
 
     let forest_version = std::env::var("CARGO_PKG_VERSION").unwrap();
-    assert!(data_dir
-        .path()
-        .join("calibnet")
-        .join(forest_version)
-        .exists());
+    assert!(
+        data_dir
+            .path()
+            .join("calibnet")
+            .join(forest_version)
+            .exists()
+    );
 }

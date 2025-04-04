@@ -111,7 +111,7 @@ fn test_winner_probability() {
     let mut rng = crate::utils::rand::forest_rng();
 
     for _ in 0..n {
-        let mut miners_rand: f64 = rng.gen::<f64>() * f64::MAX;
+        let mut miners_rand: f64 = rng.r#gen::<f64>() * f64::MAX;
         for prob in winner_prob.iter().take(MAX_BLOCKS) {
             miners_rand -= prob;
             if miners_rand < 0.0 {
