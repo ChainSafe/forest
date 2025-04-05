@@ -47,7 +47,7 @@ See [here](https://github.com/filecoin-project/community/discussions/74#discussi
 
 ### Fixed
 
-- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`. 
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`.
 
 ## Forest v0.25.1 "Goldberry"
 
