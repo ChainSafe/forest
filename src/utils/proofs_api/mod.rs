@@ -5,4 +5,4 @@ mod parameters;
 mod paramfetch;
 
 pub use parameters::set_proofs_parameter_cache_dir_env;
-pub use paramfetch::{ensure_proof_params_downloaded, get_params_default, SectorSizeOpt};
+pub use paramfetch::{SectorSizeOpt, ensure_proof_params_downloaded, get_params_default};

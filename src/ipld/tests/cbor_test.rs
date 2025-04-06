@@ -3,7 +3,7 @@
 
 use crate::utils::{encoding::from_slice_with_fallback, multihash::prelude::*};
 use cid::Cid;
-use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+use fvm_ipld_encoding::{DAG_CBOR, to_vec};
 use ipld_core::{ipld, ipld::Ipld, serde::to_ipld};
 use serde::{Deserialize, Serialize};
 

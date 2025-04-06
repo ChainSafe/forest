@@ -20,7 +20,7 @@ const CHUNK_LEN: usize = 2048;
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
 static RANDOM_BYTES: Lazy<Bytes> = Lazy::new(|| {
     let mut rng = crate::utils::rand::forest_rng();
-    (0..8192).map(|_| rng.gen()).collect()
+    (0..8192).map(|_| rng.r#gen()).collect()
 });
 
 fn get_range(value: &http::HeaderValue) -> Range<usize> {

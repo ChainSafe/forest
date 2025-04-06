@@ -15,10 +15,10 @@ use crate::{
     cli_shared::{chain_path, read_config},
     daemon::db_util::load_all_forest_cars,
     db::{
+        CAR_DB_DIR_NAME,
         car::ManyCar,
         db_engine::{db_root, open_db},
         parity_db::ParityDb,
-        CAR_DB_DIR_NAME,
     },
     networks::{ChainConfig, NetworkChain},
     shim::version::NetworkVersion,

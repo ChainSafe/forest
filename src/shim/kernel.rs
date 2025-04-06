@@ -14,12 +14,12 @@
 
 use self::ErrorNumber as NShim;
 use self::SyscallError as EShim;
-use fvm2::kernel::SyscallError as E2;
-use fvm3::kernel::SyscallError as E3;
-use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
+use fvm2::kernel::SyscallError as E2;
+use fvm3::kernel::SyscallError as E3;
+use fvm4::kernel::SyscallError as E4;
 use num_traits::FromPrimitive;
 use std::fmt;
 use std::fmt::Debug;

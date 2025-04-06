@@ -13,14 +13,14 @@ use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
 use crate::eth::is_valid_eth_tx_for_sending;
-use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
+use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
+use crate::message::{ChainMessage, Message, SignedMessage, valid_for_block_inclusion};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
-    gas::{price_list_by_network_version, Gas},
+    gas::{Gas, price_list_by_network_version},
 };
 use crate::state_manager::is_valid_for_sending;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -40,8 +40,8 @@ use crate::message_pool::{
     errors::Error,
     head_change, metrics,
     msgpool::{
-        recover_sig, republish_pending_messages, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
-        RBF_DENOM, RBF_NUM,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM, recover_sig,
+        republish_pending_messages,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -636,11 +636,18 @@ fn verify_msg_before_add(
             get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
         if m.gas_fee_cap() < base_fee_lower_bound {
             if local {
-                warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
+                warn!(
+                    "local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",
+                    m.gas_fee_cap(),
+                    base_fee_lower_bound
+                );
                 return Ok(false);
             }
-            return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-                m.gas_fee_cap(), base_fee_lower_bound)));
+            return Err(Error::SoftValidationFailure(format!(
+                "GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+                m.gas_fee_cap(),
+                base_fee_lower_bound
+            )));
         }
     }
     Ok(local)

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    io::{stdout, Write},
+    io::{Write, stdout},
     time::Duration,
 };
 
@@ -45,6 +45,24 @@ impl SyncCommands {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
+
+                // Check if we should wait for snapshot to complete,
+                // if the sync stage is idle, we should wait for snapshot to complete
+                let should_wait_for_snapshot = SyncState::call(&client, ())
+                    .await?
+                    .active_syncs
+                    .iter()
+                    .any(|state| state.stage() == SyncStage::Idle);
+
+                if should_wait_for_snapshot {
+                    // Snapshot is not started, means node is not initialized yet, return
+                    if wait_for_snapshot_completion(&client)
+                        .await?
+                        .eq(&SnapshotProgressState::NotStarted)
+                    {
+                        return Ok(());
+                    }
+                }
 
                 'wait: for _ in ticker {
                     let resp = SyncState::call(&client, ()).await?;
@@ -124,26 +142,23 @@ impl SyncCommands {
 
                     let height_diff = base_height - target_height;
 
-                    // If the sync state is not in the Complete stage and both base and target cid's are empty,
-                    // the node might be downloading the snapshot.
-                    if state.stage() != SyncStage::Complete
-                        && base_cids.is_empty()
-                        && target_cids.is_empty()
-                    {
-                        check_snapshot_progress(&client).await?;
-                    } else {
-                        println!("sync status:");
-                        println!("Base:\t{}", format_tipset_cids(&base_cids));
-                        println!(
-                            "Target:\t{} ({target_height})",
-                            format_tipset_cids(&target_cids)
-                        );
-                        println!("Height diff:\t{}", height_diff.abs());
-                        println!("Stage:\t{}", state.stage());
-                        println!("Height:\t{}", state.epoch());
+                    match state.stage() {
+                        // If the sync state is idle, check if the snapshot is in progress once
+                        SyncStage::Idle => _ = check_snapshot_progress(&client, false).await?,
+                        _ => {
+                            println!("sync status:");
+                            println!("Base:\t{}", format_tipset_cids(&base_cids));
+                            println!(
+                                "Target:\t{} ({target_height})",
+                                format_tipset_cids(&target_cids)
+                            );
+                            println!("Height diff:\t{}", height_diff.abs());
+                            println!("Stage:\t{}", state.stage());
+                            println!("Height:\t{}", state.epoch());
 
-                        if let Some(duration) = elapsed_time {
-                            println!("Elapsed time:\t{}s", duration.num_seconds());
+                            if let Some(duration) = elapsed_time {
+                                println!("Elapsed time:\t{}s", duration.num_seconds());
+                            }
                         }
                     }
                 }
@@ -169,30 +184,38 @@ impl SyncCommands {
 }
 
 fn format_tipset_cids(cids: &str) -> &str {
-    if cids.is_empty() {
-        "[]"
-    } else {
-        cids
-    }
+    if cids.is_empty() { "[]" } else { cids }
 }
 
-/// Check if the snapshot download is in progress, if it is then wait till the snapshot download is done
-async fn check_snapshot_progress(client: &rpc::Client) -> anyhow::Result<()> {
+/// Check if the snapshot download is in progress, if wait is true,
+/// wait till snapshot download is completed else return after checking once
+async fn check_snapshot_progress(
+    client: &rpc::Client,
+    wait: bool,
+) -> anyhow::Result<SnapshotProgressState> {
     let mut interval = time::interval(Duration::from_secs(5));
     let mut stdout = stdout();
     loop {
         interval.tick().await;
         let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
-        match progress_state {
+        match &progress_state {
             SnapshotProgressState::InProgress { message } => {
-                println!("🌳 Snapshot download in progress: {}", message);
-                write!(
-                    stdout,
-                    "\r{}{}",
-                    anes::ClearLine::All,
-                    anes::MoveCursorUp(1)
-                )?;
-                continue;
+                println!("🌳 Snapshot download in progress: {message}");
+                // if wait is true, wait till snapshot download is completed
+                match wait {
+                    true => {
+                        write!(
+                            stdout,
+                            "\r{}{}",
+                            anes::ClearLine::All,
+                            anes::MoveCursorUp(1)
+                        )?;
+                        continue;
+                    }
+                    false => {
+                        return Ok(progress_state);
+                    }
+                }
             }
             SnapshotProgressState::Completed => {
                 write!(
@@ -201,13 +224,22 @@ async fn check_snapshot_progress(client: &rpc::Client) -> anyhow::Result<()> {
                     anes::ClearLine::All,
                     anes::MoveCursorUp(1)
                 )?;
-                println!("\n✅ Snapshot download completed! Chain will start syncing shortly (retry sync status command in 5 seconds)...");
+                println!("\n✅ Snapshot download completed! Chain will start syncing shortly");
             }
             SnapshotProgressState::NotStarted => {
-                println!("⏳ Snapshot download not started - node is initializing")
+                println!(
+                    "⏳ Snapshot download not started - node might be initializing. Wait a couple of seconds and retry."
+                )
             }
         }
 
-        return Ok(());
+        return Ok(progress_state);
     }
+}
+
+/// Wait for snapshot download to complete (convenience function)
+async fn wait_for_snapshot_completion(
+    client: &rpc::Client,
+) -> anyhow::Result<SnapshotProgressState> {
+    check_snapshot_progress(client, true).await
 }

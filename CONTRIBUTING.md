@@ -226,8 +226,7 @@ eternally grateful and hope you will continue to contribute to the project.
 
 The documentation is currently hosted on
 [docs.forest.chainsafe.io](https://docs.forest.chainsafe.io/). If you find any
-issues with the documentation, please create an issue as the repository is not
-public yet.
+issues with the documentation, please create an issue or contribute to the [docs directory](docs).
 
 ## Styleguides
 

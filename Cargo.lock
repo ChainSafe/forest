@@ -707,20 +707,20 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.70.1"
+version = "0.71.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49d8fed880d473ea71efb9bf597651e77201bdd4893efe54c9e5d65ae04ce6f"
+checksum = "5f58bf3d7db68cfbac37cfc485a8d711e87e064c3d0fe0435b92f7a407f9d6b3"
 dependencies = [
  "bitflags 2.9.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 1.1.0",
+ "rustc-hash 2.1.1",
  "shlex",
  "syn 2.0.100",
 ]
@@ -1031,9 +1031,9 @@ dependencies = [
 
 [[package]]
 name = "cbindgen"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fce8dd7fcfcbf3a0a87d8f515194b49d6135acab73e18bd380d1d93bb1a15eb"
+checksum = "eadd868a2ce9ca38de7eeafdcec9c7065ef89b42b32f0839278d55f35c54d1ff"
 dependencies = [
  "heck 0.4.1",
  "indexmap 2.8.0",
@@ -1277,7 +1277,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1286,7 +1286,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1897,7 +1897,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18e4fdb82bd54a12e42fb58a800dcae6b9e13982238ce2296dc3570b92148e1f"
 dependencies = [
  "data-encoding",
- "syn 2.0.100",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2334,7 +2334,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2510,7 +2510,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -2525,7 +2525,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -2545,7 +2545,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2561,7 +2561,7 @@ dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -2579,7 +2579,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "hex",
  "hex-literal",
  "num-derive",
@@ -2603,7 +2603,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -2627,7 +2627,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "ipld-core",
  "lazy_static",
  "multihash-codetable",
@@ -2657,7 +2657,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "itertools 0.14.0",
  "lazy_static",
  "multihash-codetable",
@@ -2684,7 +2684,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "indexmap 2.8.0",
  "integer-encoding",
  "num-derive",
@@ -2708,7 +2708,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "integer-encoding",
  "lazy_static",
  "num-derive",
@@ -2726,7 +2726,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2744,7 +2744,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "multihash-codetable",
  "num-derive",
  "num-traits",
@@ -2766,7 +2766,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "log",
  "num-derive",
  "num-traits",
@@ -2790,7 +2790,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "integer-encoding",
  "itertools 0.14.0",
  "lazy_static",
@@ -2967,7 +2967,7 @@ checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.25.1"
+version = "0.25.2"
 dependencies = [
  "ahash",
  "anes 0.2.0",
@@ -3037,12 +3037,12 @@ dependencies = [
  "futures",
  "fvm 2.10.0",
  "fvm 3.12.0",
- "fvm 4.6.0",
+ "fvm 4.6.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.10.0",
  "fvm_shared 3.12.0",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "gethostname",
  "git-version",
  "glob",
@@ -3227,7 +3227,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_sdk",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "thiserror 1.0.69",
 ]
 
@@ -3238,7 +3238,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4b838ee726022bc400381bafc22b381ba05a7458312e9a6dad93c9125b352d"
 dependencies = [
  "fvm_sdk",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "thiserror 1.0.69",
 ]
 
@@ -3268,7 +3268,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
  "fvm_sdk",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "integer-encoding",
  "multihash-codetable",
  "num-traits",
@@ -3506,9 +3506,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "4.6.0"
+version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80a15502d48f04a1aa4ef7c89b2878643d14e45390354486094a6e1050ce685c"
+checksum = "43e919c9a97ed83a89c3e5d8cb16daa050d7f38a6c1ee95c6b609247394901cf"
 dependencies = [
  "ambassador",
  "anyhow",
@@ -3520,7 +3520,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "lazy_static",
  "log",
  "minstant",
@@ -3572,7 +3572,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_sdk",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "multihash-codetable",
  "num-traits",
  "serde",
@@ -3665,7 +3665,7 @@ checksum = "2a535393b01713bb82f134292c4ff59cbca5ecf434285a13b6c90180ca33687a"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
- "fvm_shared 4.6.0",
+ "fvm_shared 4.6.1",
  "lazy_static",
  "log",
  "num-traits",
@@ -3736,9 +3736,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_shared"
-version = "4.6.0"
+version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b693befeb038020d57695b079476d49b228236b6eb12f9158c38d0ef43c6c79d"
+checksum = "916e46aee798f0fa676b39bb91a5ce694fc8dcf954f2eae3dfeec6aaea257255"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -4719,7 +4719,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi 0.5.0",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5063,7 +5063,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -7160,7 +7160,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7629,9 +7629,9 @@ dependencies = [
 
 [[package]]
 name = "rust2go"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f4c573050b419b1cad4024180a41dead36eb1abf89277525f98a484859711b"
+checksum = "b72d44674ddf3acb250c3cf3a608e928c6a0aa176f0f8fa9f83e7778ae713519"
 dependencies = [
  "bindgen",
  "rust2go-cli",
@@ -7642,13 +7642,13 @@ dependencies = [
 
 [[package]]
 name = "rust2go-cli"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee020c2c649667859a30f3667a5cbf1156928c2274ea424526ce6b3d3abcf419"
+checksum = "5f5b73395abf8ad750730351b7bcb5b8fc637dadf3d900f55dc59953a5b15bf6"
 dependencies = [
  "cbindgen",
  "clap",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "rust2go-common",
 ]
 
@@ -7733,7 +7733,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7746,7 +7746,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.3",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7812,7 +7812,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8520,7 +8520,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8857,7 +8857,7 @@ dependencies = [
  "getrandom 0.3.2",
  "once_cell",
  "rustix 1.0.3",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -10109,7 +10109,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
