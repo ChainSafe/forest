@@ -1720,11 +1720,11 @@ impl RpcMethod<2> for EthEstimateGas {
                 // information.
                 msg.set_gas_limit(BLOCK_GAS_LIMIT);
                 if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
-                    if let Some(eth_error) = e.downcast_ref::<EthErrors>() {
-                        // if the error is an execution reverted, return it directly
-                        return match eth_error {
-                            EthErrors::ExecutionReverted { .. } => Err(eth_error.clone().into()),
-                        };
+                    // if the error is an execution reverted, return it directly
+                    if e.downcast_ref::<EthErrors>().map_or(false, |eth_err| {
+                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
+                    }) {
+                        return Err(e.into());
                     }
 
                     err = e.into();
