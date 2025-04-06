@@ -30,6 +30,7 @@
 ### Added
 
 ### Changed
+- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for `Filecoin.EthEstimateGas` and `Filecoin.EthCall`.
 
 ### Removed
 
@@ -66,7 +67,6 @@ This is a mandatory release for mainnet node operators. It includes the NV25 _Te
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
 - [#5479](https://github.com/ChainSafe/forest/pull/5479) Move the snapshot progress tracking to sync wait command
-- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for EthEstimateGas and EthCall
 
 ### Removed
 

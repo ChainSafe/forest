@@ -19,7 +19,7 @@ pub struct ServerError {
 /// Custom error codes for the Forest node.
 pub enum ForestError {
     /// This error indicates that the execution reverted while executing the message.
-    /// Code is taken from https://github.com/filecoin-project/lotus/blob/master/api/api_errors.go#L27
+    /// Code is taken from https://github.com/filecoin-project/lotus/blob/release/v1.32.1/api/api_errors.go#L27
     ExecutionReverted = 11,
 }
 

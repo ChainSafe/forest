@@ -13,7 +13,6 @@ use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-
 use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);

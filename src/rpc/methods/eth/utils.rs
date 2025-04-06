@@ -116,8 +116,8 @@ pub fn decode_revert_reason(return_data: RawBytes) -> (Vec<u8>, String) {
     (data.0, reason)
 }
 
-const ERROR_FUNCTION_SELECTOR: [u8; 4] = [0x08, 0xc3, 0x79, 0xa0]; // Error(string)
-const PANIC_FUNCTION_SELECTOR: [u8; 4] = [0x4e, 0x48, 0x7b, 0x71]; // Panic(uint256)
+const ERROR_FUNCTION_SELECTOR: [u8; 4] = [0x08, 0xc3, 0x79, 0xa0]; // keccak256("Error(string)") [first 4 bytes]
+const PANIC_FUNCTION_SELECTOR: [u8; 4] = [0x4e, 0x48, 0x7b, 0x71]; // keccak256("Panic(uint256)") [first 4 bytes]
 
 // Lazily initialized HashMap for panic codes
 static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
@@ -135,6 +135,13 @@ static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
     m
 });
 
+/// EVM error and panic related constants
+const EVM_FUNC_SELECTOR_LENGTH: usize = 4;
+const EVM_WORD_LENGTH: usize = 32;
+const EVM_OFFSET_LENGTH: usize = 4;
+const EVM_PANIC_CODE_LENGTH: usize = 32;
+const EVM_UINT256_PADDING_LENGTH: usize = 24;
+
 /// Parse an ABI encoded revert reason from a raw return value.
 ///
 /// Handles both `Error(string)` and `Panic(uint256)` formats according to
@@ -143,12 +150,14 @@ static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
 /// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
 fn parse_eth_revert(data: &[u8]) -> String {
     // If it's not long enough to contain an ABI encoded response, return immediately.
-    if data.len() < 4 + 32 {
+    if data.len() < EVM_FUNC_SELECTOR_LENGTH + EVM_WORD_LENGTH {
         return format!("0x{}", hex::encode(data));
     }
 
     // Extract function selector (first 4 bytes)
-    let selector = data.get(..4).expect("checked data length >= 4");
+    let selector = data
+        .get(..EVM_FUNC_SELECTOR_LENGTH)
+        .expect("checked data length >= 4");
 
     match selector {
         selector if selector == PANIC_FUNCTION_SELECTOR.as_slice() => parse_panic_revert(data),
@@ -158,32 +167,34 @@ fn parse_eth_revert(data: &[u8]) -> String {
 }
 
 fn parse_error_revert(data: &[u8]) -> String {
-    let data = match data.get(4..) {
+    let data = match data.get(EVM_FUNC_SELECTOR_LENGTH..) {
         // Skip selector
-        Some(d) if d.len() >= 32 => d,
+        Some(d) if d.len() >= EVM_WORD_LENGTH => d,
         _ => return format!("0x{}", hex::encode(data)),
     };
 
+    let offset_pos = EVM_WORD_LENGTH - EVM_OFFSET_LENGTH;
     // Get offset safely
     let offset = data
-        .get(28..32)
+        .get(offset_pos..EVM_WORD_LENGTH)
         .and_then(|b| b.try_into().ok())
         .map(u64::from_be_bytes)
         .unwrap_or(0) as usize;
 
     // Validate offset range
-    if offset >= data.len() || data.len().saturating_sub(offset) < 32 {
+    if offset >= data.len() || data.len().saturating_sub(offset) < EVM_WORD_LENGTH {
         return format!("0x{}", hex::encode(data));
     }
 
-    // Get string length safely
+    // Get string length safely - length is in the last 4 bytes of the offset word
+    let length_pos = offset + EVM_WORD_LENGTH - EVM_OFFSET_LENGTH;
     let len = data
-        .get(offset + 28..offset + 32)
+        .get(length_pos..offset + EVM_WORD_LENGTH)
         .and_then(|b| b.try_into().ok())
         .map(u64::from_be_bytes)
         .unwrap_or(0) as usize;
 
-    let string_start = offset + 32;
+    let string_start = offset + EVM_WORD_LENGTH;
     if string_start > data.len() || len > data.len() - string_start {
         return format!("0x{}", hex::encode(data));
     }
@@ -196,20 +207,22 @@ fn parse_error_revert(data: &[u8]) -> String {
 }
 
 fn parse_panic_revert(data: &[u8]) -> String {
-    let code_bytes = match data.get(4..36) {
+    let code_bytes = match data
+        .get(EVM_FUNC_SELECTOR_LENGTH..EVM_FUNC_SELECTOR_LENGTH + EVM_PANIC_CODE_LENGTH)
+    {
         // Skip selector (4 bytes) + 32 bytes for panic code
         Some(b) => b,
         None => return format!("0x{}", hex::encode(data)),
     };
 
-    // Check first 24 bytes are zero
+    // Check first 24 bytes are zero (standard padding for uint256)
     if code_bytes
-        .get(..24)
+        .get(..EVM_UINT256_PADDING_LENGTH)
         .map(|b| b.iter().all(|&v| v == 0))
         .unwrap_or(false)
     {
         code_bytes
-            .get(24..32)
+            .get(EVM_UINT256_PADDING_LENGTH..EVM_PANIC_CODE_LENGTH)
             .and_then(|b| b.try_into().ok())
             .map(u64::from_be_bytes)
             .map(|code| {
