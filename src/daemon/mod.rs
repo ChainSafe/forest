@@ -394,13 +394,16 @@ async fn maybe_start_health_check_service(
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
         };
-        let listener =
-            tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
+        let healthcheck_address = forest_state.config.client.healthcheck_address;
+        info!("Healthcheck endpoint will listen at {healthcheck_address}");
+        let listener = tokio::net::TcpListener::bind(healthcheck_address).await?;
         services.spawn(async move {
             crate::health::init_healthcheck_server(forest_state, listener)
                 .await
                 .context("Failed to initiate healthcheck server")
         });
+    } else {
+        info!("Healthcheck service is disabled");
     }
     Ok(())
 }
