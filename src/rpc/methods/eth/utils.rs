@@ -8,6 +8,7 @@ use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::StateTree;
 use ahash::{HashMap, HashMapExt};
 
+use crate::rpc::eth::EthUint64;
 use anyhow::{Result, bail};
 use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
@@ -138,9 +139,8 @@ static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
 /// EVM error and panic related constants
 const EVM_FUNC_SELECTOR_LENGTH: usize = 4;
 const EVM_WORD_LENGTH: usize = 32;
-const EVM_OFFSET_LENGTH: usize = 4;
 const EVM_PANIC_CODE_LENGTH: usize = 32;
-const EVM_UINT256_PADDING_LENGTH: usize = 24;
+const EVM_UINT_PADDING_LENGTH: usize = 24;
 
 /// Parse an ABI encoded revert reason from a raw return value.
 ///
@@ -167,74 +167,71 @@ fn parse_eth_revert(data: &[u8]) -> String {
 }
 
 fn parse_error_revert(data: &[u8]) -> String {
-    let data = match data.get(EVM_FUNC_SELECTOR_LENGTH..) {
-        // Skip selector
-        Some(d) if d.len() >= EVM_WORD_LENGTH => d,
-        _ => return format!("0x{}", hex::encode(data)),
-    };
+    let fallback = || format!("0x{}", hex::encode(data));
 
-    let offset_pos = EVM_WORD_LENGTH - EVM_OFFSET_LENGTH;
-    // Get offset safely
-    let offset = data
-        .get(offset_pos..EVM_WORD_LENGTH)
-        .and_then(|b| b.try_into().ok())
-        .map(u64::from_be_bytes)
-        .unwrap_or(0) as usize;
+    let parse_result: Result<String, ()> = (|| {
+        let data = data
+            .get(EVM_FUNC_SELECTOR_LENGTH..)
+            .filter(|d| d.len() >= EVM_WORD_LENGTH)
+            .ok_or(())?;
 
-    // Validate offset range
-    if offset >= data.len() || data.len().saturating_sub(offset) < EVM_WORD_LENGTH {
-        return format!("0x{}", hex::encode(data));
-    }
+        // Get offset, from the first 32 bytes of the data
+        let offset_bytes = data.get(..EVM_WORD_LENGTH).ok_or(())?;
+        let offset = EthUint64::from_bytes(offset_bytes).map_err(|_| ())?.0 as usize;
 
-    // Get string length safely - length is in the last 4 bytes of the offset word
-    let length_pos = offset + EVM_WORD_LENGTH - EVM_OFFSET_LENGTH;
-    let len = data
-        .get(length_pos..offset + EVM_WORD_LENGTH)
-        .and_then(|b| b.try_into().ok())
-        .map(u64::from_be_bytes)
-        .unwrap_or(0) as usize;
+        // Validate offset range
+        if offset >= data.len() || data.len().saturating_sub(offset) < EVM_WORD_LENGTH {
+            return Err(());
+        }
 
-    let string_start = offset + EVM_WORD_LENGTH;
-    if string_start > data.len() || len > data.len() - string_start {
-        return format!("0x{}", hex::encode(data));
-    }
+        // Get string length, from the offset + 32 bytes of the data
+        let length_bytes = data.get(offset..offset + EVM_WORD_LENGTH).ok_or(())?;
+        let len = EthUint64::from_bytes(length_bytes).map_err(|_| ())?.0 as usize;
 
-    // Attempt to decode valid UTF-8
-    data.get(string_start..string_start + len)
-        .and_then(|b| std::str::from_utf8(b).ok())
-        .map(|s| format!("Error({})", s))
-        .unwrap_or_else(|| format!("0x{}", hex::encode(data)))
+        // Validate string length
+        let string_start = offset + EVM_WORD_LENGTH;
+        if string_start > data.len() || len > data.len() - string_start {
+            return Err(());
+        }
+
+        // Attempt to decode valid UTF-8
+        let string = data.get(string_start..string_start + len).ok_or(())?;
+        Ok(format!(
+            "Error({})",
+            std::str::from_utf8(string).map_err(|_| ())?
+        ))
+    })();
+
+    parse_result.unwrap_or_else(|_| fallback())
 }
 
 fn parse_panic_revert(data: &[u8]) -> String {
-    let code_bytes = match data
-        .get(EVM_FUNC_SELECTOR_LENGTH..EVM_FUNC_SELECTOR_LENGTH + EVM_PANIC_CODE_LENGTH)
-    {
-        // Skip selector (4 bytes) + 32 bytes for panic code
-        Some(b) => b,
-        None => return format!("0x{}", hex::encode(data)),
-    };
+    let fallback = || format!("0x{}", hex::encode(data));
 
-    // Check first 24 bytes are zero (standard padding for uint256)
-    if code_bytes
-        .get(..EVM_UINT256_PADDING_LENGTH)
-        .map(|b| b.iter().all(|&v| v == 0))
-        .unwrap_or(false)
-    {
-        code_bytes
-            .get(EVM_UINT256_PADDING_LENGTH..EVM_PANIC_CODE_LENGTH)
-            .and_then(|b| b.try_into().ok())
-            .map(u64::from_be_bytes)
-            .map(|code| {
-                PANIC_ERROR_CODES
-                    .get(&code)
-                    .map(|&s| s.to_string())
-                    .unwrap_or_else(|| format!("Panic(0x{:x})", code))
-            })
-            .unwrap_or_else(|| format!("Panic(0x{})", hex::encode(code_bytes)))
-    } else {
-        format!("Panic(0x{})", hex::encode(code_bytes))
-    }
+    let parse_result: Result<String, ()> = (|| {
+        let code_bytes = data
+            .get(EVM_FUNC_SELECTOR_LENGTH..EVM_FUNC_SELECTOR_LENGTH + EVM_PANIC_CODE_LENGTH)
+            .ok_or(())?;
+
+        // Check if first 24 bytes are all zeros
+        if !code_bytes
+            .get(..EVM_UINT_PADDING_LENGTH)
+            .ok_or(())?
+            .iter()
+            .all(|&v| v == 0)
+        {
+            return Ok(format!("Panic(0x{})", hex::encode(code_bytes)));
+        }
+
+        let code_data = code_bytes.get(..EVM_WORD_LENGTH).ok_or(())?;
+        let code = EthUint64::from_bytes(code_data).map_err(|_| ())?.0;
+        Ok(PANIC_ERROR_CODES
+            .get(&code)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("Panic(0x{:x})", code)))
+    })();
+
+    parse_result.unwrap_or_else(|_| fallback())
 }
 
 #[cfg(test)]

@@ -184,6 +184,21 @@ pub struct EthUint64(
 
 lotus_json_with_self!(EthUint64);
 
+impl EthUint64 {
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() != 32 {
+            bail!("eth int must be 32 bytes");
+        }
+
+        if data[..24].iter().any(|&byte| byte != 0) {
+            bail!("eth int overflows 64 bits");
+        }
+
+        // Extract the uint64 from the last 8 bytes
+        Ok(Self(u64::from_be_bytes(data[24..32].try_into()?)))
+    }
+}
+
 #[derive(
     PartialEq,
     Debug,
