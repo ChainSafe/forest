@@ -400,46 +400,46 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
-        // RpcTest::identity(ChainGetTipSetByHeight::request((
-        //     tipset.epoch(),
-        //     Default::default(),
-        // ))?),
-        // RpcTest::identity(ChainGetTipSetAfterHeight::request((
-        //     tipset.epoch(),
-        //     Default::default(),
-        // ))?),
-        // RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
-        // RpcTest::identity(ChainGetPath::request((
-        //     tipset.key().clone(),
-        //     tipset.parents().clone(),
-        // ))?),
-        // RpcTest::identity(ChainGetMessagesInTipset::request((tipset
-        //     .key()
-        //     .clone()
-        //     .into(),))?),
-        // RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
+        RpcTest::identity(ChainGetTipSetByHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
+        RpcTest::identity(ChainGetPath::request((
+            tipset.key().clone(),
+            tipset.parents().clone(),
+        ))?),
+        RpcTest::identity(ChainGetMessagesInTipset::request((tipset
+            .key()
+            .clone()
+            .into(),))?),
+        RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
     ];
 
     for block in tipset.block_headers() {
         let block_cid = *block.cid();
-        // tests.extend([
-        //     RpcTest::identity(ChainReadObj::request((block_cid,))?),
-        //     RpcTest::identity(ChainHasObj::request((block_cid,))?),
-        //     RpcTest::identity(ChainGetBlock::request((block_cid,))?),
-        //     RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
-        //     RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
-        //     RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
-        //     RpcTest::identity(ChainStatObj::request((block.messages, None))?),
-        //     RpcTest::identity(ChainStatObj::request((
-        //         block.messages,
-        //         Some(block.messages),
-        //     ))?),
-        // ]);
+        tests.extend([
+            RpcTest::identity(ChainReadObj::request((block_cid,))?),
+            RpcTest::identity(ChainHasObj::request((block_cid,))?),
+            RpcTest::identity(ChainGetBlock::request((block_cid,))?),
+            RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
+            RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
+            RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
+            RpcTest::identity(ChainStatObj::request((block.messages, None))?),
+            RpcTest::identity(ChainStatObj::request((
+                block.messages,
+                Some(block.messages),
+            ))?),
+        ]);
 
-        // let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-        // for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
-        //     tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
-        // }
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+        for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
+        }
 
         for receipt in Receipt::get_receipts(store, block.message_receipts)? {
             if let Some(events_root) = receipt.events_root() {
