@@ -5,6 +5,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::is_env_truthy;
@@ -13,7 +14,6 @@ use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 

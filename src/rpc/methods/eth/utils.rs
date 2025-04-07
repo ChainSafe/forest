@@ -359,7 +359,7 @@ mod test {
         let error_data = create_error_data(err_msg);
         assert_eq!(
             parse_error_revert(&error_data),
-            format!("Error({})", err_msg.to_string())
+            format!("Error({})", err_msg)
         );
 
         // ABI-encoded Error("Hello World")
@@ -371,7 +371,7 @@ mod test {
             48656c6c6f20576f726c64000000000000000000000000000000000000000000\
             ",
         )
-            .unwrap();
+        .unwrap();
         assert_eq!(parse_error_revert(&err_data), "Error(Hello World)");
 
         // ERC20 insufficient balance
@@ -382,7 +382,7 @@ mod test {
                 45524332303a207472616e7366657220616d6f756e7420657863656564732062\
                 616c616e63650000000000000000000000000000000000000000000000000000",
         )
-            .unwrap();
+        .unwrap();
         assert_eq!(
             parse_eth_revert(&insufficient),
             "Error(ERC20: transfer amount exceeds balance)"
@@ -438,9 +438,11 @@ mod test {
         // Test with invalid offset (points outside data)
         let mut invalid_offset = create_error_data("Test");
         // Modify offset to point outside available data
-        for i in 24..32 {
-            invalid_offset[i] = 0xFF;
-        }
+        invalid_offset
+            .iter_mut()
+            .skip(24)
+            .take(8)
+            .for_each(|byte| *byte = 0xFF);
         assert_eq!(
             parse_error_revert(&invalid_offset),
             format!("0x{}", hex::encode(&invalid_offset))
@@ -449,9 +451,11 @@ mod test {
         // Test with invalid length (exceeds available data)
         let mut invalid_length = create_error_data("Test");
         // Set offset to valid 32, but make length too large
-        for i in (32 + 24)..(32 + 32) {
-            invalid_length[i] = 0xFF;
-        }
+        invalid_length
+            .iter_mut()
+            .skip(32 + 24)
+            .take(8)
+            .for_each(|byte| *byte = 0xFF);
         assert_eq!(
             parse_error_revert(&invalid_length),
             format!("0x{}", hex::encode(&invalid_length))

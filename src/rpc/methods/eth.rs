@@ -186,16 +186,25 @@ lotus_json_with_self!(EthUint64);
 
 impl EthUint64 {
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
-        if data.len() != 32 {
+        if data.len() != EVM_WORD_LENGTH {
             bail!("eth int must be 32 bytes");
         }
 
-        if data[..24].iter().any(|&byte| byte != 0) {
+        // big indian format stores u64 in the last 8 bytes,
+        // since ethereum words are 32 bytes
+        if data
+            .get(..24)
+            .is_none_or(|slice| slice.iter().any(|&byte| byte != 0))
+        {
             bail!("eth int overflows 64 bits");
         }
 
         // Extract the uint64 from the last 8 bytes
-        Ok(Self(u64::from_be_bytes(data[24..32].try_into()?)))
+        Ok(Self(u64::from_be_bytes(
+            data.get(24..EVM_WORD_LENGTH)
+                .ok_or_else(|| anyhow::anyhow!("data too short"))?
+                .try_into()?,
+        )))
     }
 }
 
@@ -1721,7 +1730,7 @@ impl RpcMethod<2> for EthEstimateGas {
                 msg.set_gas_limit(BLOCK_GAS_LIMIT);
                 if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
                     // if the error is an execution reverted, return it directly
-                    if e.downcast_ref::<EthErrors>().map_or(false, |eth_err| {
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
                         matches!(eth_err, EthErrors::ExecutionReverted { .. })
                     }) {
                         return Err(e.into());
