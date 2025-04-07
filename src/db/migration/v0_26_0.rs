@@ -9,7 +9,7 @@ use crate::blocks::TipsetKey;
 use crate::db::CAR_DB_DIR_NAME;
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::MigrationOperationExt as _;
-use crate::db::migration::v0_26_0::paritydb_0_25_1::{DbColumn, ParityDb};
+use crate::db::migration::v0_26_0::paritydb_0_25_2::{DbColumn, ParityDb};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
 use anyhow::Context;
@@ -150,7 +150,7 @@ impl MigrationOperation for Migration0_25_2_0_26_0 {
 }
 
 /// Database settings from Forest `v0.25.2`
-mod paritydb_0_25_1 {
+mod paritydb_0_25_2 {
     use parity_db::{CompressionType, Db, Options};
     use std::path::PathBuf;
     use strum::{Display, EnumIter, IntoEnumIterator};
