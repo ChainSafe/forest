@@ -179,7 +179,9 @@ async fn ctx(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Config;
     use crate::utils::net::{DownloadFileOption, download_file_with_cache};
+    use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
     use directories::ProjectDirs;
     use futures::{StreamExt, stream::FuturesUnordered};
@@ -194,7 +196,11 @@ mod tests {
         if crate::utils::is_ci() && crate::utils::is_debug_build() {
             return;
         }
-
+        // Set proof parameter data dir and make sure the proofs are available
+        crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(
+            &Config::default().client.data_dir,
+        );
+        ensure_proof_params_downloaded().await.unwrap();
         let urls = include_str!("test_snapshots.txt")
             .trim()
             .split("\n")
