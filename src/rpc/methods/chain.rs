@@ -81,17 +81,17 @@ impl RpcMethod<1> for ChainGetEvents {
     type Ok = Vec<Event>;
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (events_root,): Self::Params,
+        (root_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = ctx
             .state_manager
             .chain_store()
-            .get_tipset_key(&events_root)?
-            .with_context(|| format!("can't find events with cid {events_root}"))?;
+            .get_tipset_key(&root_cid)?
+            .with_context(|| format!("can't find events with cid {root_cid}"))?;
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let events = EthEventHandler::collect_chain_events(&ctx, &ts, &events_root).await?;
+        let events = EthEventHandler::collect_chain_events(&ctx, &ts, &root_cid).await?;
 
         Ok(events)
     }
