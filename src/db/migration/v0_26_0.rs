@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.25.1 to 0.26.0 version.
+//! Migration logic for 0.25.2 to 0.26.0 version.
 //! A new `Indices` column has been added to enable the storage of CID-indexed data.
 
 use crate::Config;
@@ -23,13 +23,13 @@ use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-pub(super) struct Migration0_25_1_0_26_0 {
+pub(super) struct Migration0_25_2_0_26_0 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.25.1 to 0.26.0
-impl MigrationOperation for Migration0_25_1_0_26_0 {
+/// Migrates the database from version 0.25.2 to 0.26.0
+impl MigrationOperation for Migration0_25_2_0_26_0 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
@@ -149,7 +149,7 @@ impl MigrationOperation for Migration0_25_1_0_26_0 {
     }
 }
 
-/// Database settings from Forest `v0.25.1`
+/// Database settings from Forest `v0.25.2`
 mod paritydb_0_25_1 {
     use parity_db::{CompressionType, Db, Options};
     use std::path::PathBuf;

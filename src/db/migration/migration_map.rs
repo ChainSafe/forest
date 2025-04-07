@@ -9,7 +9,7 @@ use std::{
 
 use crate::Config;
 use crate::db::migration::v0_22_1::Migration0_22_0_0_22_1;
-use crate::db::migration::v0_26_0::Migration0_25_1_0_26_0;
+use crate::db::migration::v0_26_0::Migration0_25_2_0_26_0;
 use anyhow::Context as _;
 use anyhow::bail;
 use itertools::Itertools;
@@ -155,7 +155,7 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 
 create_migrations!(
     "0.22.0" -> "0.22.1" @ Migration0_22_0_0_22_1,
-    "0.25.1" -> "0.26.0" @ Migration0_25_1_0_26_0,
+    "0.25.2" -> "0.26.0" @ Migration0_25_2_0_26_0,
 );
 
 /// Creates a migration chain from `start` to `goal`. The chain is chosen to be the shortest
