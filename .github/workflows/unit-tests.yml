@@ -71,6 +71,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: "go.work"
+      - name: Fetch Parameter Files
+        run: forest-tool fetch-params --keys
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-release
