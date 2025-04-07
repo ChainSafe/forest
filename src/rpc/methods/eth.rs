@@ -55,6 +55,7 @@ use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
+use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
 use cid::Cid;
 use filter::{ParsedFilter, ParsedFilterTipsets};
@@ -110,6 +111,8 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -166,6 +169,8 @@ impl Bloom {
 }
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -3309,7 +3314,17 @@ impl RpcMethod<1> for EthTraceFilter {
         let to_block =
             get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
                 .context("cannot parse toBlock")?;
-        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+        Ok(trace_filter(ctx, filter, from_block, to_block)
+            .await?
+            .into_iter()
+            .sorted_by_key(|trace| {
+                (
+                    trace.block_number,
+                    trace.transaction_position,
+                    trace.trace.trace_address.clone(),
+                )
+            })
+            .collect::<Vec<_>>())
     }
 }
 
@@ -3318,8 +3333,8 @@ async fn trace_filter(
     filter: EthTraceFilterCriteria,
     from_block: EthUint64,
     to_block: EthUint64,
-) -> Result<Vec<EthBlockTrace>> {
-    let mut results = vec![];
+) -> Result<HashSet<EthBlockTrace>> {
+    let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
         return Ok(results);
     }
@@ -3350,7 +3365,7 @@ async fn trace_filter(
                     }
                 }
 
-                results.push(block_trace);
+                results.insert(block_trace);
 
                 if filter.count.is_some() && results.len() >= count as usize {
                     return Ok(results);

@@ -37,7 +37,9 @@
 
 ### Fixed
 
-## Forest v0.26.2 "Fool of a Took"
+- [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
+
+## Forest v0.25.2 "Fool of a Took"
 
 This is a mandatory release for mainnet and calibnet node operators. It introduces a fix upgrade for calibnet at epoch `2_558_014` which corresponds to `Mon  7 Apr 23:00:00 UTC 2025` and changes the mainnet upgrade epoch for the NV25 _Teep_ to `4_878_840` which corresponds to `Mon 14 Apr 23:00:00 UTC 2025`.
 
