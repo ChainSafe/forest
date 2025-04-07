@@ -100,7 +100,6 @@ pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
     const PARAM_NAMES: [&'static str; 1] = ["blockTemplate"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some(
         "Fills and signs a block template on behalf of the given miner, returning a suitable block header.",
@@ -274,7 +273,6 @@ pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "epoch", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.",

@@ -98,7 +98,6 @@ impl StateCall {
 impl RpcMethod<2> for StateCall {
     const NAME: &'static str = "Filecoin.StateCall";
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Runs the given message and returns its result without persisting changes. The message is applied to the tipset's parent state.",
@@ -119,7 +118,6 @@ pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
     const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "messageCid"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Replays a given message, assuming it was included in a block in the specified tipset.",
@@ -143,7 +141,6 @@ pub enum StateNetworkName {}
 impl RpcMethod<0> for StateNetworkName {
     const NAME: &'static str = "Filecoin.StateNetworkName";
     const PARAM_NAMES: [&'static str; 0] = [];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -161,7 +158,6 @@ pub enum StateNetworkVersion {}
 impl RpcMethod<1> for StateNetworkVersion {
     const NAME: &'static str = "Filecoin.StateNetworkVersion";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the network version at the given tipset.");
@@ -185,7 +181,6 @@ pub enum StateAccountKey {}
 impl RpcMethod<2> for StateAccountKey {
     const NAME: &'static str = "Filecoin.StateAccountKey";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the public key address for the given ID address (secp and bls accounts).");
@@ -212,7 +207,6 @@ pub enum StateLookupID {}
 impl RpcMethod<2> for StateLookupID {
     const NAME: &'static str = "Filecoin.StateLookupID";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Retrieves the ID address of the given address.");
@@ -237,7 +231,6 @@ pub enum StateVerifiedRegistryRootKey {}
 impl RpcMethod<1> for StateVerifiedRegistryRootKey {
     const NAME: &'static str = "Filecoin.StateVerifiedRegistryRootKey";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the address of the Verified Registry's root key.");
@@ -262,7 +255,6 @@ pub enum StateVerifierStatus {}
 impl RpcMethod<2> for StateVerifierStatus {
     const NAME: &'static str = "Filecoin.StateVerifierStatus";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the data cap for the given address.");
 
@@ -287,7 +279,6 @@ pub enum StateGetActor {}
 impl RpcMethod<2> for StateGetActor {
     const NAME: &'static str = "Filecoin.StateGetActor";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the nonce and balance for the specified actor.");
@@ -324,7 +315,6 @@ macro_rules! get_robust_address {
 impl RpcMethod<2> for StateLookupRobustAddress {
     const NAME: &'static str = "Filecoin.StateLookupRobustAddress";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the public key address for non-account addresses (e.g., multisig, miners).");
@@ -454,7 +444,6 @@ pub enum StateMarketBalance {}
 impl RpcMethod<2> for StateMarketBalance {
     const NAME: &'static str = "Filecoin.StateMarketBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the Escrow and Locked balances of the specified address in the Storage Market.",
@@ -479,7 +468,6 @@ pub enum StateMarketDeals {}
 impl RpcMethod<1> for StateMarketDeals {
     const NAME: &'static str = "Filecoin.StateMarketDeals";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns information about every deal in the Storage Market.");
@@ -526,7 +514,6 @@ pub enum StateMinerInfo {}
 impl RpcMethod<2> for StateMinerInfo {
     const NAME: &'static str = "Filecoin.StateMinerInfo";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns information about the specified miner.");
@@ -548,7 +535,6 @@ pub enum StateMinerActiveSectors {}
 impl RpcMethod<2> for StateMinerActiveSectors {
     const NAME: &'static str = "Filecoin.StateMinerActiveSectors";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns information about sectors actively proven by a given miner.");
@@ -585,7 +571,6 @@ pub enum StateMinerAllocated {}
 impl RpcMethod<2> for StateMinerAllocated {
     const NAME: &'static str = "Filecoin.StateMinerAllocated";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns a bitfield containing all sector numbers marked as allocated to the provided miner ID.",
@@ -612,7 +597,6 @@ pub enum StateMinerPartitions {}
 impl RpcMethod<3> for StateMinerPartitions {
     const NAME: &'static str = "Filecoin.StateMinerPartitions";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "deadlineIndex", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all partitions in the specified deadline.");
@@ -650,7 +634,6 @@ pub enum StateMinerSectors {}
 impl RpcMethod<3> for StateMinerSectors {
     const NAME: &'static str = "Filecoin.StateMinerSectors";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectors", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns information about the given miner's sectors. If no filter is provided, all sectors are included.",
@@ -677,7 +660,6 @@ pub enum StateMinerSectorCount {}
 impl RpcMethod<2> for StateMinerSectorCount {
     const NAME: &'static str = "Filecoin.StateMinerSectorCount";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the number of sectors in a miner's sector and proving sets.");
@@ -716,7 +698,6 @@ pub enum StateMinerSectorAllocated {}
 impl RpcMethod<3> for StateMinerSectorAllocated {
     const NAME: &'static str = "Filecoin.StateMinerSectorAllocated";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Checks if a sector number is marked as allocated.");
@@ -744,7 +725,6 @@ pub enum StateMinerPower {}
 impl RpcMethod<2> for StateMinerPower {
     const NAME: &'static str = "Filecoin.StateMinerPower";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the power of the specified miner.");
 
@@ -767,7 +747,6 @@ pub enum StateMinerDeadlines {}
 impl RpcMethod<2> for StateMinerDeadlines {
     const NAME: &'static str = "Filecoin.StateMinerDeadlines";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all proving deadlines for the given miner.");
@@ -802,7 +781,6 @@ pub enum StateMinerProvingDeadline {}
 impl RpcMethod<2> for StateMinerProvingDeadline {
     const NAME: &'static str = "Filecoin.StateMinerProvingDeadline";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Calculates the deadline and related details for a given epoch during a proving period.",
@@ -834,7 +812,6 @@ pub enum StateMinerFaults {}
 impl RpcMethod<2> for StateMinerFaults {
     const NAME: &'static str = "Filecoin.StateMinerFaults";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns a bitfield of the faulty sectors for the given miner.");
@@ -858,7 +835,6 @@ pub enum StateMinerRecoveries {}
 impl RpcMethod<2> for StateMinerRecoveries {
     const NAME: &'static str = "Filecoin.StateMinerRecoveries";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns a bitfield of recovering sectors for the given miner.");
@@ -882,7 +858,6 @@ pub enum StateMinerAvailableBalance {}
 impl RpcMethod<2> for StateMinerAvailableBalance {
     const NAME: &'static str = "Filecoin.StateMinerAvailableBalance";
     const PARAM_NAMES: [&'static str; 2] = ["minerAddress", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the portion of a miner's balance available for withdrawal or spending.");
@@ -948,7 +923,6 @@ pub enum StateMinerInitialPledgeCollateral {}
 impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeCollateral";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the initial pledge collateral for the specified miner's sector.");
@@ -1011,7 +985,6 @@ pub enum StateMinerPreCommitDepositForPower {}
 impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     const NAME: &'static str = "Filecoin.StateMinerPreCommitDepositForPower";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the sector precommit deposit for the specified miner.");
@@ -1169,7 +1142,6 @@ impl RpcMethod<4> for StateSearchMsg {
     const NAME: &'static str = "Filecoin.StateSearchMsg";
     const PARAM_NAMES: [&'static str; 4] =
         ["tipsetKey", "messageCid", "lookBackLimit", "allowReplaced"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the receipt and tipset the specified message was included in.");
@@ -1259,7 +1231,6 @@ pub enum StateFetchRoot {}
 impl RpcMethod<2> for StateFetchRoot {
     const NAME: &'static str = "Forest.StateFetchRoot";
     const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, Option<PathBuf>);
@@ -1423,7 +1394,6 @@ pub enum ForestStateCompute {}
 impl RpcMethod<1> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);
@@ -1457,7 +1427,6 @@ pub enum StateCompute {}
 impl RpcMethod<3> for StateCompute {
     const NAME: &'static str = "Filecoin.StateCompute";
     const PARAM_NAMES: [&'static str; 3] = ["height", "messages", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Applies the given messages on the given tipset");
@@ -1518,7 +1487,6 @@ pub enum StateGetRandomnessFromTickets {}
 impl RpcMethod<4> for StateGetRandomnessFromTickets {
     const NAME: &'static str = "Filecoin.StateGetRandomnessFromTickets";
     const PARAM_NAMES: [&'static str; 4] = ["personalization", "randEpoch", "entropy", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Samples the chain for randomness.");
 
@@ -1547,7 +1515,6 @@ pub enum StateGetRandomnessDigestFromTickets {}
 impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromTickets";
     const PARAM_NAMES: [&'static str; 2] = ["randEpoch", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Samples the chain for randomness.");
 
@@ -1571,7 +1538,6 @@ pub enum StateGetRandomnessFromBeacon {}
 impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     const NAME: &'static str = "Filecoin.StateGetRandomnessFromBeacon";
     const PARAM_NAMES: [&'static str; 4] = ["personalization", "randEpoch", "entropy", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the beacon entry for the specified Filecoin epoch. If unavailable, the call blocks until it becomes available.",
@@ -1602,7 +1568,6 @@ pub enum StateGetRandomnessDigestFromBeacon {}
 impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     const NAME: &'static str = "Filecoin.StateGetRandomnessDigestFromBeacon";
     const PARAM_NAMES: [&'static str; 2] = ["randEpoch", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Samples the beacon for randomness.");
 
@@ -1626,7 +1591,6 @@ pub enum StateReadState {}
 impl RpcMethod<2> for StateReadState {
     const NAME: &'static str = "Filecoin.StateReadState";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the state of the specified actor.");
 
@@ -1658,7 +1622,6 @@ pub enum StateCirculatingSupply {}
 impl RpcMethod<1> for StateCirculatingSupply {
     const NAME: &'static str = "Filecoin.StateCirculatingSupply";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the exact circulating supply of Filecoin at the given tipset.");
@@ -1685,7 +1648,6 @@ pub enum StateVerifiedClientStatus {}
 impl RpcMethod<2> for StateVerifiedClientStatus {
     const NAME: &'static str = "Filecoin.StateVerifiedClientStatus";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the data cap for the given address. Returns null if no entry exists in the data cap table.",
@@ -1762,7 +1724,6 @@ pub enum StateListActors {}
 impl RpcMethod<1> for StateListActors {
     const NAME: &'static str = "Filecoin.StateListActors";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the addresses of every actor in the state.");
@@ -1790,7 +1751,6 @@ pub enum StateMarketStorageDeal {}
 impl RpcMethod<2> for StateMarketStorageDeal {
     const NAME: &'static str = "Filecoin.StateMarketStorageDeal";
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns information about the specified deal.");
 
@@ -1819,7 +1779,6 @@ pub enum StateMarketParticipants {}
 impl RpcMethod<1> for StateMarketParticipants {
     const NAME: &'static str = "Filecoin.StateMarketParticipants";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the Escrow and Locked balances of all participants in the Storage Market.");
@@ -1856,7 +1815,6 @@ pub enum StateDealProviderCollateralBounds {}
 impl RpcMethod<3> for StateDealProviderCollateralBounds {
     const NAME: &'static str = "Filecoin.StateDealProviderCollateralBounds";
     const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the minimum and maximum collateral a storage provider can issue, based on deal size and verified status.",
@@ -1919,7 +1877,6 @@ pub enum StateGetBeaconEntry {}
 impl RpcMethod<1> for StateGetBeaconEntry {
     const NAME: &'static str = "Filecoin.StateGetBeaconEntry";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the beacon entries for the specified epoch.");
@@ -2269,7 +2226,6 @@ pub enum StateSectorGetInfo {}
 impl RpcMethod<3> for StateSectorGetInfo {
     const NAME: &'static str = "Filecoin.StateSectorGetInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns on-chain information for the specified miner's sector. Returns null if not found. Use StateSectorExpiration for accurate expiration epochs.",
@@ -2312,7 +2268,6 @@ pub enum StateSectorExpiration {}
 impl RpcMethod<3> for StateSectorExpiration {
     const NAME: &'static str = "Filecoin.StateSectorExpiration";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the epoch at which the specified sector will expire.");
@@ -2402,7 +2357,6 @@ pub enum StateListMessages {}
 impl RpcMethod<3> for StateListMessages {
     const NAME: &'static str = "Filecoin.StateListMessages";
     const PARAM_NAMES: [&'static str; 3] = ["messageFilter", "tipsetKey", "maxHeight"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all messages with a matching to or from address up to the given height.");
@@ -2463,7 +2417,6 @@ pub enum StateGetClaim {}
 impl RpcMethod<3> for StateGetClaim {
     const NAME: &'static str = "Filecoin.StateGetClaim";
     const PARAM_NAMES: [&'static str; 3] = ["address", "claimId", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the claim for a given address and claim ID.");
@@ -2485,7 +2438,6 @@ pub enum StateGetClaims {}
 impl RpcMethod<2> for StateGetClaims {
     const NAME: &'static str = "Filecoin.StateGetClaims";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns all claims for a given provider.");
 
@@ -2520,7 +2472,6 @@ pub enum StateGetAllClaims {}
 impl RpcMethod<1> for StateGetAllClaims {
     const NAME: &'static str = "Filecoin.StateGetAllClaims";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all claims available in the verified registry actor.");
@@ -2565,7 +2516,6 @@ pub enum StateGetAllocations {}
 impl RpcMethod<2> for StateGetAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllocations";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns all allocations for a given client.");
 
@@ -2733,7 +2683,6 @@ pub enum StateGetAllAllocations {}
 impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllAllocations";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all allocations available in the verified registry actor.");
@@ -2789,7 +2738,6 @@ pub enum StateGetAllocationForPendingDeal {}
 impl RpcMethod<2> for StateGetAllocationForPendingDeal {
     const NAME: &'static str = "Filecoin.StateGetAllocationForPendingDeal";
     const PARAM_NAMES: [&'static str; 2] = ["dealId", "tipsetKey"];
-    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the allocation for the specified pending deal. Returns null if no pending allocation is found.",
