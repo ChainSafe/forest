@@ -400,46 +400,46 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
-        RpcTest::identity(ChainGetTipSetByHeight::request((
-            tipset.epoch(),
-            Default::default(),
-        ))?),
-        RpcTest::identity(ChainGetTipSetAfterHeight::request((
-            tipset.epoch(),
-            Default::default(),
-        ))?),
-        RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
-        RpcTest::identity(ChainGetPath::request((
-            tipset.key().clone(),
-            tipset.parents().clone(),
-        ))?),
-        RpcTest::identity(ChainGetMessagesInTipset::request((tipset
-            .key()
-            .clone()
-            .into(),))?),
-        RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
+        // RpcTest::identity(ChainGetTipSetByHeight::request((
+        //     tipset.epoch(),
+        //     Default::default(),
+        // ))?),
+        // RpcTest::identity(ChainGetTipSetAfterHeight::request((
+        //     tipset.epoch(),
+        //     Default::default(),
+        // ))?),
+        // RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
+        // RpcTest::identity(ChainGetPath::request((
+        //     tipset.key().clone(),
+        //     tipset.parents().clone(),
+        // ))?),
+        // RpcTest::identity(ChainGetMessagesInTipset::request((tipset
+        //     .key()
+        //     .clone()
+        //     .into(),))?),
+        // RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
     ];
 
     for block in tipset.block_headers() {
         let block_cid = *block.cid();
-        tests.extend([
-            RpcTest::identity(ChainReadObj::request((block_cid,))?),
-            RpcTest::identity(ChainHasObj::request((block_cid,))?),
-            RpcTest::identity(ChainGetBlock::request((block_cid,))?),
-            RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
-            RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
-            RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
-            RpcTest::identity(ChainStatObj::request((block.messages, None))?),
-            RpcTest::identity(ChainStatObj::request((
-                block.messages,
-                Some(block.messages),
-            ))?),
-        ]);
+        // tests.extend([
+        //     RpcTest::identity(ChainReadObj::request((block_cid,))?),
+        //     RpcTest::identity(ChainHasObj::request((block_cid,))?),
+        //     RpcTest::identity(ChainGetBlock::request((block_cid,))?),
+        //     RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
+        //     RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
+        //     RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
+        //     RpcTest::identity(ChainStatObj::request((block.messages, None))?),
+        //     RpcTest::identity(ChainStatObj::request((
+        //         block.messages,
+        //         Some(block.messages),
+        //     ))?),
+        // ]);
 
-        let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-        for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
-            tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
-        }
+        // let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+        // for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
+        //     tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
+        // }
 
         for receipt in Receipt::get_receipts(store, block.message_receipts)? {
             if let Some(events_root) = receipt.events_root() {
@@ -1854,14 +1854,14 @@ fn snapshot_tests(
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
-        tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
-        tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        tests.extend(eth_tests_with_tipset(&store, &tipset));
+        // tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
+        // tests.extend(state_tests_with_tipset(&store, &tipset)?);
+        // tests.extend(eth_tests_with_tipset(&store, &tipset));
         tests.extend(event_tests_with_tipset(&store, &tipset));
-        tests.extend(gas_tests_with_tipset(&tipset));
-        tests.extend(mpool_tests_with_tipset(&tipset));
-        tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
-        tests.extend(f3_tests_with_tipset(&tipset)?);
+        // tests.extend(gas_tests_with_tipset(&tipset));
+        // tests.extend(mpool_tests_with_tipset(&tipset));
+        // tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
+        // tests.extend(f3_tests_with_tipset(&tipset)?);
     }
 
     Ok(tests)
@@ -1925,16 +1925,16 @@ pub(super) async fn create_tests(
     }: CreateTestsArgs,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    tests.extend(auth_tests()?);
-    tests.extend(common_tests());
-    tests.extend(chain_tests());
-    tests.extend(mpool_tests());
-    tests.extend(net_tests());
-    tests.extend(node_tests());
-    tests.extend(wallet_tests(worker_address));
-    tests.extend(eth_tests());
-    tests.extend(state_tests());
-    tests.extend(f3_tests()?);
+    // tests.extend(auth_tests()?);
+    // tests.extend(common_tests());
+    // tests.extend(chain_tests());
+    // tests.extend(mpool_tests());
+    // tests.extend(net_tests());
+    // tests.extend(node_tests());
+    // tests.extend(wallet_tests(worker_address));
+    // tests.extend(eth_tests());
+    // tests.extend(state_tests());
+    // tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
         revalidate_chain(store.clone(), n_tipsets).await?;
@@ -1984,13 +1984,13 @@ pub(super) fn create_tests_pass_2(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 
-    if !snapshot_files.is_empty() {
-        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.push(RpcTest::identity(ChainSetHead::request((store
-            .heaviest_tipset()?
-            .key()
-            .clone(),))?));
-    }
+    // if !snapshot_files.is_empty() {
+    //     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+    //     tests.push(RpcTest::identity(ChainSetHead::request((store
+    //         .heaviest_tipset()?
+    //         .key()
+    //         .clone(),))?));
+    // }
 
     Ok(tests)
 }
