@@ -1854,14 +1854,14 @@ fn snapshot_tests(
 
     for tipset in shared_tipset.chain(&store).take(num_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
-        // tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
-        // tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        // tests.extend(eth_tests_with_tipset(&store, &tipset));
+        tests.extend(miner_tests_with_tipset(&store, &tipset, miner_address)?);
+        tests.extend(state_tests_with_tipset(&store, &tipset)?);
+        tests.extend(eth_tests_with_tipset(&store, &tipset));
         tests.extend(event_tests_with_tipset(&store, &tipset));
-        // tests.extend(gas_tests_with_tipset(&tipset));
-        // tests.extend(mpool_tests_with_tipset(&tipset));
-        // tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
-        // tests.extend(f3_tests_with_tipset(&tipset)?);
+        tests.extend(gas_tests_with_tipset(&tipset));
+        tests.extend(mpool_tests_with_tipset(&tipset));
+        tests.extend(eth_state_tests_with_tipset(&store, &tipset, eth_chain_id)?);
+        tests.extend(f3_tests_with_tipset(&tipset)?);
     }
 
     Ok(tests)
@@ -1925,16 +1925,16 @@ pub(super) async fn create_tests(
     }: CreateTestsArgs,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    // tests.extend(auth_tests()?);
-    // tests.extend(common_tests());
-    // tests.extend(chain_tests());
-    // tests.extend(mpool_tests());
-    // tests.extend(net_tests());
-    // tests.extend(node_tests());
-    // tests.extend(wallet_tests(worker_address));
-    // tests.extend(eth_tests());
-    // tests.extend(state_tests());
-    // tests.extend(f3_tests()?);
+    tests.extend(auth_tests()?);
+    tests.extend(common_tests());
+    tests.extend(chain_tests());
+    tests.extend(mpool_tests());
+    tests.extend(net_tests());
+    tests.extend(node_tests());
+    tests.extend(wallet_tests(worker_address));
+    tests.extend(eth_tests());
+    tests.extend(state_tests());
+    tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
         revalidate_chain(store.clone(), n_tipsets).await?;
@@ -1984,13 +1984,13 @@ pub(super) fn create_tests_pass_2(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 
-    // if !snapshot_files.is_empty() {
-    //     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-    //     tests.push(RpcTest::identity(ChainSetHead::request((store
-    //         .heaviest_tipset()?
-    //         .key()
-    //         .clone(),))?));
-    // }
+    if !snapshot_files.is_empty() {
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        tests.push(RpcTest::identity(ChainSetHead::request((store
+            .heaviest_tipset()?
+            .key()
+            .clone(),))?));
+    }
 
     Ok(tests)
 }
