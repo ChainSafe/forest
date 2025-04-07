@@ -18,7 +18,7 @@ pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use log_layer::LogLayer;
 use reflect::Ctx;
-pub use reflect::{ApiPath, ApiPaths, Permission, RpcMethod, RpcMethodExt};
+pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
@@ -612,7 +612,7 @@ where
 }
 
 /// If `include` is not [`None`], only methods that are listed will be returned
-pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
+pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::r#gen::{SchemaGenerator, SchemaSettings};
 
     let mut methods = vec![];
@@ -679,14 +679,14 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
 
 #[cfg(test)]
 mod tests {
-    use crate::rpc::ApiPath;
+    use crate::rpc::ApiPaths;
 
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
     #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     fn openrpc() {
-        for path in [ApiPath::V0, ApiPath::V1] {
+        for path in [ApiPaths::V0, ApiPaths::V1] {
             let _spec = super::openrpc(path, None);
             // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
             //               this is disabled because it causes lots of merge

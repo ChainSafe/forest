@@ -7,7 +7,7 @@ use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
+use crate::rpc::{Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::{Address, Protocol},
@@ -30,7 +30,7 @@ pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {
     const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
     const PARAM_NAMES: [&'static str; 3] = ["message", "maxQueueBlocks", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated fee cap for the given parameters.");
@@ -76,7 +76,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
         "gasLimit",
         "tipsetKey",
     ];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas premium for the given parameters.");
@@ -180,7 +180,7 @@ pub enum GasEstimateGasLimit {}
 impl RpcMethod<2> for GasEstimateGasLimit {
     const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas limit for the given parameters.");
@@ -277,7 +277,7 @@ pub enum GasEstimateMessageGas {}
 impl RpcMethod<3> for GasEstimateMessageGas {
     const NAME: &'static str = "Filecoin.GasEstimateMessageGas";
     const PARAM_NAMES: [&'static str; 3] = ["message", "messageSendSpec", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas for the given parameters.");

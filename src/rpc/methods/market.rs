@@ -3,7 +3,7 @@
 
 use crate::rpc::error::ServerError;
 use crate::rpc::mpool::MpoolPushMessage;
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::rpc::{Ctx, Permission, RpcMethod};
 use crate::shim::{address::Address, message::Message, message::MethodNum};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -16,7 +16,7 @@ pub enum MarketAddBalance {}
 impl RpcMethod<3> for MarketAddBalance {
     const NAME: &'static str = "Filecoin.MarketAddBalance";
     const PARAM_NAMES: [&'static str; 3] = ["wallet", "address", "amount"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Address, Address, BigInt);

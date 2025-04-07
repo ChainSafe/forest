@@ -13,7 +13,7 @@ use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::{
     blocks::TipsetKey,
     lotus_json::{LotusJson, lotus_json_with_self},
-    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::EventEntry},
+    rpc::{Ctx, Permission, RpcMethod, ServerError, types::EventEntry},
     shim::{address::Address, clock::ChainEpoch},
 };
 
@@ -21,7 +21,7 @@ pub enum GetActorEventsRaw {}
 impl RpcMethod<1> for GetActorEventsRaw {
     const NAME: &'static str = "Filecoin.GetActorEventsRaw";
     const PARAM_NAMES: [&'static str; 1] = ["eventFilter"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    // const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns all user-programmed and built-in actor events that match the given filter. Results may be limited by MaxFilterResults, MaxFilterHeightRange, and the node's available historical data.",

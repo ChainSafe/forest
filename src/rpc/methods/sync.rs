@@ -6,7 +6,7 @@ mod types;
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
+use crate::rpc::{Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -24,7 +24,6 @@ pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
     const NAME: &'static str = "Filecoin.SyncCheckBad";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
@@ -42,7 +41,6 @@ pub enum SyncMarkBad {}
 impl RpcMethod<1> for SyncMarkBad {
     const NAME: &'static str = "Filecoin.SyncMarkBad";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = (Cid,);
@@ -62,7 +60,6 @@ pub enum SyncSnapshotProgress {}
 impl RpcMethod<0> for SyncSnapshotProgress {
     const NAME: &'static str = "Forest.SyncSnapshotProgress";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the snapshot download progress. Return Null if the tracking isn't started");
@@ -79,7 +76,6 @@ pub enum SyncState {}
 impl RpcMethod<0> for SyncState {
     const NAME: &'static str = "Filecoin.SyncState";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -95,7 +91,6 @@ pub enum SyncSubmitBlock {}
 impl RpcMethod<1> for SyncSubmitBlock {
     const NAME: &'static str = "Filecoin.SyncSubmitBlock";
     const PARAM_NAMES: [&'static str; 1] = ["block"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some("Submits a newly created block to the network.");
 

@@ -5,7 +5,7 @@ use std::any::Any;
 
 use crate::key_management::{Key, KeyInfo};
 use crate::message::SignedMessage;
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
+use crate::rpc::{Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -19,7 +19,6 @@ pub enum WalletBalance {}
 impl RpcMethod<1> for WalletBalance {
     const NAME: &'static str = "Filecoin.WalletBalance";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the balance of a wallet.");
 
@@ -44,7 +43,6 @@ pub enum WalletDefaultAddress {}
 impl RpcMethod<0> for WalletDefaultAddress {
     const NAME: &'static str = "Filecoin.WalletDefaultAddress";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -60,7 +58,6 @@ pub enum WalletExport {}
 impl RpcMethod<1> for WalletExport {
     const NAME: &'static str = "Filecoin.WalletExport";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = (Address,);
@@ -80,7 +77,6 @@ pub enum WalletHas {}
 impl RpcMethod<1> for WalletHas {
     const NAME: &'static str = "Filecoin.WalletHas";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Indicates whether the given address exists in the wallet.");
@@ -101,7 +97,6 @@ pub enum WalletImport {}
 impl RpcMethod<1> for WalletImport {
     const NAME: &'static str = "Filecoin.WalletImport";
     const PARAM_NAMES: [&'static str; 1] = ["key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = (KeyInfo,);
@@ -125,7 +120,6 @@ pub enum WalletList {}
 impl RpcMethod<0> for WalletList {
     const NAME: &'static str = "Filecoin.WalletList";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns a list of all addresses in the wallet.");
@@ -143,7 +137,6 @@ pub enum WalletNew {}
 impl RpcMethod<1> for WalletNew {
     const NAME: &'static str = "Filecoin.WalletNew";
     const PARAM_NAMES: [&'static str; 1] = ["signature_type"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (SignatureType,);
@@ -171,7 +164,6 @@ pub enum WalletSetDefault {}
 impl RpcMethod<1> for WalletSetDefault {
     const NAME: &'static str = "Filecoin.WalletSetDefault";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (Address,);
@@ -194,7 +186,6 @@ pub enum WalletSign {}
 impl RpcMethod<2> for WalletSign {
     const NAME: &'static str = "Filecoin.WalletSign";
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
     const DESCRIPTION: Option<&'static str> =
         Some("Signs the given bytes using the specified address.");
@@ -234,7 +225,6 @@ pub enum WalletSignMessage {}
 impl RpcMethod<2> for WalletSignMessage {
     const NAME: &'static str = "Filecoin.WalletSignMessage";
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Sign;
     const DESCRIPTION: Option<&'static str> =
         Some("Signs the given message using the specified address.");
@@ -281,7 +271,6 @@ pub enum WalletValidateAddress {}
 impl RpcMethod<1> for WalletValidateAddress {
     const NAME: &'static str = "Filecoin.WalletValidateAddress";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
@@ -296,7 +285,6 @@ pub enum WalletVerify {}
 impl RpcMethod<3> for WalletVerify {
     const NAME: &'static str = "Filecoin.WalletVerify";
     const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, Vec<u8>, Signature);
@@ -314,7 +302,6 @@ pub enum WalletDelete {}
 impl RpcMethod<1> for WalletDelete {
     const NAME: &'static str = "Filecoin.WalletDelete";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (Address,);

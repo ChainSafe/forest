@@ -9,7 +9,7 @@ use migration::*;
 use crate::{
     libp2p::keypair::get_keypair,
     rpc::{
-        self, ApiPath, RpcMethodExt as _,
+        self, ApiPaths, RpcMethodExt as _,
         chain::{ChainGetTipSetByHeight, ChainHead},
         types::ApiTipsetKey,
     },
@@ -60,7 +60,7 @@ pub enum ShedCommands {
         include: Vec<String>,
         /// Which API path to dump.
         #[arg(long)]
-        path: ApiPath,
+        path: ApiPaths,
         /// A comma-separated list of fields to omit from the output (e.g., "summary,description").
         #[arg(long, value_delimiter = ',')]
         omit: Option<Vec<OmitField>>,
