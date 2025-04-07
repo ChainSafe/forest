@@ -391,6 +391,8 @@ where
                 if let Some(events_root) = ret.msg_receipt().events_root() {
                     events_roots.push(events_root);
                     events.push(ret.events());
+                } else {
+                    events.push(ret.events());
                 }
 
                 // Add processed Cid to set of processed messages
