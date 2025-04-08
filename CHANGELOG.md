@@ -36,6 +36,7 @@
 ### Fixed
 
 - [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
+- [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
 
 ## Forest v0.25.2 "Fool of a Took"
 
