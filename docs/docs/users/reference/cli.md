@@ -311,8 +311,8 @@ Send funds between accounts
 Usage: forest-wallet send [OPTIONS] <TARGET_ADDRESS> <AMOUNT>
 
 Arguments:
-  <TARGET_ADDRESS>  
-  <AMOUNT>          
+  <TARGET_ADDRESS>
+  <AMOUNT>
 
 Options:
       --from <FROM>                optionally specify the account to send funds from (otherwise the default one will be used)
@@ -383,7 +383,7 @@ Retrieves and prints out the block specified by the given CID
 Usage: forest-cli chain block -c <CID>
 
 Options:
-  -c <CID>      
+  -c <CID>
   -h, --help    Print help
 ```
 
@@ -395,7 +395,7 @@ Reads and prints out a message referenced by the specified CID from the chain bl
 Usage: forest-cli chain message -c <CID>
 
 Options:
-  -c <CID>      
+  -c <CID>
   -h, --help    Print help
 ```
 
@@ -407,7 +407,7 @@ Reads and prints out IPLD nodes referenced by the specified CID from chain block
 Usage: forest-cli chain read-obj -c <CID>
 
 Options:
-  -c <CID>      
+  -c <CID>
   -h, --help    Print help
 ```
 
@@ -638,8 +638,8 @@ Interact with and query Filecoin chain state
 Usage: forest-cli state <COMMAND>
 
 Commands:
-  fetch    
-  compute  
+  fetch
+  compute
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -652,7 +652,7 @@ Options:
 Usage: forest-cli state fetch [OPTIONS] <ROOT>
 
 Arguments:
-  <ROOT>  
+  <ROOT>
 
 Options:
   -s, --save-to-file <SAVE_TO_FILE>  The `.car` file path to save the state root
@@ -723,8 +723,8 @@ Send funds between accounts
 Usage: forest-cli send [OPTIONS] <TARGET_ADDRESS> <AMOUNT>
 
 Arguments:
-  <TARGET_ADDRESS>  
-  <AMOUNT>          
+  <TARGET_ADDRESS>
+  <AMOUNT>
 
 Options:
       --from <FROM>                optionally specify the account to send funds from (otherwise the default one will be used)
@@ -742,7 +742,7 @@ Print node info
 Usage: forest-cli info <COMMAND>
 
 Commands:
-  show  
+  show
   help  Print this message or the help of the given subcommand(s)
 
 Options:
@@ -819,7 +819,7 @@ Usage: forest-cli f3 manifest [OPTIONS]
 Options:
       --output <OUTPUT>
           The output format
-          
+
           [default: text]
 
           Possible values:
@@ -866,12 +866,12 @@ Usage: forest-cli f3 certs get [OPTIONS] [INSTANCE]
 
 Arguments:
   [INSTANCE]
-          
+
 
 Options:
       --output <OUTPUT>
           The output format
-          
+
           [default: text]
 
           Possible values:
@@ -896,7 +896,7 @@ Arguments:
 Options:
       --output <OUTPUT>
           The output format
-          
+
           [default: text]
 
           Possible values:
@@ -905,7 +905,7 @@ Options:
 
       --limit <LIMIT>
           The maximum number of instances. A value less than 0 indicates no limit
-          
+
           [default: 10]
 
       --reverse
@@ -954,7 +954,7 @@ Gets the total proportion of power for a list of actors at a given instance
 Usage: forest-cli f3 powertable get-proportion [OPTIONS] [ACTOR_IDS]...
 
 Arguments:
-  [ACTOR_IDS]...  
+  [ACTOR_IDS]...
 
 Options:
       --instance <INSTANCE>  instance ID. (default: latest)
@@ -1068,7 +1068,7 @@ Usage: forest-tool benchmark <COMMAND>
 Commands:
   car-streaming              Benchmark streaming data from a CAR archive
   graph-traversal            Depth-first traversal of the Filecoin graph
-  unordered-graph-traversal  
+  unordered-graph-traversal
   forest-encoding            Encoding of a `.forest.car.zst` file
   export                     Exporting a `.forest.car.zst` file from HEAD
   help                       Print this message or the help of the given subcommand(s)
@@ -1281,9 +1281,9 @@ Arguments:
 Options:
   -o, --output-path <OUTPUT_PATH>
           Output file, will be in `.forest.car.zst` format.
-          
+
           Will reuse the source name (with new extension) if pointed to a directory.
-          
+
           [default: .]
 
       --compression-level <COMPRESSION_LEVEL>
@@ -1291,7 +1291,7 @@ Options:
 
       --frame-size <FRAME_SIZE>
           End zstd frames after they exceed this length
-          
+
           [default: 8192]
 
       --force
@@ -1448,7 +1448,7 @@ Arguments:
 
 Options:
       --epoch <EPOCH>  Selected epoch to validate
-      --depth <DEPTH>  
+      --depth <DEPTH>
   -h, --help           Print help
 ```
 
@@ -1550,11 +1550,11 @@ API tooling
 Usage: forest-tool api <COMMAND>
 
 Commands:
-  serve                   
+  serve
   compare                 Compare two RPC providers
-  generate-test-snapshot  
-  dump-tests              
-  test                    
+  generate-test-snapshot
+  dump-tests
+  test
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1572,7 +1572,7 @@ Arguments:
 Options:
       --chain <CHAIN>            Filecoin network chain [default: mainnet]
       --port <PORT>              [default: 2345]
-      --auto-download-snapshot   
+      --auto-download-snapshot
       --height <HEIGHT>          Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s) starting at HEAD [default: -50]
       --genesis <GENESIS>        Genesis file path, only applicable for devnet
       --save-token <SAVE_TOKEN>  If provided, indicates the file to which to save the admin token
@@ -1581,7 +1581,7 @@ Options:
 
 ### `forest-tool api compare`
 
-```
+````
 Compare two RPC providers.
 
 The providers are labeled `forest` and `lotus`, but other nodes may be used (such as `venus`).
@@ -1601,17 +1601,17 @@ Arguments:
 Options:
       --forest <FOREST>
           Forest address
-          
+
           [default: /ip4/127.0.0.1/tcp/2345/http]
 
       --lotus <LOTUS>
           Lotus address
-          
+
           [default: /ip4/127.0.0.1/tcp/1234/http]
 
       --filter <FILTER>
           Filter which tests to run according to method name. Case sensitive
-          
+
           [default: ]
 
       --filter-file <FILTER_FILE>
@@ -1622,18 +1622,18 @@ Options:
 
       --run-ignored <RUN_IGNORED>
           Behavior for tests marked as `ignored`
-          
+
           [default: default]
           [possible values: default, ignored-only, all]
 
       --max-concurrent-requests <MAX_CONCURRENT_REQUESTS>
           Maximum number of concurrent requests
-          
+
           [default: 8]
 
   -n, --n-tipsets <N_TIPSETS>
           The number of tipsets to use to generate test cases
-          
+
           [default: 10]
 
       --miner-address <MINER_ADDRESS>
@@ -1644,7 +1644,7 @@ Options:
 
       --eth-chain-id <ETH_CHAIN_ID>
           Ethereum chain ID. Default to the calibnet chain ID
-          
+
           [default: 314159]
 
       --dump-dir <DUMP_DIR>
@@ -1652,7 +1652,7 @@ Options:
 
       --test-criteria-overrides [<TEST_CRITERIA_OVERRIDES>...]
           Additional overrides to modify success criteria for tests
-          
+
           [default: timeout-and-timeout]
 
           Possible values:
@@ -1661,7 +1661,7 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-```
+````
 
 ### `forest-tool api generate-test-snapshot`
 
@@ -1704,7 +1704,7 @@ Options:
       --path <PATH>
           Which API path to dump [possible values: v0, v1]
       --include-ignored
-          
+
   -h, --help
           Print help
 ```
@@ -1772,7 +1772,7 @@ Options:
           If omitted, defaults to the HEAD of the node
 
       --ancestors <ANCESTORS>
-          
+
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1814,7 +1814,7 @@ Dump the OpenRPC definition for the node
 Usage: forest-tool shed openrpc [OPTIONS] --path <PATH> [INCLUDE]...
 
 Arguments:
-  [INCLUDE]...  
+  [INCLUDE]...
 
 Options:
       --path <PATH>  Which API path to dump [possible values: v0, v1]
@@ -1830,7 +1830,7 @@ F3 related commands
 Usage: forest-tool shed f3 <COMMAND>
 
 Commands:
-  check-activation      
+  check-activation
   check-activation-raw  Queries F3 parameters contract using raw logic
   help                  Print this message or the help of the given subcommand(s)
 
