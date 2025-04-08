@@ -174,6 +174,7 @@ async fn maybe_import_snapshot(
         .await?;
     }
 
+    let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
@@ -181,7 +182,7 @@ async fn maybe_import_snapshot(
                 path,
                 &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
-                ctx.snapshot_progress_tracker.clone(),
+                &snapshot_tracker,
             )
             .await?;
             ctx.db
@@ -197,6 +198,12 @@ async fn maybe_import_snapshot(
                 car_db_path.display(),
             );
         }
+    }
+
+    // If the snapshot progress state is not completed,
+    // set the state to not required
+    if !snapshot_tracker.is_completed() {
+        snapshot_tracker.not_required();
     }
 
     if let Some(validate_from) = config.client.snapshot_height {
