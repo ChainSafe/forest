@@ -1,0 +1,26 @@
+name: cargo deny advisories
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+jobs:
+  rpc-parity:
+    name: cargo deny advisories
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - run: make install-cargo-binstall
+      - run: cargo binstall --no-confirm cargo-deny
+      - run: cargo deny check advisories
+      - name: Set WORKFLOW_URL
+        if: failure()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo ${WORKFLOW_URL}
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
+      - uses: JasonEtco/create-an-issue@v2
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/CARGO_ADVISORIES_ISSUE_TEMPLATE.md

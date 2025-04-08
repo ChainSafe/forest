@@ -32,11 +32,12 @@ install-lint-tools:
 	cargo install --locked cargo-deny
 	cargo install --locked cargo-spellcheck
 
-install-lint-tools-ci:
+install-cargo-binstall:
 	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
 	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
 	cp cargo-binstall ~/.cargo/bin/cargo-binstall
 
+install-lint-tools-ci: install-cargo-binstall
 	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-deny
 
 install-lint-tools-ci-arm:
@@ -53,7 +54,7 @@ clean:
 lint-all: lint deny spellcheck
 
 deny:
-	cargo deny check || (echo "See deny.toml"; false)
+	cargo deny check bans licenses sources || (echo "See deny.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)

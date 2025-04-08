@@ -1,17 +1,16 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    io::{Write, stdout},
-    time::Duration,
-};
-
 use crate::chain_sync::SyncStage;
 use crate::cli::subcommands::format_vec_pretty;
 use crate::rpc::sync::SnapshotProgressState;
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
+use std::{
+    io::{Write, stdout},
+    time::Duration,
+};
 use ticker::Ticker;
 use tokio::time;
 
@@ -46,22 +45,18 @@ impl SyncCommands {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
-                // Check if we should wait for snapshot to complete,
-                // if the sync stage is idle, we should wait for snapshot to complete
-                let should_wait_for_snapshot = SyncState::call(&client, ())
+                // if the sync stage is idle, check if the snapshot download is needed
+                let check_snapshot_status = SyncState::call(&client, ())
                     .await?
                     .active_syncs
                     .iter()
                     .any(|state| state.stage() == SyncStage::Idle);
 
-                if should_wait_for_snapshot {
-                    // Snapshot is not started, means node is not initialized yet, return
-                    if wait_for_snapshot_completion(&client)
-                        .await?
-                        .eq(&SnapshotProgressState::NotStarted)
-                    {
-                        return Ok(());
-                    }
+                // Check if we should wait for snapshot to complete,
+                if check_snapshot_status {
+                    println!("Checking snapshot status");
+                    wait_for_snapshot_completion(&client).await?;
+                    println!("Start syncing");
                 }
 
                 'wait: for _ in ticker {
@@ -143,23 +138,30 @@ impl SyncCommands {
                     let height_diff = base_height - target_height;
 
                     match state.stage() {
-                        // If the sync state is idle, check if the snapshot is in progress once
-                        SyncStage::Idle => _ = check_snapshot_progress(&client, false).await?,
-                        _ => {
-                            println!("sync status:");
-                            println!("Base:\t{}", format_tipset_cids(&base_cids));
-                            println!(
-                                "Target:\t{} ({target_height})",
-                                format_tipset_cids(&target_cids)
-                            );
-                            println!("Height diff:\t{}", height_diff.abs());
-                            println!("Stage:\t{}", state.stage());
-                            println!("Height:\t{}", state.epoch());
-
-                            if let Some(duration) = elapsed_time {
-                                println!("Elapsed time:\t{}s", duration.num_seconds());
+                        // If the sync state is idle, check the snapshot state once
+                        SyncStage::Idle => {
+                            if !check_snapshot_progress(&client, false)
+                                .await?
+                                .is_not_required()
+                            {
+                                continue;
                             }
                         }
+                        _ => {}
+                    }
+
+                    println!("sync status:");
+                    println!("Base:\t{}", format_tipset_cids(&base_cids));
+                    println!(
+                        "Target:\t{} ({target_height})",
+                        format_tipset_cids(&target_cids)
+                    );
+                    println!("Height diff:\t{}", height_diff.abs());
+                    println!("Stage:\t{}", state.stage());
+                    println!("Height:\t{}", state.epoch());
+
+                    if let Some(duration) = elapsed_time {
+                        println!("Elapsed time:\t{}s", duration.num_seconds());
                     }
                 }
 
@@ -197,43 +199,29 @@ async fn check_snapshot_progress(
     let mut stdout = stdout();
     loop {
         interval.tick().await;
-        let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
-        match &progress_state {
-            SnapshotProgressState::InProgress { message } => {
-                println!("🌳 Snapshot download in progress: {message}");
-                // if wait is true, wait till snapshot download is completed
-                match wait {
-                    true => {
-                        write!(
-                            stdout,
-                            "\r{}{}",
-                            anes::ClearLine::All,
-                            anes::MoveCursorUp(1)
-                        )?;
-                        continue;
-                    }
-                    false => {
-                        return Ok(progress_state);
-                    }
-                }
-            }
-            SnapshotProgressState::Completed => {
-                write!(
-                    stdout,
-                    "\r{}{}",
-                    anes::ClearLine::All,
-                    anes::MoveCursorUp(1)
-                )?;
-                println!("\n✅ Snapshot download completed! Chain will start syncing shortly");
-            }
-            SnapshotProgressState::NotStarted => {
-                println!(
-                    "⏳ Snapshot download not started - node might be initializing. Wait a couple of seconds and retry."
-                )
-            }
-        }
 
-        return Ok(progress_state);
+        let progress_state = client.call(SyncSnapshotProgress::request(())?).await?;
+
+        write!(
+            stdout,
+            "\r{}{}Snapshot status: {}",
+            anes::MoveCursorUp(1),
+            anes::ClearLine::All,
+            progress_state
+        )?;
+        stdout.flush()?;
+
+        match progress_state {
+            SnapshotProgressState::Completed | SnapshotProgressState::NotRequired => {
+                println!();
+                return Ok(progress_state);
+            }
+            _ if !wait => {
+                println!();
+                return Ok(progress_state);
+            }
+            _ => {} // continue
+        }
     }
 }
 
