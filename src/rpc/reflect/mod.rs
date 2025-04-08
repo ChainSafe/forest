@@ -28,6 +28,7 @@ use super::error::ServerError as Error;
 use anyhow::Context as _;
 use enumflags2::{BitFlags, bitflags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
+use http::Uri;
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
@@ -36,7 +37,8 @@ use serde::{
     Deserialize,
     de::{Error as _, Unexpected},
 };
-use std::{future::Future, sync::Arc};
+use std::{future::Future, str::FromStr, sync::Arc};
+use strum::EnumString;
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -98,14 +100,19 @@ pub enum Permission {
 /// This information is important when using [`crate::rpc::client`].
 #[bitflags]
 #[repr(u8)]
-#[derive(Debug, Default, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum)]
+#[derive(
+    Debug, Default, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum, EnumString,
+)]
 pub enum ApiPaths {
     /// Only expose this method on `/rpc/v0`
+    #[strum(ascii_case_insensitive)]
     V0 = 0b00000001,
     /// Only expose this method on `/rpc/v1`
     #[default]
+    #[strum(ascii_case_insensitive)]
     V1 = 0b00000010,
     /// Only expose this method on `/rpc/v2`
+    #[strum(ascii_case_insensitive)]
     V2 = 0b00000100,
 }
 
@@ -113,6 +120,12 @@ impl ApiPaths {
     pub const fn all() -> BitFlags<Self> {
         // Not containing V2 until it's released in Lotus.
         make_bitflags!(Self::{ V0 | V1 })
+    }
+
+    pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
+        Ok(Self::from_str(
+            uri.path().split("/").last().expect("infallible"),
+        )?)
     }
 }
 
@@ -399,4 +412,21 @@ pub enum ConcreteCallingConvention {
     ByPosition,
     #[allow(unused)] // included for completeness
     ByName,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_paths_from_uri() {
+        let v0 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v0".parse().unwrap()).unwrap();
+        assert_eq!(v0, ApiPaths::V0);
+        let v1 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v1".parse().unwrap()).unwrap();
+        assert_eq!(v1, ApiPaths::V1);
+        let v2 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v2".parse().unwrap()).unwrap();
+        assert_eq!(v2, ApiPaths::V2);
+
+        ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v3".parse().unwrap()).unwrap_err();
+    }
 }

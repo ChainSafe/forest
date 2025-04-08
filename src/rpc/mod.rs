@@ -9,6 +9,8 @@ mod filter_list;
 mod log_layer;
 mod metrics_layer;
 mod request;
+mod segregation_layer;
+mod set_extension_layer;
 
 pub use client::Client;
 pub use error::ServerError;
@@ -20,6 +22,8 @@ use log_layer::LogLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
+use segregation_layer::SegregationLayer;
+use set_extension_layer::SetExtensionLayer;
 mod error;
 mod reflect;
 pub mod types;
@@ -530,10 +534,14 @@ where
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
                         http::header::AUTHORIZATION,
                     )));
-                // NOTE, the rpc middleware must be initialized here to be able to created once per connection
+                // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
                 let rpc_middleware = RpcServiceBuilder::new()
+                    .layer(SetExtensionLayer {
+                        path: ApiPaths::from_uri(req.uri()).ok(),
+                    })
+                    .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
                     .layer(AuthLayer {
                         headers,
