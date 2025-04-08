@@ -457,7 +457,7 @@ mod test {
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
                 DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
-                DbColumn::Indices => panic!("invalid column for IPLD data"),
+                DbColumn::Indices => panic!("invalid indices column for IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
