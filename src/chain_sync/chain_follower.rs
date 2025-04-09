@@ -41,7 +41,6 @@ use crate::{
     chain::ChainStore,
     chain_sync::{TipsetValidator, bad_block_cache::BadBlockCache, metrics},
     libp2p::{NetworkEvent, PubsubMessage},
-    shim::clock::SECONDS_IN_DAY,
 };
 use parking_lot::RwLock;
 
@@ -618,12 +617,11 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             return;
         }
 
-        // Check if tipset is older than a day compared to heaviest tipset
+        // Check if tipset is outside the chain_finality window
         let heaviest = self.cs.heaviest_tipset();
         let epoch_diff = heaviest.epoch() - tipset.epoch();
-        let time_diff = epoch_diff * (self.cs.chain_config.block_delay_secs as i64);
 
-        if time_diff > SECONDS_IN_DAY {
+        if epoch_diff > self.cs.chain_config.policy.chain_finality {
             self.mark_bad_tipset(tipset, "old tipset".to_string());
             return;
         }
