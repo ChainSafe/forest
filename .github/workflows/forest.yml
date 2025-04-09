@@ -524,6 +524,12 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
+      - name: Relocate docker volumes folder
+        run: |
+          sudo ls /var/lib/docker/volumes
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -sf /mnt/docker-volumes /var/lib/docker/volumes
+          sudo ls /var/lib/docker/volumes
       # Remove some unnecessary software to free up space. This should free up around 15-20 GB.
       # This is required because of the limited space on the runner,
       # and disk space-hungry snapshots used in the setup.
@@ -553,6 +559,7 @@ jobs:
       - name: Dump Docker usage
         if: always()
         run: |
+          sudo ls /var/lib/docker/volumes
           docker system df
           docker system df --verbose
           df -h
