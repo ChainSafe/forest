@@ -58,6 +58,16 @@ jobs:
                     - '!**.md'
                     - '!.github/workflows/docs-*.yml'
 
+  override_calibnet_rpc_checks:
+    name: Calibnet RPC checks
+    runs-on: ubuntu-24.04-arm
+    needs:
+      - changes-docs
+      - changes-not-docs
+    if: ${{ (needs.changes-docs.outputs.changesFound == 'true') && (needs.changes-not-docs.outputs.otherChangesFound == 'false') }}
+    steps:
+      - run: echo "No-op job to trigger the required checks."
+
   override_integration_tests:
     name: Integration tests status
     runs-on: ubuntu-24.04-arm
