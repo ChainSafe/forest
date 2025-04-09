@@ -23,7 +23,7 @@ jobs:
           echo ${WORKFLOW_URL}
           echo "WORKFLOW_URL=${WORKFLOW_URL}" >> $GITHUB_ENV
       - uses: JasonEtco/create-an-issue@v2
-        if: failure()
+        if: github.ref == 'refs/heads/main' && failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

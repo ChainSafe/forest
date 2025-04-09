@@ -312,6 +312,28 @@ where
         })
     }
 
+    // Given the assumption that the heaviest tipset must always be validated,
+    // we can populate our state cache by walking backwards through the
+    // block-chain. A warm cache cuts 10-20 seconds from the first state
+    // validation, and it prevents duplicate migrations.
+    pub fn populate_cache(&self) {
+        for (child, parent) in self
+            .cs
+            .chain_index
+            .chain(self.cs.heaviest_tipset())
+            .tuple_windows()
+            .take(DEFAULT_TIPSET_CACHE_SIZE.into())
+        {
+            self.cache.insert(
+                parent.key().clone(),
+                StateOutputValue {
+                    state_root: child.min_ticket_block().state_root,
+                    receipt_root: child.min_ticket_block().message_receipts,
+                },
+            )
+        }
+    }
+
     pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
         &self.beacon
     }
