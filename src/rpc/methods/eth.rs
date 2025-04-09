@@ -192,11 +192,11 @@ lotus_json_with_self!(EthUint64);
 impl EthUint64 {
     pub fn from_bytes(data: &[u8]) -> Result<Self> {
         if data.len() != EVM_WORD_LENGTH {
-            bail!("eth int must be 32 bytes");
+            bail!("eth int must be {EVM_WORD_LENGTH} bytes");
         }
 
-        // big indian format stores u64 in the last 8 bytes,
-        // since ethereum words are 32 bytes
+        // big endian format stores u64 in the last 8 bytes,
+        // since ethereum words are 32 bytes, the first 24 bytes must be 0
         if data
             .get(..24)
             .is_none_or(|slice| slice.iter().any(|&byte| byte != 0))
@@ -3817,5 +3817,95 @@ mod test {
             },
         ];
         assert!(eth_log_from_event(&entries).is_none());
+    }
+
+    #[test]
+    fn test_from_bytes_valid() {
+        let zero_bytes = [0u8; 32];
+        assert_eq!(
+            EthUint64::from_bytes(&zero_bytes).unwrap().0,
+            0,
+            "zero bytes"
+        );
+
+        let mut value_bytes = [0u8; 32];
+        value_bytes[31] = 42;
+        assert_eq!(
+            EthUint64::from_bytes(&value_bytes).unwrap().0,
+            42,
+            "simple value"
+        );
+
+        let mut max_bytes = [0u8; 32];
+        max_bytes[24..32].copy_from_slice(&u64::MAX.to_be_bytes());
+        assert_eq!(
+            EthUint64::from_bytes(&max_bytes).unwrap().0,
+            u64::MAX,
+            "valid max value"
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_wrong_length() {
+        let short_bytes = [0u8; 31];
+        assert!(
+            EthUint64::from_bytes(&short_bytes).is_err(),
+            "bytes too short"
+        );
+
+        let long_bytes = [0u8; 33];
+        assert!(
+            EthUint64::from_bytes(&long_bytes).is_err(),
+            "bytes too long"
+        );
+
+        let empty_bytes = [];
+        assert!(
+            EthUint64::from_bytes(&empty_bytes).is_err(),
+            "bytes too short"
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_overflow() {
+        let mut overflow_bytes = [0u8; 32];
+        overflow_bytes[10] = 1;
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with non-zero byte at position 10"
+        );
+
+        overflow_bytes = [0u8; 32];
+        overflow_bytes[23] = 1;
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with non-zero byte at position 23"
+        );
+
+        overflow_bytes = [0u8; 32];
+        overflow_bytes
+            .iter_mut()
+            .take(24)
+            .for_each(|byte| *byte = 0xFF);
+
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow bytes with non-zero bytes at positions 0-23"
+        );
+
+        overflow_bytes = [0u8; 32];
+        for i in 0..24 {
+            overflow_bytes[i] = 0xFF;
+            assert!(
+                EthUint64::from_bytes(&overflow_bytes).is_err(),
+                "overflow with non-zero byte at position {i}"
+            );
+        }
+
+        overflow_bytes = [0xFF; 32];
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with all ones"
+        );
     }
 }

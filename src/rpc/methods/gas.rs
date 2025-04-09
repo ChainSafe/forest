@@ -254,7 +254,7 @@ impl GasEstimateGasLimit {
         data: &Ctx<DB>,
         msg: Message,
         tsk: &ApiTipsetKey,
-    ) -> anyhow::Result<i64>
+    ) -> Result<i64>
     where
         DB: Blockstore + Send + Sync + 'static,
     {
@@ -263,13 +263,12 @@ impl GasEstimateGasLimit {
             .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
         match res.msg_rct {
             Some(rct) => {
-                if !rct.exit_code().is_success() {
-                    return Err(anyhow::anyhow!(
-                        "message execution failed: exit code: {}, reason: {}",
-                        rct.exit_code().value(),
-                        res.error.unwrap_or_default()
-                    ));
-                }
+                anyhow::ensure!(
+                    rct.exit_code().is_success(),
+                    "message execution failed: exit code: {}, reason: {}",
+                    rct.exit_code().value(),
+                    res.error.unwrap_or_default()
+                );
                 Ok(rct.gas_used() as i64)
             }
             None => Ok(-1),

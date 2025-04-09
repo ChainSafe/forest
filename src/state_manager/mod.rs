@@ -685,8 +685,8 @@ where
             .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced)
             .await?;
         Ok(ApiInvocResult {
-            msg: msg.clone(),
             msg_cid: msg.cid(),
+            msg,
             msg_rct: Some(apply_ret.msg_receipt()),
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,

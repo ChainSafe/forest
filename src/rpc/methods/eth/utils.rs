@@ -8,7 +8,7 @@ use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::StateTree;
 use ahash::{HashMap, HashMapExt};
 
-use crate::rpc::eth::EthUint64;
+use crate::rpc::eth::{EthUint64, EVM_WORD_LENGTH};
 use anyhow::{Result, bail};
 use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
@@ -138,7 +138,6 @@ static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
 
 /// EVM error and panic related constants
 const EVM_FUNC_SELECTOR_LENGTH: usize = 4;
-const EVM_WORD_LENGTH: usize = 32;
 const EVM_PANIC_CODE_LENGTH: usize = 32;
 const EVM_UINT_PADDING_LENGTH: usize = 24;
 
