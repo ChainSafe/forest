@@ -708,7 +708,7 @@ where
         let (st, _) = self
             .tipset_state(&ts)
             .await
-            .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
+            .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(Arc::clone(&ts));
 
         // Since we're simulating a future message, pretend we're applying it in the
