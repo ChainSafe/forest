@@ -637,6 +637,7 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
+    ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
     maybe_start_f3_service(&mut services, &opts, &config, &ctx);
