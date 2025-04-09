@@ -37,6 +37,12 @@
 
 ### Fixed
 
+## Forest v0.25.3 "Sméagol"
+
+This is a non-mandatory, but highly recommended, release targeting the mainnet node operators. It includes a fix preventing the node from duplicate, costly migrations. Given the upcoming network upgrade state migration is expected to be slow, we recommend upgrading your Forest node before `Mon 14 Apr 23:00:00 UTC 2025`.
+
+### Fixed
+
 - [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
 - [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
 - [#5540](https://github.com/ChainSafe/forest/pull/5540) Avoid duplicate migrations.
