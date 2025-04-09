@@ -100,15 +100,12 @@ pub enum Permission {
 /// This information is important when using [`crate::rpc::client`].
 #[bitflags]
 #[repr(u8)]
-#[derive(
-    Debug, Default, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum, EnumString,
-)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum, EnumString)]
 pub enum ApiPaths {
     /// Only expose this method on `/rpc/v0`
     #[strum(ascii_case_insensitive)]
     V0 = 0b00000001,
     /// Only expose this method on `/rpc/v1`
-    #[default]
     #[strum(ascii_case_insensitive)]
     V1 = 0b00000010,
     /// Only expose this method on `/rpc/v2`
