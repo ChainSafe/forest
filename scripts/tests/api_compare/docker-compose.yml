@@ -54,7 +54,7 @@ services:
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
-          --import-mode=symlink
+          --import-mode=symlink \
           --halt-after-import
         
         SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
