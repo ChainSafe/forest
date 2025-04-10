@@ -530,22 +530,7 @@ jobs:
           sudo mv /var/lib/docker/volumes /mnt/docker-volumes
           sudo ln -sf /mnt/docker-volumes /var/lib/docker/volumes
           sudo ls /var/lib/docker/volumes
-      # Remove some unnecessary software to free up space. This should free up around 15-20 GB.
-      # This is required because of the limited space on the runner,
-      # and disk space-hungry snapshots used in the setup.
-      # This is taken from:
-      # https://github.com/easimon/maximize-build-space/blob/fc881a613ad2a34aca9c9624518214ebc21dfc0c/action.yml#L121-L136
-      # Using the action directly is not feasible as it does some more modifications that break the setup in our case.
-      -   name: Remove unnecessary software
-          run: |
-              echo "Disk space before cleanup"
-              df -h
-              sudo rm -rf /usr/share/dotnet
-              sudo rm -rf /usr/local/lib/android
-              sudo rm -rf /opt/ghc
-              sudo rm -rf /opt/hostedtoolcache/CodeQL
-              echo "Disk space after cleanup"
-              df -h
+          df -h
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
