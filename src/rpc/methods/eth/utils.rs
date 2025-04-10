@@ -8,7 +8,7 @@ use crate::shim::fvm_shared_latest::IDENTITY_HASH;
 use crate::shim::state_tree::StateTree;
 use ahash::{HashMap, HashMapExt};
 
-use crate::rpc::eth::{EthUint64, EVM_WORD_LENGTH};
+use crate::rpc::eth::{EVM_WORD_LENGTH, EthUint64};
 use anyhow::{Result, bail};
 use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
