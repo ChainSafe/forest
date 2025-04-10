@@ -12,7 +12,6 @@ Filecoin.AuthNew
 Filecoin.AuthVerify
 Filecoin.ChainExport
 Filecoin.ChainGetEvents
-Filecoin.ChainGetMinBaseFee
 Filecoin.ChainSetHead
 Filecoin.EthEstimateGas
 Filecoin.EthGetFilterChanges
@@ -83,3 +82,4 @@ Forest.NetInfo
 Forest.StateCompute
 Forest.StateFetchRoot
 Forest.SyncSnapshotProgress
+Forest.ChainGetMinBaseFee
