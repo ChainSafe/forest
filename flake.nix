@@ -1,0 +1,131 @@
+{
+  description = "Forest - A Rust implementation of Filecoin";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    crane.url = "github:ipetkov/crane";
+    flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = {
+    self,
+    nixpkgs,
+    crane,
+    flake-utils,
+    rust-overlay,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [(import rust-overlay)];
+      };
+
+      rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+      # This is a hack to get the f3-sidecar vendor files into the build directory
+      f3-sidecar-files = pkgs.buildGoModule {
+        pname = "f3-sidecar-files";
+        version = "0.1.0";
+        src = pkgs.lib.cleanSourceWith {
+          src = ./f3-sidecar;
+        };
+        buildPhase = ''
+          mkdir -p $out
+          cp -r . $out
+        '';
+        vendorHash = "sha256-Pe3bgBZr8pdn2XVOQRvEjvnXldw7N1ehv0zY51kGSSk=";
+      };
+
+      src = pkgs.lib.cleanSourceWith {
+        src = ./.;
+        filter = path: type:
+          (craneLib.filterCargoSources path type)
+          || (type == "regular" && pkgs.lib.hasSuffix ".stpl" path)
+          || (type == "regular" && pkgs.lib.hasSuffix ".json" path)
+          || (type == "regular" && pkgs.lib.hasSuffix ".car" path)
+          || (type == "regular" && pkgs.lib.hasSuffix ".txt" path)
+          || (pkgs.lib.hasInfix "/build/" path)
+          || (pkgs.lib.hasInfix "/f3-sidecar/" path)
+          || (pkgs.lib.hasInfix "/test-snapshots/" path);
+      };
+
+      # Common arguments can be set here to avoid repeating them later
+      commonArgs = {
+        inherit src;
+
+        buildInputs = with pkgs; [
+          # Add runtime dependencies here
+        ];
+
+        nativeBuildInputs = with pkgs; [
+          # Add build-time dependencies here
+          go # For rust2go compilation
+          clang # For C/C++ compilation
+        ];
+
+        doCheck = false;
+      };
+
+      # Build *just* the cargo dependencies, so we can reuse
+      # all of that work (e.g. via cachix) when running in CI
+      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+      # Build the actual crate itself, reusing the dependency
+      # artifacts from above.
+      forest = craneLib.buildPackage (commonArgs
+        // {
+          inherit cargoArtifacts;
+          preConfigure = ''
+            export GOCACHE=$(mktemp -d)
+            export GOMODCACHE=$(mktemp -d)
+          '';
+          preBuild = ''
+            # Copy f3-sidecar files into the build directory
+            cp -r ${f3-sidecar-files}/vendor f3-sidecar/
+          '';
+          LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          # Environment variables needed for the build
+          # FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT = "1";
+        });
+    in {
+      checks = {
+        # Build the crate as part of `nix flake check` for convenience
+        inherit forest;
+      };
+
+      packages.default = forest;
+      packages.dependencies = cargoArtifacts;
+
+      apps = let
+        binaries = ["forest" "forest-cli" "forest-tool" "forest-wallet"];
+        mkBinApp = name:
+          flake-utils.lib.mkApp {
+            drv = forest;
+            inherit name;
+          };
+      in
+        {
+          default = mkBinApp "forest";
+        }
+        // builtins.listToAttrs (map (name: {
+            inherit name;
+            value = mkBinApp name;
+          })
+          binaries);
+
+      devShells.default = pkgs.mkShell {
+        inputsFrom = builtins.attrValues self.checks.${system};
+
+        # Additional dev-shell environment variables can be set directly
+        shellHook = ''
+          echo "Forest development shell"
+        '';
+      };
+    });
+}
