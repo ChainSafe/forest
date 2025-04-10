@@ -955,16 +955,11 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
-    let (state_root, receipts) = data
-        .state_manager
-        .tipset_state_and_message_receipts(tipset)
-        .await?;
+    let (state_root, _) = data.state_manager.tipset_state(tipset).await?;
+    let receipts = data.state_manager.tipset_message_receipts(tipset).await?;
 
     if msgs.len() != receipts.len() {
-        bail!(
-            "receipts and message array lengths didn't match for tipset: {:?}",
-            tipset
-        )
+        bail!("receipts and message array lengths didn't match for tipset: {tipset:?}")
     }
 
     Ok((
