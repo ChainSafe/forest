@@ -71,7 +71,7 @@ use cfg_vis::cfg_vis;
 use cid::Cid;
 use itertools::Itertools as _;
 use positioned_io::{ReadAt, Size};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::{
     cmp,
     io::{self, Read, Write},
@@ -386,9 +386,7 @@ impl Writer {
         slots
             .into_iter()
             .flat_map(|(pre, occ)| {
-                iter::repeat(Slot::Empty)
-                    .take(pre)
-                    .chain(iter::once(Slot::Occupied(occ)))
+                std::iter::repeat_n(Slot::Empty, pre).chain(iter::once(Slot::Occupied(occ)))
             })
             // ensure there are at least `initial_width` slots, else lookups could
             // try and read off the end of the table

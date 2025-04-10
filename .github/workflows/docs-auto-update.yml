@@ -25,6 +25,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           base: main
+          branch: leshy/update-forest-docs
           token: ${{ secrets.ACTIONS_PAT }}
           commit-message: Update Forest CLI docs
           title: "[automated] Update Forest CLI docs"

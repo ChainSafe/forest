@@ -27,15 +27,55 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.25.3 "Sméagol"
+
+This is a non-mandatory, but highly recommended, release targeting the mainnet node operators. It includes a fix preventing the node from duplicate, costly migrations. Given the upcoming network upgrade state migration is expected to be slow, we recommend upgrading your Forest node before `Mon 14 Apr 23:00:00 UTC 2025`.
+
+### Fixed
+
+- [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
+- [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
+- [#5540](https://github.com/ChainSafe/forest/pull/5540) Avoid duplicate migrations.
+
+## Forest v0.25.2 "Fool of a Took"
+
+This is a mandatory release for mainnet and calibnet node operators. It introduces a fix upgrade for calibnet at epoch `2_558_014` which corresponds to `Mon  7 Apr 23:00:00 UTC 2025` and changes the mainnet upgrade epoch for the NV25 _Teep_ to `4_878_840` which corresponds to `Mon 14 Apr 23:00:00 UTC 2025`.
+
+See [here](https://github.com/filecoin-project/community/discussions/74#discussioncomment-12720764) for details on the issue.
+
+### Changed
+
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Changed the mainnet upgrade epoch for the NV25 _Teep_ to `4_878_840` which corresponds to `Mon 14 Apr 23:00:00 UTC 2025`.
+
+### Fixed
+
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`.
+
+## Forest v0.25.1 "Goldberry"
+
+This is a mandatory release for mainnet node operators. It includes the NV25 _Teep_ network upgrade at epoch `4_867_320` which corresponds to `10 Apr 23:00:00 UTC 2025`. This release also includes a few fixes, most notably a database migration speed up that used to give certain important people a massive headache. Forest Prometheus metrics have been cleaned and you can look them up in the [documentation](https://docs.forest.chainsafe.io/reference/metrics).
+
+### Breaking
+
 - [#5464](https://github.com/ChainSafe/forest/pull/5464) Changed the `allow_response_mismatch` flag to `use_response_from` in the `forest-tool api generate-test-snapshot` subcommand. This allows specifying the source of the response to use when generating test snapshots and creating failing tests.
 
 ### Added
 
 - [#5461](https://github.com/ChainSafe/forest/pull/5461) Add `forest-tool shed migrate-state` command.
+- [#5488](https://github.com/ChainSafe/forest/pull/5488) Add partial support for the `Filecoin.StateCompute` RPC method.
 
 ### Changed
 
 - [#5452](https://github.com/ChainSafe/forest/pull/5452) Speed up void database migration.
+- [#5479](https://github.com/ChainSafe/forest/pull/5479) Move the snapshot progress tracking to sync wait command
 
 ### Removed
 

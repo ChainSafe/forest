@@ -18,10 +18,11 @@ pub mod stats;
 pub mod stream;
 pub mod version;
 
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use futures::{
-    future::{pending, FusedFuture},
-    select, Future, FutureExt,
+    Future, FutureExt,
+    future::{FusedFuture, pending},
+    select,
 };
 use multiaddr::{Multiaddr, Protocol};
 use std::{pin::Pin, str::FromStr, time::Duration};
@@ -182,8 +183,8 @@ pub fn is_ci() -> bool {
 mod tests {
     mod files;
 
-    use std::{future::ready, sync::atomic::AtomicUsize};
     use RetryError::{RetriesExceeded, TimeoutExceeded};
+    use std::{future::ready, sync::atomic::AtomicUsize};
 
     use super::*;
 

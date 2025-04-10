@@ -60,13 +60,14 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
-use crate::cid_collections::{hash_map::Entry as CidHashMapEntry, CidHashMap};
+use crate::cid_collections::{CidHashMap, hash_map::Entry as CidHashMapEntry};
 use crate::db::PersistentStore;
 use crate::utils::db::car_stream::{CarV1Header, CarV2Header};
 use crate::{
     blocks::{Tipset, TipsetKey},
     utils::encoding::from_slice_with_fallback,
 };
+use CidHashMapEntry::{Occupied, Vacant};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use integer_encoding::{FixedIntReader, VarIntReader};
@@ -85,7 +86,6 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace};
-use CidHashMapEntry::{Occupied, Vacant};
 
 /// **Note that all operations on this store are blocking**.
 ///
@@ -489,7 +489,7 @@ mod tests {
         car_stream::{CarStream, CarV1Header},
         car_util::load_car,
     };
-    use futures::{executor::block_on, TryStreamExt as _};
+    use futures::{TryStreamExt as _, executor::block_on};
     use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
     use once_cell::sync::Lazy;
     use std::io::Cursor;

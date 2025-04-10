@@ -9,11 +9,11 @@ use crate::{
     message::SignedMessage,
     shim::{
         address::Address,
-        crypto::{Signature, SignatureType, SECP_SIG_LEN},
+        crypto::{SECP_SIG_LEN, Signature, SignatureType},
         message::{Message, Message_v3},
     },
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 
 /// Returns a Ticket to be used for testing
 pub fn construct_ticket() -> Ticket {

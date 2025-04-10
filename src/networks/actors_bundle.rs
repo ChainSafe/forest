@@ -9,21 +9,21 @@ use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt, stream};
 use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use tokio::fs::File;
 use tracing::warn;
 
-use crate::daemon::bundle::{load_actor_bundles_from_server, ACTOR_BUNDLE_CACHE_DIR};
+use crate::daemon::bundle::{ACTOR_BUNDLE_CACHE_DIR, load_actor_bundles_from_server};
 use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::{download_file_with_cache, DownloadFileOption};
+use crate::utils::net::{DownloadFileOption, download_file_with_cache};
 
 use std::str::FromStr;
 
@@ -83,6 +83,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacebq3hncszqpojglh2dkwekybq4zn6qpc4gceqbx36wndps5qehtau" @ "v14.0.0-rc.1" for "calibrationnet",
         "bafy2bzaceax5zkysst7vtyup4whdxwzlpnaya3qp34rnoi6gyt4pongps7obw" @ "v15.0.0" for "calibrationnet",
         "bafy2bzacebc7zpsrihpyd2jdcvmegbbk6yhzkifre3hxtoul5wdxxklbwitry" @ "v16.0.0-rc3" for "calibrationnet",
+        "bafy2bzacecqtwq6hjhj2zy5gwjp76a4tpcg2lt7dps5ycenvynk2ijqqyo65e" @ "v16.0.1" for "calibrationnet",
         "bafy2bzacearjal5rsmzloz3ny7aoju2rgw66wgxdrydgg27thcsazbmf5qihq" @ "v15.0.0-rc1" for "butterflynet",
         "bafy2bzacedn2h6huw7v2elmmdmpv4phdv4wjwgct7kcrrtdgz7jkjdm6uwa6k" @ "v16.0.0-rc3" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
@@ -93,6 +94,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacebwn7ymtozv5yz3x5hnxl4bds2grlgsk5kncyxjak3hqyhslb534m" @ "v14.0.0-rc.1" for "devnet",
         "bafy2bzacedlusqjwf7chvl2ve2fum5noyqrtjzcrzkhpbzpkg7puiru7dj4ug" @ "v15.0.0-rc1" for "devnet",
         "bafy2bzaceafzrqb6adck3o3mbyd33gtp2272f577hidqyo7cszg2ksn5sebh2" @ "v16.0.0-rc3" for "devnet",
+        "bafy2bzaceclp3wfrwdjgh6c3gee5smwj3zmmrhb4fdbc4yfchfaia6rlljx5o" @ "v16.0.1" for "devnet",
         "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
         "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
         "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
@@ -100,7 +102,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e" @ "v13.0.0" for "mainnet",
         "bafy2bzacecbueuzsropvqawsri27owo7isa5gp2qtluhrfsto2qg7wpgxnkba" @ "v14.0.0" for "mainnet",
         "bafy2bzaceakwje2hyinucrhgtsfo44p54iw4g6otbv5ghov65vajhxgntr53u" @ "v15.0.0" for "mainnet",
-        "bafy2bzaceaj3s3rrfbibikplap264uw74qor5yl35mqwokv4lwst4plpwry36" @ "v16.0.0-rc3" for "mainnet",
+        "bafy2bzacecnepvsh4lw6pwljobvwm6zwu6mbwveatp7llhpuguvjhjiqz7o46" @ "v16.0.1" for "mainnet",
     ])
 });
 

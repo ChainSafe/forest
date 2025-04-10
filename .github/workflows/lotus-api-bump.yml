@@ -32,6 +32,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           base: main
+          branch: leshy/update-lotus-version
           token: ${{ secrets.ACTIONS_PAT }}
           commit-message: Update Lotus dependency
           title: "[automated] Update Lotus version in API tests"

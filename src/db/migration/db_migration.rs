@@ -6,13 +6,13 @@ use std::path::PathBuf;
 use tracing::info;
 
 use crate::{
+    Config,
     cli_shared::chain_path,
     db::{
-        db_mode::{get_latest_versioned_database, DbMode},
+        db_mode::{DbMode, get_latest_versioned_database},
         migration::migration_map::create_migration_chain,
     },
     utils::version::FOREST_VERSION,
-    Config,
 };
 
 /// Governs the database migration process. This is the entry point for the migration process.
@@ -122,13 +122,13 @@ mod tests {
         std::fs::create_dir_all(&db_dir).unwrap();
         let db_migration = DbMigration::new(&config);
 
-        std::env::set_var(FOREST_DB_DEV_MODE, "latest");
+        unsafe { std::env::set_var(FOREST_DB_DEV_MODE, "latest") };
         assert!(!db_migration.is_migration_required().unwrap());
 
         std::fs::remove_dir(db_dir).unwrap();
         std::fs::create_dir_all(temp_dir.path().join("mainnet/cthulhu")).unwrap();
 
-        std::env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
+        unsafe { std::env::set_var(FOREST_DB_DEV_MODE, "cthulhu") };
         assert!(!db_migration.is_migration_required().unwrap());
     }
 
@@ -142,9 +142,9 @@ mod tests {
         std::fs::create_dir_all(db_dir).unwrap();
         let db_migration = DbMigration::new(&config);
 
-        std::env::set_var(FOREST_DB_DEV_MODE, "current");
+        unsafe { std::env::set_var(FOREST_DB_DEV_MODE, "current") };
         assert!(db_migration.is_migration_required().unwrap());
-        std::env::remove_var(FOREST_DB_DEV_MODE);
+        unsafe { std::env::remove_var(FOREST_DB_DEV_MODE) };
         assert!(db_migration.is_migration_required().unwrap());
     }
 }

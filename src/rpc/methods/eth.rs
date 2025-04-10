@@ -12,37 +12,37 @@ use self::filter::hex_str_to_epoch;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{index::ResolveNullTipset, ChainStore};
+use crate::chain::{ChainStore, index::ResolveNullTipset};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::eth::{parse_eth_transaction, SAFE_EPOCH_DELAY};
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs,
 };
+use crate::eth::{SAFE_EPOCH_DELAY, parse_eth_transaction};
 use crate::interpreter::VMTrace;
-use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
+use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
+use crate::rpc::EthEventHandler;
 use crate::rpc::error::ServerError;
 use crate::rpc::eth::filter::{
-    event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter, SkipEvent,
+    SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter,
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
-use crate::rpc::EthEventHandler;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::actors::eam;
 use crate::shim::actors::evm;
 use crate::shim::actors::is_evm_actor;
 use crate::shim::actors::system;
-use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
-use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
+use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
-use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
+use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
@@ -51,11 +51,12 @@ use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
-use anyhow::{anyhow, bail, ensure, Context, Error, Result};
+use ahash::HashSet;
+use anyhow::{Context, Error, Result, anyhow, bail, ensure};
 use cid::Cid;
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
@@ -105,6 +106,8 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 // TODO(forest): https://github.com/ChainSafe/forest/issues/4436
 //               use ethereum_types::U256 or use lotus_json::big_int
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -161,6 +164,8 @@ impl Bloom {
 }
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -409,11 +414,30 @@ impl ExtBlockNumberOrHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
     Hash(Vec<String>),
     Full(Vec<ApiEthTx>),
+}
+
+impl Transactions {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Hash(v) => v.is_empty(),
+            Self::Full(v) => v.is_empty(),
+        }
+    }
+}
+
+impl PartialEq for Transactions {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Hash(a), Self::Hash(b)) => a == b,
+            (Self::Full(a), Self::Full(b)) => a == b,
+            _ => self.is_empty() && other.is_empty(),
+        }
+    }
 }
 
 impl Default for Transactions {
@@ -516,7 +540,7 @@ impl ApiEthTx {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EthSyncingResult {
     pub done_sync: bool,
     pub starting_block: i64,
@@ -524,7 +548,7 @@ pub struct EthSyncingResult {
     pub highest_block: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthSyncingResultLotusJson {
     DoneSync(bool),
@@ -1027,7 +1051,10 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
         .chain(padding.iter())
         .chain(static_args[3].to_be_bytes().iter())
         .chain(data.iter()) // Finally, we copy in the data
-        .chain(std::iter::repeat(&0u8).take(round_up_word(data.len()) - data.len())) // Left pad
+        .chain(std::iter::repeat_n(
+            &0u8,
+            round_up_word(data.len()) - data.len(),
+        )) // Left pad
         .cloned()
         .collect();
 
@@ -3211,7 +3238,17 @@ impl RpcMethod<1> for EthTraceFilter {
         let to_block =
             get_eth_block_number_from_string(ctx.chain_store(), filter.to_block.as_deref())
                 .context("cannot parse toBlock")?;
-        Ok(trace_filter(ctx, filter, from_block, to_block).await?)
+        Ok(trace_filter(ctx, filter, from_block, to_block)
+            .await?
+            .into_iter()
+            .sorted_by_key(|trace| {
+                (
+                    trace.block_number,
+                    trace.transaction_position,
+                    trace.trace.trace_address.clone(),
+                )
+            })
+            .collect::<Vec<_>>())
     }
 }
 
@@ -3220,8 +3257,8 @@ async fn trace_filter(
     filter: EthTraceFilterCriteria,
     from_block: EthUint64,
     to_block: EthUint64,
-) -> Result<Vec<EthBlockTrace>> {
-    let mut results = vec![];
+) -> Result<HashSet<EthBlockTrace>> {
+    let mut results = HashSet::default();
     if let Some(EthUint64(0)) = filter.count {
         return Ok(results);
     }
@@ -3252,7 +3289,7 @@ async fn trace_filter(
                     }
                 }
 
-                results.push(block_trace);
+                results.insert(block_trace);
 
                 if filter.count.is_some() && results.len() >= count as usize {
                     return Ok(results);

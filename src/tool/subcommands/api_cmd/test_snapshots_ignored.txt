@@ -57,9 +57,7 @@ Filecoin.NetVersion
 Filecoin.NodeStatus
 Filecoin.Shutdown
 Filecoin.StartTime
-Filecoin.StateCall
 Filecoin.StateGetReceipt
-Filecoin.StateReplay
 Filecoin.StateSectorPreCommitInfoV0
 Filecoin.StateWaitMsgV0
 Filecoin.SyncCheckBad

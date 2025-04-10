@@ -4,7 +4,10 @@
 use crate::{
     eth::EthChainId,
     make_height,
-    shim::{clock::ChainEpoch, version::NetworkVersion},
+    shim::{
+        clock::{ChainEpoch, EPOCHS_IN_DAY},
+        version::NetworkVersion,
+    },
 };
 use ahash::HashMap;
 use cid::Cid;
@@ -13,9 +16,10 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 
 use super::{
+    DrandPoint, Height, HeightInfo, NetworkChain,
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
-    parse_bootstrap_peers, DrandPoint, Height, HeightInfo, NetworkChain,
+    parse_bootstrap_peers,
 };
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
@@ -75,9 +79,11 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Waffle, 4_154_640, get_bundle_cid("v14.0.0")),
         // Wed 20 Nov 23:00:00 UTC 2024
         make_height!(TukTuk, 4_461_240, get_bundle_cid("v15.0.0")),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/5041
-        make_height!(Teep, i64::MAX, get_bundle_cid("v16.0.0-rc3")),
-        make_height!(Tock, i64::MAX),
+        // Mon 14 Apr 23:00:00 UTC 2025
+        make_height!(Teep, 4_878_840, get_bundle_cid("v16.0.1")),
+        // This epoch, 90 days after Teep is the completion of FIP-0100 where actors will start applying
+        // the new daily fee to pre-Teep sectors being extended.
+        make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
     ])
 });
 

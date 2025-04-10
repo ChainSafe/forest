@@ -47,7 +47,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v5
@@ -61,7 +61,7 @@ jobs:
           command: |
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - name: Install Lint tools
-        run: make install-lint-tools-ci-arm
+        run: make install-lint-tools-ci
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - run: make lint-all

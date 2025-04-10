@@ -18,10 +18,10 @@ use cid::Cid;
 use fil_actor_miner_state::v12::State as MinerStateOld;
 use fil_actors_shared::v12::Array as ArrayOld;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared4::ActorID;
 use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::{SectorID, SectorNumber};
-use fvm_shared4::ActorID;
 use parking_lot::RwLock;
 use std::sync::Arc;
 

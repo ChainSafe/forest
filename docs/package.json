@@ -21,10 +21,10 @@
     "@docusaurus/core": "^3.7.0",
     "@docusaurus/preset-classic": "^3.7.0",
     "@docusaurus/theme-mermaid": "^3.7.0",
-    "@easyops-cn/docusaurus-search-local": "^0.49.1",
+    "@easyops-cn/docusaurus-search-local": "^0.49.2",
     "@metamask/docusaurus-openrpc": "^0.4.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.5.0",
+    "mermaid": "^11.6.0",
     "prettier": "^3.5.3",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.0.0",
@@ -34,7 +34,7 @@
     "@docusaurus/module-type-aliases": "^3.7.0",
     "@docusaurus/tsconfig": "^3.7.0",
     "spellchecker-cli": "^7.0.0",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.3"
   },
   "browserslist": {
     "production": [

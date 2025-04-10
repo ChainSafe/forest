@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    io::{stdout, Write},
+    io::{Write, stdout},
     time::Duration,
 };
 
@@ -76,9 +76,24 @@ impl HealthcheckCommand {
         );
 
         for _ in ticker {
-            let response = reqwest::get(&url).await?;
-            let status = response.status();
-            let text = response.text().await?;
+            let (status, text) = {
+                match reqwest::get(&url).await {
+                    Ok(response) => {
+                        let status = response.status();
+                        let text = match response.text().await {
+                            Ok(t) => t,
+                            Err(e) if wait => e.to_string(),
+                            Err(e) => anyhow::bail!("{e}"),
+                        };
+                        (status, text)
+                    }
+                    Err(e) if wait => {
+                        eprintln!("{e}");
+                        (http::StatusCode::INTERNAL_SERVER_ERROR, "".into())
+                    }
+                    Err(e) => anyhow::bail!("{e}"),
+                }
+            };
 
             println!("{}", text);
 

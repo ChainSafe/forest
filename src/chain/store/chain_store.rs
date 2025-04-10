@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
+    Error,
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
-    Error,
 };
 use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMEvent, VMTrace};
@@ -36,7 +36,7 @@ use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, trace, warn};
@@ -327,11 +327,10 @@ where
                 Arc::clone(&chain_index),
                 Arc::clone(&chain_config),
                 beacon,
-                // Creating new WASM engines is expensive (takes seconds to
-                // minutes). It's only acceptable here because this situation is
-                // so rare (may happen in dev-networks, doesn't happen in
-                // calibnet or mainnet.)
-                &crate::shim::machine::MultiEngine::default(),
+                // Using shared WASM engine here as creating new WASM engines is expensive
+                // (takes seconds to minutes). It's only acceptable here because this situation is
+                // so rare (may happen in dev-networks, doesn't happen in calibnet or mainnet.)
+                &crate::shim::machine::GLOBAL_MULTI_ENGINE,
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,

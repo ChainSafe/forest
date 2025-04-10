@@ -13,9 +13,9 @@ use fil_actor_market_state::v12::{
     DealProposal, DealState as DealStateOld, State as MarketStateOld,
 };
 use fil_actor_market_state::v13::{
-    DealState as DealStateNew, ProviderSectorsMap as ProviderSectorsMapNew, SectorDealIDs,
-    SectorDealsMap, State as MarketStateNew, PROVIDER_SECTORS_CONFIG, SECTOR_DEALS_CONFIG,
-    STATES_AMT_BITWIDTH,
+    DealState as DealStateNew, PROVIDER_SECTORS_CONFIG,
+    ProviderSectorsMap as ProviderSectorsMapNew, SECTOR_DEALS_CONFIG, STATES_AMT_BITWIDTH,
+    SectorDealIDs, SectorDealsMap, State as MarketStateNew,
 };
 
 use fil_actors_shared::v12::Array as ArrayOld;

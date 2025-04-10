@@ -8,8 +8,8 @@ pub mod main;
 
 use crate::blocks::Tipset;
 use crate::chain::HeadChange;
-use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::chain_sync::ChainFollower;
+use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
@@ -19,15 +19,15 @@ use crate::daemon::context::{AppContext, DbType};
 use crate::daemon::db_util::{
     import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
 };
-use crate::db::car::ManyCar;
 use crate::db::SettingsStore;
-use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt};
+use crate::db::car::ManyCar;
+use crate::db::{MarkAndSweep, MemoryDB, SettingsExt, ttl::EthMappingCollector};
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig};
+use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
-use crate::rpc::RPCState;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
@@ -36,9 +36,9 @@ use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::ensure_proof_params_downloaded,
     version::FOREST_VERSION_STRING,
 };
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
-use futures::{select, Future, FutureExt};
+use futures::{Future, FutureExt, select};
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
@@ -51,7 +51,7 @@ use tokio::{
     net::TcpListener,
     signal::{
         ctrl_c,
-        unix::{signal, SignalKind},
+        unix::{SignalKind, signal},
     },
     sync::mpsc,
     task::JoinSet,
@@ -151,7 +151,7 @@ fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
     );
     if opts.detach {
         tracing::warn!("F3 sidecar is disabled in detach mode");
-        std::env::set_var("FOREST_F3_SIDECAR_FFI_ENABLED", "0");
+        unsafe { std::env::set_var("FOREST_F3_SIDECAR_FFI_ENABLED", "0") };
     }
     Ok(())
 }
@@ -174,6 +174,7 @@ async fn maybe_import_snapshot(
         .await?;
     }
 
+    let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
@@ -181,7 +182,7 @@ async fn maybe_import_snapshot(
                 path,
                 &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
-                ctx.snapshot_progress_tracker.clone(),
+                &snapshot_tracker,
             )
             .await?;
             ctx.db
@@ -197,6 +198,12 @@ async fn maybe_import_snapshot(
                 car_db_path.display(),
             );
         }
+    }
+
+    // If the snapshot progress state is not completed,
+    // set the state to not required
+    if !snapshot_tracker.is_completed() {
+        snapshot_tracker.not_required();
     }
 
     if let Some(validate_from) = config.client.snapshot_height {
@@ -387,13 +394,16 @@ async fn maybe_start_health_check_service(
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
         };
-        let listener =
-            tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
+        let healthcheck_address = forest_state.config.client.healthcheck_address;
+        info!("Healthcheck endpoint will listen at {healthcheck_address}");
+        let listener = tokio::net::TcpListener::bind(healthcheck_address).await?;
         services.spawn(async move {
             crate::health::init_healthcheck_server(forest_state, listener)
                 .await
                 .context("Failed to initiate healthcheck server")
         });
+    } else {
+        info!("Healthcheck service is disabled");
     }
     Ok(())
 }
@@ -627,6 +637,7 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
+    ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
     maybe_start_f3_service(&mut services, &opts, &config, &ctx);
@@ -698,7 +709,9 @@ async fn maybe_set_snapshot_path(
                 .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
-            println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
+            println!(
+                "Forest requires a snapshot to sync with the network, but automatic fetching is disabled."
+            );
             let message = format!(
                 "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
                 indicatif::HumanBytes(num_bytes)
@@ -713,7 +726,9 @@ async fn maybe_set_snapshot_path(
             })
             .await;
             if !have_permission {
-                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
+                bail!(
+                    "Forest requires a snapshot to sync with the network, but automatic fetching is disabled."
+                )
             }
             config.client.snapshot_path = Some(url.to_string().into());
         }

@@ -1,6 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::auth::{create_token, generate_priv_key, ADMIN};
+use crate::auth::{ADMIN, create_token, generate_priv_key};
 use crate::chain::ChainStore;
 use crate::cli_shared::chain_path;
 use crate::cli_shared::cli::CliOpts;
@@ -10,7 +10,7 @@ use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
-use crate::db::{DummyStore, EthMappingsStore, CAR_DB_DIR_NAME};
+use crate::db::{CAR_DB_DIR_NAME, DummyStore, EthMappingsStore};
 use crate::genesis::read_genesis_header;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
@@ -18,8 +18,8 @@ use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
 use crate::state_manager::StateManager;
 use crate::{
-    Config, KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
-    JWT_IDENTIFIER,
+    Config, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, JWT_IDENTIFIER, KeyStore,
+    KeyStoreConfig,
 };
 use anyhow::Context;
 use dialoguer::console::Term;

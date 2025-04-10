@@ -5,13 +5,15 @@ use super::*;
 use anyhow::ensure;
 use ipld_core::serde::SerdeError;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
-use serde::de::{value::StringDeserializer, IntoDeserializer};
+use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -37,7 +39,7 @@ impl From<RawBytes> for EthBytes {
 
 impl From<Bloom> for EthBytes {
     fn from(value: Bloom) -> Self {
-        Self(value.0 .0.to_vec())
+        Self(value.0.0.to_vec())
     }
 }
 
@@ -81,6 +83,8 @@ impl GetStorageAtParams {
 }
 
 #[derive(
+    Eq,
+    Hash,
     PartialEq,
     Debug,
     Deserialize,
@@ -493,7 +497,7 @@ lotus_json_with_self!(EthFilterSpec);
 /// - A list of block hashes
 /// - A list of transaction hashes
 /// - Or a list of logs
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthFilterResult {
     Blocks(Vec<EthHash>),
@@ -502,7 +506,28 @@ pub enum EthFilterResult {
 }
 lotus_json_with_self!(EthFilterResult);
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+impl EthFilterResult {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Blocks(v) => v.is_empty(),
+            Self::Txs(v) => v.is_empty(),
+            Self::Logs(v) => v.is_empty(),
+        }
+    }
+}
+
+impl PartialEq for EthFilterResult {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Blocks(a), Self::Blocks(b)) => a == b,
+            (Self::Txs(a), Self::Txs(b)) => a == b,
+            (Self::Logs(a), Self::Logs(b)) => a == b,
+            _ => self.is_empty() && other.is_empty(),
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceAction {
     pub call_type: String,
@@ -513,7 +538,7 @@ pub struct EthCallTraceAction {
     pub input: EthBytes,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceAction {
     pub from: EthAddress,
@@ -522,7 +547,7 @@ pub struct EthCreateTraceAction {
     pub init: EthBytes,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum TraceAction {
     Call(EthCallTraceAction),
@@ -535,14 +560,14 @@ impl Default for TraceAction {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCallTraceResult {
     pub gas_used: EthUint64,
     pub output: EthBytes,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthCreateTraceResult {
     pub address: Option<EthAddress>,
@@ -550,7 +575,7 @@ pub struct EthCreateTraceResult {
     pub code: EthBytes,
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum TraceResult {
     Call(EthCallTraceResult),
@@ -563,7 +588,7 @@ impl Default for TraceResult {
     }
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthTrace {
     pub r#type: String,
@@ -575,7 +600,7 @@ pub struct EthTrace {
     pub error: Option<String>,
 }
 
-#[derive(PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Eq, Hash, PartialEq, Default, Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EthBlockTrace {
     #[serde(flatten)]
@@ -684,7 +709,7 @@ impl EthTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::{prelude::BASE64_STANDARD, Engine as _};
+    use base64::{Engine as _, prelude::BASE64_STANDARD};
 
     #[test]
     fn get_bytecode_return_roundtrip() {

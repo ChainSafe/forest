@@ -3,13 +3,13 @@
 
 pub mod ext;
 
-use crate::shim::actors::convert::*;
 use crate::shim::actors::Policy;
+use crate::shim::actors::convert::*;
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{serde_bytes, BytesDe};
+use fvm_ipld_encoding::{BytesDe, serde_bytes};
 use fvm_shared2::{
     address::Address,
     clock::{ChainEpoch, QuantSpec},

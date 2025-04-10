@@ -48,14 +48,14 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
-use crate::db::car::plain::write_skip_frame_header_async;
-use crate::db::car::RandomAccessFileReader;
 use crate::db::PersistentStore;
+use crate::db::car::RandomAccessFileReader;
+use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
-use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
+use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
@@ -233,11 +233,13 @@ where
 
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        debug_assert!(CarBlock {
-            cid: *k,
-            data: block.to_vec()
-        }
-        .valid());
+        debug_assert!(
+            CarBlock {
+                cid: *k,
+                data: block.to_vec()
+            }
+            .valid()
+        );
         self.write_cache.write().insert(*k, Vec::from(block));
         Ok(())
     }

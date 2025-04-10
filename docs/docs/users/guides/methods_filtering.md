@@ -104,6 +104,6 @@ If you are running a public RPC node, it is recommended to filter certain method
 # Creates a snapshot of the chain and writes it to a file. Very resource-intensive.
 !Filecoin.ChainExport
 # Potentially resource-intensive.
-!Filecoin.EthCall
-!eth_call
+!Filecoin.StateCompute
+!Filecoin.StateReplay
 ```

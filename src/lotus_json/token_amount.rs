@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::econ::TokenAmount;
 use num::BigInt;
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)] // name the field for clarity
 #[schemars(rename = "TokenAmount")]
 pub struct TokenAmountLotusJson {

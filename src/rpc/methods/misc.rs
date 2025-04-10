@@ -8,12 +8,12 @@ use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::rpc::eth::CollectedEvent;
+use crate::rpc::eth::filter::{ParsedFilter, SkipEvent};
 use crate::{
     blocks::TipsetKey,
-    lotus_json::{lotus_json_with_self, LotusJson},
-    rpc::{types::EventEntry, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
+    lotus_json::{LotusJson, lotus_json_with_self},
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::EventEntry},
     shim::{address::Address, clock::ChainEpoch},
 };
 
@@ -23,7 +23,9 @@ impl RpcMethod<1> for GetActorEventsRaw {
     const PARAM_NAMES: [&'static str; 1] = ["eventFilter"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some("Returns all user-programmed and built-in actor events that match the given filter. Results may be limited by MaxFilterResults, MaxFilterHeightRange, and the node's available historical data.");
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns all user-programmed and built-in actor events that match the given filter. Results may be limited by MaxFilterResults, MaxFilterHeightRange, and the node's available historical data.",
+    );
 
     type Params = (Option<ActorEventFilter>,);
     type Ok = Vec<ActorEvent>;
@@ -69,7 +71,7 @@ pub struct ActorEventBlock {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActorEvent {
     pub entries: Vec<EventEntry>,

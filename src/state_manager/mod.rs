@@ -11,15 +11,15 @@ use self::utils::structured;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
-    index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
+    index::{ChainIndex, ResolveNullTipset},
 };
 use crate::interpreter::{
-    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext, VMEvent,
-    IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    ApplyResult, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    VMEvent, resolve_to_key_addr,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
@@ -30,8 +30,8 @@ use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::*;
 use crate::shim::{
     actors::{
-        miner::ext::MinerStateExt as _, verifreg::ext::VerifiedRegistryStateExt as _,
-        LoadActorStateFromBlockstore,
+        LoadActorStateFromBlockstore, miner::ext::MinerStateExt as _,
+        verifreg::ext::VerifiedRegistryStateExt as _,
     },
     executor::{ApplyRet, Receipt, StampedEvent},
 };
@@ -39,6 +39,7 @@ use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
+    machine::{GLOBAL_MULTI_ENGINE, MultiEngine},
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -47,7 +48,7 @@ use crate::shim::{
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
 use ahash::{HashMap, HashMapExt};
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -58,7 +59,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
 use fil_actors_shared::v13::runtime::Policy;
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, select};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools as _;
@@ -72,7 +73,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
+use tokio::sync::{Mutex as TokioMutex, RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
 
@@ -246,7 +247,9 @@ impl<V: Clone> TipsetStateCache<V> {
 }
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema)]
+#[derive(
+    Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema,
+)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -264,8 +267,8 @@ lotus_json_with_self!(MarketBalance);
 /// the chain. The state manager not only allows interfacing with state, but
 /// also is used when performing state transitions.
 pub struct StateManager<DB> {
+    /// Chain store
     cs: Arc<ChainStore<DB>>,
-
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache<StateOutputValue>,
     /// This is a cache dedicated to tipset events.
@@ -274,7 +277,7 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
-    engine: crate::shim::machine::MultiEngine,
+    engine: Arc<MultiEngine>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -288,6 +291,14 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
+        Self::new_with_engine(cs, chain_config, GLOBAL_MULTI_ENGINE.clone())
+    }
+
+    pub fn new_with_engine(
+        cs: Arc<ChainStore<DB>>,
+        chain_config: Arc<ChainConfig>,
+        engine: Arc<MultiEngine>,
+    ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
@@ -297,8 +308,30 @@ where
             events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
-            engine: crate::shim::machine::MultiEngine::default(),
+            engine,
         })
+    }
+
+    // Given the assumption that the heaviest tipset must always be validated,
+    // we can populate our state cache by walking backwards through the
+    // block-chain. A warm cache cuts 10-20 seconds from the first state
+    // validation, and it prevents duplicate migrations.
+    pub fn populate_cache(&self) {
+        for (child, parent) in self
+            .cs
+            .chain_index
+            .chain(self.cs.heaviest_tipset())
+            .tuple_windows()
+            .take(DEFAULT_TIPSET_CACHE_SIZE.into())
+        {
+            self.cache.insert(
+                parent.key().clone(),
+                StateOutputValue {
+                    state_root: child.min_ticket_block().state_root,
+                    receipt_root: child.min_ticket_block().message_receipts,
+                },
+            )
+        }
     }
 
     pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
@@ -848,6 +881,56 @@ where
         )?)
     }
 
+    #[instrument(skip_all)]
+    pub async fn compute_state(
+        self: &Arc<Self>,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || {
+            this.compute_state_blocking(
+                height,
+                messages,
+                tipset,
+                callback,
+                enable_tracing,
+                enable_event_pushing,
+            )
+        })
+        .await?
+    }
+
+    /// Blocking version of `compute_state`
+    #[tracing::instrument(skip_all)]
+    pub fn compute_state_blocking(
+        &self,
+        height: ChainEpoch,
+        messages: Vec<Message>,
+        tipset: Arc<Tipset>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        enable_tracing: VMTrace,
+        enable_event_pushing: VMEvent,
+    ) -> Result<StateOutput, Error> {
+        Ok(compute_state(
+            height,
+            messages,
+            tipset,
+            self.chain_store().genesis_block_header().timestamp,
+            Arc::clone(&self.chain_store().chain_index),
+            Arc::clone(&self.chain_config),
+            self.beacon_schedule().clone(),
+            &self.engine,
+            callback,
+            enable_tracing,
+            enable_event_pushing,
+        )?)
+    }
+
     /// Check if tipset had executed the message, by loading the receipt based
     /// on the index of the message in the block.
     fn tipset_executed_message(
@@ -1272,9 +1355,10 @@ where
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
-                return Err(
-                    Error::Other("cannot resolve actor address to key address".to_string()).into(),
+                return Err(Error::Other(
+                    "cannot resolve actor address to key address".to_string(),
                 )
+                .into());
             }
             _ => {}
         };
@@ -1601,7 +1685,7 @@ pub fn validate_tipsets<DB, T>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
 where
@@ -1731,12 +1815,12 @@ pub fn apply_block_messages<DB>(
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
-    engine: &crate::shim::machine::MultiEngine,
+    engine: &MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
     enable_event_pushing: VMEvent,
-) -> Result<StateOutput, anyhow::Error>
+) -> anyhow::Result<StateOutput>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -1841,4 +1925,40 @@ where
             events,
         })
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_state<DB>(
+    _height: ChainEpoch,
+    messages: Vec<Message>,
+    tipset: Arc<Tipset>,
+    genesis_timestamp: u64,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule>,
+    engine: &MultiEngine,
+    callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+    enable_tracing: VMTrace,
+    enable_event_pushing: VMEvent,
+) -> anyhow::Result<StateOutput>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    if !messages.is_empty() {
+        anyhow::bail!("Applying messages is not yet implemented.");
+    }
+
+    let output = apply_block_messages(
+        genesis_timestamp,
+        chain_index,
+        chain_config,
+        beacon,
+        engine,
+        tipset,
+        callback,
+        enable_tracing,
+        enable_event_pushing,
+    )?;
+
+    Ok(output)
 }
