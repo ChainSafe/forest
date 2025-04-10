@@ -26,6 +26,7 @@
 ## Forest unreleased
 
 ### Breaking
+- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
 
 ### Added
 
@@ -44,7 +45,6 @@ This is a non-mandatory, but highly recommended, release targeting the mainnet n
 - [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
 - [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
 - [#5540](https://github.com/ChainSafe/forest/pull/5540) Avoid duplicate migrations.
-- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access
 
 ## Forest v0.25.2 "Fool of a Took"
 
