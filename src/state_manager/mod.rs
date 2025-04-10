@@ -510,14 +510,20 @@ where
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
-        self.cache
-            .get_or_else(key, || async move {
+        Ok(match self.cache.get(key) {
+            Some(s)
+                if self.blockstore().has(&s.state_root)?
+                    && self.blockstore().has(&s.receipt_root)? =>
+            {
+                s
+            }
+            _ => {
                 info!(
                     "Evaluating tipset: EPOCH = {}, blocks = {}",
                     tipset.epoch(),
                     tipset.len(),
                 );
-                let ts_state = self
+                let ts_state: StateOutputValue = self
                     .compute_tipset_state(
                         Arc::clone(tipset),
                         NO_CALLBACK,
@@ -527,10 +533,11 @@ where
                     .await?
                     .into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
-                Ok(ts_state)
-            })
-            .await
-            .map(StateOutput::from)
+                self.cache.insert(key.clone(), ts_state.clone());
+                ts_state
+            }
+        }
+        .into())
     }
 
     #[instrument(skip(self))]
