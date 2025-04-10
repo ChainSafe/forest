@@ -33,8 +33,7 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::ManyCar;
-use crate::db::car::{AnyCar, RandomAccessFileReader};
+use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{VMEvent, VMTrace};
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -53,6 +52,7 @@ use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use sha2::Sha256;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -126,15 +126,24 @@ pub enum ArchiveCommands {
         #[arg(long)]
         depth: Option<u64>,
     },
+    SyncBucket {
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+    },
 }
 
 impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
+                let store = AnyCar::try_from(snapshot.as_path())?;
                 println!(
                     "{}",
-                    ArchiveInfo::from_store(AnyCar::try_from(snapshot.as_path())?)?
+                    ArchiveInfo::from_store(
+                        &store,
+                        store.variant().to_string(),
+                        store.heaviest_tipset()?
+                    )?
                 );
                 Ok(())
             }
@@ -174,6 +183,7 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => show_tipset_diff(snapshot_files, epoch, depth).await,
+            Self::SyncBucket { snapshot_files } => sync_bucket(snapshot_files).await,
         }
     }
 }
@@ -209,18 +219,24 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
-        Self::from_store_with(store, true)
+    fn from_store(
+        store: &impl Blockstore,
+        variant: String,
+        heaviest_tipset: Tipset,
+    ) -> anyhow::Result<Self> {
+        Self::from_store_with(store, variant, heaviest_tipset, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
+        store: &impl Blockstore,
+        variant: String,
+        heaviest_tipset: Tipset,
         progress: bool,
     ) -> anyhow::Result<Self> {
-        let root = store.heaviest_tipset()?;
+        let root = heaviest_tipset;
         let root_epoch = root.epoch();
 
         let tipsets = root.clone().chain(&store);
@@ -287,13 +303,17 @@ impl ArchiveInfo {
         }
 
         Ok(ArchiveInfo {
-            variant: store.variant().to_string(),
+            variant,
             network,
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
         })
+    }
+
+    fn epoch_range(&self) -> Range<ChainEpoch> {
+        self.tipsets..self.epoch
     }
 }
 
@@ -581,6 +601,23 @@ async fn show_tipset_diff(
     Ok(())
 }
 
+// This command is used for keeping the S3 bucket of archival snapshots
+// up-to-date. It takes a set of snapshot files and queries the S3 bucket to see
+// what is missing. If the input set of snapshot files can be used to generate
+// missing lite or diff snapshots, they'll be generated and uploaded to the S3
+// bucket.
+async fn sync_bucket(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+    let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+
+    let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), store.heaviest_tipset()?)?;
+
+    let range = info.epoch_range();
+
+    println!("Network: {}", info.network);
+    println!("Range:   {} to {}", range.start, range.end);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -625,9 +662,11 @@ mod tests {
 
     #[test]
     fn archive_info_calibnet() {
-        let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap(),
-            false,
+        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            store.variant().to_string(),
+            store.heaviest_tipset().unwrap(),
         )
         .unwrap();
         assert_eq!(info.network, "calibnet");
@@ -636,9 +675,11 @@ mod tests {
 
     #[test]
     fn archive_info_mainnet() {
-        let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap(),
-            false,
+        let store = AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            store.variant().to_string(),
+            store.heaviest_tipset().unwrap(),
         )
         .unwrap();
         assert_eq!(info.network, "mainnet");
