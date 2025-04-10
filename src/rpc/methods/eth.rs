@@ -955,9 +955,10 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store().messages_for_tipset(tipset)?;
 
-    let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
-
-    let receipts = Receipt::get_receipts(data.store(), receipt_root)?;
+    let (state_root, receipts) = data
+        .state_manager
+        .tipset_state_and_message_receipts(tipset)
+        .await?;
 
     if msgs.len() != receipts.len() {
         bail!(

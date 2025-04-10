@@ -501,19 +501,34 @@ where
             state_root,
             receipt_root,
             ..
-        } = self.tipset_state_output(tipset).await?;
+        } = self.tipset_state_output(tipset, false).await?;
         Ok((state_root, receipt_root))
+    }
+
+    pub async fn tipset_state_and_message_receipts(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<(Cid, Vec<Receipt>)> {
+        let StateOutput {
+            state_root,
+            receipt_root,
+            ..
+        } = self.tipset_state_output(tipset, true).await?;
+        let receipts = Receipt::get_receipts(self.blockstore(), receipt_root)?;
+        Ok((state_root, receipts))
     }
 
     pub async fn tipset_state_output(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
+        check_state_tree_and_message_receipts: bool,
     ) -> anyhow::Result<StateOutput> {
         let key = tipset.key();
         Ok(match self.cache.get(key) {
             Some(s)
-                if self.blockstore().has(&s.state_root)?
-                    && self.blockstore().has(&s.receipt_root)? =>
+                if !check_state_tree_and_message_receipts
+                    || (self.blockstore().has(&s.state_root)?
+                        && self.blockstore().has(&s.receipt_root)?) =>
             {
                 s
             }
