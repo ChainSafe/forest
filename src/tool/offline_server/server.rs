@@ -8,7 +8,7 @@ use crate::chain_sync::SyncStage;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::populate_eth_mappings;
+use crate::daemon::db_util::{backfill_db, populate_eth_mappings};
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -78,6 +78,7 @@ pub async fn start_offline_server(
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
 
+    backfill_db(&state_manager, &head_ts).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
