@@ -148,7 +148,7 @@ pub enum ApiCommands {
         create_tests_args: CreateTestsArgs,
         /// Which API path to dump.
         #[arg(long)]
-        path: rpc::ApiPath,
+        path: rpc::ApiPaths,
         #[arg(long)]
         include_ignored: bool,
     },

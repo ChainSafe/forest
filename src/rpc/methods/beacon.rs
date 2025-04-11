@@ -4,6 +4,7 @@
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::{beacon::BeaconEntry, shim::clock::ChainEpoch};
 use anyhow::Result;
+use enumflags2::{BitFlags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
 
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
@@ -13,7 +14,7 @@ pub enum BeaconGetEntry {}
 impl RpcMethod<1> for BeaconGetEntry {
     const NAME: &'static str = "Filecoin.BeaconGetEntry";
     const PARAM_NAMES: [&'static str; 1] = ["first"];
-    const API_PATHS: ApiPaths = ApiPaths::V0; // Not supported in V1
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Not supported in V1
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);

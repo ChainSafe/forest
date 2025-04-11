@@ -13,6 +13,7 @@ use crate::shim::{
 };
 use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
+use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 
 /// Gets next nonce for the specified sender.
@@ -20,7 +21,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the current nonce for the specified address.");
@@ -41,7 +42,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the pending messages for a given tipset.");
@@ -114,7 +115,7 @@ pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
     const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "ticketQuality"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns a list of pending messages for inclusion in the next block.");
@@ -138,7 +139,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["message"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some("Adds a signed message to the message pool.");
 
@@ -159,7 +160,7 @@ pub enum MpoolBatchPush {}
 impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
     const PARAM_NAMES: [&'static str; 1] = ["messages"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Adds a set of signed messages to the message pool.");
@@ -184,7 +185,7 @@ pub enum MpoolPushUntrusted {}
 impl RpcMethod<1> for MpoolPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["message"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Adds a message to the message pool with verification checks.");
@@ -208,7 +209,7 @@ pub enum MpoolBatchPushUntrusted {}
 impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";
     const PARAM_NAMES: [&'static str; 1] = ["messages"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Adds a set of messages to the message pool with additional verification checks.");
@@ -230,7 +231,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["message", "sendSpec"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
     const DESCRIPTION: Option<&'static str> =
         Some("Assigns a nonce, signs, and pushes a message to the mempool.");
