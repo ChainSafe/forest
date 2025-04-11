@@ -178,6 +178,7 @@ mod tests {
             &ChainStore::new(
                 db.clone(),
                 db.clone(),
+                db.clone(),
                 db,
                 Arc::new(ChainConfig::default()),
                 gen_block,

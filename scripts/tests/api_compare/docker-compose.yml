@@ -42,21 +42,29 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
       - |
         set -euxo pipefail
-        # Perform basic initliazation, including generating the JWT token
+        # Perform basic initialization, including generating the JWT token
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --exit-after-init --save-token /data/forest-token
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
-          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
-          --import-mode=symlink
+          --import-mode=symlink \
+          --halt-after-import
+        
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        # backfill the index db
+        forest-tool index backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300)) --chain ${CHAIN}
+
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT}
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s

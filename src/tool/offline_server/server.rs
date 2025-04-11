@@ -8,7 +8,7 @@ use crate::chain_sync::SyncStage;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::populate_eth_mappings;
+use crate::daemon::db_util::{backfill_db, populate_eth_mappings};
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -67,7 +67,9 @@ pub async fn start_offline_server(
         &db,
     )
     .await?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
     let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
         db.clone(),
         db.clone(),
         db.clone(),
@@ -75,8 +77,8 @@ pub async fn start_offline_server(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
 
+    backfill_db(&state_manager, &head_ts).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
@@ -232,7 +234,7 @@ async fn handle_snapshots(
     Ok(vec![downloaded_snapshot_path])
 }
 
-fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
+pub fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
     info!("Using chain config for {chain}");
     let chain_config = ChainConfig::from_chain(chain);
     if chain_config.is_testnet() {

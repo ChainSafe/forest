@@ -76,7 +76,8 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
-pub type ApplyBlockResult = anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>), anyhow::Error>;
+pub type ApplyBlockResult =
+    anyhow::Result<(Vec<Receipt>, Vec<Vec<StampedEvent>>, Vec<Cid>), anyhow::Error>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -353,10 +354,10 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
-        enable_event_pushing: VMEvent,
     ) -> ApplyBlockResult {
         let mut receipts = Vec::new();
         let mut events = Vec::new();
+        let mut events_roots = Vec::new();
         let mut processed = HashSet::default();
 
         for block in messages.iter() {
@@ -387,7 +388,10 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                if enable_event_pushing.is_pushed() {
+                if let Some(events_root) = ret.msg_receipt().events_root() {
+                    events_roots.push(events_root);
+                    events.push(ret.events());
+                } else {
                     events.push(ret.events());
                 }
 
@@ -436,7 +440,7 @@ where
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((receipts, events))
+        Ok((receipts, events, events_roots))
     }
 
     /// Applies single message through VM and returns result from execution.
@@ -596,22 +600,5 @@ impl VMTrace {
     /// Should tracing be collected?
     pub fn is_traced(&self) -> bool {
         matches!(self, VMTrace::Traced)
-    }
-}
-
-/// This controls whether we should push or not events when applying block messages.
-#[derive(Default, Clone, Copy)]
-pub enum VMEvent {
-    /// Push event during [`VM::apply_block_messages`]
-    Pushed,
-    /// Do not push event
-    #[default]
-    NotPushed,
-}
-
-impl VMEvent {
-    /// Should event be pushed?
-    pub fn is_pushed(&self) -> bool {
-        matches!(self, VMEvent::Pushed)
     }
 }

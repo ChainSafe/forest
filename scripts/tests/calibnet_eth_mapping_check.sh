@@ -10,7 +10,7 @@ forest_init
 
 FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 
-NUM_TIPSETS=600
+NUM_TIPSETS=200
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
