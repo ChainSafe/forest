@@ -109,6 +109,8 @@ services:
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         echo $MINER_WORKER_KEY | forest-wallet --remote-wallet import
   api-serve:
+    profiles:
+      - offline-rpc-server
     depends_on:
       init:
         condition: service_completed_successfully
@@ -230,6 +232,8 @@ services:
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
   api-compare-offline:
+    profiles:
+      - offline-rpc-server
     depends_on:
       lotus-sync-wait:
         condition: service_completed_successfully
@@ -262,6 +266,18 @@ services:
     depends_on:
       api-compare:
         condition: service_completed_successfully
+    image: busybox
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        echo "Success"
+  post-setup-offline:
+    profiles:
+      - offline-rpc-server
+    depends_on:
       api-compare-offline:
         condition: service_completed_successfully
     image: busybox
