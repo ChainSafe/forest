@@ -129,6 +129,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
