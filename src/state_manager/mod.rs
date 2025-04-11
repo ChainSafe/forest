@@ -276,6 +276,8 @@ pub struct StateManager<DB> {
     cache: TipsetStateCache<StateOutputValue>,
     /// This is a cache dedicated to tipset events.
     events_cache: TipsetStateCache<StateEvents>,
+    /// This is a cache dedicated to message receipts.
+    receipt_cache: TipsetStateCache<Vec<Receipt>>,
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
@@ -309,6 +311,7 @@ where
             cs,
             cache: TipsetStateCache::new(),
             events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
+            receipt_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
             beacon,
             chain_config,
             engine,
@@ -530,10 +533,34 @@ where
                     .await?
                     .into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
+                // We missed the opportunity to update `self.events_cache` and `self.receipt_cache` here, to be refactored.
                 Ok(ts_state)
             })
             .await
             .map(StateOutput::from)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn tipset_message_receipts(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+    ) -> anyhow::Result<Vec<Receipt>> {
+        let key = tipset.key();
+        self.receipt_cache
+            .get_or_else(key, || async move {
+                let StateOutput { receipt_root, .. } = self
+                    .compute_tipset_state(
+                        Arc::clone(tipset),
+                        NO_CALLBACK,
+                        VMTrace::NotTraced,
+                        VMEvent::Pushed,
+                    )
+                    .await?;
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
+                // We missed the opportunity to update `self.cache` here, to be refactored.
+                Receipt::get_receipts(self.blockstore(), receipt_root)
+            })
+            .await
     }
 
     #[instrument(skip(self))]
@@ -553,6 +580,7 @@ where
                     )
                     .await?;
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
+                // We missed the opportunity to update `self.cache` here, to be refactored.
                 Ok(StateEvents {
                     events: ts_state.events,
                 })
