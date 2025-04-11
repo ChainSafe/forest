@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
 mod trace;
@@ -25,10 +26,13 @@ use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::EthEventHandler;
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::{
     SkipEvent, event::EventFilter, mempool::MempoolFilter, tipset::TipSetFilter,
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
+use crate::rpc::eth::utils::decode_revert_reason;
+use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::EVMActorStateLoad as _;
@@ -67,6 +71,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
+use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
 static FOREST_TRACE_FILTER_MAX_RESULT: Lazy<u64> =
@@ -184,6 +189,30 @@ pub struct EthUint64(
 );
 
 lotus_json_with_self!(EthUint64);
+
+impl EthUint64 {
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() != EVM_WORD_LENGTH {
+            bail!("eth int must be {EVM_WORD_LENGTH} bytes");
+        }
+
+        // big endian format stores u64 in the last 8 bytes,
+        // since ethereum words are 32 bytes, the first 24 bytes must be 0
+        if data
+            .get(..24)
+            .is_none_or(|slice| slice.iter().any(|&byte| byte != 0))
+        {
+            bail!("eth int overflows 64 bits");
+        }
+
+        // Extract the uint64 from the last 8 bytes
+        Ok(Self(u64::from_be_bytes(
+            data.get(24..EVM_WORD_LENGTH)
+                .ok_or_else(|| anyhow::anyhow!("data too short"))?
+                .try_into()?,
+        )))
+    }
+}
 
 #[derive(
     PartialEq,
@@ -1685,32 +1714,79 @@ impl RpcMethod<2> for EthEstimateGas {
         // Set the gas limit to the zero sentinel value, which makes
         // gas estimation actually run.
         msg.gas_limit = 0;
-        let tsk = if let Some(block_param) = block_param {
-            Some(
-                tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?
-                    .key()
-                    .clone(),
-            )
+        let tipset = if let Some(block_param) = block_param {
+            tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?
         } else {
-            None
+            ctx.chain_store().heaviest_tipset()
         };
-        match gas::estimate_message_gas(&ctx, msg, None, tsk.clone().into()).await {
-            Err(e) => {
+
+        match gas::estimate_message_gas(&ctx, msg.clone(), None, tipset.key().clone().into()).await
+        {
+            Err(mut err) => {
                 // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
                 // it just returns an error. That means we can't get the revert reason.
                 //
                 // So we re-execute the message with EthCall (well, applyMessage which contains the
                 // guts of EthCall). This will give us an ethereum specific error with revert
                 // information.
-                // TODO(forest): https://github.com/ChainSafe/forest/issues/4554
-                Err(anyhow::anyhow!("failed to estimate gas: {e}").into())
+                msg.set_gas_limit(BLOCK_GAS_LIMIT);
+                if let Err(e) = apply_message(&ctx, Some(tipset), msg).await {
+                    // if the error is an execution reverted, return it directly
+                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
+                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
+                    }) {
+                        return Err(e.into());
+                    }
+
+                    err = e.into();
+                }
+
+                Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
             }
             Ok(gassed_msg) => {
-                let expected_gas = Self::eth_gas_search(&ctx, gassed_msg, &tsk.into()).await?;
+                log::info!("correct gassed_msg: do eth_gas_search {:?}", gassed_msg);
+                let expected_gas =
+                    Self::eth_gas_search(&ctx, gassed_msg, &tipset.key().into()).await?;
+                log::info!("trying eth_gas search: {}", expected_gas);
                 Ok(expected_gas.into())
             }
         }
     }
+}
+
+async fn apply_message<DB>(
+    ctx: &Ctx<DB>,
+    tipset: Option<Arc<Tipset>>,
+    msg: Message,
+) -> Result<ApiInvocResult, Error>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let invoc_res = ctx
+        .state_manager
+        .apply_on_state_with_gas(tipset, msg)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to apply on state with gas: {e}"))?;
+
+    // Extract receipt or return early if none
+    match &invoc_res.msg_rct {
+        None => return Err(anyhow::anyhow!("no message receipt in execution result")),
+        Some(receipt) => {
+            if !receipt.exit_code().is_success() {
+                let (data, reason) = decode_revert_reason(receipt.return_data());
+
+                return Err(EthErrors::execution_reverted(
+                    ExitCode::from(receipt.exit_code()),
+                    reason.as_str(),
+                    invoc_res.error.as_str(),
+                    data.as_slice(),
+                )
+                .into());
+            }
+        }
+    };
+
+    Ok(invoc_res)
 }
 
 impl EthEstimateGas {
@@ -1783,7 +1859,7 @@ impl EthEstimateGas {
             DB: Blockstore + Send + Sync + 'static,
         {
             msg.gas_limit = limit;
-            let (_invoc_res, apply_ret) = data
+            let (_invoc_res, apply_ret, _) = data
                 .state_manager
                 .call_with_gas(
                     &mut msg.into(),
@@ -2398,9 +2474,9 @@ impl RpcMethod<2> for EthCall {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let msg = tx.try_into()?;
+        let msg = Message::try_from(tx)?;
         let ts = tipset_by_block_number_or_hash(ctx.chain_store(), block_param)?;
-        let invoke_result = ctx.state_manager.call(&msg, Some(ts))?;
+        let invoke_result = apply_message(&ctx, Some(ts), msg.clone()).await?;
 
         if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
             Ok(EthBytes::default())
@@ -3738,5 +3814,95 @@ mod test {
             },
         ];
         assert!(eth_log_from_event(&entries).is_none());
+    }
+
+    #[test]
+    fn test_from_bytes_valid() {
+        let zero_bytes = [0u8; 32];
+        assert_eq!(
+            EthUint64::from_bytes(&zero_bytes).unwrap().0,
+            0,
+            "zero bytes"
+        );
+
+        let mut value_bytes = [0u8; 32];
+        value_bytes[31] = 42;
+        assert_eq!(
+            EthUint64::from_bytes(&value_bytes).unwrap().0,
+            42,
+            "simple value"
+        );
+
+        let mut max_bytes = [0u8; 32];
+        max_bytes[24..32].copy_from_slice(&u64::MAX.to_be_bytes());
+        assert_eq!(
+            EthUint64::from_bytes(&max_bytes).unwrap().0,
+            u64::MAX,
+            "valid max value"
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_wrong_length() {
+        let short_bytes = [0u8; 31];
+        assert!(
+            EthUint64::from_bytes(&short_bytes).is_err(),
+            "bytes too short"
+        );
+
+        let long_bytes = [0u8; 33];
+        assert!(
+            EthUint64::from_bytes(&long_bytes).is_err(),
+            "bytes too long"
+        );
+
+        let empty_bytes = [];
+        assert!(
+            EthUint64::from_bytes(&empty_bytes).is_err(),
+            "bytes too short"
+        );
+    }
+
+    #[test]
+    fn test_from_bytes_overflow() {
+        let mut overflow_bytes = [0u8; 32];
+        overflow_bytes[10] = 1;
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with non-zero byte at position 10"
+        );
+
+        overflow_bytes = [0u8; 32];
+        overflow_bytes[23] = 1;
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with non-zero byte at position 23"
+        );
+
+        overflow_bytes = [0u8; 32];
+        overflow_bytes
+            .iter_mut()
+            .take(24)
+            .for_each(|byte| *byte = 0xFF);
+
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow bytes with non-zero bytes at positions 0-23"
+        );
+
+        overflow_bytes = [0u8; 32];
+        for i in 0..24 {
+            overflow_bytes[i] = 0xFF;
+            assert!(
+                EthUint64::from_bytes(&overflow_bytes).is_err(),
+                "overflow with non-zero byte at position {i}"
+            );
+        }
+
+        overflow_bytes = [0xFF; 32];
+        assert!(
+            EthUint64::from_bytes(&overflow_bytes).is_err(),
+            "overflow with all ones"
+        );
     }
 }

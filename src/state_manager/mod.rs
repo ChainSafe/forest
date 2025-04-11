@@ -20,7 +20,7 @@ use crate::interpreter::{
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::message::{ChainMessage, Message as MessageTrait};
+use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
@@ -28,6 +28,7 @@ use crate::shim::actors::init::{self, State};
 use crate::shim::actors::miner::{MinerInfo, MinerPower, Partition};
 use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
 use crate::shim::actors::*;
+use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::{
     actors::{
         LoadActorStateFromBlockstore, miner::ext::MinerStateExt as _,
@@ -62,6 +63,7 @@ use fil_actors_shared::v13::runtime::Policy;
 use futures::{FutureExt, channel::oneshot, select};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
+use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use itertools::Itertools as _;
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -72,6 +74,7 @@ use rayon::prelude::ParallelBridge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
+use std::time::Duration;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{Mutex as TokioMutex, RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
@@ -677,6 +680,49 @@ where
         self.call_raw(message, chain_rand, &ts)
     }
 
+    pub async fn apply_on_state_with_gas(
+        self: &Arc<Self>,
+        tipset: Option<Arc<Tipset>>,
+        msg: Message,
+    ) -> anyhow::Result<ApiInvocResult> {
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+
+        // Handle state forks
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
+
+        // Pretend that the message is signed. This has an influence on the gas
+        // cost. We obviously can't generate a valid signature. Instead, we just
+        // fill the signature with zeros. The validity is not checked.
+        let mut chain_msg = match from_a.protocol() {
+            Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
+                msg.clone(),
+                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            )),
+            Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+                msg.clone(),
+                // In Lotus, delegated signatures have the same length as SECP256k1.
+                // This may or may not change in the future.
+                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
+            )),
+            _ => ChainMessage::Unsigned(msg.clone()),
+        };
+
+        let (_invoc_res, apply_ret, duration) = self
+            .call_with_gas(&mut chain_msg, &[], Some(ts), VMTrace::Traced)
+            .await?;
+        Ok(ApiInvocResult {
+            msg_cid: msg.cid(),
+            msg,
+            msg_rct: Some(apply_ret.msg_receipt()),
+            error: apply_ret.failure_info().unwrap_or_default(),
+            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+            gas_cost: MessageGasCost::default(),
+            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
+        })
+    }
+
     /// Computes message on the given [Tipset] state, after applying other
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
@@ -685,12 +731,12 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
         trace_config: VMTrace,
-    ) -> Result<(InvocResult, ApplyRet), Error> {
+    ) -> Result<(InvocResult, ApplyRet, Duration), Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
             .await
-            .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
+            .map_err(|e| Error::Other(format!("Could not load tipset state: {e}")))?;
         let chain_rand = self.chain_rand(Arc::clone(&ts));
 
         // Since we're simulating a future message, pretend we're applying it in the
@@ -699,7 +745,7 @@ where
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
-        let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
+        let (ret, duration) = stacker::grow(64 << 20, || -> ApplyResult {
             let mut vm = VM::new(
                 ExecutionContext {
                     heaviest_tipset: Arc::clone(&ts),
@@ -728,11 +774,14 @@ where
                 .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
                 .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
             message.set_sequence(from_actor.sequence);
-
             vm.apply_message(message)
         })?;
 
-        Ok((InvocResult::new(message.message().clone(), &ret), ret))
+        Ok((
+            InvocResult::new(message.message().clone(), &ret),
+            ret,
+            duration,
+        ))
     }
 
     /// Replays the given message and returns the result of executing the
