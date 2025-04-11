@@ -261,10 +261,19 @@ where
 {
     let mut delegated_messages = vec![];
 
-    let hygge = state_manager.chain_config().epoch(Height::Hygge);
+    let from_epoch = std::env::var("FOREST_ETH_MAPPINGS_RANGE")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .map(|num_epochs| head_ts.epoch() - num_epochs)
+        .unwrap_or_else(
+            || // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+            // Before this height, no notion of an Ethereum-like API existed.
+            state_manager.chain_config().epoch(Height::Hygge),
+        );
+
     tracing::info!(
         "Populating column EthMappings from range: [{}, {}]",
-        hygge,
+        from_epoch,
         head_ts.epoch()
     );
 
@@ -272,9 +281,7 @@ where
         .clone()
         .chain(&state_manager.chain_store().blockstore())
     {
-        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
-        // Before this height, no notion of an Ethereum-like API existed.
-        if ts.epoch() < hygge {
+        if ts.epoch() < from_epoch {
             break;
         }
         delegated_messages.append(

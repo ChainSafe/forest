@@ -42,6 +42,7 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
