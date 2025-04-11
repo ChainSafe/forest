@@ -107,6 +107,9 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      # Run offline RPC tests in sequence to mitigate OOM issue on CI
+      api-compare:
+        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -123,7 +126,7 @@ services:
       - |
         set -euxo pipefail
         forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
-          --chain calibnet --height=-50 --port ${FOREST_OFFLINE_RPC_PORT} --save-token /data/forest-token-offline
+          --chain calibnet --height=-20 --port ${FOREST_OFFLINE_RPC_PORT} --save-token /data/forest-token-offline
     healthcheck:
       test: [ "CMD", "forest-cli", "chain", "head" ]
       interval: 10s
@@ -224,6 +227,8 @@ services:
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
+        FULLNODE_API_INFO=${FOREST_API_INFO}
+        forest-cli shutdown --force
   api-compare-offline:
     profiles:
       - offline-rpc-server
@@ -255,6 +260,8 @@ services:
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 5 \
           --filter-file /data/filter-list-offline
+        FULLNODE_API_INFO=${FOREST_API_INFO}
+        forest-cli shutdown --force
   post-setup:
     depends_on:
       api-compare:
