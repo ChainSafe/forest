@@ -1,5 +1,6 @@
 ---
 title: Running a bootstrap node
+sidebar_position: 2
 ---
 
 # Running a Bootstrap Node

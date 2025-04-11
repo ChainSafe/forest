@@ -68,6 +68,7 @@ M2
 macOS
 Mainnet
 mainnet
+multiaddress
 namespace
 NV22
 NV23
