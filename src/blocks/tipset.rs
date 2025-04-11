@@ -71,6 +71,11 @@ impl TipsetKey {
         self.0.len()
     }
 
+    // To suppress `#[warn(clippy::len_without_is_empty)]`
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
     /// Terse representation of the tipset key.
     /// `bafy2bzaceaqrqoasufr7gdwrbhvlfy2xmc4e5sdzekjgyha2kldxigu73gilo`
     /// becomes `eaq...ilo`. The `bafy2bzac` prefix is removed.

@@ -93,7 +93,7 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
-    snapshot_progress_tracker: SnapshotProgressTracker,
+    snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
 
@@ -118,9 +118,9 @@ pub async fn import_chain_as_forest_car(
                 )
                 .await?;
 
-                // reset the snapshot progress tracker
-                snapshot_progress_tracker.reset();
+                snapshot_progress_tracker.completed();
             } else {
+                snapshot_progress_tracker.not_required();
                 move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
             }
 
@@ -400,7 +400,7 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
-            SnapshotProgressTracker::default(),
+            &SnapshotProgressTracker::default(),
         )
         .await?;
         match import_mode {

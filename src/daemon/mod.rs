@@ -174,6 +174,7 @@ async fn maybe_import_snapshot(
         .await?;
     }
 
+    let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
@@ -181,7 +182,7 @@ async fn maybe_import_snapshot(
                 path,
                 &ctx.db_meta_data.get_forest_car_db_dir(),
                 config.client.import_mode,
-                ctx.snapshot_progress_tracker.clone(),
+                &snapshot_tracker,
             )
             .await?;
             ctx.db
@@ -197,6 +198,12 @@ async fn maybe_import_snapshot(
                 car_db_path.display(),
             );
         }
+    }
+
+    // If the snapshot progress state is not completed,
+    // set the state to not required
+    if !snapshot_tracker.is_completed() {
+        snapshot_tracker.not_required();
     }
 
     if let Some(validate_from) = config.client.snapshot_height {
@@ -387,13 +394,16 @@ async fn maybe_start_health_check_service(
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
         };
-        let listener =
-            tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
+        let healthcheck_address = forest_state.config.client.healthcheck_address;
+        info!("Healthcheck endpoint will listen at {healthcheck_address}");
+        let listener = tokio::net::TcpListener::bind(healthcheck_address).await?;
         services.spawn(async move {
             crate::health::init_healthcheck_server(forest_state, listener)
                 .await
                 .context("Failed to initiate healthcheck server")
         });
+    } else {
+        info!("Healthcheck service is disabled");
     }
     Ok(())
 }
@@ -627,6 +637,7 @@ pub(super) async fn start(
         services.shutdown().await;
         return Ok(());
     }
+    ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_gc_service(&mut services, &opts, &config, &ctx);
     maybe_start_f3_service(&mut services, &opts, &config, &ctx);

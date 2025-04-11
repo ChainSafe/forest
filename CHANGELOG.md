@@ -26,14 +26,41 @@
 ## Forest unreleased
 
 ### Breaking
+- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
 
 ### Added
 
 ### Changed
 
+- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for `Filecoin.EthEstimateGas` and `Filecoin.EthCall`.
+
 ### Removed
 
 ### Fixed
+
+## Forest v0.25.3 "Sméagol"
+
+This is a non-mandatory, but highly recommended, release targeting the mainnet node operators. It includes a fix preventing the node from duplicate, costly migrations. Given the upcoming network upgrade state migration is expected to be slow, we recommend upgrading your Forest node before `Mon 14 Apr 23:00:00 UTC 2025`.
+
+### Fixed
+
+- [#5512](https://github.com/ChainSafe/forest/pull/5512) Fixed `Filecoin.EthTraceFilter` RPC method.
+- [#5517](https://github.com/ChainSafe/forest/issues/5517) Fix the `forest-cli sync wait` issue
+- [#5540](https://github.com/ChainSafe/forest/pull/5540) Avoid duplicate migrations.
+
+## Forest v0.25.2 "Fool of a Took"
+
+This is a mandatory release for mainnet and calibnet node operators. It introduces a fix upgrade for calibnet at epoch `2_558_014` which corresponds to `Mon  7 Apr 23:00:00 UTC 2025` and changes the mainnet upgrade epoch for the NV25 _Teep_ to `4_878_840` which corresponds to `Mon 14 Apr 23:00:00 UTC 2025`.
+
+See [here](https://github.com/filecoin-project/community/discussions/74#discussioncomment-12720764) for details on the issue.
+
+### Changed
+
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Changed the mainnet upgrade epoch for the NV25 _Teep_ to `4_878_840` which corresponds to `Mon 14 Apr 23:00:00 UTC 2025`.
+
+### Fixed
+
+- [#5515](https://github.com/ChainSafe/forest/pull/5515) Introduced a fix network upgrade for the calibnet `Tock`.
 
 ## Forest v0.25.1 "Goldberry"
 

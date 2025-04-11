@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.25.1"
+version = "0.25.3"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -85,12 +85,12 @@ fs_extra = "1"
 futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.10", default-features = false }
 fvm3 = { package = "fvm", version = "~3.12", default-features = false }
-fvm4 = { package = "fvm", version = "~4.6", default-features = false, features = ["verify-signature"] }
-fvm_ipld_blockstore = "0.3"
-fvm_ipld_encoding = "0.5"
+fvm4 = { package = "fvm", version = "~4.6.1", default-features = false, features = ["verify-signature"] }
+fvm_ipld_blockstore = "0.3.1"
+fvm_ipld_encoding = "0.5.2"
 fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.6.1", features = ["proofs"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
@@ -254,7 +254,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.272"
+ra_ap_syntax = "0.0.273"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
@@ -278,8 +278,7 @@ lto = "off"
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
-# The FVM relies on catching panics. See: https://github.com/ChainSafe/forest/issues/3153
-panic = "unwind"
+panic = "abort"
 overflow-checks = true
 lto = "thin"
 
