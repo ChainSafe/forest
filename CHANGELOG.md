@@ -32,6 +32,8 @@
 
 ### Changed
 
+- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for `Filecoin.EthEstimateGas` and `Filecoin.EthCall`.
+
 ### Removed
 
 ### Fixed
