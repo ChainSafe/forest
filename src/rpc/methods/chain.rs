@@ -638,10 +638,10 @@ impl RpcMethod<1> for ChainSetHead {
 
 pub enum ChainGetMinBaseFee {}
 impl RpcMethod<1> for ChainGetMinBaseFee {
-    const NAME: &'static str = "Filecoin.ChainGetMinBaseFee";
+    const NAME: &'static str = "Forest.ChainGetMinBaseFee";
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
     const API_PATHS: ApiPaths = ApiPaths::V1;
-    const PERMISSION: Permission = Permission::Admin;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (u32,);
     type Ok = String;
