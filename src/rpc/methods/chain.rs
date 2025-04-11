@@ -15,8 +15,8 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
+use crate::rpc::types::{ApiTipsetKey, Event};
+use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
@@ -36,7 +36,7 @@ use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::{any::Any, collections::VecDeque, path::PathBuf, sync::Arc};
+use std::{collections::VecDeque, path::PathBuf, sync::Arc};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
@@ -78,9 +78,22 @@ impl RpcMethod<1> for ChainGetEvents {
         Some("Returns the events under the given event AMT root CID.");
 
     type Params = (Cid,);
-    type Ok = Vec<types::Event>;
-    async fn handle(_: Ctx<impl Any>, (_,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    type Ok = Vec<Event>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (root_cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tsk = ctx
+            .state_manager
+            .chain_store()
+            .get_tipset_key(&root_cid)?
+            .with_context(|| format!("can't find events with cid {root_cid}"))?;
+
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        let events = EthEventHandler::collect_chain_events(&ctx, &ts, &root_cid).await?;
+
+        Ok(events)
     }
 }
 
@@ -1032,6 +1045,7 @@ mod tests {
             let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(
                 db,
+                Arc::new(MemoryDB::default()),
                 Arc::new(MemoryDB::default()),
                 Arc::new(MemoryDB::default()),
                 Arc::new(ChainConfig::calibnet()),

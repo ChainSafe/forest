@@ -3,10 +3,29 @@
 
 use std::fmt::{self, Display};
 
+use crate::rpc::eth::errors::EthErrors;
 use jsonrpsee::{
     core::ClientError,
     types::error::{self, ErrorCode, ErrorObjectOwned},
 };
+
+/// Trait for errors that can provide additional RPC error data
+pub trait RpcErrorData {
+    /// Return the error code to use in RPC responses
+    fn error_code(&self) -> Option<i32> {
+        None
+    }
+
+    /// Return the error message to use in RPC responses
+    fn error_message(&self) -> Option<String> {
+        None
+    }
+
+    /// Return additional data to include in the RPC error response
+    fn error_data(&self) -> Option<serde_json::Value> {
+        None
+    }
+}
 
 /// An error returned _by the remote server_, not due to e.g serialization errors,
 /// protocol errors, or the connection failing.
@@ -63,6 +82,29 @@ impl ServerError {
     }
 }
 
+impl<E: std::error::Error + RpcErrorData + 'static> From<E> for ServerError {
+    fn from(error: E) -> Self {
+        let code = error.error_code().unwrap_or(error::INTERNAL_ERROR_CODE);
+        let message = error.error_message().unwrap_or_else(|| error.to_string());
+        let data = error.error_data();
+
+        Self::new(code, message, data)
+    }
+}
+
+// Default implementation for anyhow::Error to handle downcasting once
+impl From<anyhow::Error> for ServerError {
+    fn from(error: anyhow::Error) -> Self {
+        // Try to downcast to known RpcErrorData implementations
+        if let Some(eth_error) = error.downcast_ref::<EthErrors>() {
+            return eth_error.clone().into();
+        }
+
+        // Default fallback
+        Self::internal_error(error.to_string(), None)
+    }
+}
+
 impl Display for ServerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("JSON-RPC error:\n")?;
@@ -112,7 +154,6 @@ macro_rules! from2internal {
 //               Just mapping everything to an internal error is not appropriate
 from2internal! {
     String,
-    anyhow::Error,
     base64::DecodeError,
     cid::multibase::Error,
     crate::chain::store::Error,
