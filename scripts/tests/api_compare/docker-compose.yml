@@ -227,8 +227,7 @@ services:
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
-        FULLNODE_API_INFO=${FOREST_API_INFO}
-        forest-cli shutdown --force
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   api-compare-offline:
     profiles:
       - offline-rpc-server
@@ -260,8 +259,7 @@ services:
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 5 \
           --filter-file /data/filter-list-offline
-        FULLNODE_API_INFO=${FOREST_API_INFO}
-        forest-cli shutdown --force
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   post-setup:
     depends_on:
       api-compare:
