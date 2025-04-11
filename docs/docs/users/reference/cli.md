@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -107,7 +107,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -325,7 +325,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -965,7 +965,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -980,6 +980,7 @@ SUBCOMMANDS:
   fetch-params     Download parameters for generating and verifying proofs for given size
   archive          Manage archives
   db               Database management
+  index            Index database management
   car              Utilities for manipulating CAR files
   api              API tooling
   net              Network utilities
@@ -1847,4 +1848,34 @@ Usage: forest-tool shed f3 check-activation-raw --contract <CONTRACT>
 Options:
       --contract <CONTRACT>  Contract eth address
   -h, --help                 Print help
+```
+
+### `forest-tool index`
+
+```
+Index database management
+
+Usage: forest-tool index <COMMAND>
+
+Commands:
+  backfill  Backfill index with Ethereum mappings, events, etc
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool index backfill`
+
+```
+Backfill index with Ethereum mappings, events, etc
+
+Usage: forest-tool index backfill [OPTIONS] --from <FROM> --to <TO>
+
+Options:
+  -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
+      --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
+      --from <FROM>      The starting tipset epoch for back-filling (inclusive)
+      --to <TO>          The ending tipset epoch for back-filling (inclusive)
+  -h, --help             Print help
 ```

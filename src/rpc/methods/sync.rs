@@ -196,6 +196,7 @@ mod tests {
             ChainStore::new(
                 db.clone(),
                 db.clone(),
+                db.clone(),
                 db,
                 chain_config.clone(),
                 genesis_header,

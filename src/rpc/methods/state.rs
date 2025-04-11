@@ -8,7 +8,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
-use crate::interpreter::{MessageCallbackCtx, VMEvent, VMTrace};
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
@@ -1444,7 +1444,6 @@ impl RpcMethod<1> for ForestStateCompute {
                 tipset,
                 crate::state_manager::NO_CALLBACK,
                 VMTrace::NotTraced,
-                VMEvent::NotPushed,
             )
             .await?;
 
@@ -1486,14 +1485,7 @@ impl RpcMethod<3> for StateCompute {
         };
         let StateOutput { state_root, .. } = ctx
             .state_manager
-            .compute_state(
-                height,
-                messages,
-                ts,
-                Some(callback),
-                VMTrace::Traced,
-                VMEvent::NotPushed,
-            )
+            .compute_state(height, messages, ts, Some(callback), VMTrace::Traced)
             .await?;
         let mut trace = vec![];
         while let Ok(v) = rx.try_recv() {
