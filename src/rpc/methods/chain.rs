@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use enumflags2::BitFlags;
 use types::*;
 
 #[cfg(test)]
@@ -16,7 +17,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{Ctx, Permission, RpcMethod, ServerError};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
@@ -607,9 +608,10 @@ impl RpcMethod<1> for ChainSetHead {
 
 pub enum ChainGetMinBaseFee {}
 impl RpcMethod<1> for ChainGetMinBaseFee {
-    const NAME: &'static str = "Filecoin.ChainGetMinBaseFee";
+    const NAME: &'static str = "Forest.ChainGetMinBaseFee";
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
-    const PERMISSION: Permission = Permission::Admin;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (u32,);
     type Ok = String;
