@@ -1126,7 +1126,7 @@ impl RpcMethod<4> for StateWaitMsg {
     const NAME: &'static str = "Filecoin.StateWaitMsg";
     const PARAM_NAMES: [&'static str; 4] =
         ["messageCid", "confidence", "lookbackLimit", "allowReplaced"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{V1 | V2}); // Changed in V1
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "StateWaitMsg searches up to limit epochs for a message in the chain. If not found, it blocks until the message appears on-chain and reaches the required confidence depth.",
@@ -1979,7 +1979,7 @@ pub enum StateSectorPreCommitInfo {}
 impl RpcMethod<3> for StateSectorPreCommitInfo {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
-    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{V1 | V2}); // Changed in V1
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1); // Changed in V1
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Returns the PreCommit information for the specified miner's sector. Returns null if not precommitted.",
