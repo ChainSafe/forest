@@ -26,6 +26,7 @@
 ## Forest unreleased
 
 ### Breaking
+- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
 
 ### Added
 
