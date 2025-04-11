@@ -47,6 +47,7 @@ pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
     const PARAM_NAMES: [&'static str; 1] = ["messageCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the message with the specified CID.");
 
@@ -72,6 +73,7 @@ pub enum ChainGetEvents {}
 impl RpcMethod<1> for ChainGetEvents {
     const NAME: &'static str = "Filecoin.ChainGetEvents";
     const PARAM_NAMES: [&'static str; 1] = ["rootCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the events under the given event AMT root CID.");
@@ -87,6 +89,7 @@ pub enum ChainGetParentMessages {}
 impl RpcMethod<1> for ChainGetParentMessages {
     const NAME: &'static str = "Filecoin.ChainGetParentMessages";
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the messages included in the blocks of the parent tipset.");
@@ -115,6 +118,7 @@ pub enum ChainGetParentReceipts {}
 impl RpcMethod<1> for ChainGetParentReceipts {
     const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the message receipts included in the blocks of the parent tipset.");
@@ -161,6 +165,7 @@ pub enum ChainGetMessagesInTipset {}
 impl RpcMethod<1> for ChainGetMessagesInTipset {
     const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -181,6 +186,7 @@ pub enum ChainExport {}
 impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainExportParams,);
@@ -251,6 +257,7 @@ pub enum ChainReadObj {}
 impl RpcMethod<1> for ChainReadObj {
     const NAME: &'static str = "Filecoin.ChainReadObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Reads IPLD nodes referenced by the specified CID from the chain blockstore and returns raw bytes.",
@@ -275,6 +282,7 @@ pub enum ChainHasObj {}
 impl RpcMethod<1> for ChainHasObj {
     const NAME: &'static str = "Filecoin.ChainHasObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Checks if a given CID exists in the chain blockstore.");
@@ -296,6 +304,7 @@ pub enum ChainStatObj {}
 impl RpcMethod<2> for ChainStatObj {
     const NAME: &'static str = "Filecoin.ChainStatObj";
     const PARAM_NAMES: [&'static str; 2] = ["obj_cid", "base_cid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, Option<Cid>);
@@ -347,6 +356,7 @@ pub enum ChainGetBlockMessages {}
 impl RpcMethod<1> for ChainGetBlockMessages {
     const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns all messages from the specified block.");
@@ -378,6 +388,7 @@ pub enum ChainGetPath {}
 impl RpcMethod<2> for ChainGetPath {
     const NAME: &'static str = "Filecoin.ChainGetPath";
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the path between the two specified tipsets.");
@@ -456,6 +467,7 @@ pub enum ChainGetTipSetByHeight {}
 impl RpcMethod<2> for ChainGetTipSetByHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetByHeight";
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset at the specified height.");
 
@@ -480,6 +492,7 @@ pub enum ChainGetTipSetAfterHeight {}
 impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
     const PARAM_NAMES: [&'static str; 2] = ["height", "tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Looks back and returns the tipset at the specified epoch.
@@ -508,6 +521,7 @@ pub enum ChainGetGenesis {}
 impl RpcMethod<0> for ChainGetGenesis {
     const NAME: &'static str = "Filecoin.ChainGetGenesis";
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -523,6 +537,7 @@ pub enum ChainHead {}
 impl RpcMethod<0> for ChainHead {
     const NAME: &'static str = "Filecoin.ChainHead";
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the chain head (heaviest tipset).");
 
@@ -539,6 +554,7 @@ pub enum ChainGetBlock {}
 impl RpcMethod<1> for ChainGetBlock {
     const NAME: &'static str = "Filecoin.ChainGetBlock";
     const PARAM_NAMES: [&'static str; 1] = ["blockCid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the block with the specified CID.");
 
@@ -558,6 +574,7 @@ pub enum ChainGetTipSet {}
 impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the tipset with the specified CID.");
 
@@ -579,6 +596,7 @@ pub enum ChainSetHead {}
 impl RpcMethod<1> for ChainSetHead {
     const NAME: &'static str = "Filecoin.ChainSetHead";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = (TipsetKey,);
@@ -639,6 +657,7 @@ pub enum ChainTipSetWeight {}
 impl RpcMethod<1> for ChainTipSetWeight {
     const NAME: &'static str = "Filecoin.ChainTipSetWeight";
     const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the weight of the specified tipset.");
 

@@ -30,7 +30,7 @@ use crate::rpc::eth::filter::{
 };
 use crate::rpc::eth::types::{EthBlockTrace, EthTrace};
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
-use crate::rpc::{Ctx, Permission, RpcMethod};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::actors::eam;
 use crate::shim::actors::evm;
@@ -54,6 +54,7 @@ use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
 use cid::Cid;
+use enumflags2::BitFlags;
 use filter::{ParsedFilter, ParsedFilterTipsets};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
@@ -679,6 +680,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const NAME_ALIAS: Option<&'static str> = Some("web3_clientVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -700,6 +702,7 @@ impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const NAME_ALIAS: Option<&'static str> = Some("eth_accounts");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -719,6 +722,7 @@ impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_blockNumber");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -753,6 +757,7 @@ impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const NAME_ALIAS: Option<&'static str> = Some("eth_chainId");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -771,6 +776,7 @@ impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const NAME_ALIAS: Option<&'static str> = Some("eth_gasPrice");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the current gas price in attoFIL");
 
@@ -799,6 +805,7 @@ impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBalance");
     const PARAM_NAMES: [&'static str; 2] = ["address", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1395,6 +1402,7 @@ impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByHash");
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "fullTxInfo"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, bool);
@@ -1418,6 +1426,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockByNumber");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "fullTxInfo"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ExtBlockNumberOrHash, bool);
@@ -1471,6 +1480,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceipts");
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (BlockNumberOrHash,);
     type Ok = Vec<EthTxReceipt>;
@@ -1488,6 +1498,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     const NAME: &'static str = "Filecoin.EthGetBlockReceiptsLimited";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockReceiptsLimited");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "limit"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (BlockNumberOrHash, ChainEpoch);
     type Ok = Vec<EthTxReceipt>;
@@ -1505,6 +1516,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByHash");
     const PARAM_NAMES: [&'static str; 1] = ["blockHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -1530,6 +1542,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getBlockTransactionCountByNumber");
     const PARAM_NAMES: [&'static str; 1] = ["blockNumber"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthInt64,);
@@ -1557,6 +1570,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getMessageCidByTransactionHash");
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -1616,6 +1630,7 @@ impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const NAME_ALIAS: Option<&'static str> = Some("eth_syncing");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -1656,6 +1671,7 @@ impl RpcMethod<2> for EthEstimateGas {
     const NAME_ALIAS: Option<&'static str> = Some("eth_estimateGas");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthCallMessage, Option<BlockNumberOrHash>);
@@ -1809,6 +1825,7 @@ impl RpcMethod<3> for EthFeeHistory {
     const NAME_ALIAS: Option<&'static str> = Some("eth_feeHistory");
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 3] = ["blockCount", "newestBlockNumber", "rewardPercentiles"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthUint64, BlockNumberOrPredefined, Option<Vec<f64>>);
@@ -1937,6 +1954,7 @@ impl RpcMethod<2> for EthGetCode {
     const NAME: &'static str = "Filecoin.EthGetCode";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getCode");
     const PARAM_NAMES: [&'static str; 2] = ["ethAddress", "blockNumberOrHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1998,6 +2016,7 @@ impl RpcMethod<3> for EthGetStorageAt {
     const NAME: &'static str = "Filecoin.EthGetStorageAt";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getStorageAt");
     const PARAM_NAMES: [&'static str; 3] = ["ethAddress", "position", "blockNumberOrHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
@@ -2071,6 +2090,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const NAME: &'static str = "Filecoin.EthGetTransactionCount";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionCount");
     const PARAM_NAMES: [&'static str; 2] = ["sender", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -2106,6 +2126,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
     const NAME: &'static str = "Filecoin.EthMaxPriorityFeePerGas";
     const NAME_ALIAS: Option<&'static str> = Some("eth_maxPriorityFeePerGas");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2127,6 +2148,7 @@ impl RpcMethod<0> for EthProtocolVersion {
     const NAME: &'static str = "Filecoin.EthProtocolVersion";
     const NAME_ALIAS: Option<&'static str> = Some("eth_protocolVersion");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2147,6 +2169,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockNumberAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockNumberAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockNumberAndIndex");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "txIndex"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrPredefined, EthUint64);
@@ -2190,6 +2213,7 @@ impl RpcMethod<2> for EthGetTransactionByBlockHashAndIndex {
     const NAME: &'static str = "Filecoin.EthGetTransactionByBlockHashAndIndex";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByBlockHashAndIndex");
     const PARAM_NAMES: [&'static str; 2] = ["blockHash", "txIndex"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, EthUint64);
@@ -2232,6 +2256,7 @@ impl RpcMethod<1> for EthGetTransactionByHash {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHash";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHash");
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash,);
@@ -2250,6 +2275,7 @@ impl RpcMethod<2> for EthGetTransactionByHashLimited {
     const NAME: &'static str = "Filecoin.EthGetTransactionByHashLimited";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionByHashLimited");
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthHash, ChainEpoch);
@@ -2322,6 +2348,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionHashByCid");
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
@@ -2363,6 +2390,7 @@ impl RpcMethod<2> for EthCall {
     const NAME_ALIAS: Option<&'static str> = Some("eth_call");
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 2] = ["tx", "blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthCallMessage, BlockNumberOrHash);
     type Ok = EthBytes;
@@ -2394,6 +2422,7 @@ impl RpcMethod<1> for EthNewFilter {
     const NAME: &'static str = "Filecoin.EthNewFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filterSpec"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthFilterSpec,);
@@ -2414,6 +2443,7 @@ impl RpcMethod<0> for EthNewPendingTransactionFilter {
     const NAME: &'static str = "Filecoin.EthNewPendingTransactionFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newPendingTransactionFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2434,6 +2464,7 @@ impl RpcMethod<0> for EthNewBlockFilter {
     const NAME: &'static str = "Filecoin.EthNewBlockFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_newBlockFilter");
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -2454,6 +2485,7 @@ impl RpcMethod<1> for EthUninstallFilter {
     const NAME: &'static str = "Filecoin.EthUninstallFilter";
     const NAME_ALIAS: Option<&'static str> = Some("eth_uninstallFilter");
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (FilterID,);
@@ -2475,6 +2507,7 @@ impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME_ALIAS: Option<&'static str> = None;
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethAddress"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthAddress,);
     type Ok = FilecoinAddress;
@@ -2546,6 +2579,7 @@ impl RpcMethod<1> for EthGetTransactionReceipt {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceipt");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash,);
     type Ok = EthTxReceipt;
@@ -2563,6 +2597,7 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getTransactionReceiptLimited");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 2] = ["txHash", "limit"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthHash, ChainEpoch);
     type Ok = EthTxReceipt;
@@ -2579,6 +2614,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
     const NAME: &'static str = "Filecoin.EthSendRawTransaction";
     const NAME_ALIAS: Option<&'static str> = Some("eth_sendRawTransaction");
     const PARAM_NAMES: [&'static str; 1] = ["rawTx"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthBytes,);
@@ -2821,6 +2857,7 @@ impl RpcMethod<1> for EthGetLogs {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getLogs");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["ethFilter"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (EthFilterSpec,);
     type Ok = EthFilterResult;
@@ -2845,6 +2882,7 @@ impl RpcMethod<1> for EthGetFilterLogs {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterLogs");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     type Params = (FilterID,);
     type Ok = EthFilterResult;
@@ -2891,6 +2929,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
     const NAME_ALIAS: Option<&'static str> = Some("eth_getFilterChanges");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["filterId"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns event logs which occured since the last poll");
@@ -3004,6 +3043,7 @@ impl RpcMethod<1> for EthTraceBlock {
     const NAME_ALIAS: Option<&'static str> = Some("trace_block");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["blockParam"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (ExtBlockNumberOrHash,);
     type Ok = Vec<EthBlockTrace>;
@@ -3066,6 +3106,7 @@ impl RpcMethod<1> for EthTraceTransaction {
     const NAME_ALIAS: Option<&'static str> = Some("trace_transaction");
     const N_REQUIRED_PARAMS: usize = 1;
     const PARAM_NAMES: [&'static str; 1] = ["txHash"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for a specific transaction.");
@@ -3099,6 +3140,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
     const NAME: &'static str = "Filecoin.EthTraceReplayBlockTransactions";
     const NAME_ALIAS: Option<&'static str> = Some("trace_replayBlockTransactions");
     const PARAM_NAMES: [&'static str; 2] = ["blockParam", "traceTypes"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     type Params = (ExtBlockNumberOrHash, Vec<String>);
     type Ok = Vec<EthReplayBlockTransactionTrace>;
@@ -3175,6 +3217,7 @@ impl RpcMethod<1> for EthTraceFilter {
     const NAME: &'static str = "Filecoin.EthTraceFilter";
     const NAME_ALIAS: Option<&'static str> = Some("trace_filter");
     const PARAM_NAMES: [&'static str; 1] = ["filter"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the traces for transactions matching the filter criteria.");

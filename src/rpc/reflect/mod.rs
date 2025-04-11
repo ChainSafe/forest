@@ -64,7 +64,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiPaths`].
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const API_PATHS: BitFlags<ApiPaths>;
     /// See [`Permission`]
     const PERMISSION: Permission;
     /// Becomes [`openrpc_types::Method::summary`].

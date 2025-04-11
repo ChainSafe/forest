@@ -5,8 +5,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
     lotus_json::lotus_json_with_self,
-    rpc::{Ctx, Permission, RpcMethod, ServerError},
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
+use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ pub enum NodeStatus {}
 impl RpcMethod<0> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();

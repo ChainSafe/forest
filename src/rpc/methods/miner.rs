@@ -17,10 +17,11 @@ use crate::networks::Height;
 
 use crate::rpc::reflect::Permission;
 use crate::rpc::types::{ApiTipsetKey, MiningBaseInfo};
-use crate::rpc::{Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiPaths, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::{Signature, SignatureType};
+use enumflags2::BitFlags;
 
 use crate::shim::sector::PoStProof;
 use crate::utils::db::CborStoreExt;
@@ -100,6 +101,7 @@ pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
     const PARAM_NAMES: [&'static str; 1] = ["blockTemplate"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some(
         "Fills and signs a block template on behalf of the given miner, returning a suitable block header.",
@@ -273,6 +275,7 @@ pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "epoch", "tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves the Miner Actor at the given address and tipset, returning basic information such as power and mining eligibility.",
