@@ -111,9 +111,12 @@ services:
         echo $MINER_WORKER_KEY | forest-wallet --remote-wallet import
   api-serve:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       init:
+        condition: service_completed_successfully
+      # Run offline RPC tests in sequence to mitigate OOM issue on CI
+      api-compare:
         condition: service_completed_successfully
     build:
       context: ../../../.
@@ -126,6 +129,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -236,9 +240,10 @@ services:
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   api-compare-offline:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       lotus-sync-wait:
         condition: service_completed_successfully
@@ -267,6 +272,7 @@ services:
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 5 \
           --filter-file /data/filter-list-offline
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   post-setup:
     depends_on:
       api-compare:
@@ -281,7 +287,7 @@ services:
         echo "Success"
   post-setup-offline:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       api-compare-offline:
         condition: service_completed_successfully
