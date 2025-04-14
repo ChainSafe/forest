@@ -526,6 +526,7 @@ jobs:
     steps:
       - name: Relocate docker volumes folder
         run: |
+          # move docker volumes folder to under `/mnt` which has 60GB+ free space
           sudo ls /var/lib/docker/volumes
           sudo mv /var/lib/docker/volumes /mnt/docker-volumes
           sudo ln -sf /mnt/docker-volumes /var/lib/docker/volumes
