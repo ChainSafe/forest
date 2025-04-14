@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ApiPaths;
+use enumflags2::BitFlags;
 use jsonrpsee::core::traits::ToRpcParams;
 use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, time::Duration};
@@ -15,7 +16,7 @@ pub struct Request<T = serde_json::Value> {
     #[serde(skip)]
     pub result_type: PhantomData<T>,
     #[serde(skip)]
-    pub api_paths: ApiPaths,
+    pub api_paths: BitFlags<ApiPaths>,
     #[serde(skip)]
     pub timeout: Duration,
 }

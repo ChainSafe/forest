@@ -47,6 +47,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
+use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
@@ -62,7 +63,7 @@ pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
     const NAME: &'static str = "F3.GetTipsetByEpoch";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);
@@ -85,7 +86,7 @@ pub enum GetTipset {}
 impl RpcMethod<1> for GetTipset {
     const NAME: &'static str = "F3.GetTipset";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (F3TipSetKey,);
@@ -105,7 +106,7 @@ pub enum GetHead {}
 impl RpcMethod<0> for GetHead {
     const NAME: &'static str = "F3.GetHead";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -120,7 +121,7 @@ pub enum GetParent {}
 impl RpcMethod<1> for GetParent {
     const NAME: &'static str = "F3.GetParent";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (F3TipSetKey,);
@@ -141,7 +142,7 @@ pub enum GetPowerTable {}
 impl RpcMethod<1> for GetPowerTable {
     const NAME: &'static str = "F3.GetPowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (F3TipSetKey,);
@@ -437,7 +438,7 @@ pub enum ProtectPeer {}
 impl RpcMethod<1> for ProtectPeer {
     const NAME: &'static str = "F3.ProtectPeer";
     const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
@@ -464,7 +465,7 @@ pub enum GetParticipatingMinerIDs {}
 impl RpcMethod<0> for GetParticipatingMinerIDs {
     const NAME: &'static str = "F3.GetParticipatingMinerIDs";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -484,7 +485,7 @@ pub enum Finalize {}
 impl RpcMethod<1> for Finalize {
     const NAME: &'static str = "F3.Finalize";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (F3TipSetKey,);
@@ -562,7 +563,7 @@ pub enum SignMessage {}
 impl RpcMethod<2> for SignMessage {
     const NAME: &'static str = "F3.SignMessage";
     const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Vec<u8>, Vec<u8>);
@@ -610,7 +611,7 @@ impl GetManifestFromContract {
 impl RpcMethod<0> for GetManifestFromContract {
     const NAME: &'static str = "F3.GetManifestFromContract";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some(
         "Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.",
@@ -638,7 +639,7 @@ pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
     const NAME: &'static str = "Filecoin.F3GetCertificate";
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (u64,);
@@ -661,7 +662,7 @@ pub enum F3GetLatestCertificate {}
 impl RpcMethod<0> for F3GetLatestCertificate {
     const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -678,7 +679,7 @@ pub enum F3GetECPowerTable {}
 impl RpcMethod<1> for F3GetECPowerTable {
     const NAME: &'static str = "Filecoin.F3GetECPowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -697,7 +698,7 @@ pub enum F3GetF3PowerTable {}
 impl RpcMethod<1> for F3GetF3PowerTable {
     const NAME: &'static str = "Filecoin.F3GetF3PowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -731,7 +732,7 @@ impl F3IsRunning {
 impl RpcMethod<0> for F3IsRunning {
     const NAME: &'static str = "Filecoin.F3IsRunning";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -756,7 +757,7 @@ impl F3GetProgress {
 impl RpcMethod<0> for F3GetProgress {
     const NAME: &'static str = "Filecoin.F3GetProgress";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -781,7 +782,7 @@ impl F3GetManifest {
 impl RpcMethod<0> for F3GetManifest {
     const NAME: &'static str = "Filecoin.F3GetManifest";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -797,7 +798,7 @@ pub enum F3ListParticipants {}
 impl RpcMethod<0> for F3ListParticipants {
     const NAME: &'static str = "Filecoin.F3ListParticipants";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -827,7 +828,7 @@ pub enum F3GetOrRenewParticipationTicket {}
 impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
     const NAME: &'static str = "Filecoin.F3GetOrRenewParticipationTicket";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "previous_lease_ticket", "instances"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Address, Vec<u8>, u64);
@@ -862,7 +863,7 @@ pub enum F3Participate {}
 impl RpcMethod<1> for F3Participate {
     const NAME: &'static str = "Filecoin.F3Participate";
     const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Vec<u8>,);

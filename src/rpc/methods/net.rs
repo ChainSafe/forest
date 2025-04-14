@@ -12,13 +12,14 @@ use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, Result};
 use cid::multibase;
+use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns a list of listening addresses and the peer ID.");
@@ -43,7 +44,7 @@ pub enum NetPeers {}
 impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns a list of currently connected peers.");
 
@@ -72,7 +73,7 @@ pub enum NetFindPeer {}
 impl RpcMethod<1> for NetFindPeer {
     const NAME: &'static str = "Filecoin.NetFindPeer";
     const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
@@ -101,7 +102,7 @@ pub enum NetListening {}
 impl RpcMethod<0> for NetListening {
     const NAME: &'static str = "Filecoin.NetListening";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_listening");
 
@@ -117,7 +118,7 @@ pub enum NetInfo {}
 impl RpcMethod<0> for NetInfo {
     const NAME: &'static str = "Forest.NetInfo";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -138,7 +139,7 @@ pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
     const PARAM_NAMES: [&'static str; 1] = ["peerAddressInfo"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some("Connects to a specified peer.");
 
@@ -172,7 +173,7 @@ pub enum NetDisconnect {}
 impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> = Some("Disconnects from the specified peer.");
 
@@ -201,7 +202,7 @@ pub enum NetAgentVersion {}
 impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
     const PARAM_NAMES: [&'static str; 1] = ["peerId"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the agent version string.");
 
@@ -227,7 +228,7 @@ pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -248,7 +249,7 @@ pub enum NetVersion {}
 impl RpcMethod<0> for NetVersion {
     const NAME: &'static str = "Filecoin.NetVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const NAME_ALIAS: Option<&'static str> = Some("net_version");
 
@@ -264,7 +265,7 @@ pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
     const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
     const DESCRIPTION: Option<&'static str> = Some(
         "Protects a peer from having its connection(s) pruned in the event the libp2p host reaches its maximum number of peers.",
@@ -301,7 +302,7 @@ pub enum NetProtectList {}
 impl RpcMethod<0> for NetProtectList {
     const NAME: &'static str = "Filecoin.NetProtectList";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> = Some("Returns the current list of protected peers.");
 
@@ -323,7 +324,7 @@ pub enum NetProtectRemove {}
 impl RpcMethod<1> for NetProtectRemove {
     const NAME: &'static str = "Filecoin.NetProtectRemove";
     const PARAM_NAMES: [&'static str; 1] = ["peerIdList"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
     const DESCRIPTION: Option<&'static str> = Some("Remove a peer from the protected list.");
 
