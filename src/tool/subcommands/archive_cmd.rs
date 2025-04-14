@@ -43,7 +43,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
 use anyhow::{Context as _, bail};
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDateTime};
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{Confirm, theme::ColorfulTheme};
@@ -601,20 +601,148 @@ async fn show_tipset_diff(
     Ok(())
 }
 
+fn steps_in_range(
+    range: &Range<ChainEpoch>,
+    step_size: ChainEpochDelta,
+    offset: ChainEpochDelta,
+) -> impl Iterator<Item = ChainEpoch> {
+    let start = range.start / step_size;
+    (start..)
+        .map(move |x| x * step_size)
+        .skip_while(move |&x| x - offset < range.start)
+        .take_while(move |&x| x <= range.end)
+}
+
+fn epoch_to_date(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
+    let genesis_timestamp = match network {
+        "mainnet" => 1598306400,
+        "calibnet" => 1667326380,
+        _ => bail!("unsupported network"),
+    };
+
+    Ok(NaiveDateTime::from_timestamp_opt(
+        (genesis_timestamp + epoch * EPOCH_DURATION_SECONDS) as i64,
+        0,
+    )
+    .unwrap_or_default()
+    .format("%Y-%m-%d")
+    .to_string())
+}
+
+fn format_lite_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
+    Ok(format!(
+        "forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst",
+        date = epoch_to_date(network, epoch)?,
+        epoch = epoch
+    ))
+}
+
+fn format_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
+    Ok(format!(
+        "forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst",
+        date = epoch_to_date(network, epoch)?,
+        epoch = epoch - 3000
+    ))
+}
+
+// Check if
+// forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
+// exists.
+async fn bucket_has_lite_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<bool> {
+    let url = format!(
+        "https://forest-internal.chainsafe.dev/{}/lite/{}",
+        network,
+        format_lite_snapshot(network, epoch)?
+    );
+    let response = reqwest::Client::new().get(url).send().await?;
+    Ok(response.status().is_success())
+}
+
+// Check if
+// forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
+// exists.
+async fn bucket_has_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<bool> {
+    let url = format!(
+        "https://forest-internal.chainsafe.dev/{}/diff/{}",
+        network,
+        format_diff_snapshot(network, epoch)?
+    );
+    let response = reqwest::Client::new().head(url).send().await?;
+    Ok(response.status().is_success())
+}
+
+const FOREST_ARCHIVE_S3_ENDPOINT: &str =
+    "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com";
+
+fn check_aws_config() -> anyhow::Result<()> {
+    let status = std::process::Command::new("aws")
+        .arg("help")
+        .stdout(std::process::Stdio::null())
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws help': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws help' failed with status code: {}. Please ensure that the AWS CLI is installed and configured.",
+            status
+        );
+    }
+
+    let status = std::process::Command::new("aws")
+        .args([
+            "s3",
+            "ls",
+            "s3://forest-archive/",
+            "--endpoint",
+            FOREST_ARCHIVE_S3_ENDPOINT,
+        ])
+        .stdout(std::process::Stdio::null())
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 ls': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws s3 ls' failed with status code: {}. Please check your AWS credentials.",
+            status
+        );
+    }
+    Ok(())
+}
+
 // This command is used for keeping the S3 bucket of archival snapshots
 // up-to-date. It takes a set of snapshot files and queries the S3 bucket to see
 // what is missing. If the input set of snapshot files can be used to generate
 // missing lite or diff snapshots, they'll be generated and uploaded to the S3
 // bucket.
 async fn sync_bucket(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+    check_aws_config()?;
+
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
 
     let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), store.heaviest_tipset()?)?;
+
+    let genesis = store.heaviest_tipset()?.genesis(&store)?.timestamp;
 
     let range = info.epoch_range();
 
     println!("Network: {}", info.network);
     println!("Range:   {} to {}", range.start, range.end);
+    println!("Lites:",);
+    for epoch in steps_in_range(&range, 30_000, 800) {
+        println!(
+            "  {}: {}",
+            epoch,
+            bucket_has_lite_snapshot(&info.network, epoch).await?
+        );
+    }
+    println!("Diffs:");
+    for epoch in steps_in_range(&range, 3_000, 800) {
+        println!(
+            "  {}: {}",
+            epoch,
+            bucket_has_diff_snapshot(&info.network, epoch).await?
+        );
+    }
     Ok(())
 }
 
@@ -630,6 +758,20 @@ mod tests {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
         let ts = db.heaviest_tipset().unwrap();
         ts.genesis(&db).unwrap().timestamp
+    }
+
+    #[test]
+    fn steps_in_range_1() {
+        let range = 30_000..60_001;
+        let lite = steps_in_range(&range, 30_000, 800);
+        assert_eq!(lite.collect::<Vec<_>>(), vec![60_000]);
+    }
+
+    #[test]
+    fn steps_in_range_2() {
+        let range = (30_000 - 800)..60_001;
+        let lite = steps_in_range(&range, 30_000, 800);
+        assert_eq!(lite.collect::<Vec<_>>(), vec![30_000, 60_000]);
     }
 
     #[tokio::test]
