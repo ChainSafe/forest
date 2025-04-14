@@ -129,6 +129,9 @@ pub enum ArchiveCommands {
     SyncBucket {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+        /// S3 endpoint URL.
+        #[arg(long, default_value = FOREST_ARCHIVE_S3_ENDPOINT)]
+        endpoint: String,
     },
 }
 
@@ -183,7 +186,10 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => show_tipset_diff(snapshot_files, epoch, depth).await,
-            Self::SyncBucket { snapshot_files } => sync_bucket(snapshot_files).await,
+            Self::SyncBucket {
+                snapshot_files,
+                endpoint,
+            } => sync_bucket(snapshot_files, endpoint).await,
         }
     }
 }
@@ -674,7 +680,7 @@ async fn bucket_has_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::R
 const FOREST_ARCHIVE_S3_ENDPOINT: &str =
     "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com";
 
-fn check_aws_config() -> anyhow::Result<()> {
+fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .arg("help")
         .stdout(std::process::Stdio::null())
@@ -689,13 +695,7 @@ fn check_aws_config() -> anyhow::Result<()> {
     }
 
     let status = std::process::Command::new("aws")
-        .args([
-            "s3",
-            "ls",
-            "s3://forest-archive/",
-            "--endpoint",
-            FOREST_ARCHIVE_S3_ENDPOINT,
-        ])
+        .args(["s3", "ls", "s3://forest-archive/", "--endpoint", endpoint])
         .stdout(std::process::Stdio::null())
         .status()
         .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 ls': {}", e))?;
@@ -714,8 +714,8 @@ fn check_aws_config() -> anyhow::Result<()> {
 // what is missing. If the input set of snapshot files can be used to generate
 // missing lite or diff snapshots, they'll be generated and uploaded to the S3
 // bucket.
-async fn sync_bucket(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
-    check_aws_config()?;
+async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::Result<()> {
+    check_aws_config(&endpoint)?;
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
 
