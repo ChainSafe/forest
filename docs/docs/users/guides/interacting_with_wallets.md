@@ -1,6 +1,6 @@
 ---
 title: Interacting With Wallets
-sidebar_position: 1
+sidebar_position: 3
 ---
 
 # Wallets in Forest

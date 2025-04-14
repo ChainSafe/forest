@@ -9,6 +9,8 @@ mod filter_list;
 mod log_layer;
 mod metrics_layer;
 mod request;
+mod segregation_layer;
+mod set_extension_layer;
 
 pub use client::Client;
 pub use error::ServerError;
@@ -18,8 +20,10 @@ pub use filter_list::FilterList;
 use futures::FutureExt as _;
 use log_layer::LogLayer;
 use reflect::Ctx;
-pub use reflect::{ApiPath, ApiPaths, Permission, RpcMethod, RpcMethodExt};
+pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
+use segregation_layer::SegregationLayer;
+use set_extension_layer::SetExtensionLayer;
 mod error;
 mod reflect;
 pub mod types;
@@ -530,10 +534,14 @@ where
                     .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
                         http::header::AUTHORIZATION,
                     )));
-                // NOTE, the rpc middleware must be initialized here to be able to created once per connection
+                // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
                 let rpc_middleware = RpcServiceBuilder::new()
+                    .layer(SetExtensionLayer {
+                        path: ApiPaths::from_uri(req.uri()).ok(),
+                    })
+                    .layer(SegregationLayer)
                     .layer(FilterLayer::new(filter_list.clone()))
                     .layer(AuthLayer {
                         headers,
@@ -612,7 +620,7 @@ where
 }
 
 /// If `include` is not [`None`], only methods that are listed will be returned
-pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
+pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::r#gen::{SchemaGenerator, SchemaSettings};
 
     let mut methods = vec![];
@@ -679,14 +687,14 @@ pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRP
 
 #[cfg(test)]
 mod tests {
-    use crate::rpc::ApiPath;
+    use crate::rpc::ApiPaths;
 
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
     #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     fn openrpc() {
-        for path in [ApiPath::V0, ApiPath::V1] {
+        for path in [ApiPaths::V0, ApiPaths::V1] {
             let _spec = super::openrpc(path, None);
             // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
             //               this is disabled because it causes lots of merge
