@@ -709,6 +709,31 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn export_lite_snapshot(
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    root: Tipset,
+    network: &str,
+    epoch: ChainEpoch,
+) -> anyhow::Result<PathBuf> {
+    let output_path: PathBuf = format_lite_snapshot(network, epoch)?.into();
+    let depth = 900;
+    let diff = None;
+    let diff_depth = None;
+    let force = false;
+    do_export(
+        store,
+        root,
+        output_path.clone(),
+        Some(epoch),
+        depth,
+        diff,
+        diff_depth,
+        force,
+    )
+    .await?;
+    Ok(output_path)
+}
+
 // This command is used for keeping the S3 bucket of archival snapshots
 // up-to-date. It takes a set of snapshot files and queries the S3 bucket to see
 // what is missing. If the input set of snapshot files can be used to generate
@@ -718,10 +743,11 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
     check_aws_config(&endpoint)?;
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+    let heaviest_tipset = store.heaviest_tipset()?;
 
-    let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), store.heaviest_tipset()?)?;
+    let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone())?;
 
-    let genesis = store.heaviest_tipset()?.genesis(&store)?.timestamp;
+    let genesis = heaviest_tipset.genesis(&store)?.timestamp;
 
     let range = info.epoch_range();
 
@@ -742,6 +768,15 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
             epoch,
             bucket_has_diff_snapshot(&info.network, epoch).await?
         );
+    }
+
+    for epoch in steps_in_range(&range, 30_000, 800) {
+        if !bucket_has_lite_snapshot(&info.network, epoch).await? {
+            println!("  {}: Exporting lite snapshot", epoch,);
+            let output_path =
+                export_lite_snapshot(store.clone(), heaviest_tipset.clone(), &info.network, epoch)
+                    .await?;
+        }
     }
     Ok(())
 }
