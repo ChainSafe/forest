@@ -1690,23 +1690,39 @@ Options:
 Usage: forest-tool api dump-tests [OPTIONS] --path <PATH> [SNAPSHOT_FILES]...
 
 Arguments:
-  [SNAPSHOT_FILES]...  Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
+  [SNAPSHOT_FILES]...
+          Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
 
 Options:
   -n, --n-tipsets <N_TIPSETS>
-          The number of tipsets to use to generate test cases [default: 10]
+          The number of tipsets to use to generate test cases
+
+          [default: 10]
+
       --miner-address <MINER_ADDRESS>
           Miner address to use for miner tests. Miner worker key must be in the key-store
+
       --worker-address <WORKER_ADDRESS>
           Worker address to use where key is applicable. Worker key must be in the key-store
+
       --eth-chain-id <ETH_CHAIN_ID>
-          Ethereum chain ID. Default to the calibnet chain ID [default: 314159]
+          Ethereum chain ID. Default to the calibnet chain ID
+
+          [default: 314159]
+
       --path <PATH>
-          Which API path to dump [possible values: v0, v1]
+          Which API path to dump
+
+          Possible values:
+          - v0: Only expose this method on `/rpc/v0`
+          - v1: Only expose this method on `/rpc/v1`
+          - v2: Only expose this method on `/rpc/v2`
+
       --include-ignored
 
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool api test`
@@ -1816,10 +1832,23 @@ Usage: forest-tool shed openrpc [OPTIONS] --path <PATH> [INCLUDE]...
 Arguments:
   [INCLUDE]...
 
+
 Options:
-      --path <PATH>  Which API path to dump [possible values: v0, v1]
-      --omit <OMIT>  A comma-separated list of fields to omit from the output (e.g., "summary,description") [possible values: summary, description]
-  -h, --help         Print help
+      --path <PATH>
+          Which API path to dump
+
+          Possible values:
+          - v0: Only expose this method on `/rpc/v0`
+          - v1: Only expose this method on `/rpc/v1`
+          - v2: Only expose this method on `/rpc/v2`
+
+      --omit <OMIT>
+          A comma-separated list of fields to omit from the output (e.g., "summary,description")
+
+          [possible values: summary, description]
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool shed f3`
