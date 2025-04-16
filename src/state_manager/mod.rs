@@ -526,21 +526,53 @@ where
                     tipset.epoch(),
                     tipset.len(),
                 );
+
+                // First try to lookup the state and receipt if not found in the blockstore
+                // compute it
+                if let Some(state_from_child) =
+                    self.try_lookup_state_from_next_tipset(tipset.as_ref())
+                {
+                    trace!("Using state from child tipset for epoch {}", tipset.epoch());
+                    return Ok(state_from_child);
+                }
+
+                trace!("Computing state for tipset at epoch {}", tipset.epoch());
                 let state_output = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 for events_root in state_output.events_roots.iter().flatten() {
                     trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
-
                     self.chain_store().put_index(events_root, key)?;
                 }
+
+                // update the events_cache and receipt_cache
+                self.update_receipt_and_events_cache(key, &state_output);
+
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
-                // We missed the opportunity to update `self.events_cache` and `self.receipt_cache` here, to be refactored.
+
                 Ok(ts_state)
             })
             .await
             .map(StateOutput::from)
+    }
+
+    /// Updates the events and receipts cache for the given tipset.
+    fn update_receipt_and_events_cache(&self, tipset_key: &TipsetKey, state_output: &StateOutput) {
+        if !state_output.events.is_empty() {
+            self.events_cache.insert(
+                tipset_key.clone(),
+                StateEvents {
+                    events: state_output.events.clone(),
+                    roots: state_output.events_roots.clone(),
+                },
+            );
+        }
+
+        // Get receipts for this tipset and cache them
+        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
+            self.receipt_cache.insert(tipset_key.clone(), receipts);
+        }
     }
 
     #[instrument(skip(self))]
@@ -1725,6 +1757,46 @@ where
         )?;
 
         Ok((state_root, invoc_trace))
+    }
+
+    /// Attempts to lookup the state and receipt root of the next tipset.
+    /// This is a performance optimization to avoid recomputing the state and receipt root by checking the blockstore.
+    /// It only checks the immediate next epoch, as this is the most likely place to find a child.
+    fn try_lookup_state_from_next_tipset(&self, tipset: &Tipset) -> Option<StateOutputValue> {
+        let epoch = tipset.epoch();
+        let next_epoch = epoch.saturating_add(1);
+
+        // Only check the immediate next epoch - this is the most likely place to find a child
+        let heaviest = self.cs.heaviest_tipset();
+        if next_epoch > heaviest.epoch() {
+            return None;
+        }
+
+        // Check if the next tipset has the same parent
+        if let Ok(next_tipset) = self.chain_store().chain_index.tipset_by_height(
+            next_epoch,
+            heaviest,
+            ResolveNullTipset::TakeNewer,
+        ) {
+            // verify the parent state of the next tipset is the same as the current tipset
+            if !next_tipset.parents().eq(tipset.key()) {
+                return None;
+            }
+
+            let state_root = next_tipset.parent_state();
+            let receipt_root = next_tipset.min_ticket_block().message_receipts;
+
+            if self.blockstore().has(state_root).unwrap_or(false)
+                && self.blockstore().has(&receipt_root).unwrap_or(false)
+            {
+                return Some(StateOutputValue {
+                    state_root: state_root.into(),
+                    receipt_root,
+                });
+            }
+        }
+
+        None
     }
 }
 
