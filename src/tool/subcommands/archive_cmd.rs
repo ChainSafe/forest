@@ -777,7 +777,7 @@ async fn export_diff_snapshot(
         return Ok(output_path);
     }
 
-    let depth = 30_000;
+    let depth = 3_000;
     let diff = Some(epoch - depth);
     let diff_depth = Some(900);
     let force = false;
@@ -823,7 +823,7 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
         );
     }
     println!("Diffs:");
-    for epoch in steps_in_range(&range, 3_000, 800) {
+    for epoch in steps_in_range(&range, 3_000, 3_800) {
         println!(
             "  {}: {}",
             epoch,
@@ -841,7 +841,7 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
         }
     }
 
-    for epoch in steps_in_range(&range, 3_000, 800) {
+    for epoch in steps_in_range(&range, 3_000, 3_800) {
         if !bucket_has_diff_snapshot(&info.network, epoch).await? {
             println!("  {}: Exporting diff snapshot", epoch,);
             let output_path =
