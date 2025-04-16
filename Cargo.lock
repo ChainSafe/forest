@@ -2509,7 +2509,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "frc42_dispatch",
  "frc42_macros",
@@ -2525,7 +2525,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.11.1",
@@ -2539,7 +2539,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2559,7 +2559,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_eam_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
@@ -2573,7 +2573,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2593,7 +2593,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -2613,7 +2613,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -2640,7 +2640,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "bitflags 2.9.0",
@@ -2670,7 +2670,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -2693,7 +2693,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -2716,7 +2716,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -2732,7 +2732,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2749,7 +2749,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -2770,7 +2770,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "22.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#d82a411036dda8eefc151f1cb8272775b00af031"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fbump-fvm-shared#0a414ee586db4d1e0c21abd4dad140ee2cff6a22"
 dependencies = [
  "anyhow",
  "cid",
@@ -6957,9 +6957,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31971752e70b8b2686d7e46ec17fb38dad4051d94024c88df49b667caea9c84"
+checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]
