@@ -709,6 +709,30 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
+    let status = std::process::Command::new("aws")
+        .args([
+            "s3",
+            "cp",
+            "--acl",
+            "public-read",
+            path.to_str().unwrap(),
+            &format!("s3://forest-archive/{}/{}/", network, tag),
+            "--endpoint",
+            FOREST_ARCHIVE_S3_ENDPOINT,
+        ])
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 cp': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws s3 cp' failed with status code: {}. Upload failed.",
+            status
+        );
+    }
+    Ok(())
+}
+
 async fn export_lite_snapshot(
     store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
@@ -716,9 +740,46 @@ async fn export_lite_snapshot(
     epoch: ChainEpoch,
 ) -> anyhow::Result<PathBuf> {
     let output_path: PathBuf = format_lite_snapshot(network, epoch)?.into();
+
+    // Skip if file already exists
+    if output_path.exists() {
+        return Ok(output_path);
+    }
+
     let depth = 900;
     let diff = None;
     let diff_depth = None;
+    let force = false;
+    do_export(
+        store,
+        root,
+        output_path.clone(),
+        Some(epoch),
+        depth,
+        diff,
+        diff_depth,
+        force,
+    )
+    .await?;
+    Ok(output_path)
+}
+
+async fn export_diff_snapshot(
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    root: Tipset,
+    network: &str,
+    epoch: ChainEpoch,
+) -> anyhow::Result<PathBuf> {
+    let output_path: PathBuf = format_diff_snapshot(network, epoch)?.into();
+
+    // Skip if file already exists
+    if output_path.exists() {
+        return Ok(output_path);
+    }
+
+    let depth = 30_000;
+    let diff = Some(epoch - depth);
+    let diff_depth = Some(900);
     let force = false;
     do_export(
         store,
@@ -776,6 +837,17 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
             let output_path =
                 export_lite_snapshot(store.clone(), heaviest_tipset.clone(), &info.network, epoch)
                     .await?;
+            upload_to_forest_bucket(output_path, &info.network, "lite")?;
+        }
+    }
+
+    for epoch in steps_in_range(&range, 3_000, 800) {
+        if !bucket_has_diff_snapshot(&info.network, epoch).await? {
+            println!("  {}: Exporting diff snapshot", epoch,);
+            let output_path =
+                export_diff_snapshot(store.clone(), heaviest_tipset.clone(), &info.network, epoch)
+                    .await?;
+            upload_to_forest_bucket(output_path, &info.network, "diff")?;
         }
     }
     Ok(())
