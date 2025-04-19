@@ -1,12 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub use super::fvm_shared_latest::{
-    IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK, crypto::signature::SECP_SIG_LEN,
+    self, IPLD_RAW, commcid::Commitment, crypto::signature::SECP_SIG_LEN,
 };
-use super::{
-    fvm_shared_latest::{self, commcid::Commitment},
-    version::NetworkVersion,
-};
+use super::version::NetworkVersion;
 use crate::eth::{EthChainId, EthTx};
 use crate::message::{Message, SignedMessage};
 use anyhow::{Context, ensure};
@@ -17,6 +14,7 @@ use fvm_ipld_encoding::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
+pub use fvm_shared3::TICKET_RANDOMNESS_LOOKBACK;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use schemars::JsonSchema;
@@ -279,7 +277,7 @@ pub fn verify_delegated_sig(
     let hash = keccak_256(data);
     let pub_key = recover_secp_public_key(&hash, &sig)?;
 
-    let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key.serialize())?;
+    let eth_addr = EthAddress::eth_address_from_pub_key(&pub_key)?;
 
     let rec_addr = eth_addr.to_filecoin_address()?;
 

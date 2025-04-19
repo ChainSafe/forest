@@ -66,32 +66,32 @@ either = "1"
 enumflags2 = "0.7"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { version = "21" }
-fil_actor_cron_state = { version = "21" }
-fil_actor_datacap_state = { version = "21" }
-fil_actor_eam_state = { version = "21" }
-fil_actor_evm_state = { version = "21" }
-fil_actor_init_state = { version = "21" }
-fil_actor_market_state = { version = "21" }
-fil_actor_miner_state = { version = "21" }
-fil_actor_multisig_state = { version = "21" }
-fil_actor_power_state = { version = "21" }
-fil_actor_reward_state = { version = "21" }
-fil_actor_system_state = { version = "21" }
-fil_actor_verifreg_state = { version = "21" }
-fil_actors_shared = { version = "21", features = ["json"] }
+fil_actor_account_state = { version = "22" }
+fil_actor_cron_state = { version = "22" }
+fil_actor_datacap_state = { version = "22" }
+fil_actor_eam_state = { version = "22" }
+fil_actor_evm_state = { version = "22" }
+fil_actor_init_state = { version = "22" }
+fil_actor_market_state = { version = "22" }
+fil_actor_miner_state = { version = "22" }
+fil_actor_multisig_state = { version = "22" }
+fil_actor_power_state = { version = "22" }
+fil_actor_reward_state = { version = "22" }
+fil_actor_system_state = { version = "22" }
+fil_actor_verifreg_state = { version = "22" }
+fil_actors_shared = { version = "22", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
-fvm2 = { package = "fvm", version = "~2.10", default-features = false }
-fvm3 = { package = "fvm", version = "~3.12", default-features = false }
-fvm4 = { package = "fvm", version = "~4.6.1", default-features = false, features = ["verify-signature"] }
+fvm2 = { package = "fvm", version = "~2.11", default-features = false }
+fvm3 = { package = "fvm", version = "~3.13", default-features = false }
+fvm4 = { package = "fvm", version = "~4.7", default-features = false, features = ["verify-signature"] }
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
-fvm_shared2 = { package = "fvm_shared", version = "~2.10" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.6.1", features = ["proofs"] }
+fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
@@ -242,8 +242,8 @@ criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
-fvm_shared3 = { package = "fvm_shared", version = "~3.12", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.6", features = ["arb", "proofs", "testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["arb", "proofs", "testing"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }

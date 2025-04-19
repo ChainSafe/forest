@@ -342,6 +342,7 @@ pub mod structured {
                 }
                 ExecutionEvent::Log(_ignored) => {}
                 ExecutionEvent::InvokeActor(_cid) => {}
+                ExecutionEvent::Ipld { .. } => {}
                 ExecutionEvent::Unknown(u) => {
                     return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)));
                 }
@@ -413,6 +414,7 @@ pub mod structured {
                         };
                         None
                     }
+                    ExecutionEvent::Ipld { .. } => None,
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554

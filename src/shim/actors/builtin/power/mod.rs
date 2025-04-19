@@ -280,10 +280,10 @@ impl State {
                 from_filter_estimate_v3_to_v2(st.this_epoch_qa_power_smoothed.clone())
             }
             State::V12(st) => {
-                from_filter_estimate_v4_to_v2(st.this_epoch_qa_power_smoothed.clone())
+                from_filter_estimate_v3_to_v2(st.this_epoch_qa_power_smoothed.clone())
             }
             State::V13(st) => {
-                from_filter_estimate_v4_to_v2(st.this_epoch_qa_power_smoothed.clone())
+                from_filter_estimate_v3_to_v2(st.this_epoch_qa_power_smoothed.clone())
             }
             State::V14(st) => FilterEstimate {
                 position: st.this_epoch_qa_power_smoothed.clone().position,

@@ -11,7 +11,7 @@ use cid::Cid;
 use fvm_ipld_encoding::{RawBytes, ipld_block::IpldBlock};
 use fvm2::trace::ExecutionEvent as E2;
 use fvm3::trace::ExecutionEvent as E3;
-use fvm4::trace::ExecutionEvent as E4;
+use fvm4::trace::{ExecutionEvent as E4, IpldOperation};
 use itertools::Either;
 
 #[derive(Debug, Clone)]
@@ -23,6 +23,12 @@ pub enum ExecutionEvent {
     CallError(ShimSyscallError),
     Log(String),
     InvokeActor(Either<Cid, InvokeActor>),
+    #[allow(dead_code)]
+    Ipld {
+        op: IpldOperation,
+        cid: Cid,
+        size: usize,
+    },
     Unknown(Either<E3, Either<E4, E2>>),
 }
 
@@ -146,6 +152,8 @@ impl From<E4> for ExecutionEvent {
                 id,
                 state: state.into(),
             })),
+            E4::Log(s) => EShim::Log(s),
+            E4::Ipld { op, cid, size } => EShim::Ipld { op, cid, size },
             e => EShim::Unknown(Either::Right(Either::Left(e))),
         }
     }
