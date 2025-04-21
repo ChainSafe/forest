@@ -134,6 +134,7 @@ pub async fn start_offline_server(
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
         sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(parking_lot::RwLock::new(Default::default())),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,

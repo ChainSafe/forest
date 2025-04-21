@@ -19,7 +19,7 @@ use std::sync::Arc;
 pub use types::*;
 
 use crate::chain;
-use crate::chain_sync::{SyncStage, TipsetValidator};
+use crate::chain_sync::{ForestSyncStatusReport, SyncStage, TipsetValidator};
 
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
@@ -89,6 +89,22 @@ impl RpcMethod<0> for SyncState {
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let active_syncs = ctx.sync_states.as_ref().read().clone();
         Ok(RPCSyncState { active_syncs })
+    }
+}
+
+pub enum SyncStatusReport {}
+impl RpcMethod<0> for SyncStatusReport {
+    const NAME: &'static str = "Filecoin.SyncStatusReport";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = ForestSyncStatusReport;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let sync_status = ctx.sync_status.as_ref().read().clone();
+        Ok(sync_status)
     }
 }
 
@@ -247,6 +263,7 @@ mod tests {
             bad_blocks: Default::default(),
             msgs_in_tipset: Default::default(),
             sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
+            sync_status: Arc::new(parking_lot::RwLock::new(ForestSyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),

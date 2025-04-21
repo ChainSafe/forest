@@ -131,6 +131,7 @@ async fn ctx(
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
         sync_states: Arc::new(RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(RwLock::new(Default::default())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,

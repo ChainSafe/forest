@@ -240,6 +240,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::sync::SyncMarkBad);
         $callback!($crate::rpc::sync::SyncSnapshotProgress);
         $callback!($crate::rpc::sync::SyncState);
+        $callback!($crate::rpc::sync::SyncStatusReport);
         $callback!($crate::rpc::sync::SyncSubmitBlock);
 
         // wallet vertical
@@ -415,6 +416,7 @@ pub struct RPCState<DB> {
     pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
     pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_states: Arc<parking_lot::RwLock<nunny::Vec<crate::chain_sync::SyncState>>>,
+    pub sync_status: Arc<parking_lot::RwLock<crate::chain_sync::ForestSyncStatusReport>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
     pub network_name: String,
