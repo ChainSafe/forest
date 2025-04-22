@@ -10,7 +10,7 @@ use clap::Args;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 
-use crate::state_migration::BlockstoreWithWriteBuffer;
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::utils::db::CborStoreExt;
 use crate::{
     blocks::CachingBlockHeader,

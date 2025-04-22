@@ -6,15 +6,13 @@ use std::sync::{
     atomic::{self, AtomicBool},
 };
 
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use itertools::Itertools;
-use parking_lot::RwLock;
 
 pub(in crate::state_migration) mod common;
 mod nv17;
@@ -95,7 +93,7 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    // ~10MB memory per 10k buffer
+    // ~10MB RAM per 10k buffer
     let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
         Ok(v) => v.parse().ok(),
         _ => None,
@@ -155,67 +153,6 @@ where
     }
 
     Ok(None)
-}
-
-pub(crate) struct BlockstoreWithWriteBuffer<DB: Blockstore> {
-    inner: DB,
-    buffer: RwLock<HashMap<Cid, Vec<u8>>>,
-    buffer_capacity: usize,
-}
-
-impl<DB: Blockstore> Blockstore for BlockstoreWithWriteBuffer<DB> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        if let Some(v) = self.buffer.read().get(k) {
-            return Ok(Some(v.clone()));
-        }
-        self.inner.get(k)
-    }
-
-    fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        Ok(self.buffer.read().contains_key(k) || self.inner.has(k)?)
-    }
-
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        {
-            let mut buffer = self.buffer.write();
-            buffer.insert(*k, block.to_vec());
-        }
-        self.flush_buffer_if_needed()
-    }
-}
-
-impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
-    pub fn new_with_capacity(inner: DB, buffer_capacity: usize) -> Self {
-        Self {
-            inner,
-            buffer_capacity,
-            buffer: RwLock::new(HashMap::with_capacity(buffer_capacity)),
-        }
-    }
-
-    fn flush_buffer(&self) -> anyhow::Result<()> {
-        let records = {
-            let mut buffer = self.buffer.write();
-            buffer.drain().collect_vec()
-        };
-        self.inner.put_many_keyed(records)
-    }
-
-    fn flush_buffer_if_needed(&self) -> anyhow::Result<()> {
-        if self.buffer.read().len() >= self.buffer_capacity {
-            self.flush_buffer()
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl<DB: Blockstore> Drop for BlockstoreWithWriteBuffer<DB> {
-    fn drop(&mut self) {
-        if let Err(e) = self.flush_buffer() {
-            tracing::warn!("{e}");
-        }
-    }
 }
 
 #[cfg(test)]
