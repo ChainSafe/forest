@@ -95,6 +95,12 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
+    // ~10MB memory per 10k buffer
+    let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
+        Ok(v) => v.parse().ok(),
+        _ => None,
+    }
+    .unwrap_or(10000);
     let mappings = get_migrations(&chain_config.network);
 
     // Make sure bundle is defined.
@@ -118,7 +124,10 @@ where
         if epoch == chain_config.epoch(height) {
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
-            let db = Arc::new(BlockstoreWithWriteBuffer::new(db.clone()));
+            let db = Arc::new(BlockstoreWithWriteBuffer::new_with_capacity(
+                db.clone(),
+                db_write_buffer,
+            ));
             let new_state = migrate(chain_config, &db, parent_state, epoch)?;
             let elapsed = start_time.elapsed();
             // `new_state_actors` is the Go state migration output, log for comparision
@@ -148,7 +157,7 @@ where
     Ok(None)
 }
 
-pub struct BlockstoreWithWriteBuffer<DB: Blockstore> {
+pub(crate) struct BlockstoreWithWriteBuffer<DB: Blockstore> {
     inner: DB,
     buffer: RwLock<HashMap<Cid, Vec<u8>>>,
     buffer_capacity: usize,
@@ -176,10 +185,6 @@ impl<DB: Blockstore> Blockstore for BlockstoreWithWriteBuffer<DB> {
 }
 
 impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
-    pub fn new(inner: DB) -> Self {
-        Self::new_with_capacity(inner, 10000)
-    }
-
     pub fn new_with_capacity(inner: DB, buffer_capacity: usize) -> Self {
         Self {
             inner,

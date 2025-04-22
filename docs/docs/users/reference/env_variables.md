@@ -47,6 +47,7 @@ process.
 | `FOREST_TRACE_FILTER_MAX_RESULT`                          | positive integer                 | 500                                            | 1000                                                          | Sets the maximum results returned per request by `trace_filter`                                                       |
 | `FOREST_CHAIN_INDEXER_ENABLED`                            | 1 or true                        | false                                          | 1                                                             | Whether or not to index the chain to support the Ethereum RPC API                                                     |
 | `FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE`                    | positive integer                 | 100                                            | 42                                                            | The size of an internal cache of tipsets to messages                                                                  |
+| `FOREST_STATE_MIGRATION_DB_WRITE_BUFFER`                  | non-negative integer             | 10000                                          | 100000                                                        | The size of db write buffer for state migration (~10MB memory per 10k buffer)                                         |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
