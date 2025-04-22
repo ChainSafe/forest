@@ -374,11 +374,13 @@ impl EthEventHandler {
             .tipset_state_events(tipset, Some(events_root))
             .await?;
 
+        ensure!(state_events.roots.len() == state_events.events.len());
+
         let filtered_events = state_events
             .roots
             .into_iter()
             .zip(state_events.events)
-            .filter(|(cid, _)| cid == events_root)
+            .filter(|(cid, _)| cid.as_ref() == Some(&events_root))
             .map(|(_, v)| v);
 
         let mut chain_events = vec![];

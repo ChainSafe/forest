@@ -92,7 +92,7 @@ pub struct StateOutput {
     pub state_root: Cid,
     pub receipt_root: Cid,
     pub events: Vec<Vec<StampedEvent>>,
-    pub events_roots: Vec<Cid>,
+    pub events_roots: Vec<Option<Cid>>,
 }
 
 #[derive(Clone)]
@@ -124,7 +124,7 @@ impl From<StateOutput> for StateOutputValue {
 #[derive(Clone)]
 pub struct StateEvents {
     pub events: Vec<Vec<StampedEvent>>,
-    pub roots: Vec<Cid>,
+    pub roots: Vec<Option<Cid>>,
 }
 
 // Various structures for implementing the tipset state cache
@@ -530,9 +530,11 @@ where
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 for events_root in state_output.events_roots.iter() {
-                    trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
+                    if let Some(cid) = events_root {
+                        trace!("Indexing events root @{}: {}", tipset.epoch(), cid);
 
-                    self.chain_store().put_index(events_root, key)?;
+                        self.chain_store().put_index(cid, key)?;
+                    }
                 }
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
