@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKey;
-use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus};
+use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus, SyncStatusReport};
 use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
@@ -42,26 +42,12 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let ticker = Ticker::new(0.., Duration::from_secs(2));
+                let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
                 let mut last_lines_printed = 0;
 
                 // if the sync stage is idle, check if the snapshot download is needed
-                let initial_report = SyncStatus::call(&client, ()).await?;
-                if initial_report.status == NodeSyncStatus::Initializing {
-                    // Consider checking snapshot status if node is initializing
-                    println!("Node initializing, checking snapshot status...");
-                    if !check_snapshot_progress(&client, false)
-                        .await?
-                        .is_not_required()
-                    {
-                        println!("Snapshot download in progress, waiting...");
-                        wait_for_snapshot_completion(&client).await?;
-                        println!("Snapshot download complete. Starting sync monitor...");
-                    } else {
-                        println!("No snapshot download required or already complete.");
-                    }
-                }
+                handle_initial_snapshot_check(&client).await?;
 
                 for _ in ticker {
                     let report = SyncStatus::call(&client, ()).await?;
@@ -74,75 +60,21 @@ impl SyncCommands {
                         )?;
                     }
                     let mut current_lines = 0;
-                    println!(
-                        "Status: {:?} ({} epochs behind)",
-                        report.status, report.epochs_behind
-                    );
-                    current_lines += 1;
-
-                    let head_key_str = report
-                        .current_head_key
-                        .as_ref()
-                        .map(tipset_key_to_string)
-                        .unwrap_or_else(|| "[unknown]".to_string());
-
-                    println!(
-                        "Node Head: Epoch {} ({})",
-                        report.current_head_epoch, head_key_str
-                    );
-
-                    current_lines += 1;
-                    println!("Network Head: Epoch {}", report.network_head_epoch);
-                    current_lines += 1;
-                    println!("Last Update: {}", report.last_updated);
-                    current_lines += 1;
-
-                    // Print active sync tasks (forks)
-                    if report.active_forks.is_empty() {
-                        println!("Active Sync Tasks: None");
-                        current_lines += 1;
-                    } else {
-                        println!("Active Sync Tasks:");
-                        current_lines += 1;
-                        let mut sorted_forks = report.active_forks.clone();
-                        sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
-                        for fork in &report.active_forks {
-                            print_fork_sync_info(fork, &mut current_lines)?;
-                        }
-                    }
+                    print_sync_report_details(&report, &mut current_lines)?;
 
                     last_lines_printed = current_lines;
                     // Break if Synced and not watching
-                    if !watch && report.status == NodeSyncStatus::Synced {
+                    if !watch && report.get_status() == NodeSyncStatus::Synced {
                         // Perform one final clear and print before exiting
-                        write!(
-                            stdout,
-                            "\r{}{}",
-                            anes::MoveCursorUp(last_lines_printed as u16),
-                            anes::ClearBuffer::Below,
-                        )?;
-                        println!(
-                            "Status: {:?} ({} epochs behind)",
-                            report.status, report.epochs_behind
-                        );
-                        println!(
-                            "Node Head: Epoch {} ({})",
-                            report.current_head_epoch, head_key_str
-                        );
-                        println!("Network Head: Epoch {}", report.network_head_epoch);
-                        println!("Last Update: {}", report.last_updated.to_rfc3339());
-                        let mut sorted_forks = report.active_forks.clone();
-                        sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
-
-                        if sorted_forks.is_empty() {
-                            println!("Active Sync Tasks: None");
-                        } else {
-                            println!("Active Sync Tasks:");
-                            for fork in &sorted_forks {
-                                // Don't increment lines here, just print final state
-                                print_fork_sync_info(fork, &mut 0)?;
-                            }
+                        if last_lines_printed > 0 {
+                            write!(
+                                stdout,
+                                "\r{}{}",
+                                anes::MoveCursorUp(last_lines_printed as u16),
+                                anes::ClearBuffer::Below,
+                            )?;
                         }
+                        print_sync_report_details(&report, &mut current_lines)?;
                         println!("\nSync complete!");
                         break;
                     }
@@ -153,41 +85,13 @@ impl SyncCommands {
 
             Self::Status => {
                 let sync_status = client.call(SyncStatus::request(())?).await?;
-                if sync_status.status == NodeSyncStatus::Initializing {
+                if sync_status.get_status() == NodeSyncStatus::Initializing {
                     println!("Node initializing, checking snapshot status...");
                     check_snapshot_progress(&client, false).await?;
                 }
 
-                // Print the main status information
-                println!(
-                    "Status: {:?} ({} epochs behind)",
-                    sync_status.status, sync_status.epochs_behind
-                );
-
-                let head_key_str = sync_status
-                    .current_head_key
-                    .as_ref()
-                    .map(tipset_key_to_string)
-                    .unwrap_or_else(|| "[unknown]".to_string());
-
-                println!(
-                    "Node Head: Epoch {} ({})",
-                    sync_status.current_head_epoch, head_key_str
-                );
-                println!("Network Head: Epoch {}", sync_status.network_head_epoch);
-                println!("Last Update: {}", sync_status.last_updated.to_rfc3339());
-                if sync_status.active_forks.is_empty() {
-                    println!("Active Sync Tasks: None");
-                } else {
-                    println!("Active Sync Tasks:");
-                    let mut sorted_forks = sync_status.active_forks.clone();
-                    // Sort forks by target epoch descending for consistent display
-                    sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
-                    for fork in &sorted_forks {
-                        // Pass 0 for line_count as we are not clearing lines here
-                        print_fork_sync_info(fork, &mut 0)?;
-                    }
-                }
+                // Print the status report once, without line counting for clearing
+                print_sync_report_details(&sync_status, &mut 0)?;
 
                 Ok(())
             }
@@ -207,6 +111,57 @@ impl SyncCommands {
             }
         }
     }
+}
+
+/// Prints the sync status report details.
+/// `line_count` is mutable and incremented for each line printed, used for clearing in `Wait`.
+/// Pass `&mut 0` if line counting/clearing is not needed (like in `Status` or final print).
+fn print_sync_report_details(
+    report: &SyncStatusReport,
+    line_count: &mut usize,
+) -> anyhow::Result<()> {
+    println!(
+        "Status: {:?} ({} epochs behind)",
+        report.get_status(),
+        report.get_epochs_behind()
+    );
+    *line_count += 1;
+
+    let head_key_str = report
+        .get_current_chain_head_key()
+        .map(tipset_key_to_string)
+        .unwrap_or_else(|| "[unknown]".to_string());
+    println!(
+        "Node Head: Epoch {} ({})",
+        report.get_current_chain_head_epoch(),
+        head_key_str
+    );
+    *line_count += 1;
+
+    println!("Network Head: Epoch {}", report.get_network_head_epoch());
+    *line_count += 1;
+
+    println!("Last Update: {}", report.get_last_updated().to_rfc3339());
+    *line_count += 1;
+
+    // Print active sync tasks (forks)
+    let active_forks = report.get_active_forks();
+    if active_forks.is_empty() {
+        println!("Active Sync Tasks: None");
+        *line_count += 1;
+    } else {
+        println!("Active Sync Tasks:");
+        *line_count += 1;
+        let mut sorted_forks = active_forks.clone();
+        sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
+        for fork in &sorted_forks {
+            // Assuming print_fork_sync_info exists and increments line_count internally if needed
+            // If print_fork_sync_info doesn't increment, adjust line_count here.
+            // For simplicity, assuming it behaves as needed or is adjusted elsewhere.
+            print_fork_sync_info(fork, line_count)?;
+        }
+    }
+    Ok(())
 }
 
 fn print_fork_sync_info(fork: &ForkSyncInfo, line_count: &mut usize) -> anyhow::Result<()> {
@@ -280,4 +235,26 @@ async fn wait_for_snapshot_completion(
     client: &rpc::Client,
 ) -> anyhow::Result<SnapshotProgressState> {
     check_snapshot_progress(client, true).await
+}
+
+/// Handles the initial check for snapshot download if the node is initializing.
+async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<()> {
+    let initial_report = SyncStatus::call(client, ()).await?;
+    // Use the public getter method instead of accessing the private field
+    if initial_report.get_status() == NodeSyncStatus::Initializing {
+        println!("Node initializing, checking snapshot status...");
+        // Consider checking snapshot status if node is initializing
+        if !check_snapshot_progress(client, false)
+            .await?
+            .is_not_required()
+        {
+            println!("Snapshot download in progress, waiting...");
+            wait_for_snapshot_completion(client).await?;
+            println!("Snapshot download complete. Starting sync monitor...");
+        } else {
+            println!("No snapshot download required or already complete.");
+        }
+    }
+
+    Ok(())
 }

@@ -100,24 +100,24 @@ pub struct ForkSyncInfo {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]
 pub struct SyncStatusReport {
     /// Overall status of the node's synchronization.
-    pub status: NodeSyncStatus,
+    status: NodeSyncStatus,
     /// The epoch of the heaviest validated tipset on the node's main chain.
-    pub current_head_epoch: ChainEpoch,
+    current_head_epoch: ChainEpoch,
     /// The tipset key of the current heaviest validated tipset.
     #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")]
     #[serde(with = "crate::lotus_json")]
-    pub current_head_key: Option<TipsetKey>,
+    current_head_key: Option<TipsetKey>,
     /// An estimation of the current highest epoch on the network.
-    pub network_head_epoch: ChainEpoch,
+    network_head_epoch: ChainEpoch,
     /// Estimated number of epochs the node is behind the network head.
     /// Can be negative if the node is slightly ahead, due to estimation variance.
-    pub epochs_behind: i64,
+    epochs_behind: i64,
     /// List of active fork synchronization tasks the node is currently handling.
-    pub active_forks: Vec<ForkSyncInfo>,
+    active_forks: Vec<ForkSyncInfo>,
     /// When the node process started.
-    pub node_start_time: DateTime<Utc>,
+    node_start_time: DateTime<Utc>,
     /// Last time this status report was generated.
-    pub last_updated: DateTime<Utc>,
+    last_updated: DateTime<Utc>,
 }
 
 lotus_json_with_self!(SyncStatusReport);
@@ -130,17 +130,36 @@ impl SyncStatusReport {
         }
     }
 
-    pub(crate) fn set_current_chain_head(&mut self, tipset_key: TipsetKey, epoch: ChainEpoch) {
+    pub(crate) fn set_current_chain_head_key(&mut self, tipset_key: TipsetKey) {
         self.current_head_key = Some(tipset_key);
+    }
+
+    pub(crate) fn set_current_chain_head_epoch(&mut self, epoch: ChainEpoch) {
         self.current_head_epoch = epoch;
+    }
+
+    pub(crate) fn get_current_chain_head_epoch(&self) -> ChainEpoch {
+        self.current_head_epoch
     }
 
     pub(crate) fn set_network_head(&mut self, epoch: ChainEpoch) {
         self.network_head_epoch = epoch;
     }
 
+    pub(crate) fn get_network_head_epoch(&self) -> ChainEpoch {
+        self.network_head_epoch
+    }
+
+    pub(crate) fn get_current_chain_head_key(&self) -> Option<&TipsetKey> {
+        self.current_head_key.as_ref()
+    }
+
     pub(crate) fn set_epochs_behind(&mut self, epochs_behind: i64) {
         self.epochs_behind = epochs_behind;
+    }
+
+    pub(crate) fn get_epochs_behind(&self) -> i64 {
+        self.epochs_behind
     }
 
     pub(crate) fn set_status(&mut self, status: NodeSyncStatus) {
@@ -151,8 +170,16 @@ impl SyncStatusReport {
         self.status.clone()
     }
 
-    pub(crate) fn set_active_forks(&mut self, active_forks: Vec<ForkSyncInfo>) {
+    pub(crate) fn update_active_forks(&mut self, active_forks: Vec<ForkSyncInfo>) {
         self.active_forks = active_forks;
+    }
+
+    pub(crate) fn get_active_forks(&self) -> &Vec<ForkSyncInfo> {
+        &self.active_forks
+    }
+
+    pub fn get_last_updated(&self) -> &DateTime<Utc> {
+        &self.last_updated
     }
 
     pub(crate) fn update<DB: Blockstore + Sync + Send + 'static>(
@@ -163,7 +190,8 @@ impl SyncStatusReport {
     ) {
         let heaviest = state_manager.chain_store().heaviest_tipset();
         let current_chain_head_epoch = heaviest.epoch();
-        self.set_current_chain_head(heaviest.key().clone(), current_chain_head_epoch);
+        self.set_current_chain_head_key(heaviest.key().clone());
+        self.set_current_chain_head_epoch(current_chain_head_epoch);
         let network_head_epoch = calculate_expected_epoch(
             Utc::now().timestamp() as u64,
             state_manager.chain_store().genesis_block_header().timestamp,
@@ -185,7 +213,7 @@ impl SyncStatusReport {
                 }
             }
         }
-        self.set_active_forks(current_active_forks);
+        self.update_active_forks(current_active_forks);
         self.last_updated = Utc::now();
     }
 
