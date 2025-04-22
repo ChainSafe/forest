@@ -150,57 +150,44 @@ impl SyncCommands {
 
                 Ok(())
             }
-            Self::Status => {
-                //     let resp = client.call(SyncState::request(())?).await?;
-                //     for state in resp.active_syncs {
-                //         let base = state.base();
-                //         let elapsed_time = state.get_elapsed_time();
-                //         let target = state.target();
-                //
-                //         let (target_cids, target_height) = if let Some(tipset) = target {
-                //             let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
-                //             (format_vec_pretty(cid_vec), tipset.epoch())
-                //         } else {
-                //             ("".to_string(), 0)
-                //         };
-                //
-                //         let (base_cids, base_height) = if let Some(tipset) = base {
-                //             let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
-                //             (format_vec_pretty(cid_vec), tipset.epoch())
-                //         } else {
-                //             ("".to_string(), 0)
-                //         };
-                //
-                //         let height_diff = base_height - target_height;
-                //
-                //         match state.stage() {
-                //             // If the sync state is idle, check the snapshot state once
-                //             _ => {
-                //                 if !check_snapshot_progress(&client, false)
-                //                     .await?
-                //                     .is_not_required()
-                //                 {
-                //                     continue;
-                //                 }
-                //             }
-                //             _ => {}
-                //         }
-                //
-                //         println!("sync status:");
-                //         println!("Base:\t{}", format_tipset_cids(&base_cids));
-                //         println!(
-                //             "Target:\t{} ({target_height})",
-                //             format_tipset_cids(&target_cids)
-                //         );
-                //         println!("Height diff:\t{}", height_diff.abs());
-                //         println!("Stage:\t{}", state.stage());
-                //         println!("Height:\t{}", state.epoch());
-                //
-                //         if let Some(duration) = elapsed_time {
-                //             println!("Elapsed time:\t{}s", duration.num_seconds());
-                //         }
-                //     }
-                //
+            Self::Status => { 
+                let sync_status = client.call(SyncStatusReport::request(())?).await?;
+                if sync_status.status == NodeSyncStatus::Initializing {
+                    println!("Node initializing, checking snapshot status...");
+                    check_snapshot_progress(&client, false).await?;
+                }
+
+                // Print the main status information
+                println!(
+                    "Status: {:?} ({} epochs behind)",
+                    sync_status.status, sync_status.epochs_behind
+                );
+
+                let head_key_str = sync_status
+                    .current_head_key
+                    .as_ref()
+                    .map(|key| tipset_key_to_string(key))
+                    .unwrap_or_else(|| "[unknown]".to_string());
+                
+                println!(
+                    "Node Head: Epoch {} ({})",
+                    sync_status.current_head_epoch, head_key_str
+                );
+                println!("Network Head: Epoch {}", sync_status.network_head_epoch);
+                println!("Last Update: {}", sync_status.last_updated.to_rfc3339());
+                if sync_status.active_forks.is_empty() {
+                    println!("Active Sync Tasks: None");
+                } else {
+                    println!("Active Sync Tasks:");
+                    let mut sorted_forks = sync_status.active_forks.clone();
+                    // Sort forks by target epoch descending for consistent display
+                    sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
+                    for fork in &sorted_forks {
+                        // Pass 0 for line_count as we are not clearing lines here
+                        print_fork_sync_info(fork, &mut 0)?;
+                    }
+                }
+                
                 Ok(())
             }
             Self::CheckBad { cid } => {
@@ -240,10 +227,6 @@ fn print_fork_sync_info(fork: &ForkSyncInfo, line_count: &mut usize) -> anyhow::
     }
 
     Ok(())
-}
-
-fn format_tipset_cids(cids: &str) -> &str {
-    if cids.is_empty() { "[]" } else { cids }
 }
 
 fn tipset_key_to_string(key: &TipsetKey) -> String {
