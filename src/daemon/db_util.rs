@@ -325,12 +325,10 @@ where
         let state_output = state_manager
             .compute_tipset_state(Arc::new(ts), NO_CALLBACK, VMTrace::NotTraced)
             .await?;
-        for events_root in state_output.events_roots.iter() {
-            if let Some(cid) = events_root {
-                println!("Indexing events root @{}: {}", epoch, cid);
+        for events_root in state_output.events_roots.iter().flatten() {
+            println!("Indexing events root @{}: {}", epoch, events_root);
 
-                state_manager.chain_store().put_index(cid, &tsk)?;
-            }
+            state_manager.chain_store().put_index(events_root, &tsk)?;
         }
     }
 

@@ -380,7 +380,7 @@ impl EthEventHandler {
             .roots
             .into_iter()
             .zip(state_events.events)
-            .filter(|(cid, _)| cid.as_ref() == Some(&events_root))
+            .filter(|(cid, _)| cid.as_ref() == Some(events_root))
             .map(|(_, v)| v);
 
         let mut chain_events = vec![];

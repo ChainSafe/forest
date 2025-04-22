@@ -529,12 +529,10 @@ where
                 let state_output = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                for events_root in state_output.events_roots.iter() {
-                    if let Some(cid) = events_root {
-                        trace!("Indexing events root @{}: {}", tipset.epoch(), cid);
+                for events_root in state_output.events_roots.iter().flatten() {
+                    trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
 
-                        self.chain_store().put_index(cid, key)?;
-                    }
+                    self.chain_store().put_index(events_root, key)?;
                 }
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
