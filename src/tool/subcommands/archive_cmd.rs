@@ -43,7 +43,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
 use anyhow::{Context as _, bail};
-use chrono::{DateTime, NaiveDateTime};
+use chrono::DateTime;
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{Confirm, theme::ColorfulTheme};
@@ -619,15 +619,9 @@ fn steps_in_range(
         .take_while(move |&x| x <= range.end)
 }
 
-fn epoch_to_date(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
-    let genesis_timestamp = match network {
-        "mainnet" => 1598306400,
-        "calibnet" => 1667326380,
-        _ => bail!("unsupported network"),
-    };
-
-    Ok(NaiveDateTime::from_timestamp_opt(
-        (genesis_timestamp + epoch * EPOCH_DURATION_SECONDS) as i64,
+fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
+    Ok(DateTime::from_timestamp(
+        (genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS) as i64,
         0,
     )
     .unwrap_or_default()
@@ -635,18 +629,26 @@ fn epoch_to_date(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
     .to_string())
 }
 
-fn format_lite_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
+fn format_lite_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<String> {
     Ok(format!(
         "forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst",
-        date = epoch_to_date(network, epoch)?,
+        date = epoch_to_date(genesis_timestamp, epoch)?,
         epoch = epoch
     ))
 }
 
-fn format_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<String> {
+fn format_diff_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<String> {
     Ok(format!(
         "forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst",
-        date = epoch_to_date(network, epoch)?,
+        date = epoch_to_date(genesis_timestamp, epoch)?,
         epoch = epoch - 3000
     ))
 }
@@ -654,11 +656,15 @@ fn format_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<Stri
 // Check if
 // forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
 // exists.
-async fn bucket_has_lite_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<bool> {
+async fn bucket_has_lite_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<bool> {
     let url = format!(
         "https://forest-internal.chainsafe.dev/{}/lite/{}",
         network,
-        format_lite_snapshot(network, epoch)?
+        format_lite_snapshot(network, genesis_timestamp, epoch)?
     );
     let response = reqwest::Client::new().get(url).send().await?;
     Ok(response.status().is_success())
@@ -667,11 +673,15 @@ async fn bucket_has_lite_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::R
 // Check if
 // forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
 // exists.
-async fn bucket_has_diff_snapshot(network: &str, epoch: ChainEpoch) -> anyhow::Result<bool> {
+async fn bucket_has_diff_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<bool> {
     let url = format!(
         "https://forest-internal.chainsafe.dev/{}/diff/{}",
         network,
-        format_diff_snapshot(network, epoch)?
+        format_diff_snapshot(network, genesis_timestamp, epoch)?
     );
     let response = reqwest::Client::new().head(url).send().await?;
     Ok(response.status().is_success())
@@ -737,9 +747,10 @@ async fn export_lite_snapshot(
     store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     network: &str,
+    genesis_timestamp: u64,
     epoch: ChainEpoch,
 ) -> anyhow::Result<PathBuf> {
-    let output_path: PathBuf = format_lite_snapshot(network, epoch)?.into();
+    let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch)?.into();
 
     // Skip if file already exists
     if output_path.exists() {
@@ -768,9 +779,10 @@ async fn export_diff_snapshot(
     store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     network: &str,
+    genesis_timestamp: u64,
     epoch: ChainEpoch,
 ) -> anyhow::Result<PathBuf> {
-    let output_path: PathBuf = format_diff_snapshot(network, epoch)?.into();
+    let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch)?.into();
 
     // Skip if file already exists
     if output_path.exists() {
@@ -808,7 +820,7 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
 
     let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone())?;
 
-    let genesis = heaviest_tipset.genesis(&store)?.timestamp;
+    let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
 
     let range = info.epoch_range();
 
@@ -819,7 +831,7 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
         println!(
             "  {}: {}",
             epoch,
-            bucket_has_lite_snapshot(&info.network, epoch).await?
+            bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
         );
     }
     println!("Diffs:");
@@ -827,26 +839,36 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
         println!(
             "  {}: {}",
             epoch,
-            bucket_has_diff_snapshot(&info.network, epoch).await?
+            bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
         );
     }
 
     for epoch in steps_in_range(&range, 30_000, 800) {
-        if !bucket_has_lite_snapshot(&info.network, epoch).await? {
+        if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
             println!("  {}: Exporting lite snapshot", epoch,);
-            let output_path =
-                export_lite_snapshot(store.clone(), heaviest_tipset.clone(), &info.network, epoch)
-                    .await?;
+            let output_path = export_lite_snapshot(
+                store.clone(),
+                heaviest_tipset.clone(),
+                &info.network,
+                genesis_timestamp,
+                epoch,
+            )
+            .await?;
             upload_to_forest_bucket(output_path, &info.network, "lite")?;
         }
     }
 
     for epoch in steps_in_range(&range, 3_000, 3_800) {
-        if !bucket_has_diff_snapshot(&info.network, epoch).await? {
+        if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
             println!("  {}: Exporting diff snapshot", epoch,);
-            let output_path =
-                export_diff_snapshot(store.clone(), heaviest_tipset.clone(), &info.network, epoch)
-                    .await?;
+            let output_path = export_diff_snapshot(
+                store.clone(),
+                heaviest_tipset.clone(),
+                &info.network,
+                genesis_timestamp,
+                epoch,
+            )
+            .await?;
             upload_to_forest_bucket(output_path, &info.network, "diff")?;
         }
     }
