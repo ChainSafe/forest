@@ -14,7 +14,7 @@ use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, index::ResolveNullTipset};
-use crate::chain_sync::SyncStage;
+use crate::chain_sync::NodeSyncStatus;
 use crate::cid_collections::CidHashSet;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
@@ -1669,26 +1669,24 @@ impl RpcMethod<0> for EthSyncing {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let crate::rpc::sync::RPCSyncState { active_syncs } =
-            crate::rpc::sync::SyncState::handle(ctx, ()).await?;
-        match active_syncs
-            .into_iter()
-            .rev()
-            .find_or_first(|ss| ss.stage() != SyncStage::Idle)
-        {
-            Some(sync_state) => match (sync_state.base(), sync_state.target()) {
-                (Some(base), Some(target)) => Ok(EthSyncingResult {
-                    done_sync: sync_state.stage() == SyncStage::Complete,
-                    current_block: sync_state.epoch(),
-                    starting_block: base.epoch(),
-                    highest_block: target.epoch(),
-                }),
-                _ => Err(ServerError::internal_error(
-                    "missing syncing information, try again",
-                    None,
-                )),
-            },
-            None => Err(ServerError::internal_error("sync state not found", None)),
+        let sync_status: crate::chain_sync::ForestSyncStatusReport =
+            crate::rpc::sync::SyncStatusReport::handle(ctx, ()).await?;
+        let starting_block = match sync_status.get_min_starting_block() {
+            Some(e) => Ok(e),
+            None => Err(ServerError::internal_error(
+                "missing syncing information, try again",
+                None,
+            )),
+        }?;
+
+        match sync_status.status == NodeSyncStatus::Syncing {
+            true => Ok(EthSyncingResult {
+                done_sync: sync_status.is_synced(),
+                starting_block,
+                current_block: sync_status.current_head_epoch,
+                highest_block: sync_status.network_head_epoch,
+            }),
+            false => Err(ServerError::internal_error("sync state not found", None)),
         }
     }
 }

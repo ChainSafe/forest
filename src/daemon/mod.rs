@@ -390,7 +390,7 @@ async fn maybe_start_health_check_service(
                 .chain_store()
                 .genesis_block_header()
                 .timestamp,
-            sync_states: chain_follower.sync_states.clone(),
+            sync_status: chain_follower.sync_status.clone(),
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
         };
@@ -431,7 +431,6 @@ fn maybe_start_rpc_service(
         services.spawn({
             let state_manager = ctx.state_manager.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();
-            let sync_states = chain_follower.sync_states.clone();
             let sync_status = chain_follower.sync_status.clone();
             let sync_network_context = chain_follower.network.clone();
             let tipset_send = chain_follower.tipset_sender.clone();
@@ -447,7 +446,6 @@ fn maybe_start_rpc_service(
                         mpool,
                         bad_blocks,
                         msgs_in_tipset,
-                        sync_states,
                         sync_status,
                         eth_event_handler,
                         sync_network_context,

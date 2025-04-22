@@ -9,50 +9,68 @@ use chrono::{DateTime, Utc};
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fmt::Formatter;
 use std::sync::Arc;
 
 /// Represents the overall synchronization status of the Forest node.
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq, JsonSchema)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Eq,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
+)]
 pub enum NodeSyncStatus {
     /// Node is initializing, status not yet determined.
     #[default]
+    #[strum(to_string = "Intializing")]
     Initializing,
     /// Node is significantly behind the network head and actively downloading/validating.
+    #[strum(to_string = "Syncing")]
     Syncing,
     /// Node is close to the network head (e.g., within a configurable threshold like ~5 epochs).
+    #[strum(to_string = "Synced")]
     Synced,
     /// An error occurred during the sync process.
-    Error(String),
+    #[strum(to_string = "error")]
+    Error,
     /// Node is configured to not sync (offline mode).
+    #[strum(to_string = "offline")]
     Offline,
 }
 
 /// Represents the stage of processing for a specific chain fork being tracked.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    JsonSchema,
+    strum::Display,
+    strum::EnumString,
+)]
 pub enum ForkSyncStage {
     /// Fetching necessary block headers for this fork.
+    #[strum(to_string = "Fetching Headers")]
     FetchingHeaders,
     /// Validating tipsets and messages for this fork.
+    #[strum(to_string = "Validating Tipsets")]
     ValidatingTipsets,
     /// This fork sync process is complete (e.g., reached target, merged, or deemed invalid).
+    #[strum(to_string = "Complete")]
     Complete,
     /// Progress is stalled, potentially waiting for dependencies.
+    #[strum(to_string = "Stalled")]
     Stalled,
     /// An error occurred processing this specific fork.
-    Error(String),
-}
-
-impl std::fmt::Display for ForkSyncStage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ForkSyncStage::FetchingHeaders => write!(f, "Fetching Headers"),
-            ForkSyncStage::ValidatingTipsets => write!(f, "Validating Tipsets"),
-            ForkSyncStage::Complete => write!(f, "Complete"),
-            ForkSyncStage::Stalled => write!(f, "Stalled"),
-            ForkSyncStage::Error(e) => write!(f, "{}", format!("Error: {}", e)),
-        }
-    }
+    #[strum(to_string = "error")]
+    Error,
 }
 
 /// Contains information about a specific chain/fork the node is actively tracking or syncing.
@@ -104,7 +122,7 @@ pub struct ForestSyncStatusReport {
 lotus_json_with_self!(ForestSyncStatusReport);
 
 impl ForestSyncStatusReport {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn init() -> Self {
         Self {
             node_start_time: Utc::now(),
             ..Default::default()
@@ -113,6 +131,10 @@ impl ForestSyncStatusReport {
 
     pub(crate) fn set_current_chain_head(&mut self, tipset_key: TipsetKey, epoch: ChainEpoch) {
         self.current_head_key = Some(tipset_key);
+        self.current_head_epoch = epoch;
+    }
+
+    pub(crate) fn set_current_chain_head_epoch(&mut self, epoch: ChainEpoch) {
         self.current_head_epoch = epoch;
     }
 
@@ -126,6 +148,10 @@ impl ForestSyncStatusReport {
 
     pub(crate) fn set_status(&mut self, status: NodeSyncStatus) {
         self.status = status;
+    }
+
+    pub(crate) fn get_status(&self) -> NodeSyncStatus {
+        self.status.clone()
     }
 
     pub(crate) fn set_active_forks(&mut self, active_forks: Vec<ForkSyncInfo>) {
@@ -164,5 +190,16 @@ impl ForestSyncStatusReport {
         }
         self.set_active_forks(current_active_forks);
         self.last_updated = Utc::now();
+    }
+
+    pub(crate) fn is_synced(&self) -> bool {
+        self.status == NodeSyncStatus::Synced
+    }
+
+    pub(crate) fn get_min_starting_block(&self) -> Option<ChainEpoch> {
+        self.active_forks
+            .iter()
+            .map(|fork_info| fork_info.target_sync_epoch_start)
+            .min()
     }
 }

@@ -7,7 +7,6 @@ mod chain_muxer;
 pub mod consensus;
 pub mod metrics;
 pub mod network_context;
-mod sync_state;
 mod sync_status;
 mod tipset_syncer;
 mod validation;
@@ -17,12 +16,6 @@ pub use self::{
     chain_follower::ChainFollower,
     chain_muxer::SyncConfig,
     consensus::collect_errs,
-    sync_state::{SyncStage, SyncState},
-    sync_status::{
-        ForestSyncStatusReport,
-        ForkSyncInfo,
-        ForkSyncStage,
-        NodeSyncStatus,
-    },
+    sync_status::{ForestSyncStatusReport, ForkSyncInfo, ForkSyncStage, NodeSyncStatus},
     validation::{TipsetValidationError, TipsetValidator},
 };

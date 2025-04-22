@@ -4,7 +4,7 @@
 use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
-use crate::chain_sync::SyncStage;
+use crate::chain_sync::ForestSyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
@@ -133,8 +133,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
-        sync_status: Arc::new(parking_lot::RwLock::new(Default::default())),
+        sync_status: Arc::new(parking_lot::RwLock::new(ForestSyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
@@ -143,11 +142,6 @@ pub async fn start_offline_server(
         tipset_send,
         snapshot_progress_tracker: Default::default(),
     };
-    rpc_state
-        .sync_states
-        .write()
-        .first_mut()
-        .set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())

@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKey;
-use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus, SyncStage};
-use crate::cli::subcommands::format_vec_pretty;
+use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus};
 use crate::rpc::sync::SnapshotProgressState;
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
@@ -45,7 +44,7 @@ impl SyncCommands {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(2));
                 let mut stdout = stdout();
-                let mut last_lines_printed = 1;
+                let mut last_lines_printed = 0;
 
                 // if the sync stage is idle, check if the snapshot download is needed
                 let initial_report = SyncStatusReport::call(&client, ()).await?;
@@ -152,56 +151,56 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let resp = client.call(SyncState::request(())?).await?;
-                for state in resp.active_syncs {
-                    let base = state.base();
-                    let elapsed_time = state.get_elapsed_time();
-                    let target = state.target();
-
-                    let (target_cids, target_height) = if let Some(tipset) = target {
-                        let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
-                        (format_vec_pretty(cid_vec), tipset.epoch())
-                    } else {
-                        ("".to_string(), 0)
-                    };
-
-                    let (base_cids, base_height) = if let Some(tipset) = base {
-                        let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
-                        (format_vec_pretty(cid_vec), tipset.epoch())
-                    } else {
-                        ("".to_string(), 0)
-                    };
-
-                    let height_diff = base_height - target_height;
-
-                    match state.stage() {
-                        // If the sync state is idle, check the snapshot state once
-                        SyncStage::Idle => {
-                            if !check_snapshot_progress(&client, false)
-                                .await?
-                                .is_not_required()
-                            {
-                                continue;
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    println!("sync status:");
-                    println!("Base:\t{}", format_tipset_cids(&base_cids));
-                    println!(
-                        "Target:\t{} ({target_height})",
-                        format_tipset_cids(&target_cids)
-                    );
-                    println!("Height diff:\t{}", height_diff.abs());
-                    println!("Stage:\t{}", state.stage());
-                    println!("Height:\t{}", state.epoch());
-
-                    if let Some(duration) = elapsed_time {
-                        println!("Elapsed time:\t{}s", duration.num_seconds());
-                    }
-                }
-
+                //     let resp = client.call(SyncState::request(())?).await?;
+                //     for state in resp.active_syncs {
+                //         let base = state.base();
+                //         let elapsed_time = state.get_elapsed_time();
+                //         let target = state.target();
+                //
+                //         let (target_cids, target_height) = if let Some(tipset) = target {
+                //             let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
+                //             (format_vec_pretty(cid_vec), tipset.epoch())
+                //         } else {
+                //             ("".to_string(), 0)
+                //         };
+                //
+                //         let (base_cids, base_height) = if let Some(tipset) = base {
+                //             let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
+                //             (format_vec_pretty(cid_vec), tipset.epoch())
+                //         } else {
+                //             ("".to_string(), 0)
+                //         };
+                //
+                //         let height_diff = base_height - target_height;
+                //
+                //         match state.stage() {
+                //             // If the sync state is idle, check the snapshot state once
+                //             _ => {
+                //                 if !check_snapshot_progress(&client, false)
+                //                     .await?
+                //                     .is_not_required()
+                //                 {
+                //                     continue;
+                //                 }
+                //             }
+                //             _ => {}
+                //         }
+                //
+                //         println!("sync status:");
+                //         println!("Base:\t{}", format_tipset_cids(&base_cids));
+                //         println!(
+                //             "Target:\t{} ({target_height})",
+                //             format_tipset_cids(&target_cids)
+                //         );
+                //         println!("Height diff:\t{}", height_diff.abs());
+                //         println!("Stage:\t{}", state.stage());
+                //         println!("Height:\t{}", state.epoch());
+                //
+                //         if let Some(duration) = elapsed_time {
+                //             println!("Elapsed time:\t{}s", duration.num_seconds());
+                //         }
+                //     }
+                //
                 Ok(())
             }
             Self::CheckBad { cid } => {

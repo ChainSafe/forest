@@ -5,21 +5,17 @@ mod types;
 
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
-use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, anyhow};
 use cid::Cid;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nunny::Vec as NonEmpty;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 pub use types::*;
 
 use crate::chain;
-use crate::chain_sync::{ForestSyncStatusReport, SyncStage, TipsetValidator};
+use crate::chain_sync::{ForestSyncStatusReport, NodeSyncStatus, TipsetValidator};
 
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
@@ -76,22 +72,6 @@ impl RpcMethod<0> for SyncSnapshotProgress {
     }
 }
 
-pub enum SyncState {}
-impl RpcMethod<0> for SyncState {
-    const NAME: &'static str = "Filecoin.SyncState";
-    const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = ();
-    type Ok = RPCSyncState;
-
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let active_syncs = ctx.sync_states.as_ref().read().clone();
-        Ok(RPCSyncState { active_syncs })
-    }
-}
-
 pub enum SyncStatusReport {}
 impl RpcMethod<0> for SyncStatusReport {
     const NAME: &'static str = "Filecoin.SyncStatusReport";
@@ -125,7 +105,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_states.read().first().stage(), SyncStage::Complete) {
+        if !matches!(ctx.sync_status.read().get_status(), NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let encoded_message = to_vec(&block_msg)?;
@@ -161,15 +141,6 @@ impl RpcMethod<1> for SyncSubmitBlock {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct RPCSyncState {
-    #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub active_syncs: NonEmpty<crate::chain_sync::SyncState>,
-}
-lotus_json_with_self!(RPCSyncState);
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -178,7 +149,6 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
-    use crate::chain_sync::SyncStage;
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -262,7 +232,6 @@ mod tests {
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             msgs_in_tipset: Default::default(),
-            sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
             sync_status: Arc::new(parking_lot::RwLock::new(ForestSyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
@@ -297,17 +266,17 @@ mod tests {
     async fn sync_state_test() {
         let (ctx, _) = ctx();
 
-        let st_copy = ctx.sync_states.clone();
+        let st_copy = ctx.sync_status.clone();
 
-        let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
-        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
+        let sync_status = SyncStatusReport::handle(ctx.clone(), ()).await.unwrap();
+        assert_eq!(sync_status, st_copy.as_ref().read().clone());
 
         // update cloned state
-        st_copy.write().first_mut().set_stage(SyncStage::Messages);
-        st_copy.write().first_mut().set_epoch(4);
+        st_copy.write().set_status(NodeSyncStatus::Syncing);
+        st_copy.write().set_current_chain_head_epoch(4);
 
-        let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
+        let sync_status = SyncStatusReport::handle(ctx.clone(), ()).await.unwrap();
 
-        assert_eq!(ret.active_syncs, st_copy.as_ref().read().clone());
+        assert_eq!(sync_status, st_copy.as_ref().read().clone());
     }
 }

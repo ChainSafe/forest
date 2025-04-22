@@ -5,11 +5,11 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
-use crate::db::SettingsExt;
-use crate::rpc::f3::F3IsRunning;
-use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
-
 use super::{AppError, ForestState};
+use crate::chain_sync::NodeSyncStatus;
+use crate::db::SettingsExt;
+use crate::networks::calculate_expected_epoch;
+use crate::rpc::f3::F3IsRunning;
 
 /// Query parameter for verbose responses
 const VERBOSE_PARAM: &str = "verbose";
@@ -95,7 +95,7 @@ pub(crate) async fn healthz(
 
 fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_states.read().first().stage() == SyncStage::Complete {
+    if state.sync_status.read().status == NodeSyncStatus::Synced {
         acc.push_ok("sync complete");
         true
     } else {
@@ -106,7 +106,7 @@ fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) 
 
 fn check_sync_state_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_states.read().first().stage() != SyncStage::Error {
+    if state.sync_status.read().status != NodeSyncStatus::Error {
         acc.push_ok("sync ok");
         true
     } else {
@@ -128,7 +128,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
     ) as i64;
 
     // The current epoch of the node must be not too far behind the network
-    if state.sync_states.read().first().epoch() >= now_epoch - MAX_EPOCH_DIFF {
+    if state.sync_status.read().current_head_epoch >= now_epoch - MAX_EPOCH_DIFF {
         acc.push_ok("epoch up to date");
         true
     } else {

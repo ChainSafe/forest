@@ -33,11 +33,10 @@ use std::{ops::Deref as _, sync::Arc};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
-use super::SyncStage;
 use super::network_context::SyncNetworkContext;
 use crate::chain_sync::sync_status::ForestSyncStatusReport;
 use crate::chain_sync::tipset_syncer::validate_tipset;
-use crate::chain_sync::{ForkSyncInfo, ForkSyncStage, SyncState};
+use crate::chain_sync::{ForkSyncInfo, ForkSyncStage};
 use crate::{
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::ChainStore,
@@ -47,9 +46,6 @@ use crate::{
 use parking_lot::RwLock;
 
 pub struct ChainFollower<DB> {
-    /// Syncing state of chain sync workers.
-    pub sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
-
     /// Syncing status of the chain
     pub sync_status: Arc<RwLock<ForestSyncStatusReport>>,
 
@@ -95,15 +91,9 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     ) -> Self {
-        let heaviest = state_manager.chain_store().heaviest_tipset();
-        let mut main_sync_state = SyncState::default();
-        main_sync_state.init(heaviest.clone(), heaviest.clone());
-        main_sync_state.set_epoch(heaviest.epoch());
-        main_sync_state.set_stage(SyncStage::Idle);
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
-            sync_states: Arc::new(RwLock::new(nunny::vec![main_sync_state])),
-            sync_status: Arc::new(RwLock::new(ForestSyncStatusReport::new())),
+            sync_status: Arc::new(RwLock::new(ForestSyncStatusReport::init())),
             state_manager,
             network,
             genesis,
@@ -124,7 +114,6 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
             self.tipset_receiver,
             self.network,
             self.mem_pool,
-            self.sync_states,
             self.sync_status,
             self.genesis,
             self.stateless_mode,
@@ -142,7 +131,6 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    _sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
     sync_status: Arc<RwLock<ForestSyncStatusReport>>,
     genesis: Arc<Tipset>,
     stateless_mode: bool,
@@ -570,13 +558,6 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
 
         chains
-    }
-
-    fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
-        self.tipsets
-            .values()
-            .max_by_key(|ts| ts.weight())
-            .map(|ts| Arc::new(ts.deref().clone().into_tipset()))
     }
 
     fn is_validated(&self, tipset: &FullTipset) -> bool {
