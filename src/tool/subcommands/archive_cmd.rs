@@ -132,6 +132,9 @@ pub enum ArchiveCommands {
         /// S3 endpoint URL.
         #[arg(long, default_value = FOREST_ARCHIVE_S3_ENDPOINT)]
         endpoint: String,
+        /// Don't generate or upload files, just show what would be done.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
 }
 
@@ -189,7 +192,8 @@ impl ArchiveCommands {
             Self::SyncBucket {
                 snapshot_files,
                 endpoint,
-            } => sync_bucket(snapshot_files, endpoint).await,
+                dry_run,
+            } => sync_bucket(snapshot_files, endpoint, dry_run).await,
         }
     }
 }
@@ -812,7 +816,11 @@ async fn export_diff_snapshot(
 // what is missing. If the input set of snapshot files can be used to generate
 // missing lite or diff snapshots, they'll be generated and uploaded to the S3
 // bucket.
-async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::Result<()> {
+async fn sync_bucket(
+    snapshot_files: Vec<PathBuf>,
+    endpoint: String,
+    dry_run: bool,
+) -> anyhow::Result<()> {
     check_aws_config(&endpoint)?;
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
@@ -854,7 +862,11 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
                 epoch,
             )
             .await?;
-            upload_to_forest_bucket(output_path, &info.network, "lite")?;
+            if !dry_run {
+                upload_to_forest_bucket(output_path, &info.network, "lite")?;
+            } else {
+                println!("  {}: Would upload lite snapshot to S3", epoch);
+            }
         }
     }
 
@@ -869,7 +881,11 @@ async fn sync_bucket(snapshot_files: Vec<PathBuf>, endpoint: String) -> anyhow::
                 epoch,
             )
             .await?;
-            upload_to_forest_bucket(output_path, &info.network, "diff")?;
+            if !dry_run {
+                upload_to_forest_bucket(output_path, &info.network, "diff")?;
+            } else {
+                println!("  {}: Would upload diff snapshot to S3", epoch);
+            }
         }
     }
     Ok(())
