@@ -6,6 +6,7 @@ use std::sync::{
     atomic::{self, AtomicBool},
 };
 
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
@@ -92,6 +93,12 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
+    // ~10MB RAM per 10k buffer
+    let db_write_buffer = match std::env::var("FOREST_STATE_MIGRATION_DB_WRITE_BUFFER") {
+        Ok(v) => v.parse().ok(),
+        _ => None,
+    }
+    .unwrap_or(10000);
     let mappings = get_migrations(&chain_config.network);
 
     // Make sure bundle is defined.
@@ -115,7 +122,11 @@ where
         if epoch == chain_config.epoch(height) {
             tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
-            let new_state = migrate(chain_config, db, parent_state, epoch)?;
+            let db = Arc::new(BlockstoreWithWriteBuffer::new_with_capacity(
+                db.clone(),
+                db_write_buffer,
+            ));
+            let new_state = migrate(chain_config, &db, parent_state, epoch)?;
             let elapsed = start_time.elapsed();
             // `new_state_actors` is the Go state migration output, log for comparision
             let new_state_actors = db
