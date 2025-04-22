@@ -67,7 +67,6 @@ mod test {
 
     use super::*;
     use crate::chain_sync::NodeSyncStatus;
-    use crate::shim::clock::ChainEpoch;
     use reqwest::StatusCode;
 
     #[tokio::test]
@@ -120,7 +119,7 @@ mod test {
 
         // instrument the state so that the ready requirements are met
         sync_status.write().set_status(NodeSyncStatus::Synced);
-        sync_status.write().set_current_chain_head_epoch(i64::MAX);
+        sync_status.write().current_head_epoch = i64::MAX;
         db.set_eth_mapping_up_to_date().unwrap();
 
         assert_eq!(
@@ -138,7 +137,7 @@ mod test {
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
         sync_status.write().set_status(NodeSyncStatus::Error);
-        sync_status.write().set_current_chain_head_epoch(0);
+        sync_status.write().current_head_epoch = 0;
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -275,7 +274,7 @@ mod test {
         };
 
         // instrument the state so that the health requirements are met
-        sync_status.write().set_current_chain_head_epoch(i64::MAX);
+        sync_status.write().current_head_epoch = i64::MAX;
         sync_status.write().set_status(NodeSyncStatus::Syncing);
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
@@ -295,7 +294,7 @@ mod test {
         // instrument the state so that the health requirements are not met
         drop(rpc_listener);
         sync_status.write().set_status(NodeSyncStatus::Error);
-        sync_status.write().set_current_chain_head_epoch(0);
+        sync_status.write().current_head_epoch = 0;
         peer_manager.remove_peer(&peer);
 
         assert_eq!(

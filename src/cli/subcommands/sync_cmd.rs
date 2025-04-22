@@ -83,7 +83,7 @@ impl SyncCommands {
                     let head_key_str = report
                         .current_head_key
                         .as_ref()
-                        .map(|key| tipset_key_to_string(key))
+                        .map(tipset_key_to_string)
                         .unwrap_or_else(|| "[unknown]".to_string());
 
                     println!(
@@ -150,7 +150,8 @@ impl SyncCommands {
 
                 Ok(())
             }
-            Self::Status => { 
+
+            Self::Status => {
                 let sync_status = client.call(SyncStatusReport::request(())?).await?;
                 if sync_status.status == NodeSyncStatus::Initializing {
                     println!("Node initializing, checking snapshot status...");
@@ -166,9 +167,9 @@ impl SyncCommands {
                 let head_key_str = sync_status
                     .current_head_key
                     .as_ref()
-                    .map(|key| tipset_key_to_string(key))
+                    .map(tipset_key_to_string)
                     .unwrap_or_else(|| "[unknown]".to_string());
-                
+
                 println!(
                     "Node Head: Epoch {} ({})",
                     sync_status.current_head_epoch, head_key_str
@@ -187,7 +188,7 @@ impl SyncCommands {
                         print_fork_sync_info(fork, &mut 0)?;
                     }
                 }
-                
+
                 Ok(())
             }
             Self::CheckBad { cid } => {

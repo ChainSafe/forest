@@ -273,7 +273,7 @@ mod tests {
 
         // update cloned state
         st_copy.write().set_status(NodeSyncStatus::Syncing);
-        st_copy.write().set_current_chain_head_epoch(4);
+        st_copy.write().current_head_epoch = 4;
 
         let sync_status = SyncStatusReport::handle(ctx.clone(), ()).await.unwrap();
 

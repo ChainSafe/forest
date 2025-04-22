@@ -134,10 +134,6 @@ impl ForestSyncStatusReport {
         self.current_head_epoch = epoch;
     }
 
-    pub(crate) fn set_current_chain_head_epoch(&mut self, epoch: ChainEpoch) {
-        self.current_head_epoch = epoch;
-    }
-
     pub(crate) fn set_network_head(&mut self, epoch: ChainEpoch) {
         self.network_head_epoch = epoch;
     }
@@ -173,8 +169,8 @@ impl ForestSyncStatusReport {
             state_manager.chain_config().block_delay_secs,
         );
 
-        self.set_network_head(network_head_epoch.clone() as ChainEpoch);
-        self.set_epochs_behind(network_head_epoch as i64 - current_chain_head_epoch as i64);
+        self.set_network_head(network_head_epoch as ChainEpoch);
+        self.set_epochs_behind(network_head_epoch as i64 - current_chain_head_epoch);
         let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
         let time_diff = (Utc::now().timestamp() as u64).saturating_sub(heaviest.min_timestamp());
 
