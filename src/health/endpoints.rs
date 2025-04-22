@@ -28,7 +28,7 @@ pub(crate) async fn livez(
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
     let mut lively = true;
-    lively &= check_sync_state_not_error(&state, &mut acc);
+    lively &= check_sync_status_not_error(&state, &mut acc);
     lively &= check_peers_connected(&state, &mut acc);
     lively &= check_rpc_server_running(&state, &mut acc).await;
 
@@ -56,7 +56,7 @@ pub(crate) async fn readyz(
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
     let mut ready = true;
-    ready &= check_sync_state_complete(&state, &mut acc);
+    ready &= check_sync_status_synced(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
     if state.config.chain_indexer.enable_indexer {
@@ -82,7 +82,7 @@ pub(crate) async fn healthz(
     let mut healthy = true;
     healthy &= check_epoch_up_to_date(&state, &mut acc);
     healthy &= check_rpc_server_running(&state, &mut acc).await;
-    healthy &= check_sync_state_not_error(&state, &mut acc);
+    healthy &= check_sync_status_not_error(&state, &mut acc);
     healthy &= check_peers_connected(&state, &mut acc);
     healthy &= check_f3_running(&state, &mut acc).await;
 
@@ -93,7 +93,7 @@ pub(crate) async fn healthz(
     }
 }
 
-fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
     if state.sync_status.read().status == NodeSyncStatus::Synced {
         acc.push_ok("sync complete");
@@ -104,7 +104,7 @@ fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) 
     }
 }
 
-fn check_sync_state_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_status_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
     if state.sync_status.read().status != NodeSyncStatus::Error {
         acc.push_ok("sync ok");

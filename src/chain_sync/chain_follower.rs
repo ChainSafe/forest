@@ -34,7 +34,7 @@ use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
 use super::network_context::SyncNetworkContext;
-use crate::chain_sync::sync_status::ForestSyncStatusReport;
+use crate::chain_sync::sync_status::SyncStatusReport;
 use crate::chain_sync::tipset_syncer::validate_tipset;
 use crate::chain_sync::{ForkSyncInfo, ForkSyncStage};
 use crate::{
@@ -47,7 +47,7 @@ use parking_lot::RwLock;
 
 pub struct ChainFollower<DB> {
     /// Syncing status of the chain
-    pub sync_status: Arc<RwLock<ForestSyncStatusReport>>,
+    pub sync_status: Arc<RwLock<SyncStatusReport>>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -93,7 +93,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
     ) -> Self {
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
         Self {
-            sync_status: Arc::new(RwLock::new(ForestSyncStatusReport::init())),
+            sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
@@ -131,7 +131,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    sync_status: Arc<RwLock<ForestSyncStatusReport>>,
+    sync_status: Arc<RwLock<SyncStatusReport>>,
     genesis: Arc<Tipset>,
     stateless_mode: bool,
 ) -> anyhow::Result<()> {
@@ -878,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_state_machine_validation_order() {
+    fn test_state_machine_validation_order() {
         let (cs, c4u) = setup();
         let db = cs.db.clone();
 

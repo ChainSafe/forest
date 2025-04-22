@@ -15,7 +15,7 @@ use std::sync::Arc;
 pub use types::*;
 
 use crate::chain;
-use crate::chain_sync::{ForestSyncStatusReport, NodeSyncStatus, TipsetValidator};
+use crate::chain_sync::{NodeSyncStatus, SyncStatusReport, TipsetValidator};
 
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
@@ -72,15 +72,15 @@ impl RpcMethod<0> for SyncSnapshotProgress {
     }
 }
 
-pub enum SyncStatusReport {}
-impl RpcMethod<0> for SyncStatusReport {
-    const NAME: &'static str = "Filecoin.SyncStatusReport";
+pub enum SyncStatus {}
+impl RpcMethod<0> for SyncStatus {
+    const NAME: &'static str = "Forest.SyncStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = ForestSyncStatusReport;
+    type Ok = SyncStatusReport;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let sync_status = ctx.sync_status.as_ref().read().clone();
@@ -232,7 +232,7 @@ mod tests {
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             msgs_in_tipset: Default::default(),
-            sync_status: Arc::new(parking_lot::RwLock::new(ForestSyncStatusReport::default())),
+            sync_status: Arc::new(parking_lot::RwLock::new(SyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),
@@ -263,19 +263,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sync_state_test() {
+    async fn sync_status_test() {
         let (ctx, _) = ctx();
 
         let st_copy = ctx.sync_status.clone();
 
-        let sync_status = SyncStatusReport::handle(ctx.clone(), ()).await.unwrap();
+        let sync_status = SyncStatus::handle(ctx.clone(), ()).await.unwrap();
         assert_eq!(sync_status, st_copy.as_ref().read().clone());
 
         // update cloned state
         st_copy.write().set_status(NodeSyncStatus::Syncing);
         st_copy.write().current_head_epoch = 4;
 
-        let sync_status = SyncStatusReport::handle(ctx.clone(), ()).await.unwrap();
+        let sync_status = SyncStatus::handle(ctx.clone(), ()).await.unwrap();
 
         assert_eq!(sync_status, st_copy.as_ref().read().clone());
     }

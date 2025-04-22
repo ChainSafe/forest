@@ -9,7 +9,7 @@ use axum::{
 };
 use parking_lot::RwLock;
 
-use crate::chain_sync::ForestSyncStatusReport;
+use crate::chain_sync::SyncStatusReport;
 use crate::{Config, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig};
 
 mod endpoints;
@@ -22,7 +22,7 @@ pub(crate) struct ForestState {
     pub config: Config,
     pub chain_config: Arc<ChainConfig>,
     pub genesis_timestamp: u64,
-    pub sync_status: Arc<RwLock<ForestSyncStatusReport>>,
+    pub sync_status: Arc<RwLock<SyncStatusReport>>,
     pub peer_manager: Arc<PeerManager>,
     pub settings_store: Arc<dyn SettingsStore + Sync + Send>,
 }
@@ -74,7 +74,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_status = Arc::new(RwLock::new(ForestSyncStatusReport::init()));
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::init()));
         let db = Arc::new(crate::db::MemoryDB::default());
 
         let forest_state = ForestState {
@@ -158,7 +158,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_status = Arc::new(RwLock::new(ForestSyncStatusReport::default()));
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let peer_manager = Arc::new(PeerManager::default());
         let db = Arc::new(crate::db::MemoryDB::default());
         let forest_state = ForestState {
@@ -236,7 +236,7 @@ mod test {
         let peer_manager = Arc::new(PeerManager::default());
         let db = Arc::new(crate::db::MemoryDB::default());
 
-        let sync_status = Arc::new(RwLock::new(ForestSyncStatusReport::default()));
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let forest_state = ForestState {
             config: Config {
                 client: Client {
@@ -324,7 +324,7 @@ mod test {
             },
             chain_config: Arc::default(),
             genesis_timestamp: 0,
-            sync_status: Arc::new(RwLock::new(ForestSyncStatusReport::default())),
+            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             peer_manager: Arc::default(),
             settings_store: Arc::new(crate::db::MemoryDB::default()),
         };

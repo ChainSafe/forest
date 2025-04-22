@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_sync::ForestSyncStatusReport;
+use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     chain::ChainStore,
@@ -160,7 +160,7 @@ async fn ctx(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_status: Arc::new(RwLock::new(ForestSyncStatusReport::init())),
+        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,

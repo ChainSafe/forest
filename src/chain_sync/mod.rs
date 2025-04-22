@@ -16,6 +16,6 @@ pub use self::{
     chain_follower::ChainFollower,
     chain_muxer::SyncConfig,
     consensus::collect_errs,
-    sync_status::{ForestSyncStatusReport, ForkSyncInfo, ForkSyncStage, NodeSyncStatus},
+    sync_status::{ForkSyncInfo, ForkSyncStage, NodeSyncStatus, SyncStatusReport},
     validation::{TipsetValidationError, TipsetValidator},
 };

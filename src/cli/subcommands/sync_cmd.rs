@@ -3,7 +3,7 @@
 
 use crate::blocks::TipsetKey;
 use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus};
-use crate::rpc::sync::SnapshotProgressState;
+use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
@@ -47,7 +47,7 @@ impl SyncCommands {
                 let mut last_lines_printed = 0;
 
                 // if the sync stage is idle, check if the snapshot download is needed
-                let initial_report = SyncStatusReport::call(&client, ()).await?;
+                let initial_report = SyncStatus::call(&client, ()).await?;
                 if initial_report.status == NodeSyncStatus::Initializing {
                     // Consider checking snapshot status if node is initializing
                     println!("Node initializing, checking snapshot status...");
@@ -64,7 +64,7 @@ impl SyncCommands {
                 }
 
                 for _ in ticker {
-                    let report = SyncStatusReport::call(&client, ()).await?;
+                    let report = SyncStatus::call(&client, ()).await?;
                     if last_lines_printed > 0 {
                         write!(
                             stdout,
@@ -152,7 +152,7 @@ impl SyncCommands {
             }
 
             Self::Status => {
-                let sync_status = client.call(SyncStatusReport::request(())?).await?;
+                let sync_status = client.call(SyncStatus::request(())?).await?;
                 if sync_status.status == NodeSyncStatus::Initializing {
                     println!("Node initializing, checking snapshot status...");
                     check_snapshot_progress(&client, false).await?;
@@ -231,10 +231,11 @@ fn print_fork_sync_info(fork: &ForkSyncInfo, line_count: &mut usize) -> anyhow::
 }
 
 fn tipset_key_to_string(key: &TipsetKey) -> String {
-    if key.to_cids().is_empty() {
+    let cids = key.to_cids();
+    if cids.is_empty() {
         "[]".to_string()
     } else {
-        format!("[{}, ...]", key.to_cids().first())
+        format!("[{}, ...]", cids.first())
     }
 }
 

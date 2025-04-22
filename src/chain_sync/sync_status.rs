@@ -32,7 +32,7 @@ pub enum NodeSyncStatus {
     /// Node is significantly behind the network head and actively downloading/validating.
     #[strum(to_string = "Syncing")]
     Syncing,
-    /// Node is close to the network head (e.g., within a configurable threshold like ~5 epochs).
+    /// Node is close to the network head (e.g., within a configurable threshold like 5 epochs).
     #[strum(to_string = "Synced")]
     Synced,
     /// An error occurred during the sync process.
@@ -96,8 +96,9 @@ pub struct ForkSyncInfo {
     pub(crate) last_updated: Option<DateTime<Utc>>,
 }
 
+/// Contains information about the current status of the node's synchronization process.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]
-pub struct ForestSyncStatusReport {
+pub struct SyncStatusReport {
     /// Overall status of the node's synchronization.
     pub status: NodeSyncStatus,
     /// The epoch of the heaviest validated tipset on the node's main chain.
@@ -119,9 +120,9 @@ pub struct ForestSyncStatusReport {
     pub last_updated: DateTime<Utc>,
 }
 
-lotus_json_with_self!(ForestSyncStatusReport);
+lotus_json_with_self!(SyncStatusReport);
 
-impl ForestSyncStatusReport {
+impl SyncStatusReport {
     pub(crate) fn init() -> Self {
         Self {
             node_start_time: Utc::now(),
