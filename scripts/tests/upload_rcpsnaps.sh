@@ -3,7 +3,7 @@
 # then uploads the compressed files to our DigitalOcean Spaces.
 
 SPACE_NAME="forest-snapshots"
-REGION="fra1"
+# REGION="fra1"
 DEST_DIR="rpc_test"
 
 TEST_SNAPSHOTS="src/tool/subcommands/api_cmd/test_snapshots.txt"
