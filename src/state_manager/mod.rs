@@ -1778,7 +1778,7 @@ where
             heaviest,
             ResolveNullTipset::TakeNewer,
         ) {
-            // verify the parent state of the next tipset is the same as the current tipset
+            // verify that the parent of the `next_tipset` is the same as the current tipset
             if !next_tipset.parents().eq(tipset.key()) {
                 return None;
             }
