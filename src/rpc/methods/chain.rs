@@ -195,6 +195,28 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     }
 }
 
+pub enum ChainPruneSnapshot {}
+impl RpcMethod<0> for ChainPruneSnapshot {
+    const NAME: &'static str = "Forest.SnapshotGC";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Admin;
+
+    type Params = ();
+    type Ok = ();
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if let Some(gc) = crate::daemon::GLOBAL_SNAPSHOT_GC.get() {
+            Ok(gc.run().await?)
+        } else {
+            Err(anyhow::anyhow!("snapshot gc is not enabled").into())
+        }
+    }
+}
+
 pub enum ChainExport {}
 impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";

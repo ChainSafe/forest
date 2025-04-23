@@ -21,7 +21,8 @@ use crate::daemon::db_util::{
 };
 use crate::db::SettingsStore;
 use crate::db::car::ManyCar;
-use crate::db::{MarkAndSweep, MemoryDB, SettingsExt, ttl::EthMappingCollector};
+use crate::db::gc::{MarkAndSweep, SnapshotGarbageCollector};
+use crate::db::{MemoryDB, SettingsExt, ttl::EthMappingCollector};
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig};
@@ -44,6 +45,7 @@ use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 use std::{cmp, sync::Arc};
 use tempfile::{Builder, TempPath};
@@ -65,6 +67,8 @@ static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
         .expect("tempfile must succeed")
         .into_temp_path()
 });
+
+pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector<DbType>>> = OnceLock::new();
 
 // The parent process and the daemonized child communicate through an Event in
 // shared memory. The identity of the shared memory object is written to a
@@ -467,12 +471,12 @@ fn maybe_start_rpc_service(
     Ok(())
 }
 
-fn maybe_start_f3_service(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    opts: &CliOpts,
-    config: &Config,
-    ctx: &AppContext,
-) {
+fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
+    // already running
+    if crate::rpc::f3::F3_LEASE_MANAGER.get().is_some() {
+        return;
+    }
+
     if !config.client.enable_rpc {
         if crate::f3::is_sidecar_ffi_enabled(ctx.state_manager.chain_config()) {
             tracing::warn!("F3 sidecar is enabled but not run because RPC is disabled. ")
@@ -485,7 +489,7 @@ fn maybe_start_f3_service(
         let state_manager = &ctx.state_manager;
         let p2p_peer_id = ctx.p2p_peer_id;
         let admin_jwt = ctx.admin_jwt.clone();
-        services.spawn_blocking({
+        tokio::task::spawn_blocking({
             crate::rpc::f3::F3_LEASE_MANAGER
                 .set(crate::rpc::f3::F3LeaseManager::new(
                     state_manager.chain_config().network.clone(),
@@ -516,7 +520,6 @@ fn maybe_start_f3_service(
                     std::env::var("FOREST_F3_ROOT")
                         .unwrap_or(default_f3_root.display().to_string()),
                 );
-                Ok(())
             }
         });
     }
@@ -595,13 +598,41 @@ fn maybe_start_indexer_service(
 pub(super) async fn start(
     start_time: chrono::DateTime<chrono::Utc>,
     opts: CliOpts,
-    mut config: Config,
+    config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     startup_init(&opts, &config)?;
+    let (snap_gc, snap_gc_reboot_rx) = SnapshotGarbageCollector::new(&config)?;
+    let snap_gc = Arc::new(snap_gc);
+    GLOBAL_SNAPSHOT_GC
+        .set(snap_gc.clone())
+        .ok()
+        .context("failed to set GLOBAL_SNAPSHOT_GC")?;
+    loop {
+        tokio::select! {
+            _ = snap_gc_reboot_rx.recv_async() => {
+                snap_gc.cleanup_before_reboot().await;
+            }
+            result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), |ctx| {
+                snap_gc.set_db(ctx.db.clone());
+            }) => {
+                break result
+            }
+        }
+    }
+}
+
+pub(super) async fn start_services(
+    start_time: chrono::DateTime<chrono::Utc>,
+    opts: &CliOpts,
+    mut config: Config,
+    shutdown_send: mpsc::Sender<()>,
+    on_app_context_initialized: impl Fn(&AppContext),
+) -> anyhow::Result<()> {
     let mut services = JoinSet::new();
-    maybe_start_track_peak_rss_service(&mut services, &opts);
-    let ctx = AppContext::init(&opts, &config).await?;
+    maybe_start_track_peak_rss_service(&mut services, opts);
+    let ctx = AppContext::init(opts, &config).await?;
+    on_app_context_initialized(&ctx);
     info!(
         "Using network :: {}",
         get_actual_chain_name(&ctx.network_name)
@@ -611,10 +642,8 @@ pub(super) async fn start(
         return Ok(());
     }
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
-
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
-
-    let chain_follower = create_chain_follower(&opts, &p2p_service, mpool.clone(), &ctx)?;
+    let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
 
     info!(
         "Starting network:: {}",
@@ -631,7 +660,7 @@ pub(super) async fn start(
         &ctx,
     )?;
 
-    maybe_import_snapshot(&opts, &mut config, &ctx).await?;
+    maybe_import_snapshot(opts, &mut config, &ctx).await?;
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
@@ -639,12 +668,12 @@ pub(super) async fn start(
     }
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
-    maybe_start_gc_service(&mut services, &opts, &config, &ctx);
-    maybe_start_f3_service(&mut services, &opts, &config, &ctx);
+    maybe_start_gc_service(&mut services, opts, &config, &ctx);
+    maybe_start_f3_service(opts, &config, &ctx);
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
         .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, &opts, config.clone(), &ctx);
-    maybe_start_indexer_service(&mut services, &opts, &config, &ctx);
+    maybe_populate_eth_mappings_in_background(&mut services, opts, config.clone(), &ctx);
+    maybe_start_indexer_service(&mut services, opts, &config, &ctx);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
     }

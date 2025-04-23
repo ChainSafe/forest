@@ -21,7 +21,7 @@ import (
 func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
-	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
+	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	if err != nil {
 		return err
 	}
-	ec, err := NewForestEC(rpcEndpoint, jwt)
+	ec, err := NewForestEC(ctx, rpcEndpoint, jwt)
 	if err != nil {
 		return err
 	}
