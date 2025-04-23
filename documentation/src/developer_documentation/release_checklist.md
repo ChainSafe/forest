@@ -25,10 +25,6 @@ Make a pull request with the following changes:
 - Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
   version change in the release.
 
-## Release on crates.io
-
-- Publish the new crate on crates.io according to the [manual][3].
-
 ## Release on GitHub
 
 - Create a [new release][4]. Click on `Choose a tag` button and create a new
@@ -44,6 +40,7 @@ Make a pull request with the following changes:
 - Verify that the new release is available in the GitHub Container Registry. Use
   `docker pull ghcr.io/chainsafe/forest:<version>`. Verify the tags in the
   [packages][7] list.
+- Verify that the new release is published to [crates.io](https://crates.io/crates/forest-filecoin).
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
