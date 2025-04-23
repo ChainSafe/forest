@@ -54,6 +54,11 @@ impl SyncCommands {
                         .await
                         .context("Failed to get sync status")?;
 
+                    // Skip printing if initializing, since it's not useful to print
+                    if report.get_status() == NodeSyncStatus::Initializing {
+                        continue;
+                    }
+
                     clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
 
                     lines_printed_last_iteration += print_sync_report_details(&report)
@@ -72,8 +77,14 @@ impl SyncCommands {
             Self::Status => {
                 let sync_status = client.call(SyncStatus::request(())?).await?;
                 if sync_status.get_status() == NodeSyncStatus::Initializing {
-                    println!("Node initializing, checking snapshot status...");
-                    check_snapshot_progress(&client, false).await?;
+                    print!("Node initializing, checking snapshot status..\n\n");
+                    // If a snapshot is required and not yet complete, return here
+                    if !check_snapshot_progress(&client, false)
+                        .await?
+                        .is_not_required()
+                    {
+                        return Ok(());
+                    };
                 }
 
                 // Print the status report once, without line counting for clearing
@@ -202,7 +213,7 @@ async fn check_snapshot_progress(
 
         write!(
             stdout,
-            "\r{}{}Snapshot status: {}",
+            "\r{}{}Snapshot status: {}\n",
             anes::MoveCursorUp(1),
             anes::ClearLine::All,
             progress_state
@@ -211,23 +222,14 @@ async fn check_snapshot_progress(
 
         match progress_state {
             SnapshotProgressState::Completed | SnapshotProgressState::NotRequired => {
-                println!();
                 return Ok(progress_state);
             }
             _ if !wait => {
-                println!();
                 return Ok(progress_state);
             }
             _ => {} // continue
         }
     }
-}
-
-/// Wait for snapshot download to complete (convenience function)
-async fn wait_for_snapshot_completion(
-    client: &rpc::Client,
-) -> anyhow::Result<SnapshotProgressState> {
-    check_snapshot_progress(client, true).await
 }
 
 /// Checks if a snapshot download is required or in progress when the node is initializing.
@@ -237,13 +239,14 @@ async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<(
         .await
         .context("Failed to get sync status")?;
     if initial_report.get_status() == NodeSyncStatus::Initializing {
-        println!("Node initializing, checking snapshot status...");
-        if !check_snapshot_progress(client, false)
+        print!("Node initializing, checking snapshot status...\n\n");
+        // if the snapshot download is not required, then return,
+        // else wait till the snapshot download is completed.
+        if !SyncSnapshotProgress::call(&client, ())
             .await?
             .is_not_required()
         {
-            println!("Snapshot download in progress, waiting...");
-            wait_for_snapshot_completion(client).await?;
+            check_snapshot_progress(client, true).await?;
             println!("Snapshot download complete. Starting sync monitor...");
         } else {
             println!("No snapshot download required or already complete.");

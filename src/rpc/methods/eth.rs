@@ -1688,7 +1688,7 @@ impl RpcMethod<0> for EthSyncing {
                     highest_block: sync_status.get_network_head_epoch(),
                 })
             }
-            _ => Err(ServerError::internal_error("sync state not found", None)),
+            _ => Err(ServerError::internal_error("sync status not found", None)),
         }
     }
 }
