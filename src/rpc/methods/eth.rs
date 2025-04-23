@@ -1671,8 +1671,8 @@ impl RpcMethod<0> for EthSyncing {
     ) -> Result<Self::Ok, ServerError> {
         let sync_status: crate::chain_sync::SyncStatusReport =
             crate::rpc::sync::SyncStatus::handle(ctx, ()).await?;
-        match sync_status.get_status() == NodeSyncStatus::Syncing {
-            true => {
+        match sync_status.get_status() {
+            NodeSyncStatus::Syncing => {
                 let starting_block = match sync_status.get_min_starting_block() {
                     Some(e) => Ok(e),
                     None => Err(ServerError::internal_error(
@@ -1688,7 +1688,7 @@ impl RpcMethod<0> for EthSyncing {
                     highest_block: sync_status.get_network_head_epoch(),
                 })
             }
-            false => Err(ServerError::internal_error("sync state not found", None)),
+            _ => Err(ServerError::internal_error("sync state not found", None)),
         }
     }
 }

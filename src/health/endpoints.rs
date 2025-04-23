@@ -125,7 +125,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
         chrono::Utc::now().timestamp() as u64,
         state.genesis_timestamp,
         state.chain_config.block_delay_secs,
-    ) as i64;
+    );
 
     // The current epoch of the node must be not too far behind the network
     if state.sync_status.read().get_current_chain_head_epoch() >= now_epoch - MAX_EPOCH_DIFF {

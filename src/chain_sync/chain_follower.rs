@@ -300,7 +300,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
 
                 // Only print 'Catching up to HEAD' if we're more than 10 epochs
                 // behind. Otherwise it can be too spammy.
-                match (expected_head as i64 - heaviest_epoch > 10, to_download > 0) {
+                match (expected_head - heaviest_epoch > 10, to_download > 0) {
                     (true, true) => info!(
                         "Catching up to HEAD: {} -> {}, downloading {} tipsets",
                         heaviest_epoch, expected_head, to_download
@@ -730,12 +730,11 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                 let fork_info = ForkSyncInfo {
                     target_tipset_key: last_ts.key().clone(),
                     target_epoch: last_ts.epoch(),
-                    // The epoch from which sync activities (fetch/validate) need to start for this fork.
                     target_sync_epoch_start: first_ts.epoch(),
                     stage,
                     validated_chain_head_epoch: current_validated_epoch,
-                    start_time, // Track when this fork's sync task was initiated
-                    last_updated: Some(now), // Mark the last update time
+                    start_time,
+                    last_updated: Some(now),
                 };
 
                 active_sync_info.push(fork_info);

@@ -10,6 +10,10 @@ use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::log;
+
+// Node considered synced if the head is within this many epochs
+const SYNCED_EPOCH_THRESHOLD: u64 = 5;
 
 /// Represents the overall synchronization status of the Forest node.
 #[derive(
@@ -32,7 +36,7 @@ pub enum NodeSyncStatus {
     /// Node is significantly behind the network head and actively downloading/validating.
     #[strum(to_string = "Syncing")]
     Syncing,
-    /// Node is close to the network head (e.g., within a configurable threshold like 5 epochs).
+    /// Node is close to the network head (e.g., 5 epochs).
     #[strum(to_string = "Synced")]
     Synced,
     /// An error occurred during the sync process.
@@ -77,7 +81,7 @@ pub enum ForkSyncStage {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, JsonSchema)]
 pub struct ForkSyncInfo {
     /// The target tipset key for this synchronization task.
-    #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")] // Keep LotusJson for TipsetKey if needed
+    #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub(crate) target_tipset_key: TipsetKey,
     /// The target epoch for this synchronization task.
@@ -107,7 +111,7 @@ pub struct SyncStatusReport {
     #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     current_head_key: Option<TipsetKey>,
-    /// An estimation of the current highest epoch on the network.
+    // Current highest epoch on the network.
     network_head_epoch: ChainEpoch,
     /// Estimated number of epochs the node is behind the network head.
     /// Can be negative if the node is slightly ahead, due to estimation variance.
@@ -192,29 +196,40 @@ impl SyncStatusReport {
         let current_chain_head_epoch = heaviest.epoch();
         self.set_current_chain_head_key(heaviest.key().clone());
         self.set_current_chain_head_epoch(current_chain_head_epoch);
+
+        let now = Utc::now();
+        let now_ts = now.timestamp() as u64;
+        let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
         let network_head_epoch = calculate_expected_epoch(
-            Utc::now().timestamp() as u64,
+            now_ts,
             state_manager.chain_store().genesis_block_header().timestamp,
-            state_manager.chain_config().block_delay_secs,
+            seconds_per_epoch,
         );
 
-        self.set_network_head(network_head_epoch as ChainEpoch);
-        self.set_epochs_behind(network_head_epoch as i64 - current_chain_head_epoch);
-        let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
-        let time_diff = (Utc::now().timestamp() as u64).saturating_sub(heaviest.min_timestamp());
+        self.set_network_head(network_head_epoch);
+        self.set_epochs_behind(network_head_epoch.saturating_sub(current_chain_head_epoch));
+        log::trace!(
+            "Sync status report: current head epoch: {}, network head epoch: {}, epochs behind: {}",
+            current_chain_head_epoch,
+            network_head_epoch,
+            self.get_epochs_behind()
+        );
 
-        match stateless_mode {
-            true => self.set_status(NodeSyncStatus::Offline),
+        let time_diff = now_ts.saturating_sub(heaviest.min_timestamp());
+        let status = match stateless_mode {
+            true => NodeSyncStatus::Offline,
             false => {
-                if time_diff < seconds_per_epoch as u64 * 5 {
-                    self.set_status(NodeSyncStatus::Synced)
+                if time_diff < seconds_per_epoch as u64 * SYNCED_EPOCH_THRESHOLD {
+                    NodeSyncStatus::Synced
                 } else {
-                    self.set_status(NodeSyncStatus::Syncing)
+                    NodeSyncStatus::Syncing
                 }
             }
-        }
+        };
+
+        self.set_status(status);
         self.update_active_forks(current_active_forks);
-        self.last_updated = Utc::now();
+        self.last_updated = now;
     }
 
     pub(crate) fn is_synced(&self) -> bool {
