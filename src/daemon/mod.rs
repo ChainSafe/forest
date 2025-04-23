@@ -137,9 +137,6 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     result
 }
 
-// Garbage collection interval, currently set at 10 hours.
-const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
-
 /// This function initialize Forest with below steps
 /// - increase file descriptor limit (for parity-db)
 /// - setup proofs parameter cache directory
@@ -278,12 +275,16 @@ async fn maybe_start_metrics_service(
     Ok(())
 }
 
-fn maybe_start_gc_service(
+#[allow(dead_code)]
+fn maybe_start_mark_and_sweep_gc_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
     config: &Config,
     ctx: &AppContext,
 ) {
+    // Garbage collection interval, currently set at 10 hours.
+    const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
+
     if !opts.no_gc {
         let mut db_garbage_collector = {
             let chain_store = ctx.state_manager.chain_store().clone();
@@ -668,7 +669,7 @@ pub(super) async fn start_services(
     }
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
-    maybe_start_gc_service(&mut services, opts, &config, &ctx);
+    // maybe_start_mark_and_sweep_gc_service(&mut services, opts, &config, &ctx);
     maybe_start_f3_service(opts, &config, &ctx);
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
         .await?;

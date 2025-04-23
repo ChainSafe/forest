@@ -200,7 +200,7 @@ impl RpcMethod<0> for ChainPruneSnapshot {
     const NAME: &'static str = "Forest.SnapshotGC";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Admin;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = ();
