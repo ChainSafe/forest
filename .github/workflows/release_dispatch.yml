@@ -55,3 +55,9 @@ jobs:
           tag: ${{ github.event.inputs.tag }}
           overwrite: true
           prerelease: true
+  publish:
+    name: cargo publish
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
