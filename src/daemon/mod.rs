@@ -609,6 +609,10 @@ pub(super) async fn start(
         .set(snap_gc.clone())
         .ok()
         .context("failed to set GLOBAL_SNAPSHOT_GC")?;
+    tokio::task::spawn({
+        let snap_gc = snap_gc.clone();
+        async move { snap_gc.event_toop().await }
+    });
     loop {
         tokio::select! {
             _ = snap_gc_reboot_rx.recv_async() => {

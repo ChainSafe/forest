@@ -200,7 +200,7 @@ impl RpcMethod<0> for ChainPruneSnapshot {
     const NAME: &'static str = "Forest.SnapshotGC";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
+    const PERMISSION: Permission = Permission::Admin;
 
     type Params = ();
     type Ok = ();
@@ -210,7 +210,9 @@ impl RpcMethod<0> for ChainPruneSnapshot {
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(gc) = crate::daemon::GLOBAL_SNAPSHOT_GC.get() {
-            Ok(gc.run().await?)
+            let progress_rx = gc.trigger();
+            while progress_rx.recv_async().await.is_ok() {}
+            Ok(())
         } else {
             Err(anyhow::anyhow!("snapshot gc is not enabled").into())
         }

@@ -24,10 +24,11 @@ if [ "$cid" != "bafy2bzacecgqgzh3gxpariy3mzqb37y2vvxoaw5nwbrlzkhso6owus3zqckwe" 
   exit 1
 fi
 
-echo "Test snapshot GC"
 forest_check_db_stats
+echo "Run snapshot GC"
 forest_run_snap_gc
 sleep 5
+echo "Wait the node to sync"
 forest_wait_for_sync
 forest_check_db_stats
 
