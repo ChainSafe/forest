@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tracing::log;
 
 // Node considered synced if the head is within this threshold.
-const SYNCED_EPOCH_THRESHOLD: u64 = 5;
+const SYNCED_EPOCH_THRESHOLD: u64 = 10;
 
 /// Represents the overall synchronization status of the Forest node.
 #[derive(
@@ -41,10 +41,10 @@ pub enum NodeSyncStatus {
     #[strum(to_string = "Synced")]
     Synced,
     /// An error occurred during the sync process.
-    #[strum(to_string = "error")]
+    #[strum(to_string = "Error")]
     Error,
     /// Node is configured to not sync (offline mode).
-    #[strum(to_string = "offline")]
+    #[strum(to_string = "Offline")]
     Offline,
 }
 
@@ -74,7 +74,7 @@ pub enum ForkSyncStage {
     #[strum(to_string = "Stalled")]
     Stalled,
     /// An error occurred processing this specific fork.
-    #[strum(to_string = "error")]
+    #[strum(to_string = "Error")]
     Error,
 }
 
@@ -105,24 +105,24 @@ pub struct ForkSyncInfo {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]
 pub struct SyncStatusReport {
     /// Overall status of the node's synchronization.
-    status: NodeSyncStatus,
+    pub(crate) status: NodeSyncStatus,
     /// The epoch of the heaviest validated tipset on the node's main chain.
-    current_head_epoch: ChainEpoch,
+    pub(crate) current_head_epoch: ChainEpoch,
     /// The tipset key of the current heaviest validated tipset.
     #[schemars(with = "crate::lotus_json::LotusJson<TipsetKey>")]
     #[serde(with = "crate::lotus_json")]
-    current_head_key: Option<TipsetKey>,
+    pub(crate) current_head_key: Option<TipsetKey>,
     // Current highest epoch on the network.
-    network_head_epoch: ChainEpoch,
+    pub(crate) network_head_epoch: ChainEpoch,
     /// Estimated number of epochs the node is behind the network head.
     /// Can be negative if the node is slightly ahead, due to estimation variance.
-    epochs_behind: i64,
+    pub(crate) epochs_behind: i64,
     /// List of active fork synchronization tasks the node is currently handling.
-    active_forks: Vec<ForkSyncInfo>,
+    pub(crate) active_forks: Vec<ForkSyncInfo>,
     /// When the node process started.
-    node_start_time: DateTime<Utc>,
+    pub(crate) node_start_time: DateTime<Utc>,
     /// Last time this status report was generated.
-    last_updated: DateTime<Utc>,
+    pub(crate) last_updated: DateTime<Utc>,
 }
 
 lotus_json_with_self!(SyncStatusReport);
@@ -135,58 +135,6 @@ impl SyncStatusReport {
         }
     }
 
-    pub(crate) fn set_current_chain_head_key(&mut self, tipset_key: TipsetKey) {
-        self.current_head_key = Some(tipset_key);
-    }
-
-    pub(crate) fn set_current_chain_head_epoch(&mut self, epoch: ChainEpoch) {
-        self.current_head_epoch = epoch;
-    }
-
-    pub(crate) fn get_current_chain_head_epoch(&self) -> ChainEpoch {
-        self.current_head_epoch
-    }
-
-    pub(crate) fn set_network_head(&mut self, epoch: ChainEpoch) {
-        self.network_head_epoch = epoch;
-    }
-
-    pub(crate) fn get_network_head_epoch(&self) -> ChainEpoch {
-        self.network_head_epoch
-    }
-
-    pub(crate) fn get_current_chain_head_key(&self) -> Option<&TipsetKey> {
-        self.current_head_key.as_ref()
-    }
-
-    pub(crate) fn set_epochs_behind(&mut self, epochs_behind: i64) {
-        self.epochs_behind = epochs_behind;
-    }
-
-    pub(crate) fn get_epochs_behind(&self) -> i64 {
-        self.epochs_behind
-    }
-
-    pub(crate) fn set_status(&mut self, status: NodeSyncStatus) {
-        self.status = status;
-    }
-
-    pub(crate) fn get_status(&self) -> NodeSyncStatus {
-        self.status
-    }
-
-    pub(crate) fn update_active_forks(&mut self, active_forks: Vec<ForkSyncInfo>) {
-        self.active_forks = active_forks;
-    }
-
-    pub(crate) fn get_active_forks(&self) -> &Vec<ForkSyncInfo> {
-        &self.active_forks
-    }
-
-    pub fn get_last_updated(&self) -> &DateTime<Utc> {
-        &self.last_updated
-    }
-
     pub(crate) fn update<DB: Blockstore + Sync + Send + 'static>(
         &mut self,
         state_manager: &Arc<StateManager<DB>>,
@@ -195,8 +143,8 @@ impl SyncStatusReport {
     ) {
         let heaviest = state_manager.chain_store().heaviest_tipset();
         let current_chain_head_epoch = heaviest.epoch();
-        self.set_current_chain_head_key(heaviest.key().clone());
-        self.set_current_chain_head_epoch(current_chain_head_epoch);
+        self.current_head_key = Some(heaviest.key().clone());
+        self.current_head_epoch = current_chain_head_epoch;
 
         let now = Utc::now();
         let now_ts = now.timestamp() as u64;
@@ -207,13 +155,13 @@ impl SyncStatusReport {
             seconds_per_epoch,
         );
 
-        self.set_network_head(network_head_epoch);
-        self.set_epochs_behind(network_head_epoch.saturating_sub(current_chain_head_epoch));
+        self.network_head_epoch = network_head_epoch;
+        self.epochs_behind = network_head_epoch.saturating_sub(current_chain_head_epoch);
         log::trace!(
             "Sync status report: current head epoch: {}, network head epoch: {}, epochs behind: {}",
             current_chain_head_epoch,
             network_head_epoch,
-            self.get_epochs_behind()
+            self.epochs_behind
         );
 
         let time_diff = now_ts.saturating_sub(heaviest.min_timestamp());
@@ -228,8 +176,8 @@ impl SyncStatusReport {
             }
         };
 
-        self.set_status(status);
-        self.update_active_forks(current_active_forks);
+        self.status = status;
+        self.active_forks = current_active_forks;
         self.last_updated = now;
     }
 

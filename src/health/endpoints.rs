@@ -95,7 +95,7 @@ pub(crate) async fn healthz(
 
 fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_status.read().get_status() == NodeSyncStatus::Synced {
+    if state.sync_status.read().status == NodeSyncStatus::Synced {
         acc.push_ok("sync complete");
         true
     } else {
@@ -106,7 +106,7 @@ fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -
 
 fn check_sync_status_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_status.read().get_status() != NodeSyncStatus::Error {
+    if state.sync_status.read().status != NodeSyncStatus::Error {
         acc.push_ok("sync ok");
         true
     } else {
@@ -128,7 +128,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
     );
 
     // The current epoch of the node must be not too far behind the network
-    if state.sync_status.read().get_current_chain_head_epoch() >= now_epoch - MAX_EPOCH_DIFF {
+    if state.sync_status.read().current_head_epoch >= now_epoch - MAX_EPOCH_DIFF {
         acc.push_ok("epoch up to date");
         true
     } else {

@@ -55,17 +55,17 @@ impl SyncCommands {
                         .context("Failed to get sync status")?;
 
                     // Skip printing if initializing, since it's not useful to print
-                    if report.get_status() == NodeSyncStatus::Initializing {
+                    if report.status == NodeSyncStatus::Initializing {
                         continue;
                     }
 
                     clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
 
-                    lines_printed_last_iteration += print_sync_report_details(&report)
+                    lines_printed_last_iteration = print_sync_report_details(&report)
                         .context("Failed to print sync status report")?;
 
                     // Exit if synced and not in watch mode.
-                    if !watch && report.get_status() == NodeSyncStatus::Synced {
+                    if !watch && report.status == NodeSyncStatus::Synced {
                         println!("\nSync complete!");
                         break;
                     }
@@ -76,7 +76,7 @@ impl SyncCommands {
 
             Self::Status => {
                 let sync_status = client.call(SyncStatus::request(())?).await?;
-                if sync_status.get_status() == NodeSyncStatus::Initializing {
+                if sync_status.status == NodeSyncStatus::Initializing {
                     print!("Node initializing, checking snapshot status..\n\n");
                     // If a snapshot is required and not yet complete, return here
                     if !check_snapshot_progress(&client, false)
@@ -117,30 +117,29 @@ fn print_sync_report_details(report: &SyncStatusReport) -> anyhow::Result<usize>
 
     println!(
         "Status: {:?} ({} epochs behind)",
-        report.get_status(),
-        report.get_epochs_behind()
+        report.status, report.epochs_behind
     );
     lines_printed_count += 1;
 
     let head_key_str = report
-        .get_current_chain_head_key()
+        .current_head_key
+        .as_ref()
         .map(tipset_key_to_string)
         .unwrap_or_else(|| "[unknown]".to_string());
     println!(
         "Node Head: Epoch {} ({})",
-        report.get_current_chain_head_epoch(),
-        head_key_str
+        report.current_head_epoch, head_key_str
     );
     lines_printed_count += 1;
 
-    println!("Network Head: Epoch {}", report.get_network_head_epoch());
+    println!("Network Head: Epoch {}", report.network_head_epoch);
     lines_printed_count += 1;
 
-    println!("Last Update: {}", report.get_last_updated().to_rfc3339());
+    println!("Last Update: {}", report.last_updated.to_rfc3339());
     lines_printed_count += 1;
 
     // Print active sync tasks (forks)
-    let active_forks = report.get_active_forks();
+    let active_forks = &report.active_forks;
     if active_forks.is_empty() {
         println!("Active Sync Tasks: None");
         lines_printed_count += 1;
@@ -238,7 +237,7 @@ async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<(
     let initial_report = SyncStatus::call(client, ())
         .await
         .context("Failed to get sync status")?;
-    if initial_report.get_status() == NodeSyncStatus::Initializing {
+    if initial_report.status == NodeSyncStatus::Initializing {
         print!("Node initializing, checking snapshot status...\n\n");
         // if the snapshot download is not required, then return,
         // else wait till the snapshot download is completed.

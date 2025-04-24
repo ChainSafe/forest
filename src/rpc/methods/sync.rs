@@ -105,7 +105,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_status.read().get_status(), NodeSyncStatus::Synced) {
+        if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
         let encoded_message = to_vec(&block_msg)?;
@@ -272,8 +272,8 @@ mod tests {
         assert_eq!(sync_status, st_copy.as_ref().read().clone());
 
         // update cloned state
-        st_copy.write().set_status(NodeSyncStatus::Syncing);
-        st_copy.write().set_current_chain_head_epoch(4);
+        st_copy.write().status = NodeSyncStatus::Syncing;
+        st_copy.write().current_head_epoch = 4;
 
         let sync_status = SyncStatus::handle(ctx.clone(), ()).await.unwrap();
 
