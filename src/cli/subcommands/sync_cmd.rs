@@ -242,7 +242,7 @@ async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<(
         print!("Node initializing, checking snapshot status...\n\n");
         // if the snapshot download is not required, then return,
         // else wait till the snapshot download is completed.
-        if !SyncSnapshotProgress::call(&client, ())
+        if !SyncSnapshotProgress::call(client, ())
             .await?
             .is_not_required()
         {
