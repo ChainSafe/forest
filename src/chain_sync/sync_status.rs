@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::log;
 
-// Node considered synced if the head is within this many epochs
+// Node considered synced if the head is within this threshold.
 const SYNCED_EPOCH_THRESHOLD: u64 = 5;
 
 /// Represents the overall synchronization status of the Forest node.
@@ -21,6 +21,7 @@ const SYNCED_EPOCH_THRESHOLD: u64 = 5;
     Deserialize,
     Debug,
     Clone,
+    Copy,
     Default,
     PartialEq,
     Eq,
@@ -36,7 +37,7 @@ pub enum NodeSyncStatus {
     /// Node is significantly behind the network head and actively downloading/validating.
     #[strum(to_string = "Syncing")]
     Syncing,
-    /// Node is close to the network head (e.g., 5 epochs).
+    /// Node is close to the network head, within the `SYNCED_EPOCH_THRESHOLD`.
     #[strum(to_string = "Synced")]
     Synced,
     /// An error occurred during the sync process.
@@ -171,7 +172,7 @@ impl SyncStatusReport {
     }
 
     pub(crate) fn get_status(&self) -> NodeSyncStatus {
-        self.status.clone()
+        self.status
     }
 
     pub(crate) fn update_active_forks(&mut self, active_forks: Vec<ForkSyncInfo>) {
