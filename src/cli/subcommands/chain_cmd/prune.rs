@@ -8,15 +8,18 @@ use std::time::Duration;
 #[derive(Debug, Subcommand)]
 pub enum ChainPruneCommands {
     /// Run snapshot GC
-    Snap,
+    Snap {
+        #[arg(long)]
+        no_wait: bool,
+    },
 }
 
 impl ChainPruneCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
-            Self::Snap => {
+            Self::Snap { no_wait } => {
                 client
-                    .call(ChainPruneSnapshot::request(())?.with_timeout(Duration::MAX))
+                    .call(ChainPruneSnapshot::request((!no_wait,))?.with_timeout(Duration::MAX))
                     .await?;
             }
         }

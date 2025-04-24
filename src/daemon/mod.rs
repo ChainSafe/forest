@@ -46,6 +46,7 @@ use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{cmp, sync::Arc};
 use tempfile::{Builder, TempPath};
@@ -82,13 +83,19 @@ pub fn ipc_shmem_conf() -> ShmemConf {
 }
 
 fn unblock_parent_process() -> anyhow::Result<()> {
-    let shmem = ipc_shmem_conf().open()?;
-    let (event, _) =
-        unsafe { Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::anyhow!("{err}")) }?;
+    static UNBLOCKED: AtomicBool = AtomicBool::new(false);
+    if !UNBLOCKED.load(Ordering::Relaxed) {
+        let shmem = ipc_shmem_conf().open()?;
+        let (event, _) = unsafe {
+            Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::anyhow!("{err}"))
+        }?;
 
-    event
-        .set(EventState::Signaled)
-        .map_err(|err| anyhow::anyhow!("{err}"))
+        event
+            .set(EventState::Signaled)
+            .map_err(|err| anyhow::anyhow!("{err}"))?;
+        UNBLOCKED.store(true, Ordering::Relaxed);
+    }
+    Ok(())
 }
 
 /// Increase the file descriptor limit to a reasonable number.

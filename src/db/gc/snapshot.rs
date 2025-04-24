@@ -87,13 +87,18 @@ where
         }
     }
 
-    pub fn trigger(&self) -> flume::Receiver<()> {
+    pub fn trigger(&self) -> anyhow::Result<flume::Receiver<()>> {
+        if self.running.load(Ordering::Relaxed) {
+            anyhow::bail!("snap gc has already been running");
+        }
+
+        if self.trigger_tx.try_send(()).is_err() {
+            anyhow::bail!("snap gc has already been triggered");
+        }
+
         let (progress_tx, progress_rx) = flume::unbounded();
         *self.progress_tx.write() = Some(progress_tx);
-        if self.trigger_tx.try_send(()).is_err() {
-            tracing::warn!("snap gc has already been triggered");
-        }
-        progress_rx
+        Ok(progress_rx)
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
@@ -146,52 +151,54 @@ where
             }
         }
         if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() } {
-            let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
-            for col in [
-                DbColumn::GraphDagCborBlake2b256 as u8,
-                DbColumn::GraphFull as u8,
-            ] {
-                let start = Instant::now();
-                tracing::info!("pruning parity-db column {col}...");
-                loop {
-                    match parity_db::Db::reset_column(&mut opts, col, None) {
-                        Ok(_) => break,
-                        Err(_) => {
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                }
-                tracing::info!(
-                    "pruned parity-db column {col}, took {}",
-                    humantime::format_duration(start.elapsed())
-                );
-            }
-
-            for car_to_remove in walkdir::WalkDir::new(&self.car_db_dir)
-                .max_depth(1)
-                .into_iter()
-                .filter_map(|entry| {
-                    if let Ok(entry) = entry {
-                        if entry.path() != blessed_lite_snapshot.as_path() {
-                            if let Some(filename) = entry.file_name().to_str() {
-                                if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                                    return Some(entry.into_path());
-                                }
+            if blessed_lite_snapshot.is_file() {
+                let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
+                for col in [
+                    DbColumn::GraphDagCborBlake2b256 as u8,
+                    DbColumn::GraphFull as u8,
+                ] {
+                    let start = Instant::now();
+                    tracing::info!("pruning parity-db column {col}...");
+                    loop {
+                        match parity_db::Db::reset_column(&mut opts, col, None) {
+                            Ok(_) => break,
+                            Err(_) => {
+                                tokio::time::sleep(Duration::from_secs(1)).await;
                             }
                         }
                     }
-                    None
-                })
-            {
-                match std::fs::remove_file(&car_to_remove) {
-                    Ok(_) => {
-                        tracing::info!("deleted car db at {}", car_to_remove.display());
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            "failed to delete car db at {}: {e}",
-                            car_to_remove.display()
-                        );
+                    tracing::info!(
+                        "pruned parity-db column {col}, took {}",
+                        humantime::format_duration(start.elapsed())
+                    );
+                }
+
+                for car_to_remove in walkdir::WalkDir::new(&self.car_db_dir)
+                    .max_depth(1)
+                    .into_iter()
+                    .filter_map(|entry| {
+                        if let Ok(entry) = entry {
+                            if entry.path() != blessed_lite_snapshot.as_path() {
+                                if let Some(filename) = entry.file_name().to_str() {
+                                    if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
+                                        return Some(entry.into_path());
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    })
+                {
+                    match std::fs::remove_file(&car_to_remove) {
+                        Ok(_) => {
+                            tracing::info!("deleted car db at {}", car_to_remove.display());
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "failed to delete car db at {}: {e}",
+                                car_to_remove.display()
+                            );
+                        }
                     }
                 }
             }

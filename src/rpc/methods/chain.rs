@@ -196,22 +196,22 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
 }
 
 pub enum ChainPruneSnapshot {}
-impl RpcMethod<0> for ChainPruneSnapshot {
+impl RpcMethod<1> for ChainPruneSnapshot {
     const NAME: &'static str = "Forest.SnapshotGC";
-    const PARAM_NAMES: [&'static str; 0] = [];
+    const PARAM_NAMES: [&'static str; 1] = ["blocking"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Admin;
 
-    type Params = ();
+    type Params = (bool,);
     type Ok = ();
 
     async fn handle(
         _ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (): Self::Params,
+        (blocking,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         if let Some(gc) = crate::daemon::GLOBAL_SNAPSHOT_GC.get() {
-            let progress_rx = gc.trigger();
-            while progress_rx.recv_async().await.is_ok() {}
+            let progress_rx = gc.trigger()?;
+            while blocking && progress_rx.recv_async().await.is_ok() {}
             Ok(())
         } else {
             Err(anyhow::anyhow!("snapshot gc is not enabled").into())
