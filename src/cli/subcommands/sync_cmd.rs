@@ -14,6 +14,7 @@ use std::{
 };
 use ticker::Ticker;
 use tokio::time;
+use tokio::time::sleep;
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
@@ -54,10 +55,7 @@ impl SyncCommands {
                         .await
                         .context("Failed to get sync status")?;
 
-                    // Skip printing if initializing, since it's not useful to print
-                    if report.status == NodeSyncStatus::Initializing {
-                        continue;
-                    }
+                    wait_for_node_to_start_syncing(&client).await?;
 
                     clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
 
@@ -77,12 +75,12 @@ impl SyncCommands {
             Self::Status => {
                 let sync_status = client.call(SyncStatus::request(())?).await?;
                 if sync_status.status == NodeSyncStatus::Initializing {
-                    print!("Node initializing, checking snapshot status..\n\n");
                     // If a snapshot is required and not yet complete, return here
                     if !check_snapshot_progress(&client, false)
                         .await?
                         .is_not_required()
                     {
+                        println!("Please try again later, once the snapshot is downloaded...");
                         return Ok(());
                     };
                 }
@@ -221,6 +219,7 @@ async fn check_snapshot_progress(
 
         match progress_state {
             SnapshotProgressState::Completed | SnapshotProgressState::NotRequired => {
+                println!();
                 return Ok(progress_state);
             }
             _ if !wait => {
@@ -231,6 +230,36 @@ async fn check_snapshot_progress(
     }
 }
 
+/// Waits for node initialization to complete (start `Syncing`).
+async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<()> {
+    let mut is_msg_printed = false;
+    let mut stdout = stdout();
+    const POLLING_INTERVAL: Duration = Duration::from_secs(1);
+
+    loop {
+        let report = SyncStatus::call(client, ())
+            .await
+            .context("Failed to get sync status while waiting for initialization to complete")?;
+
+        if report.status == NodeSyncStatus::Initializing {
+            write!(stdout, "\r🔄 Node syncing is initializing, please wait...")?;
+            stdout.flush()?;
+            is_msg_printed = true;
+
+            sleep(POLLING_INTERVAL).await;
+        } else {
+            if is_msg_printed {
+                clear_previous_lines(&mut stdout, 1)
+                    .context("Failed to clear initializing message")?;
+            }
+
+            break;
+        }
+    }
+
+    Ok(())
+}
+
 /// Checks if a snapshot download is required or in progress when the node is initializing.
 /// If a snapshot download is in progress, it waits for completion before starting the sync monitor.
 async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<()> {
@@ -238,17 +267,13 @@ async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<(
         .await
         .context("Failed to get sync status")?;
     if initial_report.status == NodeSyncStatus::Initializing {
-        print!("Node initializing, checking snapshot status...\n\n");
         // if the snapshot download is not required, then return,
         // else wait till the snapshot download is completed.
-        if !SyncSnapshotProgress::call(client, ())
+        if !check_snapshot_progress(client, false)
             .await?
             .is_not_required()
         {
             check_snapshot_progress(client, true).await?;
-            println!("Snapshot download complete. Starting sync monitor...");
-        } else {
-            println!("No snapshot download required or already complete.");
         }
     }
 
