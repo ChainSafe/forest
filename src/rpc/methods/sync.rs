@@ -78,6 +78,7 @@ impl RpcMethod<0> for SyncStatus {
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns the current sync status of the node.");
 
     type Params = ();
     type Ok = SyncStatusReport;
