@@ -32,13 +32,9 @@ for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
     DEST_PATH="${DEST_DIR}/${FILE_NAME}.zst"
     BUCKET_URL="s3://${SPACE_NAME}/${DEST_PATH}"
 
-    zstd -f "$FILE_PATH" -o "$COMPRESSED_FILE"
-
-    if [ $? -eq 0 ]; then
-        s3cmd --quiet --no-progress put "${COMPRESSED_FILE}" "${BUCKET_URL}" --acl-public --mime-type="application/json" --add-header="Cache-Control: no-cache, no-store, must-revalidate"
-        if [ $? -eq 0 ]; then
+    if zstd -f "$FILE_PATH" -o "$COMPRESSED_FILE"; then
+        if s3cmd --quiet --no-progress put "${COMPRESSED_FILE}" "${BUCKET_URL}" --acl-public --mime-type="application/json" --add-header="Cache-Control: no-cache, no-store, must-revalidate"; then
             echo "✅ Uploaded: ${COMPRESSED_FILE}"
-            # echo "   📎 URL: https://${SPACE_NAME}.${REGION}.digitaloceanspaces.com/${DEST_PATH}"
 
             BASE_NAME=$(basename "$COMPRESSED_FILE")
             echo "$BASE_NAME" >> "$TEST_SNAPSHOTS"
@@ -47,7 +43,6 @@ for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
         fi
     else
         echo "❌ Failed to compress: ${FILE_NAME}"
-        continue
     fi
 done
 
