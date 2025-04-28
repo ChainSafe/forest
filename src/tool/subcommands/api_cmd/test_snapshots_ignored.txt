@@ -61,7 +61,6 @@ Filecoin.StateSectorPreCommitInfoV0
 Filecoin.StateWaitMsgV0
 Filecoin.SyncCheckBad
 Filecoin.SyncMarkBad
-Filecoin.SyncState
 Filecoin.SyncSubmitBlock
 Filecoin.Version
 Filecoin.WalletBalance
@@ -84,3 +83,4 @@ Forest.SnapshotGC
 Forest.StateCompute
 Forest.StateFetchRoot
 Forest.SyncSnapshotProgress
+Forest.SyncStatus
