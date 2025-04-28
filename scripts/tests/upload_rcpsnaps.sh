@@ -46,8 +46,8 @@ for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
     fi
 done
 
-# Sort the file lexicographically
-sort -o "$TEST_SNAPSHOTS" "$TEST_SNAPSHOTS"
+# Sort the file in lexicographical order and remove dup lines
+sort -u -o "$TEST_SNAPSHOTS" "$TEST_SNAPSHOTS"
 
 read -r -p "🧪 Do you want to run 'cargo test --lib -- --test rpc_regression_tests --nocapture'? [y/N] " answer
 case "$answer" in
