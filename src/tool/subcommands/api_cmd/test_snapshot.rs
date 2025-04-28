@@ -34,7 +34,8 @@ pub struct Payload(#[serde(with = "crate::lotus_json::base64_standard")] pub Vec
 
 #[derive(Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Index {
-    pub eth_mappings: ahash::HashMap<String, Payload>,
+    pub eth_mappings: Option<ahash::HashMap<String, Payload>>,
+    pub indices: Option<ahash::HashMap<String, Payload>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,16 +53,20 @@ pub struct RpcTestSnapshot {
 fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
     if let Some(index) = index {
         if let Some(mut guard) = db.eth_mappings_db.try_write() {
-            for (k, v) in index.eth_mappings.iter() {
-                if let Ok(hash) = EthHash::from_str(k) {
-                    guard.insert(hash, v.0.clone());
+            if let Some(eth_mappings) = index.eth_mappings {
+                for (k, v) in eth_mappings.iter() {
+                    if let Ok(hash) = EthHash::from_str(k) {
+                        guard.insert(hash, v.0.clone());
+                    }
                 }
             }
         }
         if let Some(mut guard) = db.indices_db.try_write() {
-            for (k, v) in index.eth_mappings.iter() {
-                if let Ok(cid) = Cid::from_str(k) {
-                    guard.insert(cid, v.0.clone());
+            if let Some(indices) = index.indices {
+                for (k, v) in indices.iter() {
+                    if let Ok(cid) = Cid::from_str(k) {
+                        guard.insert(cid, v.0.clone());
+                    }
                 }
             }
         }
