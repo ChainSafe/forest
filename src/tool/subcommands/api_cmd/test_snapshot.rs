@@ -53,14 +53,14 @@ fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<
     if let Some(index) = index {
         if let Some(mut guard) = db.eth_mappings_db.try_write() {
             for (k, v) in index.eth_mappings.iter() {
-                if let Ok(hash) = EthHash::from_str(&k) {
+                if let Ok(hash) = EthHash::from_str(k) {
                     guard.insert(hash, v.0.clone());
                 }
             }
         }
         if let Some(mut guard) = db.indices_db.try_write() {
             for (k, v) in index.eth_mappings.iter() {
-                if let Ok(cid) = Cid::from_str(&k) {
+                if let Ok(cid) = Cid::from_str(k) {
                     guard.insert(cid, v.0.clone());
                 }
             }
