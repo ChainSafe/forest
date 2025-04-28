@@ -49,7 +49,7 @@ done
 # Sort the file lexicographically
 sort -o "$TEST_SNAPSHOTS" "$TEST_SNAPSHOTS"
 
-read -p "🧪 Do you want to run 'cargo test --lib -- --test rpc_regression_tests --nocapture'? [y/N] " answer
+read -r -p "🧪 Do you want to run 'cargo test --lib -- --test rpc_regression_tests --nocapture'? [y/N] " answer
 case "$answer" in
     [yY][eE][sS]|[yY])
         echo "▶ Running tests..."
