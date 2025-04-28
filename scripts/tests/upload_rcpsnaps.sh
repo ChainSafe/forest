@@ -35,7 +35,7 @@ for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
     zstd -f "$FILE_PATH" -o "$COMPRESSED_FILE"
 
     if [ $? -eq 0 ]; then
-        s3cmd --quiet --no-progress put "${COMPRESSED_FILE}" "${BUCKET_URL}" --acl-public --mime-type="application/json"
+        s3cmd --quiet --no-progress put "${COMPRESSED_FILE}" "${BUCKET_URL}" --acl-public --mime-type="application/json" --add-header="Cache-Control: no-cache, no-store, must-revalidate"
         if [ $? -eq 0 ]; then
             echo "✅ Uploaded: ${COMPRESSED_FILE}"
             # echo "   📎 URL: https://${SPACE_NAME}.${REGION}.digitaloceanspaces.com/${DEST_PATH}"
