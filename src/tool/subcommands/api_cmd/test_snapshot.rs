@@ -1,10 +1,11 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     chain::ChainStore,
-    chain_sync::{SyncStage, network_context::SyncNetworkContext},
+    chain_sync::network_context::SyncNetworkContext,
     db::{
         MemoryDB,
         car::{AnyCar, ManyCar},
@@ -159,7 +160,7 @@ async fn ctx(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_states: Arc::new(RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,
@@ -168,11 +169,6 @@ async fn ctx(
         tipset_send,
         snapshot_progress_tracker: Default::default(),
     });
-    rpc_state
-        .sync_states
-        .write()
-        .first_mut()
-        .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
 
