@@ -39,7 +39,7 @@ impl Collector for NetworkHeightCollector {
             self.genesis_timestamp,
             self.block_delay_secs,
         );
-        self.network_height.set(expected_epoch as i64);
+        self.network_height.set(expected_epoch);
         self.network_height.encode(metric_encoder)?;
 
         Ok(())

@@ -5,11 +5,11 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
-use crate::db::SettingsExt;
-use crate::rpc::f3::F3IsRunning;
-use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
-
 use super::{AppError, ForestState};
+use crate::chain_sync::NodeSyncStatus;
+use crate::db::SettingsExt;
+use crate::networks::calculate_expected_epoch;
+use crate::rpc::f3::F3IsRunning;
 
 /// Query parameter for verbose responses
 const VERBOSE_PARAM: &str = "verbose";
@@ -28,7 +28,7 @@ pub(crate) async fn livez(
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
     let mut lively = true;
-    lively &= check_sync_state_not_error(&state, &mut acc);
+    lively &= check_sync_status_not_error(&state, &mut acc);
     lively &= check_peers_connected(&state, &mut acc);
     lively &= check_rpc_server_running(&state, &mut acc).await;
 
@@ -56,7 +56,7 @@ pub(crate) async fn readyz(
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
     let mut ready = true;
-    ready &= check_sync_state_complete(&state, &mut acc);
+    ready &= check_sync_status_synced(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
     if state.config.chain_indexer.enable_indexer {
@@ -82,7 +82,7 @@ pub(crate) async fn healthz(
     let mut healthy = true;
     healthy &= check_epoch_up_to_date(&state, &mut acc);
     healthy &= check_rpc_server_running(&state, &mut acc).await;
-    healthy &= check_sync_state_not_error(&state, &mut acc);
+    healthy &= check_sync_status_not_error(&state, &mut acc);
     healthy &= check_peers_connected(&state, &mut acc);
     healthy &= check_f3_running(&state, &mut acc).await;
 
@@ -93,9 +93,9 @@ pub(crate) async fn healthz(
     }
 }
 
-fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_status_synced(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_states.read().first().stage() == SyncStage::Complete {
+    if state.sync_status.read().status == NodeSyncStatus::Synced {
         acc.push_ok("sync complete");
         true
     } else {
@@ -104,9 +104,9 @@ fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) 
     }
 }
 
-fn check_sync_state_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_status_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
-    if state.sync_states.read().first().stage() != SyncStage::Error {
+    if state.sync_status.read().status != NodeSyncStatus::Error {
         acc.push_ok("sync ok");
         true
     } else {
@@ -125,10 +125,10 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
         chrono::Utc::now().timestamp() as u64,
         state.genesis_timestamp,
         state.chain_config.block_delay_secs,
-    ) as i64;
+    );
 
     // The current epoch of the node must be not too far behind the network
-    if state.sync_states.read().first().epoch() >= now_epoch - MAX_EPOCH_DIFF {
+    if state.sync_status.read().current_head_epoch >= now_epoch - MAX_EPOCH_DIFF {
         acc.push_ok("epoch up to date");
         true
     } else {

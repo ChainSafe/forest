@@ -28,6 +28,7 @@
 ### Breaking
 
 - [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
+- [#5589](https://github.com/ChainSafe/forest/pull/5589) Replace existing `Filecoin.SyncState` API with new `Forest.SyncStatus` to track node syncing progress specific to Forest.
 
 ### Added
 
