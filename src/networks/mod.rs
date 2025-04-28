@@ -590,9 +590,9 @@ macro_rules! make_height {
 pub fn calculate_expected_epoch(
     now_timestamp: u64,
     genesis_timestamp: u64,
-    block_delay: u32,
-) -> u64 {
-    now_timestamp.saturating_sub(genesis_timestamp) / block_delay as u64
+    block_delay_secs: u32,
+) -> i64 {
+    (now_timestamp.saturating_sub(genesis_timestamp) / block_delay_secs as u64) as i64
 }
 
 #[cfg(test)]

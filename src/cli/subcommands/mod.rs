@@ -108,11 +108,6 @@ pub enum Subcommand {
     WaitApi(WaitApiCommand),
 }
 
-/// Format a vector to a prettified string
-pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
-    format!("[{}]", vec.join(", "))
-}
-
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {

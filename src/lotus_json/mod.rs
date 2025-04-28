@@ -209,7 +209,6 @@ decl_and_test!(
     signature for crate::shim::crypto::Signature,
     signature_type for crate::shim::crypto::SignatureType,
     signed_message for  crate::message::SignedMessage,
-    sync_stage for crate::chain_sync::SyncStage,
     ticket for crate::blocks::Ticket,
     tipset_keys for crate::blocks::TipsetKey,
     token_amount for crate::shim::econ::TokenAmount,

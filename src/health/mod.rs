@@ -9,9 +9,8 @@ use axum::{
 };
 use parking_lot::RwLock;
 
-use crate::{
-    Config, chain_sync::SyncState, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig,
-};
+use crate::chain_sync::SyncStatusReport;
+use crate::{Config, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig};
 
 mod endpoints;
 
@@ -23,7 +22,7 @@ pub(crate) struct ForestState {
     pub config: Config,
     pub chain_config: Arc<ChainConfig>,
     pub genesis_timestamp: u64,
-    pub sync_states: Arc<RwLock<nunny::Vec<SyncState>>>,
+    pub sync_status: Arc<RwLock<SyncStatusReport>>,
     pub peer_manager: Arc<PeerManager>,
     pub settings_store: Arc<dyn SettingsStore + Sync + Send>,
 }
@@ -62,21 +61,20 @@ impl IntoResponse for AppError {
 mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+    use crate::Client;
     use crate::cli_shared::cli::ChainIndexerConfig;
     use crate::db::SettingsExt;
-    use crate::{Client, chain_sync::SyncStage};
-
-    use reqwest::StatusCode;
 
     use super::*;
+    use crate::chain_sync::NodeSyncStatus;
+    use reqwest::StatusCode;
 
     #[tokio::test]
     async fn test_check_readyz() {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_states = Arc::new(RwLock::new(nunny::vec![SyncState::default()]));
-
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::init()));
         let db = Arc::new(crate::db::MemoryDB::default());
 
         let forest_state = ForestState {
@@ -94,7 +92,7 @@ mod test {
             },
             chain_config: Arc::new(ChainConfig::default()),
             genesis_timestamp: 0,
-            sync_states: sync_states.clone(),
+            sync_status: sync_status.clone(),
             peer_manager: Arc::new(PeerManager::default()),
             settings_store: db.clone(),
         };
@@ -120,12 +118,8 @@ mod test {
         };
 
         // instrument the state so that the ready requirements are met
-        sync_states.write().first_mut().set_epoch(i64::MAX);
-        sync_states
-            .write()
-            .first_mut()
-            .set_stage(SyncStage::Complete);
-
+        sync_status.write().status = NodeSyncStatus::Synced;
+        sync_status.write().current_head_epoch = i64::MAX;
         db.set_eth_mapping_up_to_date().unwrap();
 
         assert_eq!(
@@ -142,8 +136,8 @@ mod test {
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
-        sync_states.write().first_mut().set_stage(SyncStage::Error);
-        sync_states.write().first_mut().set_epoch(0);
+        sync_status.write().status = NodeSyncStatus::Error;
+        sync_status.write().current_head_epoch = 0;
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -164,7 +158,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
-        let sync_states = Arc::new(RwLock::new(nunny::vec![SyncState::default()]));
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let peer_manager = Arc::new(PeerManager::default());
         let db = Arc::new(crate::db::MemoryDB::default());
         let forest_state = ForestState {
@@ -178,7 +172,7 @@ mod test {
             },
             chain_config: Arc::new(ChainConfig::default()),
             genesis_timestamp: 0,
-            sync_states: sync_states.clone(),
+            sync_status: sync_status.clone(),
             peer_manager: peer_manager.clone(),
             settings_store: db,
         };
@@ -204,10 +198,7 @@ mod test {
         };
 
         // instrument the state so that the live requirements are met
-        sync_states
-            .write()
-            .first_mut()
-            .set_stage(SyncStage::Headers);
+        sync_status.write().status = NodeSyncStatus::Syncing;
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
 
@@ -223,7 +214,7 @@ mod test {
         assert!(text.contains("[+] peers connected"));
 
         // instrument the state so that the live requirements are not met
-        sync_states.write().first_mut().set_stage(SyncStage::Error);
+        sync_status.write().status = NodeSyncStatus::Error;
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
@@ -245,7 +236,7 @@ mod test {
         let peer_manager = Arc::new(PeerManager::default());
         let db = Arc::new(crate::db::MemoryDB::default());
 
-        let sync_states = Arc::new(RwLock::new(nunny::vec![SyncState::default()]));
+        let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let forest_state = ForestState {
             config: Config {
                 client: Client {
@@ -257,7 +248,7 @@ mod test {
             },
             chain_config: Arc::new(ChainConfig::default()),
             genesis_timestamp: 0,
-            sync_states: sync_states.clone(),
+            sync_status: sync_status.clone(),
             peer_manager: peer_manager.clone(),
             settings_store: db,
         };
@@ -283,11 +274,8 @@ mod test {
         };
 
         // instrument the state so that the health requirements are met
-        sync_states.write().first_mut().set_epoch(i64::MAX);
-        sync_states
-            .write()
-            .first_mut()
-            .set_stage(SyncStage::Headers);
+        sync_status.write().current_head_epoch = i64::MAX;
+        sync_status.write().status = NodeSyncStatus::Syncing;
         let peer = libp2p::PeerId::random();
         peer_manager.touch_peer(&peer);
 
@@ -305,8 +293,8 @@ mod test {
 
         // instrument the state so that the health requirements are not met
         drop(rpc_listener);
-        sync_states.write().first_mut().set_stage(SyncStage::Error);
-        sync_states.write().first_mut().set_epoch(0);
+        sync_status.write().status = NodeSyncStatus::Error;
+        sync_status.write().current_head_epoch = 0;
         peer_manager.remove_peer(&peer);
 
         assert_eq!(
@@ -336,7 +324,7 @@ mod test {
             },
             chain_config: Arc::default(),
             genesis_timestamp: 0,
-            sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
+            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             peer_manager: Arc::default(),
             settings_store: Arc::new(crate::db::MemoryDB::default()),
         };
