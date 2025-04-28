@@ -188,6 +188,7 @@ mod tests {
     use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
+    use chrono::Utc;
     use directories::ProjectDirs;
     use futures::{StreamExt, stream::FuturesUnordered};
     use itertools::Itertools as _;
@@ -210,14 +211,13 @@ mod tests {
             .trim()
             .split("\n")
             .filter_map(|n| {
-                Url::parse(
-                    format!(
-                        "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
-                    )
-                    .as_str(),
-                )
-                .ok()
-                .map(|url| (n, url))
+                let base_url = format!(
+                    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
+                );
+                let mut url = Url::parse(&base_url).ok()?;
+                url.query_pairs_mut()
+                    .append_pair("cachebust", &Utc::now().timestamp().to_string());
+                Some((n, url))
             })
             .collect_vec();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
