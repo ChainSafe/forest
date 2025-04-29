@@ -48,6 +48,6 @@ A test snapshot generated in the previous step is in JSON format, for easier ins
       ```
    2. Compress, upload the snapshots, update `test_snapshots.txt` and run the tests:
       ```
-      scripts/tests/upload_rcpsnaps.sh /var/tmp/rpc-snapshots
+      ./scripts/tests/upload_rcpsnaps.sh /var/tmp/rpc-snapshots
       ```
 
