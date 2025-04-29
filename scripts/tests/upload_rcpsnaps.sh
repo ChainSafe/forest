@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # This script compresses all `.rpcsnap.json` files in a given directory using zstd,
-# then uploads the compressed files to our DigitalOcean Spaces.
+# uploads the compressed files to our DigitalOcean Spaces,
+# updates `test_snapshots.txt` with the uploaded filenames,
+# and prompts the user to optionally run the regression tests.
 
 SPACE_NAME="forest-snapshots"
-# REGION="fra1"
 DEST_DIR="rpc_test"
 
 TEST_SNAPSHOTS="src/tool/subcommands/api_cmd/test_snapshots.txt"
