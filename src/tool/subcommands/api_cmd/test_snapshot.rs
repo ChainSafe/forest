@@ -216,6 +216,9 @@ mod tests {
                     "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
                 );
                 let mut url = Url::parse(&base_url).ok()?;
+                // Append a timestamp to the URL as a `cachebust` query parameter
+                // to prevent the CDN from serving a potentially stale cached version
+                // of the file, in case it's been recently re-uploaded with changes.
                 url.query_pairs_mut()
                     .append_pair("cachebust", &Utc::now().timestamp().to_string());
                 Some((n, url))
