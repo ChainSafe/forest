@@ -23,6 +23,7 @@ datacap
 devnet
 Devops
 Devs
+DigitalOcean
 DHT
 Drand
 Ethereum
