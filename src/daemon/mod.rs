@@ -144,7 +144,7 @@ fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
     maybe_increase_fd_limit()?;
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+    crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(&config.client.data_dir);
     info!(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()

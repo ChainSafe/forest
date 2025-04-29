@@ -1,7 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncStatusReport;
@@ -20,6 +19,8 @@ use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
+use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::{Config, JWT_IDENTIFIER};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use std::{
@@ -77,6 +78,11 @@ pub async fn start_offline_server(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
+
+    // Set proof parameter data dir and make sure the proofs are available. Otherwise,
+    // validation might fail due to missing proof parameters.
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    ensure_proof_params_downloaded().await?;
 
     backfill_db(&state_manager, &head_ts).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
