@@ -193,7 +193,7 @@ mod tests {
             return;
         }
         // Set proof parameter data dir and make sure the proofs are available
-        crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(
+        crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
             &Config::default().client.data_dir,
         );
         ensure_proof_params_downloaded().await.unwrap();
