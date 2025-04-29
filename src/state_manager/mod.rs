@@ -527,12 +527,11 @@ where
                     tipset.len(),
                 );
 
-                // First try to lookup the state and receipt if not found in the blockstore
+                // First, try to look up the state and receipt if not found in the blockstore
                 // compute it
                 if let Some(state_from_child) =
                     self.try_lookup_state_from_next_tipset(tipset.as_ref())
                 {
-                    trace!("Using state from child tipset for epoch {}", tipset.epoch());
                     return Ok(state_from_child);
                 }
 
@@ -545,7 +544,6 @@ where
                     self.chain_store().put_index(events_root, key)?;
                 }
 
-                // update the events_cache and receipt_cache
                 self.update_receipt_and_events_cache(key, &state_output);
 
                 let ts_state = state_output.into();
@@ -2341,7 +2339,7 @@ mod tests {
                     .with_epoch(11)
                     .with_parents(a_ts.key().clone())
                     .with_state_root(state_root)
-                    .with_message_receipts(missing_receipt_root) // Missing receipt root
+                    .with_message_receipts(missing_receipt_root)
             ]
         }
 
@@ -2370,7 +2368,7 @@ mod tests {
             ..
         } = setup_chain_with_tipsets();
 
-        // Create a new receipt root that isn't stored in the blockstore
+        // Create a new state root that is not stored in the blockstore
         let missing_state_root = create_dummy_cid(999);
 
         // Build a chain with parent and child tipsets
@@ -2385,7 +2383,7 @@ mod tests {
                     .with_epoch(11)
                     .with_parents(a_ts.key().clone())
                     .with_message_receipts(receipt_root)
-                    .with_state_root(missing_state_root) // Missing state root
+                    .with_state_root(missing_state_root)
             ]
         }
 
@@ -2430,7 +2428,6 @@ mod tests {
         let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
         let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
 
-        // Create a mock events
         let mock_event = StampedEvent::V4(fvm_shared4::event::StampedEvent {
             emitter: 1000,
             event: fvm_shared4::event::ActorEvent { entries: vec![] },
