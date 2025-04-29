@@ -23,7 +23,7 @@ As described above, an RPC test snapshot is generated from an RPC test dump and 
 
 The `forest-tool api generate-test-snapshot` command is for this purpose. Note that it uses the same database as the Forest daemon (db which is also used by the `forest-tool api compare` command in the previous step) to dump the minimal database snapshot. e.g. `forest-tool api generate-test-snapshot --chain calibnet --out-dir /var/tmp/rpc-snapshots /var/tmp/test-dumps/valid/filecoin_stategetallallocations*.json`
 
-### (Optional) compress the test snapshots
+### Compress the test snapshots
 
 A test snapshot generated in the previous step is in JSON format, for easier inspection of the content. The Forest tool set supports `.zst` archives of test snapshots for better disk usage and network bandwidth efficiency. Just run `zstd /var/tmp/rpc-snapshots/*.json`
 
@@ -35,9 +35,10 @@ A test snapshot generated in the previous step is in JSON format, for easier ins
 
 - Manual Method
 
-  1.  Upload the test snapshots (`.zst` format is recommended) to the Digital Ocean space `forest-snapshots/rpc_test`
-  2.  Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
-  3.  Run the tests:
+  1.  Compress the test snapshots if not already done.
+  2.  Upload the `.json.zst` files to the DigitalOcean space `forest-snapshots/rpc_test`
+  3.  Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
+  4.  Run the tests:
       ```
       cargo test --lib -- --test rpc_regression_tests --nocapture
       ```
