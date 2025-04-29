@@ -34,20 +34,20 @@ A test snapshot generated in the previous step is in JSON format, for easier ins
 ### Run the test snapshots in unit tests
 
 - Manual Method
-   1. Upload the test snapshots (`.zst` format is recommended) to the Digital Ocean space `forest-snapshots/rpc_test`
-   2. Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
-   3. Run the tests:
+
+  1.  Upload the test snapshots (`.zst` format is recommended) to the Digital Ocean space `forest-snapshots/rpc_test`
+  2.  Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
+  3.  Run the tests:
       ```
       cargo test --lib -- --test rpc_regression_tests --nocapture
       ```
 
 - Using the Script
-   1. (One-time setup) Configure your DigitalOcean credentials:
+  1.  (One-time setup) Configure your DigitalOcean credentials:
       ```
       s3cmd --configure
       ```
-   2. Compress, upload the snapshots, update `test_snapshots.txt` and run the tests:
+  2.  Compress, upload the snapshots, update `test_snapshots.txt` and run the tests:
       ```
       ./scripts/tests/upload_rcpsnaps.sh /var/tmp/rpc-snapshots
       ```
-
