@@ -658,7 +658,7 @@ fn format_diff_snapshot(
 }
 
 // Check if
-// forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
+// forest-internal.chainsafe.dev/{network}/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
 // exists.
 async fn bucket_has_lite_snapshot(
     network: &str,
@@ -675,7 +675,7 @@ async fn bucket_has_lite_snapshot(
 }
 
 // Check if
-// forest-archive.chainsafe.dev/list/network/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
+// forest-internal.chainsafe.dev/{network}/diff/forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst
 // exists.
 async fn bucket_has_diff_snapshot(
     network: &str,
