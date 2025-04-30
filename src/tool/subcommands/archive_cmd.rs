@@ -126,6 +126,8 @@ pub enum ArchiveCommands {
         #[arg(long)]
         depth: Option<u64>,
     },
+    /// Export lite+diff snapshots from one or more CAR files, and upload them
+    /// to an S3 bucket.
     SyncBucket {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
