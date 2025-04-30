@@ -39,3 +39,4 @@ jobs:
           body: |
             ### Changes
             - Updates Lotus version in the JSON-RPC API tests to the latest release.
+          labels: RPC
