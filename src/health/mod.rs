@@ -158,7 +158,6 @@ mod test {
 
         let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let peer_manager = Arc::new(PeerManager::default());
-        let db = Arc::new(crate::db::MemoryDB::default());
         let forest_state = ForestState {
             config: Config {
                 client: Client {
