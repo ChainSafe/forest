@@ -59,6 +59,22 @@ use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::A
 
 pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
 
+pub enum GetRawNetworkName {}
+
+impl RpcMethod<0> for GetRawNetworkName {
+    const NAME: &'static str = "F3.GetRawNetworkName";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.network_name.clone())
+    }
+}
+
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
     const NAME: &'static str = "F3.GetTipsetByEpoch";
