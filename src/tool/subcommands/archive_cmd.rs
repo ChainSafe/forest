@@ -858,15 +858,15 @@ async fn sync_bucket(
     for epoch in steps_in_range(&range, 30_000, 800) {
         if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
             println!("  {}: Exporting lite snapshot", epoch,);
-            let output_path = export_lite_snapshot(
-                store.clone(),
-                heaviest_tipset.clone(),
-                &info.network,
-                genesis_timestamp,
-                epoch,
-            )
-            .await?;
             if !dry_run {
+                let output_path = export_lite_snapshot(
+                    store.clone(),
+                    heaviest_tipset.clone(),
+                    &info.network,
+                    genesis_timestamp,
+                    epoch,
+                )
+                .await?;
                 upload_to_forest_bucket(output_path, &info.network, "lite")?;
             } else {
                 println!("  {}: Would upload lite snapshot to S3", epoch);
@@ -877,15 +877,15 @@ async fn sync_bucket(
     for epoch in steps_in_range(&range, 3_000, 3_800) {
         if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
             println!("  {}: Exporting diff snapshot", epoch,);
-            let output_path = export_diff_snapshot(
-                store.clone(),
-                heaviest_tipset.clone(),
-                &info.network,
-                genesis_timestamp,
-                epoch,
-            )
-            .await?;
             if !dry_run {
+                let output_path = export_diff_snapshot(
+                    store.clone(),
+                    heaviest_tipset.clone(),
+                    &info.network,
+                    genesis_timestamp,
+                    epoch,
+                )
+                .await?;
                 upload_to_forest_bucket(output_path, &info.network, "diff")?;
             } else {
                 println!("  {}: Would upload diff snapshot to S3", epoch);
