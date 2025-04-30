@@ -12,6 +12,7 @@ import (
 )
 
 type F3Api struct {
+	GetRawNetworkName        func(context.Context) (string, error)
 	GetTipsetByEpoch         func(context.Context, int64) (TipSet, error)
 	GetTipset                func(context.Context, gpbft.TipSetKey) (TipSet, error)
 	GetHead                  func(context.Context) (TipSet, error)
@@ -26,7 +27,6 @@ type F3Api struct {
 
 type FilecoinApi struct {
 	Version          func(context.Context) (VersionInfo, error)
-	StateNetworkName func(context.Context) (string, error)
 	NetAddrsListen   func(context.Context) (peer.AddrInfo, error)
 }
 

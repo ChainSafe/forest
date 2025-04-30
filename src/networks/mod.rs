@@ -276,7 +276,11 @@ impl ChainConfig {
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
-            f3_initial_power_table: None,
+            f3_initial_power_table: Some(
+                "bafy2bzacecklgxd2eksmodvhgurqvorkg3wamgqkrunir3al2gchv2cikgmbu"
+                    .parse()
+                    .expect("invalid f3_initial_power_table"),
+            ),
             f3_contract_address: Some(
                 EthAddress::from_str("0xA19080A1Bcb82Bb61bcb9691EC94653Eb5315716")
                     .expect("invalid f3 contract eth address"),
