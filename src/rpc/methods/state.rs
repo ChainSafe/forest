@@ -7,7 +7,6 @@ pub use types::*;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
-use crate::daemon::get_actual_chain_name;
 use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
@@ -2830,7 +2829,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
         let policy = &config.policy;
 
         let params = NetworkParams {
-            network_name: get_actual_chain_name(&ctx.network_name).to_string(),
+            network_name: ctx.network_name.clone(),
             block_delay_secs: config.block_delay_secs as u64,
             consensus_miner_min_power: policy.minimum_consensus_power.clone(),
             pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
