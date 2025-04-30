@@ -1672,6 +1672,11 @@ impl RpcMethod<0> for EthSyncing {
         let sync_status: crate::chain_sync::SyncStatusReport =
             crate::rpc::sync::SyncStatus::handle(ctx, ()).await?;
         match sync_status.status {
+            NodeSyncStatus::Synced => Ok(EthSyncingResult {
+                done_sync: true,
+                // Once the node is synced, other fields are not relevant for the API
+                ..Default::default()
+            }),
             NodeSyncStatus::Syncing => {
                 let starting_block = match sync_status.get_min_starting_block() {
                     Some(e) => Ok(e),
@@ -1688,7 +1693,7 @@ impl RpcMethod<0> for EthSyncing {
                     highest_block: sync_status.network_head_epoch,
                 })
             }
-            _ => Err(ServerError::internal_error("sync status not found", None)),
+            _ => Err(ServerError::internal_error("node is not syncing", None)),
         }
     }
 }

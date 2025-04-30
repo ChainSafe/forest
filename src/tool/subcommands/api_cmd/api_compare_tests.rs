@@ -6,7 +6,6 @@ use crate::db::car::ManyCar;
 use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
-use crate::rpc;
 use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
@@ -34,6 +33,8 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
 use crate::tool::subcommands::api_cmd::NetworkChain;
+use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::{Config, rpc};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use cid::Cid;
@@ -1950,6 +1951,9 @@ pub(super) async fn create_tests(
 }
 
 async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
+    if n_ts_to_validate == 0 {
+        return Ok(());
+    }
     let chain_config = Arc::new(handle_chain_config(&NetworkChain::Calibnet)?);
 
     let genesis_header = crate::genesis::read_genesis_header(
@@ -1968,13 +1972,16 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
-    if n_ts_to_validate > 0 {
-        state_manager.validate_tipsets(
-            head_ts
-                .chain_arc(&db)
-                .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
-        )?;
-    }
+
+    // Set proof parameter data dir and make sure the proofs are available. Otherwise,
+    // validation might fail due to missing proof parameters.
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    ensure_proof_params_downloaded().await?;
+    state_manager.validate_tipsets(
+        head_ts
+            .chain_arc(&db)
+            .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
+    )?;
 
     Ok(())
 }
