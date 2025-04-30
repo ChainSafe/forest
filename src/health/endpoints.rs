@@ -7,7 +7,6 @@ use axum::extract::{self, Query};
 
 use super::{AppError, ForestState};
 use crate::chain_sync::NodeSyncStatus;
-use crate::db::SettingsExt;
 use crate::networks::calculate_expected_epoch;
 use crate::rpc::f3::F3IsRunning;
 
@@ -59,9 +58,6 @@ pub(crate) async fn readyz(
     ready &= check_sync_status_synced(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
-    if state.config.chain_indexer.enable_indexer {
-        ready &= check_eth_mappings_up_to_date(&state, &mut acc);
-    }
     ready &= check_f3_running(&state, &mut acc).await;
 
     if ready {
@@ -161,24 +157,6 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
     } else {
         acc.push_err("no peers connected");
         false
-    }
-}
-
-fn check_eth_mappings_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
-    if state.config.chain_indexer.enable_indexer {
-        match state.settings_store.eth_mapping_up_to_date() {
-            Ok(Some(true)) => {
-                acc.push_ok("eth mappings up to date");
-                true
-            }
-            Ok(None) | Ok(Some(false)) | Err(_) => {
-                acc.push_err("no eth mappings");
-                false
-            }
-        }
-    } else {
-        acc.push_err("eth mappings disabled");
-        true
     }
 }
 

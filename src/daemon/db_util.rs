@@ -7,6 +7,7 @@ use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
 use crate::networks::Height;
 use crate::rpc::sync::SnapshotProgressTracker;
+use crate::shim::clock::ChainEpoch;
 use crate::state_manager::{NO_CALLBACK, StateManager};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -306,11 +307,12 @@ where
 pub async fn backfill_db<DB>(
     state_manager: &Arc<StateManager<DB>>,
     head_ts: &Tipset,
+    to_epoch: ChainEpoch,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
 {
-    let to_epoch = head_ts.epoch() - 300;
+    let mut delegated_messages = vec![];
 
     for ts in head_ts
         .clone()
@@ -322,15 +324,29 @@ where
         }
         let tsk = ts.key().clone();
 
+        let ts = Arc::new(ts);
+
         let state_output = state_manager
-            .compute_tipset_state(Arc::new(ts), NO_CALLBACK, VMTrace::NotTraced)
+            .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
             .await?;
         for events_root in state_output.events_roots.iter().flatten() {
             println!("Indexing events root @{}: {}", epoch, events_root);
 
             state_manager.chain_store().put_index(events_root, &tsk)?;
         }
+
+        delegated_messages.append(
+            &mut state_manager
+                .chain_store()
+                .headers_delegated_messages(ts.block_headers().iter())?,
+        );
+        println!("Indexing tipset @{}: {}", epoch, &tsk);
+        state_manager.chain_store().put_tipset_key(&tsk)?;
     }
+
+    state_manager
+        .chain_store()
+        .process_signed_messages(&delegated_messages)?;
 
     Ok(())
 }

@@ -107,7 +107,9 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 /// [`SettingsStoreExt`].
 /// It provides methods to store and retrieve settings from the database.
 pub trait SettingsExt {
+    #[allow(unused)]
     fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()>;
+    #[allow(unused)]
     fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>>;
 }
 
