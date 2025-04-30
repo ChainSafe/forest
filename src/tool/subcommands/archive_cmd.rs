@@ -694,6 +694,7 @@ async fn bucket_has_diff_snapshot(
 const FOREST_ARCHIVE_S3_ENDPOINT: &str =
     "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com";
 
+/// Check if the AWS CLI is installed and correctly configured.
 fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .arg("help")
@@ -723,6 +724,7 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Use the AWS CLI to upload a snapshot file to the S3 bucket.
 fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .args([
@@ -747,6 +749,7 @@ fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::R
     Ok(())
 }
 
+/// Given a block store, export a lite snapshot for a given epoch.
 async fn export_lite_snapshot(
     store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
@@ -779,6 +782,7 @@ async fn export_lite_snapshot(
     Ok(output_path)
 }
 
+/// Given a block store, export a diff snapshot for a given epoch.
 async fn export_diff_snapshot(
     store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
