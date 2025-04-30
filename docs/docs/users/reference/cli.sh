@@ -119,6 +119,7 @@ generate_markdown_section "forest-tool" "archive export"
 generate_markdown_section "forest-tool" "archive checkpoints"
 generate_markdown_section "forest-tool" "archive merge"
 generate_markdown_section "forest-tool" "archive diff"
+generate_markdown_section "forest-tool" "archive sync-bucket"
 
 generate_markdown_section "forest-tool" "db"
 generate_markdown_section "forest-tool" "db stats"
