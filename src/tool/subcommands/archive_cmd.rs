@@ -724,7 +724,7 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Use the AWS CLI to upload a snapshot file to the S3 bucket.
+/// Use the AWS CLI to upload a snapshot file to the `S3` bucket.
 fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .args([
