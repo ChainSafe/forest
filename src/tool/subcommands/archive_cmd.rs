@@ -126,12 +126,12 @@ pub enum ArchiveCommands {
         #[arg(long)]
         depth: Option<u64>,
     },
-    /// Export lite+diff snapshots from one or more CAR files, and upload them
-    /// to an S3 bucket.
+    /// Export lite and diff snapshots from one or more CAR files, and upload them
+    /// to an `S3` bucket.
     SyncBucket {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
-        /// S3 endpoint URL.
+        /// `S3` endpoint URL.
         #[arg(long, default_value = FOREST_ARCHIVE_S3_ENDPOINT)]
         endpoint: String,
         /// Don't generate or upload files, just show what would be done.

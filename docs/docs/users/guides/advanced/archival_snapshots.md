@@ -14,10 +14,10 @@ snapshot.
 
 Archival snapshots are publicly available here:
 
-- Mainnet lites: https://forest-archive.chainsafe.dev/list/mainnet/lite
-- Mainnet diffs: https://forest-archive.chainsafe.dev/list/mainnet/diff
-- Calibnet lites: https://forest-archive.chainsafe.dev/list/calibnet/lite
-- Calibnet diffs: https://forest-archive.chainsafe.dev/list/calibnet/diff
+- Mainnet lite: https://forest-archive.chainsafe.dev/list/mainnet/lite
+- Mainnet diff: https://forest-archive.chainsafe.dev/list/mainnet/diff
+- Calibnet lite: https://forest-archive.chainsafe.dev/list/calibnet/lite
+- Calibnet diff: https://forest-archive.chainsafe.dev/list/calibnet/diff
 
 ## Merging snapshots
 
