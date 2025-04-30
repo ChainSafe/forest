@@ -4,6 +4,7 @@ F3.GetManifestFromContract
 F3.GetParent
 F3.GetParticipatingMinerIDs
 F3.GetPowerTable
+F3.GetRawNetworkName
 F3.GetTipset
 F3.GetTipsetByEpoch
 F3.ProtectPeer
