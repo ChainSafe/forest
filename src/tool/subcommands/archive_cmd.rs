@@ -625,13 +625,12 @@ fn steps_in_range(
 }
 
 fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
-    Ok(DateTime::from_timestamp(
-        (genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS),
-        0,
+    Ok(
+        DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string(),
     )
-    .unwrap_or_default()
-    .format("%Y-%m-%d")
-    .to_string())
 }
 
 fn format_lite_snapshot(
