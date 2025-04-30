@@ -1,11 +1,11 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::blocks::{ElectionProof, Ticket, Tipset};
+use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
 use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
 use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
-use crate::rpc;
 use crate::rpc::FilterList;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
@@ -21,6 +21,7 @@ use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
+use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
@@ -29,6 +30,11 @@ use crate::shim::{
     message::{METHOD_SEND, Message},
     state_tree::StateTree,
 };
+use crate::state_manager::StateManager;
+use crate::tool::offline_server::server::handle_chain_config;
+use crate::tool::subcommands::api_cmd::NetworkChain;
+use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::{Config, rpc};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use cid::Cid;
@@ -434,6 +440,13 @@ fn chain_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
+        }
+
+        for receipt in Receipt::get_receipts(store, block.message_receipts)? {
+            if let Some(events_root) = receipt.events_root() {
+                tests.extend([RpcTest::identity(ChainGetEvents::request((events_root,))?)
+                    .sort_policy(SortPolicy::All)]);
+            }
         }
     }
 
@@ -1810,7 +1823,7 @@ fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
         ))?),
         RpcTest::identity(F3IsRunning::request(())?),
         RpcTest::identity(F3GetCertificate::request((0,))?),
-        RpcTest::identity(F3GetCertificate::request((1000,))?),
+        RpcTest::identity(F3GetCertificate::request((100,))?),
         RpcTest::identity(F3GetManifest::request(())?),
     ])
 }
@@ -1903,7 +1916,7 @@ fn sample_signed_messages<'a>(
         .unique()
 }
 
-pub(super) fn create_tests(
+pub(super) async fn create_tests(
     CreateTestsArgs {
         n_tipsets,
         miner_address,
@@ -1925,6 +1938,7 @@ pub(super) fn create_tests(
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
             n_tipsets,
@@ -1934,6 +1948,42 @@ pub(super) fn create_tests(
     }
     tests.sort_by_key(|test| test.request.method_name.clone());
     Ok(tests)
+}
+
+async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
+    if n_ts_to_validate == 0 {
+        return Ok(());
+    }
+    let chain_config = Arc::new(handle_chain_config(&NetworkChain::Calibnet)?);
+
+    let genesis_header = crate::genesis::read_genesis_header(
+        None,
+        chain_config.genesis_bytes(&db).await?.as_deref(),
+        &db,
+    )
+    .await?;
+    let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
+        db.clone(),
+        db.clone(),
+        db.clone(),
+        chain_config.clone(),
+        genesis_header.clone(),
+    )?);
+    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
+    let head_ts = Arc::new(db.heaviest_tipset()?);
+
+    // Set proof parameter data dir and make sure the proofs are available. Otherwise,
+    // validation might fail due to missing proof parameters.
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    ensure_proof_params_downloaded().await?;
+    state_manager.validate_tipsets(
+        head_ts
+            .chain_arc(&db)
+            .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
+    )?;
+
+    Ok(())
 }
 
 pub(super) fn create_tests_pass_2(

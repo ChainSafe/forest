@@ -105,8 +105,16 @@ pub(super) fn param_dir(data_dir: &Path) -> PathBuf {
 /// variable is updated before the parameters are downloaded.
 ///
 /// More information available [here](https://github.com/filecoin-project/rust-fil-proofs/blob/8f5bd86be36a55e33b9b293ba22ea13ca1f28163/README.md?plain=1#L219-L235).
-pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
+fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     unsafe { std::env::set_var(PROOFS_PARAMETER_CACHE_ENV, param_dir(data_dir)) };
+}
+
+/// Optionally set the proofs parameter cache directory environment variable if it is not already
+/// set. See [`set_proofs_parameter_cache_dir_env`] for more details.
+pub fn maybe_set_proofs_parameter_cache_dir_env(data_dir: &Path) {
+    if std::env::var(PROOFS_PARAMETER_CACHE_ENV).is_err() {
+        set_proofs_parameter_cache_dir_env(data_dir);
+    }
 }
 
 #[cfg(test)]

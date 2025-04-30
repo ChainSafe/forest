@@ -34,7 +34,6 @@ use fvm_shared4::piece::PaddedPieceSize as PaddedPieceSizeV4;
 use fvm_shared4::sector::RegisteredPoStProof as RegisteredPoStProofV4;
 use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
 use fvm_shared4::sector::SectorSize as SectorSizeV4;
-use fvm_shared4::smooth::FilterEstimate as FilterEstimateV4;
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
@@ -146,13 +145,6 @@ pub fn from_reg_post_proof_v4_to_v2(proof: RegisteredPoStProofV4) -> RegisteredP
 }
 
 pub fn from_filter_estimate_v3_to_v2(fe: FilterEstimateV3) -> FilterEstimateV2 {
-    FilterEstimateV2 {
-        position: fe.position,
-        velocity: fe.velocity,
-    }
-}
-
-pub fn from_filter_estimate_v4_to_v2(fe: FilterEstimateV4) -> FilterEstimateV2 {
     FilterEstimateV2 {
         position: fe.position,
         velocity: fe.velocity,

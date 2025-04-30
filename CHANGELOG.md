@@ -27,9 +27,16 @@
 
 ### Breaking
 
+- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
+- [#5589](https://github.com/ChainSafe/forest/pull/5589) Replace existing `Filecoin.SyncState` API with new `Forest.SyncStatus` to track node syncing progress specific to Forest.
+
 ### Added
 
+- [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method. Add `index backfill` subcommand to `forest-tool`.
+
 ### Changed
+
+- [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for `Filecoin.EthEstimateGas` and `Filecoin.EthCall`.
 
 ### Removed
 

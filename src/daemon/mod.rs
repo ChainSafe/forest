@@ -144,7 +144,7 @@ fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
     maybe_increase_fd_limit()?;
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+    crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(&config.client.data_dir);
     info!(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
@@ -390,7 +390,7 @@ async fn maybe_start_health_check_service(
                 .chain_store()
                 .genesis_block_header()
                 .timestamp,
-            sync_states: chain_follower.sync_states.clone(),
+            sync_status: chain_follower.sync_status.clone(),
             peer_manager: p2p_service.peer_manager().clone(),
             settings_store: ctx.db.writer().clone(),
         };
@@ -431,7 +431,7 @@ fn maybe_start_rpc_service(
         services.spawn({
             let state_manager = ctx.state_manager.clone();
             let bad_blocks = chain_follower.bad_blocks.clone();
-            let sync_states = chain_follower.sync_states.clone();
+            let sync_status = chain_follower.sync_status.clone();
             let sync_network_context = chain_follower.network.clone();
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
@@ -446,7 +446,7 @@ fn maybe_start_rpc_service(
                         mpool,
                         bad_blocks,
                         msgs_in_tipset,
-                        sync_states,
+                        sync_status,
                         eth_event_handler,
                         sync_network_context,
                         network_name,

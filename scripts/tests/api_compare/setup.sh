@@ -10,7 +10,7 @@ pushd "${PARENT_PATH}"
 source .env
 
 # This should not be needed in GH. It is useful for running locally.
-docker compose down --remove-orphans
+docker compose --profile include-offline-rpc down --remove-orphans
 docker compose rm -f
 # Cleanup data volumes
 # docker volume rm -f api_compare_node-data
@@ -19,6 +19,6 @@ docker compose rm -f
 # Ideally, we could use `--wait` and `--wait-timeout` to wait for services
 # to be up. However, `compose` does not distinct between services and 
 # init containers. See more: https://github.com/docker/compose/issues/10596
-docker compose up --build --force-recreate --detach --timestamps
+docker compose --profile include-offline-rpc up --build --force-recreate --detach --timestamps
 
 popd

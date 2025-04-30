@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
@@ -16,12 +17,11 @@ use crate::shim::{
     message::Message,
 };
 use anyhow::{Context, Result};
+use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
-
-use super::state::InvocResult;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -30,7 +30,7 @@ pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {
     const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
     const PARAM_NAMES: [&'static str; 3] = ["message", "maxQueueBlocks", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated fee cap for the given parameters.");
@@ -76,7 +76,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
         "gasLimit",
         "tipsetKey",
     ];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas premium for the given parameters.");
@@ -180,7 +180,7 @@ pub enum GasEstimateGasLimit {}
 impl RpcMethod<2> for GasEstimateGasLimit {
     const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
     const PARAM_NAMES: [&'static str; 2] = ["message", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas limit for the given parameters.");
@@ -239,7 +239,7 @@ impl GasEstimateGasLimit {
             _ => ChainMessage::Unsigned(msg),
         };
 
-        let (invoc_res, apply_ret) = data
+        let (invoc_res, apply_ret, _) = data
             .state_manager
             .call_with_gas(
                 &mut chain_msg,
@@ -255,16 +255,21 @@ impl GasEstimateGasLimit {
         data: &Ctx<DB>,
         msg: Message,
         tsk: &ApiTipsetKey,
-    ) -> anyhow::Result<i64>
+    ) -> Result<i64>
     where
         DB: Blockstore + Send + Sync + 'static,
     {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced).await?;
+        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, VMTrace::NotTraced)
+            .await
+            .map_err(|e| anyhow::anyhow!("gas estimation failed: {e}"))?;
         match res.msg_rct {
             Some(rct) => {
-                if rct.exit_code().value() != 0 {
-                    return Ok(-1);
-                }
+                anyhow::ensure!(
+                    rct.exit_code().is_success(),
+                    "message execution failed: exit code: {}, reason: {}",
+                    rct.exit_code().value(),
+                    res.error.unwrap_or_default()
+                );
                 Ok(rct.gas_used() as i64)
             }
             None => Ok(-1),
@@ -277,7 +282,7 @@ pub enum GasEstimateMessageGas {}
 impl RpcMethod<3> for GasEstimateMessageGas {
     const NAME: &'static str = "Filecoin.GasEstimateMessageGas";
     const PARAM_NAMES: [&'static str; 3] = ["message", "messageSendSpec", "tipsetKey"];
-    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
         Some("Returns the estimated gas for the given parameters.");

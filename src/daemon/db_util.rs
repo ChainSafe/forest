@@ -4,9 +4,10 @@
 use crate::blocks::Tipset;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
+use crate::interpreter::VMTrace;
 use crate::networks::Height;
 use crate::rpc::sync::SnapshotProgressTracker;
-use crate::state_manager::StateManager;
+use crate::state_manager::{NO_CALLBACK, StateManager};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
@@ -16,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
     time,
 };
 use tokio::io::AsyncWriteExt;
@@ -259,10 +261,20 @@ where
 {
     let mut delegated_messages = vec![];
 
+    // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+    // Before this height, no notion of an Ethereum-like API existed.
     let hygge = state_manager.chain_config().epoch(Height::Hygge);
+
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/5567
+    let from_epoch = std::env::var("FOREST_ETH_MAPPINGS_RANGE")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .map(|num_epochs| (head_ts.epoch().saturating_sub(num_epochs)).max(hygge))
+        .unwrap_or(hygge);
+
     tracing::info!(
         "Populating column EthMappings from range: [{}, {}]",
-        hygge,
+        from_epoch,
         head_ts.epoch()
     );
 
@@ -270,9 +282,7 @@ where
         .clone()
         .chain(&state_manager.chain_store().blockstore())
     {
-        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
-        // Before this height, no notion of an Ethereum-like API existed.
-        if ts.epoch() < hygge {
+        if ts.epoch() < from_epoch {
             break;
         }
         delegated_messages.append(
@@ -285,6 +295,42 @@ where
     state_manager
         .chain_store()
         .process_signed_messages(&delegated_messages)?;
+
+    Ok(())
+}
+
+/// To support the Event RPC API, a new column has been added to parity-db for handling the mapping of:
+/// - [`Cid`] to [`TipsetKey`].
+///
+/// This function traverses the chain store and populates the new column accordingly.
+pub async fn backfill_db<DB>(
+    state_manager: &Arc<StateManager<DB>>,
+    head_ts: &Tipset,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
+{
+    let to_epoch = head_ts.epoch() - 300;
+
+    for ts in head_ts
+        .clone()
+        .chain(&state_manager.chain_store().blockstore())
+    {
+        let epoch = ts.epoch();
+        if epoch < to_epoch {
+            break;
+        }
+        let tsk = ts.key().clone();
+
+        let state_output = state_manager
+            .compute_tipset_state(Arc::new(ts), NO_CALLBACK, VMTrace::NotTraced)
+            .await?;
+        for events_root in state_output.events_roots.iter().flatten() {
+            println!("Indexing events root @{}: {}", epoch, events_root);
+
+            state_manager.chain_store().put_index(events_root, &tsk)?;
+        }
+    }
 
     Ok(())
 }

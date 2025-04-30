@@ -34,7 +34,7 @@ use crate::rpc::eth::filter::tipset::*;
 use crate::rpc::eth::types::*;
 use crate::rpc::misc::ActorEventFilter;
 use crate::rpc::reflect::Ctx;
-use crate::rpc::types::EventEntry;
+use crate::rpc::types::{Event, EventEntry};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Entry;
@@ -42,6 +42,7 @@ use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
 use anyhow::{Context, Error, anyhow, bail, ensure};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
@@ -279,7 +280,8 @@ impl EthEventHandler {
 
         let messages = ctx.chain_store().messages_for_tipset(tipset)?;
 
-        let StateEvents { events, .. } = ctx.state_manager.tipset_state_events(tipset).await?;
+        let StateEvents { events, .. } =
+            ctx.state_manager.tipset_state_events(tipset, None).await?;
 
         ensure!(
             messages.len() == events.len(),
@@ -360,6 +362,53 @@ impl EthEventHandler {
         }
 
         Ok(())
+    }
+
+    pub async fn collect_chain_events<DB: Blockstore + Send + Sync + 'static>(
+        ctx: &Ctx<DB>,
+        tipset: &Arc<Tipset>,
+        events_root: &Cid,
+    ) -> anyhow::Result<Vec<Event>> {
+        let state_events = ctx
+            .state_manager
+            .tipset_state_events(tipset, Some(events_root))
+            .await?;
+
+        ensure!(state_events.roots.len() == state_events.events.len());
+
+        let filtered_events = state_events
+            .roots
+            .into_iter()
+            .zip(state_events.events)
+            .filter(|(cid, _)| cid.as_ref() == Some(events_root))
+            .map(|(_, v)| v);
+
+        let mut chain_events = vec![];
+        for events in filtered_events {
+            for event in events.iter() {
+                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
+
+                let entries: Vec<EventEntry> = entries
+                    .into_iter()
+                    .map(|entry| {
+                        let (flags, key, codec, value) = entry.into_parts();
+                        EventEntry {
+                            flags,
+                            key,
+                            codec,
+                            value: value.into(),
+                        }
+                    })
+                    .collect();
+
+                chain_events.push(Event {
+                    entries,
+                    emitter: event.emitter(),
+                });
+            }
+        }
+
+        Ok(chain_events)
     }
 
     pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(

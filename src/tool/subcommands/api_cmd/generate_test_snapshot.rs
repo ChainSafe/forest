@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
     chain::ChainStore,
-    chain_sync::{SyncStage, network_context::SyncNetworkContext},
+    chain_sync::network_context::SyncNetworkContext,
     daemon::db_util::load_all_forest_cars,
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
-        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, IndicesStore, MemoryDB,
+        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -99,6 +100,7 @@ async fn ctx(
         ChainStore::new(
             db.clone(),
             db.clone(),
+            db.clone(),
             db,
             chain_config.clone(),
             genesis_header.clone(),
@@ -129,7 +131,7 @@ async fn ctx(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_states: Arc::new(RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,
@@ -138,11 +140,6 @@ async fn ctx(
         tipset_send,
         snapshot_progress_tracker: Default::default(),
     });
-    rpc_state
-        .sync_states
-        .write()
-        .first_mut()
-        .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
 
@@ -291,5 +288,23 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
+    }
+}
+
+impl<T: IndicesStore> IndicesStore for ReadOpsTrackingStore<T> {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            IndicesStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
+        self.inner.read_bin(key)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        self.inner.write_bin(key, value)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        self.inner.exists(key)
     }
 }

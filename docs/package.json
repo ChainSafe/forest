@@ -27,8 +27,8 @@
     "mermaid": "^11.6.0",
     "prettier": "^3.5.3",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.7.0",
@@ -49,7 +49,7 @@
     ]
   },
   "resolutions": {
-    "dompurify": "3.2.4"
+    "dompurify": "3.2.5"
   },
   "packageManager": "yarn@4.7.0"
 }

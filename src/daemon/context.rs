@@ -66,11 +66,14 @@ impl AppContext {
 }
 
 fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
-    let chain_config = Arc::new(ChainConfig::from_chain(config.chain()));
+    let chain_config = ChainConfig::from_chain(config.chain());
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
-    chain_config
+    Arc::new(ChainConfig {
+        enable_indexer: config.chain_indexer.enable_indexer,
+        ..chain_config
+    })
 }
 
 fn get_or_create_p2p_keypair_and_peer_id(config: &Config) -> anyhow::Result<(Keypair, PeerId)> {
@@ -235,6 +238,7 @@ async fn create_state_manager(
         Arc::clone(db),
         Arc::new(db.clone()),
         eth_mappings,
+        db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
