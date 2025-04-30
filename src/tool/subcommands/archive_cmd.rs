@@ -624,7 +624,7 @@ fn steps_in_range(
 
 fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
     Ok(DateTime::from_timestamp(
-        (genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS) as i64,
+        (genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS),
         0,
     )
     .unwrap_or_default()
