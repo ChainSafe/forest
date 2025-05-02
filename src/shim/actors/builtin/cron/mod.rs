@@ -24,3 +24,17 @@ pub enum State {
     V15(fil_actor_cron_state::v15::State),
     V16(fil_actor_cron_state::v16::State),
 }
+
+#[derive(Clone, Serialize, Debug)]
+#[serde(untagged)]
+pub enum Entry {
+    V8(fil_actor_cron_state::v8::Entry),
+    V9(fil_actor_cron_state::v9::Entry),
+    V10(fil_actor_cron_state::v10::Entry),
+    V11(fil_actor_cron_state::v11::Entry),
+    V12(fil_actor_cron_state::v12::Entry),
+    V13(fil_actor_cron_state::v13::Entry),
+    V14(fil_actor_cron_state::v14::Entry),
+    V15(fil_actor_cron_state::v15::Entry),
+    V16(fil_actor_cron_state::v16::Entry),
+}
