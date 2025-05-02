@@ -259,6 +259,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::wallet::WalletVerify);
 
         // f3
+        $callback!($crate::rpc::f3::GetRawNetworkName);
         $callback!($crate::rpc::f3::F3GetCertificate);
         $callback!($crate::rpc::f3::F3GetECPowerTable);
         $callback!($crate::rpc::f3::F3GetF3PowerTable);

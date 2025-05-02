@@ -225,6 +225,7 @@ services:
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
@@ -260,6 +261,7 @@ services:
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:

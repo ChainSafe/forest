@@ -26,9 +26,15 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 	defer closer()
-	var network string
+
+	ec, err := NewForestEC(ctx, rpcEndpoint, jwt)
+	if err != nil {
+		return err
+	}
+
+	var rawNetwork string
 	for {
-		network, err = api.StateNetworkName(ctx)
+		rawNetwork, err = ec.f3api.GetRawNetworkName(ctx)
 		if err == nil {
 			logger.Infoln("Forest RPC server is online")
 			break
@@ -42,11 +48,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 
-	p2p, err := createP2PHost(ctx, network)
-	if err != nil {
-		return err
-	}
-	ec, err := NewForestEC(ctx, rpcEndpoint, jwt)
+	p2p, err := createP2PHost(ctx, rawNetwork)
 	if err != nil {
 		return err
 	}
@@ -72,7 +74,13 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		logger.Warn("InitialPowerTable is undefined")
 		m.InitialPowerTable = cid.Undef
 	}
-	m.NetworkName = gpbft.NetworkName(network)
+	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
+	// mainnet is called testnetnet in state.
+	if rawNetwork == "testnetnet" {
+		m.NetworkName = "filecoin"
+	} else {
+		m.NetworkName = gpbft.NetworkName(rawNetwork)
+	}
 	versionInfo, err := api.Version(ctx)
 	if err != nil {
 		return err
