@@ -136,7 +136,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.13"
+lru = "0.14"
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
@@ -199,7 +199,7 @@ static_assertions = "1"
 statrs = "0.18"
 strum = { version = "0.27", features = ["derive"] }
 strum_macros = "0.27"
-tabled = "0.18"
+tabled = { version = "0.19", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -249,7 +249,7 @@ http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = { workspace = true }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-petgraph = "0.7"
+petgraph = "0.8"
 predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
