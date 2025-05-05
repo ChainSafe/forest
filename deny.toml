@@ -23,10 +23,10 @@ allow = [
 
 exceptions = [
   { allow = [
-    "MPL-2.0",
+    "CDLA-Permissive-2.0",
   ], crate = "webpki-roots" },
   { allow = [
-    "MPL-2.0",
+    "CDLA-Permissive-2.0",
   ], crate = "webpki-root-certs" },
   { allow = [
     "MPL-2.0",
