@@ -27,6 +27,21 @@ function forest_download_and_import_snapshot {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
+function get_epoch_from_car_db {
+  DB_PATH=$($FOREST_TOOL_PATH db stats --chain calibnet | grep "Database path:" | cut -d':' -f2- | xargs)
+  SNAPSHOT=$(ls "$DB_PATH/car_db"/*.car.zst)
+  forest_query_epoch "$SNAPSHOT"
+}
+
+function backfill_db {
+  echo "Backfill db"
+
+  SNAPSHOT_EPOCH=$(get_epoch_from_car_db)
+  echo "Epoch: $SNAPSHOT_EPOCH"
+
+  # FOREST_TOOL_PATH index backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
+}
+
 function forest_check_db_stats {
   echo "Checking DB stats"
   $FOREST_TOOL_PATH db stats --chain calibnet
@@ -76,6 +91,7 @@ function forest_wait_for_sync {
 
 function forest_init {
   forest_download_and_import_snapshot
+  backfill_db
   forest_check_db_stats
   forest_run_node_detached
 
