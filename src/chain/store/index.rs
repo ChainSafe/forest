@@ -130,7 +130,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             )));
         }
 
-        for (child, parent) in self.chain(from.clone()).tuple_windows() {
+        for (child, parent) in self.chain(from).tuple_windows() {
             if to == child.epoch() {
                 return Ok(child);
             }

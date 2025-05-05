@@ -10,7 +10,6 @@
 !Filecoin.NetProtectAdd
 !Filecoin.NetProtectRemove
 !Filecoin.NetProtectList
-!Filecoin.EthTraceFilter
 # Most F3 methods are not avaiable on offline Forest RPC server
 !Filecoin.F3GetManifest
 !Filecoin.F3GetLatestCertificate
