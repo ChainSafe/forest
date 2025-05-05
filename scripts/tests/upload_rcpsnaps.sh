@@ -40,8 +40,7 @@ for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
 
     s3cmd --quiet --no-progress put "${COMPRESSED_FILE}" "${BUCKET_URL}" \
         --acl-public \
-        --mime-type="application/json" \
-        --add-header="Cache-Control: no-cache, no-store, must-revalidate"
+        --mime-type="application/json"
 
     echo "✅ Uploaded: ${COMPRESSED_FILE}"
 
