@@ -92,7 +92,7 @@ function forest_wait_for_sync {
 function forest_init {
   forest_download_and_import_snapshot
 
-  if [[ " $@ " =~ " --backfill-db " ]]; then
+  if [[ " $* " =~ " --backfill-db " ]]; then
     backfill_db
   fi
 
