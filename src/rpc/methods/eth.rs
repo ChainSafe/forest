@@ -900,7 +900,7 @@ fn resolve_ext_predefined_tipset<DB: Blockstore>(
                     .chain_index
                     .tipset_by_height(finality_height, head, resolve)?)
             }
-            _ => unreachable!("Unhandled ExtPredefined variant encountered"),
+            _ => bail!("Unhandled ExtPredefined variant: {:?}", ext_predefined),
         }
     }
 }
