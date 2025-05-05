@@ -30,7 +30,34 @@ if [ ! -d "$DIR_PATH" ]; then
     exit 1
 fi
 
+EXISTING_REMOTE=$(s3cmd ls "s3://${SPACE_NAME}/${DEST_DIR}/" | awk '{print $4}' | sed 's|.*/||')
+
+# Gather files to be uploaded
+FILES_TO_UPLOAD=()
+CONFLICTING_FILES=()
+
 for FILE_PATH in "${DIR_PATH}"/*.rpcsnap.json; do
+    FILE_NAME=$(basename "$FILE_PATH")
+    DEST_FILENAME="${FILE_NAME}.zst"
+
+    if echo "$EXISTING_REMOTE" | grep -qx "$DEST_FILENAME"; then
+        CONFLICTING_FILES+=("$DEST_FILENAME")
+    else
+        FILES_TO_UPLOAD+=("$FILE_PATH")
+    fi
+done
+
+# Abort if any files already exist
+if [ ${#CONFLICTING_FILES[@]} -gt 0 ]; then
+    echo "❌ The following files already exist in DigitalOcean and would be overwritten:"
+    for f in "${CONFLICTING_FILES[@]}"; do
+        echo "  - $f"
+    done
+    echo "Aborting. No files were uploaded."
+    exit 1
+fi
+
+for FILE_PATH in "${FILES_TO_UPLOAD[@]}"; do
     FILE_NAME=$(basename "$FILE_PATH")
     COMPRESSED_FILE="${FILE_PATH}.zst"
     DEST_PATH="${DEST_DIR}/${FILE_NAME}.zst"
