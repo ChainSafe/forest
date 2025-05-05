@@ -189,7 +189,6 @@ mod tests {
     use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
-    use chrono::Utc;
     use directories::ProjectDirs;
     use futures::{StreamExt, stream::FuturesUnordered};
     use itertools::Itertools as _;
