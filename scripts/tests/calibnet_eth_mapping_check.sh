@@ -6,7 +6,7 @@ set -eu
 
 source "$(dirname "$0")/harness.sh"
 
-forest_init
+forest_init --backfill-db
 
 FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 

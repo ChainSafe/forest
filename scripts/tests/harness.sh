@@ -37,9 +37,9 @@ function backfill_db {
   echo "Backfill db"
 
   SNAPSHOT_EPOCH=$(get_epoch_from_car_db)
-  echo "Epoch: $SNAPSHOT_EPOCH"
+  echo "Snapshot epoch: $SNAPSHOT_EPOCH"
 
-  # FOREST_TOOL_PATH index backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
+  FOREST_TOOL_PATH index backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
 }
 
 function forest_check_db_stats {
@@ -91,7 +91,11 @@ function forest_wait_for_sync {
 
 function forest_init {
   forest_download_and_import_snapshot
-  backfill_db
+
+  if [[ " $@ " =~ " --backfill-db " ]]; then
+    backfill_db
+  fi
+
   forest_check_db_stats
   forest_run_node_detached
 
