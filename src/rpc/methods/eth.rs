@@ -882,21 +882,26 @@ fn resolve_ext_predefined_tipset<DB: Blockstore>(
     ext_predefined: ExtPredefined,
     resolve: ResolveNullTipset,
 ) -> anyhow::Result<Arc<Tipset>> {
-    let latest_height = head.epoch() - 1;
-    match ext_predefined {
-        ExtPredefined::Safe => {
-            let safe_height = latest_height - SAFE_EPOCH_DELAY;
-            Ok(chain
-                .chain_index
-                .tipset_by_height(safe_height, head, resolve)?)
+    if let Ok(common) = Predefined::try_from(&ext_predefined) {
+        resolve_predefined_tipset(chain, head, common)
+    } else {
+        let latest_height = head.epoch() - 1;
+        // Matches all `ExtPredefined` variants outside `Predefined`.
+        match ext_predefined {
+            ExtPredefined::Safe => {
+                let safe_height = latest_height - SAFE_EPOCH_DELAY;
+                Ok(chain
+                    .chain_index
+                    .tipset_by_height(safe_height, head, resolve)?)
+            }
+            ExtPredefined::Finalized => {
+                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                Ok(chain
+                    .chain_index
+                    .tipset_by_height(finality_height, head, resolve)?)
+            }
+            _ => unreachable!("Unhandled ExtPredefined variant encountered"),
         }
-        ExtPredefined::Finalized => {
-            let finality_height = latest_height - chain.chain_config.policy.chain_finality;
-            Ok(chain
-                .chain_index
-                .tipset_by_height(finality_height, head, resolve)?)
-        }
-        _ => unreachable!(), // All variants are already handled
     }
 }
 
@@ -967,11 +972,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
     let head = chain.heaviest_tipset();
     match block_param {
         ExtBlockNumberOrHash::PredefinedBlock(ext_predefined) => {
-            if let Ok(common) = Predefined::try_from(&ext_predefined) {
-                resolve_predefined_tipset(chain, head, common)
-            } else {
-                resolve_ext_predefined_tipset(chain, head, ext_predefined, resolve)
-            }
+            resolve_ext_predefined_tipset(chain, head, ext_predefined, resolve)
         }
         ExtBlockNumberOrHash::BlockNumber(block_number)
         | ExtBlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
