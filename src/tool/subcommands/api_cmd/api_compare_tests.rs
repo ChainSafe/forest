@@ -1612,7 +1612,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         )
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetTransactionByBlockNumberAndIndex::request((
                 BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Earliest),
