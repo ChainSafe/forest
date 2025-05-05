@@ -872,6 +872,33 @@ fn resolve_predefined_tipset<DB: Blockstore>(
     }
 }
 
+fn resolve_ext_predefined_tipset<DB: Blockstore>(
+    chain: &ChainStore<DB>,
+    head: Arc<Tipset>,
+    ext_predefined: ExtPredefined,
+) -> anyhow::Result<Arc<Tipset>> {
+    let latest_height = head.epoch() - 1;
+    match ext_predefined {
+        ExtPredefined::Safe => {
+            let safe_height = latest_height - SAFE_EPOCH_DELAY;
+            Ok(chain.chain_index.tipset_by_height(
+                safe_height,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?)
+        }
+        ExtPredefined::Finalized => {
+            let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+            Ok(chain.chain_index.tipset_by_height(
+                finality_height,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?)
+        }
+        _ => unreachable!(), // All variants are already handled
+    }
+}
+
 fn resolve_block_number_tipset<DB: Blockstore>(
     chain: &ChainStore<DB>,
     head: Arc<Tipset>,
@@ -941,28 +968,7 @@ fn tipset_by_ext_block_number_or_hash<DB: Blockstore>(
             if let Ok(common) = Predefined::try_from(&ext_predefined) {
                 resolve_predefined_tipset(chain, head, common)
             } else {
-                match ext_predefined {
-                    ExtPredefined::Safe => {
-                        let latest_height = head.epoch() - 1;
-                        let safe_height = latest_height - SAFE_EPOCH_DELAY;
-                        Ok(chain.chain_index.tipset_by_height(
-                            safe_height,
-                            head,
-                            ResolveNullTipset::TakeOlder,
-                        )?)
-                    }
-                    ExtPredefined::Finalized => {
-                        let latest_height = head.epoch() - 1;
-                        let finality_height =
-                            latest_height - chain.chain_config.policy.chain_finality;
-                        Ok(chain.chain_index.tipset_by_height(
-                            finality_height,
-                            head,
-                            ResolveNullTipset::TakeOlder,
-                        )?)
-                    }
-                    _ => unreachable!(), // All variants are already handled
-                }
+                resolve_ext_predefined_tipset(chain, head, ext_predefined)
             }
         }
         ExtBlockNumberOrHash::BlockNumber(block_number)
