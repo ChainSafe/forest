@@ -34,7 +34,12 @@
 //!
 //! ## Performance
 //! The lite snapshot export step is currently utilizing a depth-first search algorithm, with `O(V+E)` complexity,
-//! where V is the number of vertices and E is the number of edges.
+//! where V is the number of vertices(state-trees and messages) and E is the number of edges(block headers).
+//!
+//! ## Trade-offs
+//! - The node reboots with the exported lite snapshot and looses all work during the export stage. (To be fixed).
+//! - All TCP interfaces are rebooted, thus all operations that interact with the TCP interfaces(e.g. `forest-cli sync wait`)
+//!   are interrupted.
 //!
 
 use crate::blocks::Tipset;
