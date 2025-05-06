@@ -10,7 +10,8 @@
 //! 2000 epochs of most recent state-trees and messages.
 //!
 //! ## GC Workflow
-//! 1. Exports an effective standard lite snapshot in `.forest.car.zst` format that can be used for bootstrapping a Filecoin node.
+//! 1. Exports an effective standard lite snapshot in `.forest.car.zst` format that can be used for
+//!    bootstrapping a Filecoin node into the CAR database.
 //! 2. Stop the node.
 //! 3. Purging parity-db columns that serve as non-persistent blockstore.
 //! 4. Purging old CAR database files.
@@ -21,7 +22,7 @@
 //!
 //! ## Disk usage
 //! The algorithm requires extra disk space of the size of a most recent standard lite
-//! snapshot(`~72 GB` as of writing at epoch 4937270 on mainnet).
+//! snapshot(`~72 GiB` as of writing at epoch 4937270 on mainnet).
 //!
 //! ## Memory usage
 //! During the lite snapshot export stage, the algorithm at least `32 bytes` of memory for each reachable block
