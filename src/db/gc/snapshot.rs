@@ -18,7 +18,7 @@
 //! 5. Restart the node.
 //!
 //! ## Correctness
-//! The algorithm assumes that, a Forest node can always be bootstrapped with a most recent standard lite snapshot.
+//! The algorithm assumes that a Forest node can always be bootstrapped with the most recent standard lite snapshot.
 //!
 //! ## Disk usage
 //! The algorithm requires extra disk space of the size of a most recent standard lite
