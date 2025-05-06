@@ -100,8 +100,8 @@ function forest_wait_for_sync {
 function forest_init {
   forest_download_and_import_snapshot
 
-  if [[ "$1" == "--backfill-db" ]]; then
-    if [[ "$2" =~ ^[0-9]+$ ]]; then
+  if [[ -n "$1" && "$1" == "--backfill-db" ]]; then
+    if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
       backfill_db "$2"
     else
       echo "Error: Expected a numeric argument after --backfill-db"
