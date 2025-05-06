@@ -39,7 +39,7 @@ function backfill_db {
   SNAPSHOT_EPOCH=$(get_epoch_from_car_db)
   echo "Snapshot epoch: $SNAPSHOT_EPOCH"
 
-  $FOREST_TOOL_PATH index backfill --from $SNAPSHOT_EPOCH --to $(($SNAPSHOT_EPOCH - 300))
+  $FOREST_TOOL_PATH index backfill --from "$SNAPSHOT_EPOCH" --to $((SNAPSHOT_EPOCH - 300))
 }
 
 function forest_check_db_stats {
