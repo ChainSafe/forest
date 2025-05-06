@@ -544,7 +544,7 @@ where
                     self.chain_store().put_index(events_root, key)?;
                 }
 
-                // TODO(akaladarshi): refactor here to update the receipt and events cache
+                // TODO(akaladarshi): https://github.com/ChainSafe/forest/issues/5626
 
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
