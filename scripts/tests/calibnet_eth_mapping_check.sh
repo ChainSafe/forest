@@ -46,7 +46,7 @@ done
 
 echo "Done"
 
-echo "Waiting eth mappings to be up to date"
+echo "Waiting to be ready for serving"
 $FOREST_CLI_PATH healthcheck ready --wait
 
 ERROR=0

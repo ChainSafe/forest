@@ -62,7 +62,6 @@ mod test {
 
     use crate::Client;
     use crate::cli_shared::cli::ChainIndexerConfig;
-    use crate::db::SettingsExt;
 
     use super::*;
     use crate::chain_sync::NodeSyncStatus;
@@ -74,7 +73,6 @@ mod test {
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
         let sync_status = Arc::new(RwLock::new(SyncStatusReport::init()));
-        let db = Arc::new(crate::db::MemoryDB::default());
 
         let forest_state = ForestState {
             config: Config {
@@ -118,7 +116,6 @@ mod test {
         // instrument the state so that the ready requirements are met
         sync_status.write().status = NodeSyncStatus::Synced;
         sync_status.write().current_head_epoch = i64::MAX;
-        db.set_eth_mapping_up_to_date().unwrap();
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -130,7 +127,6 @@ mod test {
         assert!(text.contains("[+] sync complete"));
         assert!(text.contains("[+] epoch up to date"));
         assert!(text.contains("[+] rpc server running"));
-        assert!(text.contains("[+] eth mappings up to date"));
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
@@ -148,7 +144,6 @@ mod test {
         assert!(text.contains("[!] sync incomplete"));
         assert!(text.contains("[!] epoch outdated"));
         assert!(text.contains("[!] rpc server not running"));
-        assert!(text.contains("[+] eth mappings up to date"));
     }
 
     #[tokio::test]

@@ -12,7 +12,6 @@ pub mod ttl;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
-use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
@@ -32,8 +31,6 @@ pub mod setting_keys {
     pub const HEAD_KEY: &str = "head";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
-    /// Key used to store the state of the Ethereum mapping. This is expected to be a [`bool`].
-    pub const ETH_MAPPING_UP_TO_DATE_KEY: &str = "eth_mapping_up_to_date";
 }
 
 /// Interface used to store and retrieve settings from the database.
@@ -100,28 +97,6 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
         self.read_bin(key)?
             .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
-    }
-}
-
-/// Extension trait for the [`SettingsStoreExt`] trait. It is implemented for all types that implement
-/// [`SettingsStoreExt`].
-/// It provides methods to store and retrieve settings from the database.
-pub trait SettingsExt {
-    #[allow(unused)]
-    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()>;
-    #[allow(unused)]
-    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>>;
-}
-
-impl<T: ?Sized + SettingsStoreExt> SettingsExt for T {
-    /// Sets the Ethereum mapping status to "up-to-date".
-    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
-        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
-    }
-
-    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
-    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
-        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
 }
 
