@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This module implements a garbage collector that transforms parity-db into an effective
-//! lite snapshot then purges parity-db。
+//! lite snapshot then purges parity-db.
 //!
 //! ## Design goals
 //! A correct GC algorithm that is simple and efficient for forest scenarios. This algorithm
