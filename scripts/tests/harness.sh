@@ -36,10 +36,15 @@ function get_epoch_from_car_db {
 function backfill_db {
   echo "Backfill db"
 
-  SNAPSHOT_EPOCH=$(get_epoch_from_car_db)
-  echo "Snapshot epoch: $SNAPSHOT_EPOCH"
+  local snapshot_epoch=$(get_epoch_from_car_db)
+  echo "Snapshot epoch: $snapshot_epoch"
 
-  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$SNAPSHOT_EPOCH" --to $((SNAPSHOT_EPOCH - 300))
+  # Default to 300 if no argument is provided
+  local backfill_epochs=${1:-300}
+
+  local to_epoch=$((snapshot_epoch - backfill_epochs))
+
+  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --to "$to_epoch"
 }
 
 function forest_check_db_stats {
@@ -92,8 +97,16 @@ function forest_wait_for_sync {
 function forest_init {
   forest_download_and_import_snapshot
 
-  if [[ " $* " =~ " --backfill-db " ]]; then
-    backfill_db
+  local backfill_epochs=
+
+if [[ "$1" == "--backfill-db" ]]; then
+    if [[ "$2" =~ ^[0-9]+$ ]]; then
+      local backfill_epochs="$2"
+      backfill_db "$backfill_epochs"
+    else
+      echo "Error: Expected a numeric argument after --backfill-db"
+      return 1
+    fi
   fi
 
   forest_check_db_stats
