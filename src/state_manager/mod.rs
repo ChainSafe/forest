@@ -2063,17 +2063,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::{Chain4U, HeaderBuilder, TipsetKey, chain4u};
+    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
     use crate::chain::ChainStore;
     use crate::db::MemoryDB;
     use crate::networks::ChainConfig;
     use crate::shim::clock::ChainEpoch;
-    use crate::shim::executor::{Receipt, StampedEvent};
-    use crate::state_manager::{StateManager, StateOutput};
+    use crate::state_manager::StateManager;
     use crate::utils::db::CborStoreExt;
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
-    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding::DAG_CBOR;
     use multihash_derive::MultihashDigest;
@@ -2101,10 +2099,8 @@ mod tests {
 
     /// Structure to hold the setup components for chain tests
     struct TestChainSetup {
-        db: Arc<MemoryDB>,
         chain_store: Arc<ChainStore<MemoryDB>>,
-        state_manager: Arc<StateManager<MemoryDB>>,
-        chain_builder: Chain4U<Arc<MemoryDB>>, // Renamed c4u for better readability
+        chain_builder: Chain4U<Arc<MemoryDB>>,
         state_root: Cid,
         receipt_root: Cid,
     }
@@ -2113,9 +2109,9 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
-        let c4u = Chain4U::with_blockstore(db.clone());
+        let chain_builder = Chain4U::with_blockstore(db.clone());
         chain4u! {
-            in c4u;
+            in chain_builder;
             [genesis_header = dummy_node(&db, 0)]
         }
 
@@ -2131,9 +2127,6 @@ mod tests {
             .expect("should create chain store"),
         );
 
-        let state_manager =
-            Arc::new(StateManager::new(chain_store.clone(), chain_config.clone()).unwrap());
-
         // Create dummy state and receipt roots and store them in blockstore
         let state_root = create_dummy_cid(1);
         let receipt_root = create_dummy_cid(2);
@@ -2147,10 +2140,8 @@ mod tests {
             .unwrap();
 
         TestChainSetup {
-            db,
             chain_store,
-            state_manager,
-            chain_builder: c4u, // Assign c4u to the named field
+            chain_builder,
             state_root,
             receipt_root,
         }
