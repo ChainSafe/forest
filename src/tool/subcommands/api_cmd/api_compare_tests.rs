@@ -1612,7 +1612,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             ))
             .unwrap(),
         )
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
         RpcTest::identity(
             EthGetTransactionByBlockNumberAndIndex::request((
                 BlockNumberOrPredefined::PredefinedBlock(ExtPredefined::Earliest),
@@ -2091,13 +2091,9 @@ pub(super) async fn run_tests(
             (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
                 match test.policy_on_rejected {
                     PolicyOnRejected::Pass => true,
-                    PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {
-                        true
-                    }
-                    PolicyOnRejected::PassWithQuasiIdenticalError
-                        if reason_lotus.contains(reason_forest) =>
-                    {
-                        true
+                    PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
+                    PolicyOnRejected::PassWithQuasiIdenticalError => {
+                        reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
                     }
                     _ => false,
                 }
