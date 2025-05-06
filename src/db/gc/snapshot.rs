@@ -2,7 +2,39 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! This module implements a garbage collector that transforms parity-db into an effective
-//! lite snapshot then purges parity-db
+//! lite snapshot then purges parity-db。
+//!
+//! ## Design goals
+//! A correct GC algorithm that is simple and efficient for forest scenarios. This algorithm
+//! removes all blocks that are not included in an effective standard lite snapshot with
+//! 2000 epochs of most recent state-trees and messages.
+//!
+//! ## GC Workflow
+//! 1. Exports an effective standard lite snapshot in `.forest.car.zst` format that can be used for bootstrapping a Filecoin node.
+//! 2. Stop the node.
+//! 3. Purging parity-db columns that serve as non-persistent blockstore.
+//! 4. Purging old CAR database files.
+//! 5. Restart the node.
+//!
+//! ## Correctness
+//! The algorithm assumes that, a Forest node can always be bootstrapped with a most recent standard lite snapshot.
+//!
+//! ## Disk usage
+//! The algorithm requires extra disk space of the size of a most recent standard lite
+//! snapshot(`~72 GB` as of writing at epoch 4937270 on mainnet).
+//!
+//! ## Memory usage
+//! During the lite snapshot export stage, the algorithm at least `32 bytes` of memory for each reachable block
+//! while traversing the reachable graph. For a typical mainnet snapshot of about 100 GiB that adds up to
+//! roughly 2.5 GiB.
+//!
+//! ## Scheduling
+//! To be implemented
+//!
+//! ## Performance
+//! The lite snapshot export step is currently utilizing a depth-first search algorithm, with `O(V+E)` complexity,
+//! where V is the number of vertices and E is the number of edges.
+//!
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
