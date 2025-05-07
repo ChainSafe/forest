@@ -20,7 +20,7 @@ fi
 
 echo "$1" > preloaded_wallet.key
 
-forest_init
+forest_init "$@"
 
 $FOREST_WALLET_PATH import preloaded_wallet.key
 $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key

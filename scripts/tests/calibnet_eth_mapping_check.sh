@@ -6,7 +6,7 @@ set -eu
 
 source "$(dirname "$0")/harness.sh"
 
-forest_init
+forest_init --backfill-db 200
 
 FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 
@@ -46,7 +46,7 @@ done
 
 echo "Done"
 
-echo "Waiting eth mappings to be up to date"
+echo "Waiting to be ready for serving"
 $FOREST_CLI_PATH healthcheck ready --wait
 
 ERROR=0
