@@ -26,7 +26,7 @@ fi
 
 forest_check_db_stats
 echo "Run snapshot GC"
-forest_run_snap_gc
+$FOREST_CLI_PATH chain prune snap
 forest_wait_api
 echo "Wait the node to sync"
 forest_wait_for_sync

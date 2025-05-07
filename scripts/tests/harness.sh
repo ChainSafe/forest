@@ -69,7 +69,7 @@ function forest_query_format {
 
 function forest_run_node_detached {
   echo "Running forest in detached mode"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --track-peak-rss
 }
 
 function forest_run_node_stateless_detached {
@@ -112,12 +112,6 @@ function forest_init {
   forest_check_db_stats
   forest_run_node_detached
 
-  ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-  export ADMIN_TOKEN
-  export FULLNODE_API_INFO
-
   forest_wait_api
   forest_wait_for_sync
   forest_check_db_stats
@@ -131,12 +125,6 @@ function forest_init_stateless {
 
   export ADMIN_TOKEN
   export FULLNODE_API_INFO
-}
-
-function forest_run_snap_gc {
-  ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-  $FOREST_CLI_PATH chain prune snap
 }
 
 function forest_print_logs_and_metrics {
