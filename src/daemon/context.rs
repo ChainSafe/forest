@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::auth::{ADMIN, create_token, generate_priv_key};
 use crate::chain::ChainStore;
 use crate::cli_shared::chain_path;
@@ -157,7 +158,7 @@ async fn load_or_create_keystore_and_configure_jwt(
     if keystore.get(JWT_IDENTIFIER).is_err() {
         keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     }
-    let admin_jwt = handle_admin_token(opts, &keystore)?;
+    let admin_jwt = handle_admin_token(opts, config, &keystore)?;
     let keystore = Arc::new(RwLock::new(keystore));
     Ok((keystore, admin_jwt))
 }
@@ -315,7 +316,11 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
 
 /// Generates, prints and optionally writes to a file the administrator JWT
 /// token.
-fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<String> {
+fn handle_admin_token(
+    opts: &CliOpts,
+    config: &Config,
+    keystore: &KeyStore,
+) -> anyhow::Result<String> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
     // Lotus admin tokens do not expire but Forest requires all JWT tokens to
     // have an expiration date. So we set the expiration date to 100 years in
@@ -327,6 +332,10 @@ fn handle_admin_token(opts: &CliOpts, keystore: &KeyStore) -> anyhow::Result<Str
         token_exp,
     )?;
     info!("Admin token: {token}");
+    let default_token_path = config.client.default_rpc_token_path();
+    if let Err(e) = std::fs::write(&default_token_path, &token) {
+        tracing::warn!("Failed to save the default admin token file: {e}");
+    }
     if let Some(path) = opts.save_token.as_ref() {
         if let Some(dir) = path.parent() {
             if !dir.is_dir() {
