@@ -29,6 +29,8 @@
 
 ### Added
 
+-[#5598](https://github.com/ChainSafe/forest/pull/5598) Add `forest-cli chain prune snap` command for garbage collecting the database with a new snapshot garbage collector.
+
 ### Changed
 
 -[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
