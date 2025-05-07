@@ -7,10 +7,9 @@ mod memory;
 pub mod parity_db;
 pub mod parity_db_config;
 
-mod gc;
+pub mod gc;
 pub mod ttl;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
-pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;

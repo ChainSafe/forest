@@ -133,6 +133,12 @@ function forest_init_stateless {
   export FULLNODE_API_INFO
 }
 
+function forest_run_snap_gc {
+  ADMIN_TOKEN=$(cat admin_token)
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
+  $FOREST_CLI_PATH chain prune snap
+}
+
 function forest_print_logs_and_metrics {
   echo "Get and print metrics"
   wget -O metrics.log http://localhost:6116/metrics

@@ -24,6 +24,14 @@ if [ "$cid" != "bafy2bzacecgqgzh3gxpariy3mzqb37y2vvxoaw5nwbrlzkhso6owus3zqckwe" 
   exit 1
 fi
 
+forest_check_db_stats
+echo "Run snapshot GC"
+forest_run_snap_gc
+forest_wait_api
+echo "Wait the node to sync"
+forest_wait_for_sync
+forest_check_db_stats
+
 echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
 
 echo "Test subcommand: chain set-head"

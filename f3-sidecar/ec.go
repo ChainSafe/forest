@@ -17,14 +17,14 @@ type ForestEC struct {
 	closer        jsonrpc.ClientCloser
 }
 
-func NewForestEC(rpcEndpoint, jwt string) (ForestEC, error) {
+func NewForestEC(ctx context.Context, rpcEndpoint, jwt string) (ForestEC, error) {
 	f3api := F3Api{}
 	headers := make(http.Header)
 	isJwtProvided := len(jwt) > 0
 	if isJwtProvided {
 		headers.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
 	}
-	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "F3", &f3api, headers)
+	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "F3", &f3api, headers)
 	if err != nil {
 		return ForestEC{}, err
 	}
