@@ -11,12 +11,9 @@ function shutdown {
 
 trap shutdown EXIT
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --save-token ./admin_token --exit-after-init
+$FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --exit-after-init
 $FOREST_PATH --chain calibnet --encrypt-keystore false --mdns false --kademlia false --auto-download-snapshot --log-dir "$LOG_DIRECTORY" &
 FOREST_NODE_PID=$!
-
-FULLNODE_API_INFO="$(cat admin_token):/ip4/127.0.0.1/tcp/2345/http"
-export FULLNODE_API_INFO
 
 forest_wait_api
 
