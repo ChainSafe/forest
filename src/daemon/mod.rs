@@ -10,19 +10,15 @@ use crate::blocks::Tipset;
 use crate::chain::HeadChange;
 use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::cli_shared::{car_db_path, snapshot};
+use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
 use crate::daemon::context::{AppContext, DbType};
-use crate::daemon::db_util::{
-    import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
-};
-use crate::db::SettingsStore;
-use crate::db::car::ManyCar;
+use crate::daemon::db_util::import_chain_as_forest_car;
 use crate::db::gc::{MarkAndSweep, SnapshotGarbageCollector};
-use crate::db::{MemoryDB, SettingsExt, ttl::EthMappingCollector};
+use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig};
@@ -31,7 +27,6 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
-use crate::state_manager::StateManager;
 use crate::utils;
 use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::ensure_proof_params_downloaded,
@@ -40,7 +35,6 @@ use crate::utils::{
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt, select};
-use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
@@ -404,7 +398,6 @@ async fn maybe_start_health_check_service(
                 .timestamp,
             sync_status: chain_follower.sync_status.clone(),
             peer_manager: p2p_service.peer_manager().clone(),
-            settings_store: ctx.db.writer().clone(),
         };
         let healthcheck_address = forest_state.config.client.healthcheck_address;
         info!("Healthcheck endpoint will listen at {healthcheck_address}");
@@ -529,27 +522,6 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
                         .unwrap_or(default_f3_root.display().to_string()),
                 );
             }
-        });
-    }
-}
-
-fn maybe_populate_eth_mappings_in_background(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    opts: &CliOpts,
-    config: Config,
-    ctx: &AppContext,
-) {
-    if config.chain_indexer.enable_indexer
-        && !opts.stateless
-        && !ctx.state_manager.chain_config().is_devnet()
-    {
-        let state_manager = ctx.state_manager.clone();
-        let settings = ctx.db.writer().clone();
-        services.spawn(async move {
-            if let Err(err) = init_ethereum_mapping(state_manager, &settings, &config) {
-                tracing::warn!("Init Ethereum mapping failed: {}", err)
-            }
-            Ok(())
         });
     }
 }
@@ -684,7 +656,6 @@ pub(super) async fn start_services(
     maybe_start_f3_service(opts, &config, &ctx);
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
         .await?;
-    maybe_populate_eth_mappings_in_background(&mut services, opts, config.clone(), &ctx);
     maybe_start_indexer_service(&mut services, opts, &config, &ctx);
     if !opts.stateless {
         ensure_proof_params_downloaded().await?;
@@ -812,27 +783,4 @@ where
     T: Send + 'static,
 {
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
-}
-
-fn init_ethereum_mapping<DB: Blockstore>(
-    state_manager: Arc<StateManager<DB>>,
-    settings: &impl SettingsStore,
-    config: &Config,
-) -> anyhow::Result<()> {
-    match settings.eth_mapping_up_to_date()? {
-        Some(false) | None => {
-            let car_db_path = car_db_path(config)?;
-            let db: Arc<ManyCar<MemoryDB>> = Arc::default();
-            load_all_forest_cars(&db, &car_db_path)?;
-            let ts = db.heaviest_tipset()?;
-
-            populate_eth_mappings(&state_manager, &ts)?;
-
-            settings.set_eth_mapping_up_to_date()
-        }
-        Some(true) => {
-            tracing::info!("Ethereum mapping up to date");
-            Ok(())
-        }
-    }
 }

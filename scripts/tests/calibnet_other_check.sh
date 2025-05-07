@@ -8,7 +8,7 @@ set -e
 source "$(dirname "$0")/harness.sh"
 
 forest_import_non_calibnet_snapshot
-forest_init
+forest_init "$@"
 
 echo "Running Go F3 RPC client tests"
 go test -v ./f3-sidecar

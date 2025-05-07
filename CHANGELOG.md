@@ -31,6 +31,8 @@
 
 ### Changed
 
+-[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
+
 ### Removed
 
 ### Fixed

@@ -7,15 +7,14 @@ use clap::Subcommand;
 
 use crate::chain::ChainStore;
 use crate::cli_shared::{chain_path, read_config};
+use crate::daemon::db_util::backfill_db;
 use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::CAR_DB_DIR_NAME;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::genesis::read_genesis_header;
-use crate::interpreter::VMTrace;
 use crate::networks::NetworkChain;
 use crate::shim::clock::ChainEpoch;
-use crate::state_manager::NO_CALLBACK;
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
 
@@ -83,25 +82,7 @@ impl IndexCommands {
 
                 println!("Head epoch:    {}", head_ts.epoch());
 
-                for ts in head_ts
-                    .clone()
-                    .chain(&state_manager.chain_store().blockstore())
-                {
-                    let epoch = ts.epoch();
-                    if epoch < *to {
-                        break;
-                    }
-                    let tsk = ts.key().clone();
-
-                    let state_output = state_manager
-                        .compute_tipset_state(Arc::new(ts), NO_CALLBACK, VMTrace::NotTraced)
-                        .await?;
-                    for events_root in state_output.events_roots.iter().flatten() {
-                        println!("Indexing events root @{}: {}", epoch, events_root);
-
-                        chain_store.put_index(events_root, &tsk)?;
-                    }
-                }
+                backfill_db(&state_manager, &head_ts, *to).await?;
 
                 Ok(())
             }

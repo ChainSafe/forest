@@ -526,17 +526,29 @@ where
                     tipset.epoch(),
                     tipset.len(),
                 );
+
+                // First, try to look up the state and receipt if not found in the blockstore
+                // compute it
+                if let Some(state_from_child) =
+                    self.try_lookup_state_from_next_tipset(tipset.as_ref())
+                {
+                    return Ok(state_from_child);
+                }
+
+                trace!("Computing state for tipset at epoch {}", tipset.epoch());
                 let state_output = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 for events_root in state_output.events_roots.iter().flatten() {
                     trace!("Indexing events root @{}: {}", tipset.epoch(), events_root);
-
                     self.chain_store().put_index(events_root, key)?;
                 }
+
+                // TODO(akaladarshi): https://github.com/ChainSafe/forest/issues/5626
+
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
-                // We missed the opportunity to update `self.events_cache` and `self.receipt_cache` here, to be refactored.
+
                 Ok(ts_state)
             })
             .await
@@ -1726,6 +1738,46 @@ where
 
         Ok((state_root, invoc_trace))
     }
+
+    /// Attempts to lookup the state and receipt root of the next tipset.
+    /// This is a performance optimization to avoid recomputing the state and receipt root by checking the blockstore.
+    /// It only checks the immediate next epoch, as this is the most likely place to find a child.
+    fn try_lookup_state_from_next_tipset(&self, tipset: &Tipset) -> Option<StateOutputValue> {
+        let epoch = tipset.epoch();
+        let next_epoch = epoch + 1;
+
+        // Only check the immediate next epoch - this is the most likely place to find a child
+        let heaviest = self.cs.heaviest_tipset();
+        if next_epoch > heaviest.epoch() {
+            return None;
+        }
+
+        // Check if the next tipset has the same parent
+        if let Ok(next_tipset) = self.chain_store().chain_index.tipset_by_height(
+            next_epoch,
+            heaviest,
+            ResolveNullTipset::TakeNewer,
+        ) {
+            // verify that the parent of the `next_tipset` is the same as the current tipset
+            if !next_tipset.parents().eq(tipset.key()) {
+                return None;
+            }
+
+            let state_root = next_tipset.parent_state();
+            let receipt_root = next_tipset.min_ticket_block().message_receipts;
+
+            if self.blockstore().has(state_root).unwrap_or(false)
+                && self.blockstore().has(&receipt_root).unwrap_or(false)
+            {
+                return Some(StateOutputValue {
+                    state_root: state_root.into(),
+                    receipt_root,
+                });
+            }
+        }
+
+        None
+    }
 }
 
 pub fn validate_tipsets<DB, T>(
@@ -2007,4 +2059,320 @@ where
     )?;
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+    use crate::chain::ChainStore;
+    use crate::db::MemoryDB;
+    use crate::networks::ChainConfig;
+    use crate::shim::clock::ChainEpoch;
+    use crate::state_manager::StateManager;
+    use crate::utils::db::CborStoreExt;
+    use crate::utils::multihash::MultihashCode;
+    use cid::Cid;
+    use fvm_ipld_blockstore::Blockstore;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_derive::MultihashDigest;
+    use num_bigint::BigInt;
+    use std::sync::Arc;
+
+    fn create_dummy_cid(i: u64) -> Cid {
+        let bytes = i.to_le_bytes().to_vec();
+        Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&bytes))
+    }
+
+    fn dummy_state(db: impl Blockstore, i: ChainEpoch) -> Cid {
+        db.put_cbor_default(&i).unwrap()
+    }
+
+    fn dummy_node(db: impl Blockstore, i: ChainEpoch) -> HeaderBuilder {
+        HeaderBuilder {
+            state_root: dummy_state(db, i).into(),
+            weight: BigInt::from(i).into(),
+            epoch: i.into(),
+            timestamp: 100.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Structure to hold the setup components for chain tests
+    struct TestChainSetup {
+        chain_store: Arc<ChainStore<MemoryDB>>,
+        chain_builder: Chain4U<Arc<MemoryDB>>,
+        state_root: Cid,
+        receipt_root: Cid,
+    }
+
+    fn setup_chain_with_tipsets() -> TestChainSetup {
+        let db = Arc::new(MemoryDB::default());
+        let chain_config = Arc::new(ChainConfig::default());
+
+        let chain_builder = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in chain_builder;
+            [genesis_header = dummy_node(&db, 0)]
+        }
+
+        let chain_store = Arc::new(
+            ChainStore::new(
+                db.clone(),
+                db.clone(),
+                db.clone(),
+                db.clone(),
+                chain_config.clone(),
+                genesis_header.clone().into(),
+            )
+            .expect("should create chain store"),
+        );
+
+        // Create dummy state and receipt roots and store them in blockstore
+        let state_root = create_dummy_cid(1);
+        let receipt_root = create_dummy_cid(2);
+
+        db.put_keyed(&state_root, "dummy_state".as_bytes()).unwrap();
+        db.put_keyed(&receipt_root, "dummy_receipt".as_bytes())
+            .unwrap();
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(chain_store.genesis_tipset()))
+            .unwrap();
+
+        TestChainSetup {
+            chain_store,
+            chain_builder,
+            state_root,
+            receipt_root,
+        }
+    }
+
+    #[test]
+    fn test_try_lookup_state_from_next_tipset_success() {
+        let TestChainSetup {
+            chain_store,
+            chain_builder,
+            state_root,
+            receipt_root,
+            ..
+        } = setup_chain_with_tipsets();
+
+        // Build a chain with parent and child tipsets
+        chain4u! {
+            in chain_builder;
+            parent_ts @ [
+                a = HeaderBuilder::new()
+                    .with_epoch(10)
+                    .with_timestamp(101)
+            ]->
+            child_ts @ [
+                child_block = HeaderBuilder::new()
+                    .with_epoch(11)
+                    .with_parents(parent_ts.key().clone())
+                    .with_state_root(state_root)
+                    .with_message_receipts(receipt_root)
+                    .with_timestamp(102)
+            ]
+        }
+
+        assert_eq!(a.epoch, 10);
+        // parent state root is not set, so it should be empty
+        assert_eq!(a.state_root, Cid::default());
+        assert_eq!(child_block.epoch, 11);
+        assert_eq!(child_block.state_root, state_root);
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(child_ts.clone()))
+            .unwrap();
+
+        let state_manager =
+            Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+
+        let result = state_manager.try_lookup_state_from_next_tipset(parent_ts);
+
+        assert!(result.is_some());
+        let state_output = result.unwrap();
+        assert_eq!(state_output.state_root, state_root);
+        assert_eq!(state_output.receipt_root, receipt_root);
+    }
+
+    #[test]
+    fn test_try_lookup_state_from_next_tipset_no_next_tipset() {
+        let TestChainSetup {
+            chain_store,
+            chain_builder,
+            ..
+        } = setup_chain_with_tipsets();
+
+        // Build a chain with just one tipset
+        chain4u! {
+            in chain_builder;
+            a_ts @ [
+                a = HeaderBuilder::new()
+                    .with_epoch(10)
+            ]
+        }
+
+        assert_eq!(a.epoch, 10);
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(a_ts.clone()))
+            .unwrap();
+
+        let state_manager =
+            Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+
+        let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
+
+        // Should return None since there's no next tipset
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_try_lookup_state_from_next_tipset_different_parent() {
+        let TestChainSetup {
+            chain_store,
+            chain_builder,
+            state_root,
+            receipt_root,
+            ..
+        } = setup_chain_with_tipsets();
+
+        // genesis -> a
+        chain4u! {
+            in chain_builder;
+            a_ts @ [
+                a = HeaderBuilder::new()
+                    .with_epoch(10)
+                    .with_timestamp(101) // genesis timestamp(100) + 1
+            ]
+        }
+
+        // Build a chain with parent and child tipsets, but child has different parent
+        // genesis -> a -> b
+        //            \a1 --> b
+        chain4u! {
+            in chain_builder;
+            // Different parent (a1)
+            a1_ts @ [
+                a1 = HeaderBuilder::new()
+                    .with_epoch(10)
+                    .with_timestamp(102) // genesis timestamp(100) + 2
+            ]->
+            b_ts @ [
+                b = HeaderBuilder::new()
+                    .with_epoch(11)
+                    .with_parents(a1_ts.key().clone())
+                    .with_state_root(state_root)
+                    .with_message_receipts(receipt_root)
+            ]
+        }
+
+        assert_eq!(a.epoch, 10);
+        assert_eq!(a1.epoch, 10);
+        assert_eq!(b.epoch, 11);
+
+        // a tipset key should be different from `a1` tipset key
+        assert_ne!(a_ts.key(), a1_ts.key());
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(b_ts.clone()))
+            .unwrap();
+
+        let state_manager =
+            Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+
+        let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
+
+        // Should return None since the child tipset (b_ts) has a different parent (a1_ts)
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_try_lookup_state_from_next_tipset_missing_receipt_root() {
+        let TestChainSetup {
+            chain_store,
+            chain_builder,
+            state_root,
+            ..
+        } = setup_chain_with_tipsets();
+
+        // Create a new receipt root that isn't stored in the blockstore
+        let missing_receipt_root = create_dummy_cid(999);
+
+        // Build a chain with parent and child tipsets
+        chain4u! {
+            in chain_builder;
+            a_ts @ [
+                a = HeaderBuilder::new()
+                    .with_epoch(10)
+            ]->
+            b_ts @ [
+                b = HeaderBuilder::new()
+                    .with_epoch(11)
+                    .with_parents(a_ts.key().clone())
+                    .with_state_root(state_root)
+                    .with_message_receipts(missing_receipt_root)
+            ]
+        }
+
+        assert_eq!(a.epoch, 10);
+        assert_eq!(b.epoch, 11);
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(b_ts.clone()))
+            .unwrap();
+
+        let state_manager =
+            Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+
+        let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
+
+        // Should return None since the receipt root is missing
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_try_lookup_state_from_next_tipset_missing_state_root() {
+        let TestChainSetup {
+            chain_store,
+            chain_builder,
+            receipt_root,
+            ..
+        } = setup_chain_with_tipsets();
+
+        // Create a new state root that is not stored in the blockstore
+        let missing_state_root = create_dummy_cid(999);
+
+        // Build a chain with parent and child tipsets
+        chain4u! {
+            in chain_builder;
+            a_ts @ [
+                a = HeaderBuilder::new()
+                    .with_epoch(10)
+            ]->
+            b_ts @ [
+                b = HeaderBuilder::new()
+                    .with_epoch(11)
+                    .with_parents(a_ts.key().clone())
+                    .with_message_receipts(receipt_root)
+                    .with_state_root(missing_state_root)
+            ]
+        }
+
+        assert_eq!(a.epoch, 10);
+        assert_eq!(b.epoch, 11);
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(b_ts.clone()))
+            .unwrap();
+
+        let state_manager =
+            Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+
+        let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
+
+        // Should return None since the state root is missing
+        assert!(result.is_none());
+    }
 }
