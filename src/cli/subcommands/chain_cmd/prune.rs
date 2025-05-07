@@ -5,10 +5,12 @@ use crate::rpc::{self, RpcMethodExt, chain::ChainPruneSnapshot};
 use clap::Subcommand;
 use std::time::Duration;
 
+/// Prune chain database
 #[derive(Debug, Subcommand)]
 pub enum ChainPruneCommands {
     /// Run snapshot GC
     Snap {
+        /// Do not block until GC is completed
         #[arg(long)]
         no_wait: bool,
     },

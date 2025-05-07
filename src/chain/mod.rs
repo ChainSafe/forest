@@ -26,7 +26,7 @@ pub async fn export_from_head<D: Digest>(
 ) -> anyhow::Result<(Tipset, Option<digest::Output<D>>), Error> {
     let head_key = SettingsStoreExt::read_obj::<TipsetKey>(&db, crate::db::setting_keys::HEAD_KEY)?
         .context("chain head key not found")?;
-    let head_ts = Tipset::load(&db, &head_key)?.context("chain head not found")?;
+    let head_ts = Tipset::load_required(&db, &head_key)?;
     let digest = export::<D>(db, &head_ts, lookup_depth, writer, seen, skip_checksum).await?;
     Ok((head_ts, digest))
 }
