@@ -37,7 +37,7 @@
 
 ### Fixed
 
-- [#5624](https://github.com/ChainSafe/forest/pull/5624) Fix `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
+- [#5624](https://github.com/ChainSafe/forest/pull/5624) Fixed `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
 
 ## Forest v0.26.1 "Ijon Tichy"
 
