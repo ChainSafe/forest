@@ -45,13 +45,12 @@
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
-use crate::db::SettingsStoreExt;
 use crate::db::{
-    CAR_DB_DIR_NAME, SettingsStore,
-    car::forest::FOREST_CAR_FILE_EXTENSION,
+    CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore, SettingsStoreExt,
     db_engine::{DbConfig, db_root},
     parity_db::{DbColumn, ParityDb},
 };
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
@@ -72,6 +71,7 @@ pub struct SnapshotGarbageCollector<DB> {
     exported_chain_head: RwLock<Option<Tipset>>,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
+    car_db_head_epoch: RwLock<Option<ChainEpoch>>,
     reboot_tx: flume::Sender<()>,
     trigger_tx: flume::Sender<()>,
     trigger_rx: flume::Receiver<()>,
@@ -80,7 +80,7 @@ pub struct SnapshotGarbageCollector<DB> {
 
 impl<DB> SnapshotGarbageCollector<DB>
 where
-    DB: Blockstore + SettingsStore + Send + Sync + 'static,
+    DB: Blockstore + SettingsStore + HeaviestTipsetKeyProvider + Send + Sync + 'static,
 {
     pub fn new(config: &crate::Config) -> anyhow::Result<(Self, flume::Receiver<()>)> {
         let chain_data_path = chain_path(config);
@@ -99,6 +99,7 @@ where
                 exported_chain_head: RwLock::new(None),
                 blessed_lite_snapshot: RwLock::new(None),
                 db: RwLock::new(None),
+                car_db_head_epoch: RwLock::new(None),
                 reboot_tx,
                 trigger_tx,
                 trigger_rx,
@@ -112,7 +113,11 @@ where
         *self.db.write() = Some(db);
     }
 
-    pub async fn event_toop(&self) {
+    pub fn set_car_db_head_epoch(&self, epoch: ChainEpoch) {
+        *self.car_db_head_epoch.write() = Some(epoch);
+    }
+
+    pub async fn event_loop(&self) {
         while self.trigger_rx.recv_async().await.is_ok() {
             if self.running.load(Ordering::Relaxed) {
                 tracing::warn!("snap gc has already been running");
@@ -122,6 +127,42 @@ where
                     tracing::warn!("{e}");
                 }
             }
+        }
+    }
+
+    pub async fn scheduler_loop(&self) {
+        let snap_gc_interval_epochs = std::env::var("FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .inspect(|i| {
+                tracing::info!(
+                    "Using snapshot GC interval epochs {i} set by FOREST_F3_BOOTSTRAP_EPOCH"
+                )
+            })
+            .unwrap_or(EPOCHS_IN_DAY * 7);
+        tracing::info!(
+            "Running snapshot GC scheduler with interval epochs {snap_gc_interval_epochs}"
+        );
+        loop {
+            if !self.running.load(Ordering::Relaxed) {
+                if let (Some(db), Some(car_db_head_epoch)) =
+                    (&*self.db.read(), *self.car_db_head_epoch.read())
+                {
+                    if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
+                        if let Ok(head) = Tipset::load_required(db, &head_key) {
+                            let head_epoch = head.epoch();
+                            if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                                && self.trigger_tx.try_send(()).is_ok()
+                            {
+                                tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                            } else {
+                                tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(60 * 5)).await;
         }
     }
 
@@ -182,6 +223,7 @@ where
     async fn cleanup_before_reboot_inner(&self) -> anyhow::Result<()> {
         tracing::info!("cleaning up db before rebooting");
         {
+            // Release db references so that it can be closed
             if let (Some(db), Some(head)) =
                 (self.db.write().take(), &*self.exported_chain_head.read())
             {
@@ -216,12 +258,11 @@ where
                     .into_iter()
                     .filter_map(|entry| {
                         if let Ok(entry) = entry {
-                            if entry.path() != blessed_lite_snapshot.as_path() {
-                                if let Some(filename) = entry.file_name().to_str() {
-                                    if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                                        return Some(entry.into_path());
-                                    }
-                                }
+                            // Also cleanup `.tmp*` files snapshot export is interrupted ungracefully
+                            if entry.path().is_file()
+                                && entry.path() != blessed_lite_snapshot.as_path()
+                            {
+                                return Some(entry.into_path());
                             }
                         }
                         None
