@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
+use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::db::{DBStatistics, GarbageCollectable, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -111,7 +112,7 @@ impl ParityDb {
 
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config);
-        let (write_ops_broadcast_tx, _) = tokio::sync::broadcast::channel(1024);
+        let (write_ops_broadcast_tx, _) = tokio::sync::broadcast::channel(8192);
         Ok(Self {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
@@ -182,6 +183,17 @@ impl SettingsStore for ParityDb {
             keys.push(String::from_utf8(key)?);
         }
         Ok(keys)
+    }
+}
+
+impl super::HeaviestTipsetKeyProvider for ParityDb {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)?
+            .context("head key not found")
+    }
+
+    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
+        super::SettingsStoreExt::write_obj(self, super::setting_keys::HEAD_KEY, tsk)
     }
 }
 
