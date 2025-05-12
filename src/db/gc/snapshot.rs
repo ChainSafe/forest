@@ -252,7 +252,7 @@ where
 
                 // Backfill new db records during snapshot export
                 if let Some(mem_db) = self.memory_db.write().take() {
-                    if let Ok(db) = open_db(self.db_root_dir.clone(), self.db_config.clone()) {
+                    if let Ok(db) = open_db(self.db_root_dir.clone(), &self.db_config) {
                         let start = Instant::now();
                         if let Err(e) = db.put_many_keyed(mem_db) {
                             tracing::warn!("{e}");

@@ -329,8 +329,8 @@ pub mod db_engine {
         choose_db(chain_data_root)
     }
 
-    pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, &config)
+    pub fn open_db(path: PathBuf, config: &DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, config)
     }
 }
 
