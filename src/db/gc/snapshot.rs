@@ -252,13 +252,23 @@ where
 
                 // Backfill new db records during snapshot export
                 if let Some(mem_db) = self.memory_db.write().take() {
+                    let count = mem_db.len();
+                    let approximate_heap_size = {
+                        let mut s = 0;
+                        for (_k, v) in mem_db.iter() {
+                            s += 64;
+                            s += v.len();
+                        }
+                        s
+                    };
                     if let Ok(db) = open_db(self.db_root_dir.clone(), &self.db_config) {
                         let start = Instant::now();
                         if let Err(e) = db.put_many_keyed(mem_db) {
                             tracing::warn!("{e}");
                         }
                         tracing::info!(
-                            "backfilled new db records since snapshot epoch, took {}",
+                            "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
+                            human_bytes::human_bytes(approximate_heap_size as f64),
                             humantime::format_duration(start.elapsed())
                         );
                     }
