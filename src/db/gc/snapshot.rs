@@ -201,11 +201,12 @@ where
             tracing::warn!("{e}");
         }
 
+        *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok();
+        tokio::time::sleep(Duration::from_secs(1)).await;
         let _ = cancel_tx.send(());
         match joinset.join_next().await {
             Some(Ok(map)) => {
                 *self.memory_db.write() = Some(map);
-                *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok();
             }
             Some(Err(e)) => tracing::warn!("{e}"),
             _ => {}
