@@ -37,22 +37,23 @@
 //! where V is the number of vertices(state-trees and messages) and E is the number of edges(block headers).
 //!
 //! ## Trade-offs
-//! - The node reboots with the exported lite snapshot and looses all work during the export stage. (To be fixed).
 //! - All TCP interfaces are rebooted, thus all operations that interact with the TCP interfaces(e.g. `forest-cli sync wait`)
 //!   are interrupted.
 //!
 
-use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
-use crate::db::SettingsStoreExt;
+use crate::db::BlockstoreWriteOpsSubscribable;
+use crate::db::db_engine::open_db;
 use crate::db::{
     CAR_DB_DIR_NAME, SettingsStore,
     car::forest::FOREST_CAR_FILE_EXTENSION,
     db_engine::{DbConfig, db_root},
     parity_db::{DbColumn, ParityDb},
 };
+use ahash::HashMap;
 use anyhow::Context as _;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use sha2::Sha256;
@@ -69,9 +70,9 @@ pub struct SnapshotGarbageCollector<DB> {
     recent_state_roots: i64,
     db_config: DbConfig,
     running: AtomicBool,
-    exported_chain_head: RwLock<Option<Tipset>>,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
+    memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     reboot_tx: flume::Sender<()>,
     trigger_tx: flume::Sender<()>,
     trigger_rx: flume::Receiver<()>,
@@ -80,7 +81,7 @@ pub struct SnapshotGarbageCollector<DB> {
 
 impl<DB> SnapshotGarbageCollector<DB>
 where
-    DB: Blockstore + SettingsStore + Send + Sync + 'static,
+    DB: Blockstore + SettingsStore + BlockstoreWriteOpsSubscribable + Send + Sync + 'static,
 {
     pub fn new(config: &crate::Config) -> anyhow::Result<(Self, flume::Receiver<()>)> {
         let chain_data_path = chain_path(config);
@@ -96,9 +97,9 @@ where
                 recent_state_roots,
                 db_config: config.db_config().clone(),
                 running: AtomicBool::new(false),
-                exported_chain_head: RwLock::new(None),
                 blessed_lite_snapshot: RwLock::new(None),
                 db: RwLock::new(None),
+                memory_db: RwLock::new(None),
                 reboot_tx,
                 trigger_tx,
                 trigger_rx,
@@ -147,6 +148,14 @@ where
         );
         let temp_path = tempfile::NamedTempFile::new_in(&self.car_db_dir)?.into_temp_path();
         let file = tokio::fs::File::create(&temp_path).await?;
+        let mut rx = db.subscribe_write_ops();
+        let handle = tokio::spawn(async move {
+            let mut map = HashMap::default();
+            while let Ok((k, v)) = rx.recv().await {
+                map.insert(k, v);
+            }
+            map
+        });
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
             db,
             self.recent_state_roots,
@@ -162,12 +171,19 @@ where
         ));
         temp_path.persist(&target_path)?;
         tracing::info!("exported lite snapshot at {}", target_path.display());
-        *self.exported_chain_head.write() = Some(head_ts);
         *self.blessed_lite_snapshot.write() = Some(target_path);
 
         if let Err(e) = self.reboot_tx.send(()) {
             tracing::warn!("{e}");
         }
+
+        match handle.await {
+            Ok(map) => {
+                *self.memory_db.write() = Some(map);
+            }
+            Err(e) => tracing::warn!("{e}"),
+        }
+
         Ok(())
     }
 
@@ -181,13 +197,7 @@ where
 
     async fn cleanup_before_reboot_inner(&self) -> anyhow::Result<()> {
         tracing::info!("cleaning up db before rebooting");
-        {
-            if let (Some(db), Some(head)) =
-                (self.db.write().take(), &*self.exported_chain_head.read())
-            {
-                SettingsStoreExt::write_obj(&db, crate::db::setting_keys::HEAD_KEY, head.key())?;
-            }
-        }
+        self.db.write().take();
         if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() } {
             if blessed_lite_snapshot.is_file() {
                 let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
@@ -237,6 +247,20 @@ where
                                 car_to_remove.display()
                             );
                         }
+                    }
+                }
+
+                // Backfill new db records during snapshot export
+                if let Some(mem_db) = self.memory_db.write().take() {
+                    if let Ok(db) = open_db(self.db_root_dir.clone(), self.db_config.clone()) {
+                        let start = Instant::now();
+                        if let Err(e) = db.put_many_keyed(mem_db) {
+                            tracing::warn!("{e}");
+                        }
+                        tracing::info!(
+                            "backfilled new db records since snapshot epoch, took {}",
+                            humantime::format_duration(start.elapsed())
+                        );
                     }
                 }
             }

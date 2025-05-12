@@ -9,6 +9,7 @@ use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
 use anyhow::{Context as _, anyhow};
 use cid::Cid;
+use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
@@ -92,6 +93,7 @@ pub struct ParityDb {
     statistics_enabled: bool,
     // This is needed to maintain backwards-compatibility for pre-persistent-column migrations.
     disable_persistent_fallback: bool,
+    write_ops_broadcast_tx: tokio::sync::broadcast::Sender<(Cid, Vec<u8>)>,
 }
 
 impl ParityDb {
@@ -109,10 +111,12 @@ impl ParityDb {
 
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config);
+        let (write_ops_broadcast_tx, _) = tokio::sync::broadcast::channel(1024);
         Ok(Self {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
             disable_persistent_fallback: false,
+            write_ops_broadcast_tx,
         })
     }
 
@@ -145,6 +149,13 @@ impl ParityDb {
         self.db
             .commit(tx)
             .map_err(|e| anyhow!("error writing to column {column}: {e}"))
+    }
+
+    fn has_write_ops_subscribers(&self) -> bool {
+        self.write_ops_broadcast_tx
+            .closed()
+            .now_or_never()
+            .is_none()
     }
 }
 
@@ -241,9 +252,13 @@ impl Blockstore for ParityDb {
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         let column = Self::choose_column(k);
-
         // We can put the data directly into the database without any encoding.
-        self.write_to_column(k.to_bytes(), block, column)
+        self.write_to_column(k.to_bytes(), block, column)?;
+        if self.has_write_ops_subscribers() {
+            let _ = self.write_ops_broadcast_tx.send((*k, block.to_vec()));
+        }
+
+        Ok(())
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -252,16 +267,26 @@ impl Blockstore for ParityDb {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
+        let has_subscribers = self.has_write_ops_subscribers();
+        let mut values_for_subscriber = vec![];
         let values = blocks.into_iter().map(|(k, v)| {
             let column = Self::choose_column(&k);
-            (column, k.to_bytes(), v.as_ref().to_vec())
+            let v = v.as_ref().to_vec();
+            if has_subscribers {
+                values_for_subscriber.push((k, v.clone()));
+            }
+            (column, k.to_bytes(), v)
         });
         let tx = values
             .into_iter()
             .map(|(col, k, v)| (col as u8, Operation::Set(k, v)));
         self.db
             .commit_changes(tx)
-            .map_err(|e| anyhow!("error bulk writing: {e}"))
+            .map_err(|e| anyhow!("error bulk writing: {e}"))?;
+        for i in values_for_subscriber {
+            let _ = self.write_ops_broadcast_tx.send(i);
+        }
+        Ok(())
     }
 }
 
@@ -411,10 +436,16 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
     }
 }
 
+impl super::BlockstoreWriteOpsSubscribable for ParityDb {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        self.write_ops_broadcast_tx.subscribe()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::db::tests::db_utils::parity::TempParityDB;
+    use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
     use std::ops::Deref;
@@ -594,5 +625,38 @@ mod test {
                 Some(data_entry.clone())
             );
         }
+    }
+
+    #[test]
+    fn subscription_tests() {
+        let db = TempParityDB::new();
+        assert!(!db.db.as_ref().unwrap().has_write_ops_subscribers());
+        let data = [
+            b"h'nglui mglw'nafh".to_vec(),
+            b"Cthulhu".to_vec(),
+            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
+        ];
+
+        let cids = [
+            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
+        ];
+
+        let mut rx1 = db.db.as_ref().unwrap().subscribe_write_ops();
+        let mut rx2 = db.db.as_ref().unwrap().subscribe_write_ops();
+
+        assert!(db.db.as_ref().unwrap().has_write_ops_subscribers());
+
+        for (idx, cid) in cids.iter().enumerate() {
+            let data_entry = &data[idx];
+            db.put_keyed(cid, data_entry).unwrap();
+            assert_eq!(rx1.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+            assert_eq!(rx2.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+        }
+
+        drop(rx1);
+        drop(rx2);
+        assert!(!db.db.as_ref().unwrap().has_write_ops_subscribers());
     }
 }

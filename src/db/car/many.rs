@@ -11,7 +11,8 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::TipsetKey;
 use crate::db::{
-    EthMappingsStore, IndicesStore, MemoryDB, PersistentStore, SettingsStore, SettingsStoreExt,
+    BlockstoreWriteOpsSubscribable, EthMappingsStore, IndicesStore, MemoryDB, PersistentStore,
+    SettingsStore, SettingsStoreExt,
 };
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::rpc::eth::types::EthHash;
@@ -269,6 +270,12 @@ impl<T: Blockstore + SettingsStore> super::super::HeaviestTipsetKeyProvider for 
 
     fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
         SettingsStoreExt::write_obj(self, crate::db::setting_keys::HEAD_KEY, tsk)
+    }
+}
+
+impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for ManyCar<WriterT> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        self.writer().subscribe_write_ops()
     }
 }
 

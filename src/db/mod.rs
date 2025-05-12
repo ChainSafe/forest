@@ -306,6 +306,16 @@ impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
     }
 }
 
+pub trait BlockstoreWriteOpsSubscribable {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>;
+}
+
+impl<T: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for Arc<T> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        self.as_ref().subscribe_write_ops()
+    }
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
