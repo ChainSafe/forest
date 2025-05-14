@@ -6,6 +6,7 @@ pub mod car;
 mod memory;
 pub mod parity_db;
 pub mod parity_db_config;
+pub mod rpc_db;
 
 pub mod gc;
 pub mod ttl;
