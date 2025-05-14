@@ -37,7 +37,8 @@ where
     type Future = BoxFuture<'a, MethodResponse>;
 
     fn call(&self, mut req: jsonrpsee::types::Request<'a>) -> Self::Future {
-        self.path.and_then(|p| req.extensions_mut().insert(p));
+        req.extensions_mut()
+            .insert(self.path.unwrap_or(ApiPaths::V1));
         self.service.call(req).boxed()
     }
 }
