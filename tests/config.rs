@@ -32,7 +32,7 @@ fn test_download_location_of_proof_parameter_files_env() {
         .arg("--keys")
         .arg("--dry-run")
         .assert()
-        .stdout(tmp_dir.into_path().to_string_lossy().into_owned() + "\n")
+        .stdout(tmp_dir.keep().to_string_lossy().into_owned() + "\n")
         .success();
 }
 
@@ -67,7 +67,7 @@ fn test_download_location_of_proof_parameter_files_default() {
 // assume 'data_dir' will be created iff the configuration is correctly parsed.
 #[test]
 fn test_config_parameter() {
-    let tmp_dir = TempDir::new().unwrap().into_path();
+    let tmp_dir = TempDir::new().unwrap().keep();
     let config = Config {
         client: Client {
             data_dir: tmp_dir.clone(),
@@ -97,7 +97,7 @@ fn test_config_parameter() {
 // assume 'data_dir' will be created iff the configuration is correctly parsed.
 #[test]
 fn test_config_env_var() {
-    let tmp_dir = TempDir::new().unwrap().into_path();
+    let tmp_dir = TempDir::new().unwrap().keep();
     let config = Config {
         client: Client {
             data_dir: tmp_dir.clone(),
