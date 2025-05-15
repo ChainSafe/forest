@@ -4,3 +4,5 @@ use super::*;
 mod account_state;
 mod cron_state;
 mod entry;
+mod miner_state;
+mod vesting_funds;
