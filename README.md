@@ -11,6 +11,10 @@
     <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE"><img alt="License Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge"></a>
     <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge"></a>
     <a href="https://twitter.com/ChainSafeth"><img alt="Twitter" src="https://img.shields.io/twitter/follow/chainsafeth?style=for-the-badge&color=1DA1F2"></a>
+    <a href="https://discord.com/invite/xSAwrnCWcg"><img alt="Discord" src="https://img.shields.io/discord/593655374469660673?label=discord&logo=discord&style=for-the-badge&color=7289DA"></a>
+</p>
+
+
 </p>
 
 Forest is a [Filecoin] node written in [Rust]. With Forest, you can:
