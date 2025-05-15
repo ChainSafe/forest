@@ -74,13 +74,6 @@ pub struct Auth<S> {
     service: S,
 }
 
-impl<S> Auth<S> {
-    async fn is_authorized(&self, method_name: &str) -> Result<bool, ErrorCode> {
-        let auth_header = self.headers.get(AUTHORIZATION).cloned();
-        check_permissions(&self.keystore, auth_header, method_name).await
-    }
-}
-
 impl<S> RpcServiceT for Auth<S>
 where
     S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,

@@ -4,7 +4,6 @@
 use super::ApiPaths;
 use crate::{for_each_rpc_method, rpc::reflect::RpcMethod};
 use ahash::{HashMap, HashSet};
-use futures::FutureExt as _;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
