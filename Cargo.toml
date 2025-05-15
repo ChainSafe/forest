@@ -270,8 +270,8 @@ rust2go = { workspace = true, features = ["build"] }
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
 # temporarily comment it out.
 [profile.dev]
-#debug = 0
-#split-debuginfo = "unpacked"
+debug = 0
+split-debuginfo = "unpacked"
 
 [profile.quick]
 inherits = "release"
