@@ -4,8 +4,9 @@
 use super::ApiPaths;
 use crate::{for_each_rpc_method, rpc::reflect::RpcMethod};
 use ahash::{HashMap, HashSet};
-use futures::{FutureExt, future::BoxFuture};
+use futures::FutureExt as _;
 use jsonrpsee::MethodResponse;
+use jsonrpsee::core::middleware::{Batch, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::ErrorObject;
 use once_cell::sync::Lazy;
@@ -52,13 +53,18 @@ pub(super) struct SegregationService<S> {
     service: S,
 }
 
-impl<'a, S> RpcServiceT<'a> for SegregationService<S>
+impl<S> RpcServiceT for SegregationService<S>
 where
-    S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
+    S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
 {
-    type Future = BoxFuture<'a, MethodResponse>;
+    type MethodResponse = S::MethodResponse;
+    type NotificationResponse = S::NotificationResponse;
+    type BatchResponse = S::BatchResponse;
 
-    fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
+    fn call<'a>(
+        &self,
+        req: jsonrpsee::types::Request<'a>,
+    ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
         let path = req.extensions().get::<ApiPaths>();
         let supported = path
             .and_then(|p| VERSION_METHODS_MAPPINGS.get(p))
@@ -79,7 +85,17 @@ where
                 )
             }
         }
-        .boxed()
+    }
+
+    fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
+        self.service.batch(batch)
+    }
+
+    fn notification<'a>(
+        &self,
+        n: Notification<'a>,
+    ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
+        self.service.notification(n)
     }
 }
 
