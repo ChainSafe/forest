@@ -222,6 +222,7 @@ mod actor_states;
 mod allocation;
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
+mod bytecode_hash;
 mod hash_map;
 mod ipld; // NaN != NaN
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
@@ -232,6 +233,8 @@ mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiar
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
+mod tombstone;
+mod transient_data;
 mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
 

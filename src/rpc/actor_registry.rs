@@ -3,8 +3,8 @@
 use crate::lotus_json::HasLotusJson;
 use crate::networks::ACTOR_BUNDLES_METADATA;
 use crate::shim::actors::{
-    AccountActorStateLoad, CronActorStateLoad, MarketActorStateLoad, MinerActorStateLoad, account,
-    cron, market, miner,
+    AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, MarketActorStateLoad,
+    MinerActorStateLoad, account, cron, evm, market, miner,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
@@ -71,6 +71,12 @@ where
                 .map_err(|e| anyhow!("Failed to load market actor state: {}", e))?;
             Ok(serde_json::to_value(state.into_lotus_json())
                 .map_err(|e| anyhow!("Failed to serialize market state to JSON: {}", e))?)
+        }
+        BuiltinActor::EVM => {
+            let state = evm::State::load(store, *code_cid, *state_cid)
+                .map_err(|e| anyhow!("Failed to load evm actor state: {}", e))?;
+            Ok(serde_json::to_value(state.into_lotus_json())
+                .map_err(|e| anyhow!("Failed to serialize evm state to JSON: {}", e))?)
         }
         // Add other actor types as needed
         _ => Err(anyhow!(
