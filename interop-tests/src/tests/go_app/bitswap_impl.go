@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ipfs/boxo/bitswap"
-	bsnet "github.com/ipfs/boxo/bitswap/network"
+	"github.com/ipfs/boxo/bitswap/network/bsnet"
 	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
@@ -74,8 +74,6 @@ type NaiveRouter struct {
 func NewRouter(p peer.AddrInfo) NaiveRouter {
 	return NaiveRouter{p}
 }
-
-func (r NaiveRouter) Provide(ctx context.Context, k cid.Cid, b bool) error { return nil }
 
 func (r NaiveRouter) FindProvidersAsync(ctx context.Context, k cid.Cid, max int) <-chan peer.AddrInfo {
 	ch := make(chan peer.AddrInfo)
