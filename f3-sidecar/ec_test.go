@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	ec, err := NewForestEC("http://127.0.0.1:2345/rpc/v1", "")
+	ec, err := NewForestEC(ctx, "http://127.0.0.1:2345/rpc/v1", "")
 	if err != nil {
 		panic(err)
 	}

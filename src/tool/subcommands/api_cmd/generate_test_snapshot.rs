@@ -74,7 +74,17 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     let mut index = Index::default();
     let reader = db.tracker.eth_mappings_db.read();
     for (k, v) in reader.iter() {
-        index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
+        index
+            .eth_mappings
+            .get_or_insert_with(ahash::HashMap::default)
+            .insert(k.to_string(), Payload(v.clone()));
+    }
+    let reader = db.tracker.indices_db.read();
+    for (k, v) in reader.iter() {
+        index
+            .indices
+            .get_or_insert_with(ahash::HashMap::default)
+            .insert(k.to_string(), Payload(v.clone()));
     }
     if index == Index::default() {
         None

@@ -10,7 +10,7 @@ use axum::{
 use parking_lot::RwLock;
 
 use crate::chain_sync::SyncStatusReport;
-use crate::{Config, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig};
+use crate::{Config, libp2p::PeerManager, networks::ChainConfig};
 
 mod endpoints;
 
@@ -24,7 +24,6 @@ pub(crate) struct ForestState {
     pub genesis_timestamp: u64,
     pub sync_status: Arc<RwLock<SyncStatusReport>>,
     pub peer_manager: Arc<PeerManager>,
-    pub settings_store: Arc<dyn SettingsStore + Sync + Send>,
 }
 
 /// Initializes the healthcheck server. The server listens on the address specified in the
@@ -63,7 +62,6 @@ mod test {
 
     use crate::Client;
     use crate::cli_shared::cli::ChainIndexerConfig;
-    use crate::db::SettingsExt;
 
     use super::*;
     use crate::chain_sync::NodeSyncStatus;
@@ -75,7 +73,6 @@ mod test {
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
 
         let sync_status = Arc::new(RwLock::new(SyncStatusReport::init()));
-        let db = Arc::new(crate::db::MemoryDB::default());
 
         let forest_state = ForestState {
             config: Config {
@@ -94,7 +91,6 @@ mod test {
             genesis_timestamp: 0,
             sync_status: sync_status.clone(),
             peer_manager: Arc::new(PeerManager::default()),
-            settings_store: db.clone(),
         };
 
         let listener =
@@ -120,7 +116,6 @@ mod test {
         // instrument the state so that the ready requirements are met
         sync_status.write().status = NodeSyncStatus::Synced;
         sync_status.write().current_head_epoch = i64::MAX;
-        db.set_eth_mapping_up_to_date().unwrap();
 
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
@@ -132,7 +127,6 @@ mod test {
         assert!(text.contains("[+] sync complete"));
         assert!(text.contains("[+] epoch up to date"));
         assert!(text.contains("[+] rpc server running"));
-        assert!(text.contains("[+] eth mappings up to date"));
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
@@ -150,7 +144,6 @@ mod test {
         assert!(text.contains("[!] sync incomplete"));
         assert!(text.contains("[!] epoch outdated"));
         assert!(text.contains("[!] rpc server not running"));
-        assert!(text.contains("[+] eth mappings up to date"));
     }
 
     #[tokio::test]
@@ -160,7 +153,6 @@ mod test {
 
         let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let peer_manager = Arc::new(PeerManager::default());
-        let db = Arc::new(crate::db::MemoryDB::default());
         let forest_state = ForestState {
             config: Config {
                 client: Client {
@@ -174,7 +166,6 @@ mod test {
             genesis_timestamp: 0,
             sync_status: sync_status.clone(),
             peer_manager: peer_manager.clone(),
-            settings_store: db,
         };
 
         let listener =
@@ -234,7 +225,6 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let peer_manager = Arc::new(PeerManager::default());
-        let db = Arc::new(crate::db::MemoryDB::default());
 
         let sync_status = Arc::new(RwLock::new(SyncStatusReport::default()));
         let forest_state = ForestState {
@@ -250,7 +240,6 @@ mod test {
             genesis_timestamp: 0,
             sync_status: sync_status.clone(),
             peer_manager: peer_manager.clone(),
-            settings_store: db,
         };
 
         let listener =
@@ -326,7 +315,6 @@ mod test {
             genesis_timestamp: 0,
             sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             peer_manager: Arc::default(),
-            settings_store: Arc::new(crate::db::MemoryDB::default()),
         };
         let listener =
             tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address)

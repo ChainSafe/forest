@@ -52,6 +52,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::beacon::BeaconGetEntry);
 
         // chain vertical
+        $callback!($crate::rpc::chain::ChainPruneSnapshot);
         $callback!($crate::rpc::chain::ChainExport);
         $callback!($crate::rpc::chain::ChainGetBlock);
         $callback!($crate::rpc::chain::ChainGetBlockMessages);

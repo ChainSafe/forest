@@ -7,7 +7,7 @@ set -eu
 
 source "$(dirname "$0")/harness.sh"
 
-forest_init
+forest_init "$@"
 
 echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}

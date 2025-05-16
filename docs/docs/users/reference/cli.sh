@@ -42,6 +42,7 @@ generate_markdown_section "forest-cli" "chain block"
 generate_markdown_section "forest-cli" "chain message"
 generate_markdown_section "forest-cli" "chain read-obj"
 generate_markdown_section "forest-cli" "chain set-head"
+generate_markdown_section "forest-cli" "chain prune"
 
 generate_markdown_section "forest-cli" "auth"
 generate_markdown_section "forest-cli" "auth create-token"

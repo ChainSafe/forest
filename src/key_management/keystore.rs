@@ -476,7 +476,7 @@ mod test {
 
     #[test]
     fn test_read_write_encrypted_keystore() {
-        let keystore_location = tempfile::tempdir().unwrap().into_path();
+        let keystore_location = tempfile::tempdir().unwrap().keep();
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location.clone(),
             PASSPHRASE.to_string(),
@@ -495,7 +495,7 @@ mod test {
 
     #[test]
     fn test_read_write_keystore() {
-        let keystore_location = tempfile::tempdir().unwrap().into_path();
+        let keystore_location = tempfile::tempdir().unwrap().keep();
         let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
 
         let key = wallet::generate_key(SignatureType::Bls).unwrap();

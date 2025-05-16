@@ -69,6 +69,9 @@
 //! depth-first search algorithm, with `O(V+E)` complexity, where V is the number of vertices and E
 //! is the number of edges.
 
+mod snapshot;
+pub use snapshot::SnapshotGarbageCollector;
+
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
@@ -236,7 +239,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
 mod test {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::{ChainEpochDelta, ChainStore};
-    use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB, PersistentStore};
+    use crate::db::{GarbageCollectable, MemoryDB, PersistentStore, gc::MarkAndSweep};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
     use crate::networks::ChainConfig;
     use crate::shim::clock::ChainEpoch;

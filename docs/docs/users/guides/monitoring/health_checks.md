@@ -75,7 +75,6 @@ Sample _ready_ response:
 [+] sync complete
 [+] epoch up to date
 [+] rpc server running
-[+] eth mappings up to date
 [+] f3 running⏎
 ```
 
@@ -85,7 +84,6 @@ Sample _not ready_ response:
 [!] sync incomplete
 [!] epoch outdated
 [+] rpc server running
-[+] eth mappings up to date
 [+] f3 running⏎
 ```
 

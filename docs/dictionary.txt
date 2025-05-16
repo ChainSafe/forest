@@ -24,6 +24,7 @@ devnet
 Devops
 Devs
 DHT
+DigitalOcean
 Drand
 Ethereum
 F3

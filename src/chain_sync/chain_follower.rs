@@ -943,7 +943,7 @@ mod tests {
 
         // Create a forked chain
         // genesis -> a -> b
-        //            \--> d
+        //            \--> c
         chain4u! {
             in c4u;
             [a = dummy_node(&db, 1)] -> [b = dummy_node(&db, 2)]

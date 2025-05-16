@@ -10,13 +10,7 @@ function forest_run_node_stateless_detached_with_filter_list {
   pkill -9 forest || true
   local filter_list=$1
 
-  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --save-token ./admin_token --skip-load-actors --stateless --rpc-filter-list "$filter_list"
-
-  ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-  export ADMIN_TOKEN
-  export FULLNODE_API_INFO
+  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --skip-load-actors --stateless --rpc-filter-list "$filter_list"
 }
 
 # Tests the RPC method `Filecoin.ChainHead` and checks if the status code matches the expected code.
