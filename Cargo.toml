@@ -66,22 +66,20 @@ either = "1"
 enumflags2 = "0.7"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_eam_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_evm_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_multisig_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "6012f40f8ae2478e1f8902cde31d04b52e7dc8d4", features = [
-  "json",
-] }
+fil_actor_account_state = { version = "22.2" }
+fil_actor_cron_state = { version = "22.2" }
+fil_actor_datacap_state = { version = "22.2" }
+fil_actor_eam_state = { version = "22.2" }
+fil_actor_evm_state = { version = "22.2" }
+fil_actor_init_state = { version = "22.2" }
+fil_actor_market_state = { version = "22.2" }
+fil_actor_miner_state = { version = "22.2" }
+fil_actor_multisig_state = { version = "22.2" }
+fil_actor_power_state = { version = "22.2" }
+fil_actor_reward_state = { version = "22.2" }
+fil_actor_system_state = { version = "22.2" }
+fil_actor_verifreg_state = { version = "22.2" }
+fil_actors_shared = { version = "22.2", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
