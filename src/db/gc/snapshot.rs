@@ -140,6 +140,16 @@ where
                 )
             })
             .unwrap_or(EPOCHS_IN_DAY * 7);
+        let snap_gc_check_interval_secs = std::env::var("FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .inspect(|i| {
+                tracing::info!(
+                    "Using snapshot GC check interval seconds {i} set by FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS"
+                )
+            })
+            .unwrap_or(60 * 5);
+        let snap_gc_check_interval = Duration::from_secs(snap_gc_check_interval_secs);
         tracing::info!(
             "Running snapshot GC scheduler with interval epochs {snap_gc_interval_epochs}"
         );
@@ -162,7 +172,7 @@ where
                     }
                 }
             }
-            tokio::time::sleep(Duration::from_secs(60 * 5)).await;
+            tokio::time::sleep(snap_gc_check_interval).await;
         }
     }
 
