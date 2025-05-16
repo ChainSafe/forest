@@ -73,6 +73,7 @@ fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
     }
     Arc::new(ChainConfig {
         enable_indexer: config.chain_indexer.enable_indexer,
+        enable_rpc: config.client.enable_rpc,
         ..chain_config
     })
 }
