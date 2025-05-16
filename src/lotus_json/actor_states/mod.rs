@@ -7,4 +7,5 @@ mod entry;
 mod evm_state;
 mod market_state;
 mod miner_state;
+mod system_state;
 mod vesting_funds;
