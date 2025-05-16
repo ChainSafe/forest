@@ -12,6 +12,7 @@ use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
+use crate::rpc::actor_registry;
 use crate::shim::actors::init;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -41,10 +42,7 @@ use crate::shim::{
 use crate::state_manager::{
     MarketBalance, StateManager, StateOutput, circulating_supply::GenesisInfo, utils::structured,
 };
-use crate::utils::db::{
-    BlockstoreExt as _,
-    car_stream::{CarBlock, CarWriter},
-};
+use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
@@ -66,7 +64,7 @@ use ipld_core::ipld::Ipld;
 use jsonrpsee::types::error::ErrorObject;
 use num_bigint::BigInt;
 use num_traits::Euclid;
-use nunny::{Vec as NonEmpty, vec as nonempty};
+use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1633,14 +1631,13 @@ impl RpcMethod<2> for StateReadState {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let blk = ctx.store().get_required(&actor.state)?;
-        let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
+        let state_json =
+            actor_registry::load_and_serialize_actor_state(ctx.store(), &actor.code, &actor.state)
+                .map_err(|e| anyhow::anyhow!("Failed to load actor state: {}", e))?;
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),
             code: actor.code,
-            state: crate::rpc::types::ApiState {
-                builtin_actors: Ipld::Link(state),
-            },
+            state: state_json,
         })
     }
 }
