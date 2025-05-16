@@ -145,8 +145,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/huin/goupnp v1.3.0 h1:UvLUlWDNpoUdYzb2TCn+MuTWtcjXKSza2n6CBdQ0xXc=
 github.com/huin/goupnp v1.3.0/go.mod h1:gnGPsThkYa7bFi/KWmEysQRf48l2dvR5bxr2OFckNX8=
-github.com/ihciah/rust2go v0.0.0-20250312161018-7394c455c373 h1:t6MP434diH1RZfEbtgRenwDs3ttDvCEmC4gw9m0RVq8=
-github.com/ihciah/rust2go v0.0.0-20250312161018-7394c455c373/go.mod h1:SpcZZoVYDXYhx373JZ1onR8dnEcalKA0H61x/FJ9O0s=
+github.com/ihciah/rust2go v0.0.0-20250427082441-4d6d8d2c2959 h1:vkmhmStmR6swQqpBsaGy4sqRHt4yP38wVdWmfF2VCN0=
+github.com/ihciah/rust2go v0.0.0-20250427082441-4d6d8d2c2959/go.mod h1:SpcZZoVYDXYhx373JZ1onR8dnEcalKA0H61x/FJ9O0s=
 github.com/ipfs/bbloom v0.0.4 h1:Gi+8EGJ2y5qiD5FbsbpX/TMNcJw8gSqr7eyjHa4Fhvs=
 github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/boxo v0.27.4 h1:6nC8lY5GnR6whAbW88hFz6L13wZUj2vr5BRe3iTvYBI=
