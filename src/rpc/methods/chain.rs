@@ -264,7 +264,7 @@ impl RpcMethod<1> for ChainExport {
 
         match if dry_run {
             crate::chain::export::<Sha256>(
-                ctx.store_owned(),
+                &ctx.store_owned(),
                 &start_ts,
                 recent_roots,
                 VoidAsyncWriter,
@@ -275,7 +275,7 @@ impl RpcMethod<1> for ChainExport {
         } else {
             let file = tokio::fs::File::create(&output_path).await?;
             crate::chain::export::<Sha256>(
-                ctx.store_owned(),
+                &ctx.store_owned(),
                 &start_ts,
                 recent_roots,
                 file,

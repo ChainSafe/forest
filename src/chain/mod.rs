@@ -18,13 +18,13 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 pub use self::{store::*, weight::*};
 
 pub async fn export_from_head<D: Digest>(
-    db: Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
+    db: &Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
     skip_checksum: bool,
 ) -> anyhow::Result<(Tipset, Option<digest::Output<D>>), Error> {
-    let head_key = SettingsStoreExt::read_obj::<TipsetKey>(&db, crate::db::setting_keys::HEAD_KEY)?
+    let head_key = SettingsStoreExt::read_obj::<TipsetKey>(db, crate::db::setting_keys::HEAD_KEY)?
         .context("chain head key not found")?;
     let head_ts = Tipset::load_required(&db, &head_key)?;
     let digest = export::<D>(db, &head_ts, lookup_depth, writer, seen, skip_checksum).await?;
@@ -32,7 +32,7 @@ pub async fn export_from_head<D: Digest>(
 }
 
 pub async fn export<D: Digest>(
-    db: Arc<impl Blockstore + Send + Sync + 'static>,
+    db: &Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
@@ -53,8 +53,8 @@ pub async fn export<D: Digest>(
         // block size is between 1kb and 2kb.
         1024,
         stream_chain(
-            Arc::clone(&db),
-            tipset.clone().chain_owned(Arc::clone(&db)),
+            Arc::clone(db),
+            tipset.clone().chain_owned(Arc::clone(db)),
             stateroot_lookup_limit,
         )
         .with_seen(seen),

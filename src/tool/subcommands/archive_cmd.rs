@@ -150,7 +150,7 @@ impl ArchiveCommands {
                 let store = ManyCar::try_from(snapshot_files)?;
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
-                    store.into(),
+                    &store.into(),
                     heaviest_tipset,
                     output_path,
                     epoch,
@@ -355,7 +355,7 @@ fn build_output_path(
 
 #[allow(clippy::too_many_arguments)]
 async fn do_export(
-    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    store: &Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -366,7 +366,7 @@ async fn do_export(
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
 
-    let genesis = ts.genesis(&store)?;
+    let genesis = ts.genesis(store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
@@ -381,7 +381,7 @@ async fn do_export(
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let index = ChainIndex::new(&store);
+    let index = ChainIndex::new(store);
 
     let ts = index
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
@@ -444,7 +444,7 @@ async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(store.clone(), &ts, depth, writer, seen, true).await?;
+    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
     Ok(())
 }
@@ -600,7 +600,7 @@ mod tests {
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            store.into(),
+            &store.into(),
             heaviest_tipset,
             output_path.path().into(),
             Some(0),

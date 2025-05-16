@@ -54,7 +54,7 @@ impl IndexCommands {
                 println!("From epoch:    {}", from);
                 println!("To epoch:      {}", to);
 
-                let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
+                let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
                 let db = Arc::new(ManyCar::new(db_writer.clone()));
                 let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
 
