@@ -33,6 +33,8 @@
 
 -[#5629](https://github.com/ChainSafe/forest/pull/5629) Save default RPC token and consume it automatically.
 
+-[#5639](https://github.com/ChainSafe/forest/pull/5639) Add automatic scheduler for snapshot GC.
+
 ### Changed
 
 -[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
