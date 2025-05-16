@@ -689,8 +689,7 @@ impl EthTrace {
 
         // Match FromAddress
         if let Some(from_addresses) = from_decoded_addresses {
-            if !from_addresses.is_empty() && !from_addresses.iter().any(|addr| *addr == trace_from)
-            {
+            if !from_addresses.is_empty() && !from_addresses.contains(&trace_from) {
                 return Ok(false);
             }
         }
