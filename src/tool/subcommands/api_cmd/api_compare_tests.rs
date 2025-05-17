@@ -102,7 +102,6 @@ impl TestSummary {
             },
             rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
             rpc::ClientError::RequestTimeout => Self::Timeout,
-
             rpc::ClientError::Transport(_)
             | rpc::ClientError::RestartNeeded(_)
             | rpc::ClientError::InvalidSubscriptionId
@@ -111,6 +110,7 @@ impl TestSummary {
             | rpc::ClientError::HttpNotImplemented
             | rpc::ClientError::EmptyBatchRequest(_)
             | rpc::ClientError::RegisterMethod(_) => Self::InfraError,
+            _ => unimplemented!(),
         }
     }
 }
