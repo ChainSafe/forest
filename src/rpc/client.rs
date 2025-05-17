@@ -252,6 +252,7 @@ impl UrlClient {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum UrlClientInner {
     Ws(jsonrpsee::ws_client::WsClient),
     Https(jsonrpsee::http_client::HttpClient),
