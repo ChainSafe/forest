@@ -387,11 +387,12 @@ use jsonrpsee::{
     server::{RpcModule, Server, StopHandle, TowerServiceBuilder, stop_channel},
 };
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 use tower::Service;
 
 use crate::rpc::sync::SnapshotProgressState;

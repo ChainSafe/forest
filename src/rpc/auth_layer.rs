@@ -5,17 +5,20 @@ use crate::auth::{JWT_IDENTIFIER, verify_token};
 use crate::key_management::KeyStore;
 use crate::rpc::{CANCEL_METHOD_NAME, Permission, RpcMethod as _, chain};
 use ahash::{HashMap, HashMapExt as _};
+use futures::future::Either;
 use http::{
     HeaderMap,
     header::{AUTHORIZATION, HeaderValue},
 };
+use itertools::Itertools as _;
 use jsonrpsee::MethodResponse;
-use jsonrpsee::core::middleware::{Batch, Notification};
+use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use jsonrpsee::types::Id;
 use jsonrpsee::types::{ErrorObject, error::ErrorCode};
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower::Layer;
 use tracing::debug;
 
@@ -74,9 +77,30 @@ pub struct Auth<S> {
     service: S,
 }
 
+impl<S> Auth<S> {
+    fn check_permissions<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
+        match check_permissions(&self.keystore, self.headers.get(AUTHORIZATION), method_name) {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(ErrorObject::borrowed(
+                http::StatusCode::UNAUTHORIZED.as_u16() as _,
+                "Unauthorized",
+                None,
+            )),
+            Err(code) => Err(ErrorObject::from(code)),
+        }
+    }
+}
+
 impl<S> RpcServiceT for Auth<S>
 where
-    S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
+    S: RpcServiceT<
+            MethodResponse = MethodResponse,
+            NotificationResponse = MethodResponse,
+            BatchResponse = MethodResponse,
+        > + Send
+        + Sync
+        + Clone
+        + 'static,
 {
     type MethodResponse = S::MethodResponse;
     type NotificationResponse = S::NotificationResponse;
@@ -86,51 +110,62 @@ where
         &self,
         req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        let method_name = req.method_name().to_owned();
-        let auth_header = self.headers.get(AUTHORIZATION).cloned();
-        let keystore = self.keystore.clone();
-        let service = self.service.clone();
-        async move {
-            match check_permissions(&keystore, auth_header, &method_name).await {
-                Ok(true) => service.call(req).await,
-                Ok(false) => MethodResponse::error(
-                    req.id(),
-                    ErrorObject::borrowed(
-                        http::StatusCode::UNAUTHORIZED.as_u16() as _,
-                        "Unauthorized",
-                        None,
-                    ),
-                ),
-                Err(code) => MethodResponse::error(req.id(), ErrorObject::from(code)),
-            }
+        match self.check_permissions(req.method_name()) {
+            Ok(()) => Either::Left(self.service.call(req)),
+            Err(e) => Either::Right(async move { MethodResponse::error(req.id(), e) }),
         }
     }
 
     fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
-        self.service.batch(batch)
+        let entries = batch
+            .into_iter()
+            .filter_map(|entry| match entry {
+                Ok(BatchEntry::Call(req)) => {
+                    Some(match self.check_permissions(req.method_name()) {
+                        Ok(()) => Ok(BatchEntry::Call(req)),
+                        Err(e) => Err(BatchEntryErr::new(req.id(), e)),
+                    })
+                }
+                Ok(BatchEntry::Notification(notif)) => {
+                    match self.check_permissions(notif.method_name()) {
+                        Ok(_) => Some(Ok(BatchEntry::Notification(notif))),
+                        Err(_) => {
+                            // Just filter out the notification if the auth fails
+                            // because notifications are not expected to return a response.
+                            None
+                        }
+                    }
+                }
+                // Errors which could happen such as invalid JSON-RPC call
+                // or invalid JSON are just passed through.
+                Err(err) => Some(Err(err)),
+            })
+            .collect_vec();
+        self.service.batch(Batch::from(entries))
     }
 
     fn notification<'a>(
         &self,
         n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        self.service.notification(n)
+        match self.check_permissions(n.method_name()) {
+            Ok(()) => Either::Left(self.service.notification(n)),
+            Err(e) => Either::Right(async move { MethodResponse::error(Id::Null, e) }),
+        }
     }
 }
 
 /// Verify JWT Token and return the token's permissions.
-async fn auth_verify(token: &str, keystore: &RwLock<KeyStore>) -> anyhow::Result<Vec<String>> {
-    let ks = keystore.read().await;
-    let ki = ks.get(JWT_IDENTIFIER)?;
-    let perms = verify_token(token, ki.private_key())?;
-    Ok(perms)
+fn auth_verify(token: &str, keystore: &RwLock<KeyStore>) -> anyhow::Result<Vec<String>> {
+    let key_info = keystore.read().get(JWT_IDENTIFIER)?;
+    Ok(verify_token(token, key_info.private_key())?)
 }
 
-async fn check_permissions(
+fn check_permissions(
     keystore: &RwLock<KeyStore>,
-    auth_header: Option<HeaderValue>,
+    auth_header: Option<&HeaderValue>,
     method: &str,
-) -> anyhow::Result<bool, ErrorCode> {
+) -> Result<bool, ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
             let token = token
@@ -140,9 +175,7 @@ async fn check_permissions(
 
             debug!("JWT from HTTP Header: {}", token);
 
-            auth_verify(token, keystore)
-                .await
-                .map_err(|_| ErrorCode::InvalidRequest)?
+            auth_verify(token, keystore).map_err(|_| ErrorCode::InvalidRequest)?
         }
         // If no token is passed, assume read behavior
         None => vec!["read".to_owned()],
@@ -162,39 +195,39 @@ mod tests {
     use crate::rpc::wallet;
     use chrono::Duration;
 
-    #[tokio::test]
-    async fn check_permissions_no_header() {
+    #[test]
+    fn check_permissions_no_header() {
         let keystore = Arc::new(RwLock::new(
             KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
         ));
 
-        let res = check_permissions(&keystore, None, ChainHead::NAME).await;
+        let res = check_permissions(&keystore, None, ChainHead::NAME);
         assert_eq!(res, Ok(true));
 
-        let res = check_permissions(&keystore, None, "Cthulhu.InvokeElderGods").await;
+        let res = check_permissions(&keystore, None, "Cthulhu.InvokeElderGods");
         assert_eq!(res.unwrap_err(), ErrorCode::MethodNotFound);
 
-        let res = check_permissions(&keystore, None, wallet::WalletNew::NAME).await;
+        let res = check_permissions(&keystore, None, wallet::WalletNew::NAME);
         assert_eq!(res, Ok(false));
     }
 
-    #[tokio::test]
-    async fn check_permissions_invalid_header() {
+    #[test]
+    fn check_permissions_invalid_header() {
         let keystore = Arc::new(RwLock::new(
             KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
         ));
 
         let auth_header = HeaderValue::from_static("Bearer Azathoth");
-        let res = check_permissions(&keystore, Some(auth_header), ChainHead::NAME).await;
+        let res = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME);
         assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
 
         let auth_header = HeaderValue::from_static("Cthulhu");
-        let res = check_permissions(&keystore, Some(auth_header), ChainHead::NAME).await;
+        let res = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME);
         assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
     }
 
-    #[tokio::test]
-    async fn check_permissions_valid_header() {
+    #[test]
+    fn check_permissions_valid_header() {
         use crate::auth::*;
         let keystore = Arc::new(RwLock::new(
             KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
@@ -204,7 +237,6 @@ mod tests {
         let key_info = generate_priv_key();
         keystore
             .write()
-            .await
             .put(JWT_IDENTIFIER, key_info.clone())
             .unwrap();
         let token_exp = Duration::hours(1);
@@ -217,20 +249,15 @@ mod tests {
 
         // Should work with the `Bearer` prefix
         let auth_header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
-        let res = check_permissions(&keystore, Some(auth_header.clone()), ChainHead::NAME).await;
+        let res = check_permissions(&keystore, Some(&auth_header), ChainHead::NAME);
         assert_eq!(res, Ok(true));
 
-        let res = check_permissions(
-            &keystore,
-            Some(auth_header.clone()),
-            wallet::WalletNew::NAME,
-        )
-        .await;
+        let res = check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME);
         assert_eq!(res, Ok(true));
 
         // Should work without the `Bearer` prefix
         let auth_header = HeaderValue::from_str(&token).unwrap();
-        let res = check_permissions(&keystore, Some(auth_header), wallet::WalletNew::NAME).await;
+        let res = check_permissions(&keystore, Some(&auth_header), wallet::WalletNew::NAME);
         assert_eq!(res, Ok(true));
     }
 }

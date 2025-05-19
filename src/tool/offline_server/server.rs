@@ -23,6 +23,7 @@ use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, JWT_IDENTIFIER};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::RwLock;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
@@ -33,7 +34,7 @@ use tokio::{
         ctrl_c,
         unix::{SignalKind, signal},
     },
-    sync::{RwLock, mpsc},
+    sync::mpsc,
     task::JoinSet,
 };
 use tracing::{info, warn};
@@ -139,7 +140,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_status: Arc::new(parking_lot::RwLock::new(SyncStatusReport::init())),
+        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
