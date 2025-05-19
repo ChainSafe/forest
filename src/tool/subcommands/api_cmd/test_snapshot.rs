@@ -164,9 +164,7 @@ async fn ctx(
     let (shutdown, shutdown_recv) = mpsc::channel(1);
     let rpc_state = Arc::new(RPCState {
         state_manager,
-        keystore: Arc::new(tokio::sync::RwLock::new(KeyStore::new(
-            KeyStoreConfig::Memory,
-        )?)),
+        keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),

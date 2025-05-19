@@ -161,8 +161,9 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
+    use parking_lot::RwLock;
     use tokio::sync::mpsc;
-    use tokio::{sync::RwLock, task::JoinSet};
+    use tokio::task::JoinSet;
 
     const TEST_NET_NAME: &str = "test";
 
@@ -233,7 +234,7 @@ mod tests {
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             msgs_in_tipset: Default::default(),
-            sync_status: Arc::new(parking_lot::RwLock::new(SyncStatusReport::default())),
+            sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
             network_name: TEST_NET_NAME.to_owned(),

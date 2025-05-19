@@ -25,10 +25,10 @@ use crate::{
 use anyhow::Context;
 use dialoguer::console::Term;
 use fvm_shared4::address::Network;
+use parking_lot::RwLock;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 pub struct AppContext {

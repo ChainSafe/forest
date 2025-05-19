@@ -15,10 +15,12 @@ use std::time::Duration;
 
 use anyhow::{Context as _, bail};
 use enumflags2::BitFlags;
+use futures::future::Either;
 use http::{HeaderMap, HeaderValue, header};
 use jsonrpsee::core::ClientError;
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
+use jsonrpsee::core::traits::ToRpcParams;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use tracing::{Instrument, Level, debug};
@@ -108,16 +110,16 @@ impl Client {
             let result_or_timeout = tokio::time::timeout(
                 timeout,
                 match params {
-                    serde_json::Value::Null => {
-                        client.request::<T::LotusJson, _>(method_name, ArrayParams::new())
-                    }
+                    serde_json::Value::Null => Either::Left(Either::Left(
+                        client.request::<T::LotusJson, _>(method_name, ArrayParams::new()),
+                    )),
                     serde_json::Value::Array(it) => {
                         let mut params = ArrayParams::new();
                         for param in it {
                             params.insert(param)?
                         }
                         trace_params(params.clone());
-                        client.request(method_name, params)
+                        Either::Left(Either::Right(client.request(method_name, params)))
                     }
                     serde_json::Value::Object(it) => {
                         let mut params = ObjectParams::new();
@@ -125,7 +127,7 @@ impl Client {
                             params.insert(&name, param)?
                         }
                         trace_params(params.clone());
-                        client.request(method_name, params)
+                        Either::Right(client.request(method_name, params))
                     }
                     prim @ (serde_json::Value::Bool(_)
                     | serde_json::Value::Number(_)
@@ -250,77 +252,96 @@ impl UrlClient {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum UrlClientInner {
     Ws(jsonrpsee::ws_client::WsClient),
     Https(jsonrpsee::http_client::HttpClient),
 }
 
-#[async_trait::async_trait]
 impl jsonrpsee::core::client::ClientT for UrlClient {
-    async fn notification<P: jsonrpsee::core::traits::ToRpcParams + Send>(
+    fn notification<Params>(
         &self,
         method: &str,
-        params: P,
-    ) -> Result<(), jsonrpsee::core::ClientError> {
+        params: Params,
+    ) -> impl Future<Output = Result<(), jsonrpsee::core::client::Error>> + Send
+    where
+        Params: ToRpcParams + Send,
+    {
         match &self.inner {
-            UrlClientInner::Ws(it) => it.notification(method, params).await,
-            UrlClientInner::Https(it) => it.notification(method, params).await,
+            UrlClientInner::Ws(it) => Either::Left(it.notification(method, params)),
+            UrlClientInner::Https(it) => Either::Right(it.notification(method, params)),
         }
     }
-    async fn request<R: DeserializeOwned, P: jsonrpsee::core::traits::ToRpcParams + Send>(
+
+    fn request<R, Params>(
         &self,
         method: &str,
-        params: P,
-    ) -> Result<R, jsonrpsee::core::ClientError> {
+        params: Params,
+    ) -> impl Future<Output = Result<R, jsonrpsee::core::client::Error>> + Send
+    where
+        R: DeserializeOwned,
+        Params: ToRpcParams + Send,
+    {
         match &self.inner {
-            UrlClientInner::Ws(it) => it.request(method, params).await,
-            UrlClientInner::Https(it) => it.request(method, params).await,
+            UrlClientInner::Ws(it) => Either::Left(it.request(method, params)),
+            UrlClientInner::Https(it) => Either::Right(it.request(method, params)),
         }
     }
-    async fn batch_request<'a, R: DeserializeOwned + 'a + std::fmt::Debug>(
+
+    fn batch_request<'a, R>(
         &self,
         batch: jsonrpsee::core::params::BatchRequestBuilder<'a>,
-    ) -> Result<jsonrpsee::core::client::BatchResponse<'a, R>, jsonrpsee::core::ClientError> {
+    ) -> impl Future<
+        Output = Result<
+            jsonrpsee::core::client::BatchResponse<'a, R>,
+            jsonrpsee::core::client::Error,
+        >,
+    > + Send
+    where
+        R: DeserializeOwned + fmt::Debug + 'a,
+    {
         match &self.inner {
-            UrlClientInner::Ws(it) => it.batch_request(batch).await,
-            UrlClientInner::Https(it) => it.batch_request(batch).await,
+            UrlClientInner::Ws(it) => Either::Left(it.batch_request(batch)),
+            UrlClientInner::Https(it) => Either::Right(it.batch_request(batch)),
         }
     }
 }
 
-#[async_trait::async_trait]
 impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
-    async fn subscribe<'a, Notif, Params>(
+    fn subscribe<'a, N, Params>(
         &self,
         subscribe_method: &'a str,
         params: Params,
         unsubscribe_method: &'a str,
-    ) -> Result<jsonrpsee::core::client::Subscription<Notif>, jsonrpsee::core::client::Error>
+    ) -> impl Future<
+        Output = Result<jsonrpsee::core::client::Subscription<N>, jsonrpsee::core::client::Error>,
+    >
     where
-        Params: jsonrpsee::core::traits::ToRpcParams + Send,
-        Notif: DeserializeOwned,
+        Params: ToRpcParams + Send,
+        N: DeserializeOwned,
     {
         match &self.inner {
             UrlClientInner::Ws(it) => {
-                it.subscribe(subscribe_method, params, unsubscribe_method)
-                    .await
+                Either::Left(it.subscribe(subscribe_method, params, unsubscribe_method))
             }
             UrlClientInner::Https(it) => {
-                it.subscribe(subscribe_method, params, unsubscribe_method)
-                    .await
+                Either::Right(it.subscribe(subscribe_method, params, unsubscribe_method))
             }
         }
     }
-    async fn subscribe_to_method<'a, Notif>(
+
+    fn subscribe_to_method<N>(
         &self,
-        method: &'a str,
-    ) -> Result<jsonrpsee::core::client::Subscription<Notif>, jsonrpsee::core::client::Error>
+        method: &str,
+    ) -> impl Future<
+        Output = Result<jsonrpsee::core::client::Subscription<N>, jsonrpsee::core::client::Error>,
+    >
     where
-        Notif: DeserializeOwned,
+        N: DeserializeOwned,
     {
         match &self.inner {
-            UrlClientInner::Ws(it) => it.subscribe_to_method(method).await,
-            UrlClientInner::Https(it) => it.subscribe_to_method(method).await,
+            UrlClientInner::Ws(it) => Either::Left(it.subscribe_to_method(method)),
+            UrlClientInner::Https(it) => Either::Right(it.subscribe_to_method(method)),
         }
     }
 }

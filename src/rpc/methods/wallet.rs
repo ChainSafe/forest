@@ -52,7 +52,7 @@ impl RpcMethod<0> for WalletDefaultAddress {
     type Ok = Option<Address>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let keystore = ctx.keystore.read().await;
+        let keystore = ctx.keystore.read();
         Ok(crate::key_management::get_default(&keystore)?)
     }
 }
@@ -71,7 +71,7 @@ impl RpcMethod<1> for WalletExport {
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let keystore = ctx.keystore.read().await;
+        let keystore = ctx.keystore.read();
         let key_info = crate::key_management::export_key_info(&address, &keystore)?;
         Ok(key_info)
     }
@@ -93,7 +93,7 @@ impl RpcMethod<1> for WalletHas {
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let keystore = ctx.keystore.read().await;
+        let keystore = ctx.keystore.read();
         Ok(crate::key_management::find_key(&address, &keystore).is_ok())
     }
 }
@@ -116,7 +116,7 @@ impl RpcMethod<1> for WalletImport {
 
         let addr = format!("wallet-{}", key.address);
 
-        let mut keystore = ctx.keystore.write().await;
+        let mut keystore = ctx.keystore.write();
         keystore.put(&addr, key.key_info)?;
         Ok(key.address)
     }
@@ -135,7 +135,7 @@ impl RpcMethod<0> for WalletList {
     type Ok = Vec<Address>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let keystore = ctx.keystore.read().await;
+        let keystore = ctx.keystore.read();
         Ok(crate::key_management::list_addrs(&keystore)?)
     }
 }
@@ -154,7 +154,7 @@ impl RpcMethod<1> for WalletNew {
         ctx: Ctx<impl Blockstore>,
         (signature_type,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write().await;
+        let mut keystore = ctx.keystore.write();
         let key = crate::key_management::generate_key(signature_type)?;
 
         let addr = format!("wallet-{}", key.address);
@@ -182,7 +182,7 @@ impl RpcMethod<1> for WalletSetDefault {
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write().await;
+        let mut keystore = ctx.keystore.write();
         let addr_string = format!("wallet-{}", address);
         let key_info = keystore.get(&addr_string)?;
         keystore.remove("default")?; // This line should unregister current default key then continue
@@ -212,7 +212,7 @@ impl RpcMethod<2> for WalletSign {
             .state_manager
             .resolve_to_key_addr(&address, &heaviest_tipset)
             .await?;
-        let keystore = &mut *ctx.keystore.write().await;
+        let keystore = &mut *ctx.keystore.write();
         let key = match crate::key_management::find_key(&key_addr, keystore) {
             Ok(key) => key,
             Err(_) => {
@@ -253,7 +253,7 @@ impl RpcMethod<2> for WalletSignMessage {
             .resolve_to_deterministic_address(address, ts)
             .await?;
 
-        let keystore = &mut *ctx.keystore.write().await;
+        let keystore = &mut *ctx.keystore.write();
         let key = match crate::key_management::find_key(&key_addr, keystore) {
             Ok(key) => key,
             Err(_) => {
@@ -325,7 +325,7 @@ impl RpcMethod<1> for WalletDelete {
         ctx: Ctx<impl Blockstore>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut keystore = ctx.keystore.write().await;
+        let mut keystore = ctx.keystore.write();
         crate::key_management::remove_key(&address, &mut keystore)?;
         Ok(())
     }

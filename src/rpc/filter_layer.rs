@@ -3,11 +3,12 @@
 
 use std::sync::Arc;
 
-use futures::FutureExt;
-use futures::future::BoxFuture;
+use futures::future::Either;
+use itertools::Itertools as _;
 use jsonrpsee::MethodResponse;
+use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
-use jsonrpsee::types::ErrorObject;
+use jsonrpsee::types::{ErrorObject, Id};
 use tower::Layer;
 
 use super::FilterList;
@@ -43,29 +44,70 @@ pub(super) struct Filtering<S> {
     filter_list: Arc<FilterList>,
 }
 
-impl<'a, S> RpcServiceT<'a> for Filtering<S>
-where
-    S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
-{
-    type Future = BoxFuture<'a, MethodResponse>;
-
-    fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
-        let service = self.service.clone();
-        let authorized = self.filter_list.authorize(req.method_name());
-        async move {
-            if authorized {
-                service.call(req).await
-            } else {
-                MethodResponse::error(
-                    req.id(),
-                    ErrorObject::borrowed(
-                        http::StatusCode::FORBIDDEN.as_u16() as _,
-                        "Forbidden",
-                        None,
-                    ),
-                )
-            }
+impl<S> Filtering<S> {
+    fn authorize<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
+        if self.filter_list.authorize(method_name) {
+            Ok(())
+        } else {
+            Err(ErrorObject::borrowed(
+                http::StatusCode::FORBIDDEN.as_u16() as _,
+                "Forbidden",
+                None,
+            ))
         }
-        .boxed()
+    }
+}
+
+impl<S> RpcServiceT for Filtering<S>
+where
+    S: RpcServiceT<
+            MethodResponse = MethodResponse,
+            NotificationResponse = MethodResponse,
+            BatchResponse = MethodResponse,
+        > + Send
+        + Sync
+        + Clone
+        + 'static,
+{
+    type MethodResponse = S::MethodResponse;
+    type NotificationResponse = S::NotificationResponse;
+    type BatchResponse = S::BatchResponse;
+
+    fn call<'a>(
+        &self,
+        req: jsonrpsee::types::Request<'a>,
+    ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
+        match self.authorize(req.method_name()) {
+            Ok(()) => Either::Left(self.service.call(req)),
+            Err(e) => Either::Right(async move { MethodResponse::error(req.id(), e) }),
+        }
+    }
+
+    fn notification<'a>(
+        &self,
+        n: Notification<'a>,
+    ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
+        match self.authorize(n.method_name()) {
+            Ok(()) => Either::Left(self.service.notification(n)),
+            Err(e) => Either::Right(async move { MethodResponse::error(Id::Null, e) }),
+        }
+    }
+
+    fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
+        let entries = batch
+            .into_iter()
+            .filter_map(|entry| match entry {
+                Ok(BatchEntry::Call(req)) => Some(match self.authorize(req.method_name()) {
+                    Ok(()) => Ok(BatchEntry::Call(req)),
+                    Err(e) => Err(BatchEntryErr::new(req.id(), e)),
+                }),
+                Ok(BatchEntry::Notification(n)) => match self.authorize(n.method_name()) {
+                    Ok(_) => Some(Ok(BatchEntry::Notification(n))),
+                    Err(_) => None,
+                },
+                Err(err) => Some(Err(err)),
+            })
+            .collect_vec();
+        self.service.batch(Batch::from(entries))
     }
 }
