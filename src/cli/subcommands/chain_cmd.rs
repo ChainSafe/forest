@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod prune;
+use prune::ChainPruneCommands;
+
 use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::HasLotusJson;
 use crate::message::ChainMessage;
@@ -68,6 +71,8 @@ pub enum ChainCommands {
         #[arg(short, long, aliases = ["yes", "no-confirm"], short_alias = 'y')]
         force: bool,
     },
+    #[command(subcommand)]
+    Prune(ChainPruneCommands),
 }
 
 impl ChainCommands {
@@ -123,6 +128,7 @@ impl ChainCommands {
                 .await?;
                 Ok(())
             }
+            Self::Prune(cmd) => cmd.run(client).await,
         }
     }
 }

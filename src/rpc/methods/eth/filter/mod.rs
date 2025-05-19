@@ -537,7 +537,7 @@ impl Matcher for EthFilterSpec {
             self.address.iter().any(|other| other == &eth_emitter_addr)
         };
         let match_topics = if let Some(spec) = self.topics.as_ref() {
-            let matched = entries.iter().enumerate().all(|(i, entry)| {
+            entries.iter().enumerate().all(|(i, entry)| {
                 if let Some(slice) = get_word(entry.value()) {
                     let hash: EthHash = (*slice).into();
                     match spec.0.get(i) {
@@ -549,8 +549,7 @@ impl Matcher for EthFilterSpec {
                     // Drop events with mis-sized topics
                     false
                 }
-            });
-            matched
+            })
         } else {
             true
         };
@@ -746,20 +745,19 @@ impl Matcher for ParsedFilter {
         let match_addr = if self.addresses.is_empty() {
             true
         } else {
-            self.addresses.iter().any(|other| *other == *emitter_addr)
+            self.addresses.contains(emitter_addr)
         };
 
         let match_fields = if self.keys.is_empty() {
             true
         } else {
-            let matched = self.keys.iter().all(|(k, v)| {
+            self.keys.iter().all(|(k, v)| {
                 entries.iter().any(|entry| {
                     k == entry.key()
                         && v.iter()
                             .any(|aeb| aeb.codec == entry.codec() && &aeb.value == entry.value())
                 })
-            });
-            matched
+            })
         };
 
         Ok(match_addr && match_fields)
@@ -775,7 +773,7 @@ impl Matcher for EventFilter {
         let match_addr = if self.addresses.is_empty() {
             true
         } else {
-            self.addresses.iter().any(|other| *other == *resolved)
+            self.addresses.contains(resolved)
         };
         Ok(match_addr)
     }

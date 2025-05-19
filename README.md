@@ -236,13 +236,14 @@ without any prompts.
 
 ### Interacting with Forest via CLI
 
-When the Forest daemon is started, an admin token will be displayed
-(alternatively, use `--save-token <token>` flag to save it on disk). You will
-need this for commands that require a higher level of authorization (like a
+When the Forest daemon is started, an admin token will be displayed and saved to
+data directory by default. (alternatively, use `--save-token <token>` flag to save it on disk).
+You will need this for commands that require a higher level of authorization (like a
 password). Forest, as mentioned above, uses multiaddresses for networking. This
 is no different in the CLI. To set the host and the port to use, if not using
 the default port or using a remote host, set the `FULLNODE_API_INFO` environment
-variable. This is also where you can set a token for authentication.
+variable. This is also where you can set a token for authentication. Note that the token is
+automatically set for CLI if it is invoked on the same host of the daemon.
 
 ```
 FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http

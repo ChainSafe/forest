@@ -55,6 +55,22 @@ impl Client {
         if token.is_some() && base_url.set_password(token).is_err() {
             bail!("couldn't set override password")
         }
+        // Set default token if not provided
+        if token.is_none() && base_url.password().is_none() {
+            let client_config = crate::cli_shared::cli::Client::default();
+            let default_token_path = client_config.default_rpc_token_path();
+            if default_token_path.is_file() {
+                if let Ok(token) = std::fs::read_to_string(&default_token_path) {
+                    if base_url.set_password(Some(token.trim())).is_ok() {
+                        tracing::info!("Loaded the default RPC token");
+                    } else {
+                        tracing::warn!("Failed to set the default RPC token");
+                    }
+                } else {
+                    tracing::warn!("Failed to load the default token file");
+                }
+            }
+        }
         Ok(Self::from_url(base_url))
     }
     pub fn from_url(mut base_url: Url) -> Self {
@@ -234,6 +250,7 @@ impl UrlClient {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum UrlClientInner {
     Ws(jsonrpsee::ws_client::WsClient),
     Https(jsonrpsee::http_client::HttpClient),

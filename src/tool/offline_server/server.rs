@@ -84,7 +84,7 @@ pub async fn start_offline_server(
     proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
     ensure_proof_params_downloaded().await?;
 
-    backfill_db(&state_manager, &head_ts).await?;
+    backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);

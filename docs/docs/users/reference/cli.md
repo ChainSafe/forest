@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.26.0
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -107,7 +107,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.26.0
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -325,7 +325,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.26.0
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -369,6 +369,7 @@ Commands:
   message   Reads and prints out a message referenced by the specified CID from the chain block store
   read-obj  Reads and prints out IPLD nodes referenced by the specified CID from chain block store and returns raw bytes
   set-head  Manually set the head to the given tipset. This invalidates blocks between the desired head and the new head
+  prune     Prune chain database
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -425,6 +426,21 @@ Options:
       --epoch <EPOCH>  Use the tipset from this epoch as the new head. Negative numbers specify decrements from the current head
   -f, --force          Skip confirmation dialogue
   -h, --help           Print help
+```
+
+### `forest-cli chain prune`
+
+```
+Prune chain database
+
+Usage: forest-cli chain prune <COMMAND>
+
+Commands:
+  snap  Run snapshot GC
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
 ```
 
 ### `forest-cli auth`
@@ -965,7 +981,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.26.0
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

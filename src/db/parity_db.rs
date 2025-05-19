@@ -20,7 +20,7 @@ use tracing::warn;
 /// It is used to determine which column to use for a given entry type.
 #[derive(Copy, Clone, Debug, Display, PartialEq, FromRepr, EnumIter)]
 #[repr(u8)]
-enum DbColumn {
+pub enum DbColumn {
     /// Column for storing IPLD data with `Blake2b256` hash and `DAG_CBOR` codec.
     /// Most entries in the `blockstore` will be stored in this column.
     GraphDagCborBlake2b256,
@@ -95,7 +95,7 @@ pub struct ParityDb {
 }
 
 impl ParityDb {
-    fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
+    pub fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
         Options {
             path,
             sync_wal: true,
