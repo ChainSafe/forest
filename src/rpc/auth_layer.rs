@@ -78,7 +78,7 @@ pub struct Auth<S> {
 }
 
 impl<S> Auth<S> {
-    fn check_permissions<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
+    fn authorize<'a>(&self, method_name: &str) -> Result<(), ErrorObject<'a>> {
         match check_permissions(&self.keystore, self.headers.get(AUTHORIZATION), method_name) {
             Ok(true) => Ok(()),
             Ok(false) => Err(ErrorObject::borrowed(
@@ -110,9 +110,19 @@ where
         &self,
         req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        match self.check_permissions(req.method_name()) {
+        match self.authorize(req.method_name()) {
             Ok(()) => Either::Left(self.service.call(req)),
             Err(e) => Either::Right(async move { MethodResponse::error(req.id(), e) }),
+        }
+    }
+
+    fn notification<'a>(
+        &self,
+        n: Notification<'a>,
+    ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
+        match self.authorize(n.method_name()) {
+            Ok(()) => Either::Left(self.service.notification(n)),
+            Err(e) => Either::Right(async move { MethodResponse::error(Id::Null, e) }),
         }
     }
 
@@ -120,38 +130,18 @@ where
         let entries = batch
             .into_iter()
             .filter_map(|entry| match entry {
-                Ok(BatchEntry::Call(req)) => {
-                    Some(match self.check_permissions(req.method_name()) {
-                        Ok(()) => Ok(BatchEntry::Call(req)),
-                        Err(e) => Err(BatchEntryErr::new(req.id(), e)),
-                    })
-                }
-                Ok(BatchEntry::Notification(notif)) => {
-                    match self.check_permissions(notif.method_name()) {
-                        Ok(_) => Some(Ok(BatchEntry::Notification(notif))),
-                        Err(_) => {
-                            // Just filter out the notification if the auth fails
-                            // because notifications are not expected to return a response.
-                            None
-                        }
-                    }
-                }
-                // Errors which could happen such as invalid JSON-RPC call
-                // or invalid JSON are just passed through.
+                Ok(BatchEntry::Call(req)) => Some(match self.authorize(req.method_name()) {
+                    Ok(()) => Ok(BatchEntry::Call(req)),
+                    Err(e) => Err(BatchEntryErr::new(req.id(), e)),
+                }),
+                Ok(BatchEntry::Notification(n)) => match self.authorize(n.method_name()) {
+                    Ok(_) => Some(Ok(BatchEntry::Notification(n))),
+                    Err(_) => None,
+                },
                 Err(err) => Some(Err(err)),
             })
             .collect_vec();
         self.service.batch(Batch::from(entries))
-    }
-
-    fn notification<'a>(
-        &self,
-        n: Notification<'a>,
-    ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        match self.check_permissions(n.method_name()) {
-            Ok(()) => Either::Left(self.service.notification(n)),
-            Err(e) => Either::Right(async move { MethodResponse::error(Id::Null, e) }),
-        }
     }
 }
 
