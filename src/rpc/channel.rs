@@ -70,6 +70,7 @@ use jsonrpsee::{
     types::{ErrorObjectOwned, Id, Params, error::ErrorCode},
 };
 use parking_lot::Mutex;
+use serde_json::value::{RawValue, to_raw_value};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::broadcast::error::RecvError;
@@ -133,12 +134,12 @@ impl PendingSubscriptionSink {
         // The same message is sent twice here because one is sent directly to the transport layer and
         // the other one is sent internally to accept the subscription.
         self.inner
-            .send(response.to_result())
+            .send(response.to_json())
             .await
             .map_err(|e| e.to_string())?;
         self.subscribe
             .send(response)
-            .map_err(|e| format!("accept error: {}", e.as_result()))?;
+            .map_err(|e| format!("accept error: {}", e.as_json()))?;
 
         if success {
             let (tx, rx) = mpsc::channel(1);
@@ -215,7 +216,7 @@ impl SubscriptionSink {
     /// # Cancel safety
     ///
     /// This method is cancel-safe and dropping a future loses its spot in the waiting queue.
-    pub async fn send(&self, msg: String) -> Result<(), String> {
+    pub async fn send(&self, msg: Box<serde_json::value::RawValue>) -> Result<(), String> {
         // Only possible to trigger when the connection is dropped.
         if self.is_closed() {
             return Err(format!("disconnect error: {}", msg));
@@ -242,16 +243,19 @@ impl SubscriptionSink {
 fn create_notif_message(
     sink: &SubscriptionSink,
     result: &impl serde::Serialize,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<Box<RawValue>> {
     let method = sink.method_name();
     let channel_id = sink.channel_id();
     let result = serde_json::to_string(result)?;
-    let msg =
-        format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
+    let msg = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": method,
+        "params": [channel_id, result]
+    });
 
     tracing::debug!("Sending notification: {}", msg);
 
-    Ok(msg)
+    Ok(to_raw_value(&msg)?)
 }
 
 fn close_payload(channel_id: ChannelId) -> serde_json::Value {
@@ -318,7 +322,7 @@ impl Default for RpcModule {
                         match result {
                             Ok(channel_id) => {
                                 let resp = close_channel_response(channel_id);
-                                tracing::debug!("Sending close message: {}", resp.as_result());
+                                tracing::debug!("Sending close message: {}", resp.as_json());
                                 resp
                             }
                             Err(e) => {
@@ -375,7 +379,9 @@ impl RpcModule {
                                         }
                                     }
                                     Err(RecvError::Closed) => {
-                                        let _ = sink.send(close_payload(sink.channel_id()).to_string()).await;
+                                        if let Ok(payload) = to_raw_value(&close_payload(sink.channel_id())) {
+                                            let _ = sink.send(payload).await;
+                                        }
                                         break;
                                     }
                                     Err(RecvError::Lagged(_)) => {
