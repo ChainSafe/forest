@@ -9,7 +9,7 @@ use crate::daemon::bundle::load_actor_bundles;
 use crate::db::PersistentStore;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::interpreter::{MessageCallbackCtx, VMEvent, VMTrace};
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
@@ -414,7 +414,7 @@ where
     load_actor_bundles(&db, &network).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(
+    crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
         &Config::default().client.data_dir,
     );
 
@@ -506,7 +506,6 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
         }, // enable traces if json flag is used
-        VMEvent::NotPushed,
     )?;
 
     if json {

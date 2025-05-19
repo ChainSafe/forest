@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::chain_sync::SyncStatusReport;
 use crate::{
     KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
     chain::ChainStore,
-    chain_sync::{SyncStage, network_context::SyncNetworkContext},
+    chain_sync::network_context::SyncNetworkContext,
     daemon::db_util::load_all_forest_cars,
     db::{
-        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, MemoryDB, SettingsStore,
-        SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
+        CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider, IndicesStore, MemoryDB,
+        SettingsStore, SettingsStoreExt, db_engine::open_db, parity_db::ParityDb,
     },
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
@@ -73,7 +74,17 @@ pub(super) fn build_index(db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>) -> O
     let mut index = Index::default();
     let reader = db.tracker.eth_mappings_db.read();
     for (k, v) in reader.iter() {
-        index.eth_mappings.insert(k.to_string(), Payload(v.clone()));
+        index
+            .eth_mappings
+            .get_or_insert_with(ahash::HashMap::default)
+            .insert(k.to_string(), Payload(v.clone()));
+    }
+    let reader = db.tracker.indices_db.read();
+    for (k, v) in reader.iter() {
+        index
+            .indices
+            .get_or_insert_with(ahash::HashMap::default)
+            .insert(k.to_string(), Payload(v.clone()));
     }
     if index == Index::default() {
         None
@@ -97,6 +108,7 @@ async fn ctx(
 
     let chain_store = Arc::new(
         ChainStore::new(
+            db.clone(),
             db.clone(),
             db.clone(),
             db,
@@ -129,7 +141,7 @@ async fn ctx(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_states: Arc::new(RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
         network_name,
@@ -138,11 +150,6 @@ async fn ctx(
         tipset_send,
         snapshot_progress_tracker: Default::default(),
     });
-    rpc_state
-        .sync_states
-        .write()
-        .first_mut()
-        .set_stage(SyncStage::Idle);
     Ok((rpc_state, network_rx, shutdown_recv))
 }
 
@@ -291,5 +298,23 @@ impl<T: EthMappingsStore> EthMappingsStore for ReadOpsTrackingStore<T> {
 
     fn delete(&self, keys: Vec<EthHash>) -> anyhow::Result<()> {
         self.inner.delete(keys)
+    }
+}
+
+impl<T: IndicesStore> IndicesStore for ReadOpsTrackingStore<T> {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let result = self.inner.read_bin(key)?;
+        if let Some(v) = &result {
+            IndicesStore::write_bin(&self.tracker, key, v.as_slice())?;
+        }
+        self.inner.read_bin(key)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        self.inner.write_bin(key, value)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        self.inner.exists(key)
     }
 }

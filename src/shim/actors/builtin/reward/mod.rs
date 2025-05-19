@@ -103,7 +103,7 @@ impl State {
             State::V12(st) => Ok(from_token_v4_to_v2(
                 &fil_actor_miner_state::v12::pre_commit_deposit_for_power(
                     &st.this_epoch_reward_smoothed,
-                    &fvm_shared4::smooth::FilterEstimate {
+                    &fvm_shared3::smooth::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },
@@ -113,7 +113,7 @@ impl State {
             State::V13(st) => Ok(from_token_v4_to_v2(
                 &fil_actor_miner_state::v13::pre_commit_deposit_for_power(
                     &st.this_epoch_reward_smoothed,
-                    &fvm_shared4::smooth::FilterEstimate {
+                    &fvm_shared3::smooth::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },
@@ -306,7 +306,7 @@ impl State {
                     qa_power,
                     &st.this_epoch_baseline_power,
                     &st.this_epoch_reward_smoothed,
-                    &fvm_shared4::smooth::FilterEstimate {
+                    &fvm_shared3::smooth::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },
@@ -319,7 +319,7 @@ impl State {
                     qa_power,
                     &st.this_epoch_baseline_power,
                     &st.this_epoch_reward_smoothed,
-                    &fvm_shared4::smooth::FilterEstimate {
+                    &fvm_shared3::smooth::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },

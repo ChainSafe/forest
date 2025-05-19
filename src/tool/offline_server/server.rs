@@ -1,14 +1,13 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::JWT_IDENTIFIER;
 use crate::auth::generate_priv_key;
 use crate::chain::ChainStore;
-use crate::chain_sync::SyncStage;
+use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::populate_eth_mappings;
+use crate::daemon::db_util::{backfill_db, populate_eth_mappings};
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -20,6 +19,8 @@ use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
+use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::{Config, JWT_IDENTIFIER};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use std::{
@@ -67,7 +68,9 @@ pub async fn start_offline_server(
         &db,
     )
     .await?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
     let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
         db.clone(),
         db.clone(),
         db.clone(),
@@ -75,8 +78,13 @@ pub async fn start_offline_server(
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
-    let head_ts = Arc::new(db.heaviest_tipset()?);
 
+    // Set proof parameter data dir and make sure the proofs are available. Otherwise,
+    // validation might fail due to missing proof parameters.
+    proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
+    ensure_proof_params_downloaded().await?;
+
+    backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
@@ -131,7 +139,7 @@ pub async fn start_offline_server(
         mpool: Arc::new(message_pool),
         bad_blocks: Default::default(),
         msgs_in_tipset: Default::default(),
-        sync_states: Arc::new(parking_lot::RwLock::new(nunny::vec![Default::default()])),
+        sync_status: Arc::new(parking_lot::RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::from_config(&events_config)),
         sync_network_context,
         network_name,
@@ -140,11 +148,6 @@ pub async fn start_offline_server(
         tipset_send,
         snapshot_progress_tracker: Default::default(),
     };
-    rpc_state
-        .sync_states
-        .write()
-        .first_mut()
-        .set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())
@@ -232,7 +235,7 @@ async fn handle_snapshots(
     Ok(vec![downloaded_snapshot_path])
 }
 
-fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
+pub fn handle_chain_config(chain: &NetworkChain) -> anyhow::Result<ChainConfig> {
     info!("Using chain config for {chain}");
     let chain_config = ChainConfig::from_chain(chain);
     if chain_config.is_testnet() {

@@ -248,8 +248,9 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
     #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
-    f3_contract_address: Option<EthAddress>,
-    f3_contract_poll_interval: Duration,
+    pub f3_contract_address: Option<EthAddress>,
+    pub f3_contract_poll_interval: Duration,
+    pub enable_indexer: bool,
 }
 
 impl ChainConfig {
@@ -275,12 +276,17 @@ impl ChainConfig {
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
-            f3_initial_power_table: None,
+            f3_initial_power_table: Some(
+                "bafy2bzacecklgxd2eksmodvhgurqvorkg3wamgqkrunir3al2gchv2cikgmbu"
+                    .parse()
+                    .expect("invalid f3_initial_power_table"),
+            ),
             f3_contract_address: Some(
                 EthAddress::from_str("0xA19080A1Bcb82Bb61bcb9691EC94653Eb5315716")
                     .expect("invalid f3 contract eth address"),
             ),
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -317,6 +323,7 @@ impl ChainConfig {
             ),
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -343,6 +350,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
+            enable_indexer: false,
         }
     }
 
@@ -378,6 +386,7 @@ impl ChainConfig {
                     .expect("invalid f3 contract eth address"),
             ),
             f3_contract_poll_interval: Duration::from_secs(60),
+            enable_indexer: false,
         }
     }
 
@@ -585,9 +594,9 @@ macro_rules! make_height {
 pub fn calculate_expected_epoch(
     now_timestamp: u64,
     genesis_timestamp: u64,
-    block_delay: u32,
-) -> u64 {
-    now_timestamp.saturating_sub(genesis_timestamp) / block_delay as u64
+    block_delay_secs: u32,
+) -> i64 {
+    (now_timestamp.saturating_sub(genesis_timestamp) / block_delay_secs as u64) as i64
 }
 
 #[cfg(test)]

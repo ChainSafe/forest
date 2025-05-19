@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -107,7 +107,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -325,7 +325,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -369,6 +369,7 @@ Commands:
   message   Reads and prints out a message referenced by the specified CID from the chain block store
   read-obj  Reads and prints out IPLD nodes referenced by the specified CID from chain block store and returns raw bytes
   set-head  Manually set the head to the given tipset. This invalidates blocks between the desired head and the new head
+  prune     Prune chain database
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -425,6 +426,21 @@ Options:
       --epoch <EPOCH>  Use the tipset from this epoch as the new head. Negative numbers specify decrements from the current head
   -f, --force          Skip confirmation dialogue
   -h, --help           Print help
+```
+
+### `forest-cli chain prune`
+
+```
+Prune chain database
+
+Usage: forest-cli chain prune <COMMAND>
+
+Commands:
+  snap  Run snapshot GC
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
 ```
 
 ### `forest-cli auth`
@@ -965,7 +981,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.25.3
+forest-filecoin 0.26.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -980,6 +996,7 @@ SUBCOMMANDS:
   fetch-params     Download parameters for generating and verifying proofs for given size
   archive          Manage archives
   db               Database management
+  index            Index database management
   car              Utilities for manipulating CAR files
   api              API tooling
   net              Network utilities
@@ -1689,23 +1706,39 @@ Options:
 Usage: forest-tool api dump-tests [OPTIONS] --path <PATH> [SNAPSHOT_FILES]...
 
 Arguments:
-  [SNAPSHOT_FILES]...  Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
+  [SNAPSHOT_FILES]...
+          Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
 
 Options:
   -n, --n-tipsets <N_TIPSETS>
-          The number of tipsets to use to generate test cases [default: 10]
+          The number of tipsets to use to generate test cases
+
+          [default: 10]
+
       --miner-address <MINER_ADDRESS>
           Miner address to use for miner tests. Miner worker key must be in the key-store
+
       --worker-address <WORKER_ADDRESS>
           Worker address to use where key is applicable. Worker key must be in the key-store
+
       --eth-chain-id <ETH_CHAIN_ID>
-          Ethereum chain ID. Default to the calibnet chain ID [default: 314159]
+          Ethereum chain ID. Default to the calibnet chain ID
+
+          [default: 314159]
+
       --path <PATH>
-          Which API path to dump [possible values: v0, v1]
+          Which API path to dump
+
+          Possible values:
+          - v0: Only expose this method on `/rpc/v0`
+          - v1: Only expose this method on `/rpc/v1`
+          - v2: Only expose this method on `/rpc/v2`
+
       --include-ignored
 
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool api test`
@@ -1815,10 +1848,23 @@ Usage: forest-tool shed openrpc [OPTIONS] --path <PATH> [INCLUDE]...
 Arguments:
   [INCLUDE]...
 
+
 Options:
-      --path <PATH>  Which API path to dump [possible values: v0, v1]
-      --omit <OMIT>  A comma-separated list of fields to omit from the output (e.g., "summary,description") [possible values: summary, description]
-  -h, --help         Print help
+      --path <PATH>
+          Which API path to dump
+
+          Possible values:
+          - v0: Only expose this method on `/rpc/v0`
+          - v1: Only expose this method on `/rpc/v1`
+          - v2: Only expose this method on `/rpc/v2`
+
+      --omit <OMIT>
+          A comma-separated list of fields to omit from the output (e.g., "summary,description")
+
+          [possible values: summary, description]
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool shed f3`
@@ -1847,4 +1893,34 @@ Usage: forest-tool shed f3 check-activation-raw --contract <CONTRACT>
 Options:
       --contract <CONTRACT>  Contract eth address
   -h, --help                 Print help
+```
+
+### `forest-tool index`
+
+```
+Index database management
+
+Usage: forest-tool index <COMMAND>
+
+Commands:
+  backfill  Backfill index with Ethereum mappings, events, etc
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool index backfill`
+
+```
+Backfill index with Ethereum mappings, events, etc
+
+Usage: forest-tool index backfill [OPTIONS] --from <FROM> --to <TO>
+
+Options:
+  -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
+      --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
+      --from <FROM>      The starting tipset epoch for back-filling (inclusive)
+      --to <TO>          The ending tipset epoch for back-filling (inclusive)
+  -h, --help             Print help
 ```

@@ -42,21 +42,29 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
       - |
         set -euxo pipefail
-        # Perform basic initliazation, including generating the JWT token
+        # Perform basic initialization, including generating the JWT token
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --exit-after-init --save-token /data/forest-token
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
-          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
-          --import-mode=symlink
+          --import-mode=symlink \
+          --halt-after-import
+        
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        # backfill the index db
+        forest-tool index backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300)) --chain ${CHAIN}
+
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT}
     healthcheck:
       test: [ "CMD", "forest-cli", "sync", "wait" ]
       interval: 15s
@@ -103,9 +111,12 @@ services:
         echo $MINER_WORKER_KEY | forest-wallet --remote-wallet import
   api-serve:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       init:
+        condition: service_completed_successfully
+      # Run offline RPC tests in sequence to mitigate OOM issue on CI
+      api-compare:
         condition: service_completed_successfully
     build:
       context: ../../../.
@@ -118,6 +129,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http
+      - FOREST_ETH_MAPPINGS_RANGE=300
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -188,6 +200,10 @@ services:
         lotus sync wait
         # After the sync is done, import the wallet for signing blocks. It might be already there, which will return an error. We ignore it.
         echo $MINER_WORKER_KEY | lotus wallet import || true
+        # Wait until F3 certificate instance 100 is available
+        until lotus f3 c get 100; do
+            sleep 5s;
+        done
   api-compare:
     depends_on:
       lotus-sync-wait:
@@ -209,6 +225,7 @@ services:
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
@@ -224,9 +241,10 @@ services:
           --filter-file /data/filter-list \
           --miner-address ${MINER_ADDRESS} \
           --worker-address ${MINER_WORKER_ADDRESS}
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   api-compare-offline:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       lotus-sync-wait:
         condition: service_completed_successfully
@@ -243,6 +261,7 @@ services:
     environment:
       - RUST_LOG=info,forest::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
     entrypoint: [ "/bin/bash", "-c" ]
     user: 0:0
     command:
@@ -255,6 +274,7 @@ services:
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 5 \
           --filter-file /data/filter-list-offline
+        FULLNODE_API_INFO=$$FOREST_API_INFO forest-cli shutdown --force
   post-setup:
     depends_on:
       api-compare:
@@ -269,7 +289,7 @@ services:
         echo "Success"
   post-setup-offline:
     profiles:
-      - offline-rpc-server
+      - include-offline-rpc
     depends_on:
       api-compare-offline:
         condition: service_completed_successfully

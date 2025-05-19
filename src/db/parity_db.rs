@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{EthMappingsStore, PersistentStore, SettingsStore};
+use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
 use crate::cid_collections::CidHashSet;
 use crate::db::{DBStatistics, GarbageCollectable, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -20,7 +20,7 @@ use tracing::warn;
 /// It is used to determine which column to use for a given entry type.
 #[derive(Copy, Clone, Debug, Display, PartialEq, FromRepr, EnumIter)]
 #[repr(u8)]
-enum DbColumn {
+pub enum DbColumn {
     /// Column for storing IPLD data with `Blake2b256` hash and `DAG_CBOR` codec.
     /// Most entries in the `blockstore` will be stored in this column.
     GraphDagCborBlake2b256,
@@ -37,6 +37,8 @@ enum DbColumn {
     /// Anything stored in this column can be considered permanent, unless manually
     /// deleted.
     PersistentGraph,
+    /// Column for storing indexed values.
+    Indices,
 }
 
 impl DbColumn {
@@ -73,6 +75,12 @@ impl DbColumn {
                         compression,
                         ..Default::default()
                     },
+                    DbColumn::Indices => parity_db::ColumnOptions {
+                        preimage: false,
+                        btree_index: false,
+                        compression,
+                        ..Default::default()
+                    },
                 }
             })
             .collect()
@@ -87,7 +95,7 @@ pub struct ParityDb {
 }
 
 impl ParityDb {
-    fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
+    pub fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
         Options {
             path,
             sync_wal: true,
@@ -201,6 +209,23 @@ impl EthMappingsStore for ParityDb {
             let bytes = key.0.as_bytes().to_vec();
             (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
         }))?)
+    }
+}
+
+impl IndicesStore for ParityDb {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.to_bytes(), DbColumn::Indices)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(key.to_bytes(), value, DbColumn::Indices)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        self.db
+            .get_size(DbColumn::Indices as u8, &key.to_bytes())
+            .map(|size| size.is_some())
+            .context("error checking if key exists")
     }
 }
 
@@ -432,6 +457,7 @@ mod test {
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
                 DbColumn::EthMappings => panic!("invalid column for IPLD data"),
                 DbColumn::PersistentGraph => panic!("invalid column for GC enabled IPLD data"),
+                DbColumn::Indices => panic!("invalid indices column for IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());

@@ -13,7 +13,8 @@ use std::env;
 use std::fmt::{self, Debug};
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
+use enumflags2::BitFlags;
 use http::{HeaderMap, HeaderValue, header};
 use jsonrpsee::core::ClientError;
 use jsonrpsee::core::client::ClientT as _;
@@ -23,7 +24,7 @@ use serde::de::DeserializeOwned;
 use tracing::{Instrument, Level, debug};
 use url::Url;
 
-use super::{ApiPath, ApiPaths, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE, Request};
+use super::{ApiPaths, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE, Request};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
@@ -33,6 +34,7 @@ pub struct Client {
     // just having these versions inline is easier than using a map
     v0: tokio::sync::OnceCell<UrlClient>,
     v1: tokio::sync::OnceCell<UrlClient>,
+    v2: tokio::sync::OnceCell<UrlClient>,
 }
 
 impl Client {
@@ -53,6 +55,22 @@ impl Client {
         if token.is_some() && base_url.set_password(token).is_err() {
             bail!("couldn't set override password")
         }
+        // Set default token if not provided
+        if token.is_none() && base_url.password().is_none() {
+            let client_config = crate::cli_shared::cli::Client::default();
+            let default_token_path = client_config.default_rpc_token_path();
+            if default_token_path.is_file() {
+                if let Ok(token) = std::fs::read_to_string(&default_token_path) {
+                    if base_url.set_password(Some(token.trim())).is_ok() {
+                        tracing::info!("Loaded the default RPC token");
+                    } else {
+                        tracing::warn!("Failed to set the default RPC token");
+                    }
+                } else {
+                    tracing::warn!("Failed to load the default token file");
+                }
+            }
+        }
         Ok(Self::from_url(base_url))
     }
     pub fn from_url(mut base_url: Url) -> Self {
@@ -63,6 +81,7 @@ impl Client {
             base_url,
             v0: Default::default(),
             v1: Default::default(),
+            v2: Default::default(),
         }
     }
     pub fn base_url(&self) -> &Url {
@@ -129,18 +148,27 @@ impl Client {
         };
         work.instrument(span.or_current()).await
     }
-    async fn get_or_init_client(&self, version: ApiPaths) -> Result<&UrlClient, ClientError> {
-        let path = ApiPaths::max(&version);
+    async fn get_or_init_client(
+        &self,
+        version: BitFlags<ApiPaths>,
+    ) -> Result<&UrlClient, ClientError> {
+        let path = version
+            .iter()
+            .max()
+            .context("No supported versions")
+            .map_err(|e| ClientError::Custom(e.to_string()))?;
         match path {
-            ApiPath::V0 => &self.v0,
-            ApiPath::V1 => &self.v1,
+            ApiPaths::V0 => &self.v0,
+            ApiPaths::V1 => &self.v1,
+            ApiPaths::V2 => &self.v2,
         }
         .get_or_try_init(|| async {
             let url = self
                 .base_url
                 .join(match path {
-                    ApiPath::V0 => "rpc/v0",
-                    ApiPath::V1 => "rpc/v1",
+                    ApiPaths::V0 => "rpc/v0",
+                    ApiPaths::V1 => "rpc/v1",
+                    ApiPaths::V2 => "rpc/v2",
                 })
                 .map_err(|it| {
                     ClientError::Custom(format!("creating url for endpoint failed: {}", it))
@@ -222,6 +250,7 @@ impl UrlClient {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum UrlClientInner {
     Ws(jsonrpsee::ws_client::WsClient),
     Https(jsonrpsee::http_client::HttpClient),

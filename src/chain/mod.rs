@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod store;
 mod weight;
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::db::car::forest;
+use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::stream::par_buffer;
@@ -15,6 +16,20 @@ use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub use self::{store::*, weight::*};
+
+pub async fn export_from_head<D: Digest>(
+    db: Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
+    lookup_depth: ChainEpochDelta,
+    writer: impl AsyncWrite + Unpin,
+    seen: CidHashSet,
+    skip_checksum: bool,
+) -> anyhow::Result<(Tipset, Option<digest::Output<D>>), Error> {
+    let head_key = SettingsStoreExt::read_obj::<TipsetKey>(&db, crate::db::setting_keys::HEAD_KEY)?
+        .context("chain head key not found")?;
+    let head_ts = Tipset::load_required(&db, &head_key)?;
+    let digest = export::<D>(db, &head_ts, lookup_depth, writer, seen, skip_checksum).await?;
+    Ok((head_ts, digest))
+}
 
 pub async fn export<D: Digest>(
     db: Arc<impl Blockstore + Send + Sync + 'static>,

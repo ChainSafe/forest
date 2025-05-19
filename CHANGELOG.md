@@ -26,17 +26,43 @@
 ## Forest unreleased
 
 ### Breaking
-- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
 
 ### Added
+
+-[#5598](https://github.com/ChainSafe/forest/pull/5598) Add `forest-cli chain prune snap` command for garbage collecting the database with a new snapshot garbage collector.
+
+-[#5629](https://github.com/ChainSafe/forest/pull/5629) Save default RPC token and consume it automatically.
+
+### Changed
+
+-[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
+
+### Removed
+
+### Fixed
+
+- [#5624](https://github.com/ChainSafe/forest/pull/5624) Fixed `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
+
+## Forest v0.26.1 "Ijon Tichy"
+
+This is a non-mandatory release for all node operators. It includes a fix for the F3 on mainnet and a few other improvements. It also sets the initial power table CID for F3 on mainnet.
+
+### Breaking
+
+- [#5559](https://github.com/ChainSafe/forest/pull/5559) Change `Filecoin.ChainGetMinBaseFee` to `Forest.ChainGetMinBaseFee` with read access.
+- [#5589](https://github.com/ChainSafe/forest/pull/5589) Replace existing `Filecoin.SyncState` API with new `Forest.SyncStatus` to track node syncing progress specific to Forest.
+
+### Added
+
+- [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method. Add `index backfill` subcommand to `forest-tool`.
 
 ### Changed
 
 - [#5467](https://github.com/ChainSafe/forest/pull/5467) Improve error message for `Filecoin.EthEstimateGas` and `Filecoin.EthCall`.
 
-### Removed
-
 ### Fixed
+
+- [#5609](https://github.com/ChainSafe/forest/pull/5609) Fixed an issue with F3 on mainnet where the node would not join the KAD network.
 
 ## Forest v0.25.3 "Sméagol"
 

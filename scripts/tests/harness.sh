@@ -4,6 +4,7 @@
 # executed directly.
 
 export FOREST_CHAIN_INDEXER_ENABLED="1"
+export FOREST_ETH_MAPPINGS_RANGE="300"
 
 export FOREST_PATH="forest"
 export FOREST_CLI_PATH="forest-cli"
@@ -26,6 +27,29 @@ function forest_download_and_import_snapshot {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
+function get_epoch_from_car_db {
+  DB_PATH=$($FOREST_TOOL_PATH db stats --chain calibnet | grep "Database path:" | cut -d':' -f2- | xargs)
+  SNAPSHOT=$(ls "$DB_PATH/car_db"/*.car.zst)
+  forest_query_epoch "$SNAPSHOT"
+}
+
+function backfill_db {
+  echo "Backfill db"
+
+  local snapshot_epoch
+  snapshot_epoch=$(get_epoch_from_car_db)
+  echo "Snapshot epoch: $snapshot_epoch"
+
+  # Default to 300 if no argument is provided
+  local backfill_epochs
+  backfill_epochs=${1:-300}
+
+  local to_epoch
+  to_epoch=$((snapshot_epoch - backfill_epochs))
+
+  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --to "$to_epoch"
+}
+
 function forest_check_db_stats {
   echo "Checking DB stats"
   $FOREST_TOOL_PATH db stats --chain calibnet
@@ -45,7 +69,7 @@ function forest_query_format {
 
 function forest_run_node_detached {
   echo "Running forest in detached mode"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --track-peak-rss
 }
 
 function forest_run_node_stateless_detached {
@@ -75,14 +99,18 @@ function forest_wait_for_sync {
 
 function forest_init {
   forest_download_and_import_snapshot
+
+  if [[ "${1:-}" == "--backfill-db" ]]; then
+    if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+      backfill_db "$2"
+    else
+      echo "Error: Expected a numeric argument after --backfill-db"
+      return 1
+    fi
+  fi
+
   forest_check_db_stats
   forest_run_node_detached
-
-  ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-  export ADMIN_TOKEN
-  export FULLNODE_API_INFO
 
   forest_wait_api
   forest_wait_for_sync

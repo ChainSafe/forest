@@ -21,14 +21,20 @@ import (
 func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
-	closer, err := jsonrpc.NewClient(context.Background(), rpcEndpoint, "Filecoin", &api, nil)
+	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "Filecoin", &api, nil)
 	if err != nil {
 		return err
 	}
 	defer closer()
-	var network string
+
+	ec, err := NewForestEC(ctx, rpcEndpoint, jwt)
+	if err != nil {
+		return err
+	}
+
+	var rawNetwork string
 	for {
-		network, err = api.StateNetworkName(ctx)
+		rawNetwork, err = ec.f3api.GetRawNetworkName(ctx)
 		if err == nil {
 			logger.Infoln("Forest RPC server is online")
 			break
@@ -42,11 +48,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 
-	p2p, err := createP2PHost(ctx, network)
-	if err != nil {
-		return err
-	}
-	ec, err := NewForestEC(rpcEndpoint, jwt)
+	p2p, err := createP2PHost(ctx, rawNetwork)
 	if err != nil {
 		return err
 	}
@@ -72,7 +74,13 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		logger.Warn("InitialPowerTable is undefined")
 		m.InitialPowerTable = cid.Undef
 	}
-	m.NetworkName = gpbft.NetworkName(network)
+	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
+	// mainnet is called testnetnet in state.
+	if rawNetwork == "testnetnet" {
+		m.NetworkName = "filecoin"
+	} else {
+		m.NetworkName = gpbft.NetworkName(rawNetwork)
+	}
 	versionInfo, err := api.Version(ctx)
 	if err != nil {
 		return err

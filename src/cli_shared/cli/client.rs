@@ -97,3 +97,9 @@ impl Default for Client {
         }
     }
 }
+
+impl Client {
+    pub fn default_rpc_token_path(&self) -> PathBuf {
+        self.data_dir.join("token")
+    }
+}

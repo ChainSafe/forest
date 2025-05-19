@@ -215,7 +215,7 @@ impl EthTx {
             .expect("Incorrect signature length");
         let pubkey =
             fvm_shared_latest::crypto::signature::ops::recover_secp_public_key(&hash.0, &sig_data)?;
-        let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey.serialize())?;
+        let eth_addr = EthAddress::eth_address_from_pub_key(&pubkey)?;
         eth_addr.to_filecoin_address()
     }
 }

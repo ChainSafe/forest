@@ -217,9 +217,10 @@ where
     #[cfg_vis(feature = "benchmark-private", pub)]
     #[allow(unused)] // required for benchmarking
     fn iter(&self) -> io::Result<Iter<&R>> {
-        let end = self.inner.size()?.ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
-        })?;
+        let end = self
+            .inner
+            .size()?
+            .ok_or_else(|| io::Error::other("couldn't get end of table size"))?;
         Ok(Iter {
             inner: &self.inner,
             positions: (self.table_offset..end).step_by(Slot::LEN.try_into().unwrap()),

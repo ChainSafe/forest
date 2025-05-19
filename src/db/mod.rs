@@ -1,17 +1,17 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod blockstore_with_write_buffer;
 pub mod car;
 mod memory;
 pub mod parity_db;
 pub mod parity_db_config;
 pub mod rpc_db;
 
-mod gc;
+pub mod gc;
 pub mod ttl;
-pub use gc::MarkAndSweep;
+pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use memory::MemoryDB;
-use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
@@ -31,8 +31,6 @@ pub mod setting_keys {
     pub const HEAD_KEY: &str = "head";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
-    /// Key used to store the state of the Ethereum mapping. This is expected to be a [`bool`].
-    pub const ETH_MAPPING_UP_TO_DATE_KEY: &str = "eth_mapping_up_to_date";
 }
 
 /// Interface used to store and retrieve settings from the database.
@@ -99,26 +97,6 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
         self.read_bin(key)?
             .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
-    }
-}
-
-/// Extension trait for the [`SettingsStoreExt`] trait. It is implemented for all types that implement
-/// [`SettingsStoreExt`].
-/// It provides methods to store and retrieve settings from the database.
-pub trait SettingsExt {
-    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()>;
-    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>>;
-}
-
-impl<T: ?Sized + SettingsStoreExt> SettingsExt for T {
-    /// Sets the Ethereum mapping status to "up-to-date".
-    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
-        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
-    }
-
-    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
-    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
-        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
 }
 
@@ -206,6 +184,46 @@ impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
     }
 
     fn write_obj<V: Serialize>(&self, key: &EthHash, value: &V) -> anyhow::Result<()> {
+        self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
+    }
+}
+
+pub trait IndicesStore {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()>;
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool>;
+}
+
+impl<T: IndicesStore> IndicesStore for Arc<T> {
+    fn read_bin(&self, key: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        IndicesStore::read_bin(self.as_ref(), key)
+    }
+
+    fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()> {
+        IndicesStore::write_bin(self.as_ref(), key, value)
+    }
+
+    fn exists(&self, key: &Cid) -> anyhow::Result<bool> {
+        IndicesStore::exists(self.as_ref(), key)
+    }
+}
+
+pub trait IndicesStoreExt {
+    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()>;
+}
+
+impl<T: ?Sized + IndicesStore> IndicesStoreExt for T {
+    fn read_obj<V: DeserializeOwned>(&self, key: &Cid) -> anyhow::Result<Option<V>> {
+        match self.read_bin(key)? {
+            Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn write_obj<V: Serialize>(&self, key: &Cid, value: &V) -> anyhow::Result<()> {
         self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
     }
 }

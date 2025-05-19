@@ -8,7 +8,7 @@ set -e
 source "$(dirname "$0")/harness.sh"
 
 forest_import_non_calibnet_snapshot
-forest_init
+forest_init "$@"
 
 echo "Running Go F3 RPC client tests"
 go test -v ./f3-sidecar
@@ -23,6 +23,14 @@ if [ "$cid" != "bafy2bzacecgqgzh3gxpariy3mzqb37y2vvxoaw5nwbrlzkhso6owus3zqckwe" 
   echo "Unexpected state root CID: $cid"
   exit 1
 fi
+
+forest_check_db_stats
+echo "Run snapshot GC"
+$FOREST_CLI_PATH chain prune snap
+forest_wait_api
+echo "Wait the node to sync"
+forest_wait_for_sync
+forest_check_db_stats
 
 echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
 

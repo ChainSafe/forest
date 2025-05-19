@@ -26,8 +26,9 @@ use crate::lotus_json::HasLotusJson;
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use anyhow::Context as _;
+use enumflags2::{BitFlags, bitflags, make_bitflags};
 use fvm_ipld_blockstore::Blockstore;
-use itertools::{Either, Itertools as _};
+use http::Uri;
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
@@ -36,7 +37,8 @@ use serde::{
     Deserialize,
     de::{Error as _, Unexpected},
 };
-use std::{future::Future, iter, sync::Arc};
+use std::{future::Future, str::FromStr, sync::Arc};
+use strum::EnumString;
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -62,7 +64,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiPaths`].
-    const API_PATHS: ApiPaths;
+    const API_PATHS: BitFlags<ApiPaths>;
     /// See [`Permission`]
     const PERMISSION: Permission;
     /// Becomes [`openrpc_types::Method::summary`].
@@ -96,38 +98,32 @@ pub enum Permission {
 /// Which paths should this method be exposed on?
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(Debug, Default, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[bitflags]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum, EnumString)]
 pub enum ApiPaths {
     /// Only expose this method on `/rpc/v0`
-    V0,
+    #[strum(ascii_case_insensitive)]
+    V0 = 0b00000001,
     /// Only expose this method on `/rpc/v1`
-    #[default]
-    V1,
-    /// Expose this method on both `/rpc/v0` and `/rpc/v1`
-    #[allow(dead_code)]
-    Both,
+    #[strum(ascii_case_insensitive)]
+    V1 = 0b00000010,
+    /// Only expose this method on `/rpc/v2`
+    #[strum(ascii_case_insensitive)]
+    V2 = 0b00000100,
 }
 
 impl ApiPaths {
-    fn iter(&self) -> impl Iterator<Item = ApiPath> {
-        match self {
-            ApiPaths::V0 => Either::Left(iter::once(ApiPath::V0)),
-            ApiPaths::V1 => Either::Left(iter::once(ApiPath::V1)),
-            ApiPaths::Both => Either::Right([ApiPath::V0, ApiPath::V1].into_iter()),
-        }
+    pub const fn all() -> BitFlags<Self> {
+        // Not containing V2 until it's released in Lotus.
+        make_bitflags!(Self::{ V0 | V1 })
     }
-    pub fn max(&self) -> ApiPath {
-        self.iter().max().expect("cannot create an empty ApiPaths")
-    }
-    pub fn contains(&self, path: ApiPath) -> bool {
-        self.iter().contains(&path)
-    }
-}
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum)]
-pub enum ApiPath {
-    V0,
-    V1,
+    pub fn from_uri(uri: &Uri) -> anyhow::Result<Self> {
+        Ok(Self::from_str(
+            uri.path().split("/").last().expect("infallible"),
+        )?)
+    }
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -436,4 +432,21 @@ pub enum ConcreteCallingConvention {
     ByPosition,
     #[allow(unused)] // included for completeness
     ByName,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_paths_from_uri() {
+        let v0 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v0".parse().unwrap()).unwrap();
+        assert_eq!(v0, ApiPaths::V0);
+        let v1 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v1".parse().unwrap()).unwrap();
+        assert_eq!(v1, ApiPaths::V1);
+        let v2 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v2".parse().unwrap()).unwrap();
+        assert_eq!(v2, ApiPaths::V2);
+
+        ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v3".parse().unwrap()).unwrap_err();
+    }
 }
