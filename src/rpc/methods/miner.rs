@@ -31,15 +31,13 @@ use bls_signatures::Serialize as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-
 use fvm_shared2::crypto::signature::BLS_SIG_LEN;
 use group::prime::PrimeCurveAffine as _;
 use itertools::Itertools;
-
+use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_tuple::Serialize_tuple;
-use tokio::sync::RwLock;
 
 use std::sync::Arc;
 
@@ -213,9 +211,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             parent_base_fee,
         };
 
-        block_header.signature = sign_block_header(&block_header, &worker, ctx.keystore.clone())
-            .await?
-            .into();
+        block_header.signature = sign_block_header(&block_header, &worker, &ctx.keystore)?.into();
 
         Ok(BlockMessage {
             header: CachingBlockHeader::from(block_header),
@@ -225,22 +221,23 @@ impl RpcMethod<1> for MinerCreateBlock {
     }
 }
 
-async fn sign_block_header(
+fn sign_block_header(
     block_header: &RawBlockHeader,
     worker: &Address,
-    keystore: Arc<RwLock<KeyStore>>,
+    keystore: &RwLock<KeyStore>,
 ) -> Result<Signature> {
     let signing_bytes = block_header.signing_bytes();
 
-    let mut keystore = keystore.write().await;
-    let key = match crate::key_management::find_key(worker, &keystore) {
-        Ok(key) => key,
-        Err(_) => {
-            let key_info = crate::key_management::try_find(worker, &mut keystore)?;
-            Key::try_from(key_info)?
+    let key = {
+        let mut keystore = keystore.write();
+        match crate::key_management::find_key(worker, &keystore) {
+            Ok(key) => key,
+            Err(_) => {
+                let key_info = crate::key_management::try_find(worker, &mut keystore)?;
+                Key::try_from(key_info)?
+            }
         }
     };
-    drop(keystore);
 
     let sig = crate::key_management::sign(
         *key.key_info.key_type(),
