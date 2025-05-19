@@ -27,7 +27,7 @@ impl RpcMethod<2> for AuthNew {
         ctx: Ctx<impl Blockstore>,
         (permissions, expiration_secs): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ks = ctx.keystore.read().await;
+        let ks = ctx.keystore.read();
         let ki = ks.get(JWT_IDENTIFIER)?;
         let token = create_token(
             permissions,
@@ -51,7 +51,7 @@ impl RpcMethod<1> for AuthVerify {
         ctx: Ctx<impl Blockstore>,
         (header_raw,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ks = ctx.keystore.read().await;
+        let ks = ctx.keystore.read();
         let token = header_raw.trim_start_matches("Bearer ");
         let ki = ks.get(JWT_IDENTIFIER)?;
         let perms = verify_token(token, ki.private_key())?;
