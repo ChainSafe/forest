@@ -47,14 +47,21 @@ where
         self.service.call(req)
     }
 
-    fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
+    fn batch<'a>(
+        &self,
+        mut batch: Batch<'a>,
+    ) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
+        batch
+            .extensions_mut()
+            .insert(self.path.unwrap_or(ApiPaths::V1));
         self.service.batch(batch)
     }
 
     fn notification<'a>(
         &self,
-        n: Notification<'a>,
+        mut n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
+        n.extensions_mut().insert(self.path.unwrap_or(ApiPaths::V1));
         self.service.notification(n)
     }
 }

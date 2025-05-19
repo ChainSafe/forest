@@ -5,9 +5,11 @@
 
 use std::{
     borrow::Cow,
+    fmt::Display,
     hash::{DefaultHasher, Hash as _, Hasher},
 };
 
+use futures::future::Either;
 use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, Notification};
 use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Id};
@@ -30,9 +32,48 @@ pub(super) struct Logging<S> {
     service: S,
 }
 
+impl<S> Logging<S> {
+    fn log_enabled() -> bool {
+        tracing::enabled!(tracing::Level::DEBUG)
+    }
+
+    async fn log<F>(
+        id: Id<'_>,
+        method_name: impl Display,
+        params: impl Display,
+        future: F,
+    ) -> MethodResponse
+    where
+        F: Future<Output = MethodResponse>,
+    {
+        // Avoid performance overhead if DEBUG level is not enabled.
+        if !tracing::enabled!(tracing::Level::DEBUG) {
+            return future.await;
+        }
+
+        let start_time = std::time::Instant::now();
+        let id = create_unique_id(id, start_time);
+        tracing::trace!("RPC#{id}: {method_name}. Params: {params}");
+        let resp = future.await;
+        let elapsed = start_time.elapsed();
+        let result = resp.as_error_code().map_or(Cow::Borrowed("OK"), |code| {
+            Cow::Owned(format!("ERR({code})"))
+        });
+        tracing::debug!(
+            "RPC#{id} {result}: {method_name}. Took {}",
+            humantime::format_duration(elapsed)
+        );
+        resp
+    }
+}
+
 impl<S> RpcServiceT for Logging<S>
 where
-    S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
+    S: RpcServiceT<MethodResponse = MethodResponse, NotificationResponse = MethodResponse>
+        + Send
+        + Sync
+        + Clone
+        + 'static,
 {
     type MethodResponse = S::MethodResponse;
     type NotificationResponse = S::NotificationResponse;
@@ -42,31 +83,16 @@ where
         &self,
         req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        let service = self.service.clone();
-        async move {
-            // Avoid performance overhead if DEBUG level is not enabled.
-            if !tracing::enabled!(tracing::Level::DEBUG) {
-                return service.call(req).await;
-            }
-            let start_time = std::time::Instant::now();
-            let method_name = req.method_name().to_owned();
-            let id = req.id();
-            let id = create_unique_id(id, start_time);
-
-            tracing::trace!(
-                "RPC#{id}: {method_name}. Params: {params}",
-                params = req.params().as_str().unwrap_or("[]")
-            );
-
-            let resp = service.call(req).await;
-
-            let elapsed = start_time.elapsed();
-            let result = resp.as_error_code().map_or(Cow::Borrowed("OK"), |code| {
-                Cow::Owned(format!("ERR({code})"))
-            });
-            tracing::debug!("RPC#{id} {result}: {method_name}. Took {elapsed:?}");
-
-            resp
+        // Avoid performance overhead if DEBUG level is not enabled.
+        if !Self::log_enabled() {
+            Either::Left(self.service.call(req))
+        } else {
+            Either::Right(Self::log(
+                req.id(),
+                req.method_name().to_owned(),
+                req.params().as_str().unwrap_or("[]").to_owned(),
+                self.service.call(req),
+            ))
         }
     }
 
@@ -78,7 +104,17 @@ where
         &self,
         n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        self.service.notification(n)
+        // Avoid performance overhead if DEBUG level is not enabled.
+        if !Self::log_enabled() {
+            Either::Left(self.service.notification(n))
+        } else {
+            Either::Right(Self::log(
+                Id::Null,
+                n.method_name().to_owned(),
+                "",
+                self.service.notification(n),
+            ))
+        }
     }
 }
 

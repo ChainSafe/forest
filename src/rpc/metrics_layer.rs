@@ -24,9 +24,32 @@ pub(super) struct RecordMetrics<S> {
     service: S,
 }
 
+impl<S> RecordMetrics<S> {
+    async fn log<F>(method: String, future: F) -> MethodResponse
+    where
+        F: Future<Output = MethodResponse>,
+    {
+        let method = metrics::RpcMethodLabel { method };
+        let start_time = std::time::Instant::now();
+        let resp = future.await;
+        metrics::RPC_METHOD_TIME
+            .get_or_create(&method)
+            // Observe the elapsed time in milliseconds
+            .observe(start_time.elapsed().as_secs_f64() * 1000.0);
+        if resp.is_error() {
+            metrics::RPC_METHOD_FAILURE.get_or_create(&method).inc();
+        }
+        resp
+    }
+}
+
 impl<S> RpcServiceT for RecordMetrics<S>
 where
-    S: RpcServiceT<MethodResponse = MethodResponse> + Send + Sync + Clone + 'static,
+    S: RpcServiceT<MethodResponse = MethodResponse, NotificationResponse = MethodResponse>
+        + Send
+        + Sync
+        + Clone
+        + 'static,
 {
     type MethodResponse = S::MethodResponse;
     type NotificationResponse = S::NotificationResponse;
@@ -36,27 +59,7 @@ where
         &self,
         req: jsonrpsee::types::Request<'a>,
     ) -> impl Future<Output = Self::MethodResponse> + Send + 'a {
-        let service = self.service.clone();
-        let method = metrics::RpcMethodLabel {
-            method: req.method_name().to_owned(),
-        };
-
-        async move {
-            // Cannot use HistogramTimerExt::start_timer here since it would lock the metric.
-            let start_time = std::time::Instant::now();
-            let resp = service.call(req).await;
-
-            metrics::RPC_METHOD_TIME
-                .get_or_create(&method)
-                // Observe the elapsed time in milliseconds
-                .observe(start_time.elapsed().as_secs_f64() * 1000.0);
-
-            if resp.is_error() {
-                metrics::RPC_METHOD_FAILURE.get_or_create(&method).inc();
-            }
-
-            resp
-        }
+        Self::log(req.method_name().to_owned(), self.service.call(req))
     }
 
     fn batch<'a>(&self, batch: Batch<'a>) -> impl Future<Output = Self::BatchResponse> + Send + 'a {
@@ -67,6 +70,6 @@ where
         &self,
         n: Notification<'a>,
     ) -> impl Future<Output = Self::NotificationResponse> + Send + 'a {
-        self.service.notification(n)
+        Self::log(n.method_name().to_owned(), self.service.notification(n))
     }
 }
