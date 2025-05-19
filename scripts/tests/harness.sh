@@ -119,7 +119,8 @@ function forest_init {
 
 function forest_init_stateless {
   forest_run_node_stateless_detached
-
+  forest_wait_api
+  
   ADMIN_TOKEN=$(cat stateless_admin_token)
   FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
 
