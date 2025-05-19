@@ -35,15 +35,10 @@ use crate::utils::{
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt, select};
-use once_cell::sync::Lazy;
-use raw_sync_2::events::{Event, EventInit as _, EventState};
-use shared_memory::ShmemConf;
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{cmp, sync::Arc};
-use tempfile::{Builder, TempPath};
 use tokio::{
     net::TcpListener,
     signal::{
@@ -55,42 +50,7 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
-static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
-    Builder::new()
-        .prefix("forest-ipc")
-        .tempfile()
-        .expect("tempfile must succeed")
-        .into_temp_path()
-});
-
 pub static GLOBAL_SNAPSHOT_GC: OnceLock<Arc<SnapshotGarbageCollector<DbType>>> = OnceLock::new();
-
-// The parent process and the daemonized child communicate through an Event in
-// shared memory. The identity of the shared memory object is written to a
-// temporary file. The parent process is responsible for cleaning up the file
-// and the shared memory object.
-pub fn ipc_shmem_conf() -> ShmemConf {
-    ShmemConf::new()
-        .size(Event::size_of(None))
-        .force_create_flink()
-        .flink(IPC_PATH.as_os_str())
-}
-
-fn unblock_parent_process() -> anyhow::Result<()> {
-    static UNBLOCKED: AtomicBool = AtomicBool::new(false);
-    if !UNBLOCKED.load(Ordering::Relaxed) {
-        let shmem = ipc_shmem_conf().open()?;
-        let (event, _) = unsafe {
-            Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::anyhow!("{err}"))
-        }?;
-
-        event
-            .set(EventState::Signaled)
-            .map_err(|err| anyhow::anyhow!("{err}"))?;
-        UNBLOCKED.store(true, Ordering::Relaxed);
-    }
-    Ok(())
-}
 
 /// Increase the file descriptor limit to a reasonable number.
 /// This prevents the node from failing if the default soft limit is too low.
@@ -142,7 +102,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 /// - increase file descriptor limit (for parity-db)
 /// - setup proofs parameter cache directory
 /// - prints Forest version
-fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
+fn startup_init(config: &Config) -> anyhow::Result<()> {
     maybe_increase_fd_limit()?;
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
@@ -151,10 +111,6 @@ fn startup_init(opts: &CliOpts, config: &Config) -> anyhow::Result<()> {
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
-    if opts.detach {
-        tracing::warn!("F3 sidecar is disabled in detach mode");
-        unsafe { std::env::set_var("FOREST_F3_SIDECAR_FFI_ENABLED", "0") };
-    }
     Ok(())
 }
 
@@ -581,7 +537,7 @@ pub(super) async fn start(
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    startup_init(&opts, &config)?;
+    startup_init(&config)?;
     let (snap_gc, snap_gc_reboot_rx) = SnapshotGarbageCollector::new(&config)?;
     let snap_gc = Arc::new(snap_gc);
     GLOBAL_SNAPSHOT_GC
@@ -662,14 +618,6 @@ pub(super) async fn start_services(
     }
     services.spawn(p2p_service.run());
     start_chain_follower_service(&mut services, chain_follower);
-    // Note: it could take long before unblocking parent process on a fresh Forest run which
-    // downloads a snapshot, actor bundles and proof parameter files.
-    // This could be moved to before any of those steps if we want to unblock parent process early,
-    // the downside would be that, if an error occurs, the log can only be be found in files instead
-    // of the console output.
-    if opts.detach {
-        unblock_parent_process()?;
-    }
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await

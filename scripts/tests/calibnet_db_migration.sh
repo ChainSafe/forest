@@ -45,13 +45,7 @@ echo 'encrypt_keystore = false' >> "${CONFIG_FILE}"
 forest --chain calibnet --log-dir "$LOG_DIRECTORY" --halt-after-import --track-peak-rss --config "${CONFIG_FILE}"
 
 # Sync to HEAD. This might reveal migrations errors not caught above.
-forest --chain calibnet --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss --config "${CONFIG_FILE}"
-
-ADMIN_TOKEN=$(cat admin_token)
-FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-export ADMIN_TOKEN
-export FULLNODE_API_INFO
+forest --chain calibnet --log-dir "$LOG_DIRECTORY" --track-peak-rss --config "${CONFIG_FILE}" &
 
 forest_wait_for_sync
 forest_check_db_stats
