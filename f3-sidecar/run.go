@@ -65,36 +65,45 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 	verif := blssig.VerifierWithKeyOnG1()
-	m := manifest.LocalDevnetManifest()
-	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
-	case err == nil && isCidDefined(initialPowerTable):
-		logger.Infof("InitialPowerTable is %s", initialPowerTable)
-		m.InitialPowerTable = initialPowerTable
-	default:
-		logger.Warn("InitialPowerTable is undefined")
-		m.InitialPowerTable = cid.Undef
-	}
+	networkName := gpbft.NetworkName(rawNetwork)
 	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
 	// mainnet is called testnetnet in state.
-	if rawNetwork == "testnetnet" {
-		m.NetworkName = "filecoin"
-	} else {
-		m.NetworkName = gpbft.NetworkName(rawNetwork)
+	if networkName == "testnetnet" {
+		networkName = "filecoin"
 	}
-	versionInfo, err := api.Version(ctx)
-	if err != nil {
-		return err
-	}
+	m := Network2PredefinedManifestMappings[networkName]
+	if m == nil {
+		m = manifest.LocalDevnetManifest()
+		m.NetworkName = networkName
+		versionInfo, err := api.Version(ctx)
+		if err != nil {
+			return err
+		}
 
-	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
-	m.EC.Period = blockDelay
-	m.EC.HeadLookback = 4
-	m.EC.Finality = finality
-	m.EC.Finalize = true
-	m.CatchUpAlignment = blockDelay / 2
-	m.BootstrapEpoch = bootstrapEpoch
-	m.CertificateExchange.MinimumPollInterval = blockDelay
-	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
+		blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
+		m.EC.Period = blockDelay
+		m.EC.HeadLookback = 4
+		m.EC.Finalize = true
+		m.CatchUpAlignment = blockDelay / 2
+		m.CertificateExchange.MinimumPollInterval = blockDelay
+		m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
+	}
+	if m.BootstrapEpoch != bootstrapEpoch {
+		m.BootstrapEpoch = bootstrapEpoch
+		logger.Infof("Bootstrap epoch is set to %d", m.BootstrapEpoch)
+	}
+	if m.EC.Finality != finality {
+		m.EC.Finality = finality
+		logger.Infof("EC finality is set to %d", m.EC.Finality)
+	}
+	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
+	case initialPowerTable != m.InitialPowerTable && err == nil && isCidDefined(initialPowerTable):
+		logger.Infof("InitialPowerTable is set to %s", initialPowerTable)
+		m.InitialPowerTable = initialPowerTable
+	case !isCidDefined(m.InitialPowerTable):
+		logger.Warn("InitialPowerTable is undefined")
+	default:
+	}
 
 	var manifestProvider manifest.ManifestProvider
 	if err := m.Validate(); err == nil {

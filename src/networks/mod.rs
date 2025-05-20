@@ -275,7 +275,7 @@ impl ChainConfig {
             upgrade_teep_initial_fil_reserved: None,
             f3_enabled: true,
             f3_consensus: true,
-            f3_bootstrap_epoch: -1,
+            f3_bootstrap_epoch: 4920480,
             f3_initial_power_table: Some(
                 "bafy2bzacecklgxd2eksmodvhgurqvorkg3wamgqkrunir3al2gchv2cikgmbu"
                     .parse()
