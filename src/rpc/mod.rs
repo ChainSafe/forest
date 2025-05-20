@@ -18,6 +18,7 @@ use eth::filter::EthEventHandler;
 use filter_layer::FilterLayer;
 pub use filter_list::FilterList;
 use futures::FutureExt as _;
+use jsonrpsee::server::ServerConfig;
 use log_layer::LogLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
@@ -384,14 +385,16 @@ use crate::blocks::FullTipset;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{
     Methods,
-    server::{RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder, stop_channel},
+    core::middleware::RpcServiceBuilder,
+    server::{RpcModule, Server, StopHandle, TowerServiceBuilder, stop_channel},
 };
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 use tower::Service;
 
 use crate::rpc::sync::SnapshotProgressState;
@@ -498,9 +501,21 @@ where
         methods: module.into(),
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
-            // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
-            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
-            .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+            .set_config(
+                ServerConfig::builder()
+                    // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+                    .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+                    .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .build(),
+            )
+            .set_http_middleware(
+                tower::ServiceBuilder::new()
+                    .layer(CompressionLayer::new())
+                    // Mark the `Authorization` request header as sensitive so it doesn't show in logs
+                    .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
+                        http::header::AUTHORIZATION,
+                    ))),
+            )
             .to_service_builder(),
         keystore,
     };
@@ -532,12 +547,6 @@ where
                     svc_builder,
                     keystore,
                 } = per_conn.clone();
-                let http_middleware = tower::ServiceBuilder::new()
-                    .layer(CompressionLayer::new())
-                    // Mark the `Authorization` request header as sensitive so it doesn't show in logs
-                    .layer(SetSensitiveRequestHeadersLayer::new(std::iter::once(
-                        http::header::AUTHORIZATION,
-                    )));
                 // NOTE, the rpc middleware must be initialized here to be able to be created once per connection
                 // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
@@ -554,7 +563,6 @@ where
                     .layer(LogLayer::default())
                     .layer(MetricsLayer::default());
                 let mut jsonrpsee_svc = svc_builder
-                    .set_http_middleware(http_middleware)
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
 
