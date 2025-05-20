@@ -6,24 +6,54 @@ use std::{num::NonZeroUsize, sync::Arc};
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
+use crate::chain::HeadChange;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::is_env_truthy;
+use ahash::AHashMap as HashMap;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
+use tokio::sync::broadcast::Sender;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
 type TipsetCache = Mutex<LruCache<TipsetKey, Arc<Tipset>>>;
+
+struct TipsetKeyCache {
+    pub cache: Arc<Mutex<LruCache<(ChainEpoch, usize), Option<TipsetKey>>>>,
+}
+
+impl TipsetKeyCache {
+    pub fn new(publisher: Sender<HeadChange>) -> Self {
+        let cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let task_cache = cache.clone();
+
+        let mut subscriber = publisher.subscribe();
+        tokio::spawn(async move {
+            while let Ok(v) = subscriber.recv().await {
+                match v {
+                    HeadChange::Apply(ts) => {
+                        tracing::debug!("new tipset found: @{}, {}", ts.epoch(), ts.key());
+                        //
+                    }
+                };
+            }
+        });
+
+        Self { cache }
+    }
+}
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
+
+    tsk_cache: Option<TipsetKeyCache>,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
@@ -39,9 +69,52 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
+    pub fn with_publisher(
+        db: DB,
+        publisher: Sender<HeadChange>,
+        heaviest: TipsetKey,
+        chain_finality: i64,
+    ) -> anyhow::Result<Self> {
+        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
+
+        let chain_index = Self {
+            ts_cache,
+            tsk_cache: Some(TipsetKeyCache::new(publisher)),
+            db,
+        };
+
+        let cache = chain_index.get_cache(heaviest, chain_finality)?;
+        Ok(chain_index)
+    }
+
     pub fn new(db: DB) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
-        Self { ts_cache, db }
+        Self {
+            ts_cache,
+            tsk_cache: None,
+            db,
+        }
+    }
+
+    fn get_cache(
+        &self,
+        heaviest: TipsetKey,
+        chain_finality: i64,
+    ) -> anyhow::Result<HashMap<ChainEpoch, TipsetKey>> {
+        let ts = self.load_required_tipset(&heaviest)?;
+
+        let to = ts.epoch() - chain_finality;
+
+        let mut map: HashMap<ChainEpoch, TipsetKey> = HashMap::default();
+
+        for (child, _parent) in self.chain(ts).tuple_windows() {
+            map.insert(child.epoch(), child.key().clone());
+            if to == child.epoch() {
+                break;
+            }
+        }
+
+        Ok(map)
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
