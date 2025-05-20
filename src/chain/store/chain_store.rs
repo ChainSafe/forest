@@ -126,7 +126,16 @@ where
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
+        let chain_index = if let Ok(heaviest) = heaviest_tipset_key_provider.heaviest_tipset_key() {
+            Arc::new(ChainIndex::with_publisher(
+                Arc::clone(&db),
+                publisher.clone(),
+                heaviest,
+                chain_config.policy.chain_finality,
+            )?)
+        } else {
+            Arc::new(ChainIndex::new(Arc::clone(&db)))
+        };
         let validated_blocks = Mutex::new(HashSet::default());
 
         let cs = Self {
