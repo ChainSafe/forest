@@ -277,6 +277,10 @@ impl<WriterT: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for
     fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
         self.writer().subscribe_write_ops()
     }
+
+    fn unsubscribe_write_ops(&self) {
+        self.writer().unsubscribe_write_ops()
+    }
 }
 
 #[cfg(test)]

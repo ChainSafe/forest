@@ -162,20 +162,11 @@ where
         let temp_path = tempfile::NamedTempFile::new_in(&self.car_db_dir)?.into_temp_path();
         let file = tokio::fs::File::create(&temp_path).await?;
         let mut rx = db.subscribe_write_ops();
-        let (cancel_tx, cancel_rx) = flume::bounded(1);
         let mut joinset = JoinSet::new();
         joinset.spawn(async move {
             let mut map = HashMap::default();
-            loop {
-                tokio::select! {
-                    _ = cancel_rx.recv_async() => {break}
-                    pair = rx.recv() => match pair {
-                        Ok((k,v)) => {
-                            map.insert(k, v);
-                        }
-                        _ => {break}
-                    }
-                }
+            while let Ok((k, v)) = rx.recv().await {
+                map.insert(k, v);
             }
             map
         });
@@ -202,8 +193,7 @@ where
         }
 
         *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok();
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        let _ = cancel_tx.send(());
+        db.unsubscribe_write_ops();
         match joinset.join_next().await {
             Some(Ok(map)) => {
                 *self.memory_db.write() = Some(map);
