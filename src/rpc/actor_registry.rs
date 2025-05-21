@@ -49,40 +49,76 @@ where
 
     match actor_type {
         BuiltinActor::Account => {
-            let state = account::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load account actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize account state to JSON: {}", e))?)
+            let state = account::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         BuiltinActor::Cron => {
-            let state = cron::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load cron actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize cron state to JSON: {}", e))?)
+            let state = cron::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         BuiltinActor::Miner => {
-            let state = miner::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load miner actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize miner state to JSON: {}", e))?)
+            let state = miner::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         BuiltinActor::Market => {
-            let state = market::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load market actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize market state to JSON: {}", e))?)
+            let state = market::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         BuiltinActor::EVM => {
-            let state = evm::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load evm actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize evm state to JSON: {}", e))?)
+            let state = evm::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         BuiltinActor::System => {
-            let state = system::State::load(store, *code_cid, *state_cid)
-                .map_err(|e| anyhow!("Failed to load system actor state: {}", e))?;
-            Ok(serde_json::to_value(state.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize system state to JSON: {}", e))?)
+            let state = system::State::load(store, *code_cid, *state_cid).map_err(|e| {
+                anyhow!("Failed to load {:?} actor state: {}", actor_type.name(), e)
+            })?;
+            Ok(serde_json::to_value(state.into_lotus_json()).map_err(|e| {
+                anyhow!(
+                    "Failed to serialize {:?} state to JSON: {}",
+                    actor_type.name(),
+                    e
+                )
+            })?)
         }
         // Add other actor types as needed
         _ => Err(anyhow!(

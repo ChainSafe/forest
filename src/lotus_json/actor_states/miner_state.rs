@@ -15,9 +15,11 @@ pub struct MinerStateLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub info: Cid,
+
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub pre_commit_deposits: TokenAmount,
+
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub locked_funds: TokenAmount,
@@ -29,27 +31,34 @@ pub struct MinerStateLotusJson {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fee_debt: TokenAmount,
+
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub initial_pledge: TokenAmount,
+
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub pre_committed_sectors: Cid,
+
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "PreCommittedSectorsCleanUp")]
     pub pre_committed_sectors_cleanup: Cid,
+
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub allocated_sectors: Cid,
+
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub sectors: Cid,
     pub proving_period_start: ChainEpoch,
 
     pub current_deadline: u64,
+
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub deadlines: Cid,
+
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     pub early_terminations: BitField,

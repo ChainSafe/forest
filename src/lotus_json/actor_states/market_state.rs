@@ -30,6 +30,8 @@ pub struct MarketStateLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub locked_table: Cid,
 
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json", rename = "NextID")]
     pub next_id: DealID,
 
     #[schemars(with = "LotusJson<Cid>")]

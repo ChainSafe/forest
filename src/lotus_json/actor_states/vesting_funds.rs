@@ -65,8 +65,6 @@ impl HasLotusJson for VestingFund {
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "VestingFunds")]
 pub struct VestingFundsV16LotusJson {
-    // If VestingFunds is empty (None inner value), this whole struct won't exist
-    // or will be represented appropriately at the miner state level
     #[schemars(with = "LotusJson<VestingFund>")]
     #[serde(with = "crate::lotus_json")]
     pub head: VestingFund,

@@ -26,8 +26,9 @@ pub struct EVMStateLotusJson {
     pub transient_data: Option<Option<TransientData>>, // only available in evm actor state v16
 
     pub nonce: u64,
+
     #[schemars(with = "LotusJson<Option<TombstoneState>>")]
-    #[serde(with = "crate::lotus_json", skip_serializing_if = "Option::is_none")]
+    #[serde(with = "crate::lotus_json")]
     pub tombstone: Option<TombstoneState>,
 }
 
