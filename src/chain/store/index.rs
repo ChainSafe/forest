@@ -258,7 +258,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     }
 
     pub fn tipset_by_height_with_cache(
-        &mut self,
+        &self,
         to: ChainEpoch,
         from: Arc<Tipset>,
         resolve: ResolveNullTipset,

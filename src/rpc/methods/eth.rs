@@ -54,6 +54,7 @@ use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::misc::env::env_or_default;
+use crate::utils::misc::env::is_env_truthy;
 use crate::utils::multihash::prelude::*;
 use ahash::HashSet;
 use anyhow::{Context, Error, Result, anyhow, bail, ensure};
@@ -1604,9 +1605,16 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
         if height > head.epoch() {
             return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
         }
-        let ts = ctx
-            .chain_index()
-            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+        let ts = if is_env_truthy("FOREST_EPOCH_CACHE_ENABLED") {
+            ctx.chain_index().tipset_by_height_with_cache(
+                height,
+                head,
+                ResolveNullTipset::TakeOlder,
+            )
+        } else {
+            ctx.chain_index()
+                .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)
+        }?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(EthUint64(count as _))
     }
