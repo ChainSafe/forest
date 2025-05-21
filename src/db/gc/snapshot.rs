@@ -10,11 +10,11 @@
 //! 2000 epochs of most recent state-trees and messages.
 //!
 //! ## GC Workflow
-//! 1. Exports an effective standard lite snapshot in `.forest.car.zst` format that can be used for
+//! 1. Export an effective standard lite snapshot in `.forest.car.zst` format that can be used for
 //!    bootstrapping a Filecoin node into the CAR database.
 //! 2. Stop the node.
-//! 3. Purging parity-db columns that serve as non-persistent blockstore.
-//! 4. Purging old CAR database files.
+//! 3. Purge parity-db columns that serve as non-persistent blockstore.
+//! 4. Purge old CAR database files.
 //! 5. Restart the node.
 //!
 //! ## Correctness
@@ -30,7 +30,8 @@
 //! roughly 2.5 GiB.
 //!
 //! ## Scheduling
-//! To be implemented
+//! When automatic GC is enabled, it by default runs every 7 days (20160 epochs).
+//! The interval can be overridden by setting environment variable `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`.
 //!
 //! ## Performance
 //! The lite snapshot export step is currently utilizing a depth-first search algorithm, with `O(V+E)` complexity,
