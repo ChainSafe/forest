@@ -74,7 +74,7 @@ pub struct SnapshotGarbageCollector<DB> {
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
-    // On mainnet, it takes ~50MiB-100MiB RAM
+    // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
     exported_head_key: RwLock<Option<TipsetKey>>,
@@ -283,12 +283,12 @@ where
                     if let Some(mem_db) = self.memory_db.write().take() {
                         let count = mem_db.len();
                         let approximate_heap_size = {
-                            let mut s = 0;
+                            let mut size = 0;
                             for (_k, v) in mem_db.iter() {
-                                s += 64;
-                                s += v.len();
+                                size += std::mem::size_of::<Cid>();
+                                size += v.len();
                             }
-                            s
+                            size
                         };
                         let start = Instant::now();
                         if let Err(e) = db.put_many_keyed(mem_db) {
