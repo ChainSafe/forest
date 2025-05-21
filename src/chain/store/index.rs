@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::ops::Deref;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -10,7 +11,8 @@ use crate::chain::HeadChange;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::is_env_truthy;
-use ahash::AHashMap as HashMap;
+use ahash::{AHashMap as HashMap, AHashSet as HashSet};
+use anyhow::bail;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use lru::LruCache;
@@ -47,13 +49,16 @@ impl TipsetKeyCache {
     }
 }
 
+type TskSetId = usize;
+
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
 
-    tsk_cache: Option<TipsetKeyCache>,
+    setid_to_tskset: HashMap<TskSetId, HashSet<TipsetKey>>,
+    epoch_to_setid: HashMap<ChainEpoch, (TipsetKey, TskSetId)>,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
@@ -69,52 +74,14 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub fn with_publisher(
-        db: DB,
-        publisher: Sender<HeadChange>,
-        heaviest: TipsetKey,
-        chain_finality: i64,
-    ) -> anyhow::Result<Self> {
-        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
-
-        let chain_index = Self {
-            ts_cache,
-            tsk_cache: Some(TipsetKeyCache::new(publisher)),
-            db,
-        };
-
-        let cache = chain_index.get_cache(heaviest, chain_finality)?;
-        Ok(chain_index)
-    }
-
     pub fn new(db: DB) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self {
             ts_cache,
-            tsk_cache: None,
+            setid_to_tskset: HashMap::default(),
+            epoch_to_setid: HashMap::default(),
             db,
         }
-    }
-
-    fn get_cache(
-        &self,
-        heaviest: TipsetKey,
-        chain_finality: i64,
-    ) -> anyhow::Result<HashMap<ChainEpoch, TipsetKey>> {
-        let ts = self.load_required_tipset(&heaviest)?;
-
-        let to = ts.epoch() - chain_finality;
-
-        let mut map: HashMap<ChainEpoch, TipsetKey> = HashMap::default();
-
-        for (child, _parent) in self.chain(ts).tuple_windows() {
-            map.insert(child.epoch(), child.key().clone());
-            if to == child.epoch() {
-                break;
-            }
-        }
-
-        Ok(map)
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -218,6 +185,96 @@ impl<DB: Blockstore> ChainIndex<DB> {
         Err(Error::Other(format!(
             "Tipset with epoch={to} does not exist"
         )))
+    }
+
+    pub fn try_get_tipset_key(
+        &mut self,
+        to_epoch: ChainEpoch,
+        from: Arc<Tipset>,
+        resolve: ResolveNullTipset,
+    ) -> anyhow::Result<TipsetKey> {
+        // Snoop cache
+        let opt = self.epoch_to_setid.get(&to_epoch).cloned();
+        if let Some((tsk, setid)) = opt {
+            if let Some(tsk_set) = self.setid_to_tskset.get_mut(&setid) {
+                if let Some(_child_tsk) = tsk_set.get(from.key()) {
+                    ()
+                } else {
+                    let mut curr: Tipset = from.deref().clone();
+                    let mut keys = vec![];
+                    let found = loop {
+                        let parent = Tipset::load_required(&self.db, curr.parents())?;
+                        if tsk_set.contains(parent.key()) {
+                            break true;
+                        }
+                        keys.push((parent.epoch(), parent.key().clone()));
+                        if parent.epoch() == to_epoch {
+                            break false;
+                        }
+                        curr = parent;
+                    };
+                    if found {
+                        for (_, tsk) in keys.iter() {
+                            tsk_set.insert(tsk.clone());
+                        }
+                        for (epoch, tsk) in keys.into_iter() {
+                            self.epoch_to_setid.insert(epoch, (tsk, setid));
+                        }
+                        return Ok(tsk);
+                    } else {
+                        let setid = self.setid_to_tskset.len();
+                        let mut tsk_set = HashSet::default();
+                        for (_, tsk) in keys.iter() {
+                            tsk_set.insert(tsk.clone());
+                        }
+                        for (epoch, tsk) in keys.into_iter() {
+                            self.epoch_to_setid.insert(epoch, (tsk, setid));
+                        }
+                        self.setid_to_tskset.insert(setid, tsk_set);
+
+                        bail!("epoch {} not found", to_epoch);
+                    }
+                }
+            } else {
+                bail!("set {} not found", setid);
+            }
+            return Ok(tsk);
+        } else {
+            // null epoch found?
+            match resolve {
+                ResolveNullTipset::TakeOlder => {
+                    self.try_get_tipset_key(to_epoch - 1, from, resolve)
+                }
+                ResolveNullTipset::TakeNewer => {
+                    self.try_get_tipset_key(to_epoch + 1, from, resolve)
+                }
+            }
+        }
+    }
+
+    pub fn tipset_by_height_with_cache(
+        &mut self,
+        to: ChainEpoch,
+        from: Arc<Tipset>,
+        resolve: ResolveNullTipset,
+    ) -> Result<Arc<Tipset>, Error> {
+        if to == 0 {
+            return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
+        }
+        if to > from.epoch() {
+            return Err(Error::Other(format!(
+                "Looking for tipset {to} with height greater than start point {from}",
+                from = from.epoch()
+            )));
+        }
+
+        let tsk = self
+            .try_get_tipset_key(to, from, resolve)
+            .map_err(|e| Error::Other(e.to_string()))?;
+
+        let ts = Tipset::load_required(&self.db, &tsk)?;
+
+        Ok(Arc::new(ts))
     }
 
     /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
