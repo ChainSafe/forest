@@ -1711,7 +1711,10 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 ..Default::default()
             },))
             .unwrap(),
-        ),
+        )
+        // both nodes could fail on, e.g., "too many results, maximum supported is 500, try paginating
+        // requests with After and Count"
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
     ];
 
     for block in shared_tipset.block_headers() {
