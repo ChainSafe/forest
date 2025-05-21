@@ -54,7 +54,7 @@ type TskSetId = usize;
 #[derive(Default)]
 struct EpochCache {
     setid_to_tskset: HashMap<TskSetId, HashSet<TipsetKey>>,
-    epoch_to_setid: HashMap<ChainEpoch, (TipsetKey, TskSetId)>,
+    epoch_to_setid: HashMap<ChainEpoch, (Option<TipsetKey>, TskSetId)>,
 }
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
@@ -200,58 +200,129 @@ impl<DB: Blockstore> ChainIndex<DB> {
         let mut guard = self.epoch_cache.lock();
 
         let opt = guard.epoch_to_setid.get(&to_epoch).cloned();
-        if let Some((tsk, setid)) = opt {
-            if let Some(tsk_set) = guard.setid_to_tskset.get_mut(&setid) {
-                if let Some(_child_tsk) = tsk_set.get(from.key()) {
-                    ()
-                } else {
-                    let mut curr: Tipset = from.deref().clone();
-                    let mut keys = vec![];
-                    let found = loop {
-                        let parent = Tipset::load_required(&self.db, curr.parents())?;
-                        if tsk_set.contains(parent.key()) {
-                            break true;
-                        }
-                        keys.push((parent.epoch(), parent.key().clone()));
-                        if parent.epoch() == to_epoch {
-                            break false;
-                        }
-                        curr = parent;
-                    };
-                    if found {
-                        for (_, tsk) in keys.iter() {
-                            tsk_set.insert(tsk.clone());
-                        }
-                        for (epoch, tsk) in keys.into_iter() {
-                            guard.epoch_to_setid.insert(epoch, (tsk, setid));
-                        }
-                        return Ok(tsk);
+        match opt {
+            Some((Some(tsk), setid)) => {
+                if let Some(tsk_set) = guard.setid_to_tskset.get_mut(&setid) {
+                    if let Some(_child_tsk) = tsk_set.get(from.key()) {
+                        ()
                     } else {
-                        let setid = guard.setid_to_tskset.len();
-                        let mut tsk_set = HashSet::default();
-                        for (_, tsk) in keys.iter() {
-                            tsk_set.insert(tsk.clone());
+                        let mut curr: Tipset = from.deref().clone();
+                        let mut keys = vec![];
+                        let mut null_epochs = vec![];
+                        let mut expected_epoch = curr.epoch() - 1;
+                        let found = loop {
+                            let parent = Tipset::load_required(&self.db, curr.parents())?;
+                            for e in expected_epoch..parent.epoch() {
+                                null_epochs.push(e);
+                            }
+                            if tsk_set.contains(parent.key()) {
+                                break true;
+                            }
+                            keys.push((parent.epoch(), parent.key().clone()));
+                            if parent.epoch() == to_epoch {
+                                break false;
+                            }
+                            curr = parent;
+                            expected_epoch = curr.epoch() - 1;
+                        };
+                        if !null_epochs.is_empty() {
+                            tracing::debug!("null epochs: {:?}:", null_epochs);
                         }
-                        for (epoch, tsk) in keys.into_iter() {
-                            guard.epoch_to_setid.insert(epoch, (tsk, setid));
-                        }
-                        guard.setid_to_tskset.insert(setid, tsk_set);
+                        if found {
+                            tracing::debug!(
+                                "setid {}: extending cache with {} tipset keys",
+                                setid,
+                                keys.len()
+                            );
+                            for (_, tsk) in keys.iter() {
+                                tsk_set.insert(tsk.clone());
+                            }
+                            for (epoch, tsk) in keys.into_iter() {
+                                guard.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                            }
+                            tracing::debug!("cache hit through extension");
+                            return Ok(tsk);
+                        } else {
+                            let setid = guard.setid_to_tskset.len();
+                            tracing::debug!(
+                                "setid {}: creating cache with {} tipset keys",
+                                setid,
+                                keys.len()
+                            );
+                            let mut tsk_set = HashSet::default();
+                            for (_, tsk) in keys.iter() {
+                                tsk_set.insert(tsk.clone());
+                            }
+                            for (epoch, tsk) in keys.into_iter() {
+                                guard.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                            }
+                            guard.setid_to_tskset.insert(setid, tsk_set);
 
-                        bail!("epoch {} not found", to_epoch);
+                            bail!("epoch {} not found", to_epoch);
+                        }
+                    }
+                } else {
+                    bail!("set {} not found", setid);
+                }
+                tracing::debug!("cache hit");
+                return Ok(tsk);
+            }
+            Some((None, _)) => {
+                // null epoch found?
+                tracing::debug!("null epoch found");
+                match resolve {
+                    ResolveNullTipset::TakeOlder => {
+                        self.try_get_tipset_key(to_epoch - 1, from, resolve)
+                    }
+                    ResolveNullTipset::TakeNewer => {
+                        self.try_get_tipset_key(to_epoch + 1, from, resolve)
                     }
                 }
-            } else {
-                bail!("set {} not found", setid);
             }
-            return Ok(tsk);
-        } else {
-            // null epoch found?
-            match resolve {
-                ResolveNullTipset::TakeOlder => {
-                    self.try_get_tipset_key(to_epoch - 1, from, resolve)
+            None => {
+                // empty
+                let mut curr: Tipset = from.deref().clone();
+                let mut keys = vec![];
+                let mut null_epochs = vec![];
+                let mut expected_epoch = curr.epoch() - 1;
+                let found = loop {
+                    let parent = Tipset::load_required(&self.db, curr.parents())?;
+                    for e in expected_epoch..parent.epoch() {
+                        null_epochs.push(e);
+                    }
+                    keys.push((parent.epoch(), parent.key().clone()));
+                    if parent.epoch() == to_epoch {
+                        break Some(parent.key().clone());
+                    }
+                    if parent.epoch() == 0 {
+                        break None;
+                    }
+                    curr = parent;
+                    expected_epoch = curr.epoch() - 1;
+                };
+                if !null_epochs.is_empty() {
+                    tracing::debug!("null epochs: {:?}:", null_epochs);
                 }
-                ResolveNullTipset::TakeNewer => {
-                    self.try_get_tipset_key(to_epoch + 1, from, resolve)
+                if let Some(tsk) = found {
+                    let setid = guard.setid_to_tskset.len();
+                    tracing::debug!(
+                        "setid {}: creating cache with {} tipset keys",
+                        setid,
+                        keys.len()
+                    );
+                    let mut tsk_set = HashSet::default();
+                    for (_, tsk) in keys.iter() {
+                        tsk_set.insert(tsk.clone());
+                    }
+                    for (epoch, tsk) in keys.into_iter() {
+                        guard.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                    }
+                    guard.setid_to_tskset.insert(setid, tsk_set);
+
+                    tracing::debug!("cache hit through creation");
+                    return Ok(tsk);
+                } else {
+                    bail!("epoch {} not found", to_epoch);
                 }
             }
         }
