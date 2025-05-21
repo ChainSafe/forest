@@ -51,14 +51,19 @@ impl TipsetKeyCache {
 
 type TskSetId = usize;
 
+#[derive(Default)]
+struct EpochCache {
+    setid_to_tskset: HashMap<TskSetId, HashSet<TipsetKey>>,
+    epoch_to_setid: HashMap<ChainEpoch, (TipsetKey, TskSetId)>,
+}
+
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
 
-    setid_to_tskset: HashMap<TskSetId, HashSet<TipsetKey>>,
-    epoch_to_setid: HashMap<ChainEpoch, (TipsetKey, TskSetId)>,
+    epoch_cache: Mutex<EpochCache>,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
@@ -78,8 +83,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self {
             ts_cache,
-            setid_to_tskset: HashMap::default(),
-            epoch_to_setid: HashMap::default(),
+            epoch_cache: Mutex::new(EpochCache::default()),
             db,
         }
     }
@@ -188,15 +192,16 @@ impl<DB: Blockstore> ChainIndex<DB> {
     }
 
     pub fn try_get_tipset_key(
-        &mut self,
+        &self,
         to_epoch: ChainEpoch,
         from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> anyhow::Result<TipsetKey> {
-        // Snoop cache
-        let opt = self.epoch_to_setid.get(&to_epoch).cloned();
+        let mut guard = self.epoch_cache.lock();
+
+        let opt = guard.epoch_to_setid.get(&to_epoch).cloned();
         if let Some((tsk, setid)) = opt {
-            if let Some(tsk_set) = self.setid_to_tskset.get_mut(&setid) {
+            if let Some(tsk_set) = guard.setid_to_tskset.get_mut(&setid) {
                 if let Some(_child_tsk) = tsk_set.get(from.key()) {
                     ()
                 } else {
@@ -218,19 +223,19 @@ impl<DB: Blockstore> ChainIndex<DB> {
                             tsk_set.insert(tsk.clone());
                         }
                         for (epoch, tsk) in keys.into_iter() {
-                            self.epoch_to_setid.insert(epoch, (tsk, setid));
+                            guard.epoch_to_setid.insert(epoch, (tsk, setid));
                         }
                         return Ok(tsk);
                     } else {
-                        let setid = self.setid_to_tskset.len();
+                        let setid = guard.setid_to_tskset.len();
                         let mut tsk_set = HashSet::default();
                         for (_, tsk) in keys.iter() {
                             tsk_set.insert(tsk.clone());
                         }
                         for (epoch, tsk) in keys.into_iter() {
-                            self.epoch_to_setid.insert(epoch, (tsk, setid));
+                            guard.epoch_to_setid.insert(epoch, (tsk, setid));
                         }
-                        self.setid_to_tskset.insert(setid, tsk_set);
+                        guard.setid_to_tskset.insert(setid, tsk_set);
 
                         bail!("epoch {} not found", to_epoch);
                     }
