@@ -107,7 +107,7 @@ integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
-jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.1"
@@ -210,7 +210,7 @@ tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
 tracing-appender = "0.2"
@@ -255,7 +255,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.279"
+ra_ap_syntax = "0.0.280"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
