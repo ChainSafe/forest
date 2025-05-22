@@ -10,11 +10,11 @@
 //! 2000 epochs of most recent state-trees and messages.
 //!
 //! ## GC Workflow
-//! 1. Exports an effective standard lite snapshot in `.forest.car.zst` format that can be used for
+//! 1. Export an effective standard lite snapshot in `.forest.car.zst` format that can be used for
 //!    bootstrapping a Filecoin node into the CAR database.
 //! 2. Stop the node.
-//! 3. Purging parity-db columns that serve as non-persistent blockstore.
-//! 4. Purging old CAR database files.
+//! 3. Purge parity-db columns that serve as non-persistent blockstore.
+//! 4. Purge old CAR database files.
 //! 5. Restart the node.
 //!
 //! ## Correctness
@@ -30,7 +30,8 @@
 //! roughly 2.5 GiB.
 //!
 //! ## Scheduling
-//! To be implemented
+//! When automatic GC is enabled, it by default runs every 7 days (20160 epochs).
+//! The interval can be overridden by setting environment variable `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`.
 //!
 //! ## Performance
 //! The lite snapshot export step is currently utilizing a depth-first search algorithm, with `O(V+E)` complexity,
@@ -44,14 +45,12 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
-use crate::db::db_engine::open_db;
-use crate::db::{BlockstoreWriteOpsSubscribable, HeaviestTipsetKeyProvider};
 use crate::db::{
-    CAR_DB_DIR_NAME, SettingsStore,
-    car::forest::FOREST_CAR_FILE_EXTENSION,
-    db_engine::{DbConfig, db_root},
+    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
+    db_engine::{DbConfig, db_root, open_db},
     parity_db::{DbColumn, ParityDb},
 };
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
@@ -78,6 +77,7 @@ pub struct SnapshotGarbageCollector<DB> {
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
     exported_head_key: RwLock<Option<TipsetKey>>,
+    car_db_head_epoch: RwLock<Option<ChainEpoch>>,
     reboot_tx: flume::Sender<()>,
     trigger_tx: flume::Sender<()>,
     trigger_rx: flume::Receiver<()>,
@@ -113,6 +113,7 @@ where
                 memory_db: RwLock::new(None),
                 memory_db_head_key: RwLock::new(None),
                 exported_head_key: RwLock::new(None),
+                car_db_head_epoch: RwLock::new(None),
                 reboot_tx,
                 trigger_tx,
                 trigger_rx,
@@ -126,7 +127,11 @@ where
         *self.db.write() = Some(db);
     }
 
-    pub async fn event_toop(&self) {
+    pub fn set_car_db_head_epoch(&self, epoch: ChainEpoch) {
+        *self.car_db_head_epoch.write() = Some(epoch);
+    }
+
+    pub async fn event_loop(&self) {
         while self.trigger_rx.recv_async().await.is_ok() {
             if self.running.load(Ordering::Relaxed) {
                 tracing::warn!("snap gc has already been running");
@@ -136,6 +141,52 @@ where
                     tracing::warn!("{e}");
                 }
             }
+        }
+    }
+
+    pub async fn scheduler_loop(&self) {
+        let snap_gc_interval_epochs = std::env::var("FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .inspect(|i| {
+                tracing::info!(
+                    "Using snapshot GC interval epochs {i} set by FOREST_F3_BOOTSTRAP_EPOCH"
+                )
+            })
+            .unwrap_or(EPOCHS_IN_DAY * 7);
+        let snap_gc_check_interval_secs = std::env::var("FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS")
+            .ok()
+            .and_then(|i| i.parse().ok())
+            .inspect(|i| {
+                tracing::info!(
+                    "Using snapshot GC check interval seconds {i} set by FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS"
+                )
+            })
+            .unwrap_or(60 * 5);
+        let snap_gc_check_interval = Duration::from_secs(snap_gc_check_interval_secs);
+        tracing::info!(
+            "Running snapshot GC scheduler with interval epochs {snap_gc_interval_epochs}"
+        );
+        loop {
+            if !self.running.load(Ordering::Relaxed) {
+                if let (Some(db), Some(car_db_head_epoch)) =
+                    (&*self.db.read(), *self.car_db_head_epoch.read())
+                {
+                    if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
+                        if let Ok(head) = Tipset::load_required(db, &head_key) {
+                            let head_epoch = head.epoch();
+                            if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                                && self.trigger_tx.try_send(()).is_ok()
+                            {
+                                tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                            } else {
+                                tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
+                            }
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(snap_gc_check_interval).await;
         }
     }
 
@@ -154,7 +205,7 @@ where
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let db = self.db.write().take().context("db not yet initialzied")?;
+        let db = { self.db.read().clone() }.context("db not yet initialzied")?;
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
@@ -203,6 +254,8 @@ where
         }
         joinset.shutdown().await;
 
+        self.db.write().take();
+
         Ok(())
     }
 
@@ -244,12 +297,11 @@ where
                     .into_iter()
                     .filter_map(|entry| {
                         if let Ok(entry) = entry {
-                            if entry.path() != blessed_lite_snapshot.as_path() {
-                                if let Some(filename) = entry.file_name().to_str() {
-                                    if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                                        return Some(entry.into_path());
-                                    }
-                                }
+                            // Also cleanup `.tmp*` files snapshot export is interrupted ungracefully
+                            if entry.path().is_file()
+                                && entry.path() != blessed_lite_snapshot.as_path()
+                            {
+                                return Some(entry.into_path());
                             }
                         }
                         None
