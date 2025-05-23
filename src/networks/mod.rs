@@ -251,7 +251,7 @@ pub struct ChainConfig {
     pub f3_contract_address: Option<EthAddress>,
     pub f3_contract_poll_interval: Duration,
     pub enable_indexer: bool,
-    pub enable_rpc: bool,
+    pub enable_receipt_event_caching: bool,
 }
 
 impl ChainConfig {
@@ -288,7 +288,7 @@ impl ChainConfig {
             ),
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
-            enable_rpc: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -326,7 +326,7 @@ impl ChainConfig {
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
-            enable_rpc: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -354,7 +354,7 @@ impl ChainConfig {
             f3_contract_address: None,
             f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
-            enable_rpc: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -391,7 +391,7 @@ impl ChainConfig {
             ),
             f3_contract_poll_interval: Duration::from_secs(60),
             enable_indexer: false,
-            enable_rpc: false,
+            enable_receipt_event_caching: true,
         }
     }
 
