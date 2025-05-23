@@ -590,8 +590,14 @@ pub(super) async fn start(
         .context("failed to set GLOBAL_SNAPSHOT_GC")?;
     tokio::task::spawn({
         let snap_gc = snap_gc.clone();
-        async move { snap_gc.event_toop().await }
+        async move { snap_gc.event_loop().await }
     });
+    if !opts.no_gc {
+        tokio::task::spawn({
+            let snap_gc = snap_gc.clone();
+            async move { snap_gc.scheduler_loop().await }
+        });
+    }
     loop {
         tokio::select! {
             _ = snap_gc_reboot_rx.recv_async() => {
@@ -599,6 +605,7 @@ pub(super) async fn start(
             }
             result = start_services(start_time, &opts, config.clone(), shutdown_send.clone(), |ctx| {
                 snap_gc.set_db(ctx.db.clone());
+                snap_gc.set_car_db_head_epoch(ctx.db.heaviest_tipset().map(|ts|ts.epoch()).unwrap_or_default());
             }) => {
                 break result
             }
