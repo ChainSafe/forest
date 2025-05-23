@@ -44,3 +44,15 @@ impl State {
         }
     }
 }
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum TombstoneState {
+    V10(fil_actor_evm_state::v10::Tombstone),
+    V11(fil_actor_evm_state::v11::Tombstone),
+    V12(fil_actor_evm_state::v12::Tombstone),
+    V13(fil_actor_evm_state::v13::Tombstone),
+    V14(fil_actor_evm_state::v14::Tombstone),
+    V15(fil_actor_evm_state::v15::Tombstone),
+    V16(fil_actor_evm_state::v16::Tombstone),
+}

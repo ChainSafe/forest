@@ -733,14 +733,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tipset.epoch(),
             tipset.key().into(),
         ))?),
-        RpcTest::identity(StateReadState::request((
-            Address::SYSTEM_ACTOR,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateReadState::request((
-            Address::SYSTEM_ACTOR,
-            Default::default(),
-        ))?),
         // This should return `Address::new_id(0xdeadbeef)`
         RpcTest::identity(StateLookupID::request((
             Address::new_id(0xdeadbeef),
@@ -823,6 +815,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tipset.key().into(),
         ))?),
     ];
+
+    tests.extend(read_state_api_tests(tipset)?);
 
     for &pending_deal_id in
         StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
@@ -1740,6 +1734,41 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
     }
 
     tests
+}
+
+fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let tests = vec![
+        RpcTest::identity(StateReadState::request((
+            Address::SYSTEM_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::SYSTEM_ACTOR,
+            Default::default(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::CRON_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::MARKET_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::new_id(1234), // account actor address `t01234`
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::new_id(78216), // miner actor address `f078216`
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::from_str("t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i").unwrap(), // evm actor
+            tipset.key().into(),
+        ))?),
+    ];
+
+    Ok(tests)
 }
 
 fn eth_state_tests_with_tipset<DB: Blockstore>(
