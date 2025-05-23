@@ -473,8 +473,9 @@ where
                 key,
                 Box::new(move || {
                     Box::pin(async move {
-                        let StateOutput { receipt_root, .. } =
-                            this.tipset_state_output(&ts).await?;
+                        let StateOutput { receipt_root, .. } = this
+                            .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                            .await?;
                         trace!("Completed tipset state calculation");
                         Receipt::get_receipts(this.blockstore(), receipt_root)
                     })
@@ -498,11 +499,13 @@ where
                 key,
                 Box::new(move || {
                     Box::pin(async move {
-                        let ts_state = this.tipset_state_output(&ts).await?;
+                        let state_out = this
+                            .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                            .await?;
                         trace!("Completed tipset state calculation {:?}", cids);
                         Ok(StateEvents {
-                            events: ts_state.events,
-                            roots: ts_state.events_roots,
+                            events: state_out.events,
+                            roots: state_out.events_roots,
                         })
                     })
                 }),

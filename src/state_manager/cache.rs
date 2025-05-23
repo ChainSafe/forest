@@ -229,9 +229,6 @@ impl TipsetReceiptEventCacheHandler for EnabledTipsetDataCache {
         let key = key.clone();
         let events_cache = &self.events_cache;
 
-        // Convert FnOnce to Fn using Option + Mutex
-        // let compute = Arc::new(std::sync::Mutex::new(Some(compute)));
-
         Box::pin(async move {
             events_cache
                 .get_or_else(&key, || async move { compute().await })
