@@ -278,11 +278,16 @@ categories:
 
 ### Detaching Forest process
 
-You can detach Forest process via the `--detach` flag so that it runs in the
-background:
+You can detach Forest process with `nohup` or `disown` from the terminal so that it runs in the
+background after the terminal is closed:
 
 ```bash
-./target/release/forest --detach
+nohup ./target/release/forest &
+```
+
+```bash
+./target/release/forest &
+disown
 ```
 
 The command will block until the detached Forest process has started its RPC
