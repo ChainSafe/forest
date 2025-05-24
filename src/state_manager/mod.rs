@@ -158,7 +158,7 @@ pub struct StateManager<DB> {
     chain_config: Arc<ChainConfig>,
     engine: Arc<MultiEngine>,
     /// Handler for caching/retrieving tipset events and receipts.
-    receipt_event_cache: Box<dyn TipsetReceiptEventCacheHandler>,
+    receipt_event_cache_handler: Box<dyn TipsetReceiptEventCacheHandler>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -196,7 +196,7 @@ where
             beacon,
             chain_config,
             engine,
-            receipt_event_cache: cache_handler,
+            receipt_event_cache_handler: cache_handler,
         })
     }
 
@@ -436,27 +436,20 @@ where
 
     /// update the receipt and events caches
     fn update_cache_with_state_output(&self, key: &TipsetKey, state_output: &StateOutput) {
-        self.update_event_cache(key, state_output);
-        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
-            self.update_receipt_cache(key, receipts);
-        }
-    }
-
-    fn update_event_cache(&self, tipset_key: &TipsetKey, state_output: &StateOutput) {
         if !state_output.events.is_empty() || !state_output.events_roots.is_empty() {
             let events_data = StateEvents {
                 events: state_output.events.clone(),
                 roots: state_output.events_roots.clone(),
             };
-            self.receipt_event_cache
-                .insert_events(tipset_key, events_data);
+            self.receipt_event_cache_handler
+                .insert_events(key, events_data);
         }
-    }
-
-    fn update_receipt_cache(&self, tipset_key: &TipsetKey, receipts: Vec<Receipt>) {
-        if !receipts.is_empty() {
-            self.receipt_event_cache
-                .insert_receipt(tipset_key, receipts);
+        
+        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
+            if !receipts.is_empty() {
+                self.receipt_event_cache_handler
+                    .insert_receipt(key, receipts);
+            }
         }
     }
 
@@ -468,7 +461,7 @@ where
         let key = tipset.key();
         let ts = tipset.clone();
         let this = Arc::clone(self);
-        self.receipt_event_cache
+        self.receipt_event_cache_handler
             .get_receipt_or_else(
                 key,
                 Box::new(move || {
@@ -494,7 +487,7 @@ where
         let ts = tipset.clone();
         let this = Arc::clone(self);
         let cids = tipset.cids();
-        self.receipt_event_cache
+        self.receipt_event_cache_handler
             .get_events_or_else(
                 key,
                 Box::new(move || {
@@ -2320,13 +2313,13 @@ mod tests {
         // Verify events cache wasn't updated
         assert!(
             state_manager
-                .receipt_event_cache
+                .receipt_event_cache_handler
                 .get_events(&tipset_key)
                 .is_none()
         );
         assert!(
             state_manager
-                .receipt_event_cache
+                .receipt_event_cache_handler
                 .get_receipts(&tipset_key)
                 .is_none()
         );
@@ -2357,7 +2350,9 @@ mod tests {
         state_manager.update_cache_with_state_output(&tipset_key, &state_output);
 
         // Verify events cache was updated
-        let cached_events = state_manager.receipt_event_cache.get_events(&tipset_key);
+        let cached_events = state_manager
+            .receipt_event_cache_handler
+            .get_events(&tipset_key);
         assert!(cached_events.is_some());
         let events = cached_events.unwrap();
         assert_eq!(events.events.len(), 1);
@@ -2391,7 +2386,9 @@ mod tests {
         state_manager.update_cache_with_state_output(&tipset_key, &state_output);
 
         // Verify the receipt cache was updated
-        let cached_receipts = state_manager.receipt_event_cache.get_receipts(&tipset_key);
+        let cached_receipts = state_manager
+            .receipt_event_cache_handler
+            .get_receipts(&tipset_key);
         assert!(cached_receipts.is_some());
         let receipts = cached_receipts.unwrap();
         assert_eq!(receipts.len(), 1);
@@ -2414,7 +2411,7 @@ mod tests {
 
         assert!(
             state_manager
-                .receipt_event_cache
+                .receipt_event_cache_handler
                 .get_receipts(&tipset_key)
                 .is_none()
         );
