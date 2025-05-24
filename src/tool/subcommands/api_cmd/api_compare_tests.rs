@@ -1759,7 +1759,8 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
-            Address::new_id(78216), // miner actor address `f078216`
+            // miner actor address `t078216`
+            Address::new_id(78216), // https://calibration.filscan.io/en/miner/t078216
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
