@@ -17,6 +17,5 @@ pub trait GoF3Node {
         bootstrap_epoch: i64,
         finality: i64,
         f3_root: String,
-        contract_manifest_poll_interval_seconds: u64,
     ) -> bool;
 }

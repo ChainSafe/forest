@@ -1,6 +1,5 @@
 F3.Finalize
 F3.GetHead
-F3.GetManifestFromContract
 F3.GetParent
 F3.GetParticipatingMinerIDs
 F3.GetPowerTable

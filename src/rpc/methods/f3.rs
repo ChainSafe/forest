@@ -14,36 +14,28 @@ pub use self::types::{
     F3InstanceProgress, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate,
 };
 use self::{types::*, util::*};
-use super::{eth::types::EthAddress, wallet::WalletSign};
+use super::wallet::WalletSign;
+use crate::shim::actors::{
+    convert::{
+        from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
+        from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
+        from_policy_v13_to_v16,
+    },
+    miner, power,
+};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{
-        ApiPaths, Ctx, Permission, RpcMethod, ServerError, eth::types::EthBytes, state::StateCall,
-        types::ApiTipsetKey,
-    },
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
         crypto::Signature,
-        message::Message,
     },
-    state_manager::StateManager,
     utils::misc::env::is_env_set_and_truthy,
-};
-use crate::{
-    rpc::eth::types::EthCallMessage,
-    shim::actors::{
-        convert::{
-            from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
-            from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
-            from_policy_v13_to_v16,
-        },
-        miner, power,
-    },
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -52,7 +44,6 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use num::Signed as _;
-use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
@@ -592,61 +583,6 @@ impl RpcMethod<2> for SignMessage {
         let addr = Address::new_bls(&pubkey)?;
         // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
         WalletSign::handle(ctx, (addr, message)).await
-    }
-}
-
-pub enum GetManifestFromContract {}
-
-impl GetManifestFromContract {
-    pub fn create_eth_call_message(contract: EthAddress) -> EthCallMessage {
-        // method ID of activationInformation(),
-        // see <https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/ignition/deployments/chain-314/build-info/a0bc9e457fcc01c34ae281e6c20340e7.json#L11770>
-        static METHOD_ID: Lazy<EthBytes> =
-            Lazy::new(|| EthBytes::from_str("0x2587660d").expect("Infallible"));
-        EthCallMessage {
-            to: Some(contract),
-            data: Some(METHOD_ID.clone()),
-            ..Default::default()
-        }
-    }
-
-    fn get_manifest_from_contract<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &Arc<StateManager<DB>>,
-        contract: EthAddress,
-    ) -> anyhow::Result<F3Manifest> {
-        let eth_call_message = Self::create_eth_call_message(contract);
-        let filecoin_message = Message::try_from(eth_call_message)?;
-        let api_invoc_result = StateCall::run(state_manager, &filecoin_message, None)?;
-        let Some(message_receipt) = api_invoc_result.msg_rct else {
-            anyhow::bail!("No message receipt");
-        };
-        message_receipt.try_into()
-    }
-}
-
-impl RpcMethod<0> for GetManifestFromContract {
-    const NAME: &'static str = "F3.GetManifestFromContract";
-    const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.",
-    );
-
-    type Params = ();
-    type Ok = Option<F3Manifest>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        _: Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        Ok(match ctx.chain_config().f3_contract_address() {
-            Some(f3_contract_address) => Some(Self::get_manifest_from_contract(
-                &ctx.state_manager,
-                f3_contract_address,
-            )?),
-            _ => None,
-        })
     }
 }
 
