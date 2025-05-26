@@ -38,21 +38,22 @@
 //! where V is the number of vertices(state-trees and messages) and E is the number of edges(block headers).
 //!
 //! ## Trade-offs
-//! - The node reboots with the exported lite snapshot and looses all work during the export stage. (To be fixed).
 //! - All TCP interfaces are rebooted, thus all operations that interact with the TCP interfaces(e.g. `forest-cli sync wait`)
 //!   are interrupted.
 //!
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
 use crate::db::{
-    CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore, SettingsStoreExt,
-    db_engine::{DbConfig, db_root},
+    BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
+    db_engine::{DbConfig, db_root, open_db},
     parity_db::{DbColumn, ParityDb},
 };
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
+use ahash::HashMap;
 use anyhow::Context as _;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use sha2::Sha256;
@@ -62,6 +63,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::time::{Duration, Instant};
+use tokio::task::JoinSet;
 
 pub struct SnapshotGarbageCollector<DB> {
     db_root_dir: PathBuf,
@@ -69,9 +71,12 @@ pub struct SnapshotGarbageCollector<DB> {
     recent_state_roots: i64,
     db_config: DbConfig,
     running: AtomicBool,
-    exported_chain_head: RwLock<Option<Tipset>>,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
+    // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
+    memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
+    memory_db_head_key: RwLock<Option<TipsetKey>>,
+    exported_head_key: RwLock<Option<TipsetKey>>,
     car_db_head_epoch: RwLock<Option<ChainEpoch>>,
     reboot_tx: flume::Sender<()>,
     trigger_tx: flume::Sender<()>,
@@ -81,7 +86,13 @@ pub struct SnapshotGarbageCollector<DB> {
 
 impl<DB> SnapshotGarbageCollector<DB>
 where
-    DB: Blockstore + SettingsStore + HeaviestTipsetKeyProvider + Send + Sync + 'static,
+    DB: Blockstore
+        + SettingsStore
+        + HeaviestTipsetKeyProvider
+        + BlockstoreWriteOpsSubscribable
+        + Send
+        + Sync
+        + 'static,
 {
     pub fn new(config: &crate::Config) -> anyhow::Result<(Self, flume::Receiver<()>)> {
         let chain_data_path = chain_path(config);
@@ -97,9 +108,11 @@ where
                 recent_state_roots,
                 db_config: config.db_config().clone(),
                 running: AtomicBool::new(false),
-                exported_chain_head: RwLock::new(None),
                 blessed_lite_snapshot: RwLock::new(None),
                 db: RwLock::new(None),
+                memory_db: RwLock::new(None),
+                memory_db_head_key: RwLock::new(None),
+                exported_head_key: RwLock::new(None),
                 car_db_head_epoch: RwLock::new(None),
                 reboot_tx,
                 trigger_tx,
@@ -192,15 +205,24 @@ where
     }
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
-        let db = self.db.read().clone().context("db not yet initialzied")?;
+        let db = { self.db.read().clone() }.context("db not yet initialzied")?;
         tracing::info!(
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
         let temp_path = tempfile::NamedTempFile::new_in(&self.car_db_dir)?.into_temp_path();
         let file = tokio::fs::File::create(&temp_path).await?;
+        let mut rx = db.subscribe_write_ops();
+        let mut joinset = JoinSet::new();
+        joinset.spawn(async move {
+            let mut map = HashMap::default();
+            while let Ok((k, v)) = rx.recv().await {
+                map.insert(k, v);
+            }
+            map
+        });
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
-            db,
+            &db,
             self.recent_state_roots,
             file,
             CidHashSet::default(),
@@ -214,12 +236,26 @@ where
         ));
         temp_path.persist(&target_path)?;
         tracing::info!("exported lite snapshot at {}", target_path.display());
-        *self.exported_chain_head.write() = Some(head_ts);
         *self.blessed_lite_snapshot.write() = Some(target_path);
+        *self.exported_head_key.write() = Some(head_ts.key().clone());
 
         if let Err(e) = self.reboot_tx.send(()) {
             tracing::warn!("{e}");
         }
+
+        *self.memory_db_head_key.write() = db.heaviest_tipset_key().ok();
+        db.unsubscribe_write_ops();
+        match joinset.join_next().await {
+            Some(Ok(map)) => {
+                *self.memory_db.write() = Some(map);
+            }
+            Some(Err(e)) => tracing::warn!("{e}"),
+            _ => {}
+        }
+        joinset.shutdown().await;
+
+        self.db.write().take();
+
         Ok(())
     }
 
@@ -233,14 +269,6 @@ where
 
     async fn cleanup_before_reboot_inner(&self) -> anyhow::Result<()> {
         tracing::info!("cleaning up db before rebooting");
-        {
-            // Release db references so that it can be closed
-            if let (Some(db), Some(head)) =
-                (self.db.write().take(), &*self.exported_chain_head.read())
-            {
-                SettingsStoreExt::write_obj(&db, crate::db::setting_keys::HEAD_KEY, head.key())?;
-            }
-        }
         if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() } {
             if blessed_lite_snapshot.is_file() {
                 let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
@@ -289,6 +317,44 @@ where
                                 car_to_remove.display()
                             );
                         }
+                    }
+                }
+
+                // Backfill new db records during snapshot export
+                if let Ok(db) = open_db(self.db_root_dir.clone(), &self.db_config) {
+                    if let Some(mem_db) = self.memory_db.write().take() {
+                        let count = mem_db.len();
+                        let approximate_heap_size = {
+                            let mut size = 0;
+                            for (_k, v) in mem_db.iter() {
+                                size += std::mem::size_of::<Cid>();
+                                size += v.len();
+                            }
+                            size
+                        };
+                        let start = Instant::now();
+                        if let Err(e) = db.put_many_keyed(mem_db) {
+                            tracing::warn!("{e}");
+                        }
+                        tracing::info!(
+                            "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
+                            human_bytes::human_bytes(approximate_heap_size as f64),
+                            humantime::format_duration(start.elapsed())
+                        );
+                    }
+                    match (
+                        self.memory_db_head_key.write().take(),
+                        self.exported_head_key.write().take(),
+                    ) {
+                        (Some(head_key), _) if Tipset::load_required(&db, &head_key).is_ok() => {
+                            let _ = db.set_heaviest_tipset_key(&head_key);
+                            tracing::info!("set memory db head key");
+                        }
+                        (_, Some(head_key)) => {
+                            let _ = db.set_heaviest_tipset_key(&head_key);
+                            tracing::info!("set exported head key");
+                        }
+                        _ => {}
                     }
                 }
             }
