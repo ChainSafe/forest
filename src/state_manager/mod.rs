@@ -444,7 +444,7 @@ where
             self.receipt_event_cache_handler
                 .insert_events(key, events_data);
         }
-        
+
         if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
             if !receipts.is_empty() {
                 self.receipt_event_cache_handler
