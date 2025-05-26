@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
+use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::db::{DBStatistics, GarbageCollectable, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -9,9 +10,11 @@ use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
 use anyhow::{Context as _, anyhow};
 use cid::Cid;
+use futures::FutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
+use parking_lot::RwLock;
 use std::path::PathBuf;
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 use tracing::warn;
@@ -87,11 +90,14 @@ impl DbColumn {
     }
 }
 
+type WriteOpsBroadcastTxSender = tokio::sync::broadcast::Sender<(Cid, Vec<u8>)>;
+
 pub struct ParityDb {
     pub db: parity_db::Db,
     statistics_enabled: bool,
     // This is needed to maintain backwards-compatibility for pre-persistent-column migrations.
     disable_persistent_fallback: bool,
+    write_ops_broadcast_tx: RwLock<Option<WriteOpsBroadcastTxSender>>,
 }
 
 impl ParityDb {
@@ -113,6 +119,7 @@ impl ParityDb {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
             disable_persistent_fallback: false,
+            write_ops_broadcast_tx: RwLock::new(None),
         })
     }
 
@@ -174,6 +181,17 @@ impl SettingsStore for ParityDb {
     }
 }
 
+impl super::HeaviestTipsetKeyProvider for ParityDb {
+    fn heaviest_tipset_key(&self) -> anyhow::Result<TipsetKey> {
+        super::SettingsStoreExt::read_obj::<TipsetKey>(self, super::setting_keys::HEAD_KEY)?
+            .context("head key not found")
+    }
+
+    fn set_heaviest_tipset_key(&self, tsk: &TipsetKey) -> anyhow::Result<()> {
+        super::SettingsStoreExt::write_obj(self, super::setting_keys::HEAD_KEY, tsk)
+    }
+}
+
 impl EthMappingsStore for ParityDb {
     fn read_bin(&self, key: &EthHash) -> anyhow::Result<Option<Vec<u8>>> {
         self.read_from_column(key.0.as_bytes(), DbColumn::EthMappings)
@@ -229,6 +247,10 @@ impl IndicesStore for ParityDb {
     }
 }
 
+fn has_subscribers<T>(tx: &tokio::sync::broadcast::Sender<T>) -> bool {
+    tx.closed().now_or_never().is_none()
+}
+
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
@@ -241,9 +263,16 @@ impl Blockstore for ParityDb {
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         let column = Self::choose_column(k);
-
         // We can put the data directly into the database without any encoding.
-        self.write_to_column(k.to_bytes(), block, column)
+        self.write_to_column(k.to_bytes(), block, column)?;
+        match &*self.write_ops_broadcast_tx.read() {
+            Some(tx) if has_subscribers(tx) => {
+                let _ = tx.send((*k, block.to_vec()));
+            }
+            _ => {}
+        }
+
+        Ok(())
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -252,16 +281,30 @@ impl Blockstore for ParityDb {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
+        let tx_opt: &Option<tokio::sync::broadcast::Sender<(cid::CidGeneric<64>, Vec<u8>)>> =
+            &self.write_ops_broadcast_tx.read();
+        let has_subscribers = tx_opt.as_ref().map(has_subscribers).unwrap_or_default();
+        let mut values_for_subscriber = vec![];
         let values = blocks.into_iter().map(|(k, v)| {
             let column = Self::choose_column(&k);
-            (column, k.to_bytes(), v.as_ref().to_vec())
+            let v = v.as_ref().to_vec();
+            if has_subscribers {
+                values_for_subscriber.push((k, v.clone()));
+            }
+            (column, k.to_bytes(), v)
         });
         let tx = values
             .into_iter()
             .map(|(col, k, v)| (col as u8, Operation::Set(k, v)));
         self.db
             .commit_changes(tx)
-            .map_err(|e| anyhow!("error bulk writing: {e}"))
+            .map_err(|e| anyhow!("error bulk writing: {e}"))?;
+        if let Some(tx) = tx_opt {
+            for i in values_for_subscriber {
+                let _ = tx.send(i);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -411,10 +454,27 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
     }
 }
 
+impl super::BlockstoreWriteOpsSubscribable for ParityDb {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        let tx_lock = self.write_ops_broadcast_tx.read();
+        if let Some(tx) = &*tx_lock {
+            return tx.subscribe();
+        }
+        drop(tx_lock);
+        let (tx, rx) = tokio::sync::broadcast::channel(8192);
+        *self.write_ops_broadcast_tx.write() = Some(tx);
+        rx
+    }
+
+    fn unsubscribe_write_ops(&self) {
+        self.write_ops_broadcast_tx.write().take();
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::db::tests::db_utils::parity::TempParityDB;
+    use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
     use std::ops::Deref;
@@ -594,5 +654,73 @@ mod test {
                 Some(data_entry.clone())
             );
         }
+    }
+
+    #[test]
+    fn subscription_tests() {
+        let db = TempParityDB::new();
+        assert!(
+            db.db
+                .as_ref()
+                .unwrap()
+                .write_ops_broadcast_tx
+                .read()
+                .is_none()
+        );
+        let data = [
+            b"h'nglui mglw'nafh".to_vec(),
+            b"Cthulhu".to_vec(),
+            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
+        ];
+
+        let cids = [
+            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
+        ];
+
+        let mut rx1 = db.db.as_ref().unwrap().subscribe_write_ops();
+        let mut rx2 = db.db.as_ref().unwrap().subscribe_write_ops();
+
+        assert!(has_subscribers(
+            db.db
+                .as_ref()
+                .unwrap()
+                .write_ops_broadcast_tx
+                .read()
+                .as_ref()
+                .unwrap()
+        ));
+
+        for (idx, cid) in cids.iter().enumerate() {
+            let data_entry = &data[idx];
+            db.put_keyed(cid, data_entry).unwrap();
+            assert_eq!(rx1.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+            assert_eq!(rx2.blocking_recv().unwrap(), (*cid, data_entry.clone()));
+        }
+
+        drop(rx1);
+        drop(rx2);
+
+        assert!(!has_subscribers(
+            db.db
+                .as_ref()
+                .unwrap()
+                .write_ops_broadcast_tx
+                .read()
+                .as_ref()
+                .unwrap()
+        ));
+
+        db.db.as_ref().unwrap().unsubscribe_write_ops();
+
+        assert!(
+            db.db
+                .as_ref()
+                .unwrap()
+                .write_ops_broadcast_tx
+                .read()
+                .is_none()
+        );
     }
 }

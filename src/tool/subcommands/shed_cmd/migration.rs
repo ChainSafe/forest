@@ -99,7 +99,7 @@ impl MigrateStateCommand {
 }
 
 pub(super) fn load_db(db_root: &Path) -> anyhow::Result<Arc<ManyCar<ParityDb>>> {
-    let db_writer = open_db(db_root.into(), Default::default())?;
+    let db_writer = open_db(db_root.into(), &Default::default())?;
     let db = ManyCar::new(db_writer);
     let forest_car_db_dir = db_root.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;

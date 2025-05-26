@@ -306,6 +306,22 @@ impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
     }
 }
 
+pub trait BlockstoreWriteOpsSubscribable {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>;
+
+    fn unsubscribe_write_ops(&self);
+}
+
+impl<T: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for Arc<T> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        self.as_ref().subscribe_write_ops()
+    }
+
+    fn unsubscribe_write_ops(&self) {
+        self.as_ref().unsubscribe_write_ops()
+    }
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
@@ -319,8 +335,8 @@ pub mod db_engine {
         choose_db(chain_data_root)
     }
 
-    pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, &config)
+    pub fn open_db(path: PathBuf, config: &DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, config)
     }
 }
 

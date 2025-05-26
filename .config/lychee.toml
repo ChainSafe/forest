@@ -13,8 +13,9 @@ exclude = [
   # Bot protection
   "jwt.io",
   "forest-explorer.chainsafe.dev",
-  # Maybe temporarily down with 502, but it blocks the CI
-  "status.chainsafe.dev",
+  # Maybe temporarily down with 404, but it blocks the CI
+  "filecoin.io/slack",
+
 ]
 timeout = 30
 max_retries = 6
