@@ -7150,9 +7150,9 @@ checksum = "74765f6d916ee2faa39bc8e68e4f3ed8949b48cccdac59983d287a7cb71ce9c5"
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.110.0"
+version = "0.113.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3a9876456fb2521097deef33ddeac1c18260c8eafb68054d986f8b9d6ce9fa"
+checksum = "ed34c51974718c5bd90d876d1364d9725159fc8030c2382b9cb837034152ed68"
 dependencies = [
  "memchr",
  "unicode-properties",
@@ -7161,15 +7161,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.280"
+version = "0.0.281"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "987fa195490f7b6361ba855143ff6d9d200469883638568cab1c998379dd8fac"
+checksum = "ad4d365c47b09fb22822e1825e8047e1d5cf2cc4594609a4b92f6dc1f77676f2"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.280"
+version = "0.0.281"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e9f4bacc657b9bbca3960323c703c27b16203efa2ee0706dfd8f25c84f401c"
+checksum = "7ecbe440f58cae24058977262a1e575e40cb96b1ad8af60435dd3e7ab8a3c3fa"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7180,11 +7180,12 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.280"
+version = "0.0.281"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c430db67c5dcff042c08e2b4fef88558fa5d4581817cf04b4da7035d6d513756"
+checksum = "cfe615ae1058255fb2759510cc2b6b6819a4294a9740978cbd296592f137029a"
 dependencies = [
  "crossbeam-channel",
+ "crossbeam-utils",
  "itertools 0.14.0",
  "jod-thread",
  "libc",
@@ -7195,9 +7196,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.280"
+version = "0.0.281"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89d77dece3dfb397252c6bdf975329ffe273c4bf171cf204970531f9473ec2fe"
+checksum = "8abc31942526cbf8978fd055e3d9f3562a08fac325a0b0d8888bbc61b0caec85"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -9043,9 +9044,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "bytes",
