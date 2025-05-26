@@ -284,7 +284,6 @@ Temporary Items
 ### Ruby ###
 *.gem
 *.rbc
-/.config
 /coverage/
 /InstalledFiles
 /pkg/
