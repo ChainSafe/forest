@@ -52,6 +52,9 @@ forest_wait_api
 ADMIN_TOKEN=$(cat admin_token)
 FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
 
+export ADMIN_TOKEN
+export FULLNODE_API_INFO
+
 forest_wait_for_sync
 forest_check_db_stats
 
