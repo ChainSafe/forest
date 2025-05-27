@@ -235,7 +235,7 @@ assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.19"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
-criterion = { version = "0.5", features = ["async_tokio", "csv"] }
+criterion = { version = "0.6", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
@@ -252,7 +252,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.280"
+ra_ap_syntax = "0.0.281"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

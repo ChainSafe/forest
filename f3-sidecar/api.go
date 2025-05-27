@@ -22,12 +22,11 @@ type F3Api struct {
 	GetParticipatingMinerIDs func(context.Context) ([]uint64, error)
 	SignMessage              func(context.Context, []byte, []byte) (*crypto.Signature, error)
 	Finalize                 func(context.Context, gpbft.TipSetKey) error
-	GetManifestFromContract  func(context.Context) (*manifest.Manifest, error)
 }
 
 type FilecoinApi struct {
-	Version          func(context.Context) (VersionInfo, error)
-	NetAddrsListen   func(context.Context) (peer.AddrInfo, error)
+	Version        func(context.Context) (VersionInfo, error)
+	NetAddrsListen func(context.Context) (peer.AddrInfo, error)
 }
 
 type VersionInfo struct {
