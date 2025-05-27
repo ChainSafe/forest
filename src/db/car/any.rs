@@ -97,6 +97,14 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
             AnyCar::Memory(m) => AnyCar::Memory(m),
         }
     }
+
+    /// Get the index size in bytes
+    pub fn index_size_bytes(&self) -> Option<u32> {
+        match self {
+            Self::Forest(car) => Some(car.index_size_bytes()),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<&'static [u8]> for AnyCar<&'static [u8]> {
