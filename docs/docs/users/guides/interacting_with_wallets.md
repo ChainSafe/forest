@@ -30,6 +30,12 @@ The rest of this document will assume you're using testnet tokens.
 
 :::
 
+:::note
+
+The `forest-wallet` will figure out the network you are using based on the running node. No additional configuration is required.
+
+:::
+
 ## Creating an account
 
 Initially, our wallet contains no addresses:
@@ -166,12 +172,18 @@ To maximize the security of your local wallet, we recommend following these best
 - **Set strict file permissions**: Ensure that the local wallet file can only be accessed by your user account by running the following command:
 
   ```shell
-  chmod 600 ~/.local/share/forest/keystore.json
+  chmod 600 ~/.local/share/forest-wallet/keystore.json
   ```
 
-  This makes the file readable and writable only by you.
+  This makes the file readable and writable only by you. Note that this is done automatically when you create a new wallet, but it is good to check if you have modified the permissions later.
 
-- **Encrypt your wallet data**: Encryption provides an additional layer of security in case your system is compromised or accessed by others. You can either encrypt your entire disk or, at a minimum, your home directory.
+- **Encrypt your wallet data**: Encryption provides an additional layer of security in case your system is compromised or accessed by others. You can either encrypt your entire disk or, at a minimum, your home directory. At the very least, encrypt the keystore with a strong password. You can pass the `--encrypt` flag when creating a new wallet:
+
+  ```shell
+  forest-wallet --encrypt new
+  ```
+
+  From now on, you will be prompted for the password whenever you access the wallet.
 
 - **Create backups**: Regularly back up your local wallet. This ensures that if something happens to your system, you will still have access to your funds.
   Please refer to the `forest-tool backup` subcommands.
