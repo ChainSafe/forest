@@ -14,7 +14,6 @@ use tokio::sync::Mutex as TokioMutex;
 
 const DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
 
-// Various structures for implementing the tipset state cache
 struct TipsetStateCacheInner<V> {
     values: LruCache<TipsetKey, V>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
@@ -43,9 +42,14 @@ pub(crate) struct TipsetStateCache<V> {
     cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
 }
 
-/// Represents the status of a cache lookup.
-enum Status<V> {
-    Done(V),
+impl<V: Clone> Default for TipsetStateCache<V> {
+    fn default() -> Self {
+        TipsetStateCache::with_size(DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE)
+    }
+}
+
+enum CacheLookupStatus<V> {
+    Exist(V),
     Empty(Arc<TokioMutex<()>>),
 }
 
@@ -77,7 +81,7 @@ impl<V: Clone> TipsetStateCache<V> {
         V: Send + Sync + 'static,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(v.clone()),
+            Some(v) => CacheLookupStatus::Exist(v.clone()),
             None => {
                 let option = inner
                     .pending
@@ -85,23 +89,23 @@ impl<V: Clone> TipsetStateCache<V> {
                     .find(|(k, _)| k == key)
                     .map(|(_, mutex)| mutex);
                 match option {
-                    Some(mutex) => Status::Empty(mutex.clone()),
+                    Some(mutex) => CacheLookupStatus::Empty(mutex.clone()),
                     None => {
                         let mutex = Arc::new(TokioMutex::new(()));
                         inner.pending.push((key.clone(), mutex.clone()));
-                        Status::Empty(mutex)
+                        CacheLookupStatus::Empty(mutex)
                     }
                 }
             }
         });
         match status {
-            Status::Done(x) => {
+            CacheLookupStatus::Exist(x) => {
                 crate::metrics::LRU_CACHE_HIT
                     .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
                     .inc();
                 Ok(x)
             }
-            Status::Empty(mtx) => {
+            CacheLookupStatus::Empty(mtx) => {
                 let _guard = mtx.lock().await;
                 match self.get(key) {
                     Some(v) => {
@@ -151,7 +155,6 @@ type ComputeEventsFn =
 
 /// Defines the interface for caching and retrieving tipset-specific events and receipts.
 pub trait TipsetReceiptEventCacheHandler: Send + Sync + 'static {
-    /// Inserts receipts for a given tipset key into the cache.
     fn insert_receipt(&self, key: &TipsetKey, receipt: Vec<Receipt>);
     fn insert_events(&self, key: &TipsetKey, events: StateEvents);
     #[allow(dead_code)]
@@ -179,8 +182,8 @@ pub struct EnabledTipsetDataCache {
 impl EnabledTipsetDataCache {
     pub fn new() -> Self {
         Self {
-            events_cache: TipsetStateCache::with_size(DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE),
-            receipt_cache: TipsetStateCache::with_size(DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE),
+            events_cache: TipsetStateCache::default(),
+            receipt_cache: TipsetStateCache::default(),
         }
     }
 }
@@ -237,7 +240,7 @@ impl TipsetReceiptEventCacheHandler for EnabledTipsetDataCache {
     }
 }
 
-/// Dummy cache for tipset-related events and receipts.
+/// Fake cache for tipset-related events and receipts.
 pub struct DisabledTipsetDataCache;
 
 impl DisabledTipsetDataCache {
