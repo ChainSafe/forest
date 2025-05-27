@@ -186,6 +186,7 @@ pub struct ArchiveInfo {
     tipsets: ChainEpoch,
     messages: ChainEpoch,
     root: Tipset,
+    index_size_bytes: Option<u32>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -201,7 +202,15 @@ impl std::fmt::Display for ArchiveInfo {
             .iter()
             .map(Cid::to_string)
             .join("\n               ");
-        write!(f, "Root CIDs:     {root_cids_string}",)?;
+        write!(f, "Root CIDs:     {root_cids_string}")?;
+        if let Some(index_size_bytes) = self.index_size_bytes {
+            writeln!(f)?;
+            write!(
+                f,
+                "Index size:    {}",
+                human_bytes::human_bytes(index_size_bytes)
+            )?;
+        }
         Ok(())
     }
 }
@@ -293,6 +302,7 @@ impl ArchiveInfo {
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
+            index_size_bytes: store.index_size_bytes(),
         })
     }
 }
