@@ -95,7 +95,6 @@ pub fn run_f3_sidecar_if_enabled(
                 _bootstrap_epoch,
                 _finality,
                 _f3_root,
-                chain_config.f3_contract_poll_interval().as_secs(),
             );
         }
     }
