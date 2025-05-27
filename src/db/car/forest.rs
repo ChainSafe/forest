@@ -55,6 +55,7 @@ use crate::utils::db::car_stream::{CarBlock, CarV1Header};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
+use byteorder::LittleEndian;
 use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
@@ -62,7 +63,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use nunny::Vec as NonEmpty;
 use parking_lot::{Mutex, RwLock};
-use positioned_io::{Cursor, ReadAt, SizeCursor};
+use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
 use std::sync::Arc;
@@ -81,6 +82,8 @@ pub mod index;
 mod index;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
+/// <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#skippable-frames>
+pub const ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER: [u8; 4] = [0x50, 0x2A, 0x4D, 0x18];
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
 const ZSTD_SKIP_FRAME_LEN: u64 = 8;
@@ -90,6 +93,7 @@ pub struct ForestCar<ReaderT> {
     // the origin of a cached z-frame.
     cache_key: CacheKey,
     indexed: index::Reader<positioned_io::Slice<ReaderT>>,
+    index_size_bytes: u32,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: NonEmpty<Cid>,
@@ -98,12 +102,18 @@ pub struct ForestCar<ReaderT> {
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
         let (header, footer) = Self::validate_car(&reader)?;
-
-        let indexed = index::Reader::new(positioned_io::Slice::new(reader, footer.index, None))?;
-
+        let index_size_bytes = reader.read_u32_at::<LittleEndian>(
+            footer.index.saturating_sub(std::mem::size_of::<u32>() as _),
+        )?;
+        let indexed = index::Reader::new(positioned_io::Slice::new(
+            reader,
+            footer.index,
+            Some(index_size_bytes as u64),
+        ))?;
         Ok(ForestCar {
             cache_key: 0,
             indexed,
+            index_size_bytes,
             frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
             roots: header.roots,
@@ -143,6 +153,10 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         &self.roots
     }
 
+    pub fn index_size_bytes(&self) -> u32 {
+        self.index_size_bytes
+    }
+
     pub fn heaviest_tipset_key(&self) -> TipsetKey {
         TipsetKey::from(self.roots().clone())
     }
@@ -162,6 +176,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
                     None,
                 )
             }),
+            index_size_bytes: self.index_size_bytes,
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
@@ -408,13 +423,11 @@ impl ForestCarFooter {
     pub const SIZE: usize = 16;
 
     pub fn to_le_bytes(&self) -> [u8; Self::SIZE] {
-        let footer_data_len: u32 = 8;
-
         let mut buffer = [0; 16];
         // Skippable frames start with 50 2A 4D 18
-        buffer[0..4].copy_from_slice(&[0x50, 0x2A, 0x4D, 0x18]);
+        buffer[0..4].copy_from_slice(&ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER);
         // Then a u32 containing the length of the data in the frame
-        buffer[4..8].copy_from_slice(&footer_data_len.to_le_bytes());
+        buffer[4..8].copy_from_slice(&(std::mem::size_of_val(&self.index) as u32).to_le_bytes());
         // And finally the metadata we want to store
         buffer[8..16].copy_from_slice(&self.index.to_le_bytes());
         buffer
