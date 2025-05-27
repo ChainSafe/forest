@@ -287,3 +287,237 @@ impl TipsetReceiptEventCacheHandler for DisabledTipsetDataCache {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::TipsetKey;
+    use crate::shim::executor::Receipt;
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_derive::MultihashDigest;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
+    use std::time::Duration;
+
+    fn create_test_tipset_key(i: u64) -> TipsetKey {
+        let bytes = i.to_le_bytes().to_vec();
+        let cid = Cid::new_v1(
+            DAG_CBOR,
+            crate::utils::multihash::MultihashCode::Blake2b256.digest(&bytes),
+        );
+        TipsetKey::from(nunny::vec![cid])
+    }
+
+    fn create_test_receipt(i: u64) -> Vec<Receipt> {
+        vec![Receipt::V4(fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::new(0),
+            return_data: fvm_ipld_encoding::RawBytes::default(),
+            gas_used: i * 100,
+            events_root: None,
+        })]
+    }
+
+    #[tokio::test]
+    async fn test_tipset_cache_basic_functionality() {
+        let cache: TipsetStateCache<String> = TipsetStateCache::new();
+        let key = create_test_tipset_key(1);
+
+        // Test cache miss and computation
+        let result = cache
+            .get_or_else(&key, || async { Ok("computed_value".to_string()) })
+            .await
+            .unwrap();
+        assert_eq!(result, "computed_value");
+
+        // Test cache hit
+        let result = cache
+            .get_or_else(&key, || async { Ok("should_not_compute".to_string()) })
+            .await
+            .unwrap();
+        assert_eq!(result, "computed_value");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_same_key_computation() {
+        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new());
+        let key = create_test_tipset_key(1);
+        let computation_count = Arc::new(AtomicU8::new(0));
+
+        // Start multiple tasks that try to compute the same key concurrently
+        let mut handles = vec![];
+        for i in 0..10 {
+            let cache_clone = Arc::clone(&cache);
+            let key_clone = key.clone();
+            let count_clone = Arc::clone(&computation_count);
+
+            let handle = tokio::spawn(async move {
+                cache_clone
+                    .get_or_else(&key_clone, || {
+                        let count = Arc::clone(&count_clone);
+                        async move {
+                            // Increment computation count
+                            count.fetch_add(1, Ordering::SeqCst);
+                            // Simulate some computation time
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                            Ok(format!("computed_value_{}", i))
+                        }
+                    })
+                    .await
+            });
+            handles.push(handle);
+        }
+
+        let results: Vec<_> = futures::future::join_all(handles)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // Computation should have been performed once
+        assert_eq!(computation_count.load(Ordering::SeqCst), 1);
+
+        // Only one result should be returned as computation was performed once,
+        // and all tasks will get the same result from the cache
+        let first_result = results[0].as_ref().unwrap();
+        for result in &results {
+            assert_eq!(result.as_ref().unwrap(), first_result);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_different_keys() {
+        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new());
+        let computation_count = Arc::new(AtomicU8::new(0));
+
+        // Start tasks that try to compute the different keys
+        let mut handles = vec![];
+        for i in 0..10 {
+            let cache_clone = Arc::clone(&cache);
+            let key = create_test_tipset_key(i);
+            let count_clone = Arc::clone(&computation_count);
+
+            let handle = tokio::spawn(async move {
+                cache_clone
+                    .get_or_else(&key, || {
+                        let count = Arc::clone(&count_clone);
+                        async move {
+                            count.fetch_add(1, Ordering::SeqCst);
+                            tokio::time::sleep(Duration::from_millis(5)).await;
+                            Ok(format!("value_{}", i))
+                        }
+                    })
+                    .await
+            });
+            handles.push(handle);
+        }
+
+        let results: Vec<_> = futures::future::join_all(handles)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // Computation should have been performed for each key
+        assert_eq!(computation_count.load(Ordering::SeqCst), 10);
+
+        // All results should be returned as computation was performed once for each key
+        for (i, result) in results.iter().enumerate() {
+            assert_eq!(result.as_ref().unwrap(), &format!("value_{}", i));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_enabled_cache_concurrent_access() {
+        let cache = Arc::new(EnabledTipsetDataCache::new());
+        let key = create_test_tipset_key(1);
+        let computation_count = Arc::new(AtomicU32::new(0));
+
+        let mut handles = vec![];
+        for i in 0..5 {
+            let cache_clone = Arc::clone(&cache);
+            let key_clone = key.clone();
+            let count_clone = Arc::clone(&computation_count);
+
+            let handle = tokio::spawn(async move {
+                cache_clone
+                    .get_receipt_or_else(
+                        &key_clone,
+                        Box::new(move || {
+                            let count = Arc::clone(&count_clone);
+                            Box::pin(async move {
+                                count.fetch_add(1, Ordering::SeqCst);
+                                tokio::time::sleep(Duration::from_millis(10)).await;
+                                Ok(create_test_receipt(i))
+                            })
+                        }),
+                    )
+                    .await
+            });
+            handles.push(handle);
+        }
+
+        let results: Vec<_> = futures::future::join_all(handles)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // Computation should have been performed once
+        assert_eq!(computation_count.load(Ordering::SeqCst), 1);
+
+        // Only one result should be returned as computation was performed once,
+        // and all tasks will get the same result from the cache
+        let first_result = results[0].as_ref().unwrap();
+        for result in &results {
+            let receipts = result.as_ref().unwrap();
+            assert_eq!(receipts.len(), first_result.len());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_disabled_cache_behavior() {
+        let cache = Arc::new(DisabledTipsetDataCache::new());
+        let key = create_test_tipset_key(1);
+        let computation_count = Arc::new(AtomicU32::new(0));
+
+        // Test that the disabled cache doesn't compute and returns empty results
+        let mut handles = vec![];
+        for i in 0..3 {
+            let cache_clone = Arc::clone(&cache);
+            let key_clone = key.clone();
+            let count_clone = Arc::clone(&computation_count);
+
+            let handle = tokio::spawn(async move {
+                cache_clone
+                    .get_receipt_or_else(
+                        &key_clone,
+                        Box::new(move || {
+                            let count = Arc::clone(&count_clone);
+                            Box::pin(async move {
+                                count.fetch_add(1, Ordering::SeqCst);
+                                Ok(create_test_receipt(i))
+                            })
+                        }),
+                    )
+                    .await
+            });
+            handles.push(handle);
+        }
+
+        let results: Vec<_> = futures::future::join_all(handles)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // Disabled cache should never compute - it returns empty results immediately
+        assert_eq!(computation_count.load(Ordering::SeqCst), 0);
+
+        // All results should be empty
+        for result in &results {
+            let receipts = result.as_ref().unwrap();
+            assert!(receipts.is_empty());
+        }
+    }
+}
