@@ -73,7 +73,6 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 pub struct Cli {
     #[clap(flatten)]
     pub opts: CliOpts,
-    pub cmd: Option<String>,
 }
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
@@ -81,7 +80,7 @@ where
     ArgT: Into<OsString> + Clone,
 {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse_from(args);
+    let Cli { opts } = Cli::parse_from(args);
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
@@ -107,36 +106,28 @@ where
     if opts.dry_run {
         return Ok(());
     }
-    match cmd {
-        Some(subcmd) => {
-            anyhow::bail!(
-                "Invalid subcommand: {subcmd}. All subcommands have been moved to forest-cli tool."
-            );
-        }
-        None => {
-            if opts.detach {
-                create_ipc_lock()?;
-                info!(
-                    "Redirecting stdout and stderr to files {} and {}.",
-                    cfg.daemon.stdout.display(),
-                    cfg.daemon.stderr.display()
-                );
-                build_daemon(&cfg.daemon)?.start()?;
-            }
 
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()?;
-
-            for task in background_tasks {
-                rt.spawn(task);
-            }
-
-            let ret = rt.block_on(super::start_interruptable(opts, cfg));
-            info!("Shutting down tokio...");
-            rt.shutdown_timeout(Duration::from_secs_f32(0.5));
-            info!("Forest finish shutdown");
-            ret
-        }
+    if opts.detach {
+        create_ipc_lock()?;
+        info!(
+            "Redirecting stdout and stderr to files {} and {}.",
+            cfg.daemon.stdout.display(),
+            cfg.daemon.stderr.display()
+        );
+        build_daemon(&cfg.daemon)?.start()?;
     }
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    for task in background_tasks {
+        rt.spawn(task);
+    }
+
+    let ret = rt.block_on(super::start_interruptable(opts, cfg));
+    info!("Shutting down tokio...");
+    rt.shutdown_timeout(Duration::from_secs_f32(0.5));
+    info!("Forest finish shutdown");
+    ret
 }
