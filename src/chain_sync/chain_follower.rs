@@ -281,7 +281,8 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 let (tasks_set, _) = state_machine.lock().tasks();
-                let heaviest_epoch = state_manager.chain_store().heaviest_tipset().epoch();
+                let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+                let heaviest_epoch = heaviest_tipset.epoch();
 
                 let to_download = tasks_set
                     .iter()
@@ -302,15 +303,15 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                 // behind. Otherwise it can be too spammy.
                 match (expected_head - heaviest_epoch > 10, to_download > 0) {
                     (true, true) => info!(
-                        "Catching up to HEAD: {} -> {}, downloading {} tipsets",
-                        heaviest_epoch, expected_head, to_download
+                        "Catching up to HEAD: {heaviest_epoch}({}) -> {expected_head}, downloading {to_download} tipsets"
+                        , heaviest_tipset.key().terse()
                     ),
                     (true, false) => info!(
-                        "Catching up to HEAD: {} -> {}",
-                        heaviest_epoch, expected_head,
+                        "Catching up to HEAD: {heaviest_epoch}({}) -> {expected_head}"
+                        , heaviest_tipset.key().terse()
                     ),
                     (false, true) => {
-                        info!("Downloading {} tipsets", to_download,)
+                        info!("Downloading {to_download} tipsets")
                     }
                     (false, false) => {}
                 }

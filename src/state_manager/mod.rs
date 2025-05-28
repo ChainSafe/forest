@@ -522,9 +522,10 @@ where
         self.cache
             .get_or_else(key, || async move {
                 info!(
-                    "Evaluating tipset: EPOCH = {}, blocks = {}",
+                    "Evaluating tipset: EPOCH={}, blocks={}, tsk=({})",
                     tipset.epoch(),
                     tipset.len(),
+                    tipset.key().terse(),
                 );
 
                 // First, try to look up the state and receipt if not found in the blockstore
