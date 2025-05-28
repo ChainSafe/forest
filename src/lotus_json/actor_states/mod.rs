@@ -7,6 +7,8 @@ mod evm_state;
 mod init_state;
 mod market_state;
 mod miner_state;
+mod multisig_state;
 mod power_states;
+mod reward_state;
 mod system_state;
 mod vesting_funds;
