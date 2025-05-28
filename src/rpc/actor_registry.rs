@@ -4,9 +4,10 @@ use crate::lotus_json::HasLotusJson;
 use crate::networks::ACTOR_BUNDLES_METADATA;
 use crate::shim::actors::{
     AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, InitActorStateLoad,
-    MarketActorStateLoad, MinerActorStateLoad, MultisigActorStateLoad, PowerActorStateLoad,
-    RewardActorStateLoad, SystemActorStateLoad, account, cron, evm, init, market, miner, multisig,
-    power, reward, system,
+    MarketActorStateLoad, MinerActorStateLoad, MultisigActorStateLoad,
+    PaymentchannelActorStateLoad, PowerActorStateLoad, RewardActorStateLoad, SystemActorStateLoad,
+    VerifregActorStateLoad, account, cron, evm, init, market, miner, multisig, paymentchannel,
+    power, reward, system, verifreg,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
@@ -99,6 +100,19 @@ where
         BuiltinActor::Reward => {
             load_and_serialize_state!(store, code_cid, state_cid, actor_type, reward::State)
         }
+        BuiltinActor::VerifiedRegistry => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, verifreg::State)
+        }
+        BuiltinActor::PaymentChannel => {
+            load_and_serialize_state!(
+                store,
+                code_cid,
+                state_cid,
+                actor_type,
+                paymentchannel::State
+            )
+        }
+        BuiltinActor::EAM | BuiltinActor::EthAccount | BuiltinActor::Placeholder => Ok(Value::Null),
         // Add other actor types as needed
         _ => Err(anyhow!(
             "No serializer implemented for actor type: {:?}",

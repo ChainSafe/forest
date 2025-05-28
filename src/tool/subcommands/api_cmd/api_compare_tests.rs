@@ -1811,6 +1811,15 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            // payment channel actor address `t066116`
+            Address::new_id(66116), // https://calibration.filscan.io/en/address/t066116/
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
             // multisig actor address `t018101`
             Address::new_id(18101), // https://calibration.filscan.io/en/address/t018101/
             tipset.key().into(),

@@ -41,12 +41,12 @@ macro_rules! impl_paych_state_lotus_json {
     ($($version:ident),*) => {
         impl HasLotusJson for State {
             type LotusJson = PaymentChannelStateLotusJson;
-        
+
             #[cfg(test)]
             fn snapshots() -> Vec<(serde_json::Value, Self)> {
                 todo!()
             }
-        
+
             fn into_lotus_json(self) -> Self::LotusJson {
                 match self {
                     $(
@@ -61,7 +61,7 @@ macro_rules! impl_paych_state_lotus_json {
                     )*
                 }
             }
-        
+
             // Default to V16
             fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                 State::V16(fil_actor_paych_state::v16::State {
