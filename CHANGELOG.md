@@ -43,6 +43,8 @@
 
 ### Removed
 
+-[#5652](https://github.com/ChainSafe/forest/pull/5652) Remove `--detach` flag from `forest`. Checkout the [migration guide](https://github.com/ChainSafe/forest#detaching-forest-process)
+
 ### Fixed
 
 - [#5624](https://github.com/ChainSafe/forest/pull/5624) Fixed `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
