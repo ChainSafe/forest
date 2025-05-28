@@ -74,6 +74,7 @@ fil_actor_init_state = { version = "22.2" }
 fil_actor_market_state = { version = "22.2" }
 fil_actor_miner_state = { version = "22.2" }
 fil_actor_multisig_state = { version = "22.2" }
+fil_actor_paych_state = { version = "22.2" }
 fil_actor_power_state = { version = "22.2" }
 fil_actor_reward_state = { version = "22.2" }
 fil_actor_system_state = { version = "22.2" }
