@@ -3,8 +3,9 @@
 use crate::lotus_json::HasLotusJson;
 use crate::networks::ACTOR_BUNDLES_METADATA;
 use crate::shim::actors::{
-    AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, MarketActorStateLoad,
-    MinerActorStateLoad, SystemActorStateLoad, account, cron, evm, market, miner, system,
+    AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, InitActorStateLoad,
+    MarketActorStateLoad, MinerActorStateLoad, PowerActorStateLoad, SystemActorStateLoad, account,
+    cron, evm, init, market, miner, power, system,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
@@ -84,6 +85,12 @@ where
         }
         BuiltinActor::System => {
             load_and_serialize_state!(store, code_cid, state_cid, actor_type, system::State)
+        }
+        BuiltinActor::Init => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, init::State)
+        }
+        BuiltinActor::Power => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, power::State)
         }
         // Add other actor types as needed
         _ => Err(anyhow!(

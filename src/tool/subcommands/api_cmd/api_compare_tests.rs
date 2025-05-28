@@ -1799,6 +1799,14 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
+            Address::INIT_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::POWER_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
             Address::new_id(1234), // account actor address `t01234`
             tipset.key().into(),
         ))?),

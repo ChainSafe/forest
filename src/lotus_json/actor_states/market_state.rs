@@ -61,7 +61,7 @@ pub struct MarketStateLotusJson {
     pub provider_sectors: Option<Cid>,
 }
 
-// Define macros for field handling
+// Define macros for common field handling
 macro_rules! common_market_state_fields {
     ($state:expr) => {{
         MarketStateLotusJson {
@@ -165,9 +165,6 @@ macro_rules! implement_state_versions {
                             State::$version(state) => $handler!(state),
                         )+
                     )*
-                    #[allow(unreachable_patterns)]
-                    _ => panic!("Unhandled State variant in into_lotus_json"),
-
                 }
             }
 
@@ -193,7 +190,6 @@ macro_rules! implement_state_versions {
     };
 }
 
-// Invoke with very explicit syntax
 implement_state_versions! {
     v8_market_state_fields for [V8];
     v9_to_v12_market_state_fields for [V9, V10, V11, V12];
