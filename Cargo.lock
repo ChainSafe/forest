@@ -2712,6 +2712,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_paych_state"
+version = "22.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09bb4d0834d29f0513497d19dc504c2b16c6a9b82d3b593789a0143b7b1b783a"
+dependencies = [
+ "cid",
+ "fil_actors_shared",
+ "frc42_dispatch",
+ "frc42_macros",
+ "fvm_ipld_encoding",
+ "fvm_shared 2.11.1",
+ "fvm_shared 3.13.1",
+ "fvm_shared 4.7.2",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_power_state"
 version = "22.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3045,6 +3064,7 @@ dependencies = [
  "fil_actor_market_state",
  "fil_actor_miner_state",
  "fil_actor_multisig_state",
+ "fil_actor_paych_state",
  "fil_actor_power_state",
  "fil_actor_reward_state",
  "fil_actor_system_state",
