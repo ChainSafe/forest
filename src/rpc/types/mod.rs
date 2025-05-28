@@ -201,9 +201,7 @@ pub struct ApiActorState {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub code: Cid,
-    #[schemars(with = "LotusJson<ApiState>")]
-    #[serde(with = "crate::lotus_json")]
-    pub state: ApiState,
+    pub state: serde_json::Value,
 }
 
 lotus_json_with_self!(ApiActorState);
