@@ -30,7 +30,19 @@ paste! {
 }
 
 actor_state_load_trait!(
-    System, Init, Cron, Account, Power, Miner, Market, Multisig, Reward, Verifreg, DataCap, EVM
+    System,
+    Init,
+    Cron,
+    Account,
+    Power,
+    Miner,
+    Market,
+    Multisig,
+    Reward,
+    Verifreg,
+    DataCap,
+    EVM,
+    Paymentchannel
 );
 
 // We need to provide both the version and the version identifier to the macro; it is a limitation
@@ -90,4 +102,23 @@ actor_state_load_impl!(
 );
 actor_state_load_impl!(
     Reward, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+);
+actor_state_load_impl!(
+    Paymentchannel,
+    9,
+    V9,
+    10,
+    V10,
+    11,
+    V11,
+    12,
+    V12,
+    13,
+    V13,
+    14,
+    V14,
+    15,
+    V15,
+    16,
+    V16
 );
