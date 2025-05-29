@@ -10,11 +10,13 @@ use crate::shim::actors::{
     power, reward, system, verifreg,
 };
 use crate::shim::machine::BuiltinActor;
+use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
-use anyhow::{Context, anyhow};
+use anyhow::{Context, Result, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Debug)]
@@ -35,7 +37,7 @@ impl ActorRegistry {
         Self { map }
     }
 
-    pub fn get_actor_details_from_code(code_cid: &Cid) -> anyhow::Result<(BuiltinActor, u64)> {
+    pub fn get_actor_details_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
         ACTOR_REGISTRY
             .map
             .get(code_cid)
@@ -45,6 +47,72 @@ impl ActorRegistry {
 }
 
 static ACTOR_REGISTRY: Lazy<ActorRegistry> = Lazy::new(ActorRegistry::new);
+
+// Global registry for method parameter deserialization
+static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(|| {
+    let mut registry = MethodRegistry::new();
+    register_known_methods(&mut registry);
+    registry
+});
+
+type ParamDeserializerFn = Box<dyn Fn(&[u8]) -> Result<Value> + Send + Sync>;
+
+pub struct MethodRegistry {
+    // (code_cid, method_num) -> method param deserializer
+    deserializers: HashMap<(Cid, MethodNum), ParamDeserializerFn>,
+}
+
+impl MethodRegistry {
+    fn new() -> Self {
+        Self {
+            deserializers: HashMap::new(),
+        }
+    }
+
+    fn register_method<P: 'static + DeserializeOwned + HasLotusJson>(
+        &mut self,
+        code_cid: Cid,
+        method_num: MethodNum,
+        deserializer: fn(&[u8]) -> Result<P>,
+    ) {
+        let boxed_deserializer: ParamDeserializerFn = Box::new(move |bytes| -> Result<Value> {
+            let param: P = deserializer(bytes)?;
+            serde_json::to_value(param.into_lotus_json())
+                .map_err(|e| anyhow!("Failed to serialize method param into JSON: {}", e))
+        });
+
+        self.deserializers
+            .insert((code_cid, method_num), boxed_deserializer);
+    }
+
+    fn deserialize_params(
+        &self,
+        code_cid: &Cid,
+        method_num: MethodNum,
+        params_bytes: &[u8],
+    ) -> Result<Option<Value>> {
+        if let Some(deserializer) = self.deserializers.get(&(*code_cid, method_num)) {
+            return Ok(Some(deserializer(params_bytes)?));
+        }
+
+        let (actor_type, version) = get_actor_type_from_code(code_cid)?;
+
+        Err(anyhow!(
+            "No deserializer registered for actor type {:?} (v{}), method {}",
+            actor_type,
+            version,
+            method_num
+        ))
+    }
+}
+
+pub fn get_actor_type_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
+    ACTOR_REGISTRY
+        .map
+        .get(code_cid)
+        .copied()
+        .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
+}
 
 macro_rules! load_and_serialize_state {
     ($store:expr, $code_cid:expr, $state_cid:expr, $actor_type:expr, $state_type:ty) => {{
@@ -64,7 +132,7 @@ pub fn load_and_serialize_actor_state<BS>(
     store: &BS,
     code_cid: &Cid,
     state_cid: &Cid,
-) -> anyhow::Result<Value>
+) -> Result<Value>
 where
     BS: Blockstore,
 {
@@ -119,6 +187,156 @@ where
             actor_type
         )),
     }
+}
+
+pub fn deserialize_params(
+    code_cid: &Cid,
+    method_num: MethodNum,
+    params_bytes: &[u8],
+) -> Result<Option<Value>> {
+    METHOD_REGISTRY.deserialize_params(code_cid, method_num, params_bytes)
+}
+
+fn register_known_methods(registry: &mut MethodRegistry) {
+    for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.map.iter() {
+        match (actor_type, version) {
+            (BuiltinActor::Miner, 15) => {
+                register_miner_v15_methods(registry, cid);
+            }
+            (BuiltinActor::Miner, 16) => {
+                register_miner_v16_methods(registry, cid);
+            }
+            (BuiltinActor::Account, 16) => {
+                register_account_v16_methods(registry, cid);
+            }
+            (BuiltinActor::Account, 15) => {
+                register_account_v15_methods(registry, cid);
+            }
+            (BuiltinActor::EVM, 16) => {
+                register_evm_v16_methods(registry, cid);
+            }
+            (BuiltinActor::EVM, 15) => {
+                register_evm_v15_methods(registry, cid);
+            }
+            _ => {}
+        }
+    }
+}
+
+macro_rules! register_actor_methods {
+    ($registry:expr, $code_cid:expr, $version:expr, [
+        $( ($method:expr, $param_type:ty) ),* $(,)?
+    ]) => {
+        $(
+            $registry.register_method(
+                $code_cid,
+                $method as MethodNum,
+                |bytes| -> Result<$param_type> { Ok(fvm_ipld_encoding::from_slice(bytes)?) },
+            );
+        )*
+    };
+}
+
+fn register_account_v15_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_account_state::v15::{Method, types};
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        15,
+        [
+            (Method::Constructor, types::ConstructorParams),
+            (
+                Method::AuthenticateMessageExported,
+                types::AuthenticateMessageParams
+            )
+        ]
+    );
+}
+
+fn register_account_v16_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_account_state::v16::{Method, types};
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        16,
+        [
+            (Method::Constructor, types::ConstructorParams),
+            (
+                Method::AuthenticateMessageExported,
+                types::AuthenticateMessageParams
+            )
+        ]
+    );
+}
+
+fn register_miner_v15_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_miner_state::v15::Method;
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        15,
+        [
+            (
+                Method::Constructor,
+                fil_actor_miner_state::v15::MinerConstructorParams
+            ),
+            (
+                Method::ChangeWorkerAddress,
+                fil_actor_miner_state::v15::ChangeWorkerAddressParams
+            ),
+        ]
+    );
+}
+
+fn register_miner_v16_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_miner_state::v16::Method;
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        16,
+        [
+            (
+                Method::Constructor,
+                fil_actor_miner_state::v16::MinerConstructorParams
+            ),
+            (
+                Method::ChangeWorkerAddress,
+                fil_actor_miner_state::v16::ChangeWorkerAddressParams
+            ),
+        ]
+    );
+}
+
+fn register_evm_v15_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_evm_state::v15::Method;
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        15,
+        [(
+            Method::Constructor,
+            fil_actor_evm_state::v15::ConstructorParams
+        )]
+    );
+}
+
+fn register_evm_v16_methods(registry: &mut MethodRegistry, code_cid: Cid) {
+    use fil_actor_evm_state::v16::Method;
+
+    register_actor_methods!(
+        registry,
+        code_cid,
+        16,
+        [(
+            Method::Constructor,
+            fil_actor_evm_state::v16::ConstructorParams
+        )]
+    );
 }
 
 #[cfg(test)]

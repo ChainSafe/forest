@@ -13,6 +13,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
 use crate::rpc::actor_registry;
+use crate::rpc::actor_registry::deserialize_params;
 use crate::shim::actors::init;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -31,7 +32,7 @@ use crate::shim::actors::{
     power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
-use crate::shim::message::Message;
+use crate::shim::message::{Message, MethodNum};
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::{SectorNumber, SectorSize};
 use crate::shim::state_tree::{ActorID, StateTree};
@@ -1639,6 +1640,31 @@ impl RpcMethod<2> for StateReadState {
             code: actor.code,
             state: state_json,
         })
+    }
+}
+
+pub enum StateDecodeParams {}
+impl RpcMethod<4> for StateDecodeParams {
+    const NAME: &'static str = "Filecoin.StateDecodeParams";
+    const PARAM_NAMES: [&'static str; 4] = ["address", "method", "params", "tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Decode the provided method params.");
+
+    type Params = (Address, MethodNum, Vec<u8>, ApiTipsetKey);
+    type Ok = serde_json::Value;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (address, method, params, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+
+        let res = deserialize_params(&actor.code, method, params.as_slice())?;
+        Ok(res.into())
     }
 }
 

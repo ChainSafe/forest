@@ -6,6 +6,7 @@ mod cron_state;
 mod evm_state;
 mod init_state;
 mod market_state;
+mod methods;
 mod miner_state;
 mod multisig_state;
 mod payment_channel_state;
