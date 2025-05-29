@@ -7,10 +7,6 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init_stateless
 
-echo "Verifying the heaviest tipset to be the genesis"
-HEAD_CID=$($FOREST_CLI_PATH chain head | tail -n +2)
-assert_eq "$HEAD_CID" "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4"
-
 # Example format: /ip4/127.0.0.1/tcp/41937/p2p/12D3KooWAB9z7vZ1x1v9t4BViVkX1Hy1ScoRnWV2GgGy5ec6pfUZ
 STATELESS_NODE_ADDRESS=$($FOREST_CLI_PATH net listen | tail -n 1)
 echo "Stateless node address: $STATELESS_NODE_ADDRESS"

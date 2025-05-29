@@ -18,7 +18,7 @@ ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
 USAGE:
-  forest [OPTIONS] [CMD]
+  forest [OPTIONS]
 
 SUBCOMMANDS:
 
@@ -70,8 +70,6 @@ OPTIONS:
           Encrypt the key-store (default: true) [possible values: true, false]
       --chain <CHAIN>
           Choose network chain to sync to
-      --detach
-          Daemonize Forest process
       --auto-download-snapshot
           Automatically download a chain specific snapshot to sync with the Filecoin network if needed
       --color <COLOR>
@@ -1782,7 +1780,6 @@ Commands:
   private-key-from-key-pair  Generate a base64-encoded private key from the given key-pair file. This effectively transforms Forest's key-pair file into a Lotus-compatible private key
   key-pair-from-private-key  Generate a key-pair file from the given base64-encoded private key. This effectively transforms Lotus's private key into a Forest-compatible key-pair file. If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string
   openrpc                    Dump the OpenRPC definition for the node
-  f3                         F3 related commands
   migrate-state              Run a network upgrade migration
   help                       Print this message or the help of the given subcommand(s)
 
@@ -1865,34 +1862,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-```
-
-### `forest-tool shed f3`
-
-```
-F3 related commands
-
-Usage: forest-tool shed f3 <COMMAND>
-
-Commands:
-  check-activation
-  check-activation-raw  Queries F3 parameters contract using raw logic
-  help                  Print this message or the help of the given subcommand(s)
-
-Options:
-  -h, --help  Print help
-```
-
-### `forest-tool shed f3 check-activation-raw`
-
-```
-Queries F3 parameters contract using raw logic
-
-Usage: forest-tool shed f3 check-activation-raw --contract <CONTRACT>
-
-Options:
-      --contract <CONTRACT>  Contract eth address
-  -h, --help                 Print help
 ```
 
 ### `forest-tool index`
