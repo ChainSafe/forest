@@ -216,6 +216,14 @@ pub struct ApiState {
 
 lotus_json_with_self!(ApiState);
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDecodedParams {
+    pub params: serde_json::Value,
+}
+
+lotus_json_with_self!(ApiDecodedParams);
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
