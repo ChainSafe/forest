@@ -70,8 +70,6 @@ OPTIONS:
           Encrypt the key-store (default: true) [possible values: true, false]
       --chain <CHAIN>
           Choose network chain to sync to
-      --detach
-          Daemonize Forest process
       --auto-download-snapshot
           Automatically download a chain specific snapshot to sync with the Filecoin network if needed
       --color <COLOR>
