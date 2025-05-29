@@ -327,7 +327,7 @@ impl ActorEvent {
 }
 
 /// Event with extra information stamped by the FVM.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum StampedEvent {
     V3(StampedEvent_v3),
     V4(StampedEvent_v4),

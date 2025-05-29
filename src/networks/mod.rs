@@ -245,6 +245,7 @@ pub struct ChainConfig {
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
+    pub enable_receipt_event_caching: bool,
 }
 
 impl ChainConfig {
@@ -277,6 +278,7 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -312,6 +314,7 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -337,6 +340,7 @@ impl ChainConfig {
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -368,6 +372,7 @@ impl ChainConfig {
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
