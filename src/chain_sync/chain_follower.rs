@@ -568,8 +568,18 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     fn is_ready_for_validation(&self, tipset: &FullTipset) -> bool {
         if self.stateless_mode || tipset.key() == self.cs.genesis_tipset().key() {
             true
-        } else if let Ok(full_tipset) = load_full_tipset(&self.cs, tipset.parents().clone()) {
-            self.is_validated(&full_tipset)
+        } else if let Ok(parent_ts) = load_full_tipset(&self.cs, tipset.parents().clone()) {
+            let head_ts = self.cs.heaviest_tipset();
+            if parent_ts.key() == head_ts.key() {
+                true
+            } else if parent_ts.epoch() >= head_ts.epoch() {
+                false
+            } else {
+                self.cs
+                    .blockstore()
+                    .has(parent_ts.parent_state())
+                    .unwrap_or(false)
+            }
         } else {
             false
         }
