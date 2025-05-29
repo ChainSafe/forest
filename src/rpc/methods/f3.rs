@@ -19,6 +19,10 @@ use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
+    db::{
+        BlockstoreReadCache as _, BlockstoreReadCacheStats as _, BlockstoreWithReadCache,
+        DefaultBlockstoreReadCacheStats, LruBlockstoreReadCache,
+    },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
@@ -51,7 +55,7 @@ use num::Signed as _;
 use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
+use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
 pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
 
@@ -157,24 +161,33 @@ impl GetPowerTable {
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         ts: &Arc<Tipset>,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
+        const BLOCKSTORE_CACHE_CAP: usize = 65536;
+        static BLOCKSTORE_CACHE: Lazy<Arc<LruBlockstoreReadCache>> = Lazy::new(|| {
+            Arc::new(LruBlockstoreReadCache::new(
+                BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
+            ))
+        });
+        let db = BlockstoreWithReadCache::new(
+            ctx.store_owned(),
+            BLOCKSTORE_CACHE.clone(),
+            Some(DefaultBlockstoreReadCacheStats::default()),
+        );
+
         macro_rules! handle_miner_state_v12_on {
             ($version:tt, $id_power_worker_mappings:ident, $ts:expr, $state:expr, $policy:expr) => {
                 fn map_err<E: Display>(e: E) -> fil_actors_shared::$version::ActorError {
                     fil_actors_shared::$version::ActorError::unspecified(e.to_string())
                 }
 
-                let claims = $state.load_claims(ctx.store())?;
+                let claims = $state.load_claims(&db)?;
                 claims.for_each(|miner, claim| {
                     if !claim.quality_adj_power.is_positive() {
                         return Ok(());
                     }
 
                     let id = miner.id().map_err(map_err)?;
-                    let (_, ok) = $state.miner_nominal_power_meets_consensus_minimum(
-                        $policy,
-                        ctx.store(),
-                        id,
-                    )?;
+                    let (_, ok) =
+                        $state.miner_nominal_power_meets_consensus_minimum($policy, &db, id)?;
                     if !ok {
                         return Ok(());
                     }
@@ -188,7 +201,7 @@ impl GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if $ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -210,7 +223,7 @@ impl GetPowerTable {
                 let claims = fil_actors_shared::v8::make_map_with_root::<
                     _,
                     fil_actor_power_state::v8::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -220,7 +233,7 @@ impl GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v9(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         &miner.into(),
                     )?;
                     if !ok {
@@ -236,7 +249,7 @@ impl GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -253,7 +266,7 @@ impl GetPowerTable {
                 let claims = fil_actors_shared::v9::make_map_with_root::<
                     _,
                     fil_actor_power_state::v9::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -263,7 +276,7 @@ impl GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v9(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         &miner.into(),
                     )?;
                     if !ok {
@@ -279,7 +292,7 @@ impl GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -296,7 +309,7 @@ impl GetPowerTable {
                 let claims = fil_actors_shared::v10::make_map_with_root::<
                     _,
                     fil_actor_power_state::v10::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -306,7 +319,7 @@ impl GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v10(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         id,
                     )?;
                     if !ok {
@@ -322,7 +335,7 @@ impl GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -339,7 +352,7 @@ impl GetPowerTable {
                 let claims = fil_actors_shared::v11::make_map_with_root::<
                     _,
                     fil_actor_power_state::v11::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -349,7 +362,7 @@ impl GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v11(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         id,
                     )?;
                     if !ok {
@@ -365,7 +378,7 @@ impl GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -433,6 +446,11 @@ impl GetPowerTable {
             power_entries.push(F3PowerEntry { id, power, pub_key });
         }
         power_entries.sort();
+
+        if let Some(stats) = db.stats() {
+            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), cache_size=%human_bytes::human_bytes(BLOCKSTORE_CACHE.size_in_bytes() as f64), "F3.GetPowerTable blockstore read cache");
+        }
+
         Ok(power_entries)
     }
 }
@@ -542,7 +560,7 @@ impl RpcMethod<1> for Finalize {
             Some(ts) => ts,
             None => ctx
                 .sync_network_context
-                .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
+                .chain_exchange_headers(None, &tsk, 1.try_into().expect("Infallible"))
                 .await?
                 .first()
                 .cloned()
