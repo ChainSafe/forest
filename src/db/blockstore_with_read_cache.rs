@@ -190,3 +190,66 @@ impl<DB: Blockstore, CACHE: BlockstoreReadCache, STATS: BlockstoreReadCacheStats
         self.inner.put_keyed(k, block)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{db::MemoryDB, utils::rand::forest_rng};
+    use fvm_ipld_encoding::DAG_CBOR;
+    use multihash_codetable::Code::Blake2b256;
+    use multihash_codetable::MultihashDigest as _;
+    use rand::Rng as _;
+
+    #[test]
+    fn test_blockstore_read_cache() {
+        const N_RECORDS: usize = 4;
+        const CACHE_SIZE: usize = 2;
+        let mem_db = Arc::new(MemoryDB::default());
+        let mut records = Vec::with_capacity(N_RECORDS);
+        for _ in 0..N_RECORDS {
+            let mut record = [0; 1024];
+            forest_rng().fill(&mut record);
+            let key = Cid::new_v1(DAG_CBOR, Blake2b256.digest(record.as_slice()));
+            mem_db.put_keyed(&key, &record).unwrap();
+            records.push((key, record));
+        }
+        let cache = Arc::new(LruBlockstoreReadCache::new(CACHE_SIZE.try_into().unwrap()));
+        let db = BlockstoreWithReadCache::new(
+            mem_db.clone(),
+            cache.clone(),
+            Some(DefaultBlockstoreReadCacheStats::default()),
+        );
+
+        assert_eq!(cache.len(), 0);
+        assert_eq!(db.stats().unwrap().hit(), 0);
+        assert_eq!(db.stats().unwrap().miss(), 0);
+
+        for (i, (k, v)) in records.iter().enumerate() {
+            assert_eq!(&db.get(k).unwrap().unwrap(), v);
+
+            assert_eq!(cache.len(), CACHE_SIZE.min(i + 1));
+            assert_eq!(db.stats().unwrap().hit(), i);
+            assert_eq!(db.stats().unwrap().miss(), i + 1);
+
+            assert_eq!(&db.get(k).unwrap().unwrap(), v);
+
+            assert_eq!(cache.len(), CACHE_SIZE.min(i + 1));
+            assert_eq!(db.stats().unwrap().hit(), i + 1);
+            assert_eq!(db.stats().unwrap().miss(), i + 1);
+        }
+
+        let (k0, v0) = &records[0];
+
+        assert_eq!(&db.get(k0).unwrap().unwrap(), v0);
+
+        assert_eq!(cache.len(), CACHE_SIZE);
+        assert_eq!(db.stats().unwrap().hit(), 4);
+        assert_eq!(db.stats().unwrap().miss(), 5);
+
+        assert_eq!(&db.get(k0).unwrap().unwrap(), v0);
+
+        assert_eq!(cache.len(), CACHE_SIZE);
+        assert_eq!(db.stats().unwrap().hit(), 5);
+        assert_eq!(db.stats().unwrap().miss(), 5);
+    }
+}

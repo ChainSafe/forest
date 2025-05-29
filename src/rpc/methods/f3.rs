@@ -161,6 +161,7 @@ impl GetPowerTable {
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         ts: &Arc<Tipset>,
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
+        // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
         static BLOCKSTORE_CACHE: Lazy<Arc<LruBlockstoreReadCache>> = Lazy::new(|| {
             Arc::new(LruBlockstoreReadCache::new(
