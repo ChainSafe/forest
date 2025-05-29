@@ -567,18 +567,21 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
     fn is_ready_for_validation(&self, tipset: &FullTipset) -> bool {
         if self.stateless_mode || tipset.key() == self.cs.genesis_tipset().key() {
+            // Skip validation in stateless mode and for genesis tipset
             true
         } else if let Ok(parent_ts) = load_full_tipset(&self.cs, tipset.parents().clone()) {
             let head_ts = self.cs.heaviest_tipset();
+            // Treat post-head-epoch tipsets as not validated to fix <https://github.com/ChainSafe/forest/issues/5677>
+            // basically, the follow task should always start from the current head which could be manually set
+            // to an old one. When a post-head-epoch tipset is considered validated, it could mess up the state machine
+            // in some edge cases and the node ends up being stuck with ever-empty sync task queue as reported
+            // in <https://github.com/ChainSafe/forest/issues/5679>.
             if parent_ts.key() == head_ts.key() {
                 true
             } else if parent_ts.epoch() >= head_ts.epoch() {
                 false
             } else {
-                self.cs
-                    .blockstore()
-                    .has(parent_ts.parent_state())
-                    .unwrap_or(false)
+                self.is_validated(&parent_ts)
             }
         } else {
             false
