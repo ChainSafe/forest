@@ -21,7 +21,16 @@ macro_rules! impl_system_state_lotus_json {
 
             #[cfg(test)]
             fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![]
+                vec![(
+                     json!({
+                         "builtin_actors": {
+                            "/": "baeaaaaa"
+                        },
+                     }),
+                    State::V16(fil_actor_system_state::v16::State {
+                         builtin_actors: Default::default(),
+                     })
+                )]
             }
 
             fn into_lotus_json(self) -> Self::LotusJson {
