@@ -61,6 +61,7 @@ This is a non-mandatory release for all node operators. It includes a fix for th
 ### Added
 
 - [#4750](https://github.com/ChainSafe/forest/issues/4750) Add support for `Filecoin.ChainGetEvents` RPC method. Add `index backfill` subcommand to `forest-tool`.
+- [#5483](https://github.com/ChainSafe/forest/pull/5483) Add `forest-tool archive sync-bucket` command.
 
 ### Changed
 
