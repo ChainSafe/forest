@@ -97,8 +97,8 @@ services:
       - |
         set -euxo pipefail
         pushd /data/exported
-        # Skip the CAR format line
-        forest-tool archive info forest.car.zst | tail -n +2 > forest.txt
+        # Skip the CAR format line and the "Index size" line (only present in Forest snapshots)
+        forest-tool archive info forest.car.zst | tail -n +2 | grep -v "Index size" > forest.txt
         cat forest.txt
         # Skip the CAR format line
         forest-tool archive info lotus.car | tail -n +2 > lotus.txt
