@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod blockstore_with_read_cache;
 mod blockstore_with_write_buffer;
 pub mod car;
 mod memory;
@@ -9,6 +10,7 @@ pub mod parity_db_config;
 
 pub mod gc;
 pub mod ttl;
+pub use blockstore_with_read_cache::*;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use memory::MemoryDB;
 mod db_mode;
