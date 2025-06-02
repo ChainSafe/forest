@@ -3058,7 +3058,7 @@ impl RpcMethod<1> for EthGetFilterChanges {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
     const DESCRIPTION: Option<&'static str> =
-        Some("Returns event logs which occured since the last poll");
+        Some("Returns event logs which occurred since the last poll");
 
     type Params = (FilterID,);
     type Ok = EthFilterResult;
