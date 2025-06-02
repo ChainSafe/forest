@@ -198,6 +198,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         resolve: ResolveNullTipset,
     ) -> anyhow::Result<TipsetKey> {
         let mut guard = self.epoch_cache.lock();
+        tracing::debug!("to: {}, from: {}", to_epoch, from.key());
 
         let opt = guard.epoch_to_setid.get(&to_epoch).cloned();
         match opt {
@@ -207,7 +208,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
                         ()
                     } else {
                         let mut curr: Tipset = from.deref().clone();
-                        let mut keys = vec![];
+                        let mut keys = vec![(curr.epoch(), curr.key().clone())];
                         let mut null_epochs = vec![];
                         let mut expected_epoch = curr.epoch() - 1;
                         let found = loop {
