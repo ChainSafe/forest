@@ -73,6 +73,7 @@ fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
     }
     Arc::new(ChainConfig {
         enable_indexer: config.chain_indexer.enable_indexer,
+        enable_receipt_event_caching: config.client.enable_rpc,
         ..chain_config
     })
 }
@@ -198,7 +199,7 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
     maybe_migrate_db(config);
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
-    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
+    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;

@@ -144,8 +144,6 @@ generate_markdown_section "forest-tool" "shed summarize-tipsets"
 generate_markdown_section "forest-tool" "shed peer-id-from-key-pair"
 generate_markdown_section "forest-tool" "shed private-key-from-key-pair"
 generate_markdown_section "forest-tool" "shed openrpc"
-generate_markdown_section "forest-tool" "shed f3"
-generate_markdown_section "forest-tool" "shed f3 check-activation-raw"
 
 generate_markdown_section "forest-tool" "index"
 generate_markdown_section "forest-tool" "index backfill"

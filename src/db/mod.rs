@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod blockstore_with_read_cache;
 mod blockstore_with_write_buffer;
 pub mod car;
 mod memory;
@@ -9,6 +10,7 @@ pub mod parity_db_config;
 
 pub mod gc;
 pub mod ttl;
+pub use blockstore_with_read_cache::*;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use memory::MemoryDB;
 mod db_mode;
@@ -306,6 +308,22 @@ impl<T: HeaviestTipsetKeyProvider> HeaviestTipsetKeyProvider for Arc<T> {
     }
 }
 
+pub trait BlockstoreWriteOpsSubscribable {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)>;
+
+    fn unsubscribe_write_ops(&self);
+}
+
+impl<T: BlockstoreWriteOpsSubscribable> BlockstoreWriteOpsSubscribable for Arc<T> {
+    fn subscribe_write_ops(&self) -> tokio::sync::broadcast::Receiver<(Cid, Vec<u8>)> {
+        self.as_ref().subscribe_write_ops()
+    }
+
+    fn unsubscribe_write_ops(&self) {
+        self.as_ref().unsubscribe_write_ops()
+    }
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
@@ -319,8 +337,8 @@ pub mod db_engine {
         choose_db(chain_data_root)
     }
 
-    pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, &config)
+    pub fn open_db(path: PathBuf, config: &DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, config)
     }
 }
 

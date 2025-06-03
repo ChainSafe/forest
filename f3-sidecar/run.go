@@ -18,7 +18,7 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string, contract_manifest_poll_interval_seconds uint64) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "Filecoin", &api, nil)
@@ -65,49 +65,51 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 	verif := blssig.VerifierWithKeyOnG1()
-	m := manifest.LocalDevnetManifest()
-	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
-	case err == nil && isCidDefined(initialPowerTable):
-		logger.Infof("InitialPowerTable is %s", initialPowerTable)
-		m.InitialPowerTable = initialPowerTable
-	default:
-		logger.Warn("InitialPowerTable is undefined")
-		m.InitialPowerTable = cid.Undef
-	}
+	networkName := gpbft.NetworkName(rawNetwork)
 	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
 	// mainnet is called testnetnet in state.
-	if rawNetwork == "testnetnet" {
-		m.NetworkName = "filecoin"
-	} else {
-		m.NetworkName = gpbft.NetworkName(rawNetwork)
+	if networkName == "testnetnet" {
+		networkName = "filecoin"
 	}
-	versionInfo, err := api.Version(ctx)
+	m := Network2PredefinedManifestMappings[networkName]
+	if m == nil {
+		m = manifest.LocalDevnetManifest()
+		m.NetworkName = networkName
+		versionInfo, err := api.Version(ctx)
+		if err != nil {
+			return err
+		}
+
+		blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
+		m.EC.Period = blockDelay
+		m.EC.HeadLookback = 4
+		m.EC.Finalize = true
+		m.CatchUpAlignment = blockDelay / 2
+		m.CertificateExchange.MinimumPollInterval = blockDelay
+		m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
+	}
+	if m.BootstrapEpoch != bootstrapEpoch {
+		m.BootstrapEpoch = bootstrapEpoch
+		logger.Infof("Bootstrap epoch is set to %d", m.BootstrapEpoch)
+	}
+	if m.EC.Finality != finality {
+		m.EC.Finality = finality
+		logger.Infof("EC finality is set to %d", m.EC.Finality)
+	}
+	switch initialPowerTable, err := cid.Parse(initialPowerTable); {
+	case initialPowerTable != m.InitialPowerTable && err == nil && isCidDefined(initialPowerTable):
+		logger.Infof("InitialPowerTable is set to %s", initialPowerTable)
+		m.InitialPowerTable = initialPowerTable
+	case !isCidDefined(m.InitialPowerTable):
+		logger.Warn("InitialPowerTable is undefined")
+	default:
+	}
+
+	manifestProvider, err := manifest.NewStaticManifestProvider(m)
 	if err != nil {
 		return err
 	}
 
-	blockDelay := time.Duration(versionInfo.BlockDelay) * time.Second
-	m.EC.Period = blockDelay
-	m.EC.HeadLookback = 4
-	m.EC.Finality = finality
-	m.EC.Finalize = true
-	m.CatchUpAlignment = blockDelay / 2
-	m.BootstrapEpoch = bootstrapEpoch
-	m.CertificateExchange.MinimumPollInterval = blockDelay
-	m.CertificateExchange.MaximumPollInterval = 4 * blockDelay
-
-	var manifestProvider manifest.ManifestProvider
-	if err := m.Validate(); err == nil {
-		logger.Infoln("Using static manifest")
-		if manifestProvider, err = manifest.NewStaticManifestProvider(m); err != nil {
-			return err
-		}
-	} else {
-		logger.Infoln("Using contract manifest")
-		if manifestProvider, err = NewContractManifestProvider(m, contract_manifest_poll_interval_seconds, &ec.f3api); err != nil {
-			return err
-		}
-	}
 	f3Module, err := f3.New(ctx, manifestProvider, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {

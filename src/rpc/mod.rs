@@ -25,9 +25,11 @@ pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
+mod actor_registry;
 mod error;
 mod reflect;
 pub mod types;
+
 pub use methods::*;
 
 /// Protocol or transport-specific error
@@ -280,7 +282,6 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::Finalize);
         $callback!($crate::rpc::f3::ProtectPeer);
         $callback!($crate::rpc::f3::SignMessage);
-        $callback!($crate::rpc::f3::GetManifestFromContract);
 
         // misc
         $callback!($crate::rpc::misc::GetActorEventsRaw);

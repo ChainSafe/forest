@@ -27,15 +27,21 @@
 
 ### Breaking
 
+-[#5652](https://github.com/ChainSafe/forest/pull/5652) Remove `--detach` flag from `forest`. Checkout the [migration guide](https://github.com/ChainSafe/forest#detaching-forest-process)
+
 ### Added
 
 -[#5598](https://github.com/ChainSafe/forest/pull/5598) Add `forest-cli chain prune snap` command for garbage collecting the database with a new snapshot garbage collector.
 
 -[#5629](https://github.com/ChainSafe/forest/pull/5629) Save default RPC token and consume it automatically.
 
+-[#5639](https://github.com/ChainSafe/forest/pull/5639) Add automatic scheduler for snapshot GC.
+
 ### Changed
 
 -[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
+
+-[#5662](https://github.com/ChainSafe/forest/pull/5662) Print index size when applicable in `forest-tool archive info`.
 
 ### Removed
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
-use std::time::Duration;
 
 use ahash::HashMap;
 use cid::Cid;
@@ -17,7 +16,6 @@ use tracing::warn;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
-use crate::rpc::eth::types::EthAddress;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::econ::TokenAmount;
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
@@ -46,7 +44,6 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
 const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
-const DEFAULT_F3_CONTRACT_POLL_INTERVAL: Duration = Duration::from_secs(15 * 60);
 
 static INITIAL_FIL_RESERVED: Lazy<TokenAmount> = Lazy::new(|| TokenAmount::from_whole(300_000_000));
 
@@ -247,10 +244,8 @@ pub struct ChainConfig {
     pub f3_consensus: bool,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
-    #[cfg_attr(test, arbitrary(gen(|_| Some(EthAddress::from_str("0x476AC9256b9921C9C6a0fC237B7fE05fe9874F50").unwrap()))))]
-    pub f3_contract_address: Option<EthAddress>,
-    pub f3_contract_poll_interval: Duration,
     pub enable_indexer: bool,
+    pub enable_receipt_event_caching: bool,
 }
 
 impl ChainConfig {
@@ -275,18 +270,15 @@ impl ChainConfig {
             upgrade_teep_initial_fil_reserved: None,
             f3_enabled: true,
             f3_consensus: true,
-            f3_bootstrap_epoch: -1,
+            // April 29 at 10:00 UTC
+            f3_bootstrap_epoch: 4920480,
             f3_initial_power_table: Some(
                 "bafy2bzacecklgxd2eksmodvhgurqvorkg3wamgqkrunir3al2gchv2cikgmbu"
                     .parse()
                     .expect("invalid f3_initial_power_table"),
             ),
-            f3_contract_address: Some(
-                EthAddress::from_str("0xA19080A1Bcb82Bb61bcb9691EC94653Eb5315716")
-                    .expect("invalid f3 contract eth address"),
-            ),
-            f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -321,9 +313,8 @@ impl ChainConfig {
                     .parse()
                     .expect("invalid f3_initial_power_table"),
             ),
-            f3_contract_address: None,
-            f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -348,9 +339,8 @@ impl ChainConfig {
             f3_consensus: false,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
-            f3_contract_address: None,
-            f3_contract_poll_interval: DEFAULT_F3_CONTRACT_POLL_INTERVAL,
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -381,12 +371,8 @@ impl ChainConfig {
             f3_consensus: true,
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
-            f3_contract_address: Some(
-                EthAddress::from_str("0x9fd3B2D38EE4C920c9954DA752eDF810887501c1")
-                    .expect("invalid f3 contract eth address"),
-            ),
-            f3_contract_poll_interval: Duration::from_secs(60),
             enable_indexer: false,
+            enable_receipt_event_caching: true,
         }
     }
 
@@ -487,38 +473,6 @@ impl ChainConfig {
     pub fn initial_fil_reserved_at_height(&self, height: i64) -> &TokenAmount {
         let network_version = self.network_version(height);
         self.initial_fil_reserved(network_version)
-    }
-
-    #[allow(dead_code)]
-    pub fn f3_contract_poll_interval(&self) -> Duration {
-        const ENV_KEY: &str = "FOREST_F3_MANIFEST_POLL_INTERVAL";
-        std::env::var(ENV_KEY)
-            .ok()
-            .and_then(|i| humantime::Duration::from_str(&i).ok())
-            .inspect(|i| {
-                tracing::info!("Using F3 contract manifest poll interval {i} set by {ENV_KEY}")
-            })
-            .map(Into::into)
-            .unwrap_or(self.f3_contract_poll_interval)
-    }
-
-    pub fn f3_contract_address(&self) -> Option<EthAddress> {
-        const ENV_KEY: &str = "FOREST_F3_CONTRACT_ADDRESS";
-        std::env::var(ENV_KEY)
-            .ok()
-            .and_then(|i| {
-                if i.is_empty() {
-                    tracing::info!("F3 contract is disabled by {ENV_KEY}");
-                    None
-                } else if let Ok(addr) = EthAddress::from_str(&i) {
-                    tracing::info!("Using F3 contract address {i} set by {ENV_KEY}");
-                    Some(addr)
-                } else {
-                    tracing::warn!("Failed to parse F3 contract address {i}");
-                    None
-                }
-            })
-            .or_else(|| self.f3_contract_address.clone())
     }
 }
 

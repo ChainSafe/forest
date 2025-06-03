@@ -14,28 +14,27 @@ pub use self::types::{
     F3InstanceProgress, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate,
 };
 use self::{types::*, util::*};
-use super::{eth::types::EthAddress, wallet::WalletSign};
+use super::wallet::WalletSign;
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
+    db::{
+        BlockstoreReadCache as _, BlockstoreReadCacheStats as _, BlockstoreWithReadCache,
+        DefaultBlockstoreReadCacheStats, LruBlockstoreReadCache,
+    },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
-    rpc::{
-        ApiPaths, Ctx, Permission, RpcMethod, ServerError, eth::types::EthBytes, state::StateCall,
-        types::ApiTipsetKey,
-    },
+    rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
         clock::ChainEpoch,
         crypto::Signature,
-        message::Message,
     },
-    state_manager::StateManager,
     utils::misc::env::is_env_set_and_truthy,
 };
 use crate::{
-    rpc::eth::types::EthCallMessage,
+    blocks::TipsetKey,
     shim::actors::{
         convert::{
             from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
@@ -51,11 +50,12 @@ use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
+use lru::LruCache;
 use num::Signed as _;
 use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{borrow::Cow, fmt::Display, num::NonZeroU64, str::FromStr as _, sync::Arc};
+use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
 
 pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
 
@@ -155,37 +155,40 @@ impl RpcMethod<1> for GetParent {
 }
 
 pub enum GetPowerTable {}
-impl RpcMethod<1> for GetPowerTable {
-    const NAME: &'static str = "F3.GetPowerTable";
-    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
 
-    type Params = (F3TipSetKey,);
-    type Ok = Vec<F3PowerEntry>;
+impl GetPowerTable {
+    async fn compute(
+        ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Vec<F3PowerEntry>> {
+        // The RAM overhead on mainnet is ~14MiB
+        const BLOCKSTORE_CACHE_CAP: usize = 65536;
+        static BLOCKSTORE_CACHE: Lazy<Arc<LruBlockstoreReadCache>> = Lazy::new(|| {
+            Arc::new(LruBlockstoreReadCache::new(
+                BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
+            ))
+        });
+        let db = BlockstoreWithReadCache::new(
+            ctx.store_owned(),
+            BLOCKSTORE_CACHE.clone(),
+            Some(DefaultBlockstoreReadCacheStats::default()),
+        );
 
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (f3_tsk,): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
         macro_rules! handle_miner_state_v12_on {
             ($version:tt, $id_power_worker_mappings:ident, $ts:expr, $state:expr, $policy:expr) => {
                 fn map_err<E: Display>(e: E) -> fil_actors_shared::$version::ActorError {
                     fil_actors_shared::$version::ActorError::unspecified(e.to_string())
                 }
 
-                let claims = $state.load_claims(ctx.store())?;
+                let claims = $state.load_claims(&db)?;
                 claims.for_each(|miner, claim| {
                     if !claim.quality_adj_power.is_positive() {
                         return Ok(());
                     }
 
                     let id = miner.id().map_err(map_err)?;
-                    let (_, ok) = $state.miner_nominal_power_meets_consensus_minimum(
-                        $policy,
-                        ctx.store(),
-                        id,
-                    )?;
+                    let (_, ok) =
+                        $state.miner_nominal_power_meets_consensus_minimum($policy, &db, id)?;
                     if !ok {
                         return Ok(());
                     }
@@ -199,7 +202,7 @@ impl RpcMethod<1> for GetPowerTable {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if $ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -210,9 +213,7 @@ impl RpcMethod<1> for GetPowerTable {
             };
         }
 
-        let tsk = f3_tsk.try_into()?;
-        let ts = ctx.chain_index().load_required_tipset(&tsk)?;
-        let state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let state: power::State = ctx.state_manager.get_actor_state(ts)?;
         let mut id_power_worker_mappings = vec![];
         match &state {
             power::State::V8(s) => {
@@ -223,7 +224,7 @@ impl RpcMethod<1> for GetPowerTable {
                 let claims = fil_actors_shared::v8::make_map_with_root::<
                     _,
                     fil_actor_power_state::v8::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -233,7 +234,7 @@ impl RpcMethod<1> for GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v9(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         &miner.into(),
                     )?;
                     if !ok {
@@ -242,14 +243,14 @@ impl RpcMethod<1> for GetPowerTable {
                     let power = claim.quality_adj_power.clone();
                     let miner_state: miner::State = ctx
                         .state_manager
-                        .get_actor_state_from_address(&ts, &miner)
+                        .get_actor_state_from_address(ts, &miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -266,7 +267,7 @@ impl RpcMethod<1> for GetPowerTable {
                 let claims = fil_actors_shared::v9::make_map_with_root::<
                     _,
                     fil_actor_power_state::v9::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -276,7 +277,7 @@ impl RpcMethod<1> for GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let ok = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v9(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         &miner.into(),
                     )?;
                     if !ok {
@@ -285,14 +286,14 @@ impl RpcMethod<1> for GetPowerTable {
                     let power = claim.quality_adj_power.clone();
                     let miner_state: miner::State = ctx
                         .state_manager
-                        .get_actor_state_from_address(&ts, &miner)
+                        .get_actor_state_from_address(ts, &miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -309,7 +310,7 @@ impl RpcMethod<1> for GetPowerTable {
                 let claims = fil_actors_shared::v10::make_map_with_root::<
                     _,
                     fil_actor_power_state::v10::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -319,7 +320,7 @@ impl RpcMethod<1> for GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v10(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         id,
                     )?;
                     if !ok {
@@ -328,14 +329,14 @@ impl RpcMethod<1> for GetPowerTable {
                     let power = claim.quality_adj_power.clone();
                     let miner_state: miner::State = ctx
                         .state_manager
-                        .get_actor_state_from_address(&ts, &miner)
+                        .get_actor_state_from_address(ts, &miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -352,7 +353,7 @@ impl RpcMethod<1> for GetPowerTable {
                 let claims = fil_actors_shared::v11::make_map_with_root::<
                     _,
                     fil_actor_power_state::v11::Claim,
-                >(&s.claims, ctx.store())?;
+                >(&s.claims, &db)?;
                 claims.for_each(|key, claim| {
                     let miner = Address::from_bytes(key)?;
                     if !claim.quality_adj_power.is_positive() {
@@ -362,7 +363,7 @@ impl RpcMethod<1> for GetPowerTable {
                     let id = miner.id().map_err(map_err)?;
                     let (_, ok) = s.miner_nominal_power_meets_consensus_minimum(
                         &from_policy_v13_to_v11(&ctx.chain_config().policy),
-                        ctx.store(),
+                        &db,
                         id,
                     )?;
                     if !ok {
@@ -371,14 +372,14 @@ impl RpcMethod<1> for GetPowerTable {
                     let power = claim.quality_adj_power.clone();
                     let miner_state: miner::State = ctx
                         .state_manager
-                        .get_actor_state_from_address(&ts, &miner)
+                        .get_actor_state_from_address(ts, &miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
                         // fee debt don't add the miner to power table
                         return Ok(());
                     }
-                    let miner_info = miner_state.info(ctx.store()).map_err(map_err)?;
+                    let miner_info = miner_state.info(&db).map_err(map_err)?;
                     // check consensus faults
                     if ts.epoch() <= miner_info.consensus_fault_elapsed {
                         return Ok(());
@@ -440,12 +441,49 @@ impl RpcMethod<1> for GetPowerTable {
                 .resolve_to_deterministic_address(worker, ts.clone())
                 .await?;
             if waddr.protocol() != Protocol::BLS {
-                return Err(anyhow::anyhow!("wrong type of worker address").into());
+                anyhow::bail!("wrong type of worker address");
             }
             let pub_key = waddr.payload_bytes();
             power_entries.push(F3PowerEntry { id, power, pub_key });
         }
         power_entries.sort();
+
+        if let Some(stats) = db.stats() {
+            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), cache_size=%human_bytes::human_bytes(BLOCKSTORE_CACHE.size_in_bytes() as f64), "F3.GetPowerTable blockstore read cache");
+        }
+
+        Ok(power_entries)
+    }
+}
+
+impl RpcMethod<1> for GetPowerTable {
+    const NAME: &'static str = "F3.GetPowerTable";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (F3TipSetKey,);
+    type Ok = Vec<F3PowerEntry>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (f3_tsk,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        static CACHE: Lazy<tokio::sync::Mutex<LruCache<TipsetKey, Vec<F3PowerEntry>>>> =
+            Lazy::new(|| {
+                tokio::sync::Mutex::new(LruCache::new(32.try_into().expect("Infallible")))
+            });
+        let tsk = f3_tsk.try_into()?;
+        let mut cache = CACHE.lock().await;
+        if let Some(v) = cache.get(&tsk) {
+            return Ok(v.clone());
+        }
+
+        let start = std::time::Instant::now();
+        let ts = ctx.chain_index().load_required_tipset(&tsk)?;
+        let power_entries = Self::compute(&ctx, &ts).await?;
+        tracing::debug!(epoch=%ts.epoch(), %tsk, "F3.GetPowerTable, took {}", humantime::format_duration(start.elapsed()));
+        cache.push(tsk, power_entries.clone());
         Ok(power_entries)
     }
 }
@@ -523,7 +561,7 @@ impl RpcMethod<1> for Finalize {
             Some(ts) => ts,
             None => ctx
                 .sync_network_context
-                .chain_exchange_headers(None, &tsk, NonZeroU64::new(1).expect("Infallible"))
+                .chain_exchange_headers(None, &tsk, 1.try_into().expect("Infallible"))
                 .await?
                 .first()
                 .cloned()
@@ -592,61 +630,6 @@ impl RpcMethod<2> for SignMessage {
         let addr = Address::new_bls(&pubkey)?;
         // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
         WalletSign::handle(ctx, (addr, message)).await
-    }
-}
-
-pub enum GetManifestFromContract {}
-
-impl GetManifestFromContract {
-    pub fn create_eth_call_message(contract: EthAddress) -> EthCallMessage {
-        // method ID of activationInformation(),
-        // see <https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/ignition/deployments/chain-314/build-info/a0bc9e457fcc01c34ae281e6c20340e7.json#L11770>
-        static METHOD_ID: Lazy<EthBytes> =
-            Lazy::new(|| EthBytes::from_str("0x2587660d").expect("Infallible"));
-        EthCallMessage {
-            to: Some(contract),
-            data: Some(METHOD_ID.clone()),
-            ..Default::default()
-        }
-    }
-
-    fn get_manifest_from_contract<DB: Blockstore + Send + Sync + 'static>(
-        state_manager: &Arc<StateManager<DB>>,
-        contract: EthAddress,
-    ) -> anyhow::Result<F3Manifest> {
-        let eth_call_message = Self::create_eth_call_message(contract);
-        let filecoin_message = Message::try_from(eth_call_message)?;
-        let api_invoc_result = StateCall::run(state_manager, &filecoin_message, None)?;
-        let Some(message_receipt) = api_invoc_result.msg_rct else {
-            anyhow::bail!("No message receipt");
-        };
-        message_receipt.try_into()
-    }
-}
-
-impl RpcMethod<0> for GetManifestFromContract {
-    const NAME: &'static str = "F3.GetManifestFromContract";
-    const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: Option<&'static str> = Some(
-        "Retrieves the manifest with all F3 parameters from a smart contract. The address of the contract is defined by the node.",
-    );
-
-    type Params = ();
-    type Ok = Option<F3Manifest>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        _: Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        Ok(match ctx.chain_config().f3_contract_address() {
-            Some(f3_contract_address) => Some(Self::get_manifest_from_contract(
-                &ctx.state_manager,
-                f3_contract_address,
-            )?),
-            _ => None,
-        })
     }
 }
 

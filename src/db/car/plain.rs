@@ -276,7 +276,9 @@ pub async fn write_skip_frame_header_async(
     mut writer: impl AsyncWrite + Unpin,
     data_len: u32,
 ) -> std::io::Result<()> {
-    writer.write_all(&[0x50, 0x2A, 0x4D, 0x18]).await?;
+    writer
+        .write_all(&super::forest::ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER)
+        .await?;
     writer.write_all(&data_len.to_le_bytes()).await?;
     Ok(())
 }

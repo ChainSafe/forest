@@ -114,9 +114,6 @@ pub struct CliOpts {
     /// Choose network chain to sync to
     #[arg(long)]
     pub chain: Option<NetworkChain>,
-    /// Daemonize Forest process
-    #[arg(long)]
-    pub detach: bool,
     /// Automatically download a chain specific snapshot to sync with the
     /// Filecoin network if needed.
     #[arg(long)]

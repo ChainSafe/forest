@@ -68,8 +68,8 @@ function forest_query_format {
 }
 
 function forest_run_node_detached {
-  echo "Running forest in detached mode"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --track-peak-rss
+  echo "Running forest"
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --track-peak-rss &
 }
 
 function forest_run_node_stateless_detached {
@@ -84,7 +84,7 @@ function forest_run_node_stateless_detached {
 		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
 	EOF
 
-  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless &
 }
 
 function forest_wait_api {
@@ -119,7 +119,8 @@ function forest_init {
 
 function forest_init_stateless {
   forest_run_node_stateless_detached
-
+  forest_wait_api
+  
   ADMIN_TOKEN=$(cat stateless_admin_token)
   FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
 
@@ -131,10 +132,7 @@ function forest_print_logs_and_metrics {
   echo "Get and print metrics"
   wget -O metrics.log http://localhost:6116/metrics
 
-  echo "--- Forest STDOUT ---"; cat forest.out
-  echo "--- Forest STDERR ---"; cat forest.err
   echo "--- Forest Prometheus metrics ---"; cat metrics.log
-
   echo "Print forest log files"
   ls -hl "$LOG_DIRECTORY"
   cat "$LOG_DIRECTORY"/*
