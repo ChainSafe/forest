@@ -47,7 +47,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
-use num_traits::Signed as _;
+use num_traits::Signed;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -1236,127 +1236,6 @@ fn eth_tests() -> Vec<RpcTest> {
                     .unwrap(),
                 ),
             ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex")
-                        )
-                        .trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("contracts/assert_err/assert_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/divide_by_zero_err/divide_by_zero_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/generic_panic_err/generic_panic_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/index_out_of_bounds_err/index_out_of_bounds_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/invalid_enum_err/invalid_enum_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/invalid_storage_array_err/invalid_storage_array_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/out_of_memory_err/out_of_memory_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/pop_empty_array_err/pop_empty_array_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
-            (
-                None,
-                Some(
-                    EthBytes::from_str(
-                        concat!(
-                            "0x",
-                            include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex")
-                        ).trim(),
-                    )
-                    .unwrap(),
-                ),
-            ),
         ];
 
         for (to, data) in cases {
@@ -1375,6 +1254,9 @@ fn eth_tests() -> Vec<RpcTest> {
                 .unwrap(),
             ));
         }
+
+        // Test eth_call API errors
+        tests.extend(eth_call_api_err_tests(use_alias));
 
         let cases = [
             EthAddressList::List(vec![]),
@@ -1416,6 +1298,136 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ));
     }
+    tests
+}
+
+fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
+    let test_cases = vec![
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!("0x", include_str!("contracts/assert_err/assert_err.hex")).trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/divide_by_zero_err/divide_by_zero_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/generic_panic_err/generic_panic_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/index_out_of_bounds_err/index_out_of_bounds_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/invalid_enum_err/invalid_enum_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!(
+                        "./contracts/invalid_storage_array_err/invalid_storage_array_err.hex"
+                    )
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/out_of_memory_err/out_of_memory_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/pop_empty_array_err/pop_empty_array_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+        Some(
+            EthBytes::from_str(
+                concat!(
+                    "0x",
+                    include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex")
+                )
+                .trim(),
+            )
+            .unwrap(),
+        ),
+    ];
+
+    let mut tests = vec![];
+    for data in test_cases {
+        let from = Some(
+            EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap()
+        );
+        tests.push(
+            RpcTest::identity(
+                EthCall::request_with_alias(
+                    (
+                        EthCallMessage {
+                            to: None,
+                            from,
+                            data,
+                            ..EthCallMessage::default()
+                        },
+                        BlockNumberOrHash::from_predefined(Predefined::Latest),
+                    ),
+                    use_alias,
+                )
+                .unwrap(),
+            )
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+    }
+
     tests
 }
 
