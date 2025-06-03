@@ -1405,9 +1405,8 @@ fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
 
     let mut tests = vec![];
     for data in test_cases {
-        let from = Some(
-            EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap()
-        );
+        let from =
+            Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap());
         tests.push(
             RpcTest::identity(
                 EthCall::request_with_alias(
