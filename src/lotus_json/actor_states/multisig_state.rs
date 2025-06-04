@@ -48,14 +48,14 @@ macro_rules! impl_multisig_state_lotus_json {
             fn snapshots() -> Vec<(serde_json::Value, Self)> {
                 vec![(
                     json!({
-                                "signers": [],
-                                "num_approvals_threshold": 0,
-                                "next_tx_id": 0,
-                                "initial_balance": "0",
-                                "start_epoch": 0,
-                                "unlock_duration": 0,
-                                "pending_txs": "0",
-                            }),
+                        "signers": [],
+                        "num_approvals_threshold": 0,
+                        "next_tx_id": 0,
+                        "initial_balance": "0",
+                        "start_epoch": 0,
+                        "unlock_duration": 0,
+                        "pending_txs": "0",
+                    }),
                     State::V16(fil_actor_multisig_state::v16::State {
                         signers: vec![],
                         num_approvals_threshold: 0,
@@ -70,17 +70,17 @@ macro_rules! impl_multisig_state_lotus_json {
 
             fn into_lotus_json(self) -> Self::LotusJson {
                 match self {
-                    State::V16(state) => MultisigStateLotusJson {
-                        signers: state.signers.into_iter().map(|addr| addr.into()).collect(),
-                        num_approvals_threshold: state.num_approvals_threshold,
-                        next_tx_id: state.next_tx_id.0,
-                        initial_balance: state.initial_balance.into(),
-                        start_epoch: state.start_epoch,
-                        unlock_duration: state.unlock_duration,
-                        pending_txs: state.pending_txs,
-                    },
-
-                    _ => unimplemented!(),
+                    $(
+                        State::$version(state) => MultisigStateLotusJson {
+                            signers: state.signers.into_iter().map(|addr| addr.into()).collect(),
+                            num_approvals_threshold: state.num_approvals_threshold,
+                            next_tx_id: state.next_tx_id.0,
+                            initial_balance: state.initial_balance.into(),
+                            start_epoch: state.start_epoch,
+                            unlock_duration: state.unlock_duration,
+                            pending_txs: state.pending_txs,
+                        },
+                    )*
                 }
             }
 
