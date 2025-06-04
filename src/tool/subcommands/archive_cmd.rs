@@ -33,7 +33,7 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::{AnyCar, ManyCar};
+use crate::db::car::{AnyCar, ManyCar, RandomAccessFileReader};
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -145,14 +145,9 @@ impl ArchiveCommands {
         match self {
             Self::Info { snapshot } => {
                 let store = AnyCar::try_from(snapshot.as_path())?;
-                println!(
-                    "{}",
-                    ArchiveInfo::from_store(
-                        &store,
-                        store.variant().to_string(),
-                        store.heaviest_tipset()?
-                    )?
-                );
+                let variant = store.variant().to_string();
+                let heaviest = store.heaviest_tipset()?;
+                println!("{}", ArchiveInfo::from_store(store, variant, heaviest)?);
                 Ok(())
             }
             Self::Export {
@@ -241,7 +236,7 @@ impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
     fn from_store(
-        store: &impl Blockstore,
+        store: AnyCar<impl RandomAccessFileReader>,
         variant: String,
         heaviest_tipset: Tipset,
     ) -> anyhow::Result<Self> {
@@ -252,7 +247,7 @@ impl ArchiveInfo {
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_store_with(
-        store: &impl Blockstore,
+        store: AnyCar<impl RandomAccessFileReader>,
         variant: String,
         heaviest_tipset: Tipset,
         progress: bool,
@@ -330,7 +325,7 @@ impl ArchiveInfo {
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
-            index_size_bytes: None,
+            index_size_bytes: store.index_size_bytes(),
         })
     }
 
@@ -840,7 +835,7 @@ async fn sync_bucket(
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
     let heaviest_tipset = store.heaviest_tipset()?;
 
-    let info = ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone())?;
+    let info: ArchiveInfo = todo!(); // ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone())?;
 
     let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
 
@@ -964,12 +959,9 @@ mod tests {
     #[test]
     fn archive_info_calibnet() {
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
-        let info = ArchiveInfo::from_store(
-            &store,
-            store.variant().to_string(),
-            store.heaviest_tipset().unwrap(),
-        )
-        .unwrap();
+        let variant = store.variant().to_string();
+        let ts = store.heaviest_tipset().unwrap();
+        let info = ArchiveInfo::from_store(store, variant, ts).unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
@@ -977,12 +969,9 @@ mod tests {
     #[test]
     fn archive_info_mainnet() {
         let store = AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap();
-        let info = ArchiveInfo::from_store(
-            &store,
-            store.variant().to_string(),
-            store.heaviest_tipset().unwrap(),
-        )
-        .unwrap();
+        let variant = store.variant().to_string();
+        let ts = store.heaviest_tipset().unwrap();
+        let info = ArchiveInfo::from_store(store, variant, ts).unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }
