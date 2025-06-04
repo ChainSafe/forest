@@ -18,10 +18,10 @@ pub struct AuthenticateParamsLotusJson {
 }
 
 macro_rules!  impl_account_authenticate_params {
-    ($($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
         paste! {
-                impl HasLotusJson for fil_actor_account_state::[<v $version>]::types::AuthenticateMessageParams {
+            impl HasLotusJson for fil_actor_account_state::[<v $version>]::$type_suffix {
                     type LotusJson = AuthenticateParamsLotusJson;
 
                     #[cfg(test)]
@@ -59,6 +59,6 @@ macro_rules!  impl_account_authenticate_params {
     };
 }
 
-// not added other versions because `fil_actor_account_state<version>::types`
-// is private for all of them
-impl_account_authenticate_params!(15, 16);
+// not added other versions because AuthenticateMessageParams is private for the rest of them
+impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16);
+impl_account_authenticate_params!(AuthenticateMessageParams: 11, 12, 13, 14);

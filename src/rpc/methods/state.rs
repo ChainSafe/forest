@@ -13,7 +13,6 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::ChainConfig;
 use crate::rpc::actor_registry;
-use crate::rpc::actor_registry::deserialize_params;
 use crate::shim::actors::init;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -1663,7 +1662,11 @@ impl RpcMethod<4> for StateDecodeParams {
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
 
-        let res = deserialize_params(&actor.code, method, params.as_slice())?;
+        let res = crate::rpc::method_registry::registry::deserialize_params(
+            &actor.code,
+            method,
+            params.as_slice(),
+        )?;
         Ok(res.into())
     }
 }

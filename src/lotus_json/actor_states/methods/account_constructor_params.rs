@@ -14,10 +14,10 @@ pub struct AccountConstructorParamsLotusJson {
 }
 
 macro_rules!  impl_account_constructor_params {
-    ($($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
         paste! {
-                impl HasLotusJson for fil_actor_account_state::[<v $version>]::types::ConstructorParams {
+                 impl HasLotusJson for fil_actor_account_state::[<v $version>]::$type_suffix {
                     type LotusJson = AccountConstructorParamsLotusJson;
 
                     #[cfg(test)]
@@ -49,4 +49,5 @@ macro_rules!  impl_account_constructor_params {
 
 // not added other versions because `fil_actor_account_state<version>::types`
 // is private for all of them
-impl_account_constructor_params!(15, 16);
+impl_account_constructor_params!(types::ConstructorParams: 15, 16);
+impl_account_constructor_params!(ConstructorParams: 11, 12, 13, 14);

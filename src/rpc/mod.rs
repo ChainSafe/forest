@@ -27,6 +27,7 @@ use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
 mod actor_registry;
 mod error;
+mod method_registry;
 mod reflect;
 pub mod types;
 
