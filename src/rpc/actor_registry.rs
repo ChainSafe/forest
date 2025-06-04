@@ -6,8 +6,8 @@ use crate::shim::actors::{
     AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, InitActorStateLoad,
     MarketActorStateLoad, MinerActorStateLoad, MultisigActorStateLoad,
     PaymentchannelActorStateLoad, PowerActorStateLoad, RewardActorStateLoad, SystemActorStateLoad,
-    VerifregActorStateLoad, account, cron, evm, init, market, miner, multisig, paymentchannel,
-    power, reward, system, verifreg,
+    VerifregActorStateLoad, DataCapActorStateLoad, account, cron, evm, init, market, miner, multisig, paymentchannel,
+    power, reward, system, verifreg, datacap,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
@@ -111,6 +111,9 @@ where
                 actor_type,
                 paymentchannel::State
             )
+        }
+        BuiltinActor::DataCap => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, datacap::State)
         }
         BuiltinActor::EAM | BuiltinActor::EthAccount | BuiltinActor::Placeholder => Ok(Value::Null),
         // Add other actor types as needed

@@ -14,3 +14,4 @@ mod reward_state;
 mod system_state;
 mod verified_reg_state;
 mod vesting_funds;
+mod datacap_state;

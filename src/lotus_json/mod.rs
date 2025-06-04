@@ -239,6 +239,7 @@ mod tombstone;
 mod transient_data;
 mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
+mod token_state;
 
 pub use vec::*;
 
