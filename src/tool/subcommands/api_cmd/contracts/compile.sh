@@ -2,8 +2,29 @@
 # This script compiles all the Solidity files in the current directory and
 # generates the corresponding files with the compiled bytecode in hexadecimal
 # format.
+#
+# Requires solc version 0.8.30 for reproducible builds.
 
 set -euo pipefail
+
+REQUIRED_SOLC_VERSION="0.8.30"
+
+# Check if solc exists
+if ! command -v solc &>/dev/null; then
+    echo "ERROR: solc not found. Install solc version $REQUIRED_SOLC_VERSION"
+    exit 1
+fi
+
+# Extract solc version number
+solc_version=$(solc --version | awk '/Version:/ {print $2}' | cut -d'+' -f1)
+
+if [[ "$solc_version" != "$REQUIRED_SOLC_VERSION" ]]; then
+    echo "ERROR: Required solc version $REQUIRED_SOLC_VERSION, found $solc_version"
+    echo "Install correct version: solc-select install $REQUIRED_SOLC_VERSION && solc-select use $REQUIRED_SOLC_VERSION"
+    exit 1
+fi
+
+echo "Using solc version: $solc_version"
 
 find . -mindepth 2 -type f -name "*.sol" -print0 | while IFS= read -r -d '' file; do
     echo "Compiling: $file"

@@ -73,6 +73,7 @@ static KNOWN_CALIBNET_ADDRESS: Lazy<Address> = Lazy::new(|| {
 
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
+const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 
 /// Brief description of a single method call against a single host
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -797,7 +798,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::identity(StateSectorGetInfo::request((
             Default::default(), // invalid address
-            u16::MAX as _,
+            u16::MAX as _,      // invalid sector number
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
@@ -1221,10 +1222,7 @@ fn eth_tests() -> Vec<RpcTest> {
                         .unwrap(),
                 ),
             ),
-            (
-                Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap()),
-                None,
-            ),
+            (Some(EthAddress::from_str(ZERO_ADDRESS).unwrap()), None),
             // Assert contract creation, which is invoked via setting the `to` field to `None` and
             // providing the contract bytecode in the `data` field.
             (
@@ -1302,7 +1300,7 @@ fn eth_tests() -> Vec<RpcTest> {
 }
 
 fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
-    let contract_code_files = vec![
+    let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
         include_str!("contracts/assert_err/assert_err.hex"),
         include_str!("./contracts/divide_by_zero_err/divide_by_zero_err.hex"),
@@ -1315,32 +1313,31 @@ fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
         include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex"),
     ];
 
-    let mut tests = vec![];
-    // Setting the `EthCallMessage` `to` field to null will deploy the contract.
-    for contract_code_file in contract_code_files {
-        let contract_code = EthBytes::from_str(contract_code_file).unwrap();
-        let from =
-            Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap());
-        tests.push(
-            RpcTest::identity(
-                EthCall::request_with_alias(
-                    (
-                        EthCallMessage {
-                            from,
-                            data: Some(contract_code),
-                            ..EthCallMessage::default()
-                        },
-                        BlockNumberOrHash::from_predefined(Predefined::Latest),
-                    ),
-                    use_alias,
-                )
-                .unwrap(),
-            )
-            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-        );
-    }
+    contract_codes
+        .iter()
+        .map(|&contract_hex| {
+            let contract_code =
+                EthBytes::from_str(contract_hex).expect("Contract bytecode should be valid hex");
 
-    tests
+            let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
+            // Setting the `EthCallMessage` `to` field to null will deploy the contract.
+            let eth_call_request = EthCall::request_with_alias(
+                (
+                    EthCallMessage {
+                        from: Some(zero_address),
+                        data: Some(contract_code),
+                        ..EthCallMessage::default()
+                    },
+                    BlockNumberOrHash::from_predefined(Predefined::Latest),
+                ),
+                use_alias,
+            )
+            .unwrap();
+
+            RpcTest::identity(eth_call_request)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError)
+        })
+        .collect()
 }
 
 fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
