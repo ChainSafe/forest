@@ -33,7 +33,7 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::{AnyCar, ManyCar, RandomAccessFileReader};
+use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -147,7 +147,11 @@ impl ArchiveCommands {
                 let store = AnyCar::try_from(snapshot.as_path())?;
                 let variant = store.variant().to_string();
                 let heaviest = store.heaviest_tipset()?;
-                println!("{}", ArchiveInfo::from_store(store, variant, heaviest)?);
+                let index_size_bytes = store.index_size_bytes();
+                println!(
+                    "{}",
+                    ArchiveInfo::from_store(&store, variant, heaviest, index_size_bytes)?
+                );
                 Ok(())
             }
             Self::Export {
@@ -236,26 +240,28 @@ impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
     fn from_store(
-        store: AnyCar<impl RandomAccessFileReader>,
+        store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
+        index_size_bytes: Option<u32>,
     ) -> anyhow::Result<Self> {
-        Self::from_store_with(store, variant, heaviest_tipset, true)
+        Self::from_store_with(store, variant, heaviest_tipset, index_size_bytes, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
+        store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
+        index_size_bytes: Option<u32>,
         progress: bool,
     ) -> anyhow::Result<Self> {
         let root = heaviest_tipset;
         let root_epoch = root.epoch();
 
-        let tipsets = root.clone().chain(&store);
+        let tipsets = root.clone().chain(store);
 
         let windowed = (std::iter::once(root.clone()).chain(tipsets)).tuple_windows();
 
@@ -325,7 +331,7 @@ impl ArchiveInfo {
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
-            index_size_bytes: store.index_size_bytes(),
+            index_size_bytes,
         })
     }
 
@@ -835,7 +841,8 @@ async fn sync_bucket(
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
     let heaviest_tipset = store.heaviest_tipset()?;
 
-    let info: ArchiveInfo = todo!(); // ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone())?;
+    let info =
+        ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone(), None)?;
 
     let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
 
@@ -961,7 +968,8 @@ mod tests {
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
-        let info = ArchiveInfo::from_store(store, variant, ts).unwrap();
+        let index_size_bytes = store.index_size_bytes();
+        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
@@ -971,7 +979,8 @@ mod tests {
         let store = AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap();
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
-        let info = ArchiveInfo::from_store(store, variant, ts).unwrap();
+        let index_size_bytes = store.index_size_bytes();
+        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }
