@@ -1,10 +1,12 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod cache;
 pub mod chain_rand;
 pub mod circulating_supply;
 mod errors;
 pub mod utils;
+
 pub use self::errors::*;
 use self::utils::structured;
 
@@ -46,6 +48,10 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
+use crate::state_manager::cache::{
+    DisabledTipsetDataCache, EnabledTipsetDataCache, TipsetReceiptEventCacheHandler,
+    TipsetStateCache,
+};
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
 use ahash::{HashMap, HashMapExt};
@@ -65,27 +71,29 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use fvm_shared4::crypto::signature::SECP_SIG_LEN;
 use itertools::Itertools as _;
-use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
-use parking_lot::Mutex as SyncMutex;
 use rayon::prelude::ParallelBridge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::time::Duration;
 use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::{Mutex as TokioMutex, RwLock, broadcast::error::RecvError};
+use tokio::sync::{RwLock, broadcast::error::RecvError};
 use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
-const DEFAULT_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
-
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
+
+#[derive(Clone)] // Added Debug
+pub struct StateEvents {
+    pub events: Vec<Vec<StampedEvent>>,
+    pub roots: Vec<Option<Cid>>,
+}
 
 #[derive(Clone)]
 pub struct StateOutput {
@@ -121,137 +129,6 @@ impl From<StateOutput> for StateOutputValue {
     }
 }
 
-#[derive(Clone)]
-pub struct StateEvents {
-    pub events: Vec<Vec<StampedEvent>>,
-    pub roots: Vec<Option<Cid>>,
-}
-
-// Various structures for implementing the tipset state cache
-
-struct TipsetStateCacheInner<V> {
-    values: LruCache<TipsetKey, V>,
-    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
-}
-
-impl<V: Clone> Default for TipsetStateCacheInner<V> {
-    fn default() -> Self {
-        Self {
-            values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
-            pending: Vec::with_capacity(8),
-        }
-    }
-}
-
-impl<V: Clone> TipsetStateCacheInner<V> {
-    pub fn with_size(cache_size: NonZeroUsize) -> Self {
-        Self {
-            values: LruCache::new(cache_size),
-            pending: Vec::with_capacity(8),
-        }
-    }
-}
-
-struct TipsetStateCache<V> {
-    cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
-}
-
-enum Status<V> {
-    Done(V),
-    Empty(Arc<TokioMutex<()>>),
-}
-
-impl<V: Clone> TipsetStateCache<V> {
-    pub fn new() -> Self {
-        Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
-        }
-    }
-
-    pub fn with_size(cache_size: NonZeroUsize) -> Self {
-        Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(cache_size))),
-        }
-    }
-
-    fn with_inner<F, T>(&self, func: F) -> T
-    where
-        F: FnOnce(&mut TipsetStateCacheInner<V>) -> T,
-    {
-        let mut lock = self.cache.lock();
-        func(&mut lock)
-    }
-
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<V>
-    where
-        F: Fn() -> Fut,
-        Fut: core::future::Future<Output = anyhow::Result<V>>,
-    {
-        let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(v.clone()),
-            None => {
-                let option = inner
-                    .pending
-                    .iter()
-                    .find(|(k, _)| k == key)
-                    .map(|(_, mutex)| mutex);
-                match option {
-                    Some(mutex) => Status::Empty(mutex.clone()),
-                    None => {
-                        let mutex = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key.clone(), mutex.clone()));
-                        Status::Empty(mutex)
-                    }
-                }
-            }
-        });
-        match status {
-            Status::Done(x) => {
-                crate::metrics::LRU_CACHE_HIT
-                    .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-                    .inc();
-                Ok(x)
-            }
-            Status::Empty(mtx) => {
-                let _guard = mtx.lock().await;
-                match self.get(key) {
-                    Some(v) => {
-                        // While locking someone else computed the pending task
-                        crate::metrics::LRU_CACHE_HIT
-                            .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-                            .inc();
-
-                        Ok(v)
-                    }
-                    None => {
-                        // Entry does not have state computed yet, compute value and fill the cache
-                        crate::metrics::LRU_CACHE_MISS
-                            .get_or_create(&crate::metrics::values::STATE_MANAGER_TIPSET)
-                            .inc();
-
-                        let value = compute().await?;
-
-                        // Write back to cache, release lock and return value
-                        self.insert(key.clone(), value.clone());
-                        Ok(value)
-                    }
-                }
-            }
-        }
-    }
-
-    fn get(&self, key: &TipsetKey) -> Option<V> {
-        self.with_inner(|inner| inner.values.get(key).cloned())
-    }
-
-    fn insert(&self, key: TipsetKey, value: V) {
-        self.with_inner(|inner| {
-            inner.pending.retain(|(k, _)| k != &key);
-            inner.values.put(key, value);
-        });
-    }
-}
-
 /// External format for returning market balance from state.
 #[derive(
     Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema,
@@ -275,17 +152,13 @@ lotus_json_with_self!(MarketBalance);
 pub struct StateManager<DB> {
     /// Chain store
     cs: Arc<ChainStore<DB>>,
-    /// This is a cache which indexes tipsets to their calculated state.
+    /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: TipsetStateCache<StateOutputValue>,
-    /// This is a cache dedicated to tipset events.
-    events_cache: TipsetStateCache<StateEvents>,
-    /// This is a cache dedicated to message receipts.
-    receipt_cache: TipsetStateCache<Vec<Receipt>>,
-    // Beacon can be cheaply crated from the `chain_config`. The only reason we
-    // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
     engine: Arc<MultiEngine>,
+    /// Handler for caching/retrieving tipset events and receipts.
+    receipt_event_cache_handler: Box<dyn TipsetReceiptEventCacheHandler>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -310,14 +183,20 @@ where
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
+        let cache_handler: Box<dyn TipsetReceiptEventCacheHandler> =
+            if chain_config.enable_receipt_event_caching {
+                Box::new(EnabledTipsetDataCache::new())
+            } else {
+                Box::new(DisabledTipsetDataCache::new())
+            };
+
         Ok(Self {
             cs,
-            cache: TipsetStateCache::new(),
-            events_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
-            receipt_cache: TipsetStateCache::with_size(DEFAULT_EVENT_CACHE_SIZE),
+            cache: TipsetStateCache::new(), // For StateOutputValue
             beacon,
             chain_config,
             engine,
+            receipt_event_cache_handler: cache_handler,
         })
     }
 
@@ -545,7 +424,7 @@ where
                     self.chain_store().put_index(events_root, key)?;
                 }
 
-                // TODO(akaladarshi): https://github.com/ChainSafe/forest/issues/5626
+                self.update_cache_with_state_output(key, &state_output);
 
                 let ts_state = state_output.into();
                 trace!("Completed tipset state calculation {:?}", tipset.cids());
@@ -556,21 +435,46 @@ where
             .map(StateOutput::from)
     }
 
+    /// update the receipt and events caches
+    fn update_cache_with_state_output(&self, key: &TipsetKey, state_output: &StateOutput) {
+        if !state_output.events.is_empty() || !state_output.events_roots.is_empty() {
+            let events_data = StateEvents {
+                events: state_output.events.clone(),
+                roots: state_output.events_roots.clone(),
+            };
+            self.receipt_event_cache_handler
+                .insert_events(key, events_data);
+        }
+
+        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
+            if !receipts.is_empty() {
+                self.receipt_event_cache_handler
+                    .insert_receipt(key, receipts);
+            }
+        }
+    }
+
     #[instrument(skip(self))]
     pub async fn tipset_message_receipts(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
     ) -> anyhow::Result<Vec<Receipt>> {
         let key = tipset.key();
-        self.receipt_cache
-            .get_or_else(key, || async move {
-                let StateOutput { receipt_root, .. } = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
-                trace!("Completed tipset state calculation {:?}", tipset.cids());
-                // We missed the opportunity to update `self.cache` here, to be refactored.
-                Receipt::get_receipts(self.blockstore(), receipt_root)
-            })
+        let ts = tipset.clone();
+        let this = Arc::clone(self);
+        self.receipt_event_cache_handler
+            .get_receipt_or_else(
+                key,
+                Box::new(move || {
+                    Box::pin(async move {
+                        let StateOutput { receipt_root, .. } = this
+                            .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                            .await?;
+                        trace!("Completed tipset state calculation");
+                        Receipt::get_receipts(this.blockstore(), receipt_root)
+                    })
+                }),
+            )
             .await
     }
 
@@ -581,18 +485,25 @@ where
         events_root: Option<&Cid>,
     ) -> anyhow::Result<StateEvents> {
         let key = tipset.key();
-        self.events_cache
-            .get_or_else(key, || async move {
-                let ts_state = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
-                    .await?;
-                trace!("Completed tipset state calculation {:?}", tipset.cids());
-                // We missed the opportunity to update `self.cache` here, to be refactored.
-                Ok(StateEvents {
-                    events: ts_state.events,
-                    roots: ts_state.events_roots,
-                })
-            })
+        let ts = tipset.clone();
+        let this = Arc::clone(self);
+        let cids = tipset.cids();
+        self.receipt_event_cache_handler
+            .get_events_or_else(
+                key,
+                Box::new(move || {
+                    Box::pin(async move {
+                        let state_out = this
+                            .compute_tipset_state(ts, NO_CALLBACK, VMTrace::NotTraced)
+                            .await?;
+                        trace!("Completed tipset state calculation {:?}", cids);
+                        Ok(StateEvents {
+                            events: state_out.events,
+                            roots: state_out.events_roots,
+                        })
+                    })
+                }),
+            )
             .await
     }
 
@@ -2064,15 +1975,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+    use crate::blocks::{Chain4U, HeaderBuilder, TipsetKey, chain4u};
     use crate::chain::ChainStore;
     use crate::db::MemoryDB;
     use crate::networks::ChainConfig;
     use crate::shim::clock::ChainEpoch;
-    use crate::state_manager::StateManager;
+    use crate::shim::executor::{Receipt, StampedEvent};
+    use crate::state_manager::{StateManager, StateOutput};
     use crate::utils::db::CborStoreExt;
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
+    use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding::DAG_CBOR;
     use multihash_derive::MultihashDigest;
@@ -2100,7 +2013,9 @@ mod tests {
 
     /// Structure to hold the setup components for chain tests
     struct TestChainSetup {
+        db: Arc<MemoryDB>,
         chain_store: Arc<ChainStore<MemoryDB>>,
+        state_manager: Arc<StateManager<MemoryDB>>,
         chain_builder: Chain4U<Arc<MemoryDB>>,
         state_root: Cid,
         receipt_root: Cid,
@@ -2128,6 +2043,9 @@ mod tests {
             .expect("should create chain store"),
         );
 
+        let state_manager =
+            Arc::new(StateManager::new(chain_store.clone(), chain_config.clone()).unwrap());
+
         // Create dummy state and receipt roots and store them in blockstore
         let state_root = create_dummy_cid(1);
         let receipt_root = create_dummy_cid(2);
@@ -2141,8 +2059,10 @@ mod tests {
             .unwrap();
 
         TestChainSetup {
+            db,
             chain_store,
-            chain_builder,
+            state_manager,
+            chain_builder, // Assign c4u to the named field
             state_root,
             receipt_root,
         }
@@ -2375,5 +2295,126 @@ mod tests {
 
         // Should return None since the state root is missing
         assert!(result.is_none());
+    }
+    #[test]
+    fn test_update_receipt_and_events_cache_empty_events() {
+        let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
+        let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
+
+        // Create state output with empty events
+        let state_output = StateOutput {
+            state_root: create_dummy_cid(2),
+            receipt_root: create_dummy_cid(3),
+            events: Vec::new(),
+            events_roots: Vec::new(),
+        };
+
+        state_manager.update_cache_with_state_output(&tipset_key, &state_output);
+
+        // Verify events cache wasn't updated
+        assert!(
+            state_manager
+                .receipt_event_cache_handler
+                .get_events(&tipset_key)
+                .is_none()
+        );
+        assert!(
+            state_manager
+                .receipt_event_cache_handler
+                .get_receipts(&tipset_key)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_update_receipt_and_events_cache_with_events() {
+        let TestChainSetup {
+            db, state_manager, ..
+        } = setup_chain_with_tipsets();
+        let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
+
+        let mock_event = vec![StampedEvent::V4(fvm_shared4::event::StampedEvent {
+            emitter: 1000,
+            event: fvm_shared4::event::ActorEvent { entries: vec![] },
+        })];
+
+        let events_root = Amt::new_from_iter(&db, mock_event.clone()).unwrap();
+
+        // Create state output with non-empty events
+        let state_output = StateOutput {
+            state_root: create_dummy_cid(2),
+            receipt_root: create_dummy_cid(3),
+            events: vec![mock_event],
+            events_roots: vec![Some(events_root)],
+        };
+
+        state_manager.update_cache_with_state_output(&tipset_key, &state_output);
+
+        // Verify events cache was updated
+        let cached_events = state_manager
+            .receipt_event_cache_handler
+            .get_events(&tipset_key);
+        assert!(cached_events.is_some());
+        let events = cached_events.unwrap();
+        assert_eq!(events.events.len(), 1);
+        assert_eq!(events.roots.len(), 1);
+    }
+
+    #[test]
+    fn test_update_receipt_and_events_cache_receipts_success() {
+        let TestChainSetup {
+            db, state_manager, ..
+        } = setup_chain_with_tipsets();
+        let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
+
+        // Create dummy receipt data
+        let receipt = Receipt::V4(fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::new(0),
+            return_data: fvm_ipld_encoding::RawBytes::default(),
+            gas_used: 100,
+            events_root: None,
+        });
+
+        let receipt_root = Amt::new_from_iter(&db, vec![receipt]).unwrap();
+
+        let state_output = StateOutput {
+            state_root: create_dummy_cid(2),
+            receipt_root,
+            events: Vec::new(),
+            events_roots: Vec::new(),
+        };
+
+        state_manager.update_cache_with_state_output(&tipset_key, &state_output);
+
+        // Verify the receipt cache was updated
+        let cached_receipts = state_manager
+            .receipt_event_cache_handler
+            .get_receipts(&tipset_key);
+        assert!(cached_receipts.is_some());
+        let receipts = cached_receipts.unwrap();
+        assert_eq!(receipts.len(), 1);
+    }
+
+    #[test]
+    fn test_update_receipt_and_events_cache_receipts_failure() {
+        let TestChainSetup { state_manager, .. } = setup_chain_with_tipsets();
+        let tipset_key = TipsetKey::from(nunny::vec![create_dummy_cid(1)]);
+        let receipt_root = create_dummy_cid(3);
+
+        let state_output = StateOutput {
+            state_root: create_dummy_cid(2),
+            receipt_root,
+            events: Vec::new(),
+            events_roots: Vec::new(),
+        };
+
+        state_manager.update_cache_with_state_output(&tipset_key, &state_output);
+
+        assert!(
+            state_manager
+                .receipt_event_cache_handler
+                .get_receipts(&tipset_key)
+                .is_none()
+        );
     }
 }
