@@ -330,7 +330,7 @@ impl ArchiveInfo {
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
-            index_size_bytes: store.index_size_bytes(),
+            index_size_bytes: None,
         })
     }
 
@@ -408,7 +408,7 @@ async fn do_export(
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
 
-    let genesis = ts.genesis(store)?;
+    let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
@@ -779,7 +779,7 @@ async fn export_lite_snapshot(
     let diff_depth = None;
     let force = false;
     do_export(
-        store,
+        &store,
         root,
         output_path.clone(),
         Some(epoch),
@@ -812,7 +812,7 @@ async fn export_diff_snapshot(
     let diff_depth = Some(900);
     let force = false;
     do_export(
-        store,
+        &store,
         root,
         output_path.clone(),
         Some(epoch),
