@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.17;
+pragma solidity = 0.8.30;
 
 contract InvalidEnumFail {
     enum MyEnum { A, B, C } // Max value is 2

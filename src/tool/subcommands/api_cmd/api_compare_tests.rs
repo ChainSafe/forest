@@ -1231,7 +1231,7 @@ fn eth_tests() -> Vec<RpcTest> {
                 None,
                 Some(
                     EthBytes::from_str(
-                        concat!("0x", include_str!("./contracts/cthullu/cthulhu.hex")).trim(),
+                        concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim(),
                     )
                     .unwrap(),
                 ),
@@ -1302,109 +1302,23 @@ fn eth_tests() -> Vec<RpcTest> {
 }
 
 fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
-    let test_cases = vec![
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!("0x", include_str!("contracts/assert_err/assert_err.hex")).trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/divide_by_zero_err/divide_by_zero_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/generic_panic_err/generic_panic_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/index_out_of_bounds_err/index_out_of_bounds_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/invalid_enum_err/invalid_enum_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!(
-                        "./contracts/invalid_storage_array_err/invalid_storage_array_err.hex"
-                    )
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/out_of_memory_err/out_of_memory_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/pop_empty_array_err/pop_empty_array_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
-        Some(
-            EthBytes::from_str(
-                concat!(
-                    "0x",
-                    include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex")
-                )
-                .trim(),
-            )
-            .unwrap(),
-        ),
+    let contract_code_files = vec![
+        include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
+        include_str!("contracts/assert_err/assert_err.hex"),
+        include_str!("./contracts/divide_by_zero_err/divide_by_zero_err.hex"),
+        include_str!("./contracts/generic_panic_err/generic_panic_err.hex"),
+        include_str!("./contracts/index_out_of_bounds_err/index_out_of_bounds_err.hex"),
+        include_str!("./contracts/invalid_enum_err/invalid_enum_err.hex"),
+        include_str!("./contracts/invalid_storage_array_err/invalid_storage_array_err.hex"),
+        include_str!("./contracts/out_of_memory_err/out_of_memory_err.hex"),
+        include_str!("./contracts/pop_empty_array_err/pop_empty_array_err.hex"),
+        include_str!("./contracts/uninitialized_fn_err/uninitialized_fn_err.hex"),
     ];
 
     let mut tests = vec![];
-    for data in test_cases {
+    // Setting the `EthCallMessage` `to` field to null will deploy the contract.
+    for contract_code_file in contract_code_files {
+        let contract_code = EthBytes::from_str(contract_code_file).unwrap();
         let from =
             Some(EthAddress::from_str("0x0000000000000000000000000000000000000000").unwrap());
         tests.push(
@@ -1412,9 +1326,8 @@ fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
                 EthCall::request_with_alias(
                     (
                         EthCallMessage {
-                            to: None,
                             from,
-                            data,
+                            data: Some(contract_code),
                             ..EthCallMessage::default()
                         },
                         BlockNumberOrHash::from_predefined(Predefined::Latest),
