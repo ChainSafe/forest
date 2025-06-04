@@ -86,7 +86,7 @@ fn register_known_methods(registry: &mut MethodRegistry) {
             BuiltinActor::Account => account::register_account_actor_methods(registry, cid),
             BuiltinActor::Miner => miner::register_miner_actor_methods(registry, cid),
             BuiltinActor::EVM => evm::register_evm_actor_methods(registry, cid),
-            _ => unimplemented!(),
+            _ => {},
         }
     }
 }

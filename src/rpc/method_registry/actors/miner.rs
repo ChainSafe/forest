@@ -22,6 +22,10 @@ macro_rules! register_miner_version {
 }
 
 pub(crate) fn register_miner_actor_methods(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_version!(registry, cid, fil_actor_miner_state::v8);
+    register_miner_version!(registry, cid, fil_actor_miner_state::v9);
+    register_miner_version!(registry, cid, fil_actor_miner_state::v10);
+    register_miner_version!(registry, cid, fil_actor_miner_state::v11);
     register_miner_version!(registry, cid, fil_actor_miner_state::v12);
     register_miner_version!(registry, cid, fil_actor_miner_state::v13);
     register_miner_version!(registry, cid, fil_actor_miner_state::v14);

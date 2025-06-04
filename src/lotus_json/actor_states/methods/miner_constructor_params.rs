@@ -53,7 +53,7 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
                                     owner: Address::new_id(1234).into(),
                                     worker: Address::new_id(1235).into(),
                                     control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
-                                    window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1,
+                                    window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
                                     peer_id: vec![1],
                                     multi_addresses: vec![],
                                 },
@@ -91,4 +91,4 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
     };
 }
 
-impl_lotus_json_for_miner_constructor_params!(12, 13, 14, 15, 16);
+impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
