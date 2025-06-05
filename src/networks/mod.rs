@@ -369,7 +369,7 @@ impl ChainConfig {
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_600_000_000)),
             f3_enabled: true,
             f3_consensus: true,
-            f3_bootstrap_epoch: -1,
+            f3_bootstrap_epoch: 1000,
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,

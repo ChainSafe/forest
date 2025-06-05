@@ -1246,69 +1246,69 @@
     "network": {
       "type": "butterflynet"
     },
-    "version": "v16.0.0-rc3",
-    "bundle_cid": "bafy2bzacedn2h6huw7v2elmmdmpv4phdv4wjwgct7kcrrtdgz7jkjdm6uwa6k",
+    "version": "v16.0.1",
+    "bundle_cid": "bafy2bzaceda5lc7qrwp2hdm6s6erppwuydsfqrhbgld7juixalk342inqimbo",
     "manifest": {
       "actors": [
         [
           "system",
           1,
-          "bafk2bzaceb2l6ttyv3hnjexdzqaoo7nxsec3dtbo5h5yxdzz44ugq2onxofdu"
+          "bafk2bzacebxmdwaw5rm2apbfqgl2yt25n4abpxhwoy3xou6j6z7aiozsvm722"
         ],
         [
           "init",
           2,
-          "bafk2bzaceanzpajkcik5k4xt7nisqiazme2saivwl5um2que2g7jekr6feygm"
+          "bafk2bzaced6lrgkw4dnxyc72beeyct4tgjup6syt7j2llvlwtkqi3eb5ncyzu"
         ],
         [
           "cron",
           3,
-          "bafk2bzacebuwt5zc2njcsm2fghlrnz3bfvu7s6hepl6leoql3w7zwxtfz5sx4"
+          "bafk2bzaceckhx3amza3xyxvw4x7xg7w7itsokvweiylys2mlcvvvi64uhyfhi"
         ],
         [
           "account",
           4,
-          "bafk2bzacebtd4bl5htqzhnueqwchxjocw35bjfk4u34h33tkhl7l3ll7jjzp6"
+          "bafk2bzacea4fxakv3zww2jb7aaa4v6w7usbcxho7kpc6xpho66ltny72vnzki"
         ],
         [
           "storagepower",
           5,
-          "bafk2bzacecq27y2fgtst57klr5g22nn6i25icey7uq6ofhouupmidkcoh34xa"
+          "bafk2bzacecoi2bu2iipdnkx3pvjbe4d5pbmtcef4lxsdbv7hchgnbbvb6sy6k"
         ],
         [
           "storageminer",
           6,
-          "bafk2bzacebervdatmrxkhke2z7vsmbw4bdcvimxfrvo75lchiobtuyhvklrq6"
+          "bafk2bzacebtzpyy56k4ehwgxbil5ryegys4qgbw6dnsnk3y7qf5y7le2hedoe"
         ],
         [
           "storagemarket",
           7,
-          "bafk2bzacedjnmezgiaszypr2pvwrzuzijv6hoegdcz47yq3ym6rcguqw6altm"
+          "bafk2bzacebrch7gi6wmzgipnx4jiwgpq2ogul6fkgfkqefoujwxsfp7i3wsic"
         ],
         [
           "paymentchannel",
           8,
-          "bafk2bzaceaifoxdlegtehjeow4sve6zuvvd6yqhwpwaim65hexv2gu7dt32ru"
+          "bafk2bzaceakx75ascqt3cpgcgjjjo3lzj6etlit7rvy5r2rnpg35pn5lxdkho"
         ],
         [
           "multisig",
           9,
-          "bafk2bzaceayq4iq5l324rlxhrluetxr2rhkw653ple52qdqcc3pxnxgqfobky"
+          "bafk2bzacebwgwsjsglawtmvmb4fmvagmyjfjvky2mkipk3ysqt2cylrut4pna"
         ],
         [
           "reward",
           10,
-          "bafk2bzacecj4o5ea74dksbshkqf4yd2e4wipcnn6es5h4ltvdnmod3wrj7pei"
+          "bafk2bzaceagyezzhrgwp55i6zpj3qkyprebhdmszn725kdl73z6awpse2ek4m"
         ],
         [
           "verifiedregistry",
           11,
-          "bafk2bzacedhrjtvtmygawmtfukkufpw5ju7wasxnfktxloc77gz3nj6mh45b2"
+          "bafk2bzaceahaut5mk7ndk3yi3uvsalpqpv7h7cdjl7vhkyxmkcypvq6ynn2mk"
         ],
         [
           "datacap",
           12,
-          "bafk2bzacearpj5e5mgj7wbqknzbr67z464mscraxa2r434i4vf2q5pfxli67y"
+          "bafk2bzacecx6cqocsn6e3ouq4tgumrlbazrnydp7bo2rxrtfgbd7soerqplxs"
         ],
         [
           "placeholder",
@@ -1318,20 +1318,20 @@
         [
           "evm",
           14,
-          "bafk2bzacebqxdknf6fbuqnop7jacz4rtarsji4xp6x4o46sabkdauckekpzvs"
+          "bafk2bzaced2i4ez5megwfrlxxv7akcf27hu2fezj3ipiy66skvagvzc5jtxlo"
         ],
         [
           "eam",
           15,
-          "bafk2bzaceak462ytr36seexcpydhsxywzm3sz3loechzuuuifvtie72zgggkm"
+          "bafk2bzaced54tzjl37qsxbb2cml6l2hlupaplzdrdamq7kxihcikbd4goezg4"
         ],
         [
           "ethaccount",
           16,
-          "bafk2bzacecosm2oq5ymatrxkhfv722fawci6bfe5x2hz4gkzu7ewakc5cqfsi"
+          "bafk2bzacedtz6bt2fex7xdm2tmov5kwexoayesguhx5i3ohjyw23sbbwrbokg"
         ]
       ],
-      "actor_list_cid": "bafy2bzacedpq642zz4v3f4625iqs7ks26xlnb4xwyie6cldj3sdtb3jlfv6fk"
+      "actor_list_cid": "bafy2bzacedai5hnued57xpz434xl6afmlycejoj7ac7c36u3tcegp6buc6nj6"
     }
   },
   {

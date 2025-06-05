@@ -43,20 +43,20 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzacebj62qsr7lp2sjfnsrgb6dvaojbmib7ap6wqppkbamnhektcsrgmc").unwrap()
+    Cid::from_str("bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacebj62qsr7lp2sjfnsrgb6dvaojbmib7ap6wqppkbamnhektcsrgmc.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
 
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
-/// `<https://github.com/filecoin-project/lotus/commit/3d0018c2f023c78bafc7493a6a6138e940037da0>`
+/// `<https://github.com/filecoin-project/lotus/commit/c6068b60c526d44270bfc5d612045f0b27322dfb>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/3d0018c2f023c78bafc7493a6a6138e940037da0/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/c6068b60c526d44270bfc5d612045f0b27322dfb/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -103,8 +103,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Phoenix, i64::MIN),
         make_height!(Waffle, -26),
         make_height!(TukTuk, -27, get_bundle_cid("v15.0.0-rc1")),
-        make_height!(Teep, 4320, get_bundle_cid("v16.0.0-rc3")),
-        make_height!(Tock, 4320 + 2 * EPOCHS_IN_DAY),
+        make_height!(Teep, 100, get_bundle_cid("v16.0.1")),
+        make_height!(Tock, 100 + 2 * EPOCHS_IN_DAY),
     ])
 });
 
