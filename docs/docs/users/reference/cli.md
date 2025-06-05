@@ -1378,6 +1378,7 @@ Commands:
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
   diff         Show the difference between the canonical and computed state of a tipset
+  sync-bucket  Export lite+diff snapshots from one or more CAR files, and upload them to an S3 bucket
   help         Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1464,6 +1465,22 @@ Options:
       --epoch <EPOCH>  Selected epoch to validate
       --depth <DEPTH>
   -h, --help           Print help
+```
+
+### `forest-tool archive sync-bucket`
+
+```
+Export lite+diff snapshots from one or more CAR files, and upload them to an S3 bucket
+
+Usage: forest-tool archive sync-bucket [OPTIONS] <SNAPSHOT_FILES>...
+
+Arguments:
+  <SNAPSHOT_FILES>...
+
+Options:
+      --endpoint <ENDPOINT>  S3 endpoint URL [default: https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com]
+      --dry-run              Don't generate or upload files, just show what would be done
+  -h, --help                 Print help
 ```
 
 ### `forest-tool db`
