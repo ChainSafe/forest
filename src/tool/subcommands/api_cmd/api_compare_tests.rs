@@ -1253,9 +1253,6 @@ fn eth_tests() -> Vec<RpcTest> {
             ));
         }
 
-        // Test eth_call API errors
-        tests.extend(eth_call_api_err_tests(use_alias));
-
         let cases = [
             EthAddressList::List(vec![]),
             EthAddressList::List(vec![
@@ -1299,7 +1296,7 @@ fn eth_tests() -> Vec<RpcTest> {
     tests
 }
 
-fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
+fn eth_call_api_err_tests(epoch: i64) -> Vec<RpcTest> {
     let contract_codes = [
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex"),
         include_str!("contracts/assert_err/assert_err.hex"),
@@ -1321,17 +1318,14 @@ fn eth_call_api_err_tests(use_alias: bool) -> Vec<RpcTest> {
 
             let zero_address = EthAddress::from_str(ZERO_ADDRESS).unwrap();
             // Setting the `EthCallMessage` `to` field to null will deploy the contract.
-            let eth_call_request = EthCall::request_with_alias(
-                (
-                    EthCallMessage {
-                        from: Some(zero_address),
-                        data: Some(contract_code),
-                        ..EthCallMessage::default()
-                    },
-                    BlockNumberOrHash::from_predefined(Predefined::Latest),
-                ),
-                use_alias,
-            )
+            let eth_call_request = EthCall::request((
+                EthCallMessage {
+                    from: Some(zero_address),
+                    data: Some(contract_code),
+                    ..EthCallMessage::default()
+                },
+                BlockNumberOrHash::from_block_number(epoch),
+            ))
             .unwrap();
 
             RpcTest::identity(eth_call_request)
@@ -1858,6 +1852,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
         )?,))?,
     ));
+
+    // Test eth_call API errors
+    tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
 
     Ok(tests)
 }
