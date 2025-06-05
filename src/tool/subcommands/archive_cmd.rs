@@ -33,8 +33,7 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::ManyCar;
-use crate::db::car::{AnyCar, RandomAccessFileReader};
+use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -53,6 +52,7 @@ use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use sha2::Sha256;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -126,15 +126,31 @@ pub enum ArchiveCommands {
         #[arg(long)]
         depth: Option<u64>,
     },
+    /// Export lite and diff snapshots from one or more CAR files, and upload them
+    /// to an `S3` bucket.
+    SyncBucket {
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        /// `S3` endpoint URL.
+        #[arg(long, default_value = FOREST_ARCHIVE_S3_ENDPOINT)]
+        endpoint: String,
+        /// Don't generate or upload files, just show what would be done.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 }
 
 impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
+                let store = AnyCar::try_from(snapshot.as_path())?;
+                let variant = store.variant().to_string();
+                let heaviest = store.heaviest_tipset()?;
+                let index_size_bytes = store.index_size_bytes();
                 println!(
                     "{}",
-                    ArchiveInfo::from_store(AnyCar::try_from(snapshot.as_path())?)?
+                    ArchiveInfo::from_store(&store, variant, heaviest, index_size_bytes)?
                 );
                 Ok(())
             }
@@ -174,6 +190,11 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => show_tipset_diff(snapshot_files, epoch, depth).await,
+            Self::SyncBucket {
+                snapshot_files,
+                endpoint,
+                dry_run,
+            } => sync_bucket(snapshot_files, endpoint, dry_run).await,
         }
     }
 }
@@ -218,21 +239,29 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
-        Self::from_store_with(store, true)
+    fn from_store(
+        store: &impl Blockstore,
+        variant: String,
+        heaviest_tipset: Tipset,
+        index_size_bytes: Option<u32>,
+    ) -> anyhow::Result<Self> {
+        Self::from_store_with(store, variant, heaviest_tipset, index_size_bytes, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
+        store: &impl Blockstore,
+        variant: String,
+        heaviest_tipset: Tipset,
+        index_size_bytes: Option<u32>,
         progress: bool,
     ) -> anyhow::Result<Self> {
-        let root = store.heaviest_tipset()?;
+        let root = heaviest_tipset;
         let root_epoch = root.epoch();
 
-        let tipsets = root.clone().chain(&store);
+        let tipsets = root.clone().chain(store);
 
         let windowed = (std::iter::once(root.clone()).chain(tipsets)).tuple_windows();
 
@@ -296,14 +325,18 @@ impl ArchiveInfo {
         }
 
         Ok(ArchiveInfo {
-            variant: store.variant().to_string(),
+            variant,
             network,
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
             root,
-            index_size_bytes: store.index_size_bytes(),
+            index_size_bytes,
         })
+    }
+
+    fn epoch_range(&self) -> Range<ChainEpoch> {
+        self.tipsets..self.epoch
     }
 }
 
@@ -376,7 +409,7 @@ async fn do_export(
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
 
-    let genesis = ts.genesis(store)?;
+    let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
@@ -590,6 +623,290 @@ async fn show_tipset_diff(
     Ok(())
 }
 
+fn steps_in_range(
+    range: &Range<ChainEpoch>,
+    step_size: ChainEpochDelta,
+    offset: ChainEpochDelta,
+) -> impl Iterator<Item = ChainEpoch> {
+    let start = range.start / step_size;
+    (start..)
+        .map(move |x| x * step_size)
+        .skip_while(move |&x| x - offset < range.start)
+        .take_while(move |&x| x <= range.end)
+}
+
+fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
+    Ok(
+        DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string(),
+    )
+}
+
+fn format_lite_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<String> {
+    Ok(format!(
+        "forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst",
+        date = epoch_to_date(genesis_timestamp, epoch)?,
+        epoch = epoch
+    ))
+}
+
+fn format_diff_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<String> {
+    Ok(format!(
+        "forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst",
+        date = epoch_to_date(genesis_timestamp, epoch)?,
+        epoch = epoch - 3000
+    ))
+}
+
+// Check if
+// forest-internal.chainsafe.dev/{network}/lite/forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst
+// exists.
+async fn bucket_has_lite_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<bool> {
+    let url = format!(
+        "https://forest-internal.chainsafe.dev/{}/lite/{}",
+        network,
+        format_lite_snapshot(network, genesis_timestamp, epoch)?
+    );
+    let response = reqwest::Client::new().get(url).send().await?;
+    Ok(response.status().is_success())
+}
+
+// Check if
+// forest-internal.chainsafe.dev/{network}/diff/forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst
+// exists.
+async fn bucket_has_diff_snapshot(
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<bool> {
+    let url = format!(
+        "https://forest-internal.chainsafe.dev/{}/diff/{}",
+        network,
+        format_diff_snapshot(network, genesis_timestamp, epoch)?
+    );
+    let response = reqwest::Client::new().head(url).send().await?;
+    Ok(response.status().is_success())
+}
+
+const FOREST_ARCHIVE_S3_ENDPOINT: &str =
+    "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com";
+
+/// Check if the AWS CLI is installed and correctly configured.
+fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
+    let status = std::process::Command::new("aws")
+        .arg("help")
+        .stdout(std::process::Stdio::null())
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws help': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws help' failed with status code: {}. Please ensure that the AWS CLI is installed and configured.",
+            status
+        );
+    }
+
+    let status = std::process::Command::new("aws")
+        .args(["s3", "ls", "s3://forest-archive/", "--endpoint", endpoint])
+        .stdout(std::process::Stdio::null())
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 ls': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws s3 ls' failed with status code: {}. Please check your AWS credentials.",
+            status
+        );
+    }
+    Ok(())
+}
+
+/// Use the AWS CLI to upload a snapshot file to the `S3` bucket.
+fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
+    let status = std::process::Command::new("aws")
+        .args([
+            "s3",
+            "cp",
+            "--acl",
+            "public-read",
+            path.to_str().unwrap(),
+            &format!("s3://forest-archive/{}/{}/", network, tag),
+            "--endpoint",
+            FOREST_ARCHIVE_S3_ENDPOINT,
+        ])
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 cp': {}", e))?;
+
+    if !status.success() {
+        bail!(
+            "'aws s3 cp' failed with status code: {}. Upload failed.",
+            status
+        );
+    }
+    Ok(())
+}
+
+/// Given a block store, export a lite snapshot for a given epoch.
+async fn export_lite_snapshot(
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    root: Tipset,
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<PathBuf> {
+    let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch)?.into();
+
+    // Skip if file already exists
+    if output_path.exists() {
+        return Ok(output_path);
+    }
+
+    let depth = 900;
+    let diff = None;
+    let diff_depth = None;
+    let force = false;
+    do_export(
+        &store,
+        root,
+        output_path.clone(),
+        Some(epoch),
+        depth,
+        diff,
+        diff_depth,
+        force,
+    )
+    .await?;
+    Ok(output_path)
+}
+
+/// Given a block store, export a diff snapshot for a given epoch.
+async fn export_diff_snapshot(
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
+    root: Tipset,
+    network: &str,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+) -> anyhow::Result<PathBuf> {
+    let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch)?.into();
+
+    // Skip if file already exists
+    if output_path.exists() {
+        return Ok(output_path);
+    }
+
+    let depth = 3_000;
+    let diff = Some(epoch - depth);
+    let diff_depth = Some(900);
+    let force = false;
+    do_export(
+        &store,
+        root,
+        output_path.clone(),
+        Some(epoch),
+        depth,
+        diff,
+        diff_depth,
+        force,
+    )
+    .await?;
+    Ok(output_path)
+}
+
+// This command is used for keeping the S3 bucket of archival snapshots
+// up-to-date. It takes a set of snapshot files and queries the S3 bucket to see
+// what is missing. If the input set of snapshot files can be used to generate
+// missing lite or diff snapshots, they'll be generated and uploaded to the S3
+// bucket.
+async fn sync_bucket(
+    snapshot_files: Vec<PathBuf>,
+    endpoint: String,
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    check_aws_config(&endpoint)?;
+
+    let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+    let heaviest_tipset = store.heaviest_tipset()?;
+
+    let info =
+        ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone(), None)?;
+
+    let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
+
+    let range = info.epoch_range();
+
+    println!("Network: {}", info.network);
+    println!("Range:   {} to {}", range.start, range.end);
+    println!("Lites:",);
+    for epoch in steps_in_range(&range, 30_000, 800) {
+        println!(
+            "  {}: {}",
+            epoch,
+            bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
+        );
+    }
+    println!("Diffs:");
+    for epoch in steps_in_range(&range, 3_000, 3_800) {
+        println!(
+            "  {}: {}",
+            epoch,
+            bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
+        );
+    }
+
+    for epoch in steps_in_range(&range, 30_000, 800) {
+        if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
+            println!("  {}: Exporting lite snapshot", epoch,);
+            if !dry_run {
+                let output_path = export_lite_snapshot(
+                    store.clone(),
+                    heaviest_tipset.clone(),
+                    &info.network,
+                    genesis_timestamp,
+                    epoch,
+                )
+                .await?;
+                upload_to_forest_bucket(output_path, &info.network, "lite")?;
+            } else {
+                println!("  {}: Would upload lite snapshot to S3", epoch);
+            }
+        }
+    }
+
+    for epoch in steps_in_range(&range, 3_000, 3_800) {
+        if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
+            println!("  {}: Exporting diff snapshot", epoch,);
+            if !dry_run {
+                let output_path = export_diff_snapshot(
+                    store.clone(),
+                    heaviest_tipset.clone(),
+                    &info.network,
+                    genesis_timestamp,
+                    epoch,
+                )
+                .await?;
+                upload_to_forest_bucket(output_path, &info.network, "diff")?;
+            } else {
+                println!("  {}: Would upload diff snapshot to S3", epoch);
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -602,6 +919,20 @@ mod tests {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
         let ts = db.heaviest_tipset().unwrap();
         ts.genesis(&db).unwrap().timestamp
+    }
+
+    #[test]
+    fn steps_in_range_1() {
+        let range = 30_000..60_001;
+        let lite = steps_in_range(&range, 30_000, 800);
+        assert_eq!(lite.collect::<Vec<_>>(), vec![60_000]);
+    }
+
+    #[test]
+    fn steps_in_range_2() {
+        let range = (30_000 - 800)..60_001;
+        let lite = steps_in_range(&range, 30_000, 800);
+        assert_eq!(lite.collect::<Vec<_>>(), vec![30_000, 60_000]);
     }
 
     #[tokio::test]
@@ -634,22 +965,22 @@ mod tests {
 
     #[test]
     fn archive_info_calibnet() {
-        let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap(),
-            false,
-        )
-        .unwrap();
+        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let variant = store.variant().to_string();
+        let ts = store.heaviest_tipset().unwrap();
+        let index_size_bytes = store.index_size_bytes();
+        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
 
     #[test]
     fn archive_info_mainnet() {
-        let info = ArchiveInfo::from_store_with(
-            AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap(),
-            false,
-        )
-        .unwrap();
+        let store = AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap();
+        let variant = store.variant().to_string();
+        let ts = store.heaviest_tipset().unwrap();
+        let index_size_bytes = store.index_size_bytes();
+        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }
