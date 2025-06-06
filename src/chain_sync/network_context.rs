@@ -8,7 +8,7 @@ use std::{
         Arc,
         atomic::{AtomicU64, Ordering},
     },
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -33,7 +33,7 @@ use parking_lot::Mutex;
 use std::future::Future;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
-use tracing::{debug, trace, warn};
+use tracing::{debug, trace};
 
 /// Timeout milliseconds for response from an RPC request
 // This value is automatically adapted in the range of [5, 60] for different network conditions,
@@ -222,7 +222,7 @@ where
             options,
         };
 
-        let global_pre_time = SystemTime::now();
+        let global_pre_time = Instant::now();
         let network_failures = Arc::new(AtomicU64::new(0));
         let lookup_failures = Arc::new(AtomicU64::new(0));
         let chain_exchange_result = match peer_id {
@@ -325,12 +325,8 @@ where
         };
 
         // Log success for the global request with the latency from before sending.
-        match SystemTime::now().duration_since(global_pre_time) {
-            Ok(t) => self.peer_manager.log_global_success(t),
-            Err(e) => {
-                warn!("logged time less than before request: {}", e);
-            }
-        }
+        self.peer_manager
+            .log_global_success(Instant::now().duration_since(global_pre_time));
 
         Ok(chain_exchange_result)
     }
@@ -344,7 +340,7 @@ where
     ) -> Result<ChainExchangeResponse, String> {
         trace!("Sending ChainExchange Request to {peer_id}");
 
-        let req_pre_time = SystemTime::now();
+        let req_pre_time = Instant::now();
 
         let (tx, rx) = flume::bounded(1);
         if network_send
@@ -366,9 +362,7 @@ where
             rx.recv_timeout(Duration::from_millis(CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()))
         })
         .await;
-        let res_duration = SystemTime::now()
-            .duration_since(req_pre_time)
-            .unwrap_or_default();
+        let res_duration = Instant::now().duration_since(req_pre_time);
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
@@ -417,7 +411,7 @@ where
         &self,
         peer_id: PeerId,
         request: HelloRequest,
-    ) -> anyhow::Result<(PeerId, SystemTime, Option<HelloResponse>)> {
+    ) -> anyhow::Result<(PeerId, Instant, Option<HelloResponse>)> {
         trace!("Sending Hello Message to {}", peer_id);
 
         // Create oneshot channel for receiving response from sent hello.
@@ -434,7 +428,7 @@ where
             .context("Failed to send hello request: receiver dropped")?;
 
         const HELLO_TIMEOUT: Duration = Duration::from_secs(30);
-        let sent = SystemTime::now();
+        let sent = Instant::now();
         let res = tokio::task::spawn_blocking(move || rx.recv_timeout(HELLO_TIMEOUT))
             .await?
             .ok();

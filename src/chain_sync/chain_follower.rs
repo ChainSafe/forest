@@ -28,7 +28,7 @@ use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use libp2p::PeerId;
 use parking_lot::Mutex;
-use std::time::SystemTime;
+use std::time::Instant;
 use std::{ops::Deref as _, sync::Arc};
 use tokio::{sync::Notify, task::JoinSet};
 use tracing::{debug, error, info, trace, warn};
@@ -402,9 +402,7 @@ async fn handle_peer_connected_event<DB: Blockstore + Sync + Send + 'static>(
                 return;
             }
         };
-        let dur = SystemTime::now()
-            .duration_since(moment_sent)
-            .unwrap_or_default();
+        let dur = Instant::now().duration_since(moment_sent);
 
         // Update the peer metadata based on the response
         match response {
