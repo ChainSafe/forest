@@ -334,7 +334,9 @@ fn handle_admin_token(
     )?;
     info!("Admin token: {token}");
     let default_token_path = config.client.default_rpc_token_path();
-    if let Err(e) = std::fs::write(&default_token_path, &token) {
+    if let Err(e) =
+        crate::utils::io::write_new_sensitive_file(token.as_bytes(), &default_token_path)
+    {
         tracing::warn!("Failed to save the default admin token file: {e}");
     }
     if let Some(path) = opts.save_token.as_ref() {
