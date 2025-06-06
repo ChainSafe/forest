@@ -1488,14 +1488,22 @@ impl RpcMethod<2> for EthGetBlockByNumber {
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_param: BlockNumberOrHash,
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/5177
-    _limit: Option<usize>,
+    limit: Option<usize>,
 ) -> Result<Vec<EthTxReceipt>, ServerError> {
     let ts = tipset_by_block_number_or_hash(
         ctx.chain_store(),
         block_param,
         ResolveNullTipset::TakeOlder,
     )?;
+    if let Some(limit) = limit {
+        if ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit as i64 {
+            return Err(anyhow::anyhow!(
+                "tipset {} is older than the allowed lookback limit",
+                ts.key().to_lotus()
+            )
+            .into());
+        }
+    }
     let ts_ref = Arc::new(ts);
     let ts_key = ts_ref.key();
 
