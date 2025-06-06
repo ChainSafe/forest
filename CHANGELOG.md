@@ -37,6 +37,8 @@
 
 -[#5639](https://github.com/ChainSafe/forest/pull/5639) Add automatic scheduler for snapshot GC.
 
+-[#5697](https://github.com/ChainSafe/forest/pull/5697) Add `forest-cli chain list` command for viewing a segment of the chain.
+
 ### Changed
 
 -[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.

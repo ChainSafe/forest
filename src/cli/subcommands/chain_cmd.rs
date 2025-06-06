@@ -1,6 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod list;
+use list::ChainListCommand;
+
 mod prune;
 use prune::ChainPruneCommands;
 
@@ -73,6 +76,7 @@ pub enum ChainCommands {
     },
     #[command(subcommand)]
     Prune(ChainPruneCommands),
+    List(ChainListCommand),
 }
 
 impl ChainCommands {
@@ -129,6 +133,7 @@ impl ChainCommands {
                 Ok(())
             }
             Self::Prune(cmd) => cmd.run(client).await,
+            Self::List(cmd) => cmd.run(client).await,
         }
     }
 }
