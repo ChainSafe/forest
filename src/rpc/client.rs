@@ -64,7 +64,7 @@ impl Client {
             if default_token_path.is_file() {
                 if let Ok(token) = std::fs::read_to_string(&default_token_path) {
                     if base_url.set_password(Some(token.trim())).is_ok() {
-                        tracing::info!("Loaded the default RPC token");
+                        tracing::debug!("Loaded the default RPC token");
                     } else {
                         tracing::warn!("Failed to set the default RPC token");
                     }
