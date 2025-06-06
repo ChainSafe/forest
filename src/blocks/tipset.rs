@@ -90,6 +90,17 @@ impl TipsetKey {
             .collect::<Vec<_>>()
             .join(", ")
     }
+
+    /// Formats tipset key to match the Lotus display.
+    pub fn to_lotus(&self) -> String {
+        let s = self
+            .to_cids()
+            .into_iter()
+            .map(|cid| cid.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        format!("{{{}}}", s)
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
