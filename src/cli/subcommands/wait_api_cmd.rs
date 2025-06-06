@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::{self, prelude::*};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, clap::Args)]
 pub struct WaitApiCommand {
@@ -14,19 +14,12 @@ pub struct WaitApiCommand {
 impl WaitApiCommand {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         let request = Version::request(())?.with_timeout(Duration::from_secs(1));
-        let deadline = self.timeout.map(|timeout| {
-            chrono::Utc::now()
-                .checked_add_signed(
-                    chrono::Duration::from_std(timeout.into())
-                        .expect("Failed to convert humantime::Duration to std::time::Duration"),
-                )
-                .expect("Failed to calculate deadline")
-        });
-
+        let timeout = self.timeout.map(Duration::from);
+        let start = Instant::now();
         let mut success = false;
         loop {
-            match deadline {
-                Some(deadline) if chrono::Utc::now() > deadline => break,
+            match timeout {
+                Some(timeout) if start.elapsed() > timeout => break,
                 _ => {}
             }
             if let Ok(_r) = client.call(request.clone()).await {
