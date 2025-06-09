@@ -442,8 +442,6 @@ async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
 
     for block in tipset.blocks() {
         block.persist(&chain_store.db)?;
-        crate::chain::persist_objects(&chain_store.db, block.bls_messages.iter())?;
-        crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
     }
 
     Ok(tipset)
@@ -468,8 +466,6 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
     for tipset in tipsets.iter() {
         for block in tipset.blocks() {
             block.persist(&chain_store.db)?;
-            crate::chain::persist_objects(&chain_store.db, block.bls_messages.iter())?;
-            crate::chain::persist_objects(&chain_store.db, block.secp_messages.iter())?;
         }
     }
 
@@ -505,7 +501,43 @@ fn load_full_tipset<DB: Blockstore>(
 enum SyncEvent {
     NewFullTipsets(Vec<Arc<FullTipset>>),
     BadTipset(Arc<FullTipset>, String),
-    ValidatedTipset(Arc<FullTipset>),
+    ValidatedTipset {
+        tipset: Arc<FullTipset>,
+        is_proposed_head: bool,
+    },
+}
+
+impl std::fmt::Display for SyncEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn tss_to_string(tss: &[Arc<FullTipset>]) -> String {
+            format!(
+                "epoch: {}-{}",
+                tss.first().map(|ts| ts.epoch()).unwrap_or_default(),
+                tss.last().map(|ts| ts.epoch()).unwrap_or_default()
+            )
+        }
+
+        match self {
+            Self::NewFullTipsets(tss) => write!(f, "NewFullTipsets({})", tss_to_string(tss)),
+            Self::BadTipset(ts, reason) => {
+                write!(
+                    f,
+                    "BadTipset(reason: {reason}, epoch: {}, key: {})",
+                    ts.epoch(),
+                    ts.key()
+                )
+            }
+            Self::ValidatedTipset {
+                tipset,
+                is_proposed_head,
+            } => write!(
+                f,
+                "ValidatedTipset(epoch: {}, key: {}, is_proposed_head: {is_proposed_head})",
+                tipset.epoch(),
+                tipset.key()
+            ),
+        }
+    }
 }
 
 struct SyncStateMachine<DB> {
@@ -683,7 +715,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         }
     }
 
-    fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>) {
+    fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>, is_proposed_head: bool) {
         assert!(self.is_validated(&tipset), "Tipset must be validated");
         self.tipsets.remove(tipset.key());
         let tipset = tipset.deref().clone().into_tipset();
@@ -698,12 +730,17 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                     info!("Heaviest tipset: {} ({})", epoch, terse_key);
                 }
             }
-        } else if let Err(e) = self.cs.put_tipset(&tipset) {
-            error!("Error putting tipset: {}", e);
+        } else if is_proposed_head {
+            if let Err(e) = self.cs.put_tipset(&tipset) {
+                error!("Error putting tipset: {e}");
+            }
+        } else if let Err(e) = self.cs.set_heaviest_tipset(tipset.into()) {
+            error!("Error setting heaviest tipset: {e}");
         }
     }
 
     pub fn update(&mut self, event: SyncEvent) {
+        tracing::trace!("update: {event}");
         match event {
             SyncEvent::NewFullTipsets(tipsets) => {
                 for tipset in tipsets {
@@ -711,7 +748,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                 }
             }
             SyncEvent::BadTipset(tipset, reason) => self.mark_bad_tipset(tipset, reason),
-            SyncEvent::ValidatedTipset(tipset) => self.mark_validated_tipset(tipset),
+            SyncEvent::ValidatedTipset {
+                tipset,
+                is_proposed_head,
+            } => self.mark_validated_tipset(tipset, is_proposed_head),
         }
     }
 
@@ -736,7 +776,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                     ));
                 } else {
                     stage = ForkSyncStage::ValidatingTipsets;
-                    tasks.push(SyncTask::ValidateTipset(first_ts.clone()));
+                    tasks.push(SyncTask::ValidateTipset {
+                        tipset: first_ts.clone(),
+                        is_proposed_head: chain.len() == 1,
+                    });
                 }
 
                 let fork_info = ForkSyncInfo {
@@ -758,14 +801,24 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 enum SyncTask {
-    ValidateTipset(Arc<FullTipset>),
+    ValidateTipset {
+        tipset: Arc<FullTipset>,
+        is_proposed_head: bool,
+    },
     FetchTipset(TipsetKey, ChainEpoch),
 }
 
 impl std::fmt::Display for SyncTask {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SyncTask::ValidateTipset(ts) => write!(f, "ValidateTipset(epoch: {})", ts.epoch()),
+            SyncTask::ValidateTipset {
+                tipset,
+                is_proposed_head,
+            } => write!(
+                f,
+                "ValidateTipset(epoch: {}, is_proposed_head: {is_proposed_head})",
+                tipset.epoch()
+            ),
             SyncTask::FetchTipset(key, epoch) => {
                 let s = key.to_string();
                 write!(
@@ -786,17 +839,28 @@ impl SyncTask {
         state_manager: Arc<StateManager<DB>>,
         stateless_mode: bool,
     ) -> Option<SyncEvent> {
+        tracing::trace!("SyncTask::execute {self}");
         let cs = state_manager.chain_store();
         match self {
-            SyncTask::ValidateTipset(tipset) if stateless_mode => {
-                Some(SyncEvent::ValidatedTipset(tipset))
-            }
-            SyncTask::ValidateTipset(tipset) => {
+            SyncTask::ValidateTipset {
+                tipset,
+                is_proposed_head,
+            } if stateless_mode => Some(SyncEvent::ValidatedTipset {
+                tipset,
+                is_proposed_head,
+            }),
+            SyncTask::ValidateTipset {
+                tipset,
+                is_proposed_head,
+            } => {
                 let genesis = cs.genesis_tipset();
                 match validate_tipset(state_manager.clone(), cs, tipset.deref().clone(), &genesis)
                     .await
                 {
-                    Ok(()) => Some(SyncEvent::ValidatedTipset(tipset)),
+                    Ok(()) => Some(SyncEvent::ValidatedTipset {
+                        tipset,
+                        is_proposed_head,
+                    }),
                     Err(e) => {
                         warn!("Error validating tipset: {}", e);
                         Some(SyncEvent::BadTipset(tipset, e.to_string()))
@@ -924,8 +988,12 @@ mod tests {
             let validation_tipsets: Vec<_> = tasks
                 .into_iter()
                 .filter_map(|task| {
-                    if let SyncTask::ValidateTipset(ts) = task {
-                        Some(ts)
+                    if let SyncTask::ValidateTipset {
+                        tipset,
+                        is_proposed_head,
+                    } = task
+                    {
+                        Some((tipset, is_proposed_head))
                     } else {
                         None
                     }
@@ -937,10 +1005,10 @@ mod tests {
             }
 
             // Record and mark all tipsets as validated
-            for ts in validation_tipsets {
+            for (ts, is_proposed_head) in validation_tipsets {
                 validation_tasks.push(ts.epoch());
                 db.put_cbor_default(&ts.epoch()).unwrap();
-                state_machine.mark_validated_tipset(ts);
+                state_machine.mark_validated_tipset(ts, is_proposed_head);
             }
         }
 

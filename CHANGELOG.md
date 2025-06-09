@@ -49,6 +49,8 @@
 
 - [#5624](https://github.com/ChainSafe/forest/pull/5624) Fixed `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
 
+- [#5704](https://github.com/ChainSafe/forest/pull/5704) Fixed an issue that a Forest node gets stuck in some cases.
+
 ## Forest v0.26.1 "Ijon Tichy"
 
 This is a non-mandatory release for all node operators. It includes a fix for the F3 on mainnet and a few other improvements. It also sets the initial power table CID for F3 on mainnet.
