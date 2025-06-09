@@ -253,7 +253,7 @@ where
                     let lookup_failures = lookup_failures.clone();
                     let success_time_cost_millis_stats = success_time_cost_millis_stats.clone();
                     batch.add(async move {
-                        let start = chrono::Utc::now();
+                        let start = Instant::now();
                         match Self::chain_exchange_request(
                             peer_manager,
                             network_send,
@@ -266,7 +266,7 @@ where
                                 match chain_exchange_result.into_result::<T>() {
                                     Ok(r) => {
                                         success_time_cost_millis_stats.lock().update(
-                                            (chrono::Utc::now() - start).num_milliseconds(),
+                                            start.elapsed().as_millis()
                                         );
                                         Ok(r)
                                     }
