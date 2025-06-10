@@ -1489,7 +1489,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_param: BlockNumberOrHash,
     limit: Option<ChainEpoch>,
-) -> Result<Vec<EthTxReceipt>, ServerError> {
+) -> Result<Vec<EthTxReceipt>> {
     let ts = tipset_by_block_number_or_hash(
         ctx.chain_store(),
         block_param,
@@ -1499,11 +1499,10 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         if limit > LOOKBACK_NO_LIMIT
             && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
         {
-            return Err(anyhow::anyhow!(
+            bail!(
                 "tipset {} is older than the allowed lookback limit",
                 ts.key().to_lotus()
-            )
-            .into());
+            );
         }
     }
     let ts_ref = Arc::new(ts);
@@ -1546,7 +1545,9 @@ impl RpcMethod<1> for EthGetBlockReceipts {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, None).await
+        get_block_receipts(&ctx, block_param, None)
+            .await
+            .map_err(ServerError::from)
     }
 }
 
@@ -1564,7 +1565,9 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, Some(limit)).await
+        get_block_receipts(&ctx, block_param, Some(limit))
+            .await
+            .map_err(ServerError::from)
     }
 }
 
