@@ -92,7 +92,7 @@ impl TipsetKey {
     }
 
     /// Formats tipset key to match the Lotus display.
-    pub fn to_lotus(&self) -> String {
+    pub fn format_lotus(&self) -> String {
         let s = self
             .to_cids()
             .into_iter()
