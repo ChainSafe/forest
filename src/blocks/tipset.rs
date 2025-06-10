@@ -93,13 +93,7 @@ impl TipsetKey {
 
     /// Formats tipset key to match the Lotus display.
     pub fn format_lotus(&self) -> String {
-        let s = self
-            .to_cids()
-            .into_iter()
-            .map(|cid| cid.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        format!("{{{}}}", s)
+        format!("{{{}}}", self.to_cids().into_iter().join(","))
     }
 }
 

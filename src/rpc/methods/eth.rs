@@ -1501,7 +1501,7 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         {
             bail!(
                 "tipset {} is older than the allowed lookback limit",
-                ts.key().to_lotus()
+                ts.key().format_lotus()
             );
         }
     }
