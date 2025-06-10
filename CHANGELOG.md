@@ -47,7 +47,8 @@
 
 ### Fixed
 
-- [#5624](https://github.com/ChainSafe/forest/pull/5624) Fixed `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
+- [#5624](https://github.com/ChainSafe/forest/pull/5624) Fix `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
+- [#5177](https://github.com/ChainSafe/forest/issues/5177) Fix `Filecoin.EthGetBlockReceiptsLimited` to correctly handle the limit parameter.
 
 - [#5704](https://github.com/ChainSafe/forest/pull/5704) Fixed an issue that a Forest node gets stuck in some cases.
 
