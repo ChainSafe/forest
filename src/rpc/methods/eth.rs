@@ -24,7 +24,6 @@ use crate::eth::{SAFE_EPOCH_DELAY, parse_eth_transaction};
 use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
-use crate::rpc::EthEventHandler;
 use crate::rpc::error::ServerError;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::filter::{
@@ -35,6 +34,7 @@ use crate::rpc::eth::utils::decode_revert_reason;
 use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::{ApiTipsetKey, EventEntry, MessageLookup};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::rpc::{EthEventHandler, LOOKBACK_NO_LIMIT};
 use crate::shim::actors::EVMActorStateLoad as _;
 use crate::shim::actors::eam;
 use crate::shim::actors::evm;
@@ -1488,7 +1488,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
 async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     block_param: BlockNumberOrHash,
-    limit: Option<usize>,
+    limit: Option<ChainEpoch>,
 ) -> Result<Vec<EthTxReceipt>, ServerError> {
     let ts = tipset_by_block_number_or_hash(
         ctx.chain_store(),
@@ -1496,7 +1496,9 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         ResolveNullTipset::TakeOlder,
     )?;
     if let Some(limit) = limit {
-        if ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit as i64 {
+        if limit > LOOKBACK_NO_LIMIT
+            && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
+        {
             return Err(anyhow::anyhow!(
                 "tipset {} is older than the allowed lookback limit",
                 ts.key().to_lotus()
@@ -1562,7 +1564,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_param, limit): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        get_block_receipts(&ctx, block_param, Some(limit as usize)).await
+        get_block_receipts(&ctx, block_param, Some(limit)).await
     }
 }
 
