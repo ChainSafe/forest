@@ -6,5 +6,6 @@ mod chain_store;
 mod errors;
 pub mod index;
 mod tipset_tracker;
+mod tsk_cache;
 
 pub use self::{base_fee::*, chain_store::*, errors::*};
