@@ -196,7 +196,7 @@ static_assertions = "1"
 statrs = "0.18"
 strum = { version = "0.27", features = ["derive"] }
 strum_macros = "0.27"
-tabled = { version = "0.19", default-features = false, features = ["std"] }
+tabled = { version = "0.20", default-features = false, features = ["std"] }
 tap = "1"
 tar = "0.4"
 tempfile = "3"
@@ -233,7 +233,7 @@ termios = "0.3"
 ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.19"
+cargo_metadata = "0.20"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.6", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
