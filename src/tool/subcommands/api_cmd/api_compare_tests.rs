@@ -1477,8 +1477,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 -1,
             ))
             .unwrap(),
-        )
-        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((EthInt64(shared_tipset.epoch()),))
                 .unwrap(),
