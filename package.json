@@ -2,7 +2,7 @@
   "name": "root",
   "private": true,
   "devDependencies": {
-    "@docusaurus/tsconfig": "^3.7.0",
+    "@docusaurus/tsconfig": "^3.8.1",
     "prettier": "^3.5.3"
   },
   "scripts": {
@@ -10,5 +10,5 @@
     "md-fmt": "prettier --write '**/*.md'",
     "md-check": "prettier --check '**/*.md'"
   },
-  "packageManager": "yarn@4.7.0"
+  "packageManager": "yarn@4.9.2"
 }
