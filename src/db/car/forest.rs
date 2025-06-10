@@ -288,7 +288,7 @@ impl Encoder {
         let mut offset = 0;
 
         // Write CARv1 header
-        let mut header_encoder = new_encoder(3)?;
+        let mut header_encoder = new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
 
         let header = CarV1Header { roots, version: 1 };
         let mut header_uvi_frame = BytesMut::new();
