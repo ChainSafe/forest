@@ -63,11 +63,11 @@ where
                             null_epochs.push(e);
                         }
                         if tsk_set.contains(parent.key()) {
-                            break true;
+                            break None;
                         }
                         keys.push((parent.epoch(), parent.key().clone()));
                         if parent.epoch() == to_epoch {
-                            break false;
+                            break Some(parent.key().clone());
                         }
                         curr = parent;
                         expected_epoch = curr.epoch() - 1;
@@ -75,37 +75,40 @@ where
                     if !null_epochs.is_empty() {
                         tracing::info!("null epochs: {:?}:", null_epochs);
                     }
-                    if found {
-                        tracing::info!(
-                            "setid {}: extending cache with {} tipset keys",
-                            setid,
-                            keys.len()
-                        );
-                        for (_, tsk) in keys.iter() {
-                            tsk_set.insert(tsk.clone());
+                    match found {
+                        None => {
+                            tracing::info!(
+                                "setid {}: extending cache with {} tipset keys",
+                                setid,
+                                keys.len()
+                            );
+                            for (_, tsk) in keys.iter() {
+                                tsk_set.insert(tsk.clone());
+                            }
+                            for (epoch, tsk) in keys.into_iter() {
+                                self.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                            }
+                            tracing::info!("cache hit through extension");
+                            return Ok(tsk);
                         }
-                        for (epoch, tsk) in keys.into_iter() {
-                            self.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                        Some(key) => {
+                            let setid = self.setid_to_tskset.len();
+                            tracing::info!(
+                                "setid {}: creating cache with {} tipset keys",
+                                setid,
+                                keys.len()
+                            );
+                            let mut tsk_set = HashSet::default();
+                            for (_, tsk) in keys.iter() {
+                                tsk_set.insert(tsk.clone());
+                            }
+                            for (epoch, tsk) in keys.into_iter() {
+                                self.epoch_to_setid.insert(epoch, (Some(tsk), setid));
+                            }
+                            self.setid_to_tskset.insert(setid, tsk_set);
+                            tracing::info!("cache hit through creation");
+                            return Ok(key);
                         }
-                        tracing::info!("cache hit through extension");
-                        return Ok(tsk);
-                    } else {
-                        let setid = self.setid_to_tskset.len();
-                        tracing::info!(
-                            "setid {}: creating cache with {} tipset keys",
-                            setid,
-                            keys.len()
-                        );
-                        let mut tsk_set = HashSet::default();
-                        for (_, tsk) in keys.iter() {
-                            tsk_set.insert(tsk.clone());
-                        }
-                        for (epoch, tsk) in keys.into_iter() {
-                            self.epoch_to_setid.insert(epoch, (Some(tsk), setid));
-                        }
-                        self.setid_to_tskset.insert(setid, tsk_set);
-
-                        bail!("epoch {} not found", to_epoch);
                     }
                 } else {
                     bail!("set {} not found", setid);
@@ -239,7 +242,7 @@ mod tests {
         let ts1 = Arc::new(MockTipset::new(1, "tsk1", Some(ts0.clone())));
         let ts2 = Arc::new(MockTipset::new(2, "tsk2", Some(ts1.clone())));
         let ts3 = Arc::new(MockTipset::new(3, "tsk3", Some(ts2.clone())));
-        let _ts4 = Arc::new(MockTipset::new(4, "tsk4", Some(ts3.clone())));
+        let ts4 = Arc::new(MockTipset::new(4, "tsk4", Some(ts3.clone())));
 
         // tsk1 should be found and the cache is filled
         let result =
@@ -255,6 +258,61 @@ mod tests {
         assert_eq!(cache.setid_to_tskset.get(&0).unwrap().len(), 3);
         assert_eq!(cloned_cache, cache);
 
+        // tsk1 should be found and the set is extended
+        let result =
+            cache.resolved_epoch(1, ts4.clone(), ResolveNullTipset::TakeOlder, load_parent);
+        assert_eq!(result.unwrap(), "tsk1");
+        assert_eq!(cache.setid_to_tskset.get(&0).unwrap().len(), 4);
+
         dbg!(cache);
+    }
+
+    #[test]
+    fn test_tsk_cache_fork() {
+        tracing_subscriber::fmt::init();
+
+        let load_parent = |ts: &MockTipset| {
+            ts.parent
+                .as_ref()
+                .map(|arc| arc.deref().clone())
+                .ok_or_else(|| anyhow::anyhow!("no parent found"))
+        };
+
+        let mut cache: EpochCache<String> = EpochCache::default();
+
+        // Build a short chain: 0 <- 1 <- 2 <- 3 <- 4
+        let ts0 = Arc::new(MockTipset::new(0, "tsk0", None));
+        let ts1 = Arc::new(MockTipset::new(1, "tsk1", Some(ts0.clone())));
+        let ts2 = Arc::new(MockTipset::new(2, "tsk2", Some(ts1.clone())));
+        let ts3 = Arc::new(MockTipset::new(3, "tsk3", Some(ts2.clone())));
+        let _ts4 = Arc::new(MockTipset::new(4, "tsk4", Some(ts3.clone())));
+
+        // tsk1 should be found and the cache is filled
+        let result =
+            cache.resolved_epoch(1, ts3.clone(), ResolveNullTipset::TakeOlder, load_parent);
+        assert_eq!(result.unwrap(), "tsk1");
+        assert_eq!(cache.setid_to_tskset.get(&0).unwrap().len(), 3);
+
+        dbg!(&cache);
+
+        // Build a second chain with ts1 as the common ancestor
+        let ts2b = Arc::new(MockTipset::new(2, "tsk2b", Some(ts1.clone())));
+        let ts3b = Arc::new(MockTipset::new(3, "tsk3b", Some(ts2b.clone())));
+        let _ts4b = Arc::new(MockTipset::new(4, "tsk4b", Some(ts3b.clone())));
+
+        let result =
+            cache.resolved_epoch(2, ts3b.clone(), ResolveNullTipset::TakeOlder, load_parent);
+        assert_eq!(result.unwrap(), "tsk2b");
+        assert_eq!(cache.setid_to_tskset.get(&0).unwrap().len(), 3);
+        assert_eq!(cache.setid_to_tskset.get(&1).unwrap().len(), 2);
+
+        dbg!(&cache);
+
+        // let result =
+        //     cache.resolved_epoch(2, ts3.clone(), ResolveNullTipset::TakeOlder, load_parent);
+        // assert_eq!(result.unwrap(), "tsk2");
+        // assert_eq!(cache.setid_to_tskset.get(&0).unwrap().len(), 3);
+
+        // dbg!(&cache);
     }
 }
