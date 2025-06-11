@@ -368,7 +368,6 @@ Commands:
   read-obj  Reads and prints out IPLD nodes referenced by the specified CID from chain block store and returns raw bytes
   set-head  Manually set the head to the given tipset. This invalidates blocks between the desired head and the new head
   prune     Prune chain database
-  list      View a segment of the chain
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -445,15 +444,7 @@ Options:
 ### `forest-cli chain list`
 
 ```
-View a segment of the chain
 
-Usage: forest-cli chain list [OPTIONS]
-
-Options:
-      --epoch <EPOCH>  Start epoch (default: current head)
-      --count <COUNT>  Number of tipsets [default: 30]
-      --gas-stats      View gas statistics for the chain
-  -h, --help           Print help
 ```
 
 ### `forest-cli auth`
