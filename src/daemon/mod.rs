@@ -574,12 +574,11 @@ pub(super) async fn start_services(
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
-    on_app_context_initialized: impl Fn(&AppContext),
+    on_app_context_and_db_initialized: impl Fn(&AppContext),
 ) -> anyhow::Result<()> {
     let mut services = JoinSet::new();
     maybe_start_track_peak_rss_service(&mut services, opts);
     let ctx = AppContext::init(opts, &config).await?;
-    on_app_context_initialized(&ctx);
     info!(
         "Using network :: {}",
         get_actual_chain_name(&ctx.network_name)
@@ -613,6 +612,7 @@ pub(super) async fn start_services(
         services.shutdown().await;
         return Ok(());
     }
+    on_app_context_and_db_initialized(&ctx);
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     // maybe_start_mark_and_sweep_gc_service(&mut services, opts, &config, &ctx);

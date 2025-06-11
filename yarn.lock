@@ -5,10 +5,10 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@docusaurus/tsconfig@npm:^3.7.0":
-  version: 3.7.0
-  resolution: "@docusaurus/tsconfig@npm:3.7.0"
-  checksum: 10c0/22a076fa3cf6da25a76f87fbe5b37c09997f5a8729fdc1a69c0c7955dff9f9850f16dc1de8c6d5096d258a95c428fb8839b252b9dbaa648acb7de8a0e5889dea
+"@docusaurus/tsconfig@npm:^3.8.1":
+  version: 3.8.1
+  resolution: "@docusaurus/tsconfig@npm:3.8.1"
+  checksum: 10c0/137aad26f2f3cf7b36a80b36f25170cdb00f51d03e8aa10d4c7eaa2550770ec48d269ce016d852f13c9390176b70bbbb87af4946c4ca891d4be1f61a745a95a5
   languageName: node
   linkType: hard
 
@@ -25,7 +25,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "root@workspace:."
   dependencies:
-    "@docusaurus/tsconfig": "npm:^3.7.0"
+    "@docusaurus/tsconfig": "npm:^3.8.1"
     prettier: "npm:^3.5.3"
   languageName: unknown
   linkType: soft
