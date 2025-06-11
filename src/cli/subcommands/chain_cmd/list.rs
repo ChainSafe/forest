@@ -41,10 +41,11 @@ impl ChainListCommand {
             ChainHead::call(&client, ()).await?
         };
         let mut tipsets = Vec::with_capacity(count);
-        while {
+        loop {
             tipsets.push(ts.clone());
-            ts.epoch() > 0 && tipsets.len() < count
-        } {
+            if ts.epoch() == 0 || tipsets.len() >= count {
+                break;
+            }
             ts = ChainGetTipSet::call(&client, (ts.parents().into(),)).await?;
         }
         tipsets.reverse();
@@ -83,9 +84,7 @@ impl ChainListCommand {
                         ratio = (limit_sum as f64) / (BLOCK_GAS_LIMIT as f64) * 100.0
                     );
                 }
-                if i + 1 < tipsets.len() {
-                    #[allow(clippy::indexing_slicing)]
-                    let child_ts = &tipsets[i + 1];
+                if let Some(child_ts) = tipsets.get(i + 1) {
                     let msgs = ChainGetParentMessages::call(
                         &client,
                         (*child_ts.block_headers().first().cid(),),
