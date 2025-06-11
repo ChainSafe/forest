@@ -1,8 +1,9 @@
+// Copyright 2019-2025 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use super::*;
+use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fil_actors_shared::frc46_token::token;
-use serde_json::Value;
-use crate::shim::econ::TokenAmount;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -27,8 +28,21 @@ impl HasLotusJson for token::state::TokenState {
     type LotusJson = TokenStateLotusJson;
 
     #[cfg(test)]
-    fn snapshots() -> Vec<(Value, Self)> {
-        todo!()
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "supply": "0",
+                "balances": {"/":"baeaaaaa"},
+                "allowances": {"/":"baeaaaaa"},
+                "hamt_bit_width": 0
+            }),
+            token::state::TokenState {
+                supply: TokenAmount::default().into(),
+                balances: Cid::default(),
+                allowances: Cid::default(),
+                hamt_bit_width: 0,
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {

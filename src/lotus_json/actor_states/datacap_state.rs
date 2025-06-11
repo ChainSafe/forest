@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::actors::datacap::State;
 use crate::shim::address::Address;
 use fil_actors_shared::frc46_token::token::state::TokenState;
-use crate::shim::actors::datacap::State;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -23,12 +23,31 @@ macro_rules! impl_data_cap_state_lotus_json {
     ($($version:ident), *) => {
         impl HasLotusJson for State {
             type LotusJson = DatacapStateLotusJson;
-        
+
             #[cfg(test)]
             fn snapshots() -> Vec<(serde_json::Value, Self)> {
-               vec![]
+               vec![(
+                    json!({
+                        "governor": "t00",
+                        "token": {
+                            "supply": "0",
+                            "balances": {"/":"baeaaaaa"},
+                            "allowances": {"/":"baeaaaaa"},
+                            "hamt_bit_width": 0
+                        }
+                    }),
+                    State::V16(fil_actor_datacap_state::v16::State {
+                        governor: Default::default(),
+                        token: TokenState {
+                            supply: Default::default(),
+                            balances: Default::default(),
+                            allowances: Default::default(),
+                            hamt_bit_width: 0,
+                        },
+                    }),
+               )]
             }
-        
+
             fn into_lotus_json(self) -> Self::LotusJson {
                 match self {
                     $(
@@ -41,14 +60,14 @@ macro_rules! impl_data_cap_state_lotus_json {
                     )*
                 }
             }
-        
+
             fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                 State::V16(fil_actor_datacap_state::v16::State {
                     governor: lotus_json.governor.into(),
                     token: lotus_json.token,
                 })
             }
-        }     
+        }
     };
 }
 

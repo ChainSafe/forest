@@ -235,11 +235,11 @@ mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiar
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
+mod token_state;
 mod tombstone;
 mod transient_data;
 mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
-mod token_state;
 
 pub use vec::*;
 

@@ -3,6 +3,7 @@
 use super::*;
 mod account_state;
 mod cron_state;
+mod datacap_state;
 mod evm_state;
 mod init_state;
 mod market_state;
@@ -14,4 +15,3 @@ mod reward_state;
 mod system_state;
 mod verified_reg_state;
 mod vesting_funds;
-mod datacap_state;
