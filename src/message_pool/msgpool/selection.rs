@@ -351,7 +351,7 @@ where
 
                         chains[i].merged = true;
                         result.extend(chains[i].msgs.clone());
-                        gas_limit -= chain_gas_limit;
+                        gas_limit = gas_limit.saturating_sub(chain_gas_limit);
                         continue;
                     }
                 }
@@ -445,7 +445,7 @@ where
                 chains[i].merged = true;
                 result.extend(chains[i].msgs.clone());
                 random_count += chains[i].msgs.len();
-                gas_limit -= chain_gas_limit;
+                gas_limit = gas_limit.saturating_sub(chain_gas_limit);
             }
 
             if random_count > 0 {

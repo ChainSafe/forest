@@ -58,3 +58,8 @@ $FOREST_CLI_PATH healthcheck healthy --wait
 
 echo "Test subcommand: healthcheck ready"
 $FOREST_CLI_PATH healthcheck ready --wait
+
+echo "Regression testing mempool select"
+gem install http --user-install
+$FOREST_CLI_PATH chain head --format json -n 1000 | scripts/mpool_select_killer.rb
+
