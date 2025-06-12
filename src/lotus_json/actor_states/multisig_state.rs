@@ -60,7 +60,7 @@ macro_rules! impl_multisig_state_lotus_json {
                         signers: vec![],
                         num_approvals_threshold: 0,
                         next_tx_id: TxnID(0),
-                        initial_balance: TokenAmount::from_atto(0).into(),
+                        initial_balance: TokenAmount::default().into(),
                         start_epoch: 0,
                         unlock_duration: 0,
                         pending_txs: Cid::default(),
