@@ -7,13 +7,16 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{Message, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
+};
+use crate::{
+    blocks::{BLOCK_MESSAGE_LIMIT, Tipset},
+    shim::crypto::SignatureType,
 };
 use ahash::HashMap;
 use fvm_ipld_encoding::to_vec;
@@ -327,6 +330,7 @@ pub struct MsgChainNode {
     pub merged: bool,
     pub next: Option<NodeKey>,
     pub prev: Option<NodeKey>,
+    pub sig_type: SignatureType,
 }
 
 impl MsgChainNode {

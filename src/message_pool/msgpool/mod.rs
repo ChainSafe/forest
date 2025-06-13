@@ -186,7 +186,7 @@ where
 
         // we can't fit the current chain but there is gas to spare
         // trim it and push it down
-        chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT as i64, &base_fee);
+        chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
             #[allow(clippy::indexing_slicing)]
@@ -196,6 +196,10 @@ where
             chains.key_vec.swap(i, i + 1);
             j += 1;
         }
+    }
+
+    if msgs.len() > REPUB_MSG_LIMIT {
+        msgs.truncate(REPUB_MSG_LIMIT);
     }
 
     Ok(msgs)

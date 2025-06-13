@@ -9,7 +9,9 @@
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
-use crate::message::{Message, SignedMessage};
+use crate::message::{ChainMessage, Message, SignedMessage};
+use crate::message_pool::msg_chain::MsgChainNode;
+use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
@@ -29,6 +31,66 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 // A cap on maximum number of message to include in a block
 const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
+
+struct SelectedMessages {
+    msgs: Vec<SignedMessage>,
+    gas_limit: u64,
+    secp_limit: u64,
+    bls_limit: u64,
+}
+
+impl SelectedMessages {
+    /// Tries to add a message chain to the selected messages. Returns `false` if the chain can't
+    /// be added due to block constraints.
+    fn try_to_add(&mut self, mut chain_node: MsgChainNode) -> bool {
+        let msg_chain_len = chain_node.msgs.len();
+        if BLOCK_MESSAGE_LIMIT < msg_chain_len + self.msgs.len()
+            || self.gas_limit < chain_node.gas_limit
+        {
+            return false;
+        }
+
+        match chain_node.sig_type {
+            SignatureType::Bls => {
+                if self.bls_limit < msg_chain_len as u64 {
+                    return false;
+                }
+
+                self.msgs.append(&mut chain_node.msgs);
+                self.bls_limit -= msg_chain_len as u64;
+                self.gas_limit -= chain_node.gas_limit;
+            }
+            SignatureType::Secp256k1 | SignatureType::Delegated => {
+                if self.secp_limit < msg_chain_len as u64 {
+                    return false;
+                }
+
+                self.msgs.append(&mut chain_node.msgs);
+                self.secp_limit -= msg_chain_len as u64;
+                self.gas_limit -= chain_node.gas_limit;
+            }
+        }
+        true
+    }
+
+    fn try_to_add_with_deps(
+        &mut self,
+        chain_message: ChainMessage,
+        message_pool: &MessagePool<impl Provider>,
+        base_fee: &TokenAmount,
+    ) -> bool {
+        unimplemented!()
+    }
+
+    fn trim_chain(
+        &mut self,
+        chain_message: ChainMessage,
+        message_pool: &MessagePool<impl Provider>,
+        base_fee: &TokenAmount,
+    ) {
+        unimplemented!()
+    }
+}
 
 impl<T> MessagePool<T>
 where
