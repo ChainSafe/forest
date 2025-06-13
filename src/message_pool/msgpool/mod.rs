@@ -176,7 +176,7 @@ where
                     chains.invalidate(key);
                     continue 'l;
                 }
-                gas_limit -= m.gas_limit();
+                gas_limit = gas_limit.saturating_sub(m.gas_limit());
                 msgs.push(m.clone());
             }
 
