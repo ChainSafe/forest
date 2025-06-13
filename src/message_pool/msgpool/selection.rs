@@ -9,7 +9,9 @@
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
-use crate::message::{Message, SignedMessage};
+use crate::message::{ChainMessage, Message, SignedMessage};
+use crate::message_pool::msg_chain::MsgChainNode;
+use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
@@ -29,6 +31,66 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 // A cap on maximum number of message to include in a block
 const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
+
+struct SelectedMessages {
+    msgs: Vec<SignedMessage>,
+    gas_limit: u64,
+    secp_limit: u64,
+    bls_limit: u64,
+}
+
+impl SelectedMessages {
+    /// Tries to add a message chain to the selected messages. Returns `false` if the chain can't
+    /// be added due to block constraints.
+    fn try_to_add(&mut self, mut chain_node: MsgChainNode) -> bool {
+        let msg_chain_len = chain_node.msgs.len();
+        if BLOCK_MESSAGE_LIMIT < msg_chain_len + self.msgs.len()
+            || self.gas_limit < chain_node.gas_limit
+        {
+            return false;
+        }
+
+        match chain_node.sig_type {
+            SignatureType::Bls => {
+                if self.bls_limit < msg_chain_len as u64 {
+                    return false;
+                }
+
+                self.msgs.append(&mut chain_node.msgs);
+                self.bls_limit -= msg_chain_len as u64;
+                self.gas_limit -= chain_node.gas_limit;
+            }
+            SignatureType::Secp256k1 | SignatureType::Delegated => {
+                if self.secp_limit < msg_chain_len as u64 {
+                    return false;
+                }
+
+                self.msgs.append(&mut chain_node.msgs);
+                self.secp_limit -= msg_chain_len as u64;
+                self.gas_limit -= chain_node.gas_limit;
+            }
+        }
+        true
+    }
+
+    fn try_to_add_with_deps(
+        &mut self,
+        chain_message: ChainMessage,
+        message_pool: &MessagePool<impl Provider>,
+        base_fee: &TokenAmount,
+    ) -> bool {
+        unimplemented!()
+    }
+
+    fn trim_chain(
+        &mut self,
+        chain_message: ChainMessage,
+        message_pool: &MessagePool<impl Provider>,
+        base_fee: &TokenAmount,
+    ) {
+        unimplemented!()
+    }
+}
 
 impl<T> MessagePool<T>
 where
@@ -100,6 +162,14 @@ where
     }
 
     #[allow(clippy::indexing_slicing)]
+    #[tracing::instrument(
+        name = "select_messages_optimal",
+        skip(self, cur_ts, target_tipset),
+        fields(
+            target_tipset = %target_tipset.key(),
+            ticket_quality = %ticket_quality,
+        )
+    )]
     fn select_messages_optimal(
         &self,
         cur_ts: &Tipset,
@@ -121,7 +191,7 @@ where
             self.select_priority_messages(&mut pending, &base_fee, target_tipset)?;
 
         // check if block has been filled
-        if gas_limit < MIN_GAS {
+        if gas_limit < MIN_GAS || result.len() >= BLOCK_MESSAGE_LIMIT {
             return Ok(result);
         }
 
@@ -153,23 +223,26 @@ where
 
         // 3. Partition chains into blocks (without trimming)
         //    we use the full block_gas_limit (as opposed to the residual `gas_limit`
-        // from the    priority message selection) as we have to account for
-        // what other miners are doing
+        //    from the priority message selection) as we have to account for
+        //    what other block providers are doing
         let mut next_chain = 0;
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
             let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
+            let mut msg_limit = BLOCK_MESSAGE_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                let chain = chains.get(chain_key).unwrap();
+                let chain_gas_limit = chain.gas_limit;
                 if gas_limit < chain_gas_limit {
                     break;
                 }
                 gas_limit = gas_limit.saturating_sub(chain_gas_limit);
-                if gas_limit < MIN_GAS {
+                msg_limit = msg_limit.saturating_sub(chain.msgs.len());
+                if gas_limit < MIN_GAS || msg_limit == 0 {
                     break;
                 }
             }
@@ -201,7 +274,7 @@ where
         chains.sort_effective();
 
         // 6. Merge the head chains to produce the list of messages selected for
-        // inclusion    subject to the residual gas limit
+        // inclusion    subject to the residual block limits
         //    When a chain is merged in, all its previous dependent chains *must* also
         // be    merged in or we'll have a broken block
         let mut last = chains.len();
@@ -219,6 +292,7 @@ where
             // compute the dependencies that must be merged and the gas limit including
             // dependencies
             let mut chain_gas_limit = chains[i].gas_limit;
+            let mut chain_msg_limit = chains[i].msgs.len();
             let mut chain_deps = vec![];
             let mut cur_chain = chains[i].prev;
             while let Some(cur_chn) = cur_chain {
@@ -226,6 +300,7 @@ where
                 if !node.merged {
                     chain_deps.push(cur_chn);
                     chain_gas_limit += node.gas_limit;
+                    chain_msg_limit += node.msgs.len() as i64;
                     cur_chain = node.prev;
                 } else {
                     break;
@@ -233,7 +308,8 @@ where
             }
 
             // does it all fit in the block?
-            if chain_gas_limit <= gas_limit {
+            if chain_gas_limit <= gas_limit && chain_msg_limit + result.len() <= BLOCK_MESSAGE_LIMIT
+            {
                 // include it together with all dependencies
                 chain_deps.iter().rev().for_each(|dep| {
                     if let Some(node) = chains.get_mut(*dep) {
@@ -285,7 +361,7 @@ where
 
         // 7. We have reached the edge of what can fit wholesale; if we still hae
         // available    gasLimit to pack some more chains, then trim the last
-        // chain and push it down.    Trimming invalidaates subsequent dependent
+        // chain and push it down.    Trimming invalidates subsequent dependent
         // chains so that they can't be selected    as their dependency cannot
         // be (fully) included.    We do this in a loop because the blocker
         // might have been inordinately large and    we might have to do it
@@ -293,7 +369,8 @@ where
         'tail_loop: while gas_limit >= MIN_GAS && last < chains.len() {
             // trim if necessary
             if chains[last].gas_limit > gas_limit {
-                chains.trim_msgs_at(last, gas_limit, &base_fee);
+                let msg_limit = BLOCK_MESSAGE_LIMIT.saturating_sub(result.len());
+                chains.trim_msgs_at(last, gas_limit, msg_limit, &base_fee);
             }
 
             // push down if it hasn't been invalidated
@@ -328,19 +405,25 @@ where
 
                 // compute the dependencies that must be merged and the gas limit including deps
                 let mut chain_gas_limit = chain.gas_limit;
+                let mut chain_msg_limit = chain.msgs.len();
                 let mut dep_gas_limit = 0;
+                let mut dep_msg_limit = 0;
                 let mut chain_deps = vec![];
                 let mut cur_chain = chains[i].prev;
                 while let Some(cur_chn) = cur_chain {
                     chain_deps.push(cur_chn);
                     let node = chains.get(cur_chn).unwrap();
                     chain_gas_limit += node.gas_limit;
+                    chain_msg_limit += node.msgs.len();
                     dep_gas_limit += node.gas_limit;
+                    dep_msg_limit += node.msgs.len();
                     cur_chain = node.prev;
                 }
 
                 // does it all fit in a block
-                if chain_gas_limit <= gas_limit {
+                if chain_gas_limit <= gas_limit
+                    && chain_msg_limit + result.len() <= BLOCK_MESSAGE_LIMIT
+                {
                     // include it together with all dependencies
                     for i in (0..=chain_deps.len()).rev() {
                         if let Some(cur_chain) = chain_deps.get(i) {
@@ -358,10 +441,11 @@ where
 
                 // it doesn't all fit; now we have to take into account the dependent chains
                 // before making a decision about trimming or invalidating.
-                // if the dependencies exceed the gas limit, then we must invalidate the chain
+                // if the dependencies exceed the block limits, then we must invalidate the chain
                 // as it can never be included.
                 // Otherwise we can just trim and continue
-                if dep_gas_limit > gas_limit {
+                if dep_gas_limit > gas_limit || result.len() + dep_msg_limit >= BLOCK_MESSAGE_LIMIT
+                {
                     let key = chains.get_key_at(i);
                     chains.invalidate(key);
                     last += i + 1;
@@ -369,7 +453,10 @@ where
                 }
 
                 // dependencies fit, just trim it
-                chains.trim_msgs_at(i, gas_limit - dep_gas_limit, &base_fee);
+                let msg_limit = BLOCK_MESSAGE_LIMIT
+                    .saturating_sub(result.len())
+                    .saturating_sub(dep_msg_limit);
+                chains.trim_msgs_at(i, gas_limit - dep_gas_limit, msg_limit, &base_fee);
                 last += i;
                 continue 'tail_loop;
             }
@@ -379,10 +466,11 @@ where
             break;
         }
 
-        // if we have gasLimit to spare, pick some random (non-negative) chains to fill
-        // the block we pick randomly so that we minimize the probability of
-        // duplication among all miners
-        if gas_limit >= MIN_GAS {
+        // if we have room to spare, pick some random (non-negative) chains to fill
+        // the block
+        // we pick randomly so that we minimize the probability of
+        // duplication among all block producers
+        if gas_limit >= MIN_GAS && result.len() <= BLOCK_MESSAGE_LIMIT {
             let mut random_count = 0;
 
             chains
@@ -390,7 +478,7 @@ where
                 .shuffle(&mut crate::utils::rand::forest_rng());
 
             for i in 0..chains.len() {
-                if gas_limit < MIN_GAS {
+                if gas_limit < MIN_GAS || result.len() >= BLOCK_MESSAGE_LIMIT {
                     break;
                 }
 
@@ -406,14 +494,18 @@ where
 
                 // compute the dependencies that must be merged and the gas limit including deps
                 let mut chain_gas_limit = chains[i].gas_limit;
+                let mut chain_msg_limit = chains[i].msgs.len();
                 let mut dep_gas_limit = 0;
+                let mut dep_msg_limit = 0;
                 let mut chain_deps = vec![];
                 let mut cur_chain = chains[i].prev;
                 while let Some(cur_chn) = cur_chain {
                     chain_deps.push(cur_chn);
                     let node = chains.get(cur_chn).unwrap();
                     chain_gas_limit += node.gas_limit;
+                    chain_msg_limit += node.msgs.len();
                     dep_gas_limit += node.gas_limit;
+                    dep_msg_limit += node.msgs.len();
                     cur_chain = node.prev;
                 }
 
@@ -425,8 +517,13 @@ where
                 }
 
                 // do they fit as it? if it doesn't fit, trim to make it fit if possible
-                if chain_gas_limit > gas_limit {
-                    chains.trim_msgs_at(i, gas_limit - dep_gas_limit, &base_fee);
+                if chain_gas_limit > gas_limit
+                    || result.len() + chain_msg_limit > BLOCK_MESSAGE_LIMIT
+                {
+                    let dep_msg_limit = BLOCK_MESSAGE_LIMIT
+                        .saturating_sub(result.len())
+                        .saturating_sub(dep_msg_limit);
+                    chains.trim_msgs_at(i, gas_limit - dep_gas_limit, dep_msg_limit, &base_fee);
 
                     if !chains[i].valid {
                         continue;
@@ -586,7 +683,9 @@ fn merge_and_trim(
 
     'tail_loop: while gas_limit >= min_gas && last < chain_len {
         // trim, discard negative performing messages
-        chains.trim_msgs_at(last, gas_limit, base_fee);
+        // TODO: should it be `trimChain`?
+        let msg_limit = BLOCK_MESSAGE_LIMIT.saturating_sub(result.len());
+        chains.trim_msgs_at(last, gas_limit, msg_limit, base_fee);
 
         // push down if it hasn't been invalidated
         let node = &chains[last];
@@ -617,7 +716,9 @@ fn merge_and_trim(
             }
 
             // does it fit in the block?
-            if chain.gas_limit <= gas_limit {
+            if chain.gas_limit <= gas_limit
+                && result.len() + chain.msgs.len() <= BLOCK_MESSAGE_LIMIT
+            {
                 gas_limit = gas_limit.saturating_sub(chain.gas_limit);
                 result.append(&mut chain.msgs);
                 continue;
