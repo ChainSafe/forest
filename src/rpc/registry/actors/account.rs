@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::method_registry::registry::{MethodRegistry, register_actor_methods};
+use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;

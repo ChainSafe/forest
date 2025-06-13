@@ -2,4 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod actors;
-pub(crate) mod registry;
+pub(crate) mod actors_reg;
+pub(crate) mod methods_reg;
