@@ -39,11 +39,13 @@
 
 -[#5697](https://github.com/ChainSafe/forest/pull/5697) Add `forest-cli chain list` command for viewing a segment of the chain.
 
+-[#5666](https://github.com/ChainSafe/forest/pull/5666) Add support for the `Filecoin.StateReadState` API method.
+
 ### Changed
 
--[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
+- [#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
 
--[#5662](https://github.com/ChainSafe/forest/pull/5662) Print index size when applicable in `forest-tool archive info`.
+- [#5662](https://github.com/ChainSafe/forest/pull/5662) Print index size when applicable in `forest-tool archive info`.
 
 ### Removed
 
