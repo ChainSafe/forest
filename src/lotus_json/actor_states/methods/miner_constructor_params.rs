@@ -21,7 +21,7 @@ pub struct MinerConstructorParamsLotusJson {
     pub control_addrs: Vec<Address>,
     #[schemars(with = "LotusJson<RegisteredPoStProof>")]
     #[serde(with = "crate::lotus_json")]
-    pub window_post_proof_type: RegisteredPoStProof,
+    pub window_po_st_proof_type: RegisteredPoStProof,
     #[schemars(with = "LotusJson<Vec<u8>>")]
     #[serde(with = "crate::lotus_json")]
     pub peer_id: Vec<u8>,
@@ -66,7 +66,7 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
                             owner_addr: self.owner.into(),
                             worker_addr: self.worker.into(),
                             control_addrs: self.control_addresses.into_iter().map(|a| a.into()).collect(),
-                            window_post_proof_type: self.window_post_proof_type.into(),
+                            window_po_st_proof_type: self.window_post_proof_type.into(),
                             peer_id: self.peer_id,
                             multiaddrs: self.multi_addresses.into_iter().map(|addr| addr.0).collect(),
                         }
@@ -80,7 +80,7 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
                                 .into_iter()
                                 .map(|a| a.into())
                                 .collect(),
-                            window_post_proof_type: lotus_json.window_post_proof_type.into(),
+                            window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
                             peer_id: lotus_json.peer_id,
                             multi_addresses: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
                         }

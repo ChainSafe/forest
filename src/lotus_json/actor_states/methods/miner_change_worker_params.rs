@@ -10,8 +10,10 @@ pub struct MinerChangeWorkerParamsLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub new_worker: Address,
+
     #[schemars(with = "LotusJson<Vec<Address>>")]
     #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "NewControlAddrs")]
     pub new_control_addresses: Vec<Address>,
 }
 

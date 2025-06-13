@@ -6,7 +6,7 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
+#[serde(transparent)]
 pub struct AccountConstructorParamsLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
@@ -24,9 +24,7 @@ macro_rules!  impl_account_constructor_params {
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
                             (
-                                json!({
-                                    "Address": "f01234",
-                                }),
+                                json!("f01234"),
                                 Self {
                                     address: Address::new_id(1234).into(),
                                 },
