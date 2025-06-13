@@ -10,6 +10,7 @@ pub mod init;
 pub mod market;
 pub mod miner;
 pub mod multisig;
+pub mod paymentchannel;
 pub mod power;
 pub mod reward;
 pub mod system;

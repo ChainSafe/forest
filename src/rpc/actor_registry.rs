@@ -3,8 +3,11 @@
 use crate::lotus_json::HasLotusJson;
 use crate::networks::ACTOR_BUNDLES_METADATA;
 use crate::shim::actors::{
-    AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, MarketActorStateLoad,
-    MinerActorStateLoad, SystemActorStateLoad, account, cron, evm, market, miner, system,
+    AccountActorStateLoad, CronActorStateLoad, DataCapActorStateLoad, EVMActorStateLoad,
+    InitActorStateLoad, MarketActorStateLoad, MinerActorStateLoad, MultisigActorStateLoad,
+    PaymentchannelActorStateLoad, PowerActorStateLoad, RewardActorStateLoad, SystemActorStateLoad,
+    VerifregActorStateLoad, account, cron, datacap, evm, init, market, miner, multisig,
+    paymentchannel, power, reward, system, verifreg,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
@@ -85,11 +88,34 @@ where
         BuiltinActor::System => {
             load_and_serialize_state!(store, code_cid, state_cid, actor_type, system::State)
         }
-        // Add other actor types as needed
-        _ => Err(anyhow!(
-            "No serializer implemented for actor type: {:?}",
-            actor_type
-        )),
+        BuiltinActor::Init => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, init::State)
+        }
+        BuiltinActor::Power => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, power::State)
+        }
+        BuiltinActor::Multisig => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, multisig::State)
+        }
+        BuiltinActor::Reward => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, reward::State)
+        }
+        BuiltinActor::VerifiedRegistry => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, verifreg::State)
+        }
+        BuiltinActor::PaymentChannel => {
+            load_and_serialize_state!(
+                store,
+                code_cid,
+                state_cid,
+                actor_type,
+                paymentchannel::State
+            )
+        }
+        BuiltinActor::DataCap => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, datacap::State)
+        }
+        BuiltinActor::EAM | BuiltinActor::EthAccount | BuiltinActor::Placeholder => Ok(Value::Null),
     }
 }
 
