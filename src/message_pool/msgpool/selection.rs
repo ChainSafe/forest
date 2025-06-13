@@ -168,7 +168,7 @@ where
                 if gas_limit < chain_gas_limit {
                     break;
                 }
-                gas_limit -= chain_gas_limit;
+                gas_limit = gas_limit.saturating_sub(chain_gas_limit);
                 if gas_limit < MIN_GAS {
                     break;
                 }
@@ -267,7 +267,7 @@ where
                 }
 
                 result.extend(chains[i].msgs.clone());
-                gas_limit -= chain_gas_limit;
+                gas_limit = gas_limit.saturating_sub(chain_gas_limit);
 
                 // re-sort to account for already merged chains and effective performance
                 // adjustments the sort *must* be stable or we end up getting
@@ -576,7 +576,7 @@ fn merge_and_trim(
         }
 
         if node.gas_limit <= gas_limit {
-            gas_limit -= node.gas_limit;
+            gas_limit = gas_limit.saturating_sub(node.gas_limit);
             result.extend(node.msgs.clone());
             continue;
         }
@@ -618,7 +618,7 @@ fn merge_and_trim(
 
             // does it fit in the block?
             if chain.gas_limit <= gas_limit {
-                gas_limit -= chain.gas_limit;
+                gas_limit = gas_limit.saturating_sub(chain.gas_limit);
                 result.append(&mut chain.msgs);
                 continue;
             }
