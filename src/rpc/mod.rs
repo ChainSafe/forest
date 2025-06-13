@@ -28,6 +28,7 @@ use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
 mod actor_registry;
 mod error;
+mod method_registry;
 mod reflect;
 pub mod types;
 
@@ -226,6 +227,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateNetworkName);
         $callback!($crate::rpc::state::StateNetworkVersion);
         $callback!($crate::rpc::state::StateReadState);
+        $callback!($crate::rpc::state::StateDecodeParams);
         $callback!($crate::rpc::state::StateReplay);
         $callback!($crate::rpc::state::StateSearchMsg);
         $callback!($crate::rpc::state::StateSearchMsgLimited);
