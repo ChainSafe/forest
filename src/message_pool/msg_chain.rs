@@ -201,7 +201,7 @@ impl Chains {
             let msg = &chain_node.msgs[i as usize];
             let gas_reward = get_gas_reward(msg, base_fee);
             chain_node.gas_reward -= gas_reward;
-            chain_node.gas_limit -= msg.gas_limit();
+            chain_node.gas_limit = chain_node.gas_limit.saturating_sub(msg.gas_limit());
             if chain_node.gas_limit > 0 {
                 chain_node.gas_perf = get_gas_perf(&chain_node.gas_reward, chain_node.gas_limit);
                 if chain_node.bp != 0.0 {
@@ -321,8 +321,17 @@ impl MsgChainNode {
 
 impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
-        if self.merged && !other.merged
-            || self.gas_perf >= 0.0 && other.gas_perf < 0.0
+        // Highest priority: merged
+        // Comment from Lotus: move merged chains to the front so we can discard them earlier
+        // Note: both cases need to be checked to ensure total ordering. Without it, the standard
+        // libraries' sorting methods may panic (since Rust 1.81).
+        match (self.merged, other.merged) {
+            (true, false) => return Ordering::Greater,
+            (false, true) => return Ordering::Less,
+            _ => {}
+        }
+
+        if self.gas_perf >= 0.0 && other.gas_perf < 0.0
             || self.eff_perf > other.eff_perf
             || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal
                 && self.gas_perf > other.gas_perf)
