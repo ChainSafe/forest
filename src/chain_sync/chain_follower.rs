@@ -21,6 +21,7 @@ use crate::message_pool::MpoolRpcProvider;
 use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use crate::utils::misc::env::is_env_truthy;
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
 use cid::Cid;
@@ -61,7 +62,7 @@ pub struct ChainFollower<DB> {
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all children as bad in this bounded
     /// cache
-    pub bad_blocks: Arc<BadBlockCache>,
+    pub bad_blocks: Option<Arc<BadBlockCache>>,
 
     /// Incoming network events to be handled by synchronizer
     net_handler: flume::Receiver<NetworkEvent>,
@@ -92,12 +93,18 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     ) -> Self {
         let (tipset_sender, tipset_receiver) = flume::bounded(20);
+        let disable_bad_block_cache = is_env_truthy("FOREST_DISABLE_BAD_BLOCK_CACHE");
         Self {
             sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
             state_manager,
             network,
             genesis,
-            bad_blocks: Default::default(),
+            bad_blocks: if disable_bad_block_cache {
+                tracing::warn!("bad block cache is disabled by `FOREST_DISABLE_BAD_BLOCK_CACHE`");
+                None
+            } else {
+                Some(Default::default())
+            },
             net_handler,
             tipset_sender,
             tipset_receiver,
@@ -126,7 +133,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
 // We receive new full tipsets from the p2p swarm, and from miners that use Forest as their frontend.
 pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: Option<Arc<BadBlockCache>>,
     network_rx: flume::Receiver<NetworkEvent>,
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
@@ -542,7 +549,7 @@ impl std::fmt::Display for SyncEvent {
 
 struct SyncStateMachine<DB> {
     cs: Arc<ChainStore<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: Option<Arc<BadBlockCache>>,
     // Map from TipsetKey to FullTipset
     tipsets: HashMap<TipsetKey, Arc<FullTipset>>,
     stateless_mode: bool,
@@ -551,7 +558,7 @@ struct SyncStateMachine<DB> {
 impl<DB: Blockstore> SyncStateMachine<DB> {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
-        bad_block_cache: Arc<BadBlockCache>,
+        bad_block_cache: Option<Arc<BadBlockCache>>,
         stateless_mode: bool,
     ) -> Self {
         Self {
@@ -622,7 +629,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     fn add_full_tipset(&mut self, tipset: Arc<FullTipset>) {
         if let Err(why) = TipsetValidator(&tipset).validate(
             &self.cs,
-            Some(&self.bad_block_cache),
+            self.bad_block_cache.as_ref().map(AsRef::as_ref),
             &self.cs.genesis_tipset(),
             self.cs.chain_config.block_delay_secs,
         ) {
@@ -690,8 +697,10 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         while let Some(tipset) = stack.pop() {
             self.tipsets.remove(tipset.key());
             // Mark all blocks in the tipset as bad
-            for block in tipset.blocks() {
-                self.bad_block_cache.put(*block.cid(), reason.clone());
+            if let Some(bad_block_cache) = &self.bad_block_cache {
+                for block in tipset.blocks() {
+                    bad_block_cache.put(*block.cid(), reason.clone());
+                }
             }
 
             // Find all descendant tipsets (tipsets that have this tipset as a parent)

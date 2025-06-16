@@ -31,7 +31,12 @@ impl RpcMethod<1> for SyncCheckBad {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
+        Ok(ctx
+            .bad_blocks
+            .as_ref()
+            .context("bad block cache is disabled")?
+            .peek(&cid)
+            .unwrap_or_default())
     }
 }
 
@@ -50,6 +55,8 @@ impl RpcMethod<1> for SyncMarkBad {
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         ctx.bad_blocks
+            .as_ref()
+            .context("bad block cache is disabled")?
             .put(cid, "Marked bad manually through RPC API".to_string());
         Ok(())
     }
@@ -124,7 +131,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         TipsetValidator(&ts)
             .validate(
                 ctx.chain_store(),
-                Some(&ctx.bad_blocks),
+                ctx.bad_blocks.as_ref().map(AsRef::as_ref),
                 &genesis_ts,
                 ctx.chain_config().block_delay_secs,
             )
