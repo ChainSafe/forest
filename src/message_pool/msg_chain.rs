@@ -335,14 +335,6 @@ impl MsgChainNode {
         self.eff_perf = eff_perf;
     }
 }
-/*
-    // move merged chains to the front so we can discard them earlier
-    return (mc.merged && !other.merged) ||
-        (mc.gasPerf >= 0 && other.gasPerf < 0) ||
-        mc.effPerf > other.effPerf ||
-        (mc.effPerf == other.effPerf && mc.gasPerf > other.gasPerf) ||
-        (mc.effPerf == other.effPerf && mc.gasPerf == other.gasPerf && mc.gasReward.Cmp(other.gasReward) > 0)
-*/
 
 impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
