@@ -40,9 +40,9 @@ pub enum StateCommands {
         #[arg(long)]
         epoch: ChainEpoch,
     },
-    /// Read the state for an actor
+    /// Read the state of an actor
     ReadState {
-        /// Actor address to read the state for
+        /// Actor address to read the state of
         actor_address: String,
     },
 }
