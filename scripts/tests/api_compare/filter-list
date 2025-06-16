@@ -1,4 +1,4 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
-# Disable until next Lotus release with go-f3 0.8.0
+# Disable until next Lotus release with go-f3 0.8.6
 !Filecoin.F3GetManifest
