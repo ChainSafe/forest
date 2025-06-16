@@ -422,7 +422,7 @@ pub struct RPCState<DB> {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
-    pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
+    pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
     pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
     pub sync_status: Arc<parking_lot::RwLock<crate::chain_sync::SyncStatusReport>>,
     pub eth_event_handler: Arc<EthEventHandler>,

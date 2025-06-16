@@ -73,7 +73,8 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 	m := Network2PredefinedManifestMappings[networkName]
 	if m == nil {
-		m = manifest.LocalDevnetManifest()
+		m2 := manifest.LocalDevnetManifest()
+		m = &m2
 		m.NetworkName = networkName
 		versionInfo, err := api.Version(ctx)
 		if err != nil {
@@ -105,12 +106,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	default:
 	}
 
-	manifestProvider, err := manifest.NewStaticManifestProvider(m)
-	if err != nil {
-		return err
-	}
-
-	f3Module, err := f3.New(ctx, manifestProvider, ds,
+	f3Module, err := f3.New(ctx, *m, ds,
 		p2p.Host, p2p.PubSub, verif, &ec, f3Root)
 	if err != nil {
 		return err
