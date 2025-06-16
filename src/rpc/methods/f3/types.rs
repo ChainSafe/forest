@@ -292,15 +292,9 @@ pub struct PartialMessageManagerConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct F3Manifest {
     pub protocol_version: u64,
-    pub pause: bool,
     pub initial_instance: u64,
     pub bootstrap_epoch: i64,
     pub network_name: String, // Note: NetworkChain::Calibnet.to_string() != "calibrationnet"
-    #[schemars(with = "LotusJson<Vec<F3PowerEntry>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub explicit_power: Vec<F3PowerEntry>,
-    #[serde(rename = "IgnoreECPower")]
-    pub ignore_ec_power: bool,
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]
     pub initial_power_table: Option<Cid>,
@@ -839,13 +833,10 @@ mod tests {
     fn f3_manifest_serde_roundtrip() {
         // lotus f3 manifest --output json
         let lotus_json = serde_json::json!({
-          "Pause": false,
           "ProtocolVersion": 7,
           "InitialInstance": 0,
           "BootstrapEpoch": 2081674,
           "NetworkName": "calibrationnet",
-          "ExplicitPower": null,
-          "IgnoreECPower": false,
           "InitialPowerTable": {
             "/": "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
           },
