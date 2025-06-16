@@ -5,7 +5,7 @@ use crate::lotus_json::HasLotusJson;
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, bail};
 use cid::Cid;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
@@ -14,11 +14,7 @@ use serde_json::Value;
 use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, get_actor_type_from_code};
 
 // Global registry for method parameter deserialization
-static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(|| {
-    let mut registry = MethodRegistry::new();
-    register_known_methods(&mut registry);
-    registry
-});
+static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(MethodRegistry::with_known_methods);
 
 type ParamDeserializerFn = Box<dyn Fn(&[u8]) -> Result<Value> + Send + Sync>;
 
@@ -34,6 +30,12 @@ impl MethodRegistry {
         }
     }
 
+    fn with_known_methods() -> Self {
+        let mut registry = Self::new();
+        registry.register_known_methods();
+        registry
+    }
+
     pub(crate) fn register_method<P: 'static + DeserializeOwned + HasLotusJson>(
         &mut self,
         code_cid: Cid,
@@ -43,7 +45,7 @@ impl MethodRegistry {
         let boxed_deserializer: ParamDeserializerFn = Box::new(move |bytes| -> Result<Value> {
             let param: P = deserializer(bytes)?;
             serde_json::to_value(param.into_lotus_json())
-                .map_err(|e| anyhow!("Failed to serialize method param into JSON: {}", e))
+                .context("Failed to serialize method param into JSON")
         });
 
         self.deserializers
@@ -62,12 +64,25 @@ impl MethodRegistry {
 
         let (actor_type, version) = get_actor_type_from_code(code_cid)?;
 
-        Err(anyhow!(
+        bail!(
             "No deserializer registered for actor type {:?} (v{}), method {}",
             actor_type,
             version,
             method_num
-        ))
+        );
+    }
+
+    fn register_known_methods(&mut self) {
+        use crate::rpc::registry::actors::{account, evm, miner};
+
+        for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
+            match actor_type {
+                BuiltinActor::Account => account::register_account_actor_methods(self, cid),
+                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
+                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
+                _ => {}
+            }
+        }
     }
 }
 
@@ -77,19 +92,6 @@ pub fn deserialize_params(
     params_bytes: &[u8],
 ) -> Result<Option<Value>> {
     METHOD_REGISTRY.deserialize_params(code_cid, method_num, params_bytes)
-}
-
-fn register_known_methods(registry: &mut MethodRegistry) {
-    use crate::rpc::registry::actors::{account, evm, miner};
-
-    for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
-        match actor_type {
-            BuiltinActor::Account => account::register_account_actor_methods(registry, cid),
-            BuiltinActor::Miner => miner::register_miner_actor_methods(registry, cid),
-            BuiltinActor::EVM => evm::register_evm_actor_methods(registry, cid),
-            _ => {}
-        }
-    }
 }
 
 macro_rules! register_actor_methods {
