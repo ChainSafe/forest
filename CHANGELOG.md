@@ -41,6 +41,8 @@
 
 - [#5666](https://github.com/ChainSafe/forest/pull/5666) Add support for the `Filecoin.StateReadState` API method.
 
+- [5738](https://github.com/ChainSafe/forest/pull/5738) Add support for the `forest-cli state read-state` command.
+
 ### Changed
 
 - [#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
