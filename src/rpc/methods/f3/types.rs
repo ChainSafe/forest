@@ -292,15 +292,9 @@ pub struct PartialMessageManagerConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct F3Manifest {
     pub protocol_version: u64,
-    pub pause: bool,
     pub initial_instance: u64,
     pub bootstrap_epoch: i64,
     pub network_name: String, // Note: NetworkChain::Calibnet.to_string() != "calibrationnet"
-    #[schemars(with = "LotusJson<Vec<F3PowerEntry>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub explicit_power: Vec<F3PowerEntry>,
-    #[serde(rename = "IgnoreECPower")]
-    pub ignore_ec_power: bool,
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]
     pub initial_power_table: Option<Cid>,

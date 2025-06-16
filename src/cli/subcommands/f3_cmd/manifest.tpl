@@ -1,11 +1,9 @@
 Manifest:
   Protocol Version:     {{ ProtocolVersion }}
-  Paused:               {{ Pause }}
   Initial Instance:     {{ InitialInstance }}
   Initial Power Table:  {{ initial_power_table_cid }}
   Bootstrap Epoch:      {{ BootstrapEpoch }}
   Network Name:         {{ NetworkName }}
-  Ignore EC Power:      {{ IgnoreECPower }}
   Committee Lookback:   {{ CommitteeLookback }}
   Catch Up Alignment:   {{ CatchUpAlignment | format_duration }}
 
