@@ -183,32 +183,6 @@ impl Chains {
         self.map.is_empty()
     }
 
-    #[tracing::instrument(skip_all, level = "debug")]
-    pub(in crate::message_pool) fn trim_chain(
-        &mut self,
-        idx: usize,
-        gas_limit: u64,
-        base_fee: &TokenAmount,
-    ) {
-        /*
-
-            msgLimit := buildconstants.BlockMessageLimit - len(sm.msgs)
-            if mc.sigType == crypto.SigTypeBLS {
-                if msgLimit > sm.blsLimit {
-                    msgLimit = sm.blsLimit
-                }
-            } else if mc.sigType == crypto.SigTypeSecp256k1 || mc.sigType == crypto.SigTypeDelegated {
-                if msgLimit > sm.secpLimit {
-                    msgLimit = sm.secpLimit
-                }
-            }
-
-            if mc.gasLimit > sm.gasLimit || len(mc.msgs) > msgLimit {
-                mc.Trim(sm.gasLimit, msgLimit, mp, baseFee)
-            }
-        */
-    }
-
     /// Removes messages from the given index and resets effective `perfs`
     #[tracing::instrument(skip_all, level = "debug")]
     pub(in crate::message_pool) fn trim_msgs_at(
@@ -330,7 +304,7 @@ pub struct MsgChainNode {
     pub merged: bool,
     pub next: Option<NodeKey>,
     pub prev: Option<NodeKey>,
-    pub sig_type: SignatureType,
+    pub sig_type: Option<SignatureType>,
 }
 
 impl MsgChainNode {
@@ -419,6 +393,7 @@ impl std::default::Default for MsgChainNode {
             merged: false,
             next: None,
             prev: None,
+            sig_type: None,
         }
     }
 }
@@ -529,6 +504,7 @@ where
 
     let new_chain = |m: SignedMessage, reward: &TokenAmount| -> MsgChainNode {
         let gl = m.gas_limit();
+        let sig_type = Some(m.signature().sig_type);
         MsgChainNode {
             msgs: vec![m],
             gas_reward: reward.clone(),
@@ -541,6 +517,7 @@ where
             merged: false,
             prev: None,
             next: None,
+            sig_type,
         }
     };
 
