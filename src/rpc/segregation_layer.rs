@@ -31,6 +31,9 @@ static VERSION_METHODS_MAPPINGS: Lazy<HashMap<ApiPaths, HashSet<&'static str>>> 
 
         for_each_rpc_method!(insert);
 
+        supported.insert("eth_subscribe");
+        supported.insert("eth_unsubscribe");
+
         map.insert(version, supported);
     }
 

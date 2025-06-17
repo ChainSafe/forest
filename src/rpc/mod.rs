@@ -12,6 +12,8 @@ mod request;
 mod segregation_layer;
 mod set_extension_layer;
 
+use crate::rpc::chain::new_heads;
+use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
 pub use client::Client;
 pub use error::ServerError;
@@ -26,6 +28,7 @@ pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
+use tokio::sync::broadcast::error::RecvError;
 mod actor_registry;
 mod error;
 mod reflect;
@@ -120,6 +123,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!($crate::rpc::eth::EthNewBlockFilter);
         $callback!($crate::rpc::eth::EthUninstallFilter);
+        // $callback!($crate::rpc::eth::EthUnsubscribe);
+        // $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::EthTraceFilter);
@@ -489,6 +494,78 @@ where
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
 
+    module.register_subscription(
+        "eth_subscribe",
+        "eth_subscription",
+        "eth_unsubscribe",
+        |params, pending, ctx, _ext| async move {
+            let event_types = match params.parse::<Vec<String>>() {
+                Ok(v) => v,
+                Err(e) => {
+                    pending
+                        .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
+                        .await;
+                    // If the subscription has not been "accepted" then
+                    // the return value will be "ignored" as it's not
+                    // allowed to send out any further notifications on
+                    // on the subscription.
+                    return Ok(());
+                }
+            };
+            // `event_types` is one OR more of:
+            //  - "newHeads": notify when new blocks arrive
+            //  - "pendingTransactions": notify when new messages arrive in the message pool
+            //  - "logs": notify new event logs that match a criteria
+            tracing::trace!("Subscribing to events: {:?}", event_types);
+
+            let mut receiver = new_heads(&ctx);
+
+            tokio::spawn(async move {
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
+
+                tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+
+                loop {
+                    tokio::select! {
+                        action = receiver.recv() => {
+                            match action {
+                                Ok(v) => {
+                                    match jsonrpsee::SubscriptionMessage::new("eth_subscription", sink.subscription_id(), &v) {
+                                        Ok(msg) => {
+                                            // This fails only if the connection is closed
+                                            if sink.send(msg).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::error!("Failed to serialize message: {:?}", e);
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(RecvError::Closed) => {
+                                    break;
+                                }
+                                Err(RecvError::Lagged(_)) => {
+                                }
+                            }
+                        }
+                        _ = sink.closed() => {
+                            break;
+                        }
+                    }
+                }
+
+                tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
+            });
+
+            Ok(())
+        },
+    )?;
+
     let mut pubsub_module = FilRpcModule::default();
 
     pubsub_module.register_channel("Filecoin.ChainNotify", {
@@ -508,6 +585,7 @@ where
                     // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
             )
             .set_http_middleware(

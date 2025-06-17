@@ -16,6 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::eth::types::ApiHeaders;
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -42,6 +43,25 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
+
+pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if sender.send(headers).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
 
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
