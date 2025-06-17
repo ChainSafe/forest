@@ -41,7 +41,7 @@
 
 - [#5666](https://github.com/ChainSafe/forest/pull/5666) Add support for the `Filecoin.StateReadState` API method.
 
-- [5738](https://github.com/ChainSafe/forest/pull/5738) Add support for the `forest-cli state read-state` command.
+- [#5738](https://github.com/ChainSafe/forest/pull/5738) Add support for the `forest-cli state read-state` command.
 
 ### Changed
 
