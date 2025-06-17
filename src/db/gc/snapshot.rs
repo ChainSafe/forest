@@ -150,7 +150,7 @@ where
             .and_then(|i| i.parse().ok())
             .inspect(|i| {
                 tracing::info!(
-                    "Using snapshot GC interval epochs {i} set by FOREST_F3_BOOTSTRAP_EPOCH"
+                    "Using snapshot GC interval epochs {i} set by FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS"
                 )
             })
             .unwrap_or(EPOCHS_IN_DAY * 7);
