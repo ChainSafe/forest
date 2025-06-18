@@ -385,6 +385,7 @@ mod methods {
 use crate::rpc::auth_layer::AuthLayer;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
+use crate::rpc::eth::{EthSubscribe, EthUnsubscribe};
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
@@ -495,9 +496,9 @@ where
     let mut module = create_module(state.clone());
 
     module.register_subscription(
-        "eth_subscribe",
+        EthSubscribe::NAME,
         "eth_subscription",
-        "eth_unsubscribe",
+        EthUnsubscribe::NAME,
         |params, pending, ctx, _ext| async move {
             let event_types = match params.parse::<Vec<String>>() {
                 Ok(v) => v,
@@ -565,6 +566,13 @@ where
             Ok(())
         },
     )?;
+
+    if let Some(alias) = EthSubscribe::NAME_ALIAS {
+        module.register_alias(alias, EthSubscribe::NAME)?;
+    }
+    if let Some(alias) = EthUnsubscribe::NAME_ALIAS {
+        module.register_alias(alias, EthUnsubscribe::NAME)?;
+    }
 
     let mut pubsub_module = FilRpcModule::default();
 
