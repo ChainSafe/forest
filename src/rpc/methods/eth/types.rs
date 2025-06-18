@@ -420,8 +420,8 @@ impl RandomHexStringIdProvider {
 impl IdProvider for RandomHexStringIdProvider {
     fn next_id(&self) -> SubscriptionId<'static> {
         let mut bytes = [0u8; 32];
-        let mut rng = rand::thread_rng();
-        rng.try_fill(&mut bytes).unwrap();
+        let mut rng = crate::utils::rand::forest_rng();
+        rng.fill(&mut bytes);
 
         SubscriptionId::Str(format!("{}", EthHash::from(bytes)).into())
     }

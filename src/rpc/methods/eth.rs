@@ -2704,12 +2704,13 @@ pub async fn eth_subscribe<DB: Blockstore>(
                 pending
                     .reject(jsonrpsee::types::ErrorObjectOwned::owned(
                         1,
-                        format!("decoding params: expected 1 param, got 0"),
+                        "decoding params: expected 1 param, got 0".to_string(),
                         None::<String>,
                     ))
                     .await;
                 return Ok(());
             }
+            v
         }
         Err(e) => {
             pending
@@ -2726,7 +2727,7 @@ pub async fn eth_subscribe<DB: Blockstore>(
     //  - "newHeads": notify when new blocks arrive
     //  - "pendingTransactions": notify when new messages arrive in the message pool
     //  - "logs": notify new event logs that match a criteria
-    tracing::trace!("Subscribing to events: {:?}", event_types);
+    tracing::trace!("Subscribing to events: [{}]", event_types.iter().join(","));
 
     let mut receiver = crate::rpc::new_heads(&ctx);
 
@@ -2778,7 +2779,7 @@ pub async fn eth_subscribe<DB: Blockstore>(
     Ok(())
 }
 
-pub const ETH_SUBSCRIPTION: &'static str = "eth_subscription";
+pub const ETH_SUBSCRIPTION: &str = "eth_subscription";
 
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
