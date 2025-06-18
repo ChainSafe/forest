@@ -2688,7 +2688,29 @@ pub async fn eth_subscribe<DB: Blockstore>(
     _ext: http::Extensions,
 ) -> impl jsonrpsee::IntoSubscriptionCloseResponse {
     let event_types = match params.parse::<Vec<String>>() {
-        Ok(v) => v,
+        Ok(v) => {
+            if let Some(event) = v.first() {
+                if event != "newHeads" {
+                    pending
+                        .reject(jsonrpsee::types::ErrorObjectOwned::owned(
+                            1,
+                            format!("unsupported event type: {}", event),
+                            None::<String>,
+                        ))
+                        .await;
+                    return Ok(());
+                }
+            } else {
+                pending
+                    .reject(jsonrpsee::types::ErrorObjectOwned::owned(
+                        1,
+                        format!("decoding params: expected 1 param, got 0"),
+                        None::<String>,
+                    ))
+                    .await;
+                return Ok(());
+            }
+        }
         Err(e) => {
             pending
                 .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
@@ -2714,7 +2736,10 @@ pub async fn eth_subscribe<DB: Blockstore>(
         // connection is closed.
         let sink = pending.accept().await.unwrap();
 
-        tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+        tracing::trace!(
+            "Subscription task started (id: {:?})",
+            sink.subscription_id()
+        );
 
         loop {
             tokio::select! {
