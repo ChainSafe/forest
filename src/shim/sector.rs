@@ -270,6 +270,20 @@ impl From<RegisteredPoStProofV4> for RegisteredPoStProof {
     }
 }
 
+impl From<RegisteredPoStProof> for RegisteredPoStProofV3 {
+    fn from(value: RegisteredPoStProof) -> RegisteredPoStProofV3 {
+        let num_id: i64 = value.0.into();
+        RegisteredPoStProofV3::from(num_id)
+    }
+}
+
+impl From<RegisteredPoStProof> for RegisteredPoStProofV2 {
+    fn from(value: RegisteredPoStProof) -> RegisteredPoStProofV2 {
+        let num_id: i64 = value.0.into();
+        RegisteredPoStProofV2::from(num_id)
+    }
+}
+
 /// `SectorSize` indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
