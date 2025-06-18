@@ -123,8 +123,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!($crate::rpc::eth::EthNewBlockFilter);
         $callback!($crate::rpc::eth::EthUninstallFilter);
-        // $callback!($crate::rpc::eth::EthUnsubscribe);
-        // $callback!($crate::rpc::eth::EthSubscribe);
+        $callback!($crate::rpc::eth::EthUnsubscribe);
+        $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::EthTraceFilter);
@@ -702,9 +702,13 @@ where
     let mut module = RpcModule::from_arc(state);
     macro_rules! register {
         ($ty:ty) => {
-            <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
-            // Optionally register an alias for the method.
-            <$ty>::register_alias(&mut module).unwrap();
+            // Register only non-subscription RPC methods.
+            // Subscription methods are registered separately in the RPC module.
+            if !<$ty>::SUBSCRIPTION {
+                <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+                // Optionally register an alias for the method.
+                <$ty>::register_alias(&mut module).unwrap();
+            }
         };
     }
     for_each_rpc_method!(register);

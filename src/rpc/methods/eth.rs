@@ -2640,6 +2640,46 @@ impl RpcMethod<1> for EthUninstallFilter {
     }
 }
 
+pub enum EthUnsubscribe {}
+impl RpcMethod<0> for EthUnsubscribe {
+    const NAME: &'static str = "Filecoin.EthUnsubscribe";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_unsubscribe");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const SUBSCRIPTION: bool = true;
+
+    type Params = ();
+    type Ok = ();
+
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(())
+    }
+}
+
+pub enum EthSubscribe {}
+impl RpcMethod<0> for EthSubscribe {
+    const NAME: &'static str = "Filecoin.EthSubscribe";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_subscribe");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const SUBSCRIPTION: bool = true;
+
+    type Params = ();
+    type Ok = ();
+
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(())
+    }
+}
+
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {
     const NAME: &'static str = "Filecoin.EthAddressToFilecoinAddress";
