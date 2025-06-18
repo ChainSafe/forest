@@ -71,6 +71,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::sync::broadcast::error::RecvError;
 use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
@@ -2679,6 +2680,80 @@ impl RpcMethod<0> for EthSubscribe {
         Ok(())
     }
 }
+
+pub async fn eth_subscribe<DB: Blockstore>(
+    params: jsonrpsee::types::Params<'static>,
+    pending: jsonrpsee::core::server::PendingSubscriptionSink,
+    ctx: Ctx<DB>,
+    _ext: http::Extensions,
+) -> impl jsonrpsee::IntoSubscriptionCloseResponse {
+    let event_types = match params.parse::<Vec<String>>() {
+        Ok(v) => v,
+        Err(e) => {
+            pending
+                .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
+                .await;
+            // If the subscription has not been "accepted" then
+            // the return value will be "ignored" as it's not
+            // allowed to send out any further notifications on
+            // on the subscription.
+            return Ok(());
+        }
+    };
+    // `event_types` is one OR more of:
+    //  - "newHeads": notify when new blocks arrive
+    //  - "pendingTransactions": notify when new messages arrive in the message pool
+    //  - "logs": notify new event logs that match a criteria
+    tracing::trace!("Subscribing to events: {:?}", event_types);
+
+    let mut receiver = crate::rpc::new_heads(&ctx);
+
+    tokio::spawn(async move {
+        // Mark the subscription is accepted after the params has been parsed successful.
+        // This is actually responds the underlying RPC method call and may fail if the
+        // connection is closed.
+        let sink = pending.accept().await.unwrap();
+
+        tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+
+        loop {
+            tokio::select! {
+                action = receiver.recv() => {
+                    match action {
+                        Ok(v) => {
+                            match jsonrpsee::SubscriptionMessage::new("eth_subscription", sink.subscription_id(), &v) {
+                                Ok(msg) => {
+                                    // This fails only if the connection is closed
+                                    if sink.send(msg).await.is_err() {
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to serialize message: {:?}", e);
+                                    break;
+                                }
+                            }
+                        }
+                        Err(RecvError::Closed) => {
+                            break;
+                        }
+                        Err(RecvError::Lagged(_)) => {
+                        }
+                    }
+                }
+                _ = sink.closed() => {
+                    break;
+                }
+            }
+        }
+
+        tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
+    });
+
+    Ok(())
+}
+
+pub const ETH_SUBSCRIPTION: &'static str = "eth_subscription";
 
 pub enum EthAddressToFilecoinAddress {}
 impl RpcMethod<1> for EthAddressToFilecoinAddress {

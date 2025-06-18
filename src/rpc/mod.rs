@@ -28,7 +28,6 @@ pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
 use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
-use tokio::sync::broadcast::error::RecvError;
 mod actor_registry;
 mod error;
 mod reflect;
@@ -385,7 +384,7 @@ mod methods {
 use crate::rpc::auth_layer::AuthLayer;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
-use crate::rpc::eth::{EthSubscribe, EthUnsubscribe};
+use crate::rpc::eth::{ETH_SUBSCRIPTION, EthSubscribe, EthUnsubscribe, eth_subscribe};
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
@@ -495,78 +494,13 @@ where
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
 
+    // Register `Filecoin.EthSubscribe` and related methods.
     module.register_subscription(
         EthSubscribe::NAME,
-        "eth_subscription",
+        ETH_SUBSCRIPTION,
         EthUnsubscribe::NAME,
-        |params, pending, ctx, _ext| async move {
-            let event_types = match params.parse::<Vec<String>>() {
-                Ok(v) => v,
-                Err(e) => {
-                    pending
-                        .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
-                        .await;
-                    // If the subscription has not been "accepted" then
-                    // the return value will be "ignored" as it's not
-                    // allowed to send out any further notifications on
-                    // on the subscription.
-                    return Ok(());
-                }
-            };
-            // `event_types` is one OR more of:
-            //  - "newHeads": notify when new blocks arrive
-            //  - "pendingTransactions": notify when new messages arrive in the message pool
-            //  - "logs": notify new event logs that match a criteria
-            tracing::trace!("Subscribing to events: {:?}", event_types);
-
-            let mut receiver = new_heads(&ctx);
-
-            tokio::spawn(async move {
-                // Mark the subscription is accepted after the params has been parsed successful.
-                // This is actually responds the underlying RPC method call and may fail if the
-                // connection is closed.
-                let sink = pending.accept().await.unwrap();
-
-                tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
-
-                loop {
-                    tokio::select! {
-                        action = receiver.recv() => {
-                            match action {
-                                Ok(v) => {
-                                    match jsonrpsee::SubscriptionMessage::new("eth_subscription", sink.subscription_id(), &v) {
-                                        Ok(msg) => {
-                                            // This fails only if the connection is closed
-                                            if sink.send(msg).await.is_err() {
-                                                break;
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::error!("Failed to serialize message: {:?}", e);
-                                            break;
-                                        }
-                                    }
-                                }
-                                Err(RecvError::Closed) => {
-                                    break;
-                                }
-                                Err(RecvError::Lagged(_)) => {
-                                }
-                            }
-                        }
-                        _ = sink.closed() => {
-                            break;
-                        }
-                    }
-                }
-
-                tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
-            });
-
-            Ok(())
-        },
+        eth_subscribe,
     )?;
-
     if let Some(alias) = EthSubscribe::NAME_ALIAS {
         module.register_alias(alias, EthSubscribe::NAME)?;
     }
