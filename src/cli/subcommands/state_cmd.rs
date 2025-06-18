@@ -1,20 +1,18 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::time::Duration;
-
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::state::ForestStateCompute;
 use crate::rpc::{self, prelude::*};
-use crate::shim::address::{CurrentNetwork, StrictAddress};
+use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use clap::Subcommand;
-use fvm_shared4::address::Network;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingSchedule {
@@ -68,7 +66,7 @@ impl StateCommands {
                 let tipset = ChainHead::call(&client, ()).await?;
                 let address = match StrictAddress::from_str(&actor_address) {
                     Ok(address) => address.into(),
-                    Err(fvm_shared4::address::Error::UnknownNetwork) => {
+                    Err(Error::UnknownNetwork) => {
                         let expected = match CurrentNetwork::get() {
                             Network::Mainnet => 'f',
                             Network::Testnet => 't',
