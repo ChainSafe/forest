@@ -543,7 +543,7 @@ pub struct MiningBaseInfo {
 
 lotus_json_with_self!(MiningBaseInfo);
 
-#[derive(PartialEq, Debug, Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct EventEntry {
     pub flags: u64,
@@ -552,7 +552,7 @@ pub struct EventEntry {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Event {
     /// Actor ID

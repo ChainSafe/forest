@@ -41,6 +41,7 @@ use crate::shim::executor::Entry;
 use crate::state_manager::StateEvents;
 use crate::utils::misc::env::env_or_default;
 use ahash::AHashMap as HashMap;
+use ahash::HashSet;
 use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -383,7 +384,7 @@ impl EthEventHandler {
             .filter(|(cid, _)| cid.as_ref() == Some(events_root))
             .map(|(_, v)| v);
 
-        let mut chain_events = vec![];
+        let mut chain_events = HashSet::default();
         for events in filtered_events {
             for event in events.iter() {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
@@ -401,14 +402,14 @@ impl EthEventHandler {
                     })
                     .collect();
 
-                chain_events.push(Event {
+                chain_events.insert(Event {
                     entries,
                     emitter: event.emitter(),
                 });
             }
         }
 
-        Ok(chain_events)
+        Ok(Vec::from_iter(chain_events.into_iter()))
     }
 
     pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
