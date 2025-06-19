@@ -15,7 +15,8 @@ exclude = [
   "forest-explorer.chainsafe.dev",
   # Maybe temporarily down with 404, but it blocks the CI
   "filecoin.io/slack",
-
+  # Bot protection / 403 Forbidden errors
+  "crates.io",
 ]
 timeout = 30
 max_retries = 6
