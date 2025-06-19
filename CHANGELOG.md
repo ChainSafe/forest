@@ -61,6 +61,8 @@
 
 - [#4490](https://github.com/ChainSafe/forest/issues/4490) Fixed panic conditions in the `Filecoin.MpoolSelect` RPC method.
 
+- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated entries in `Filecoin.ChainGetEvents` RPC method.
+
 ## Forest v0.26.1 "Ijon Tichy"
 
 This is a non-mandatory release for all node operators. It includes a fix for the F3 on mainnet and a few other improvements. It also sets the initial power table CID for F3 on mainnet.
