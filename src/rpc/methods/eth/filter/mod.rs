@@ -370,6 +370,17 @@ impl EthEventHandler {
         tipset: &Arc<Tipset>,
         events_root: &Cid,
     ) -> anyhow::Result<Vec<Event>> {
+        fn dedup_preserving_order(items: Vec<Event>) -> Vec<Event> {
+            let mut seen = HashSet::default();
+            let mut deduped = vec![];
+            for item in items.into_iter() {
+                if seen.insert(item.clone()) {
+                    deduped.push(item);
+                }
+            }
+            deduped
+        }
+
         let state_events = ctx
             .state_manager
             .tipset_state_events(tipset, Some(events_root))
@@ -384,7 +395,7 @@ impl EthEventHandler {
             .filter(|(cid, _)| cid.as_ref() == Some(events_root))
             .map(|(_, v)| v);
 
-        let mut chain_events = HashSet::default();
+        let mut chain_events = vec![];
         for events in filtered_events {
             for event in events.iter() {
                 let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
@@ -402,14 +413,14 @@ impl EthEventHandler {
                     })
                     .collect();
 
-                chain_events.insert(Event {
+                chain_events.push(Event {
                     entries,
                     emitter: event.emitter(),
                 });
             }
         }
 
-        Ok(Vec::from_iter(chain_events.into_iter()))
+        Ok(dedup_preserving_order(chain_events))
     }
 
     pub async fn get_events_for_parsed_filter<DB: Blockstore + Send + Sync + 'static>(
