@@ -1,16 +1,18 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
-use std::time::Duration;
-
+use crate::lotus_json::HasLotusJson;
 use crate::rpc::state::ForestStateCompute;
 use crate::rpc::{self, prelude::*};
+use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingSchedule {
@@ -36,6 +38,11 @@ pub enum StateCommands {
         #[arg(long)]
         epoch: ChainEpoch,
     },
+    /// Read the state of an actor
+    ReadState {
+        /// Actor address to read the state of
+        actor_address: String,
+    },
 }
 
 impl StateCommands {
@@ -54,6 +61,28 @@ impl StateCommands {
                     .call(ForestStateCompute::request((epoch,))?.with_timeout(Duration::MAX))
                     .await?;
                 println!("{ret}");
+            }
+            Self::ReadState { actor_address } => {
+                let tipset = ChainHead::call(&client, ()).await?;
+                let address = match StrictAddress::from_str(&actor_address) {
+                    Ok(address) => address.into(),
+                    Err(Error::UnknownNetwork) => {
+                        let expected = match CurrentNetwork::get() {
+                            Network::Mainnet => 'f',
+                            Network::Testnet => 't',
+                        };
+                        anyhow::bail!("Invalid network prefix, expected '{}'", expected);
+                    }
+                    Err(e) => anyhow::bail!("Error parsing address: {e}"),
+                };
+
+                let ret = client
+                    .call(
+                        StateReadState::request((address, tipset.key().into()))?
+                            .with_timeout(Duration::MAX),
+                    )
+                    .await?;
+                println!("{}", ret.state.into_lotus_json_string_pretty()?);
             }
         }
         Ok(())
