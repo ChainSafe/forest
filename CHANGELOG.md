@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.
+
 ## Forest v0.27.0 "Whisperer in Darkness"
 
 This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
@@ -74,8 +76,6 @@ important bug fixes. It also contains a breaking change regarding the `detach` m
 - [#5704](https://github.com/ChainSafe/forest/pull/5704) Fixed an issue that a Forest node gets stuck in some cases.
 
 - [#4490](https://github.com/ChainSafe/forest/issues/4490) Fixed panic conditions in the `Filecoin.MpoolSelect` RPC method.
-
-- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.
 
 ## Forest v0.26.1 "Ijon Tichy"
 
