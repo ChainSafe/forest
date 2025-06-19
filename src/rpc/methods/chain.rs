@@ -7,7 +7,7 @@ use types::*;
 
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
-use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
+use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
@@ -785,23 +785,25 @@ fn load_api_messages_from_tipset(
     let blocks = full_tipset.into_blocks();
     let mut messages = vec![];
     let mut seen = CidHashSet::default();
-    for block in blocks {
-        for msg in block.bls_msgs() {
-            let cid = msg.cid();
+    for Block {
+        bls_messages,
+        secp_messages,
+        ..
+    } in blocks
+    {
+        for message in bls_messages {
+            let cid = message.cid();
             if seen.insert(cid) {
-                messages.push(ApiMessage {
-                    cid,
-                    message: msg.clone(),
-                });
+                messages.push(ApiMessage { cid, message });
             }
         }
 
-        for msg in block.secp_msgs() {
+        for msg in secp_messages {
             let cid = msg.cid();
             if seen.insert(cid) {
                 messages.push(ApiMessage {
                     cid,
-                    message: msg.message.clone(),
+                    message: msg.message,
                 });
             }
         }
