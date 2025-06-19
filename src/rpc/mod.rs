@@ -385,7 +385,10 @@ mod methods {
 use crate::rpc::auth_layer::AuthLayer;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
-use crate::rpc::eth::{ETH_SUBSCRIPTION, EthSubscribe, EthUnsubscribe, eth_subscribe};
+use crate::rpc::eth::{
+    EthSubscribe, EthUnsubscribe,
+    pubsub::{ETH_SUBSCRIPTION, eth_subscribe},
+};
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
