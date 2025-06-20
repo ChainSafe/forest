@@ -16,6 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::eth::types::ApiHeaders;
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -42,6 +43,64 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
+
+pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if sender.send(headers).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
+
+use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
+
+/// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
+/// |-------------|----------------------------|------------------------------|--------------------------------------------|
+/// | `address`   | Yes                        | Yes                          | Can be a single address or an array        |
+/// | `topics`    | Yes                        | Yes                          | Same topic filtering rules apply           |
+/// | `fromBlock` | Yes                        | No                           | Not relevant for real-time subscriptions   |
+/// | `toBlock`   | Yes                        | No                           | Same as above                              |
+/// | `blockhash` | Yes                        | No                           | Specific to a single block, not for streams|
+///
+pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    filter: Option<EthFilterSpec>,
+) -> Subscriber<Vec<EthLog>> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = ctx.chain_store().publisher().subscribe();
+
+    let ctx = ctx.clone();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let logs = match v {
+                HeadChange::Apply(ts) => {
+                    let logs = eth_logs_with_filter(&ctx, &ts, filter.clone(), None)
+                        .await
+                        .unwrap();
+                    logs
+                }
+            };
+            if sender.send(logs).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
 
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
