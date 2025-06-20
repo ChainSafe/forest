@@ -70,7 +70,7 @@ const NEW_HEADS: &str = "newHeads";
 const PENDING_TXS: &str = "pendingTransactions";
 const LOGS: &str = "logs";
 
-pub async fn eth_subscribe<DB: Blockstore>(
+pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
     params: jsonrpsee::types::Params<'static>,
     pending: jsonrpsee::core::server::PendingSubscriptionSink,
     ctx: Ctx<DB>,
@@ -139,7 +139,24 @@ pub async fn eth_subscribe<DB: Blockstore>(
                 handle_subscription(new_heads, sink).await;
             });
         }
-        (LOGS, filter) => (),
+        (LOGS, filter) => {
+            // Spawn logs task
+            let logs = crate::rpc::chain::logs(&ctx, None);
+
+            tokio::spawn(async move {
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
+
+                tracing::trace!(
+                    "Subscription task started (id: {:?})",
+                    sink.subscription_id()
+                );
+
+                handle_subscription(logs, sink).await;
+            });
+        }
         _ => (),
     }
 

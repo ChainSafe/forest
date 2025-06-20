@@ -63,6 +63,52 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
     receiver
 }
 
+use crate::rpc::eth::eth_logs_for_block_and_transaction;
+use crate::rpc::eth::types::EthHash;
+use crate::rpc::eth::{EthLog, types::EthFilterSpec};
+
+/// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
+/// |-------------|----------------------------|------------------------------|--------------------------------------------|
+/// | `address`   | Yes                        | Yes                          | Can be a single address or an array        |
+/// | `topics`    | Yes                        | Yes                          | Same topic filtering rules apply           |
+/// | `fromBlock` | Yes                        | No                           | Not relevant for real-time subscriptions   |
+/// | `toBlock`   | Yes                        | No                           | Same as above                              |
+/// | `blockhash` | Yes                        | No                           | Specific to a single block, not for streams|
+///
+pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    filter: Option<EthFilterSpec>,
+) -> Subscriber<Vec<EthLog>> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = ctx.chain_store().publisher().subscribe();
+
+    let ctx = ctx.clone();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let logs = match v {
+                HeadChange::Apply(ts) => {
+                    let logs = eth_logs_for_block_and_transaction(
+                        &ctx,
+                        &ts,
+                        &EthHash::default(),
+                        &EthHash::default(),
+                    )
+                    .await
+                    .unwrap();
+                    logs
+                }
+            };
+            if sender.send(logs).is_err() {
+                break;
+            }
+        }
+    });
+
+    receiver
+}
+
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";

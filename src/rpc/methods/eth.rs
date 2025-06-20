@@ -1327,7 +1327,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     Ok(tx_receipt)
 }
 
-async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
+pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     ts: &Arc<Tipset>,
     block_hash: &EthHash,
