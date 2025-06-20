@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.
+
 ## Forest v0.27.0 "Whisperer in Darkness"
 
 This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
