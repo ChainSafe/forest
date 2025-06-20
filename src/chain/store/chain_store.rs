@@ -87,6 +87,9 @@ pub struct ChainStore<DB> {
 
     /// Needed by the Ethereum mapping.
     pub chain_config: Arc<ChainConfig>,
+
+    /// Incoming Blocks
+    incoming_blocks: tokio::sync::broadcast::Sender<CachingBlockHeader>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -128,7 +131,7 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
-
+        let (incoming_blocks, _) = broadcast::channel(SINK_CAP);
         let cs = Self {
             publisher,
             chain_index,
@@ -140,6 +143,7 @@ where
             eth_mappings,
             indices,
             chain_config,
+            incoming_blocks,
         };
 
         Ok(cs)
@@ -158,6 +162,7 @@ where
 
     /// Adds a block header to the tipset tracker, which tracks valid headers.
     pub fn add_to_tipset_tracker(&self, header: &CachingBlockHeader) {
+        let _ = self.incoming_blocks.send(header.clone());
         self.tipset_tracker.add(header);
     }
 
@@ -436,6 +441,11 @@ where
         }
 
         Ok(delegated_messages)
+    }
+
+    /// Returns a receiver for incoming block headers (`CachingBlockHeader`).
+    pub fn incoming_blocks_receiver(&self) -> broadcast::Receiver<CachingBlockHeader> {
+        self.incoming_blocks.subscribe()
     }
 }
 

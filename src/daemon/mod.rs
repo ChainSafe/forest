@@ -563,16 +563,14 @@ fn maybe_start_slasher_service(
             };
 
             loop {
-                let block_headers = match SyncIncomingBlock::call(&client, ()).await {
+                let bh = match SyncIncomingBlock::call(&client, ()).await {
                     Ok(headers) => headers,
                     Err(e) => {
                         tracing::error!("Failed to get blocks: {:?}", e);
                         continue;
                     }
                 };
-                debug!("Received block headers for consensus fault check\n: {:#?}", block_headers);
 
-                for bh in block_headers {
                 let (fault, other_block, extra) =
                         match crate::fil_cns::slasher::check_consensus_fault(
                             state_manager.clone(),
@@ -627,7 +625,6 @@ fn maybe_start_slasher_service(
                         }
                     } else {
                         info!("No consensus fault detected for block at epoch {}", bh.epoch);
-                    }
                     }
             }
         });

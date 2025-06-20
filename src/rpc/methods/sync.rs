@@ -151,10 +151,16 @@ impl RpcMethod<0> for SyncIncomingBlock {
     const DESCRIPTION: Option<&'static str> = Some("Returns an incoming tipset.");
 
     type Params = ();
-    type Ok = Vec<CachingBlockHeader>;
+    type Ok = CachingBlockHeader;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        unimplemented!()
+        let mut receiver = ctx.state_manager.chain_store().incoming_blocks_receiver();
+        let block_header = receiver
+            .recv()
+            .await
+            .map_err(|_| ServerError::from(anyhow::anyhow!("failed to receive block header")))?;
+
+        Ok(block_header)
     }
 }
 
