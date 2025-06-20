@@ -387,27 +387,7 @@ impl EthEventHandler {
         let chain_events = filtered_events
             .into_iter()
             .flat_map(|events| events.into_iter())
-            .map(|event| {
-                let entries = event
-                    .event()
-                    .entries()
-                    .into_iter()
-                    .map(|entry| {
-                        let (flags, key, codec, value) = entry.into_parts();
-                        EventEntry {
-                            flags,
-                            key,
-                            codec,
-                            value: value.into(),
-                        }
-                    })
-                    .collect();
-
-                Event {
-                    entries,
-                    emitter: event.emitter(),
-                }
-            })
+            .map(Into::into)
             .unique()
             .collect();
 

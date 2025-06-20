@@ -20,6 +20,7 @@ use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::shim::actors::market::AllocationID;
 use crate::shim::actors::market::{DealProposal, DealState};
 use crate::shim::actors::miner::DeadlineInfo;
+use crate::shim::executor::StampedEvent;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -560,3 +561,27 @@ pub struct Event {
     pub entries: Vec<EventEntry>,
 }
 lotus_json_with_self!(Event);
+
+impl From<StampedEvent> for Event {
+    fn from(stamped: StampedEvent) -> Self {
+        let entries = stamped
+            .event()
+            .entries()
+            .into_iter()
+            .map(|entry| {
+                let (flags, key, codec, value) = entry.into_parts();
+                EventEntry {
+                    flags,
+                    key,
+                    codec,
+                    value: value.into(),
+                }
+            })
+            .collect();
+
+        Event {
+            emitter: stamped.emitter(),
+            entries,
+        }
+    }
+}
