@@ -59,10 +59,15 @@
 //! ```
 //!
 
-use crate::rpc::Ctx;
+use std::str::FromStr;
+
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use tokio::sync::broadcast::{Receiver as Subscriber, error::RecvError};
+
+use crate::rpc::Ctx;
+use crate::rpc::eth::EthFilterSpec;
+use crate::rpc::eth::types::{EthAddress, EthAddressList};
 
 pub const ETH_SUBSCRIPTION: &str = "eth_subscription";
 
@@ -139,9 +144,16 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
                 handle_subscription(new_heads, sink).await;
             });
         }
-        (LOGS, filter) => {
+        (LOGS, _filter) => {
+            let spec = EthFilterSpec {
+                address: EthAddressList::Single(
+                    EthAddress::from_str("0x6c3f61ba9b4abe943bb61bf1f28b79e3f8018b0e").unwrap(),
+                ),
+                ..Default::default()
+            };
+
             // Spawn logs task
-            let logs = crate::rpc::chain::logs(&ctx, None);
+            let logs = crate::rpc::chain::logs(&ctx, Some(spec));
 
             tokio::spawn(async move {
                 // Mark the subscription is accepted after the params has been parsed successful.

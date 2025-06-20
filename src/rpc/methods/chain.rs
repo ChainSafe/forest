@@ -63,9 +63,7 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
     receiver
 }
 
-use crate::rpc::eth::eth_logs_for_block_and_transaction;
-use crate::rpc::eth::types::EthHash;
-use crate::rpc::eth::{EthLog, types::EthFilterSpec};
+use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
 
 /// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
 /// |-------------|----------------------------|------------------------------|--------------------------------------------|
@@ -89,14 +87,9 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
         while let Ok(v) = subscriber.recv().await {
             let logs = match v {
                 HeadChange::Apply(ts) => {
-                    let logs = eth_logs_for_block_and_transaction(
-                        &ctx,
-                        &ts,
-                        &EthHash::default(),
-                        &EthHash::default(),
-                    )
-                    .await
-                    .unwrap();
+                    let logs = eth_logs_with_filter(&ctx, &ts, filter.clone(), None)
+                        .await
+                        .unwrap();
                     logs
                 }
             };

@@ -1327,6 +1327,35 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     Ok(tx_receipt)
 }
 
+// pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
+//     ctx: &Ctx<DB>,
+//     ts: &Arc<Tipset>,
+//     block_hash: &EthHash,
+//     tx_hash: &EthHash,
+// ) -> anyhow::Result<Vec<EthLog>> {
+//     let spec = EthFilterSpec {
+//         block_hash: Some(block_hash.clone()),
+//         ..Default::default()
+//     };
+
+//     let mut events = vec![];
+//     EthEventHandler::collect_events(
+//         ctx,
+//         ts,
+//         Some(&spec),
+//         SkipEvent::OnUnresolvedAddress,
+//         &mut events,
+//     )
+//     .await?;
+
+//     let logs = eth_filter_logs_from_events(ctx, &events)?;
+//     let out: Vec<_> = logs
+//         .into_iter()
+//         .filter(|log| &log.transaction_hash == tx_hash)
+//         .collect();
+//     Ok(out)
+// }
+
 pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     ts: &Arc<Tipset>,
@@ -1338,21 +1367,33 @@ pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + '
         ..Default::default()
     };
 
+    eth_logs_with_filter(ctx, ts, Some(spec), Some(tx_hash)).await
+}
+
+pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    ts: &Arc<Tipset>,
+    spec: Option<EthFilterSpec>,
+    tx_hash: Option<&EthHash>,
+) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
         ctx,
         ts,
-        Some(&spec),
+        spec.as_ref(),
         SkipEvent::OnUnresolvedAddress,
         &mut events,
     )
     .await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
-    let out: Vec<_> = logs
-        .into_iter()
-        .filter(|log| &log.transaction_hash == tx_hash)
-        .collect();
+    let out: Vec<_> = match tx_hash {
+        Some(hash) => logs
+            .into_iter()
+            .filter(|log| &log.transaction_hash == hash)
+            .collect(),
+        None => logs, // no tx hash, keep all logs
+    };
     Ok(out)
 }
 
