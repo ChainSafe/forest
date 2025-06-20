@@ -3,7 +3,7 @@
 
 mod types;
 
-use crate::blocks::{Block, FullTipset, GossipBlock};
+use crate::blocks::{Block, CachingBlockHeader, FullTipset, GossipBlock};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::{Context as _, anyhow};
@@ -139,6 +139,22 @@ impl RpcMethod<1> for SyncSubmitBlock {
             message: encoded_message,
         })?;
         Ok(())
+    }
+}
+
+pub enum SyncIncomingBlock {}
+impl RpcMethod<0> for SyncIncomingBlock {
+    const NAME: &'static str = "Filecoin.SyncIncomingBlock";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some("Returns an incoming tipset.");
+
+    type Params = ();
+    type Ok = Vec<CachingBlockHeader>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        unimplemented!()
     }
 }
 

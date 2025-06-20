@@ -248,6 +248,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::sync::SyncSnapshotProgress);
         $callback!($crate::rpc::sync::SyncStatus);
         $callback!($crate::rpc::sync::SyncSubmitBlock);
+        $callback!($crate::rpc::sync::SyncIncomingBlock);
 
         // wallet vertical
         $callback!($crate::rpc::wallet::WalletBalance);

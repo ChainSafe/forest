@@ -220,6 +220,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
+fjall = "2.11.0"
 mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }

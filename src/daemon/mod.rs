@@ -530,6 +530,110 @@ fn maybe_start_indexer_service(
     }
 }
 
+fn maybe_start_slasher_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    opts: &CliOpts,
+    config: &Config,
+    ctx: &AppContext,
+) {
+    use crate::rpc::RpcMethodExt;
+    use crate::rpc::sync::SyncIncomingBlock;
+    use crate::rpc::wallet::WalletDefaultAddress;
+    use crate::shim::address::{Address, StrictAddress};
+    use std::str::FromStr;
+
+    if config.slasher.enable_slasher && !opts.stateless {
+        let state_manager = ctx.state_manager.clone();
+        let slasher = crate::fil_cns::slasher::Slasher::new().expect("Failed to init slasher");
+        let client =
+            crate::rpc::Client::default_or_from_env(None).expect("Failed to create RPC client");
+
+        services.spawn(async move {
+            tracing::info!("Starting slasher service");
+
+            let from: Address = if let Ok(from_str) = std::env::var("ForestConsensusFaultReporterAddress") {
+                StrictAddress::from_str(&from_str)
+                    .expect("Invalid address")
+                    .into()
+            } else {
+                WalletDefaultAddress::call(&client, ())
+                    .await
+                    .expect("Failed to get default address")
+                    .expect("Default address not set")
+            };
+
+            loop {
+                let block_headers = match SyncIncomingBlock::call(&client, ()).await {
+                    Ok(headers) => headers,
+                    Err(e) => {
+                        tracing::error!("Failed to get blocks: {:?}", e);
+                        continue;
+                    }
+                };
+                debug!("Received block headers for consensus fault check\n: {:#?}", block_headers);
+
+                for bh in block_headers {
+                let (fault, other_block, extra) =
+                        match crate::fil_cns::slasher::check_consensus_fault(
+                            state_manager.clone(),
+                            &slasher,
+                            &bh,
+                        ) {
+                            Ok(res) => res,
+                            Err(e) => {
+                                tracing::error!("Failed to check consensus fault: {:?}", e);
+                                continue;
+                            }
+                        };
+
+                    if let Some(fault_type) = fault {
+                        info!("Detected consensus fault: {:?}", fault_type);
+                        match fault_type {
+                            crate::shim::fvm_shared_latest::consensus::ConsensusFaultType::DoubleForkMining => {
+                                info!("Detected double-fork mining by {} at epoch {}", from, bh.epoch);
+                            }
+                            crate::shim::fvm_shared_latest::consensus::ConsensusFaultType::TimeOffsetMining => {
+                                info!("Detected time-offset mining by {} at epoch {}", from, bh.epoch);
+                            }
+                            crate::shim::fvm_shared_latest::consensus::ConsensusFaultType::ParentGrinding => {
+                                info!("Detected parent-grinding by {} at epoch {}", from, bh.epoch);
+                            }
+                        }
+
+                        let params = fil_actor_miner_state::v16::ReportConsensusFaultParams {
+                            header1: bh.clone().into_raw().signing_bytes(),
+                            header2: other_block.unwrap().into_raw().signing_bytes(),
+                            header_extra: extra.unwrap().into_raw().signing_bytes(),
+                        };
+
+                        let message = crate::shim::message::Message {
+                            from,
+                            to: bh.miner_address,
+                            value: crate::shim::econ::TokenAmount::default(),
+                            method_num: fil_actor_miner_state::v16::Method::ReportConsensusFault as u64,
+                            params: fvm_ipld_encoding::to_vec(&params)
+                                .expect("Failed to convert params to bytes")
+                                .into(),
+                            ..Default::default()
+                        };
+
+                        match crate::rpc::mpool::MpoolPushMessage::call(&client, (message, None)).await {
+                            Ok(slash) => {
+                                info!("Slashing message sent: {}", slash.message.cid());
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to push slashing message: {:?}", e);
+                            }
+                        }
+                    } else {
+                        info!("No consensus fault detected for block at epoch {}", bh.epoch);
+                    }
+                    }
+            }
+        });
+    }
+}
+
 /// Starts daemon process
 pub(super) async fn start(
     start_time: chrono::DateTime<chrono::Utc>,
@@ -625,6 +729,7 @@ pub(super) async fn start_services(
     }
     services.spawn(p2p_service.run());
     start_chain_follower_service(&mut services, chain_follower);
+    maybe_start_slasher_service(&mut services, opts, &config, &ctx);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await

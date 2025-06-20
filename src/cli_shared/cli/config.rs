@@ -4,7 +4,7 @@
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::misc::env::is_env_set_and_truthy;
+use crate::utils::misc::env::{env_or_default, is_env_set_and_truthy};
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -92,6 +92,20 @@ impl Default for ChainIndexerConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct SlasherConfig {
+    pub enable_slasher: bool,
+}
+
+impl Default for SlasherConfig {
+    fn default() -> Self {
+        Self {
+            enable_slasher: env_or_default("EnableConsensusFaultReporter", false),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -105,6 +119,7 @@ pub struct Config {
     pub events: EventsConfig,
     pub fevm: FevmConfig,
     pub chain_indexer: ChainIndexerConfig,
+    pub slasher: SlasherConfig,
 }
 
 impl Config {
