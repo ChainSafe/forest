@@ -246,6 +246,7 @@ pub struct ChainConfig {
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub enable_receipt_event_caching: bool,
+    pub enable_slasher: bool,
 }
 
 impl ChainConfig {
@@ -279,6 +280,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            enable_slasher: false,
         }
     }
 
@@ -315,6 +317,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            enable_slasher: false,
         }
     }
 
@@ -341,6 +344,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            enable_slasher: false,
         }
     }
 
@@ -373,6 +377,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            enable_slasher: false,
         }
     }
 
