@@ -3,4 +3,5 @@
 
 pub(crate) mod account;
 pub(crate) mod evm;
+pub(crate) mod init;
 pub(crate) mod miner;

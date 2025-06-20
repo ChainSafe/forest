@@ -1815,6 +1815,21 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    let init_constructor_params = fil_actor_init_state::v16::ConstructorParams {
+        network_name: "calibnet".to_string(),
+    };
+
+    let init_exec4_params = fil_actor_init_state::v16::Exec4Params {
+        code_cid: Cid::default(),
+        constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+        subaddress: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
+    let init_exec_params = fil_actor_init_state::v16::ExecParams {
+        code_cid: Cid::default(),
+        constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1844,6 +1859,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
             1,
             to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            1,
+            to_vec(&init_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            2,
+            to_vec(&init_exec_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            3,
+            to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),
     ];
