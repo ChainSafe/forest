@@ -7,7 +7,6 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::blocks::Tipset;
 use crate::message::{Message, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{
@@ -15,11 +14,15 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
 };
+use crate::{
+    blocks::{BLOCK_MESSAGE_LIMIT, Tipset},
+    shim::crypto::SignatureType,
+};
 use ahash::HashMap;
 use fvm_ipld_encoding::to_vec;
 use num_traits::Zero;
 use slotmap::{SlotMap, new_key_type};
-use tracing::warn;
+use tracing::{debug, warn};
 
 use super::errors::Error;
 use crate::message_pool::{
@@ -181,10 +184,12 @@ impl Chains {
     }
 
     /// Removes messages from the given index and resets effective `perfs`
+    #[tracing::instrument(skip_all, level = "debug")]
     pub(in crate::message_pool) fn trim_msgs_at(
         &mut self,
         idx: usize,
         gas_limit: u64,
+        msg_limit: usize,
         base_fee: &TokenAmount,
     ) {
         let prev = match idx {
@@ -196,10 +201,21 @@ impl Chains {
         let chain_node = self.get_mut_at(idx).unwrap();
         let mut i = chain_node.msgs.len() as i64 - 1;
 
-        while i >= 0 && (chain_node.gas_limit > gas_limit || (chain_node.gas_perf < 0.0)) {
+        while i >= 0
+            && (chain_node.gas_limit > gas_limit
+                || (chain_node.gas_perf < 0.0)
+                || i >= msg_limit as i64)
+        {
             #[allow(clippy::indexing_slicing)]
             let msg = &chain_node.msgs[i as usize];
             let gas_reward = get_gas_reward(msg, base_fee);
+            debug!(
+                "chain node gas reward: {}, gas_reward: {}, chain node gas limit: {}, gas limit: {}",
+                chain_node.gas_reward,
+                gas_reward,
+                chain_node.gas_limit,
+                msg.gas_limit()
+            );
             chain_node.gas_reward -= gas_reward;
             chain_node.gas_limit = chain_node.gas_limit.saturating_sub(msg.gas_limit());
             if chain_node.gas_limit > 0 {
@@ -288,6 +304,7 @@ pub struct MsgChainNode {
     pub merged: bool,
     pub next: Option<NodeKey>,
     pub prev: Option<NodeKey>,
+    pub sig_type: Option<SignatureType>,
 }
 
 impl MsgChainNode {
@@ -368,6 +385,7 @@ impl std::default::Default for MsgChainNode {
             merged: false,
             next: None,
             prev: None,
+            sig_type: None,
         }
     }
 }
@@ -462,11 +480,23 @@ where
         return Ok(());
     };
 
+    // if we have more messages from this sender than can fit in a block, drop the extra ones
+    let msgs = if msgs.len() > BLOCK_MESSAGE_LIMIT {
+        warn!(
+            "dropping {} messages from {actor} as they exceed the block message limit of {BLOCK_MESSAGE_LIMIT}",
+            msgs.len() - BLOCK_MESSAGE_LIMIT,
+        );
+        msgs[..BLOCK_MESSAGE_LIMIT].to_vec()
+    } else {
+        msgs
+    };
+
     let mut cur_chain = MsgChainNode::default();
     let mut node_vec = vec![];
 
     let new_chain = |m: SignedMessage, reward: &TokenAmount| -> MsgChainNode {
         let gl = m.gas_limit();
+        let sig_type = Some(m.signature().sig_type);
         MsgChainNode {
             msgs: vec![m],
             gas_reward: reward.clone(),
@@ -479,6 +509,7 @@ where
             merged: false,
             prev: None,
             next: None,
+            sig_type,
         }
     };
 
