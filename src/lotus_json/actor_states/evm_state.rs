@@ -53,7 +53,24 @@ macro_rules! impl_evm_state_lotus_json {
 
             #[cfg(test)]
             fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![]
+                vec![(
+                    json!({
+                        "bytecode": {"/":"baeaaaaa"},
+                        "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        "contract_state": {"/":"baeaaaaa"},
+                        "nonce": 0,
+                        "tombstone": null,
+                        "transient_data": null
+                    }),
+                    State::V16(fil_actor_evm_state::v16::State {
+                        bytecode: Cid::default(),
+                        bytecode_hash: BytecodeHash::from([0; 32]),
+                        contract_state: Cid::default(),
+                        nonce: 0,
+                        tombstone: None,
+                        transient_data: None,
+                    }),
+                )]
             }
 
              fn into_lotus_json(self) -> Self::LotusJson {

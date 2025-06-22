@@ -43,6 +43,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::to_vec;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
@@ -74,6 +75,10 @@ static KNOWN_CALIBNET_ADDRESS: Lazy<Address> = Lazy::new(|| {
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
+// miner actor address `t078216`
+const MINER_ADDRESS: Address = Address::new_id(78216); // https://calibration.filscan.io/en/miner/t078216
+const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address `t01234`
+const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -818,6 +823,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
     ];
 
     tests.extend(read_state_api_tests(tipset)?);
+    tests.extend(state_decode_params_api_tests(tipset)?);
 
     for &pending_deal_id in
         StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
@@ -1780,6 +1786,71 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
     tests
 }
 
+fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
+        address: Address::new_id(1234).into(),
+    };
+
+    let account_auth_params = fil_actor_account_state::v16::types::AuthenticateMessageParams {
+        signature: vec![0x00; 32], // dummy signature
+        message: b"test message".to_vec(),
+    };
+
+    let miner_constructor_params = fil_actor_miner_state::v16::MinerConstructorParams {
+        owner: Address::new_id(1000).into(),
+        worker: Address::new_id(1001).into(),
+        control_addresses: vec![Address::new_id(1002).into(), Address::new_id(1003).into()],
+        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow32GiBV1P1,
+        peer_id: b"miner".to_vec(),
+        multi_addresses: Default::default(),
+    };
+
+    let miner_change_worker_params = fil_actor_miner_state::v16::ChangeWorkerAddressParams {
+        new_worker: Address::new_id(2000).into(),
+        new_control_addresses: vec![Address::new_id(2001).into()],
+    };
+
+    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
+        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
+        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
+    let tests = vec![
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            1,
+            to_vec(&miner_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            3,
+            to_vec(&miner_change_worker_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            1,
+            to_vec(&account_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
+            to_vec(&account_auth_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
+            1,
+            to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+    ];
+
+    Ok(tests)
+}
+
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let tests = vec![
         RpcTest::identity(StateReadState::request((
@@ -1799,16 +1870,45 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
-            Address::new_id(1234), // account actor address `t01234`
+            Address::INIT_ACTOR,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
-            // miner actor address `t078216`
-            Address::new_id(78216), // https://calibration.filscan.io/en/miner/t078216
+            Address::POWER_ACTOR,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
-            Address::from_str("t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i").unwrap(), // evm actor
+            Address::REWARD_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            // payment channel actor address `t066116`
+            Address::new_id(66116), // https://calibration.filscan.io/en/address/t066116/
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            // multisig actor address `t018101`
+            Address::new_id(18101), // https://calibration.filscan.io/en/address/t018101/
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            ACCOUNT_ADDRESS,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            MINER_ADDRESS,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
+            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
             tipset.key().into(),
         ))?),
     ];

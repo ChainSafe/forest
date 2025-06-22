@@ -20,6 +20,7 @@ use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::shim::actors::market::AllocationID;
 use crate::shim::actors::market::{DealProposal, DealState};
 use crate::shim::actors::miner::DeadlineInfo;
+use crate::shim::executor::StampedEvent;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -215,6 +216,14 @@ pub struct ApiState {
 }
 
 lotus_json_with_self!(ApiState);
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDecodedParams {
+    pub params: serde_json::Value,
+}
+
+lotus_json_with_self!(ApiDecodedParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -535,7 +544,7 @@ pub struct MiningBaseInfo {
 
 lotus_json_with_self!(MiningBaseInfo);
 
-#[derive(PartialEq, Debug, Clone, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct EventEntry {
     pub flags: u64,
@@ -544,7 +553,7 @@ pub struct EventEntry {
     pub value: LotusJson<Vec<u8>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "PascalCase")]
 pub struct Event {
     /// Actor ID
@@ -552,3 +561,27 @@ pub struct Event {
     pub entries: Vec<EventEntry>,
 }
 lotus_json_with_self!(Event);
+
+impl From<StampedEvent> for Event {
+    fn from(stamped: StampedEvent) -> Self {
+        let entries = stamped
+            .event()
+            .entries()
+            .into_iter()
+            .map(|entry| {
+                let (flags, key, codec, value) = entry.into_parts();
+                EventEntry {
+                    flags,
+                    key,
+                    codec,
+                    value: value.into(),
+                }
+            })
+            .collect();
+
+        Event {
+            emitter: stamped.emitter(),
+            entries,
+        }
+    }
+}

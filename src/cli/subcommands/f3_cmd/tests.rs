@@ -7,13 +7,10 @@ use super::*;
 fn test_manifest_template() {
     // lotus f3 manifest --output json
     let lotus_json = serde_json::json!({
-      "Pause": false,
       "ProtocolVersion": 7,
       "InitialInstance": 0,
       "BootstrapEpoch": 2081674,
       "NetworkName": "calibrationnet",
-      "ExplicitPower": null,
-      "IgnoreECPower": false,
       "InitialPowerTable": {
         "/": "bafy2bzaceab236vmmb3n4q4tkvua2n4dphcbzzxerxuey3mot4g3cov5j3r2c"
       },

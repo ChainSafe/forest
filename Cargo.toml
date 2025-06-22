@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.26.1"
+version = "0.27.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -74,6 +74,7 @@ fil_actor_init_state = { version = "22.2" }
 fil_actor_market_state = { version = "22.2" }
 fil_actor_miner_state = { version = "22.2" }
 fil_actor_multisig_state = { version = "22.2" }
+fil_actor_paych_state = { version = "22.2" }
 fil_actor_power_state = { version = "22.2" }
 fil_actor_reward_state = { version = "22.2" }
 fil_actor_system_state = { version = "22.2" }
@@ -253,7 +254,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.286"
+ra_ap_syntax = "0.0.287"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

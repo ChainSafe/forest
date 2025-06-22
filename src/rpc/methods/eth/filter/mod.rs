@@ -45,6 +45,7 @@ use anyhow::{Context, Error, anyhow, bail, ensure};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::IPLD_RAW;
+use itertools::Itertools;
 use serde::*;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
@@ -383,30 +384,12 @@ impl EthEventHandler {
             .filter(|(cid, _)| cid.as_ref() == Some(events_root))
             .map(|(_, v)| v);
 
-        let mut chain_events = vec![];
-        for events in filtered_events {
-            for event in events.iter() {
-                let entries: Vec<crate::shim::executor::Entry> = event.event().entries();
-
-                let entries: Vec<EventEntry> = entries
-                    .into_iter()
-                    .map(|entry| {
-                        let (flags, key, codec, value) = entry.into_parts();
-                        EventEntry {
-                            flags,
-                            key,
-                            codec,
-                            value: value.into(),
-                        }
-                    })
-                    .collect();
-
-                chain_events.push(Event {
-                    entries,
-                    emitter: event.emitter(),
-                });
-            }
-        }
+        let chain_events = filtered_events
+            .into_iter()
+            .flat_map(|events| events.into_iter())
+            .map(Into::into)
+            .unique()
+            .collect();
 
         Ok(chain_events)
     }

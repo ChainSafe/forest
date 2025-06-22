@@ -3,12 +3,15 @@
 use crate::lotus_json::HasLotusJson;
 use crate::networks::ACTOR_BUNDLES_METADATA;
 use crate::shim::actors::{
-    AccountActorStateLoad, CronActorStateLoad, EVMActorStateLoad, MarketActorStateLoad,
-    MinerActorStateLoad, SystemActorStateLoad, account, cron, evm, market, miner, system,
+    AccountActorStateLoad, CronActorStateLoad, DataCapActorStateLoad, EVMActorStateLoad,
+    InitActorStateLoad, MarketActorStateLoad, MinerActorStateLoad, MultisigActorStateLoad,
+    PaymentchannelActorStateLoad, PowerActorStateLoad, RewardActorStateLoad, SystemActorStateLoad,
+    VerifregActorStateLoad, account, cron, datacap, evm, init, market, miner, multisig,
+    paymentchannel, power, reward, system, verifreg,
 };
 use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
-use anyhow::{Context, anyhow};
+use anyhow::{Context, Result, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
@@ -32,16 +35,28 @@ impl ActorRegistry {
         Self { map }
     }
 
-    pub fn get_actor_details_from_code(code_cid: &Cid) -> anyhow::Result<(BuiltinActor, u64)> {
+    pub fn get_actor_details_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
         ACTOR_REGISTRY
             .map
             .get(code_cid)
             .copied()
             .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Cid, &(BuiltinActor, u64))> {
+        self.map.iter()
+    }
 }
 
-static ACTOR_REGISTRY: Lazy<ActorRegistry> = Lazy::new(ActorRegistry::new);
+pub(crate) static ACTOR_REGISTRY: Lazy<ActorRegistry> = Lazy::new(ActorRegistry::new);
+
+pub fn get_actor_type_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
+    ACTOR_REGISTRY
+        .map
+        .get(code_cid)
+        .copied()
+        .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
+}
 
 macro_rules! load_and_serialize_state {
     ($store:expr, $code_cid:expr, $state_cid:expr, $actor_type:expr, $state_type:ty) => {{
@@ -61,7 +76,7 @@ pub fn load_and_serialize_actor_state<BS>(
     store: &BS,
     code_cid: &Cid,
     state_cid: &Cid,
-) -> anyhow::Result<Value>
+) -> Result<Value>
 where
     BS: Blockstore,
 {
@@ -85,11 +100,34 @@ where
         BuiltinActor::System => {
             load_and_serialize_state!(store, code_cid, state_cid, actor_type, system::State)
         }
-        // Add other actor types as needed
-        _ => Err(anyhow!(
-            "No serializer implemented for actor type: {:?}",
-            actor_type
-        )),
+        BuiltinActor::Init => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, init::State)
+        }
+        BuiltinActor::Power => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, power::State)
+        }
+        BuiltinActor::Multisig => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, multisig::State)
+        }
+        BuiltinActor::Reward => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, reward::State)
+        }
+        BuiltinActor::VerifiedRegistry => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, verifreg::State)
+        }
+        BuiltinActor::PaymentChannel => {
+            load_and_serialize_state!(
+                store,
+                code_cid,
+                state_cid,
+                actor_type,
+                paymentchannel::State
+            )
+        }
+        BuiltinActor::DataCap => {
+            load_and_serialize_state!(store, code_cid, state_cid, actor_type, datacap::State)
+        }
+        BuiltinActor::EAM | BuiltinActor::EthAccount | BuiltinActor::Placeholder => Ok(Value::Null),
     }
 }
 

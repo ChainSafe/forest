@@ -27,30 +27,55 @@
 
 ### Breaking
 
--[#5652](https://github.com/ChainSafe/forest/pull/5652) Remove `--detach` flag from `forest`. Checkout the [migration guide](https://github.com/ChainSafe/forest#detaching-forest-process)
-
 ### Added
 
--[#5598](https://github.com/ChainSafe/forest/pull/5598) Add `forest-cli chain prune snap` command for garbage collecting the database with a new snapshot garbage collector.
-
--[#5629](https://github.com/ChainSafe/forest/pull/5629) Save default RPC token and consume it automatically.
-
--[#5639](https://github.com/ChainSafe/forest/pull/5639) Add automatic scheduler for snapshot GC.
-
 ### Changed
-
--[#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
-
--[#5662](https://github.com/ChainSafe/forest/pull/5662) Print index size when applicable in `forest-tool archive info`.
 
 ### Removed
 
 ### Fixed
 
+- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.
+
+## Forest v0.27.0 "Whisperer in Darkness"
+
+This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
+getting stuck, a few new features including automatic snapshot GC scheduler, offline index backfilling, and
+important bug fixes. It also contains a breaking change regarding the `detach` mode.
+
+### Breaking
+
+- [#5652](https://github.com/ChainSafe/forest/pull/5652) Remove `--detach` flag from `forest`. Checkout the [migration guide](https://github.com/ChainSafe/forest#detaching-forest-process)
+
+### Added
+
+- [#5598](https://github.com/ChainSafe/forest/pull/5598) Add `forest-cli chain prune snap` command for garbage collecting the database with a new snapshot garbage collector.
+
+- [#5629](https://github.com/ChainSafe/forest/pull/5629) Save the default RPC token and consume it automatically.
+
+- [#5639](https://github.com/ChainSafe/forest/pull/5639) Add automatic scheduler for snapshot GC.
+
+- [#5697](https://github.com/ChainSafe/forest/pull/5697) Add `forest-cli chain list` command for viewing a segment of the chain.
+
+- [#5666](https://github.com/ChainSafe/forest/pull/5666) Add support for the `Filecoin.StateReadState` API method to read the state of the actors.
+
+- [#5738](https://github.com/ChainSafe/forest/pull/5738) Add support for the `forest-cli state read-state` command.
+
+### Changed
+
+- [#5616](https://github.com/ChainSafe/forest/pull/5616) Remove the initial background task for populating Ethereum mappings. Use `forest-tool index backfill` to perform this operation offline instead.
+
+- [#5662](https://github.com/ChainSafe/forest/pull/5662) Print index size when applicable in `forest-tool archive info`.
+
+### Fixed
+
 - [#5624](https://github.com/ChainSafe/forest/pull/5624) Fix `Filecoin.EthTraceFilter` to correctly handle null tipsets and stay within the filter range.
+
 - [#5177](https://github.com/ChainSafe/forest/issues/5177) Fix `Filecoin.EthGetBlockReceiptsLimited` to correctly handle the limit parameter.
 
 - [#5704](https://github.com/ChainSafe/forest/pull/5704) Fixed an issue that a Forest node gets stuck in some cases.
+
+- [#4490](https://github.com/ChainSafe/forest/issues/4490) Fixed panic conditions in the `Filecoin.MpoolSelect` RPC method.
 
 ## Forest v0.26.1 "Ijon Tichy"
 

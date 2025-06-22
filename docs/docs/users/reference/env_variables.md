@@ -48,6 +48,7 @@ process.
 | `FOREST_STATE_MIGRATION_DB_WRITE_BUFFER`                  | non-negative integer             | 10000                                          | 100000                                                        | The size of db write buffer for state migration (`~10MB` RAM per `10k` buffer)                                        |
 | `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`                      | non-negative integer             | 20160                                          | 8000                                                          | The interval in epochs for scheduling snapshot GC                                                                     |
 | `FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS`               | non-negative integer             | 300                                            | 60                                                            | The interval in seconds for checking if snapshot GC should run                                                        |
+| `FOREST_DISABLE_BAD_BLOCK_CACHE`                          | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable bad block cache                                                                             |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
