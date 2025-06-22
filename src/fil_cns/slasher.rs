@@ -1,3 +1,6 @@
+// Copyright 2019-2025 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::shim::fvm_shared_latest::consensus::ConsensusFaultType;
 use crate::utils::db::CborStoreExt as _;
 use anyhow::{Context, Result};
