@@ -599,8 +599,8 @@ fn maybe_start_slasher_service(
                         }
 
                         let params = fil_actor_miner_state::v16::ReportConsensusFaultParams {
-                            header1: bh.clone().into_raw().signing_bytes(),
-                            header2: other_block.unwrap().into_raw().signing_bytes(),
+                            header1: other_block.unwrap().into_raw().signing_bytes(),
+                            header2: bh.clone().into_raw().signing_bytes(),
                             header_extra: extra.unwrap().into_raw().signing_bytes(),
                         };
 

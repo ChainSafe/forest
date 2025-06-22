@@ -34,7 +34,7 @@ impl Slasher {
         })
     }
 
-    pub fn mined_block(&self, bh: &CachingBlockHeader, parent_epoch: i64) -> Result<(Cid, bool)> {
+    fn mined_block(&self, bh: &CachingBlockHeader, parent_epoch: i64) -> Result<(Cid, bool)> {
         // Double-fork mining check
         let epoch_key = format!("{}/{}", bh.miner_address, bh.epoch).into_bytes();
         let (witness, is_fault) = check_fault(&self.by_epoch, &epoch_key, bh)?;
