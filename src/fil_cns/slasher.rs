@@ -111,7 +111,7 @@ pub fn check_consensus_fault<DB: Blockstore + Send + Sync + 'static>(
     let block_c: CachingBlockHeader = state_manager
         .chain_store()
         .blockstore()
-        .get_cbor_required(&block_b.parents.to_cids().first())?;
+        .get_cbor_required(block_b.parents.to_cids().first())?;
     let (block_a_cid, fault) = slasher.mined_block(block_b, block_c.epoch)?;
 
     if fault {
@@ -145,5 +145,5 @@ pub fn check_consensus_fault<DB: Blockstore + Send + Sync + 'static>(
             ));
         }
     }
-    return Ok((None, None, None));
+    Ok((None, None, None))
 }
