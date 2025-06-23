@@ -45,6 +45,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
+use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::db::{
     BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
     db_engine::{DbConfig, db_root, open_db},
@@ -210,7 +211,7 @@ where
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
-        let temp_path = tempfile::NamedTempFile::new_in(&self.car_db_dir)?.into_temp_path();
+        let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
         let mut rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();
