@@ -28,6 +28,7 @@ jobs:
           branch: leshy/update-forest-docs
           token: ${{ secrets.ACTIONS_PAT }}
           commit-message: Update Forest CLI docs
+          sign-commits: true
           title: "[automated] Update Forest CLI docs"
           body: |
             ### Changes
