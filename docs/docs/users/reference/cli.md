@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.26.1
+forest-filecoin 0.27.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.26.1
+forest-filecoin 0.27.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -323,7 +323,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.26.1
+forest-filecoin 0.27.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -669,7 +669,8 @@ Usage: forest-cli state <COMMAND>
 Commands:
   fetch
   compute
-  help     Print this message or the help of the given subcommand(s)
+  read-state  Read the state of an actor
+  help        Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -994,7 +995,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.26.1
+forest-filecoin 0.27.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
