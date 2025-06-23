@@ -35,6 +35,7 @@ jobs:
           branch: leshy/update-lotus-version
           token: ${{ secrets.ACTIONS_PAT }}
           commit-message: Update Lotus dependency
+          sign-commits: true
           title: "[automated] Update Lotus version in API tests"
           body: |
             ### Changes
