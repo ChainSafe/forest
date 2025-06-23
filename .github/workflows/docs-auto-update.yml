@@ -21,12 +21,18 @@ jobs:
       - run: corepack enable
       - run: yarn --immutable
       - run: yarn md-fmt
+      # This is needed in order to have the commits signed.
+      - uses: actions/create-github-app-token@v1
+        id: generate-token
+        with:
+          app-id: ${{ secrets.LESHY_APP_ID }}
+          private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
           base: main
           branch: leshy/update-forest-docs
-          token: ${{ secrets.ACTIONS_PAT }}
+          token: ${{ steps.generate-token.outputs.token }}
           commit-message: Update Forest CLI docs
           sign-commits: true
           title: "[automated] Update Forest CLI docs"
