@@ -29,7 +29,7 @@ jobs:
             echo "Lotus version is already up to date"
           fi
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: generate-token
         with:
           app-id: ${{ secrets.LESHY_APP_ID }}
