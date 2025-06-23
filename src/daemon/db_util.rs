@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
+use crate::db::car::forest::{
+    FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
+};
 use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
 use crate::networks::Height;
@@ -36,7 +38,7 @@ use crate::blocks::TipsetKey;
 #[cfg(doc)]
 use cid::Cid;
 
-/// Loads all `.forest.car.zst` snapshots and cleanup unknown files (e.g. partially exported snapshot without proper cleanup)
+/// Loads all `.forest.car.zst` snapshots and cleanup stale `.forest.car.zst.tmp` files.
 pub fn load_all_forest_cars_with_cleanup<T>(
     store: &ManyCar<T>,
     forest_car_db_dir: &Path,
@@ -80,14 +82,14 @@ fn load_all_forest_cars_internal<T>(
                 // Only delete files that appear to be incomplete car DB files
                 // Check if the file has a pattern indicating it's a temporary or partial export
                 let file_name = file.file_name().unwrap_or_default().to_string_lossy();
-                let is_likely_temp_file = file_name.starts_with(".tmp");
+                let is_likely_temp_file = file_name.ends_with(TEMP_FOREST_CAR_FILE_EXTENSION);
                 if is_likely_temp_file {
                     match std::fs::remove_file(&file) {
                         Ok(_) => {
-                            warn!("Deleted invalid car DB at {}", file.display());
+                            info!("Deleted temp car DB at {}", file.display());
                         }
                         Err(e) => {
-                            warn!("Failed to delete invalid car DB at {}: {e}", file.display());
+                            warn!("Failed to delete temp car DB at {}: {e}", file.display());
                         }
                     }
                 }
@@ -146,8 +148,7 @@ pub async fn import_chain_as_forest_car(
     let move_or_copy = |mode: ImportMode| {
         let forest_car_db_path = forest_car_db_path.clone();
         async move {
-            let downloaded_car_temp_path =
-                tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
+            let downloaded_car_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
             if let Ok(url) = Url::parse(&from_path.display().to_string()) {
                 download_to(
                     &url,
@@ -169,8 +170,7 @@ pub async fn import_chain_as_forest_car(
                 downloaded_car_temp_path.persist(&forest_car_db_path)?;
             } else {
                 // Use another temp file to make sure all final `.forest.car.zst` files are complete and valid.
-                let forest_car_db_temp_path =
-                    tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
+                let forest_car_db_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
                 transcode_into_forest_car(&downloaded_car_temp_path, &forest_car_db_temp_path)
                     .await?;
                 forest_car_db_temp_path.persist(&forest_car_db_path)?;
