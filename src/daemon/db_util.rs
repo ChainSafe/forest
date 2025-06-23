@@ -15,6 +15,7 @@ use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -56,20 +57,26 @@ fn load_all_forest_cars_internal<T>(
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
     }
-    for entry in WalkDir::new(forest_car_db_dir)
+    for file in WalkDir::new(forest_car_db_dir)
         .max_depth(1)
         .into_iter()
-        .flatten()
+        .filter_map(|e| {
+            e.ok().and_then(|e| {
+                if e.file_type().is_file() {
+                    Some(e.into_path())
+                } else {
+                    None
+                }
+            })
+        })
     {
-        if let Some(filename) = entry.file_name().to_str() {
+        if let Some(filename) = file.file_name().and_then(OsStr::to_str) {
             if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                let file = entry.into_path();
                 let car = ForestCar::try_from(file.as_path())
                     .with_context(|| format!("Error loading car DB at {}", file.display()))?;
                 store.read_only(car.into())?;
                 debug!("Loaded car DB at {}", file.display());
             } else if cleanup {
-                let file = entry.into_path();
                 match std::fs::remove_file(&file) {
                     Ok(_) => {
                         warn!("Deleted invalid car DB at {}", file.display());
