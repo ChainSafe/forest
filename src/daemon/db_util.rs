@@ -77,12 +77,18 @@ fn load_all_forest_cars_internal<T>(
                 store.read_only(car.into())?;
                 debug!("Loaded car DB at {}", file.display());
             } else if cleanup {
-                match std::fs::remove_file(&file) {
-                    Ok(_) => {
-                        warn!("Deleted invalid car DB at {}", file.display());
-                    }
-                    Err(e) => {
-                        warn!("Failed to delete invalid car DB at {}: {e}", file.display());
+                // Only delete files that appear to be incomplete car DB files
+                // Check if the file has a pattern indicating it's a temporary or partial export
+                let file_name = file.file_name().unwrap_or_default().to_string_lossy();
+                let is_likely_temp_file = file_name.starts_with(".tmp");
+                if is_likely_temp_file {
+                    match std::fs::remove_file(&file) {
+                        Ok(_) => {
+                            warn!("Deleted invalid car DB at {}", file.display());
+                        }
+                        Err(e) => {
+                            warn!("Failed to delete invalid car DB at {}: {e}", file.display());
+                        }
                     }
                 }
             }
