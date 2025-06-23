@@ -7,7 +7,7 @@ use crate::cli_shared::chain_path;
 use crate::cli_shared::cli::CliOpts;
 use crate::daemon::asyncify;
 use crate::daemon::bundle::load_actor_bundles;
-use crate::daemon::db_util::load_all_forest_cars;
+use crate::daemon::db_util::load_all_forest_cars_with_cleanup;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::parity_db::ParityDb;
@@ -202,7 +202,7 @@ async fn setup_db(opts: &CliOpts, config: &Config) -> anyhow::Result<(Arc<DbType
     let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
-    load_all_forest_cars(&db, &forest_car_db_dir)?;
+    load_all_forest_cars_with_cleanup(&db, &forest_car_db_dir)?;
     if config.client.load_actors && !opts.stateless {
         load_actor_bundles(&db, config.chain()).await?;
     }

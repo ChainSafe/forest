@@ -22,7 +22,7 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
@@ -35,28 +35,51 @@ use crate::blocks::TipsetKey;
 #[cfg(doc)]
 use cid::Cid;
 
+/// Loads all `.forest.car.zst` snapshots and cleanup unknown files (e.g. partially exported snapshot without proper cleanup)
+pub fn load_all_forest_cars_with_cleanup<T>(
+    store: &ManyCar<T>,
+    forest_car_db_dir: &Path,
+) -> anyhow::Result<()> {
+    load_all_forest_cars_internal(store, forest_car_db_dir, true)
+}
+
+/// Loads all `.forest.car.zst` snapshots
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
+    load_all_forest_cars_internal(store, forest_car_db_dir, false)
+}
+
+fn load_all_forest_cars_internal<T>(
+    store: &ManyCar<T>,
+    forest_car_db_dir: &Path,
+    cleanup: bool,
+) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
     }
-    for file in WalkDir::new(forest_car_db_dir)
+    for entry in WalkDir::new(forest_car_db_dir)
         .max_depth(1)
         .into_iter()
-        .filter_map(|entry| {
-            if let Ok(entry) = entry {
-                if let Some(filename) = entry.file_name().to_str() {
-                    if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                        return Some(entry.into_path());
+        .flatten()
+    {
+        if let Some(filename) = entry.file_name().to_str() {
+            if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
+                let file = entry.into_path();
+                let car = ForestCar::try_from(file.as_path())
+                    .with_context(|| format!("Error loading car DB at {}", file.display()))?;
+                store.read_only(car.into())?;
+                debug!("Loaded car DB at {}", file.display());
+            } else if cleanup {
+                let file = entry.into_path();
+                match std::fs::remove_file(&file) {
+                    Ok(_) => {
+                        warn!("Deleted invalid car DB at {}", file.display());
+                    }
+                    Err(e) => {
+                        warn!("Failed to delete invalid car DB at {}: {e}", file.display());
                     }
                 }
             }
-            None
-        })
-    {
-        let car = ForestCar::try_from(file.as_path())
-            .with_context(|| format!("Error loading car DB at {}", file.display()))?;
-        store.read_only(car.into())?;
-        debug!("Loaded car DB at {}", file.display());
+        }
     }
 
     Ok(())
