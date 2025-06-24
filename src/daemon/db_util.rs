@@ -64,7 +64,7 @@ fn load_all_forest_cars_internal<T>(
         .into_iter()
         .filter_map(|e| {
             e.ok().and_then(|e| {
-                if e.file_type().is_file() {
+                if !e.file_type().is_dir() {
                     Some(e.into_path())
                 } else {
                     None
@@ -91,6 +91,8 @@ fn load_all_forest_cars_internal<T>(
             }
         }
     }
+
+    tracing::info!("Loaded {} CARs", store.len());
 
     Ok(())
 }
