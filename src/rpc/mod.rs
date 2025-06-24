@@ -690,7 +690,7 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
         components: Some(openrpc_types::Components {
             schemas: Some(
                 generator
-                    .take_definitions(true)
+                    .take_definitions(false)
                     .into_iter()
                     .filter_map(|(k, v)| {
                         if let Ok(v) = Schema::try_from(v) {
