@@ -22,7 +22,7 @@
     "@docusaurus/preset-classic": "^3.8.1",
     "@docusaurus/theme-mermaid": "^3.8.1",
     "@easyops-cn/docusaurus-search-local": "^0.51.1",
-    "@metamask/docusaurus-openrpc": "^0.4.1",
+    "@open-rpc/docs-react": "^2.1.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.6.0",
     "prettier": "^3.5.3",
