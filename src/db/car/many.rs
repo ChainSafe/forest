@@ -145,6 +145,11 @@ impl<WriterT> ManyCar<WriterT> {
             .map(|w| AnyCar::heaviest_tipset(&w.car))
             .context("ManyCar store doesn't have a heaviest tipset")?
     }
+
+    /// Number of read-only `CAR`s
+    pub fn len(&self) -> usize {
+        self.read_only.read().len()
+    }
 }
 
 impl<ReaderT: super::RandomAccessFileReader> TryFrom<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
