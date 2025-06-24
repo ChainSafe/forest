@@ -152,9 +152,9 @@ num-derive = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1"
-nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars08"] }
+nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 once_cell = "1"
-openrpc-types = "0.4"
+openrpc-types = "0.5"
 parity-db = { version = "0.5", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4"
@@ -178,7 +178,7 @@ rlimit = "0.10"
 rlp = "0.6"
 rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
-schemars = { version = "0.8", features = ["chrono", "uuid1"] }
+schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }

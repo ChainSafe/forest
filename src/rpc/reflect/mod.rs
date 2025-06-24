@@ -32,7 +32,7 @@ use http::Uri;
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
-use schemars::{JsonSchema, r#gen::SchemaGenerator, schema::Schema};
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{
     Deserialize,
     de::{Error as _, Unexpected},
