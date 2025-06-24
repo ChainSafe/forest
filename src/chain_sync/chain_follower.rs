@@ -725,7 +725,11 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     }
 
     fn mark_validated_tipset(&mut self, tipset: Arc<FullTipset>, is_proposed_head: bool) {
-        assert!(self.is_validated(&tipset), "Tipset must be validated");
+        if !self.is_validated(&tipset) {
+            tracing::error!(epoch = %tipset.epoch(), tsk = %tipset.key(), "Tipset must be validated");
+            return;
+        }
+
         self.tipsets.remove(tipset.key());
         let tipset = tipset.deref().clone().into_tipset();
         // cs.put_tipset requires state and doesn't work in stateless mode
