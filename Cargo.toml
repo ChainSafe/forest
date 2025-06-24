@@ -152,7 +152,7 @@ num-derive = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1"
-nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars"] }
+nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars08"] }
 once_cell = "1"
 openrpc-types = "0.4"
 parity-db = { version = "0.5", default-features = false }
@@ -253,7 +253,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.287"
+ra_ap_syntax = "0.0.289"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
