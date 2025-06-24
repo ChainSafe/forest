@@ -4,9 +4,3 @@ sidebar_position: 4
 ---
 
 [View In Schema Explorer](https://playground.open-rpc.org/?uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false&uiSchema[appBar][ui:splitView]=false&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:title]=RPC%20Schema&schemaUrl=https://raw.githubusercontent.com/ChainSafe/forest/main/docs/docs/users/openrpc.json)
-
-<iframe
-  width="120%"
-  height="600px"
-  src="https://playground.open-rpc.org/?uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false&uiSchema[appBar][ui:splitView]=false&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:title]=RPC%20Schema&schemaUrl=https://raw.githubusercontent.com/ChainSafe/forest/main/docs/docs/users/openrpc.json"
-></iframe>
