@@ -12,6 +12,7 @@ use fvm_ipld_encoding::Error as ForestEncodingError;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
 
+pub mod slasher;
 mod validation;
 mod weight;
 
