@@ -6,6 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
+use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::{chain_path, read_config};
 use crate::daemon::db_util::backfill_db;
 use crate::daemon::db_util::load_all_forest_cars;
@@ -28,9 +29,9 @@ pub enum IndexCommands {
         /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
-        /// The starting tipset epoch for back-filling (inclusive)
+        /// The starting tipset epoch for back-filling (inclusive), defaults to chain head
         #[arg(long)]
-        from: ChainEpoch,
+        from: Option<ChainEpoch>,
         /// The ending tipset epoch for back-filling (inclusive)
         #[arg(long)]
         to: ChainEpoch,
@@ -50,16 +51,12 @@ impl IndexCommands {
 
                 let chain_data_path = chain_path(&config);
                 let db_root_dir = db_root(&chain_data_path)?;
-                println!("Database path: {}", db_root_dir.display());
-                println!("From epoch:    {}", from);
-                println!("To epoch:      {}", to);
 
                 let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config())?);
                 let db = Arc::new(ManyCar::new(db_writer.clone()));
                 let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
 
                 load_all_forest_cars(&db, &forest_car_db_dir)?;
-                let head_ts = db.heaviest_tipset()?;
 
                 let chain_config = Arc::new(handle_chain_config(&config.chain)?);
                 let genesis_header = read_genesis_header(
@@ -80,9 +77,24 @@ impl IndexCommands {
 
                 let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
 
+                let head_ts = chain_store.heaviest_tipset();
+
+                println!("Database path: {}", db_root_dir.display());
+                println!("From epoch:    {}", from.unwrap_or_else(|| head_ts.epoch()));
+                println!("To epoch:      {}", to);
                 println!("Head epoch:    {}", head_ts.epoch());
 
-                backfill_db(&state_manager, &head_ts, *to).await?;
+                let from_ts = if let Some(from) = from {
+                    chain_store.chain_index.tipset_by_height(
+                        *from,
+                        head_ts,
+                        ResolveNullTipset::TakeOlder,
+                    )?
+                } else {
+                    head_ts
+                };
+
+                backfill_db(&state_manager, &from_ts, *to).await?;
 
                 Ok(())
             }
