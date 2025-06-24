@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [#5771](https://github.com/ChainSafe/forest/issues/5771) Update OpenRPC schemars by bumping `schemars` create.
+
 ### Removed
 
 ### Fixed
