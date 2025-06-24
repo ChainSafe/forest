@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
@@ -33,10 +34,15 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
 use crate::tool::subcommands::api_cmd::NetworkChain;
+use crate::tool::subcommands::api_cmd::report::{
+    ApiTestReport, FailedTest, MethodReport, MethodTestStatus, PerformanceMetrics, SuccessfulTest,
+    generate_diff, initial_report,
+};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, rpc};
-use ahash::HashMap;
+use ahash::{HashMap, HashMapExt};
 use bls_signatures::Serialize as _;
+use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
@@ -54,12 +60,11 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
+use std::time::Instant;
 use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use tabled::{builder::Builder, settings::Style};
 use tokio::sync::Semaphore;
 use tracing::debug;
-
-use super::{CreateTestsArgs, RunIgnored, TestCriteriaOverride};
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
@@ -125,8 +130,8 @@ impl TestSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct TestDump {
     pub request: rpc::Request,
-    pub forest_response: Result<serde_json::Value, String>,
-    pub lotus_response: Result<serde_json::Value, String>,
+    pub forest_response: Result<Value, String>,
+    pub lotus_response: Result<Value, String>,
 }
 
 impl std::fmt::Display for TestDump {
@@ -176,6 +181,8 @@ struct TestResult {
     lotus_status: TestSummary,
     /// Optional data dump if either status was invalid.
     test_dump: Option<TestDump>,
+    /// Duration of the RPC call.
+    duration: Duration,
 }
 
 pub(super) enum PolicyOnRejected {
@@ -321,6 +328,7 @@ impl RpcTest {
     }
 
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        let start = Instant::now();
         let forest_resp = forest.call(self.request.clone()).await;
         let forest_response = forest_resp.as_ref().map_err(|e| e.to_string()).cloned();
         let lotus_resp = lotus.call(self.request.clone()).await;
@@ -380,6 +388,7 @@ impl RpcTest {
                 forest_response,
                 lotus_response,
             }),
+            duration: start.elapsed(),
         }
     }
 }
@@ -2227,6 +2236,8 @@ pub(super) async fn run_tests(
     fail_fast: bool,
     dump_dir: Option<PathBuf>,
     test_criteria_overrides: &[TestCriteriaOverride],
+    report_path: Option<PathBuf>,
+    report_mode: ReportMode,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
@@ -2238,6 +2249,12 @@ pub(super) async fn run_tests(
     } else {
         FilterList::default().allow(filter.clone())
     };
+
+    let test_start_time = Instant::now();
+    let mut method_reports = initial_report(&report_path, &filter_list);
+
+    // Track timing for each method
+    let mut method_timings: HashMap<String, Vec<u128>> = HashMap::new();
 
     // deduplicate tests by their hash-able representations
     for test in tests.into_iter().unique_by(
@@ -2289,6 +2306,7 @@ pub(super) async fn run_tests(
     let mut success_results = HashMap::default();
     let mut failed_results = HashMap::default();
     let mut fail_details = Vec::new();
+
     while let Some(Ok((test, test_result))) = futures.next().await {
         let method_name = test.request.method_name;
         let forest_status = test_result.forest_status;
@@ -2314,6 +2332,80 @@ pub(super) async fn run_tests(
             _ => false,
         };
 
+        // Update method reports if report generation is enabled
+        if let Some(ref mut reports) = method_reports {
+            if let Some(report) = reports.get_mut(method_name.as_ref()) {
+                // Update test status
+                match &mut report.status {
+                    MethodTestStatus::NotTested | MethodTestStatus::Filtered => {
+                        report.status = MethodTestStatus::Tested {
+                            total_count: 1,
+                            success_count: if success { 1 } else { 0 },
+                            failure_count: if success { 0 } else { 1 },
+                        };
+                    }
+                    MethodTestStatus::Tested {
+                        total_count,
+                        success_count,
+                        failure_count,
+                        ..
+                    } => {
+                        *total_count += 1;
+                        if success {
+                            *success_count += 1;
+                        } else {
+                            *failure_count += 1;
+                        }
+                    }
+                }
+
+                // Track timing
+                method_timings
+                    .entry(method_name.to_string())
+                    .or_default()
+                    .push(test_result.duration.as_millis());
+
+                if success {
+                    // Add successful test details (only in Full mode)
+                    if matches!(report_mode, ReportMode::Full) {
+                        if let Some(ref test_dump) = test_result.test_dump {
+                            if let (Ok(_), Ok(_)) =
+                                (&test_dump.forest_response, &test_dump.lotus_response)
+                            {
+                                report.success_test_params.push(SuccessfulTest {
+                                    request_params: test.request.params.clone(),
+                                    forest_status: format!("{:?}", forest_status),
+                                    lotus_status: format!("{:?}", lotus_status), // Fixed: was forest_status
+                                    execution_duration_ms: test_result.duration.as_millis(),
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    // Add failure details (always included)
+                    if matches!(report_mode, ReportMode::Full | ReportMode::FailureOnly) {
+                        if let Some(ref test_dump) = test_result.test_dump {
+                            let response_diff =
+                                match (&test_dump.forest_response, &test_dump.lotus_response) {
+                                    (Ok(forest_json), Ok(lotus_json)) => {
+                                        Some(generate_diff(forest_json, lotus_json))
+                                    }
+                                    _ => None,
+                                };
+
+                            report.failed_test_params.push(FailedTest {
+                                request_params: test.request.params.clone(),
+                                forest_status: format!("{:?}", forest_status),
+                                lotus_status: format!("{:?}", forest_status),
+                                response_diff,
+                                execution_duration_ms: test_result.duration.as_millis(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
             let dir = dump_dir.join(if success { "valid" } else { "invalid" });
             if !dir.is_dir() {
@@ -2327,7 +2419,7 @@ pub(super) async fn run_tests(
                     .as_ref()
                     .replace(".", "_")
                     .to_lowercase(),
-                chrono::Utc::now().timestamp_micros()
+                Utc::now().timestamp_micros()
             );
             std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
         }
@@ -2352,6 +2444,29 @@ pub(super) async fn run_tests(
             break;
         }
     }
+
+    // Generate a final report with performance metrics
+    if let Some((path, mut reports)) = report_path.zip(method_reports) {
+        // Calculate performance metrics for each method
+        for (method_name, timings) in method_timings {
+            if let Some(report) = reports.get_mut(&method_name) {
+                report.performance = PerformanceMetrics::from_durations(&timings);
+            }
+        }
+
+        let mut methods: Vec<MethodReport> = reports.into_values().collect();
+        methods.sort_by(|a, b| a.name.cmp(&b.name));
+
+        let report = ApiTestReport {
+            execution_datetime_utc: Utc::now().to_rfc3339(),
+            total_duration_secs: test_start_time.elapsed().as_secs(),
+            methods,
+        };
+
+        /// Save the report to a file in the JSON format.
+        std::fs::write(path, serde_json::to_string_pretty(&report)?)?;
+    }
+
     print_error_details(&fail_details);
     print_test_results(&success_results, &failed_results);
 

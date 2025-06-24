@@ -323,6 +323,23 @@ pub mod prelude {
     for_each_rpc_method!(export);
 }
 
+/// Collects all the RPC method names and permission available in the Forest
+pub fn collect_rpc_method_info() -> Vec<(&'static str, Permission)> {
+    use crate::rpc::RpcMethod;
+
+    let mut methods = Vec::new();
+
+    macro_rules! add_method {
+        ($ty:ty) => {
+            methods.push((<$ty>::NAME, <$ty>::PERMISSION));
+        };
+    }
+
+    for_each_rpc_method!(add_method);
+
+    methods
+}
+
 /// All the methods live in their own folder
 ///
 /// # Handling types
