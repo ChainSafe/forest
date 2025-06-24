@@ -93,8 +93,10 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
                     logs
                 }
             };
-            if sender.send(logs).is_err() {
-                break;
+            if !logs.is_empty() {
+                if sender.send(logs).is_err() {
+                    break;
+                }
             }
         }
     });
