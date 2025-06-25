@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::blocks::CachingBlockHeader;
+use crate::rpc::eth::pubsub::LogFilter;
 use anyhow::ensure;
 use ipld_core::serde::SerdeError;
 use jsonrpsee::core::traits::IdProvider;
@@ -525,6 +526,18 @@ pub struct EthFilterSpec {
     pub block_hash: Option<EthHash>,
 }
 lotus_json_with_self!(EthFilterSpec);
+
+impl From<LogFilter> for EthFilterSpec {
+    fn from(filter: LogFilter) -> Self {
+        EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            block_hash: None,
+            address: filter.address,
+            topics: filter.topics,
+        }
+    }
+}
 
 /// `EthFilterResult` represents the response from executing a filter:
 /// - A list of block hashes
