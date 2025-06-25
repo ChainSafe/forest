@@ -31,11 +31,13 @@ use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
-use parking_lot::{Mutex, RwLock as SyncRwLock};
+use parking_lot::{Mutex, RwLock as SyncRwLock, RwLock};
+use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::message_pool::{
+    MpoolEvent,
     config::MpoolConfig,
     errors::Error,
     head_change, metrics,
@@ -193,12 +195,23 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+    /// Channel for broadcasting pending transactions
+    event_publisher: Publisher<MpoolEvent>,
 }
 
 impl<T> MessagePool<T>
 where
     T: Provider,
 {
+    /// returns message pool's events publisher
+    pub fn events_publisher(&self) -> &Publisher<MpoolEvent> {
+        &self.event_publisher
+    }
+
+    fn get_events_publisher(&self) -> &Publisher<MpoolEvent> {
+        &self.event_publisher
+    }
+
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().push(m.from());
@@ -323,6 +336,7 @@ where
             self.pending.as_ref(),
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
+            self.get_events_publisher().clone(),
         )
     }
 
@@ -476,6 +490,7 @@ where
         let block_delay = chain_config.block_delay_secs;
 
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
+        let (event_publisher, _) = broadcast::channel(1000);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -490,6 +505,7 @@ where
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
+            event_publisher,
         };
 
         mp.load_local()?;
@@ -503,7 +519,7 @@ where
 
         let cur_tipset = mp.cur_tipset.clone();
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
-
+        let event_publisher = Arc::new(mp.event_publisher.clone());
         // Reacts to new HeadChanges
         services.spawn(async move {
             loop {
@@ -525,6 +541,7 @@ where
                             cur.as_ref(),
                             rev,
                             app,
+                            event_publisher.as_ref(),
                         )
                         .await
                         .context("Error changing head")?;
@@ -574,6 +591,11 @@ where
         });
         Ok(mp)
     }
+
+    /// Subscribe to mempool events
+    pub fn subscribe_events(&self) -> broadcast::Receiver<MpoolEvent> {
+        self.event_publisher.subscribe()
+    }
 }
 
 // Helpers for MessagePool
@@ -588,6 +610,7 @@ pub(in crate::message_pool) fn add_helper<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
+    event_publisher: Publisher<MpoolEvent>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -612,8 +635,11 @@ where
         None => {
             let mut mset = MsgSet::new(sequence);
             let from = msg.from();
-            mset.add_trusted(api, msg)?;
+            mset.add_trusted(api, msg.clone())?;
             pending.insert(from, mset);
+            if event_publisher.send(MpoolEvent::Add(msg)).is_err() {
+                debug!("did not publish mpool changes, no active receivers");
+            };
         }
     }
 
@@ -659,6 +685,7 @@ pub fn remove(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     applied: bool,
+    event_publisher: Publisher<MpoolEvent>,
 ) -> Result<(), Error> {
     let mut pending = pending.write();
     let mset = if let Some(mset) = pending.get_mut(from) {
@@ -671,6 +698,15 @@ pub fn remove(
 
     if mset.msgs.is_empty() {
         pending.remove(from);
+        if event_publisher
+            .send(MpoolEvent::Remove {
+                from: *from,
+                nonce: sequence,
+            })
+            .is_err()
+        {
+            debug!("did not publish mpool changes, no active receivers");
+        };
     }
 
     Ok(())
