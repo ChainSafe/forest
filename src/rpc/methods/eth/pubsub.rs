@@ -199,7 +199,24 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
                 handle_subscription(logs, sink).await;
             });
         }
-        Subscription::PendingTransactions => (),
+        Subscription::PendingTransactions => {
+            let pending_txs = crate::rpc::chain::pending_txs(&ctx);
+
+            tokio::spawn(async move {
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
+
+                tracing::trace!(
+                    "Subscription task started (id: {:?})",
+                    sink.subscription_id()
+                );
+
+                handle_subscription(pending_txs, sink).await;
+            });
+        }
+        _ => (),
     }
 
     Ok(())
@@ -242,31 +259,3 @@ where
 
     tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
 }
-
-// fn pending_txs<DB: Blockstore + Sync + Send + 'static>(
-//     ctx: &Ctx<DB>,
-// ) -> Subscriber<Vec<SignedMessage>> {
-//     let (sender, receiver) = broadcast::channel(100);
-
-//     let mut subscriber = ctx.mpool.api.subscribe_head_changes();
-
-//     let task_mpool = ctx.mpool.clone();
-
-//     tokio::spawn(async move {
-//         while let Ok(v) = subscriber.recv().await {
-//             let messages = match v {
-//                 HeadChange::Apply(_) => {
-//                     let local_msgs = task_mpool.local_msgs.write();
-//                     let pending = local_msgs.iter().cloned().collect::<Vec<SignedMessage>>();
-//                     pending
-//                 }
-//             };
-
-//             if sender.send(messages).is_err() {
-//                 break;
-//             }
-//         }
-//     });
-
-//     receiver
-// }

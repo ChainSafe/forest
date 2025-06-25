@@ -8,14 +8,9 @@
 
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
+use super::{msg_pool::MessagePool, provider::Provider};
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{Message, SignedMessage};
-use crate::shim::{address::Address, econ::TokenAmount};
-use ahash::{HashMap, HashMapExt};
-use parking_lot::RwLock;
-use rand::prelude::SliceRandom;
-
-use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
     Error, add_to_selected_msgs,
     msg_chain::{Chains, NodeKey, create_message_chains},
@@ -23,6 +18,12 @@ use crate::message_pool::{
     msgpool::MIN_GAS,
     remove_from_selected_msgs,
 };
+use crate::shim::{address::Address, econ::TokenAmount};
+use ahash::{HashMap, HashMapExt};
+use parking_lot::RwLock;
+use rand::prelude::SliceRandom;
+use rayon::broadcast;
+use tokio::sync::broadcast;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
@@ -683,10 +684,17 @@ where
                     pending,
                     msg.sequence(),
                     rmsgs.borrow_mut(),
+                    &broadcast::channel(1).0.clone(), // Ignore this added just for fooling the compiler
                 )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from,
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                    &broadcast::channel(1).0.clone(),  // Ignore this added just for fooling the compiler
+                )?;
             }
         }
     }
@@ -695,12 +703,12 @@ where
 
 #[cfg(test)]
 mod test_selection {
-    use std::sync::Arc;
-
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message::Message;
     use crate::shim::crypto::SignatureType;
+    use std::sync::Arc;
+    use tokio::sync::broadcast;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -749,6 +757,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -759,6 +768,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -808,6 +818,7 @@ mod test_selection {
         // now we make a block with all the messages and advance the chain
         let b2 = mpool.api.next_block();
         mpool.api.set_block_messages(&b2, msgs);
+        let (event_publisher, _) = broadcast::channel(1);
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -817,6 +828,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b2)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -912,6 +924,8 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -921,6 +935,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -992,6 +1007,8 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
+
         head_change(
             mpool.api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -1001,6 +1018,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -1085,6 +1103,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -1095,6 +1114,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -1164,6 +1184,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -1174,6 +1195,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(b1)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -1281,6 +1303,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -1291,6 +1314,7 @@ mod test_selection {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(block)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();

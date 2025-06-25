@@ -16,6 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::message_pool::MpoolEvent;
 use crate::rpc::eth::types::ApiHeaders;
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
@@ -63,7 +64,9 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
     receiver
 }
 
-use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
+use crate::rpc::eth::{
+    EthLog, eth_logs_with_filter, eth_tx_from_signed_eth_message, types::EthFilterSpec,
+};
 
 /// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
 /// |-------------|----------------------------|------------------------------|--------------------------------------------|
@@ -92,6 +95,42 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
             };
             if !logs.is_empty() && sender.send(logs).is_err() {
                 break;
+            }
+        }
+    });
+
+    receiver
+}
+
+pub(crate) fn pending_txs<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+) -> Subscriber<Vec<String>> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    // Subscribe to mempool events
+    let mut event_receiver = ctx.mpool.subscribe_events();
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+
+    tokio::spawn(async move {
+        while let Ok(event) = event_receiver.recv().await {
+            match event {
+                MpoolEvent::Add(msg) => {
+                    // Convert to Ethereum transaction hash
+                    match eth_tx_from_signed_eth_message(&msg, eth_chain_id) {
+                        Ok((_, tx)) => {
+                            let hash_str = format!("0x{:x}", tx.eth_hash().unwrap());
+                            if sender.send(vec![hash_str]).is_err() {
+                                break; // Receiver dropped
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!("Failed to convert message to eth hash: {}", e);
+                        }
+                    }
+                }
+                MpoolEvent::Remove { .. } => {
+                    // Ignore remove events for pending transactions
+                }
             }
         }
     });

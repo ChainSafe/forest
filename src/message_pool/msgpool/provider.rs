@@ -21,8 +21,10 @@ use crate::utils::db::CborStoreExt;
 use async_trait::async_trait;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use tokio::sync::broadcast;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
+use crate::message_pool::MpoolEvent;
 use crate::message_pool::errors::Error;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
@@ -32,6 +34,7 @@ use crate::message_pool::errors::Error;
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
+    fn subscribe_mpool_changes(&self) -> Subscriber<MpoolEvent>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&self) -> Arc<Tipset>;
     /// Add a message to the `MpoolProvider`, return either Cid or Error
@@ -64,6 +67,7 @@ pub trait Provider {
 /// `mpool` RPC.
 pub struct MpoolRpcProvider<DB> {
     subscriber: Publisher<HeadChange>,
+    tx_publisher: Publisher<MpoolEvent>,
     sm: Arc<StateManager<DB>>,
 }
 
@@ -72,7 +76,12 @@ where
     DB: Blockstore,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self {
-        MpoolRpcProvider { subscriber, sm }
+        let (tx_publisher, _) = broadcast::channel(1000);
+        MpoolRpcProvider {
+            subscriber,
+            sm,
+            tx_publisher,
+        }
     }
 }
 
@@ -83,6 +92,10 @@ where
 {
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()
+    }
+
+    fn subscribe_mpool_changes(&self) -> Subscriber<MpoolEvent> {
+        self.tx_publisher.subscribe()
     }
 
     fn get_heaviest_tipset(&self) -> Arc<Tipset> {

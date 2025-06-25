@@ -26,10 +26,13 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
 use crate::message_pool::{
+    MpoolEvent,
     msg_chain::{Chains, create_message_chains},
     msg_pool::{MsgSet, add_helper, remove},
     provider::Provider,
 };
+
+use tokio::sync::broadcast::{self, Sender as Publisher, Sender};
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -214,6 +217,7 @@ pub async fn head_change<T>(
     cur_tipset: &Mutex<Arc<Tipset>>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
+    event_publisher: &Publisher<MpoolEvent>,
 ) -> Result<(), Error>
 where
     T: Provider + 'static,
@@ -249,13 +253,20 @@ where
                     pending,
                     msg.sequence(),
                     rmsgs.borrow_mut(),
+                    event_publisher,
                 )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from,
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                    event_publisher,
+                )?;
                 if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
@@ -272,7 +283,14 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
+            if let Err(e) = add_helper(
+                api,
+                bls_sig_cache,
+                pending,
+                msg,
+                sequence,
+                event_publisher.clone(),
+            ) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
         }
@@ -288,15 +306,16 @@ pub(in crate::message_pool) fn remove_from_selected_msgs(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+    event_publisher: &Publisher<MpoolEvent>,
 ) -> Result<(), Error> {
     if let Some(temp) = rmsgs.get_mut(from) {
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
-            remove(from, pending, sequence, true)?;
+            remove(from, pending, sequence, true, event_publisher.clone())?;
         }
     } else {
-        remove(from, pending, sequence, true)?;
+        remove(from, pending, sequence, true, event_publisher.clone())?;
     }
     Ok(())
 }
@@ -469,6 +488,8 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -478,6 +499,7 @@ pub mod tests {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -537,6 +559,8 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let (event_publisher, _) = broadcast::channel(1);
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -546,6 +570,7 @@ pub mod tests {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(a)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -558,6 +583,7 @@ pub mod tests {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -568,6 +594,7 @@ pub mod tests {
             cur_tipset.as_ref(),
             Vec::new(),
             vec![Tipset::from(&b)],
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
@@ -575,6 +602,7 @@ pub mod tests {
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 0);
+        let (event_publisher, _) = broadcast::channel(1);
 
         head_change(
             api.as_ref(),
@@ -585,6 +613,7 @@ pub mod tests {
             cur_tipset.as_ref(),
             vec![Tipset::from(b)],
             Vec::new(),
+            Arc::new(event_publisher.clone()).as_ref(),
         )
         .await
         .unwrap();
