@@ -15,6 +15,7 @@ use std::fmt::Debug;
 pub struct InitExecParamsLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "CodeCID")]
     pub code_cid: Cid,
 
     #[schemars(with = "LotusJson<RawBytes>")]

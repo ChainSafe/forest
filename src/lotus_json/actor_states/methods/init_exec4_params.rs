@@ -15,6 +15,7 @@ use std::fmt::Debug;
 pub struct InitExec4ParamsLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "CodeCID")]
     pub code_cid: Cid,
 
     #[schemars(with = "LotusJson<RawBytes>")]
@@ -23,7 +24,7 @@ pub struct InitExec4ParamsLotusJson {
 
     #[schemars(with = "LotusJson<RawBytes>")]
     #[serde(with = "crate::lotus_json")]
-    pub subaddress: RawBytes,
+    pub sub_address: RawBytes,
 }
 
 macro_rules! impl_lotus_json_for_init_exec4_params {
@@ -57,7 +58,7 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
                         Self::LotusJson {
                             code_cid: self.code_cid,
                             constructor_params: self.constructor_params,
-                            subaddress: self.subaddress,
+                            sub_address: self.subaddress,
                         }
                     }
 
@@ -65,7 +66,7 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
                         Self {
                             code_cid: json.code_cid,
                             constructor_params: json.constructor_params,
-                            subaddress: json.subaddress,
+                            subaddress: json.sub_address,
                         }
                     }
                 }
