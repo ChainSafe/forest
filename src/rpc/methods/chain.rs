@@ -86,17 +86,12 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let logs = match v {
-                HeadChange::Apply(ts) => {
-                    let logs = eth_logs_with_filter(&ctx, &ts, filter.clone(), None)
-                        .await
-                        .unwrap();
-                    logs
-                }
+                HeadChange::Apply(ts) => eth_logs_with_filter(&ctx, &ts, filter.clone(), None)
+                    .await
+                    .unwrap(),
             };
-            if !logs.is_empty() {
-                if sender.send(logs).is_err() {
-                    break;
-                }
+            if !logs.is_empty() && sender.send(logs).is_err() {
+                break;
             }
         }
     });
