@@ -34,13 +34,10 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
 use crate::tool::subcommands::api_cmd::NetworkChain;
-use crate::tool::subcommands::api_cmd::report::{
-    ApiTestReport, FailedTest, MethodReport, MethodTestStatus, PerformanceMetrics, SuccessfulTest,
-    generate_diff, initial_report,
-};
+use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, rpc};
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
@@ -60,9 +57,9 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
+use std::path::Path;
 use std::time::Instant;
-use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
-use tabled::{builder::Builder, settings::Style};
+use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 use tracing::debug;
 
@@ -87,7 +84,7 @@ const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-enum TestSummary {
+pub enum TestSummary {
     /// Server spoke JSON-RPC: no such method
     MissingMethod,
     /// Server spoke JSON-RPC: bad request (or other error)
@@ -174,15 +171,16 @@ impl std::fmt::Display for TestDump {
     }
 }
 
-struct TestResult {
+/// Result of running a single RPC test
+pub struct TestResult {
     /// Forest result after calling the RPC method.
-    forest_status: TestSummary,
+    pub forest_status: TestSummary,
     /// Lotus result after calling the RPC method.
-    lotus_status: TestSummary,
+    pub lotus_status: TestSummary,
     /// Optional data dump if either status was invalid.
-    test_dump: Option<TestDump>,
+    pub test_dump: Option<TestDump>,
     /// Duration of the RPC call.
-    duration: Duration,
+    pub duration: Duration,
 }
 
 pub(super) enum PolicyOnRejected {
@@ -2236,7 +2234,7 @@ pub(super) async fn run_tests(
     fail_fast: bool,
     dump_dir: Option<PathBuf>,
     test_criteria_overrides: &[TestCriteriaOverride],
-    report_path: Option<PathBuf>,
+    report_dir: Option<PathBuf>,
     report_mode: ReportMode,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
@@ -2250,11 +2248,8 @@ pub(super) async fn run_tests(
         FilterList::default().allow(filter.clone())
     };
 
-    let test_start_time = Instant::now();
-    let mut method_reports = initial_report(&report_path, &filter_list);
-
-    // Track timing for each method
-    let mut method_timings: HashMap<String, Vec<u128>> = HashMap::new();
+    // Always use ReportBuilder for consistency
+    let mut report_builder = ReportBuilder::new(&filter_list, report_mode);
 
     // deduplicate tests by their hash-able representations
     for test in tests.into_iter().unique_by(
@@ -2303,221 +2298,98 @@ pub(super) async fn run_tests(
         futures.push(future);
     }
 
-    let mut success_results = HashMap::default();
-    let mut failed_results = HashMap::default();
-    let mut fail_details = Vec::new();
+    // If no tests to run after filtering, return early without saving/printing
+    if futures.is_empty() {
+        return Ok(());
+    }
 
     while let Some(Ok((test, test_result))) = futures.next().await {
-        let method_name = test.request.method_name;
-        let forest_status = test_result.forest_status;
-        let lotus_status = test_result.lotus_status;
-        let success = match (&forest_status, &lotus_status) {
-            (TestSummary::Valid, TestSummary::Valid) => true,
-            (TestSummary::Valid, TestSummary::Timeout) => {
-                test_criteria_overrides.contains(&TestCriteriaOverride::ValidAndTimeout)
-            }
-            (TestSummary::Timeout, TestSummary::Timeout) => {
-                test_criteria_overrides.contains(&TestCriteriaOverride::TimeoutAndTimeout)
-            }
-            (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
-                match test.policy_on_rejected {
-                    PolicyOnRejected::Pass => true,
-                    PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
-                    PolicyOnRejected::PassWithQuasiIdenticalError => {
-                        reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        };
+        let method_name = test.request.method_name.clone();
+        let success = evaluate_test_success(&test_result, &test, test_criteria_overrides);
 
-        // Update method reports if report generation is enabled
-        if let Some(ref mut reports) = method_reports {
-            if let Some(report) = reports.get_mut(method_name.as_ref()) {
-                // Update test status
-                match &mut report.status {
-                    MethodTestStatus::NotTested | MethodTestStatus::Filtered => {
-                        report.status = MethodTestStatus::Tested {
-                            total_count: 1,
-                            success_count: if success { 1 } else { 0 },
-                            failure_count: if success { 0 } else { 1 },
-                        };
-                    }
-                    MethodTestStatus::Tested {
-                        total_count,
-                        success_count,
-                        failure_count,
-                        ..
-                    } => {
-                        *total_count += 1;
-                        if success {
-                            *success_count += 1;
-                        } else {
-                            *failure_count += 1;
-                        }
-                    }
-                }
+        report_builder.track_test_result(
+            method_name.as_ref(),
+            success,
+            &test_result,
+            &test.request.params,
+        );
 
-                // Track timing
-                method_timings
-                    .entry(method_name.to_string())
-                    .or_default()
-                    .push(test_result.duration.as_millis());
-
-                if success {
-                    // Add successful test details (only in Full mode)
-                    if matches!(report_mode, ReportMode::Full) {
-                        if let Some(ref test_dump) = test_result.test_dump {
-                            if let (Ok(_), Ok(_)) =
-                                (&test_dump.forest_response, &test_dump.lotus_response)
-                            {
-                                report.success_test_params.push(SuccessfulTest {
-                                    request_params: test.request.params.clone(),
-                                    forest_status: format!("{:?}", forest_status),
-                                    lotus_status: format!("{:?}", lotus_status), // Fixed: was forest_status
-                                    execution_duration_ms: test_result.duration.as_millis(),
-                                });
-                            }
-                        }
-                    }
-                } else {
-                    // Add failure details (always included)
-                    if matches!(report_mode, ReportMode::Full | ReportMode::FailureOnly) {
-                        if let Some(ref test_dump) = test_result.test_dump {
-                            let response_diff =
-                                match (&test_dump.forest_response, &test_dump.lotus_response) {
-                                    (Ok(forest_json), Ok(lotus_json)) => {
-                                        Some(generate_diff(forest_json, lotus_json))
-                                    }
-                                    _ => None,
-                                };
-
-                            report.failed_test_params.push(FailedTest {
-                                request_params: test.request.params.clone(),
-                                forest_status: format!("{:?}", forest_status),
-                                lotus_status: format!("{:?}", forest_status),
-                                response_diff,
-                                execution_duration_ms: test_result.duration.as_millis(),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
+        // Dump test data if configured
         if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
-            let dir = dump_dir.join(if success { "valid" } else { "invalid" });
-            if !dir.is_dir() {
-                std::fs::create_dir_all(&dir)?;
-            }
-            let filename = format!(
-                "{}_{}.json",
-                test_dump
-                    .request
-                    .method_name
-                    .as_ref()
-                    .replace(".", "_")
-                    .to_lowercase(),
-                Utc::now().timestamp_micros()
-            );
-            std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
+            dump_test_data(dump_dir, success, test_dump)?;
         }
 
-        let result_entry = (method_name, forest_status, lotus_status);
-        if success {
-            success_results
-                .entry(result_entry)
-                .and_modify(|v| *v += 1)
-                .or_insert(1u32);
-        } else {
-            if let Some(test_dump) = test_result.test_dump {
-                fail_details.push(test_dump);
-            }
-            failed_results
-                .entry(result_entry)
-                .and_modify(|v| *v += 1)
-                .or_insert(1u32);
-        }
-
-        if !failed_results.is_empty() && fail_fast {
+        if !success && fail_fast {
             break;
         }
     }
 
-    // Generate a final report with performance metrics
-    if let Some((path, mut reports)) = report_path.zip(method_reports) {
-        // Calculate performance metrics for each method
-        for (method_name, timings) in method_timings {
-            if let Some(report) = reports.get_mut(&method_name) {
-                report.performance = PerformanceMetrics::from_durations(&timings);
+    let has_failures = report_builder.has_failures();
+    // Save the report if configured
+    if let Some(path) = report_dir {
+        report_builder.finalize_and_save(&path)?;
+    } else {
+        // Print detailed summary
+        report_builder.print_summary();
+    }
+
+    // Return error if any tests failed
+    if has_failures {
+        Err(anyhow::Error::msg("Some tests failed"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Evaluate whether a test is successful based on the test result and criteria
+fn evaluate_test_success(
+    test_result: &TestResult,
+    test: &RpcTest,
+    test_criteria_overrides: &[TestCriteriaOverride],
+) -> bool {
+    match (&test_result.forest_status, &test_result.lotus_status) {
+        (TestSummary::Valid, TestSummary::Valid) => true,
+        (TestSummary::Valid, TestSummary::Timeout) => {
+            test_criteria_overrides.contains(&TestCriteriaOverride::ValidAndTimeout)
+        }
+        (TestSummary::Timeout, TestSummary::Timeout) => {
+            test_criteria_overrides.contains(&TestCriteriaOverride::TimeoutAndTimeout)
+        }
+        (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
+            match test.policy_on_rejected {
+                PolicyOnRejected::Pass => true,
+                PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
+                PolicyOnRejected::PassWithQuasiIdenticalError => {
+                    reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
+                }
+                _ => false,
             }
         }
-
-        let mut methods: Vec<MethodReport> = reports.into_values().collect();
-        methods.sort_by(|a, b| a.name.cmp(&b.name));
-
-        let report = ApiTestReport {
-            execution_datetime_utc: Utc::now().to_rfc3339(),
-            total_duration_secs: test_start_time.elapsed().as_secs(),
-            methods,
-        };
-
-        /// Save the report to a file in the JSON format.
-        std::fs::write(path, serde_json::to_string_pretty(&report)?)?;
-    }
-
-    print_error_details(&fail_details);
-    print_test_results(&success_results, &failed_results);
-
-    if failed_results.is_empty() {
-        Ok(())
-    } else {
-        Err(anyhow::Error::msg("Some tests failed"))
+        _ => false,
     }
 }
 
-fn print_error_details(fail_details: &[TestDump]) {
-    for dump in fail_details {
-        println!("{dump}")
+/// Dump test data to the specified directory
+fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyhow::Result<()> {
+    let dir = dump_dir.join(if success { "valid" } else { "invalid" });
+    if !dir.is_dir() {
+        std::fs::create_dir_all(&dir)?;
     }
-}
-
-fn print_test_results(
-    success_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
-    failed_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
-) {
-    // Combine all results
-    let mut combined_results = success_results.clone();
-    for (key, &value) in failed_results {
-        combined_results.insert(key.clone(), value);
-    }
-
-    // Collect and display results in Markdown format
-    let mut results = combined_results.into_iter().collect::<Vec<_>>();
-    results.sort();
-    println!("{}", format_as_markdown(&results));
-}
-
-#[allow(clippy::type_complexity)]
-fn format_as_markdown(results: &[((Cow<'static, str>, TestSummary, TestSummary), u32)]) -> String {
-    let mut builder = Builder::default();
-
-    builder.push_record(["RPC Method", "Forest", "Lotus"]);
-
-    for ((method, forest_status, lotus_status), n) in results {
-        builder.push_record([
-            if *n > 1 {
-                format!("{} ({})", method, n)
-            } else {
-                method.to_string()
-            },
-            format!("{:?}", forest_status),
-            format!("{:?}", lotus_status),
-        ]);
-    }
-
-    builder.build().with(Style::markdown()).to_string()
+    let file_name = format!(
+        "{}_{}.json",
+        test_dump
+            .request
+            .method_name
+            .as_ref()
+            .replace(".", "_")
+            .to_lowercase(),
+        Utc::now().timestamp_micros()
+    );
+    std::fs::write(
+        dir.join(file_name),
+        serde_json::to_string_pretty(test_dump)?,
+    )?;
+    Ok(())
 }
 
 fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {

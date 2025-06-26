@@ -131,9 +131,9 @@ pub enum ApiCommands {
         #[arg(long, value_enum, num_args = 0.., use_value_delimiter = true, value_delimiter = ',', default_values_t = [TestCriteriaOverride::TimeoutAndTimeout])]
         test_criteria_overrides: Vec<TestCriteriaOverride>,
 
-        /// Generate a machine-readable report for all the API tests run.
+        /// Specify a directory to dump the test report
         #[arg(long)]
-        report_path: Option<PathBuf>,
+        report_dir: Option<PathBuf>,
 
         /// Report detail level: full (default), failure-only, or summary
         #[arg(long, value_enum, default_value = "full")]
@@ -217,7 +217,7 @@ impl ApiCommands {
                 create_tests_args,
                 dump_dir,
                 test_criteria_overrides,
-                report_path,
+                report_dir,
                 report_mode,
             } => {
                 let forest = Arc::new(rpc::Client::from_url(forest));
@@ -238,7 +238,7 @@ impl ApiCommands {
                         fail_fast,
                         dump_dir.clone(),
                         &test_criteria_overrides,
-                        report_path.clone(),
+                        report_dir.clone(),
                         report_mode,
                     )
                     .await?;
