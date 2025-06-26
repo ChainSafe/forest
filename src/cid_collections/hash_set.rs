@@ -38,16 +38,19 @@ impl CidHashSet {
     }
 
     /// Returns `true` if the set contains a `Cid`.
+    #[allow(dead_code)]
     pub fn contains(&self, cid: &Cid) -> bool {
         self.inner.contains_key(cid)
     }
 
     /// Removes a `Cid` from the set. Returns whether the value was present in the set.
+    #[allow(dead_code)]
     pub fn remove(&mut self, cid: &Cid) -> bool {
         self.inner.remove(cid).is_some()
     }
 
     /// Returns `true` if the set is empty.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }

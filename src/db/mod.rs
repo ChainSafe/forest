@@ -242,25 +242,6 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
     }
 }
 
-/// A trait to facilitate mark-and-sweep garbage collection.
-///
-/// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
-/// avoid wrapping it.
-pub trait GarbageCollectable<T> {
-    /// Gets all the keys currently in the database.
-    ///
-    /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
-    /// much time and memory.
-    fn get_keys(&self) -> anyhow::Result<T>;
-
-    /// Removes all the keys marked for deletion.
-    ///
-    /// # Arguments
-    ///
-    /// * `keys` - A set of keys to be removed from the database.
-    fn remove_keys(&self, keys: T) -> anyhow::Result<u32>;
-}
-
 /// A trait that allows for storing data that is not garbage collected.
 pub trait PersistentStore: Blockstore {
     /// Puts a keyed block with pre-computed CID into the database.

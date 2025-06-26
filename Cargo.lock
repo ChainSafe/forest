@@ -3142,7 +3142,6 @@ dependencies = [
  "quick-protobuf",
  "quick-protobuf-codec",
  "quickcheck",
- "quickcheck_async",
  "quickcheck_macros",
  "ra_ap_syntax",
  "rand 0.8.5",
@@ -7064,16 +7063,6 @@ dependencies = [
  "env_logger",
  "log",
  "rand 0.8.5",
-]
-
-[[package]]
-name = "quickcheck_async"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "247df671941313a4e255a5015772917368f1b21bfedfbd89d68fbb27e802b2fa"
-dependencies = [
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

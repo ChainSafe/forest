@@ -17,7 +17,7 @@ use crate::cli_shared::{
 };
 use crate::daemon::context::{AppContext, DbType};
 use crate::daemon::db_util::import_chain_as_forest_car;
-use crate::db::gc::{MarkAndSweep, SnapshotGarbageCollector};
+use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
@@ -36,9 +36,8 @@ use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt, select};
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::OnceLock;
-use std::time::Duration;
-use std::{cmp, sync::Arc};
 use tokio::{
     net::TcpListener,
     signal::{
@@ -230,38 +229,6 @@ async fn maybe_start_metrics_service(
         ));
     }
     Ok(())
-}
-
-#[allow(dead_code)]
-fn maybe_start_mark_and_sweep_gc_service(
-    services: &mut JoinSet<anyhow::Result<()>>,
-    opts: &CliOpts,
-    config: &Config,
-    ctx: &AppContext,
-) {
-    // Garbage collection interval, currently set at 10 hours.
-    const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
-
-    if !opts.no_gc {
-        let mut db_garbage_collector = {
-            let chain_store = ctx.state_manager.chain_store().clone();
-            let depth = cmp::max(
-                ctx.state_manager.chain_config().policy.chain_finality * 2,
-                config.sync.recent_state_roots,
-            );
-
-            let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
-
-            MarkAndSweep::new(
-                ctx.db.writer().clone(),
-                get_heaviest_tipset,
-                depth,
-                Duration::from_secs(ctx.state_manager.chain_config().block_delay_secs as u64),
-            )
-        };
-
-        services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
-    }
 }
 
 async fn create_p2p_service(
@@ -615,7 +582,6 @@ pub(super) async fn start_services(
     on_app_context_and_db_initialized(&ctx);
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
-    // maybe_start_mark_and_sweep_gc_service(&mut services, opts, &config, &ctx);
     maybe_start_f3_service(opts, &config, &ctx);
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
         .await?;
