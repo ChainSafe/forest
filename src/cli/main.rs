@@ -4,11 +4,12 @@
 use super::subcommands::Subcommand;
 use crate::cli::subcommands::Cli;
 use crate::cli_shared::logger;
-use crate::daemon::get_actual_chain_name;
+use crate::networks::NetworkChain;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
 use clap::Parser;
 use std::ffi::OsString;
+use std::str::FromStr as _;
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
@@ -27,7 +28,7 @@ where
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
 
             if let Ok(name) = StateNetworkName::call(&client, ()).await {
-                if get_actual_chain_name(&name) != "mainnet" {
+                if !matches!(NetworkChain::from_str(&name), Ok(NetworkChain::Mainnet)) {
                     CurrentNetwork::set_global(Network::Testnet);
                 }
             }
