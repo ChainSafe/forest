@@ -23,7 +23,7 @@ use crate::interpreter::{
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
 use crate::shim::actors::init::{self, State};
@@ -78,6 +78,7 @@ use rayon::prelude::ParallelBridge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
+use std::str::FromStr as _;
 use std::time::Duration;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{RwLock, broadcast::error::RecvError};
@@ -296,17 +297,14 @@ where
         )
     }
 
-    /// Returns the internal, protocol-level network name.
-    pub fn get_network_name_from_genesis(&self) -> anyhow::Result<String> {
-        self.get_network_name(self.chain_store().genesis_block_header().state_root)
-    }
-
-    /// Returns the internal, protocol-level network name.
-    pub fn get_network_name(&self, state_cid: Cid) -> anyhow::Result<String> {
+    /// Returns the internal, protocol-level network chain from the state.
+    pub fn get_network_chain(&self, state_cid: Cid) -> anyhow::Result<NetworkChain> {
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
             .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;
-        Ok(State::load(self.blockstore(), init_act.code, init_act.state)?.into_network_name())
+        Ok(NetworkChain::from_str(
+            &State::load(self.blockstore(), init_act.code, init_act.state)?.into_network_name(),
+        )?)
     }
 
     /// Returns true if miner has been slashed or is considered invalid.

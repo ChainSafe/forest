@@ -116,8 +116,9 @@ impl RpcMethod<1> for SyncSubmitBlock {
         if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
+        let genesis_network_name = ctx.chain_config().network.genesis_name();
         let encoded_message = to_vec(&block_msg)?;
-        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
+        let pubsub_block_str = format!("{PUBSUB_BLOCK_STR}/{genesis_network_name}");
         let (bls_messages, secp_messages) =
             chain::store::block_messages(&ctx.chain_store().db, &block_msg.header)?;
         let block = Block {
@@ -244,7 +245,6 @@ mod tests {
             sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
-            network_name: TEST_NET_NAME.to_owned(),
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,

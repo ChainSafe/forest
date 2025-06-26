@@ -176,7 +176,6 @@ pub struct MessagePool<T> {
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
@@ -214,11 +213,12 @@ where
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
+        let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
-                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
+                    topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
                     message: msg_ser,
                 })
                 .await
@@ -457,7 +457,6 @@ where
     /// Creates a new `MessagePool` instance.
     pub fn new(
         api: T,
-        network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
@@ -481,7 +480,6 @@ where
             pending,
             cur_tipset: tipset,
             api: Arc::new(api),
-            network_name,
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
@@ -545,7 +543,6 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
-        let network_name = mp.network_name.clone();
         let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
         // Reacts to republishing requests
         services.spawn(async move {
@@ -559,7 +556,6 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
-                    network_name.as_ref(),
                     pending.as_ref(),
                     cur_tipset.as_ref(),
                     republished.as_ref(),
