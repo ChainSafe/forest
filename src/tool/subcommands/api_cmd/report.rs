@@ -72,7 +72,7 @@ pub enum MethodTestStatus {
     },
     /// Method was filtered out by configuration
     Filtered,
-    /// Method exists but no tested
+    /// Method exists but not tested
     NotTested,
 }
 
