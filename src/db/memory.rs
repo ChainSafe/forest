@@ -3,8 +3,7 @@
 
 use super::{EthMappingsStore, SettingsStore, SettingsStoreExt};
 use crate::blocks::TipsetKey;
-use crate::cid_collections::CidHashSet;
-use crate::db::{GarbageCollectable, IndicesStore, PersistentStore};
+use crate::db::{IndicesStore, PersistentStore};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::db::car_stream::CarBlock;
@@ -51,29 +50,6 @@ impl MemoryDB {
         let frames =
             crate::db::car::forest::Encoder::compress_stream_default(futures::stream::iter(blocks));
         crate::db::car::forest::Encoder::write(writer, roots, frames).await
-    }
-}
-
-impl GarbageCollectable<CidHashSet> for MemoryDB {
-    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
-        let mut set = CidHashSet::new();
-        for &key in self.blockchain_db.read().keys() {
-            set.insert(key);
-        }
-        Ok(set)
-    }
-
-    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<u32> {
-        let mut db = self.blockchain_db.write();
-        let mut deleted = 0;
-        db.retain(|key, _| {
-            let retain = !keys.contains(key);
-            if !retain {
-                deleted += 1;
-            }
-            retain
-        });
-        Ok(deleted)
     }
 }
 

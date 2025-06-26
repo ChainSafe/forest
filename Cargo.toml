@@ -251,7 +251,6 @@ petgraph = "0.8"
 predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
-quickcheck_async = "0.1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.289"
 regex-automata = "0.4"
