@@ -71,7 +71,7 @@ impl RpcMethod<0> for GetRawNetworkName {
     type Ok = String;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.network_name.clone())
+        Ok(ctx.chain_config().network.genesis_name().to_string())
     }
 }
 

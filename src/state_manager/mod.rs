@@ -296,13 +296,8 @@ where
         )
     }
 
-    /// Returns the internal, protocol-level network name.
-    pub fn get_network_name_from_genesis(&self) -> anyhow::Result<String> {
-        self.get_network_name(self.chain_store().genesis_block_header().state_root)
-    }
-
-    /// Returns the internal, protocol-level network name.
-    pub fn get_network_name(&self, state_cid: Cid) -> anyhow::Result<String> {
+    /// Returns the internal, protocol-level network chain from the state.
+    pub fn get_network_chain_state_name(&self, state_cid: Cid) -> anyhow::Result<String> {
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
             .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;

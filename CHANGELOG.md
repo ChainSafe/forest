@@ -43,6 +43,8 @@
 
 - [#5773](https://github.com/ChainSafe/forest/pull/5773) The `forest-tool index backfill` now correctly respects the `--from` argument. At the same time, it's been made optional and will default to the chain head.
 
+- [#5610](https://github.com/ChainSafe/forest/issues/5610) Fix `Filecoin.StateGetNetworkParams` and `Filecoin.StateNetworkName` RPC methods output for mainnet. They now return `mainnet` (and not `testnetnet`) as the network nameme, which is consistent with Lotus.
+
 ## Forest v0.27.0 "Whisperer in Darkness"
 
 This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
