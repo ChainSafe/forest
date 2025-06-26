@@ -3,7 +3,7 @@ module f3-sidecar/v2
 go 1.23.9
 
 require (
-	github.com/filecoin-project/go-f3 v0.8.6
+	github.com/filecoin-project/go-f3 v0.8.7-0.20250625134131-20d68df10e45
 	github.com/filecoin-project/go-jsonrpc v0.8.0
 	github.com/filecoin-project/go-state-types v0.16.0
 	github.com/ihciah/rust2go v0.0.0-20250608231442-a833a4a103e0

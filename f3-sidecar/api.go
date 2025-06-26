@@ -51,6 +51,10 @@ func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gp
 	return h.f3.GetPowerTable(ctx, tsk)
 }
 
+func (h *F3ServerHandler) F3GetF3PowerTableByInstance(ctx context.Context, instance uint64) (gpbft.PowerEntries, error) {
+	return h.f3.GetPowerTableByInstance(ctx, instance)
+}
+
 func (h *F3ServerHandler) F3IsRunning(_ context.Context) bool {
 	return h.f3.IsRunning()
 }
