@@ -12,6 +12,8 @@ mod request;
 mod segregation_layer;
 mod set_extension_layer;
 
+use crate::rpc::chain::new_heads;
+use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
 pub use client::Client;
 pub use error::ServerError;
@@ -121,6 +123,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::eth::EthNewPendingTransactionFilter);
         $callback!($crate::rpc::eth::EthNewBlockFilter);
         $callback!($crate::rpc::eth::EthUninstallFilter);
+        $callback!($crate::rpc::eth::EthUnsubscribe);
+        $callback!($crate::rpc::eth::EthSubscribe);
         $callback!($crate::rpc::eth::EthSyncing);
         $callback!($crate::rpc::eth::EthTraceBlock);
         $callback!($crate::rpc::eth::EthTraceFilter);
@@ -382,6 +386,10 @@ mod methods {
 use crate::rpc::auth_layer::AuthLayer;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
+use crate::rpc::eth::{
+    EthSubscribe, EthUnsubscribe,
+    pubsub::{ETH_SUBSCRIPTION, eth_subscribe},
+};
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
@@ -491,6 +499,20 @@ where
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
 
+    // Register `Filecoin.EthSubscribe` and related methods.
+    module.register_subscription(
+        EthSubscribe::NAME,
+        ETH_SUBSCRIPTION,
+        EthUnsubscribe::NAME,
+        eth_subscribe,
+    )?;
+    if let Some(alias) = EthSubscribe::NAME_ALIAS {
+        module.register_alias(alias, EthSubscribe::NAME)?;
+    }
+    if let Some(alias) = EthUnsubscribe::NAME_ALIAS {
+        module.register_alias(alias, EthUnsubscribe::NAME)?;
+    }
+
     let mut pubsub_module = FilRpcModule::default();
 
     pubsub_module.register_channel("Filecoin.ChainNotify", {
@@ -510,6 +532,7 @@ where
                     // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
                     .max_request_body_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+                    .set_id_provider(RandomHexStringIdProvider::new())
                     .build(),
             )
             .set_http_middleware(
@@ -626,9 +649,13 @@ where
     let mut module = RpcModule::from_arc(state);
     macro_rules! register {
         ($ty:ty) => {
-            <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
-            // Optionally register an alias for the method.
-            <$ty>::register_alias(&mut module).unwrap();
+            // Register only non-subscription RPC methods.
+            // Subscription methods are registered separately in the RPC module.
+            if !<$ty>::SUBSCRIPTION {
+                <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+                // Optionally register an alias for the method.
+                <$ty>::register_alias(&mut module).unwrap();
+            }
         };
     }
     for_each_rpc_method!(register);

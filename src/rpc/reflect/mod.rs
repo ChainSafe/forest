@@ -80,6 +80,8 @@ pub trait RpcMethod<const ARITY: usize> {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
+    /// If it a subscription method. Defaults to false.
+    const SUBSCRIPTION: bool = false;
 }
 
 /// The permission required to call an RPC method.
