@@ -34,6 +34,7 @@ A test snapshot generated in the previous step is in JSON format, for easier ins
 ### Run the test snapshots in unit tests
 
 - Manual Method
+
   1.  Compress the test snapshots if not already done.
   2.  Upload the `.json.zst` files to the DigitalOcean space `forest-snapshots/rpc_test`
   3.  Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
