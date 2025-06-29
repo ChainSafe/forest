@@ -260,7 +260,7 @@ impl Chain4UInner {
         let epoch_from_siblings = match siblings.iter().map(|it| it.epoch).all_equal_value() {
             Ok(epoch) => Some(epoch),
             Err(None) => None,
-            Err(Some((left, right))) => panic!("mismatched sibling epochs: {} and {}", left, right),
+            Err(Some((left, right))) => panic!("mismatched sibling epochs: {left} and {right}"),
         };
 
         let epoch = epoch_from_user
@@ -272,7 +272,7 @@ impl Chain4UInner {
         for it in [epoch_from_user, epoch_from_parents, epoch_from_siblings] {
             match it {
                 Some(it) if it <= epoch => {}
-                Some(it) => panic!("inconsistent epoch: {} vs {}", it, epoch),
+                Some(it) => panic!("inconsistent epoch: {it} vs {epoch}"),
                 None => {}
             }
         }

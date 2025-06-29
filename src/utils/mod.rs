@@ -83,8 +83,8 @@ fn multiaddr2url(m: &Multiaddr) -> Option<Url> {
     };
     let None = components.next() else { return None };
     let parse_me = match port {
-        Some(port) => format!("{}://{}:{}", scheme, host, port),
-        None => format!("{}://{}", scheme, host),
+        Some(port) => format!("{scheme}://{host}:{port}"),
+        None => format!("{scheme}://{host}"),
     };
     parse_me.parse().ok()
 }

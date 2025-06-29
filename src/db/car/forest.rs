@@ -134,8 +134,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or_else(|| {
             invalid_data(format!(
-                "not recognizable as a `{}` file",
-                FOREST_CAR_FILE_EXTENSION
+                "not recognizable as a `{FOREST_CAR_FILE_EXTENSION}` file"
             ))
         })?;
 

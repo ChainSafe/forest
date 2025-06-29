@@ -111,7 +111,7 @@ impl fmt::Display for TipsetKey {
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "[{}]", s)
+        write!(f, "[{s}]")
     }
 }
 

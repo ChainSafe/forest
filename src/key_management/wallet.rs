@@ -209,7 +209,7 @@ pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> 
                 .map_err(|_| Error::KeyNotExists)?;
         }
     }
-    println!("wallet {} deleted", addr);
+    println!("wallet {addr} deleted");
     Ok(())
 }
 

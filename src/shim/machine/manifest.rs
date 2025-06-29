@@ -77,7 +77,7 @@ impl<'de> serde::de::Visitor<'de> for BuiltinActorManifestVisitor {
                     }
                     builtin2cid = Some(map.next_value()?);
                 }
-                _ => return Err(serde::de::Error::custom(format!("unexpected key: {}", key))),
+                _ => return Err(serde::de::Error::custom(format!("unexpected key: {key}"))),
             }
         }
         let actor_list_cid =
