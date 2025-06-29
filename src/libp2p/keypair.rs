@@ -117,6 +117,6 @@ mod tests {
             keypair2.try_into_ed25519().unwrap().to_bytes()
         );
         assert!(path_to_file.exists());
-        assert!(dir.path().join(format!("{}.bak", KEYPAIR_FILE)).exists());
+        assert!(dir.path().join(format!("{KEYPAIR_FILE}.bak")).exists());
     }
 }

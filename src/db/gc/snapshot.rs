@@ -169,20 +169,19 @@ where
             "Running snapshot GC scheduler with interval epochs {snap_gc_interval_epochs}"
         );
         loop {
-            if !self.running.load(Ordering::Relaxed) {
-                if let (Some(db), Some(car_db_head_epoch)) =
-                    (&*self.db.read(), *self.car_db_head_epoch.read())
-                {
-                    if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
-                        if let Ok(head) = Tipset::load_required(db, &head_key) {
-                            let head_epoch = head.epoch();
-                            if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
-                                && self.trigger_tx.try_send(()).is_ok()
-                            {
-                                tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
-                            } else {
-                                tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
-                            }
+            if !self.running.load(Ordering::Relaxed)
+                && let Some(db) = &*self.db.read()
+                && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
+            {
+                if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
+                    if let Ok(head) = Tipset::load_required(db, &head_key) {
+                        let head_epoch = head.epoch();
+                        if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                            && self.trigger_tx.try_send(()).is_ok()
+                        {
+                            tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                        } else {
+                            tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
                         }
                     }
                 }

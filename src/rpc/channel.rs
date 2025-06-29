@@ -219,7 +219,7 @@ impl SubscriptionSink {
     pub async fn send(&self, msg: Box<serde_json::value::RawValue>) -> Result<(), String> {
         // Only possible to trigger when the connection is dropped.
         if self.is_closed() {
-            return Err(format!("disconnect error: {}", msg));
+            return Err(format!("disconnect error: {msg}"));
         }
 
         self.inner.send(msg).await.map_err(|e| e.to_string())

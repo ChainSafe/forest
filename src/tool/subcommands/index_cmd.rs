@@ -81,7 +81,7 @@ impl IndexCommands {
 
                 println!("Database path: {}", db_root_dir.display());
                 println!("From epoch:    {}", from.unwrap_or_else(|| head_ts.epoch()));
-                println!("To epoch:      {}", to);
+                println!("To epoch:      {to}");
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {

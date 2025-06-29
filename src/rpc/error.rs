@@ -111,7 +111,7 @@ impl Display for ServerError {
         f.write_fmt(format_args!("\tcode: {}\n", self.inner.code()))?;
         f.write_fmt(format_args!("\tmessage: {}\n", self.inner.message()))?;
         if let Some(data) = self.inner.data() {
-            f.write_fmt(format_args!("\tdata: {}\n", data))?
+            f.write_fmt(format_args!("\tdata: {data}\n"))?
         }
         Ok(())
     }

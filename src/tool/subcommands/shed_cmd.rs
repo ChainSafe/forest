@@ -103,9 +103,9 @@ impl ShedCommands {
                     .buffered(12);
 
                 while let Some((epoch, cids)) = epoch2cids.try_next().await? {
-                    println!("{}:", epoch);
+                    println!("{epoch}:");
                     for cid in cids {
-                        println!("- {}", cid);
+                        println!("- {cid}");
                     }
                 }
             }

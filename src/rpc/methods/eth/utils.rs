@@ -227,7 +227,7 @@ fn parse_panic_revert(data: &[u8]) -> String {
         Ok(PANIC_ERROR_CODES
             .get(&code)
             .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("Panic(0x{:x})", code)))
+            .unwrap_or_else(|| format!("Panic(0x{code:x})")))
     })();
 
     parse_result.unwrap_or_else(|_| fallback())
@@ -280,7 +280,7 @@ mod test {
     fn test_all_valid_parse_panic_revert() {
         for (code, msg) in PANIC_ERROR_CODES.iter() {
             let data = create_panic_data(*code);
-            assert_eq!(parse_panic_revert(&data), format!("{}", msg));
+            assert_eq!(parse_panic_revert(&data), format!("{msg}"));
         }
     }
 
@@ -356,10 +356,7 @@ mod test {
     fn test_parse_error_revert() {
         let err_msg = "Not enough Ether provided";
         let error_data = create_error_data(err_msg);
-        assert_eq!(
-            parse_error_revert(&error_data),
-            format!("Error({})", err_msg)
-        );
+        assert_eq!(parse_error_revert(&error_data), format!("Error({err_msg})"));
 
         // ABI-encoded Error("Hello World")
         let err_data = hex::decode(
@@ -393,7 +390,7 @@ mod test {
         // Test normal Error case
         let message = "Transaction failed";
         let data = create_error_data(message);
-        assert_eq!(parse_eth_revert(&data), format!("Error({})", message));
+        assert_eq!(parse_eth_revert(&data), format!("Error({message})"));
 
         // Test normal Panic case
         let panic_data = create_panic_data(0x01); // Assert()
@@ -427,12 +424,12 @@ mod test {
         // Test with special characters
         let special = "Error message with special chars: !@#$%6^&*()_+{}|:<>!?";
         let data = create_error_data(special);
-        assert_eq!(parse_error_revert(&data), format!("Error({})", special));
+        assert_eq!(parse_error_revert(&data), format!("Error({special})"));
 
         // Test with Unicode characters
         let unicode = "Error with Unicode: 你好世界";
         let data = create_error_data(unicode);
-        assert_eq!(parse_error_revert(&data), format!("Error({})", unicode));
+        assert_eq!(parse_error_revert(&data), format!("Error({unicode})"));
 
         // Test with invalid offset (points outside data)
         let mut invalid_offset = create_error_data("Test");

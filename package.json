@@ -3,7 +3,7 @@
   "private": true,
   "devDependencies": {
     "@docusaurus/tsconfig": "^3.8.1",
-    "prettier": "^3.5.3"
+    "prettier": "^3.6.2"
   },
   "scripts": {
     "prettier-version": "prettier --version",

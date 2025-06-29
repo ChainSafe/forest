@@ -67,8 +67,7 @@ mod tests {
         let result = cmd.run(&mut std::io::sink());
         assert!(
             result.is_ok(),
-            "Expected command to succeed, got: {:?}",
-            result
+            "Expected command to succeed, got: {result:?}"
         );
     }
 
@@ -82,8 +81,7 @@ mod tests {
         let result = cmd.run(&mut std::io::sink());
         assert!(
             result.is_ok(),
-            "Expected command to succeed, got {:?}",
-            result
+            "Expected command to succeed, got {result:?}"
         );
     }
 
@@ -103,8 +101,7 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(
             err.contains("Unknown binary") && err.contains("non-existent-binary"),
-            "Error message '{}' did not contain expected text",
-            err
+            "Error message '{err}' did not contain expected text"
         );
     }
 
@@ -128,8 +125,7 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(
             err.contains("Unknown binary") && err.contains("non-existent-binary"),
-            "Error message '{}' did not contain expected text",
-            err
+            "Error message '{err}' did not contain expected text"
         );
     }
 }

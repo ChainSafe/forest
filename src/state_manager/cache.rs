@@ -360,7 +360,7 @@ mod tests {
                             count.fetch_add(1, Ordering::SeqCst);
                             // Simulate some computation time
                             tokio::time::sleep(Duration::from_millis(10)).await;
-                            Ok(format!("computed_value_{}", i))
+                            Ok(format!("computed_value_{i}"))
                         }
                     })
                     .await
@@ -404,7 +404,7 @@ mod tests {
                         async move {
                             count.fetch_add(1, Ordering::SeqCst);
                             tokio::time::sleep(Duration::from_millis(5)).await;
-                            Ok(format!("value_{}", i))
+                            Ok(format!("value_{i}"))
                         }
                     })
                     .await
@@ -423,7 +423,7 @@ mod tests {
 
         // All results should be returned as computation was performed once for each key
         for (i, result) in results.iter().enumerate() {
-            assert_eq!(result.as_ref().unwrap(), &format!("value_{}", i));
+            assert_eq!(result.as_ref().unwrap(), &format!("value_{i}"));
         }
     }
 

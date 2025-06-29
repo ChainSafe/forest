@@ -186,7 +186,7 @@ impl SnapshotCommands {
                     .await;
                     if let Err(e) = result {
                         has_fail = true;
-                        eprintln!("Error: {:?}", e);
+                        eprintln!("Error: {e:?}");
                         if fail_fast {
                             break;
                         }
@@ -343,7 +343,7 @@ where
         if height - epoch_limit >= 0 {
             pb.set_message(format!("{} remaining epochs (state)", height - epoch_limit));
         } else {
-            pb.set_message(format!("{} remaining epochs (spine)", height));
+            pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
     let mut stream = stream_chain(&db, tipsets, epoch_limit);
@@ -478,7 +478,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
-        .with_context(|| format!("couldn't get a tipset at height {}", epoch))?;
+        .with_context(|| format!("couldn't get a tipset at height {epoch}"))?;
 
     let mut message_calls = vec![];
 
@@ -511,7 +511,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     if json {
         println!("{:#}", structured::json(state_root, message_calls)?);
     } else {
-        println!("computed state cid: {}", state_root);
+        println!("computed state cid: {state_root}");
     }
 
     Ok(())
@@ -561,7 +561,7 @@ mod structured {
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": is_explicit.then_some(unsigned_message_cid.into_lotus_json()),
-                "GasUsed": is_explicit.then_some(apply_ret.msg_receipt().gas_used()).unwrap_or_default().to_string(),
+                "GasUsed": if is_explicit { apply_ret.msg_receipt().gas_used() } else { Default::default() },
                 "BaseFeeBurn": apply_ret.base_fee_burn().into_lotus_json(),
                 "OverEstimationBurn": apply_ret.over_estimation_burn().into_lotus_json(),
                 "MinerPenalty": apply_ret.penalty().into_lotus_json(),

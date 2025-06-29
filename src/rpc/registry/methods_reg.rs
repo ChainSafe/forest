@@ -243,9 +243,7 @@ mod test {
                 let error_msg = result.unwrap_err().to_string();
                 assert!(
                     !error_msg.contains("No deserializer registered"),
-                    "Actor type {:?} should have methods registered but got error: {}",
-                    actor_type,
-                    error_msg
+                    "Actor type {actor_type:?} should have methods registered but got error: {error_msg}"
                 );
             }
         }

@@ -25,8 +25,7 @@ impl EthErrors {
     pub fn execution_reverted(exit_code: ExitCode, error: &str, reason: &str, data: &[u8]) -> Self {
         Self::ExecutionReverted {
             message: format!(
-                "message execution failed (exit=[{}], revert reason=[{}], vm error=[{}])",
-                exit_code, reason, error
+                "message execution failed (exit=[{exit_code}], revert reason=[{reason}], vm error=[{error}])"
             ),
             data: (!data.is_empty()).then(|| format!("0x{}", hex::encode(data))),
         }

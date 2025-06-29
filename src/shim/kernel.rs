@@ -134,20 +134,20 @@ mod tests {
     fn test_n2_error_fmt() {
         let shim: NShim = N2::IllegalArgument.into();
 
-        assert_eq!(format!("{}", shim), "illegal argument");
+        assert_eq!(format!("{shim}"), "illegal argument");
     }
 
     #[test]
     fn test_n3_error_fmt() {
         let shim: NShim = N3::ReadOnly.into();
 
-        assert_eq!(format!("{}", shim), "execution context is read-only");
+        assert_eq!(format!("{shim}"), "execution context is read-only");
     }
 
     #[test]
     fn test_unknown_error_fmt() {
         let shim: NShim = ErrorNumber::Unknown(23);
 
-        assert_eq!(format!("{}", shim), "23");
+        assert_eq!(format!("{shim}"), "23");
     }
 }

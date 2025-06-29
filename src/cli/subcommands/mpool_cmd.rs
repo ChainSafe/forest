@@ -88,12 +88,12 @@ async fn get_actor_sequence(
             if let Some(state) = maybe_actor {
                 state
             } else {
-                println!("{}, actor state not found", address);
+                println!("{address}, actor state not found");
                 return None;
             }
         }
         Err(err) => {
-            println!("{}, err: {}", address, err);
+            println!("{address}, err: {err}");
             return None;
         }
     };

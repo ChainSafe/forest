@@ -201,7 +201,7 @@ impl Display for Address {
         };
 
         // write `fP` where P is the protocol number.
-        write!(f, "{}{}", prefix, protocol)?;
+        write!(f, "{prefix}{protocol}")?;
 
         fn write_payload(
             f: &mut std::fmt::Formatter<'_>,
@@ -226,7 +226,7 @@ impl Display for Address {
         }
 
         match self.payload() {
-            Payload::ID(id) => write!(f, "{}", id),
+            Payload::ID(id) => write!(f, "{id}"),
             Payload::Secp256k1(data) | Payload::Actor(data) => {
                 write_payload(f, protocol, None, data)
             }

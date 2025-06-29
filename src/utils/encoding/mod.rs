@@ -164,7 +164,7 @@ mod tests {
 
         let err = serde_ipld_dagcbor::to_vec(&bytes).unwrap_err();
         assert!(
-            format!("{}", err).contains("Struct value cannot be serialized."),
+            format!("{err}").contains("Struct value cannot be serialized."),
             "{err}"
         );
     }

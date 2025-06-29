@@ -51,7 +51,7 @@ impl std::fmt::Display for SnapshotProgressState {
                 write!(f, "🔄 Initializing (Checking if snapshot is needed)")
             }
             Self::InProgress { message } => {
-                write!(f, "🌳 In Progress: {}", message)
+                write!(f, "🌳 In Progress: {message}")
             }
             Self::Completed => {
                 write!(f, "✅ Recently Completed! Chain will start syncing shortly")

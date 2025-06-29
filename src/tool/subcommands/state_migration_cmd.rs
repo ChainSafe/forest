@@ -26,7 +26,7 @@ impl StateMigrationCommands {
             Self::GenerateActorsMetadata => {
                 let metadata = get_actor_bundles_metadata().await?;
                 let metadata_json = serde_json::to_string_pretty(&metadata)?;
-                println!("{}", metadata_json);
+                println!("{metadata_json}");
                 Ok(())
             }
         }

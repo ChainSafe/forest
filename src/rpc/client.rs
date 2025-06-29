@@ -133,8 +133,7 @@ impl Client {
                     | serde_json::Value::Number(_)
                     | serde_json::Value::String(_)) => {
                         return Err(ClientError::Custom(format!(
-                            "invalid parameter type: `{}`",
-                            prim
+                            "invalid parameter type: `{prim}`"
                         )));
                     }
                 },
@@ -173,7 +172,7 @@ impl Client {
                     ApiPaths::V2 => "rpc/v2",
                 })
                 .map_err(|it| {
-                    ClientError::Custom(format!("creating url for endpoint failed: {}", it))
+                    ClientError::Custom(format!("creating url for endpoint failed: {it}"))
                 })?;
             UrlClient::new(url, self.token.clone()).await
         })
@@ -242,10 +241,7 @@ impl UrlClient {
                     .build(&url)?,
             ),
             it => {
-                return Err(ClientError::Custom(format!(
-                    "Unsupported URL scheme: {}",
-                    it
-                )));
+                return Err(ClientError::Custom(format!("Unsupported URL scheme: {it}")));
             }
         };
         Ok(Self { url, inner })
