@@ -110,9 +110,9 @@ impl NodeStatusInfo {
             let base_fee_fmt = self.base_fee.pretty();
             let lag_time = humantime::format_duration(Duration::from_secs(self.lag.unsigned_abs()));
             let behind = if self.lag < 0 {
-                format!("{} ahead", lag_time)
+                format!("{lag_time} ahead")
             } else {
-                format!("{} behind", lag_time)
+                format!("{lag_time} behind")
             };
 
             format!(
@@ -136,10 +136,7 @@ impl NodeStatusInfo {
                 .map(|balance| format!("{:.4}", balance.pretty()))
                 .unwrap_or("could not find balance".to_string());
 
-            format!(
-                "Default wallet address: {} [{}]",
-                wallet_address, wallet_balance
-            )
+            format!("Default wallet address: {wallet_address} [{wallet_balance}]")
         };
 
         [network, uptime, chain, chain_health, wallet_info].join("\n")

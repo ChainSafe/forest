@@ -143,7 +143,9 @@ impl std::fmt::Display for TestDump {
                 .ok()
                 .and_then(|v| serde_json::to_string_pretty(v).ok()),
         );
-        if let (Some(forest_response), Some(lotus_response)) = (&forest_response, &lotus_response) {
+        if let Some(forest_response) = &forest_response
+            && let Some(lotus_response) = &lotus_response
+        {
             let diff = TextDiff::from_lines(forest_response, lotus_response);
             let mut print_diff = Vec::new();
             for change in diff.iter_all_changes() {
@@ -154,15 +156,15 @@ impl std::fmt::Display for TestDump {
                 };
                 print_diff.push(format!("{sign}{change}"));
             }
-            writeln!(f, "Forest response: {}", forest_response)?;
-            writeln!(f, "Lotus response: {}", lotus_response)?;
+            writeln!(f, "Forest response: {forest_response}")?;
+            writeln!(f, "Lotus response: {lotus_response}")?;
             writeln!(f, "Diff: {}", print_diff.join("\n"))?;
         } else {
             if let Some(forest_response) = &forest_response {
-                writeln!(f, "Forest response: {}", forest_response)?;
+                writeln!(f, "Forest response: {forest_response}")?;
             }
             if let Some(lotus_response) = &lotus_response {
-                writeln!(f, "Lotus response: {}", lotus_response)?;
+                writeln!(f, "Lotus response: {lotus_response}")?;
             }
         };
         Ok(())
@@ -2314,7 +2316,9 @@ pub(super) async fn run_tests(
             _ => false,
         };
 
-        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+        if let Some(dump_dir) = &dump_dir
+            && let Some(test_dump) = &test_result.test_dump
+        {
             let dir = dump_dir.join(if success { "valid" } else { "invalid" });
             if !dir.is_dir() {
                 std::fs::create_dir_all(&dir)?;
@@ -2393,12 +2397,12 @@ fn format_as_markdown(results: &[((Cow<'static, str>, TestSummary, TestSummary),
     for ((method, forest_status, lotus_status), n) in results {
         builder.push_record([
             if *n > 1 {
-                format!("{} ({})", method, n)
+                format!("{method} ({n})")
             } else {
                 method.to_string()
             },
-            format!("{:?}", forest_status),
-            format!("{:?}", lotus_status),
+            format!("{forest_status:?}"),
+            format!("{lotus_status:?}"),
         ]);
     }
 
