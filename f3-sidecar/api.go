@@ -51,6 +51,16 @@ func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gp
 	return h.f3.GetPowerTable(ctx, tsk)
 }
 
+// F3GetF3PowerTableByInstance retrieves the power table for a specific consensus instance.
+// It returns the power entries associated with the given instance number.
+//
+// Parameters:
+//   - ctx: The context for the operation
+//   - instance: The consensus instance number to retrieve the power table for
+//
+// Returns:
+//   - PowerEntries: The power distribution table for the specified instance
+//   - error: Any error encountered during retrieval
 func (h *F3ServerHandler) F3GetF3PowerTableByInstance(ctx context.Context, instance uint64) (gpbft.PowerEntries, error) {
 	return h.f3.GetPowerTableByInstance(ctx, instance)
 }
