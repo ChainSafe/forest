@@ -271,6 +271,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::F3GetCertificate);
         $callback!($crate::rpc::f3::F3GetECPowerTable);
         $callback!($crate::rpc::f3::F3GetF3PowerTable);
+        $callback!($crate::rpc::f3::F3GetF3PowerTableByInstance);
         $callback!($crate::rpc::f3::F3IsRunning);
         $callback!($crate::rpc::f3::F3GetProgress);
         $callback!($crate::rpc::f3::F3GetManifest);
