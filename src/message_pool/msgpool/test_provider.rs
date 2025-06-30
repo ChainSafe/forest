@@ -19,7 +19,7 @@ use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
-use crate::message_pool::{Error, provider::Provider};
+use crate::message_pool::{Error, MpoolEvent, provider::Provider};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Structure used for creating a provider when writing tests involving message
@@ -27,6 +27,7 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
     pub publisher: Publisher<HeadChange>,
+    pub tx_publisher: Publisher<MpoolEvent>,
 }
 
 #[derive(Default)]
@@ -42,12 +43,14 @@ impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
         let (publisher, _) = broadcast::channel(1);
+        let (tx_publisher, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages: 20000,
                 ..TestApiInner::default()
             }),
             publisher,
+            tx_publisher,
         }
     }
 }
@@ -56,12 +59,14 @@ impl TestApi {
     /// Constructor for a `TestApi` with custom number of max pending messages
     pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
         let (publisher, _) = broadcast::channel(1);
+        let (tx_publisher, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
             publisher,
+            tx_publisher,
         }
     }
 
@@ -122,6 +127,10 @@ impl TestApiInner {
 impl Provider for TestApi {
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
+    }
+
+    fn subscribe_mpool_changes(&self) -> Subscriber<MpoolEvent> {
+        self.tx_publisher.subscribe()
     }
 
     fn get_heaviest_tipset(&self) -> Arc<Tipset> {

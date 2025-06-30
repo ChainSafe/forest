@@ -13,3 +13,13 @@ pub use self::{
 };
 
 pub use block_prob::block_probabilities;
+
+// In src/message_pool/mod.rs
+use crate::message::SignedMessage;
+use crate::shim::address::Address;
+
+#[derive(Debug, Clone)]
+pub enum MpoolEvent {
+    Add(SignedMessage),
+    Remove { from: Address, nonce: u64 },
+}
