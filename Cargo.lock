@@ -1356,6 +1356,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "console"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e09ced7ebbccb63b4c65413d821f2e00ce54c5ca4514ddc6b3c892fdbcbc69d"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "unicode-width 0.2.1",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
 name = "console-api"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2049,7 +2062,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
 dependencies = [
- "console",
+ "console 0.15.11",
  "shell-words",
  "tempfile",
  "thiserror 1.0.69",
@@ -2443,9 +2456,9 @@ checksum = "69dc321eb6be977f44674620ca3aa21703cb20ffbe560e1ae97da08401ffbcad"
 
 [[package]]
 name = "ez-jsonrpc-types"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e208bfa38cd8efb8917ffcb362dd49ef49dc836c5192c433cc13ac3485a16847"
+checksum = "cf7291b844296550d8819560716427767fddb5fc7221b0861d164fc5bd6609fc"
 dependencies = [
  "either",
  "serde",
@@ -3155,7 +3168,7 @@ dependencies = [
  "rlp",
  "rs-car-ipfs",
  "rust2go",
- "schemars 1.0.0",
+ "schemars 1.0.3",
  "scopeguard",
  "semver",
  "serde",
@@ -4590,15 +4603,15 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.17.11"
+version = "0.17.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183b3088984b400f4cfac3620d5e076c84da5364016b4f49473de574b2586235"
+checksum = "4adb2ee6ad319a912210a36e56e3623555817bcc877a7e6e8802d1d69c4d8056"
 dependencies = [
- "console",
- "number_prefix",
+ "console 0.16.0",
  "portable-atomic",
  "tokio",
  "unicode-width 0.2.1",
+ "unit-prefix",
  "web-time",
 ]
 
@@ -4618,7 +4631,7 @@ version = "1.43.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "154934ea70c58054b556dd430b99a98c2a7ff5309ac9891597e339b5c28f4371"
 dependencies = [
- "console",
+ "console 0.15.11",
  "once_cell",
  "serde",
  "similar",
@@ -6291,19 +6304,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "number_prefix"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
-
-[[package]]
 name = "nunny"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a917062db7bc4aacea810b261939fd1c7e21c1156a641e3d9faa07740e3c4fb2"
 dependencies = [
  "quickcheck",
- "schemars 1.0.0",
+ "schemars 1.0.3",
  "serde",
 ]
 
@@ -6358,7 +6365,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673c1e7e37c496011686862fa4eeb4650e74bd1588c5c41ca1de203104e3b37d"
 dependencies = [
- "schemars 1.0.0",
+ "schemars 1.0.3",
  "semver",
  "serde",
  "serde_json",
@@ -7160,15 +7167,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.289"
+version = "0.0.290"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a513da0d1f572c1497574babc07ff92b83adaa569705c5307be1dd67e82e6f8"
+checksum = "22a344a5fb4ea961fccfd589e11c931198696050712133dbe2a0852301e4922f"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.289"
+version = "0.0.290"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "383439b2798e29f969ac771f3b2f7994620d22c7969de9794e618dad8b0a769d"
+checksum = "3e4b9c37a927fa1ce146eabfa82dd2ee7bcc5fd94f5975e4f08064ad8d056a78"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7179,9 +7186,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.289"
+version = "0.0.290"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f086f40993326cf141bd2baee68f374a14a13875de78db1a546592067ccc2635"
+checksum = "f3e305abc0af248c43efe29c34e399693e0e7799191cc4e86a65e0af2e4746db"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7195,9 +7202,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.289"
+version = "0.0.290"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e9920fb2ff779d9576df5bbc8be0015db7d50d5f7d5e95360c5c95a5762be9"
+checksum = "11e1aca4fe78398142112333a2330e125a57ceea4442048acab01ef366488919"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -7678,9 +7685,9 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustc-literal-escaper"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78744cd17f5d01c75b709e49807d1363e02a940ccee2e9e72435843fdb0d076e"
+checksum = "ab03008eb631b703dd16978282ae36c73282e7922fe101a4bd072a40ecea7b8b"
 
 [[package]]
 name = "rustc_version"
@@ -7893,9 +7900,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.0.0"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "febc07c7e70b5db4f023485653c754d76e1bbe8d9dbfa20193ce13da9f9633f4"
+checksum = "1375ba8ef45a6f15d83fa8748f1079428295d403d6ea991d09ab100155fbc06d"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -7908,9 +7915,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "1.0.0"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1eeedaab7b1e1d09b5b4661121f4d27f9e7487089b0117833ccd7a882ee1ecc"
+checksum = "2b13ed22d6d49fe23712e068770b5c4df4a693a2b02eeff8e7ca3135627a24f6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9551,6 +9558,12 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "unit-prefix"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "323402cff2dd658f39ca17c789b502021b3f18707c91cdf22e3838e1b4023817"
 
 [[package]]
 name = "universal-hash"
