@@ -22,8 +22,8 @@ const config = {
 
   presets: [
     [
-      "@metamask/docusaurus-openrpc/dist/preset",
-      /** @type {import('@metamask/docusaurus-openrpc/dist/preset').Options} */
+      "@docusaurus/preset-classic",
+      /** @type {import("@docusaurus/preset-classic").Options} */
       ({
         blog: false,
         pages: false,
@@ -34,11 +34,6 @@ const config = {
           sidebarPath: require.resolve("./userSidebars.js"),
           editUrl: "https://github.com/chainsafe/forest",
           remarkPlugins: [mermaidPlugin],
-          openrpc: {
-            openrpcDocument: "./docs/users/openrpc.json",
-            path: "reference",
-            sidebarLabel: "JSON-RPC",
-          },
         },
         theme: {
           customCss: require.resolve("./src/css/index.css"),

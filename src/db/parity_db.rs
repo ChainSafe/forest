@@ -3,8 +3,7 @@
 
 use super::{EthMappingsStore, IndicesStore, PersistentStore, SettingsStore};
 use crate::blocks::TipsetKey;
-use crate::cid_collections::CidHashSet;
-use crate::db::{DBStatistics, GarbageCollectable, parity_db_config::ParityDbConfig};
+use crate::db::{DBStatistics, parity_db_config::ParityDbConfig};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth::types::EthHash;
 use crate::utils::multihash::prelude::*;
@@ -376,6 +375,7 @@ impl ParityDb {
     ///
     /// # Arguments
     /// * `key` - record identifier
+    #[allow(dead_code)]
     pub fn dereference_operation(key: &Cid) -> Op {
         let column = Self::choose_column(key);
         (column as u8, Operation::Dereference(key.to_bytes()))
@@ -397,60 +397,6 @@ impl ParityDb {
             return Ok(None);
         }
         self.read_from_column(k.to_bytes(), DbColumn::PersistentGraph)
-    }
-}
-
-impl GarbageCollectable<CidHashSet> for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
-        let mut set = CidHashSet::new();
-
-        // First iterate over all the indexed entries.
-        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
-        while let Some((key, _)) = iter.next()? {
-            let cid = Cid::try_from(key)?;
-            set.insert(cid);
-        }
-
-        self.db
-            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = MultihashCode::Blake2b256.digest(&val.value);
-                let cid = Cid::new_v1(DAG_CBOR, hash);
-                set.insert(cid);
-                true
-            })?;
-
-        Ok(set)
-    }
-
-    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<u32> {
-        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
-        // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
-        // conversion with allocation.
-        let mut deref_vec = Vec::new();
-        while let Some((key, _)) = iter.next()? {
-            let cid = Cid::try_from(key)?;
-
-            if keys.contains(&cid) {
-                deref_vec.push(Self::dereference_operation(&cid));
-            }
-        }
-
-        self.db
-            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = MultihashCode::Blake2b256.digest(&val.value);
-                let cid = Cid::new_v1(DAG_CBOR, hash);
-
-                if keys.contains(&cid) {
-                    deref_vec.push(Self::dereference_operation(&cid));
-                }
-                true
-            })?;
-
-        let deleted: u32 = deref_vec.len().try_into()?;
-
-        self.db.commit_changes(deref_vec).context("error remove")?;
-
-        Ok(deleted)
     }
 }
 
@@ -537,48 +483,6 @@ mod test {
             .unwrap()
             .expect("data not found");
         assert_eq!(b"bloop", actual.as_bytes());
-    }
-
-    #[test]
-    #[ignore]
-    // This needs to be reinstated once there is a reliable way to make sure that all the commits
-    // make it to the database and are visible when read through iterator.
-    // There seems to be a bug related to database reads.
-    // See https://github.com/paritytech/parity-db/issues/227.
-    fn garbage_collectable() {
-        let db = TempParityDB::new();
-        let data = [
-            b"h'nglui mglw'nafh".to_vec(),
-            b"Cthulhu".to_vec(),
-            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
-        ];
-        let cids = [
-            Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data[0])),
-            Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data[1])),
-            Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data[1])),
-        ];
-
-        let cases = [
-            (DbColumn::GraphDagCborBlake2b256, cids[0], &data[0]),
-            (DbColumn::GraphFull, cids[1], &data[1]),
-            (DbColumn::GraphFull, cids[2], &data[2]),
-        ];
-
-        for (_, cid, data) in cases {
-            db.put_keyed(&cid, data).unwrap();
-        }
-
-        let keys = db.get_keys().unwrap();
-
-        // This is flaky, because iterating columns does not give visibility guarantees for the
-        // latest commits.
-        assert_eq!(keys.len(), cases.len());
-
-        db.remove_keys(keys).unwrap();
-
-        // Panics on this line: https://github.com/paritytech/parity-db/blob/ec686930169b84d21336bed6d6f05c787a17d61f/src/file.rs#L130
-        let keys = db.get_keys().unwrap();
-        assert_eq!(keys.len(), 0);
     }
 
     #[test]

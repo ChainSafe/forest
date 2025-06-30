@@ -95,7 +95,7 @@ impl HealthcheckCommand {
                 }
             };
 
-            println!("{}", text);
+            println!("{text}");
 
             if !wait {
                 break;

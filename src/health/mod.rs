@@ -329,8 +329,7 @@ mod test {
         });
 
         let response = reqwest::get(format!(
-            "http://localhost:{}/phngluimglwnafhcthulhurlyehwgahnaglfhtagn",
-            healthcheck_port
+            "http://localhost:{healthcheck_port}/phngluimglwnafhcthulhurlyehwgahnaglfhtagn"
         ))
         .await
         .unwrap();

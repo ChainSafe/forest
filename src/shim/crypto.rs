@@ -54,8 +54,7 @@ impl<'de> de::Deserialize<'de> for Signature {
                 // Remove signature type byte
                 let sig_type = SignatureType::from_u8(sig_byte).ok_or_else(|| {
                     de::Error::custom(format!(
-                        "Invalid signature type byte (must be 1, 2 or 3), was {}",
-                        sig_byte
+                        "Invalid signature type byte (must be 1, 2 or 3), was {sig_byte}"
                     ))
                 })?;
 

@@ -405,7 +405,7 @@ impl Writer {
         /// Bridge between our sync [`Writeable`] trait, and async writing code
         async fn write_via_buf(
             buf: &mut Vec<u8>,
-            mut writer: impl AsyncWrite,
+            writer: impl AsyncWrite,
             data: impl Writeable,
         ) -> io::Result<()> {
             buf.clear();

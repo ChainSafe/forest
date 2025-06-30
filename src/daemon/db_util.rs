@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
+use crate::db::car::forest::{
+    FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
+};
 use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
 use crate::networks::Height;
@@ -15,6 +17,7 @@ use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -22,7 +25,7 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
@@ -35,29 +38,61 @@ use crate::blocks::TipsetKey;
 #[cfg(doc)]
 use cid::Cid;
 
+/// Loads all `.forest.car.zst` snapshots and cleanup stale `.forest.car.zst.tmp` files.
+pub fn load_all_forest_cars_with_cleanup<T>(
+    store: &ManyCar<T>,
+    forest_car_db_dir: &Path,
+) -> anyhow::Result<()> {
+    load_all_forest_cars_internal(store, forest_car_db_dir, true)
+}
+
+/// Loads all `.forest.car.zst` snapshots
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
+    load_all_forest_cars_internal(store, forest_car_db_dir, false)
+}
+
+fn load_all_forest_cars_internal<T>(
+    store: &ManyCar<T>,
+    forest_car_db_dir: &Path,
+    cleanup: bool,
+) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
     }
     for file in WalkDir::new(forest_car_db_dir)
         .max_depth(1)
         .into_iter()
-        .filter_map(|entry| {
-            if let Ok(entry) = entry {
-                if let Some(filename) = entry.file_name().to_str() {
-                    if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                        return Some(entry.into_path());
+        .filter_map(|e| {
+            e.ok().and_then(|e| {
+                if !e.file_type().is_dir() {
+                    Some(e.into_path())
+                } else {
+                    None
+                }
+            })
+        })
+    {
+        if let Some(filename) = file.file_name().and_then(OsStr::to_str) {
+            if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
+                let car = ForestCar::try_from(file.as_path())
+                    .with_context(|| format!("Error loading car DB at {}", file.display()))?;
+                store.read_only(car.into())?;
+                debug!("Loaded car DB at {}", file.display());
+            } else if cleanup && filename.ends_with(TEMP_FOREST_CAR_FILE_EXTENSION) {
+                // Only delete files that appear to be incomplete car DB files
+                match std::fs::remove_file(&file) {
+                    Ok(_) => {
+                        info!("Deleted temp car DB at {}", file.display());
+                    }
+                    Err(e) => {
+                        warn!("Failed to delete temp car DB at {}: {e}", file.display());
                     }
                 }
             }
-            None
-        })
-    {
-        let car = ForestCar::try_from(file.as_path())
-            .with_context(|| format!("Error loading car DB at {}", file.display()))?;
-        store.read_only(car.into())?;
-        debug!("Loaded car DB at {}", file.display());
+        }
     }
+
+    tracing::info!("Loaded {} CARs", store.len());
 
     Ok(())
 }
@@ -110,8 +145,7 @@ pub async fn import_chain_as_forest_car(
     let move_or_copy = |mode: ImportMode| {
         let forest_car_db_path = forest_car_db_path.clone();
         async move {
-            let downloaded_car_temp_path =
-                tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
+            let downloaded_car_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
             if let Ok(url) = Url::parse(&from_path.display().to_string()) {
                 download_to(
                     &url,
@@ -133,8 +167,7 @@ pub async fn import_chain_as_forest_car(
                 downloaded_car_temp_path.persist(&forest_car_db_path)?;
             } else {
                 // Use another temp file to make sure all final `.forest.car.zst` files are complete and valid.
-                let forest_car_db_temp_path =
-                    tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
+                let forest_car_db_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
                 transcode_into_forest_car(&downloaded_car_temp_path, &forest_car_db_temp_path)
                     .await?;
                 forest_car_db_temp_path.persist(&forest_car_db_path)?;
@@ -330,7 +363,7 @@ where
             .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
             .await?;
         for events_root in state_output.events_roots.iter().flatten() {
-            println!("Indexing events root @{}: {}", epoch, events_root);
+            println!("Indexing events root @{epoch}: {events_root}");
 
             state_manager.chain_store().put_index(events_root, &tsk)?;
         }

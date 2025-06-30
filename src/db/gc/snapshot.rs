@@ -45,6 +45,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::chain_path;
+use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::db::{
     BlockstoreWriteOpsSubscribable, CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider, SettingsStore,
     db_engine::{DbConfig, db_root, open_db},
@@ -168,20 +169,19 @@ where
             "Running snapshot GC scheduler with interval epochs {snap_gc_interval_epochs}"
         );
         loop {
-            if !self.running.load(Ordering::Relaxed) {
-                if let (Some(db), Some(car_db_head_epoch)) =
-                    (&*self.db.read(), *self.car_db_head_epoch.read())
-                {
-                    if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
-                        if let Ok(head) = Tipset::load_required(db, &head_key) {
-                            let head_epoch = head.epoch();
-                            if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
-                                && self.trigger_tx.try_send(()).is_ok()
-                            {
-                                tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
-                            } else {
-                                tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
-                            }
+            if !self.running.load(Ordering::Relaxed)
+                && let Some(db) = &*self.db.read()
+                && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
+            {
+                if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
+                    if let Ok(head) = Tipset::load_required(db, &head_key) {
+                        let head_epoch = head.epoch();
+                        if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                            && self.trigger_tx.try_send(()).is_ok()
+                        {
+                            tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                        } else {
+                            tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
                         }
                     }
                 }
@@ -210,7 +210,7 @@ where
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
-        let temp_path = tempfile::NamedTempFile::new_in(&self.car_db_dir)?.into_temp_path();
+        let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
         let mut rx = db.subscribe_write_ops();
         let mut joinset = JoinSet::new();

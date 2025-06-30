@@ -82,6 +82,7 @@ pub mod index;
 mod index;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
+pub const TEMP_FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst.tmp";
 /// <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#skippable-frames>
 pub const ZSTD_SKIPPABLE_FRAME_MAGIC_HEADER: [u8; 4] = [0x50, 0x2A, 0x4D, 0x18];
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
@@ -133,8 +134,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or_else(|| {
             invalid_data(format!(
-                "not recognizable as a `{}` file",
-                FOREST_CAR_FILE_EXTENSION
+                "not recognizable as a `{FOREST_CAR_FILE_EXTENSION}` file"
             ))
         })?;
 
@@ -442,6 +442,15 @@ impl ForestCarFooter {
             None
         }
     }
+}
+
+pub fn new_forest_car_temp_path_in(
+    output_dir: impl AsRef<Path>,
+) -> std::io::Result<tempfile::TempPath> {
+    Ok(tempfile::Builder::new()
+        .suffix(TEMP_FOREST_CAR_FILE_EXTENSION)
+        .tempfile_in(output_dir)?
+        .into_temp_path())
 }
 
 #[cfg(test)]

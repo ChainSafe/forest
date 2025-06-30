@@ -1404,7 +1404,7 @@ fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result
     result.or_else(|_| {
         // We couldn't find the signed message, it might be a BLS message, so search for a regular message.
         let msg: Message = crate::chain::message_from_cid(ctx.store(), &message_cid)
-            .with_context(|| format!("failed to find msg {}", message_cid))?;
+            .with_context(|| format!("failed to find msg {message_cid}"))?;
         Ok(SignedMessage::new_unchecked(
             msg,
             Signature::new_bls(vec![]),
@@ -1826,10 +1826,10 @@ impl RpcMethod<2> for EthEstimateGas {
                 Err(anyhow::anyhow!("failed to estimate gas: {err}").into())
             }
             Ok(gassed_msg) => {
-                log::info!("correct gassed_msg: do eth_gas_search {:?}", gassed_msg);
+                log::info!("correct gassed_msg: do eth_gas_search {gassed_msg:?}");
                 let expected_gas =
                     Self::eth_gas_search(&ctx, gassed_msg, &tipset.key().into()).await?;
-                log::info!("trying eth_gas search: {}", expected_gas);
+                log::info!("trying eth_gas search: {expected_gas}");
                 Ok(expected_gas.into())
             }
         }
@@ -2758,7 +2758,7 @@ async fn get_eth_transaction_receipt(
         .state_manager
         .search_for_message(None, msg_cid, limit, Some(true))
         .await
-        .with_context(|| format!("failed to lookup Eth Txn {} as {}", tx_hash, msg_cid))?;
+        .with_context(|| format!("failed to lookup Eth Txn {tx_hash} as {msg_cid}"))?;
 
     let (tipset, receipt) = option.context("not indexed")?;
     let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -2771,7 +2771,7 @@ async fn get_eth_transaction_receipt(
     };
 
     let tx = new_eth_tx_from_message_lookup(&ctx, &message_lookup, None)
-        .with_context(|| format!("failed to convert {} into an Eth Tx", tx_hash))?;
+        .with_context(|| format!("failed to convert {tx_hash} into an Eth Tx"))?;
 
     let ts = ctx
         .chain_index()
@@ -3683,7 +3683,7 @@ mod test {
             eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
                 .unwrap();
         assert_eq!(
-            &format!("{}", tx_hash),
+            &format!("{tx_hash}"),
             "0xfc81dd8d9ffb045e7e2d494f925824098183263c7f402d69e18cc25e3422791b"
         );
 

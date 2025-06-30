@@ -47,7 +47,7 @@ impl AuthCommands {
                     AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?,
                 )?;
                 let addr = multiaddr::from_url(client.base_url().as_str())?;
-                println!("FULLNODE_API_INFO=\"{}:{}\"", token, addr);
+                println!("FULLNODE_API_INFO=\"{token}:{addr}\"");
                 Ok(())
             }
         }

@@ -93,7 +93,6 @@ on how much historical state is indexed.
 ## Implement indexes but with a different implementation
 
 1. Use a graph database or a graph query language:
-
    - **Neo4j**
    - **GraphQL**
 

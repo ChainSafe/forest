@@ -117,7 +117,9 @@ impl MinerMigrator {
                 let prev_in = cache.get(&miner_prev_sectors_in_key(address));
                 let prev_out = cache.get(&miner_prev_sectors_out_key(address));
 
-                let out_root = if let (Some(prev_in), Some(prev_out)) = (prev_in, prev_out) {
+                let out_root = if let Some(prev_in) = prev_in
+                    && let Some(prev_out) = prev_out
+                {
                     self.migrate_sectors_with_diff(store, in_root, &prev_in, &prev_out)?
                 } else {
                     let in_array = ArrayOld::load(in_root, store)?;
@@ -221,8 +223,8 @@ impl MinerMigrator {
                         let prev_in_root = cache.get(&miner_prev_sectors_in_key(address));
                         let prev_out_root = cache.get(&miner_prev_sectors_out_key(address));
 
-                        if let (Some(prev_in_root), Some(prev_out_root)) =
-                            (prev_in_root, prev_out_root)
+                        if let Some(prev_in_root) = prev_in_root
+                            && let Some(prev_out_root) = prev_out_root
                         {
                             self.migrate_sectors_with_diff(
                                 store,
@@ -271,15 +273,15 @@ impl MinerMigrator {
 
 fn sectors_amt_key(sectors: &Cid) -> anyhow::Result<String> {
     let key = sectors.to_string_of_base(Base::Base32Lower)?;
-    Ok(format!("sectorsAmt-{}", key))
+    Ok(format!("sectorsAmt-{key}"))
 }
 
 fn miner_prev_sectors_in_key(address: &Address) -> String {
-    format!("prevSectorsIn-{}", address)
+    format!("prevSectorsIn-{address}")
 }
 
 fn miner_prev_sectors_out_key(address: &Address) -> String {
-    format!("prevSectorsOut-{}", address)
+    format!("prevSectorsOut-{address}")
 }
 
 #[cfg(test)]
