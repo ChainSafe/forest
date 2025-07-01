@@ -203,7 +203,7 @@ impl Chains {
 
         while i >= 0
             && (chain_node.gas_limit > gas_limit
-                || (chain_node.gas_perf < 0.0)
+                || chain_node.gas_perf < 0.0
                 || i >= msg_limit as i64)
         {
             #[allow(clippy::indexing_slicing)]
@@ -234,7 +234,7 @@ impl Chains {
             chain_node.msgs.clear();
             chain_node.valid = false;
         } else {
-            chain_node.msgs.drain(0..i as usize + 1);
+            chain_node.msgs.truncate(i as usize + 1);
         }
 
         let next = chain_node.next;

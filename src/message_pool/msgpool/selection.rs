@@ -33,6 +33,7 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 // A cap on maximum number of message to include in a block
 const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
+const CBOR_GEN_LIMIT: usize = 8192; // Same limits as in Go's `cbor-gen`.
 
 struct SelectedMessages {
     /// The messages selected for inclusion in the block.
@@ -50,8 +51,8 @@ impl Default for SelectedMessages {
         SelectedMessages {
             msgs: Vec::new(),
             gas_limit: crate::shim::econ::BLOCK_GAS_LIMIT,
-            secp_limit: 8192, // Same limits as in Go's `cbor-gen`.
-            bls_limit: 8192,
+            secp_limit: CBOR_GEN_LIMIT as u64,
+            bls_limit: CBOR_GEN_LIMIT as u64,
         }
     }
 }
@@ -262,7 +263,7 @@ impl SelectedMessages {
 
         if message_chain.gas_limit > self.gas_limit || message_chain.msgs.len() > msg_limit as usize
         {
-            chains.trim_msgs_at(0, self.gas_limit, msg_limit as usize, base_fee);
+            chains.trim_msgs_at(idx, self.gas_limit, msg_limit as usize, base_fee);
         }
     }
 }
@@ -735,8 +736,7 @@ fn merge_and_trim(
     // 3. Merge chains until the block limit, as long as they have non-negative gas
     // performance
     let mut last = chains.len();
-    let chain_len = chains.len();
-    for i in 0..chain_len {
+    for i in 0..chains.len() {
         let node = &chains[i];
 
         if node.gas_perf < 0.0 {
@@ -748,18 +748,19 @@ fn merge_and_trim(
             continue;
         }
 
+        // we can't fit this chain because of block gas limit -- we are at the edge
         last = i;
         break;
     }
 
-    'tail_loop: while selected_msgs.gas_limit >= min_gas && last < chain_len {
+    'tail_loop: while selected_msgs.gas_limit >= min_gas && last < chains.len() {
         // trim, discard negative performing messages
         selected_msgs.trim_chain_at(chains, last, base_fee);
 
         // push down if it hasn't been invalidated
         let node = &chains[last];
         if node.valid {
-            for i in last..chain_len - 1 {
+            for i in last..chains.len() - 1 {
                 // slot_chains
                 let cur_node = &chains[i];
                 let next_node = &chains[i + 1];
@@ -869,6 +870,7 @@ mod test_selection {
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message::Message;
     use crate::shim::crypto::SignatureType;
+    use crate::shim::econ::BLOCK_GAS_LIMIT;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -1117,11 +1119,63 @@ mod test_selection {
 
         let expected = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         assert_eq!(msgs.len(), expected as usize);
-        let mut m_gas_lim = 0;
-        for m in msgs.iter() {
-            m_gas_lim += m.gas_limit();
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(m_gas_limit <= crate::shim::econ::BLOCK_GAS_LIMIT);
+    }
+
+    #[tokio::test]
+    async fn message_selection_trimming_msgs_basic() {
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset);
+
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let address = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let block = mock_block(1, 1);
+        let ts = Tipset::from(&block);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::from(block)],
+        )
+        .await
+        .unwrap();
+
+        api.set_state_balance_raw(&address, TokenAmount::from_whole(1));
+
+        // create a larger than selectable chain
+        for i in 0..=BLOCK_MESSAGE_LIMIT {
+            // arbitrarily smallvalues for gas limit and gas price
+            let msg = create_fake_smsg(&mpool, &address, &address, i as u64, 200_000, 100);
+            mpool.add(msg).unwrap();
         }
-        assert!(m_gas_lim <= crate::shim::econ::BLOCK_GAS_LIMIT);
+
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
+        assert_eq!(
+            msgs.len(),
+            CBOR_GEN_LIMIT,
+            "Expected {CBOR_GEN_LIMIT} messages, got {}",
+            msgs.len()
+        );
+
+        // check that the gas limit is not exceeded
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(
+            m_gas_limit <= BLOCK_GAS_LIMIT,
+            "Selected messages gas limit {m_gas_limit} exceeds block gas limit {BLOCK_GAS_LIMIT}",
+        );
     }
 
     #[tokio::test]
