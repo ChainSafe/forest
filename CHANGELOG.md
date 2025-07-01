@@ -43,6 +43,8 @@
 
 - [#5773](https://github.com/ChainSafe/forest/pull/5773) The `forest-tool index backfill` now correctly respects the `--from` argument. At the same time, it's been made optional and will default to the chain head.
 
+- [#5750](https://github.com/ChainSafe/forest/pull/5750) Fix regression causing the `Filecoin.ChainNotify` RPC endpoint to be unreachable.
+
 ## Forest v0.27.0 "Whisperer in Darkness"
 
 This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
