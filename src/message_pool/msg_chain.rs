@@ -473,7 +473,7 @@ where
     }
 
     // check we have a sane set of messages to construct the chains
-    let msgs = if i > skip {
+    let mut msgs = if i > skip {
         #[allow(clippy::indexing_slicing)]
         msgs[skip..i].to_vec()
     } else {
@@ -481,14 +481,12 @@ where
     };
 
     // if we have more messages from this sender than can fit in a block, drop the extra ones
-    let msgs = if msgs.len() > BLOCK_MESSAGE_LIMIT {
+    if msgs.len() > BLOCK_MESSAGE_LIMIT {
         warn!(
             "dropping {} messages from {actor} as they exceed the block message limit of {BLOCK_MESSAGE_LIMIT}",
             msgs.len() - BLOCK_MESSAGE_LIMIT,
         );
-        msgs[..BLOCK_MESSAGE_LIMIT].to_vec()
-    } else {
-        msgs
+        msgs.truncate(BLOCK_MESSAGE_LIMIT);
     };
 
     let mut cur_chain = MsgChainNode::default();
