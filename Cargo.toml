@@ -136,7 +136,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.14"
+lru = "0.15"
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
@@ -252,7 +252,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.289"
+ra_ap_syntax = "0.0.290"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
