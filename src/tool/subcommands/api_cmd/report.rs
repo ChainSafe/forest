@@ -12,12 +12,12 @@ use std::time::Instant;
 use tabled::{builder::Builder, settings::Style};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMetrics {
-    pub total_duration_ms: u128,
-    pub average_duration_ms: u128,
-    pub min_duration_ms: u128,
-    pub max_duration_ms: u128,
-    pub test_count: usize,
+struct PerformanceMetrics {
+    total_duration_ms: u128,
+    average_duration_ms: u128,
+    min_duration_ms: u128,
+    max_duration_ms: u128,
+    test_count: usize,
 }
 
 // Add a helper function to calculate performance metrics
@@ -46,24 +46,24 @@ impl PerformanceMetrics {
 /// Details about a successful test instance
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct SuccessfulTest {
+struct SuccessfulTest {
     /// The parameters used for this test
-    pub request_params: serde_json::Value,
+    request_params: serde_json::Value,
 
     /// Forest node response
-    pub forest_status: String,
+    forest_status: String,
 
     /// Lotus node response  
-    pub lotus_status: String,
+    lotus_status: String,
 
     /// Individual test execution duration in milliseconds
-    pub execution_duration_ms: u128,
+    execution_duration_ms: u128,
 }
 
 /// Testing status for a method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum MethodTestStatus {
+enum MethodTestStatus {
     /// Method was successfully tested
     Tested {
         total_count: usize,
@@ -79,7 +79,7 @@ pub enum MethodTestStatus {
 /// Details about a failed test instance
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct FailedTest {
+struct FailedTest {
     /// The parameters used for this test
     pub request_params: serde_json::Value,
 
@@ -100,27 +100,27 @@ pub struct FailedTest {
 /// Detailed report for a single RPC method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct MethodReport {
+struct MethodReport {
     /// Full RPC method name
-    pub name: String,
+    name: String,
 
     /// Required permission level
-    pub permission: String,
+    permission: String,
 
     /// Current testing status
-    pub status: MethodTestStatus,
+    status: MethodTestStatus,
 
     // Performance metrics (always included)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub performance: Option<PerformanceMetrics>,
+    performance: Option<PerformanceMetrics>,
 
     /// Details of successful test instances (only in full mode)
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub success_test_params: Vec<SuccessfulTest>,
+    success_test_params: Vec<SuccessfulTest>,
 
     /// Details of failed test instances
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub failed_test_params: Vec<FailedTest>,
+    failed_test_params: Vec<FailedTest>,
 }
 
 /// Report of all API comparison test results
@@ -128,13 +128,13 @@ pub struct MethodReport {
 #[serde(rename_all = "snake_case")]
 pub struct ApiTestReport {
     /// timestamp of when the test execution started
-    pub execution_datetime_utc: String,
+    execution_datetime_utc: String,
 
     /// Total duration of the test run in seconds
-    pub total_duration_secs: u64,
+    total_duration_secs: u64,
 
     /// Comprehensive report for each RPC method
-    pub methods: Vec<MethodReport>,
+    methods: Vec<MethodReport>,
 }
 
 /// Report builder to encapsulate report generation logic
