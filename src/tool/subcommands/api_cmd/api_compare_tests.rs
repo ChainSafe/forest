@@ -95,9 +95,11 @@ pub enum TestSummary {
     InfraError,
     /// Server returned JSON-RPC and it didn't match our schema
     BadJson,
-    /// Server returned JSON-RPC and it matched our schema, but failed validation
+    /// Server returned JSON-RPC, and it matched our schema, but failed validation
     CustomCheckFailed,
+    /// Server timed out
     Timeout,
+    /// Server returned JSON-RPC, and it matched our schema, and passed validation
     Valid,
 }
 
@@ -2159,7 +2161,7 @@ pub(super) async fn create_tests(
     tests.extend(state_tests());
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
-        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);
         revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
@@ -2169,6 +2171,22 @@ pub(super) async fn create_tests(
         )?);
     }
     tests.sort_by_key(|test| test.request.method_name.clone());
+
+    tests.extend(create_tests_that_run_last(snapshot_files)?);
+    Ok(tests)
+}
+
+fn create_tests_that_run_last(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    if !snapshot_files.is_empty() {
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        tests.push(RpcTest::identity(ChainSetHead::request((store
+            .heaviest_tipset()?
+            .key()
+            .clone(),))?));
+    }
+
     Ok(tests)
 }
 
@@ -2206,22 +2224,6 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     )?;
 
     Ok(())
-}
-
-pub(super) fn create_tests_pass_2(
-    CreateTestsArgs { snapshot_files, .. }: CreateTestsArgs,
-) -> anyhow::Result<Vec<RpcTest>> {
-    let mut tests = vec![];
-
-    if !snapshot_files.is_empty() {
-        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.push(RpcTest::identity(ChainSetHead::request((store
-            .heaviest_tipset()?
-            .key()
-            .clone(),))?));
-    }
-
-    Ok(tests)
 }
 
 #[allow(clippy::too_many_arguments)]

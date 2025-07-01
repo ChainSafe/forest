@@ -185,9 +185,6 @@ impl ReportBuilder {
         test_result: &super::api_compare_tests::TestResult,
         test_params: &serde_json::Value,
     ) {
-        // Debug: Log what method is being tracked
-        tracing::debug!("Tracking test result for method: {}", method_name);
-
         if let Some(report) = self.method_reports.get_mut(method_name) {
             // Update test status
             match &mut report.status {
@@ -219,14 +216,14 @@ impl ReportBuilder {
                 .or_default()
                 .push(test_result.duration.as_millis());
 
-            if !success {
-                if let Some(test_dump) = &test_result.test_dump {
-                    self.failed_test_dumps.push(test_dump.clone());
-                }
-            }
-
+            // if there is no test result for the current method, we can skip this test
             if test_result.test_dump.is_none() {
                 return;
+            }
+
+            if !success {
+                let test_dump = test_result.test_dump.as_ref().unwrap();
+                self.failed_test_dumps.push(test_dump.clone());
             }
 
             let test_dump = test_result.test_dump.as_ref().unwrap();
@@ -310,8 +307,8 @@ impl ReportBuilder {
 
                     builder.push_record([
                         method_name.as_str(),
-                        &format!("{}/{}", success_count, total_count),
-                        &format!("{}/{}", success_count, total_count),
+                        &format!("{success_count}/{total_count}"),
+                        &format!("{success_count}/{total_count}"),
                         status,
                     ]);
                 }
@@ -322,7 +319,7 @@ impl ReportBuilder {
         }
 
         let table = builder.build().with(Style::markdown()).to_string();
-        println!("\n{}", table);
+        println!("\n{table}");
 
         // Print overall summary
         let total_methods = self.method_reports.len();
@@ -343,9 +340,9 @@ impl ReportBuilder {
             .count();
 
         println!("\n📊 Test Summary:");
-        println!("  Total methods: {}", total_methods);
-        println!("  Tested methods: {}", tested_methods);
-        println!("  Failed methods: {}", failed_methods);
+        println!("  Total methods: {total_methods}");
+        println!("  Tested methods: {tested_methods}");
+        println!("  Failed methods: {failed_methods}");
         println!("  Duration: {}s", self.start_time.elapsed().as_secs());
     }
 

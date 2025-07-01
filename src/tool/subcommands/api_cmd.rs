@@ -39,11 +39,15 @@ pub enum NodeType {
     Lotus,
 }
 
+/// Report mode for the API compare tests.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum ReportMode {
-    Full,        // Show everything (default)
-    FailureOnly, // Show summary + failures only
-    Summary,     // Show summary only
+    /// Show everything (default)
+    Full,
+    /// Show summary and failures only
+    FailureOnly,
+    /// Show summary only
+    Summary,
 }
 
 #[derive(Debug, Subcommand)]
@@ -222,27 +226,23 @@ impl ApiCommands {
             } => {
                 let forest = Arc::new(rpc::Client::from_url(forest));
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
+                let tests = api_compare_tests::create_tests(create_tests_args.clone()).await?;
 
-                for tests in [
-                    api_compare_tests::create_tests(create_tests_args.clone()).await?,
-                    api_compare_tests::create_tests_pass_2(create_tests_args)?,
-                ] {
-                    api_compare_tests::run_tests(
-                        tests,
-                        forest.clone(),
-                        lotus.clone(),
-                        max_concurrent_requests,
-                        filter_file.clone(),
-                        filter.clone(),
-                        run_ignored,
-                        fail_fast,
-                        dump_dir.clone(),
-                        &test_criteria_overrides,
-                        report_dir.clone(),
-                        report_mode,
-                    )
-                    .await?;
-                }
+                api_compare_tests::run_tests(
+                    tests,
+                    forest.clone(),
+                    lotus.clone(),
+                    max_concurrent_requests,
+                    filter_file.clone(),
+                    filter.clone(),
+                    run_ignored,
+                    fail_fast,
+                    dump_dir.clone(),
+                    &test_criteria_overrides,
+                    report_dir.clone(),
+                    report_mode,
+                )
+                .await?;
             }
             Self::GenerateTestSnapshot {
                 test_dump_files,
