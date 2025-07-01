@@ -7,6 +7,7 @@
 #
 # This file is maintained monthly - see `CHECKPOINT_ISSUE_TEMPLATE.md`
 calibnet:
+  2764800: bafy2bzacedozq6uh27352dkpbkqlj5olbp7ms5lntkv6qvqnz7soqgeh777pu
   2678400: bafy2bzaceba4qpnj4vrmbmfd62fgmp3zgk2qow4z2m7fobduhvge74hmlu6ji
   2592000: bafy2bzacec6t6wwfk2jmg5xexporokpqkwxn6n5n6es2g2burkvlztsqw76q4
   2505600: bafy2bzacebzk43vdm4bfi4pyr3cnqafqwpc7vjtxjo5leqmdiceb47rcgsagi
@@ -39,6 +40,7 @@ calibnet:
   172800: bafy2bzacebluce5la2lbyjlgmup6mx4xytnnilsf4oy6v4omon2ivyduqwlsq
   86400: bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 mainnet:
+  5097600: bafy2bzacec2fq5p2tg2dm2gkr2uwm4jp5nmnfvcv3wtywg7qaq5jjvzpydv4e
   5011200: bafy2bzacedylgk35ai25uwfmpgvzbcbmw6l2hcs4obcdjrq4cenbwriail666
   4924800: bafy2bzacecgdzrxf7mlmwpuwazaaao4tujui3lezyr6v5bsaiqfmw2g5fqpje
   4838400: bafy2bzacecbov35xhqdwlsvpub4shixzlglaou25eubauh6ochmkqogma7vhk
