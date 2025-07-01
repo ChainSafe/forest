@@ -336,7 +336,7 @@ pub mod hexify_bytes {
     {
         // `ethereum_types` crate serializes bytes as compressed addresses, i.e. `0xff00…03ec`
         // so we can't just use `serializer.collect_str` here
-        serializer.serialize_str(&format!("{:#x}", value))
+        serializer.serialize_str(&format!("{value:#x}"))
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>

@@ -350,9 +350,9 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let chain_name =
         NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
 
-    println!("{}:", chain_name);
+    println!("{chain_name}:");
     for (epoch, cid) in list_checkpoints(&store, root) {
-        println!("  {}: {}", epoch, cid);
+        println!("  {epoch}: {cid}");
     }
     Ok(())
 }
@@ -605,10 +605,7 @@ async fn show_tipset_diff(
             "{}",
             format!("- Expected state hash: {}", child_tipset.parent_state()).red()
         );
-        println!(
-            "{}",
-            format!("+ Computed state hash: {}", state_root).green()
-        );
+        println!("{}", format!("+ Computed state hash: {state_root}").green());
 
         crate::statediff::print_state_diff(
             &store,
@@ -744,7 +741,7 @@ fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::R
             "--acl",
             "public-read",
             path.to_str().unwrap(),
-            &format!("s3://forest-archive/{}/{}/", network, tag),
+            &format!("s3://forest-archive/{network}/{tag}/"),
             "--endpoint",
             FOREST_ARCHIVE_S3_ENDPOINT,
         ])
@@ -869,7 +866,7 @@ async fn sync_bucket(
 
     for epoch in steps_in_range(&range, 30_000, 800) {
         if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {}: Exporting lite snapshot", epoch,);
+            println!("  {epoch}: Exporting lite snapshot",);
             if !dry_run {
                 let output_path = export_lite_snapshot(
                     store.clone(),
@@ -881,14 +878,14 @@ async fn sync_bucket(
                 .await?;
                 upload_to_forest_bucket(output_path, &info.network, "lite")?;
             } else {
-                println!("  {}: Would upload lite snapshot to S3", epoch);
+                println!("  {epoch}: Would upload lite snapshot to S3");
             }
         }
     }
 
     for epoch in steps_in_range(&range, 3_000, 3_800) {
         if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {}: Exporting diff snapshot", epoch,);
+            println!("  {epoch}: Exporting diff snapshot",);
             if !dry_run {
                 let output_path = export_diff_snapshot(
                     store.clone(),
@@ -900,7 +897,7 @@ async fn sync_bucket(
                 .await?;
                 upload_to_forest_bucket(output_path, &info.network, "diff")?;
             } else {
-                println!("  {}: Would upload diff snapshot to S3", epoch);
+                println!("  {epoch}: Would upload diff snapshot to S3");
             }
         }
     }

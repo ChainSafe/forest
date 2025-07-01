@@ -718,6 +718,30 @@ impl RpcMethod<1> for F3GetF3PowerTable {
     }
 }
 
+pub enum F3GetF3PowerTableByInstance {}
+impl RpcMethod<1> for F3GetF3PowerTableByInstance {
+    const NAME: &'static str = "Filecoin.F3GetF3PowerTableByInstance";
+    const PARAM_NAMES: [&'static str; 1] = ["instance"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Gets the power table (committee) used to validate the specified instance");
+
+    type Params = (u64,);
+    type Ok = Vec<F3PowerEntry>;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (instance,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(instance)?;
+        let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
 pub enum F3IsRunning {}
 
 impl F3IsRunning {

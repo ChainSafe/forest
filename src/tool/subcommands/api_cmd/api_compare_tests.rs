@@ -145,7 +145,9 @@ impl std::fmt::Display for TestDump {
                 .ok()
                 .and_then(|v| serde_json::to_string_pretty(v).ok()),
         );
-        if let (Some(forest_response), Some(lotus_response)) = (&forest_response, &lotus_response) {
+        if let Some(forest_response) = &forest_response
+            && let Some(lotus_response) = &lotus_response
+        {
             let diff = TextDiff::from_lines(forest_response, lotus_response);
             let mut print_diff = Vec::new();
             for change in diff.iter_all_changes() {
@@ -156,15 +158,15 @@ impl std::fmt::Display for TestDump {
                 };
                 print_diff.push(format!("{sign}{change}"));
             }
-            writeln!(f, "Forest response: {}", forest_response)?;
-            writeln!(f, "Lotus response: {}", lotus_response)?;
+            writeln!(f, "Forest response: {forest_response}")?;
+            writeln!(f, "Lotus response: {lotus_response}")?;
             writeln!(f, "Diff: {}", print_diff.join("\n"))?;
         } else {
             if let Some(forest_response) = &forest_response {
-                writeln!(f, "Forest response: {}", forest_response)?;
+                writeln!(f, "Forest response: {forest_response}")?;
             }
             if let Some(lotus_response) = &lotus_response {
-                writeln!(f, "Lotus response: {}", lotus_response)?;
+                writeln!(f, "Lotus response: {lotus_response}")?;
             }
         };
         Ok(())

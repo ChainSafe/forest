@@ -11,7 +11,10 @@ use crate::{
     lotus_json::HasLotusJson as _,
     rpc::{
         self,
-        f3::{F3InstanceProgress, F3Manifest, F3PowerEntry, FinalityCertificate},
+        f3::{
+            F3GetF3PowerTableByInstance, F3InstanceProgress, F3Manifest, F3PowerEntry,
+            FinalityCertificate,
+        },
         prelude::*,
     },
     shim::fvm_shared_latest::ActorID,
@@ -341,7 +344,7 @@ impl F3PowerTableCommands {
         let power_table = if ec {
             F3GetECPowerTable::call(client, (tsk.into(),)).await?
         } else {
-            F3GetF3PowerTable::call(client, (tsk.into(),)).await?
+            F3GetF3PowerTableByInstance::call(client, (instance,)).await?
         };
         Ok((instance, power_table_cid, power_table))
     }

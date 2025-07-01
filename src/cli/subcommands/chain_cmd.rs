@@ -204,7 +204,7 @@ async fn print_chain_head(client: &rpc::Client, n: u64, format: Format) -> anyho
             tipsets.iter().for_each(|epoch_info| {
                 println!("[{}]", epoch_info.epoch);
                 epoch_info.cids.iter().for_each(|cid| {
-                    println!("{}", cid);
+                    println!("{cid}");
                 });
             });
         }

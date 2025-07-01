@@ -37,7 +37,7 @@ pub fn base_environment<BS: Blockstore + Send + Sync>(
     from: &Address,
 ) -> anyhow::Result<Environment> {
     let sender = lookup_eth_address(from, state)?
-        .with_context(|| format!("top-level message sender {} s could not be found", from))?;
+        .with_context(|| format!("top-level message sender {from} s could not be found"))?;
     Ok(Environment {
         caller: sender,
         ..Environment::default()
@@ -78,7 +78,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
 
     // indicate when we have a "system" error.
     if code < ExitCode::FIRST_ACTOR_ERROR_CODE.into() {
-        return Some(format!("vm error: {}", code));
+        return Some(format!("vm error: {code}"));
     }
 
     // handle special exit codes from the EVM/EAM.
@@ -100,7 +100,7 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<String> {
         }
     }
     // everything else...
-    Some(format!("actor error: {}", code))
+    Some(format!("actor error: {code}"))
 }
 
 /// Recursively builds the traces for a given ExecutionTrace by walking the subcalls

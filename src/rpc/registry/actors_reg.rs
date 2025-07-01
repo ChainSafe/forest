@@ -174,15 +174,13 @@ mod test {
                 let result = ActorRegistry::get_actor_details_from_code(&cid);
                 assert!(
                     result.is_ok(),
-                    "Failed to get details for {} actor",
-                    actor_name
+                    "Failed to get details for {actor_name} actor"
                 );
 
                 let (builtin_actor_type, _) = result.unwrap();
                 assert_eq!(
                     builtin_actor_type, expected_actor,
-                    "Wrong actor type returned for {} actor",
-                    actor_name
+                    "Wrong actor type returned for {actor_name} actor"
                 );
             }
         }
@@ -260,9 +258,7 @@ mod test {
                     assert!(
                         !error_msg.contains("Unknown actor code CID")
                             && !error_msg.contains("No serializer implemented"),
-                        "Unexpected error for {} actor: {}",
-                        actor_name,
-                        error_msg
+                        "Unexpected error for {actor_name} actor: {error_msg}"
                     );
                 }
             }
