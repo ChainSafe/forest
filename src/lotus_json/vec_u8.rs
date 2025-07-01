@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use schemars::schema::*;
 
 // This code looks odd so we can
 // - use #[serde(with = "...")]
@@ -11,17 +10,13 @@ use schemars::schema::*;
 pub struct VecU8LotusJson(Option<Inner>);
 
 impl JsonSchema for VecU8LotusJson {
-    fn schema_name() -> String {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
         "Base64String".into()
     }
 
-    fn json_schema(_: &mut schemars::r#gen::SchemaGenerator) -> Schema {
-        Schema::Object(SchemaObject {
-            instance_type: Some(SingleOrVec::Vec(vec![
-                InstanceType::String,
-                InstanceType::Null,
-            ])),
-            ..Default::default()
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": ["string", "null"]
         })
     }
 }

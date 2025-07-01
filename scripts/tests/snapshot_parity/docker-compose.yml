@@ -45,7 +45,7 @@ services:
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1) \
           --import-mode=symlink &
-        sleep 15
+        forest-cli wait-api
         forest-cli sync wait
         forest-cli snapshot export -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
         kill -KILL $!

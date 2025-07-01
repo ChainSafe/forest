@@ -24,6 +24,7 @@ use log_layer::LogLayer;
 use reflect::Ctx;
 pub use reflect::{ApiPaths, Permission, RpcMethod, RpcMethodExt};
 pub use request::Request;
+use schemars::Schema;
 use segregation_layer::SegregationLayer;
 use set_extension_layer::SetExtensionLayer;
 mod error;
@@ -270,6 +271,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::F3GetCertificate);
         $callback!($crate::rpc::f3::F3GetECPowerTable);
         $callback!($crate::rpc::f3::F3GetF3PowerTable);
+        $callback!($crate::rpc::f3::F3GetF3PowerTableByInstance);
         $callback!($crate::rpc::f3::F3IsRunning);
         $callback!($crate::rpc::f3::F3GetProgress);
         $callback!($crate::rpc::f3::F3GetManifest);
@@ -636,13 +638,13 @@ where
 
 /// If `include` is not [`None`], only methods that are listed will be returned
 pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
-    use schemars::r#gen::{SchemaGenerator, SchemaSettings};
+    use schemars::generate::{SchemaGenerator, SchemaSettings};
 
     let mut methods = vec![];
     // spec says draft07
     let mut settings = SchemaSettings::draft07();
     // ..but uses `components`
-    settings.definitions_path = String::from("#/components/schemas/");
+    settings.definitions_path = "#/components/schemas/".into();
     let mut generator = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
@@ -687,7 +689,19 @@ pub fn openrpc(path: ApiPaths, include: Option<&[&str]>) -> openrpc_types::OpenR
     openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {
-            schemas: Some(generator.take_definitions().into_iter().collect()),
+            schemas: Some(
+                generator
+                    .take_definitions(false)
+                    .into_iter()
+                    .filter_map(|(k, v)| {
+                        if let Ok(v) = Schema::try_from(v) {
+                            Some((k, v))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+            ),
             ..Default::default()
         }),
         openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,

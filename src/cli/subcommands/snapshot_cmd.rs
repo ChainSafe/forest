@@ -4,6 +4,7 @@
 use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, chain::ChainExportParams, prelude::*};
 use anyhow::Context as _;
@@ -12,7 +13,6 @@ use clap::Subcommand;
 use human_repr::HumanCount;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Subcommand)]
@@ -73,7 +73,7 @@ impl SnapshotCommands {
                 };
 
                 let output_dir = output_path.parent().context("invalid output path")?;
-                let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
+                let temp_path = new_forest_car_temp_path_in(output_dir)?;
 
                 let params = ChainExportParams {
                     epoch,

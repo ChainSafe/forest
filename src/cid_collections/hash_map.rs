@@ -94,6 +94,7 @@ impl<V> CidHashMap<V> {
     /// Returns `true` if the map is empty.
     ///
     /// See also [`HashMap::is_empty`].
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.compact.is_empty() && self.uncompact.is_empty()
     }

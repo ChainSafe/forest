@@ -124,7 +124,7 @@
 use crate::shim::actors::miner::DeadlineInfo;
 use derive_more::From;
 use fvm_shared4::piece::PaddedPieceSize;
-use schemars::{JsonSchema, r#gen::SchemaGenerator, schema::Schema};
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned};
 #[cfg(test)]
 use serde_json::json;
@@ -336,7 +336,7 @@ pub mod hexify_bytes {
     {
         // `ethereum_types` crate serializes bytes as compressed addresses, i.e. `0xff00…03ec`
         // so we can't just use `serializer.collect_str` here
-        serializer.serialize_str(&format!("{:#x}", value))
+        serializer.serialize_str(&format!("{value:#x}"))
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
@@ -472,7 +472,7 @@ where
     T: HasLotusJson,
     T::LotusJson: JsonSchema,
 {
-    fn schema_name() -> String {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
         T::LotusJson::schema_name()
     }
 

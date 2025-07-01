@@ -143,7 +143,9 @@ impl std::fmt::Display for TestDump {
                 .ok()
                 .and_then(|v| serde_json::to_string_pretty(v).ok()),
         );
-        if let (Some(forest_response), Some(lotus_response)) = (&forest_response, &lotus_response) {
+        if let Some(forest_response) = &forest_response
+            && let Some(lotus_response) = &lotus_response
+        {
             let diff = TextDiff::from_lines(forest_response, lotus_response);
             let mut print_diff = Vec::new();
             for change in diff.iter_all_changes() {
@@ -154,15 +156,15 @@ impl std::fmt::Display for TestDump {
                 };
                 print_diff.push(format!("{sign}{change}"));
             }
-            writeln!(f, "Forest response: {}", forest_response)?;
-            writeln!(f, "Lotus response: {}", lotus_response)?;
+            writeln!(f, "Forest response: {forest_response}")?;
+            writeln!(f, "Lotus response: {lotus_response}")?;
             writeln!(f, "Diff: {}", print_diff.join("\n"))?;
         } else {
             if let Some(forest_response) = &forest_response {
-                writeln!(f, "Forest response: {}", forest_response)?;
+                writeln!(f, "Forest response: {forest_response}")?;
             }
             if let Some(lotus_response) = &lotus_response {
-                writeln!(f, "Lotus response: {}", lotus_response)?;
+                writeln!(f, "Lotus response: {lotus_response}")?;
             }
         };
         Ok(())
@@ -1815,6 +1817,21 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    let init_constructor_params = fil_actor_init_state::v16::ConstructorParams {
+        network_name: "calibnet".to_string(),
+    };
+
+    let init_exec4_params = fil_actor_init_state::v16::Exec4Params {
+        code_cid: Cid::default(),
+        constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+        subaddress: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
+    let init_exec_params = fil_actor_init_state::v16::ExecParams {
+        code_cid: Cid::default(),
+        constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1844,6 +1861,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
             1,
             to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            1,
+            to_vec(&init_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            2,
+            to_vec(&init_exec_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            3,
+            to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),
     ];
@@ -2281,7 +2316,9 @@ pub(super) async fn run_tests(
             _ => false,
         };
 
-        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+        if let Some(dump_dir) = &dump_dir
+            && let Some(test_dump) = &test_result.test_dump
+        {
             let dir = dump_dir.join(if success { "valid" } else { "invalid" });
             if !dir.is_dir() {
                 std::fs::create_dir_all(&dir)?;
@@ -2360,12 +2397,12 @@ fn format_as_markdown(results: &[((Cow<'static, str>, TestSummary, TestSummary),
     for ((method, forest_status, lotus_status), n) in results {
         builder.push_record([
             if *n > 1 {
-                format!("{} ({})", method, n)
+                format!("{method} ({n})")
             } else {
                 method.to_string()
             },
-            format!("{:?}", forest_status),
-            format!("{:?}", lotus_status),
+            format!("{forest_status:?}"),
+            format!("{lotus_status:?}"),
         ]);
     }
 

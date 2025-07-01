@@ -21,6 +21,7 @@ Filecoin.EthSyncing
 Filecoin.F3GetCertificate
 Filecoin.F3GetECPowerTable
 Filecoin.F3GetF3PowerTable
+Filecoin.F3GetF3PowerTableByInstance
 Filecoin.F3GetLatestCertificate
 Filecoin.F3GetManifest
 Filecoin.F3GetOrRenewParticipationTicket

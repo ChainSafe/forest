@@ -21,11 +21,10 @@
     "@docusaurus/core": "^3.8.1",
     "@docusaurus/preset-classic": "^3.8.1",
     "@docusaurus/theme-mermaid": "^3.8.1",
-    "@easyops-cn/docusaurus-search-local": "^0.51.0",
-    "@metamask/docusaurus-openrpc": "^0.4.1",
+    "@easyops-cn/docusaurus-search-local": "^0.51.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.6.0",
-    "prettier": "^3.5.3",
+    "prettier": "^3.6.2",
     "prism-react-renderer": "^2.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

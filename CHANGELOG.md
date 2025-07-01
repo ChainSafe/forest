@@ -31,9 +31,17 @@
 
 ### Changed
 
+- [#5771](https://github.com/ChainSafe/forest/issues/5771) Update OpenRPC schemars by bumping `schemars` create.
+
 ### Removed
 
 ### Fixed
+
+- [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.
+
+- [#5762](https://github.com/ChainSafe/forest/issues/5762) Cleanup temporary CAR DB files on node start.
+
+- [#5773](https://github.com/ChainSafe/forest/pull/5773) The `forest-tool index backfill` now correctly respects the `--from` argument. At the same time, it's been made optional and will default to the chain head.
 
 ## Forest v0.27.0 "Whisperer in Darkness"
 

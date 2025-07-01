@@ -184,7 +184,7 @@ where
         let tsk = self
             .eth_mappings
             .read_obj::<TipsetKey>(hash)?
-            .with_context(|| format!("cannot find tipset with hash {}", hash))?;
+            .with_context(|| format!("cannot find tipset with hash {hash}"))?;
 
         Ok(tsk)
     }

@@ -73,13 +73,14 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, evm, miner};
+        use crate::rpc::registry::actors::{account, evm, init, miner};
 
         for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
                 BuiltinActor::Account => account::register_account_actor_methods(self, cid),
                 BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
                 BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
+                BuiltinActor::Init => init::register_actor_methods(self, cid),
                 _ => {}
             }
         }
@@ -242,9 +243,7 @@ mod test {
                 let error_msg = result.unwrap_err().to_string();
                 assert!(
                     !error_msg.contains("No deserializer registered"),
-                    "Actor type {:?} should have methods registered but got error: {}",
-                    actor_type,
-                    error_msg
+                    "Actor type {actor_type:?} should have methods registered but got error: {error_msg}"
                 );
             }
         }
