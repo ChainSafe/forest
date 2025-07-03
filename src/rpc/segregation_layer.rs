@@ -31,6 +31,9 @@ static VERSION_METHODS_MAPPINGS: Lazy<HashMap<ApiPaths, HashSet<&'static str>>> 
 
         for_each_rpc_method!(insert);
 
+        supported.insert(crate::rpc::chain::CHAIN_NOTIFY);
+        supported.insert(crate::rpc::channel::CANCEL_METHOD_NAME);
+
         map.insert(version, supported);
     }
 

@@ -75,7 +75,7 @@ OPTIONS:
       --color <COLOR>
           Enable or disable colored logging in `stdout` [default: auto]
       --tokio-console
-          Turn on tokio-console support for debugging. Memory leak, see <https://github.com/tokio-rs/console/pull/501>
+          Turn on tokio-console support for debugging
       --loki
           Send telemetry to `grafana loki`
       --loki-endpoint <LOKI_ENDPOINT>
