@@ -297,7 +297,7 @@ where
     }
 
     /// Returns the internal, protocol-level network chain from the state.
-    pub fn get_network_chain_state_name(&self, state_cid: Cid) -> anyhow::Result<String> {
+    pub fn get_network_state_name(&self, state_cid: Cid) -> anyhow::Result<String> {
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
             .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;

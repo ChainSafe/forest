@@ -151,7 +151,7 @@ impl RpcMethod<0> for StateNetworkName {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         Ok(ctx
             .state_manager
-            .get_network_chain_state_name(*heaviest_tipset.parent_state())?)
+            .get_network_state_name(*heaviest_tipset.parent_state())?)
     }
 }
 
@@ -2854,7 +2854,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let network_name = ctx
             .state_manager
-            .get_network_chain_state_name(*heaviest_tipset.parent_state())?;
+            .get_network_state_name(*heaviest_tipset.parent_state())?;
         let policy = &config.policy;
 
         let params = NetworkParams {

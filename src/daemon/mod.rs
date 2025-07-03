@@ -544,7 +544,7 @@ pub(super) async fn start_services(
     maybe_start_track_peak_rss_service(&mut services, opts);
     let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;
-    info!("Using network :: {network}",);
+    info!("Using network :: {network}");
     utils::misc::display_chain_logo(config.chain());
     if opts.exit_after_init {
         return Ok(());
