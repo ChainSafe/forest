@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--only-lites` and `--only-diffs` flags to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
+
 ### Changed
 
 - [#5771](https://github.com/ChainSafe/forest/issues/5771) Update OpenRPC schemars by bumping `schemars` create.
