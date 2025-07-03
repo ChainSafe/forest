@@ -890,6 +890,34 @@ mod test_selection {
         MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()
     }
 
+    /// Creates a a tipset with a mocked block and performs a head change to setup the
+    /// [`MessagePool`] for testing.
+    async fn mock_tipset(mpool: &mut MessagePool<TestApi>) -> Tipset {
+        let b1 = mock_block(1, 1);
+        let ts = Tipset::from(&b1);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::from(b1)],
+        )
+        .await
+        .unwrap();
+
+        ts
+    }
+
     #[tokio::test]
     async fn basic_message_selection() {
         let mut joinset = JoinSet::new();
@@ -925,7 +953,6 @@ mod test_selection {
         .await
         .unwrap();
 
-        // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
@@ -1056,7 +1083,9 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_gas() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -1065,27 +1094,6 @@ mod test_selection {
         let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
@@ -1126,32 +1134,13 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_basic() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let address = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        let block = mock_block(1, 1);
-        let ts = Tipset::from(&block);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(block)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&address, TokenAmount::from_whole(1));
 
@@ -1180,7 +1169,9 @@ mod test_selection {
     #[tokio::test]
     async fn message_selection_trimming_msgs_two_senders() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet_1 = Wallet::new(keystore_1);
@@ -1189,27 +1180,6 @@ mod test_selection {
         let keystore_2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet_2 = Wallet::new(keystore_2);
         let address_2 = wallet_2.generate_addr(SignatureType::Bls).unwrap();
-
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&address_1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&address_2, TokenAmount::from_whole(1));
@@ -1263,6 +1233,8 @@ mod test_selection {
 
         let mut joinset = JoinSet::new();
         let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -1276,27 +1248,6 @@ mod test_selection {
         let mut mpool_cfg = mpool.get_config().clone();
         mpool_cfg.priority_addrs.push(a1);
         mpool.set_config(&db, mpool_cfg).unwrap();
-
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = &mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            mpool.api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
@@ -1359,38 +1310,15 @@ mod test_selection {
         // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
         let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        // create a block
-        let b1 = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&b1.clone());
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
@@ -1438,38 +1366,15 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm
         // should pick messages from the second actor from the start
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
         let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        // create a block
-        let b1 = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&b1);
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
@@ -1548,7 +1453,9 @@ mod test_selection {
         // actors. We select with a low ticket quality; the chain depenent
         // merging algorithm should pick messages from the median actor from the
         // start
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let n_actors = 10;
 
@@ -1562,31 +1469,6 @@ mod test_selection {
             actors.push(actor);
             wallets.push(wallet);
         }
-
-        // create a block
-        let block = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&block);
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(block)],
-        )
-        .await
-        .unwrap();
 
         for a in &mut actors {
             api.set_state_balance_raw(a, TokenAmount::from_whole(1));
