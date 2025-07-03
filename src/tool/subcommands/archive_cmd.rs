@@ -45,7 +45,7 @@ use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
 use cid::Cid;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -57,6 +57,27 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
+
+#[derive(Debug, Clone, ValueEnum, Default)]
+pub enum ExportMode {
+    /// Export all types of snapshots.
+    #[default]
+    All,
+    /// Export only lite snapshots.
+    Lite,
+    /// Export only diff snapshots.
+    Diff,
+}
+
+impl ExportMode {
+    pub fn export_lite(&self) -> bool {
+        matches!(self, ExportMode::All | ExportMode::Lite)
+    }
+
+    pub fn export_diff(&self) -> bool {
+        matches!(self, ExportMode::All | ExportMode::Diff)
+    }
+}
 
 #[derive(Debug, Subcommand)]
 pub enum ArchiveCommands {
@@ -137,12 +158,9 @@ pub enum ArchiveCommands {
         /// Don't generate or upload files, just show what would be done.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
-        /// Export only lite snapshots.
-        #[arg(long, default_value_t = false, conflicts_with = "only_diffs")]
-        only_lites: bool,
-        /// Export only diff snapshots.
-        #[arg(long, default_value_t = false, conflicts_with = "only_lites")]
-        only_diffs: bool,
+        /// Export mode
+        #[arg(long, value_enum, default_value_t = ExportMode::All)]
+        mode: ExportMode,
     },
 }
 
@@ -200,9 +218,8 @@ impl ArchiveCommands {
                 snapshot_files,
                 endpoint,
                 dry_run,
-                only_lites,
-                only_diffs,
-            } => sync_bucket(snapshot_files, endpoint, dry_run, only_lites, only_diffs).await,
+                mode,
+            } => sync_bucket(snapshot_files, endpoint, dry_run, mode).await,
         }
     }
 }
@@ -840,8 +857,7 @@ async fn sync_bucket(
     snapshot_files: Vec<PathBuf>,
     endpoint: String,
     dry_run: bool,
-    only_lites: bool,
-    only_diffs: bool,
+    mode: ExportMode,
 ) -> anyhow::Result<()> {
     check_aws_config(&endpoint)?;
 
@@ -857,7 +873,7 @@ async fn sync_bucket(
 
     println!("Network: {}", info.network);
     println!("Range:   {} to {}", range.start, range.end);
-    if !only_diffs {
+    if mode.export_lite() {
         println!("Lites:",);
         for epoch in steps_in_range(&range, 30_000, 800) {
             println!(
@@ -867,7 +883,7 @@ async fn sync_bucket(
             );
         }
     }
-    if !only_lites {
+    if mode.export_diff() {
         println!("Diffs:");
         for epoch in steps_in_range(&range, 3_000, 3_800) {
             println!(
@@ -878,7 +894,7 @@ async fn sync_bucket(
         }
     }
 
-    if !only_diffs {
+    if mode.export_lite() {
         for epoch in steps_in_range(&range, 30_000, 800) {
             if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
                 println!("  {epoch}: Exporting lite snapshot",);
@@ -899,7 +915,7 @@ async fn sync_bucket(
         }
     }
 
-    if !only_lites {
+    if mode.export_diff() {
         for epoch in steps_in_range(&range, 3_000, 3_800) {
             if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
                 println!("  {epoch}: Exporting diff snapshot",);
