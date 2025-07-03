@@ -137,6 +137,12 @@ pub enum ArchiveCommands {
         /// Don't generate or upload files, just show what would be done.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+        /// Export only lite snapshots.
+        #[arg(long, default_value_t = false, conflicts_with = "only_diffs")]
+        only_lites: bool,
+        /// Export only diff snapshots.
+        #[arg(long, default_value_t = false, conflicts_with = "only_lites")]
+        only_diffs: bool,
     },
 }
 
@@ -194,7 +200,9 @@ impl ArchiveCommands {
                 snapshot_files,
                 endpoint,
                 dry_run,
-            } => sync_bucket(snapshot_files, endpoint, dry_run).await,
+                only_lites,
+                only_diffs,
+            } => sync_bucket(snapshot_files, endpoint, dry_run, only_lites, only_diffs).await,
         }
     }
 }
@@ -832,6 +840,8 @@ async fn sync_bucket(
     snapshot_files: Vec<PathBuf>,
     endpoint: String,
     dry_run: bool,
+    only_lites: bool,
+    only_diffs: bool,
 ) -> anyhow::Result<()> {
     check_aws_config(&endpoint)?;
 
@@ -847,57 +857,65 @@ async fn sync_bucket(
 
     println!("Network: {}", info.network);
     println!("Range:   {} to {}", range.start, range.end);
-    println!("Lites:",);
-    for epoch in steps_in_range(&range, 30_000, 800) {
-        println!(
-            "  {}: {}",
-            epoch,
-            bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
-        );
+    if !only_diffs {
+        println!("Lites:",);
+        for epoch in steps_in_range(&range, 30_000, 800) {
+            println!(
+                "  {}: {}",
+                epoch,
+                bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
+            );
+        }
     }
-    println!("Diffs:");
-    for epoch in steps_in_range(&range, 3_000, 3_800) {
-        println!(
-            "  {}: {}",
-            epoch,
-            bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
-        );
+    if !only_lites {
+        println!("Diffs:");
+        for epoch in steps_in_range(&range, 3_000, 3_800) {
+            println!(
+                "  {}: {}",
+                epoch,
+                bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
+            );
+        }
     }
 
-    for epoch in steps_in_range(&range, 30_000, 800) {
-        if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {epoch}: Exporting lite snapshot",);
-            if !dry_run {
-                let output_path = export_lite_snapshot(
-                    store.clone(),
-                    heaviest_tipset.clone(),
-                    &info.network,
-                    genesis_timestamp,
-                    epoch,
-                )
-                .await?;
-                upload_to_forest_bucket(output_path, &info.network, "lite")?;
-            } else {
-                println!("  {epoch}: Would upload lite snapshot to S3");
+    if !only_diffs {
+        for epoch in steps_in_range(&range, 30_000, 800) {
+            if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
+                println!("  {epoch}: Exporting lite snapshot",);
+                if !dry_run {
+                    let output_path = export_lite_snapshot(
+                        store.clone(),
+                        heaviest_tipset.clone(),
+                        &info.network,
+                        genesis_timestamp,
+                        epoch,
+                    )
+                    .await?;
+                    upload_to_forest_bucket(output_path, &info.network, "lite")?;
+                } else {
+                    println!("  {epoch}: Would upload lite snapshot to S3");
+                }
             }
         }
     }
 
-    for epoch in steps_in_range(&range, 3_000, 3_800) {
-        if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {epoch}: Exporting diff snapshot",);
-            if !dry_run {
-                let output_path = export_diff_snapshot(
-                    store.clone(),
-                    heaviest_tipset.clone(),
-                    &info.network,
-                    genesis_timestamp,
-                    epoch,
-                )
-                .await?;
-                upload_to_forest_bucket(output_path, &info.network, "diff")?;
-            } else {
-                println!("  {epoch}: Would upload diff snapshot to S3");
+    if !only_lites {
+        for epoch in steps_in_range(&range, 3_000, 3_800) {
+            if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
+                println!("  {epoch}: Exporting diff snapshot",);
+                if !dry_run {
+                    let output_path = export_diff_snapshot(
+                        store.clone(),
+                        heaviest_tipset.clone(),
+                        &info.network,
+                        genesis_timestamp,
+                        epoch,
+                    )
+                    .await?;
+                    upload_to_forest_bucket(output_path, &info.network, "diff")?;
+                } else {
+                    println!("  {epoch}: Would upload diff snapshot to S3");
+                }
             }
         }
     }
