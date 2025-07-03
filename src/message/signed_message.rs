@@ -10,7 +10,7 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use fvm_ipld_encoding::RawBytes;
+use fvm_ipld_encoding::{RawBytes, to_vec};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Represents a wrapped message with signature bytes.
@@ -81,6 +81,21 @@ impl SignedMessage {
             use crate::utils::cid::CidCborExt;
             cid::Cid::from_cbor_blake2b256(self).expect("message serialization is infallible")
         }
+    }
+
+    /// Returns the length of the chain message in bytes.
+    pub fn chain_length(&self) -> anyhow::Result<usize> {
+        let serialized = match self.signature.signature_type() {
+            SignatureType::Bls => {
+                // BLS chain message length doesn't include the signature
+                to_vec(&self.message)?
+            }
+            SignatureType::Secp256k1 | SignatureType::Delegated => {
+                // SECP and Delegated chain message length includes the signature
+                to_vec(&self)?
+            }
+        };
+        Ok(serialized.len())
     }
 }
 

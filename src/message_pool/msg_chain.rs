@@ -19,7 +19,6 @@ use crate::{
     shim::crypto::SignatureType,
 };
 use ahash::HashMap;
-use fvm_ipld_encoding::to_vec;
 use num_traits::Zero;
 use slotmap::{SlotMap, new_key_type};
 use tracing::{debug, warn};
@@ -447,7 +446,7 @@ where
         let network_version = chain_config.network_version(ts.epoch());
 
         let min_gas = price_list_by_network_version(network_version)
-            .on_chain_message(to_vec(m)?.len())
+            .on_chain_message(m.chain_length()?)
             .total();
 
         if Gas::new(m.gas_limit()) < min_gas {

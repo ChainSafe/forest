@@ -13,6 +13,11 @@ slow-timeout = { period = "120s", terminate-after = 3 }
 filter = 'test(state_migration_actor_bundle)'
 slow-timeout = { period = "120s", terminate-after = 3 }
 
+# This test checks the limitations of the message pool, which can take a while.
+[[profile.default.overrides]]
+filter = 'test(message_pool::msgpool::selection::test_selection::message_selection_trimming_msgs_two_senders)'
+slow-timeout = { period = "120s", terminate-after = 3 }
+
 # This test downloads bundles from the network, which can take a while.
 # It is only run on CI, so we can afford to be more patient.
 [[profile.default.overrides]]
