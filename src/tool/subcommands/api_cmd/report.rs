@@ -3,47 +3,57 @@
 
 use super::ReportMode;
 use crate::rpc;
-use crate::rpc::FilterList;
+use crate::rpc::{FilterList, Permission};
+use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
 use ahash::{HashMap, HashMapExt};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tabled::{builder::Builder, settings::Style};
 
+/// Tracks the performance metrics for a single RPC method.
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PerformanceMetrics {
-    total_duration_ms: u128,
-    average_duration_ms: u128,
-    min_duration_ms: u128,
-    max_duration_ms: u128,
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    total_duration_ms: Duration,
+
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    average_duration_ms: Duration,
+
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    min_duration_ms: Duration,
+
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    max_duration_ms: Duration,
     test_count: usize,
 }
 
-// Add a helper function to calculate performance metrics
 impl PerformanceMetrics {
-    pub fn from_durations(durations: &[u128]) -> Option<Self> {
+    pub fn from_durations(durations: &[Duration]) -> Option<Self> {
         if durations.is_empty() {
             return None;
         }
 
-        let total_duration_ms = durations.iter().sum();
         let test_count = durations.len();
-        let average_duration_ms = total_duration_ms / test_count as u128;
-        let min_duration_ms = *durations.iter().min().unwrap();
-        let max_duration_ms = *durations.iter().max().unwrap();
+        let total_duration_ms: Duration = durations.iter().sum();
+        let average_duration_ms = total_duration_ms / test_count as u32;
 
         Some(Self {
             total_duration_ms,
             average_duration_ms,
-            min_duration_ms,
-            max_duration_ms,
+            min_duration_ms: *durations.iter().min().unwrap(),
+            max_duration_ms: *durations.iter().max().unwrap(),
             test_count,
         })
     }
 }
 
 /// Details about a successful test instance
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct SuccessfulTest {
@@ -51,20 +61,21 @@ struct SuccessfulTest {
     request_params: serde_json::Value,
 
     /// Forest node response
-    forest_status: String,
+    forest_status: TestSummary,
 
-    /// Lotus node response  
-    lotus_status: String,
+    /// Lotus node response
+    lotus_status: TestSummary,
 
     /// Individual test execution duration in milliseconds
-    execution_duration_ms: u128,
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    execution_duration_ms: Duration,
 }
 
 /// Testing status for a method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 enum MethodTestStatus {
-    /// Method was successfully tested
+    /// Method was tested
     Tested {
         total_count: usize,
         success_count: usize,
@@ -72,29 +83,31 @@ enum MethodTestStatus {
     },
     /// Method was filtered out by configuration
     Filtered,
-    /// Method exists but not tested
+    /// Method exists but was not tested
     NotTested,
 }
 
 /// Details about a failed test instance
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct FailedTest {
     /// The parameters used for this test
     pub request_params: serde_json::Value,
 
-    /// Forest node result
-    pub forest_status: String,
+    /// Forest test result
+    pub forest_status: TestSummary,
 
     /// Lotus node result
-    pub lotus_status: String,
+    pub lotus_status: TestSummary,
 
     /// Diff between Forest and Lotus responses
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_diff: Option<String>,
 
     /// Individual test execution duration in milliseconds
-    pub execution_duration_ms: u128,
+    #[serde_as(as = "DurationMilliSeconds<u64>")]
+    pub execution_duration_ms: Duration,
 }
 
 /// Detailed report for a single RPC method
@@ -105,7 +118,7 @@ struct MethodReport {
     name: String,
 
     /// Required permission level
-    permission: String,
+    permission: Permission,
 
     /// Current testing status
     status: MethodTestStatus,
@@ -124,14 +137,17 @@ struct MethodReport {
 }
 
 /// Report of all API comparison test results
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct ApiTestReport {
     /// timestamp of when the test execution started
-    execution_datetime_utc: String,
+    #[serde_as(as = "DisplayFromStr")]
+    execution_datetime_utc: DateTime<Utc>,
 
     /// Total duration of the test run in seconds
-    total_duration_secs: u64,
+    #[serde_as(as = "DurationSeconds<u64>")]
+    total_duration_secs: Duration,
 
     /// Comprehensive report for each RPC method
     methods: Vec<MethodReport>,
@@ -140,7 +156,7 @@ pub struct ApiTestReport {
 /// Report builder to encapsulate report generation logic
 pub struct ReportBuilder {
     method_reports: HashMap<String, MethodReport>,
-    method_timings: HashMap<String, Vec<u128>>,
+    method_timings: HashMap<String, Vec<Duration>>,
     report_mode: ReportMode,
     start_time: Instant,
     failed_test_dumps: Vec<super::api_compare_tests::TestDump>,
@@ -155,7 +171,7 @@ impl ReportBuilder {
             .map(|(method_name, permission)| {
                 let report = MethodReport {
                     name: method_name.to_string(),
-                    permission: permission.to_string(),
+                    permission,
                     status: if !filter_list.authorize(method_name) {
                         MethodTestStatus::Filtered
                     } else {
@@ -214,28 +230,27 @@ impl ReportBuilder {
             self.method_timings
                 .entry(method_name.to_string())
                 .or_default()
-                .push(test_result.duration.as_millis());
+                .push(test_result.duration);
 
             // if there is no test result for the current method, we can skip this test
             if test_result.test_dump.is_none() {
                 return;
             }
 
+            let test_dump = test_result.test_dump.as_ref().unwrap();
+
             if !success {
-                let test_dump = test_result.test_dump.as_ref().unwrap();
                 self.failed_test_dumps.push(test_dump.clone());
             }
-
-            let test_dump = test_result.test_dump.as_ref().unwrap();
 
             // Add test details based on mode and success
             if success && matches!(self.report_mode, ReportMode::Full) {
                 if let (Ok(_), Ok(_)) = (&test_dump.forest_response, &test_dump.lotus_response) {
                     report.success_test_params.push(SuccessfulTest {
                         request_params: test_params.clone(),
-                        forest_status: format!("{:?}", test_result.forest_status),
-                        lotus_status: format!("{:?}", test_result.lotus_status),
-                        execution_duration_ms: test_result.duration.as_millis(),
+                        forest_status: test_result.forest_status.clone(),
+                        lotus_status: test_result.lotus_status.clone(),
+                        execution_duration_ms: test_result.duration,
                     });
                 }
             } else if !success
@@ -250,10 +265,10 @@ impl ReportBuilder {
 
                 report.failed_test_params.push(FailedTest {
                     request_params: test_params.clone(),
-                    forest_status: format!("{:?}", test_result.forest_status),
-                    lotus_status: format!("{:?}", test_result.lotus_status),
+                    forest_status: test_result.forest_status.clone(),
+                    lotus_status: test_result.lotus_status.clone(),
                     response_diff,
-                    execution_duration_ms: test_result.duration.as_millis(),
+                    execution_duration_ms: test_result.duration,
                 });
             }
         }
@@ -359,8 +374,8 @@ impl ReportBuilder {
         methods.sort_by(|a, b| a.name.cmp(&b.name));
 
         let report = ApiTestReport {
-            execution_datetime_utc: chrono::Utc::now().to_rfc3339(),
-            total_duration_secs: self.start_time.elapsed().as_secs(),
+            execution_datetime_utc: Utc::now(),
+            total_duration_secs: self.start_time.elapsed(),
             methods,
         };
 
@@ -403,35 +418,42 @@ pub fn generate_diff(forest_json: &serde_json::Value, lotus_json: &serde_json::V
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn test_performance_metrics_calculation() {
-        let durations = vec![100, 200, 300, 400, 500];
+        let durations = vec![
+            Duration::from_millis(100),
+            Duration::from_millis(200),
+            Duration::from_millis(300),
+            Duration::from_millis(400),
+            Duration::from_millis(500),
+        ];
         let metrics = PerformanceMetrics::from_durations(&durations).unwrap();
 
         assert_eq!(metrics.test_count, 5);
-        assert_eq!(metrics.total_duration_ms, 1500);
-        assert_eq!(metrics.average_duration_ms, 300);
-        assert_eq!(metrics.min_duration_ms, 100);
-        assert_eq!(metrics.max_duration_ms, 500);
+        assert_eq!(metrics.total_duration_ms.as_millis(), 1500);
+        assert_eq!(metrics.average_duration_ms.as_millis(), 300);
+        assert_eq!(metrics.min_duration_ms.as_millis(), 100);
+        assert_eq!(metrics.max_duration_ms.as_millis(), 500);
     }
 
     #[test]
     fn test_performance_metrics_empty() {
-        let durations: Vec<u128> = vec![];
+        let durations: Vec<Duration> = vec![];
         let metrics = PerformanceMetrics::from_durations(&durations);
         assert!(metrics.is_none());
     }
 
     #[test]
     fn test_performance_metrics_single_value() {
-        let durations = vec![150];
+        let durations = vec![Duration::from_millis(150)];
         let metrics = PerformanceMetrics::from_durations(&durations).unwrap();
 
         assert_eq!(metrics.test_count, 1);
-        assert_eq!(metrics.total_duration_ms, 150);
-        assert_eq!(metrics.average_duration_ms, 150);
-        assert_eq!(metrics.min_duration_ms, 150);
-        assert_eq!(metrics.max_duration_ms, 150);
+        assert_eq!(metrics.total_duration_ms.as_millis(), 150);
+        assert_eq!(metrics.average_duration_ms.as_millis(), 150);
+        assert_eq!(metrics.min_duration_ms.as_millis(), 150);
+        assert_eq!(metrics.max_duration_ms.as_millis(), 150);
     }
 }

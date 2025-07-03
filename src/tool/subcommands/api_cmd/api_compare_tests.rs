@@ -83,7 +83,8 @@ const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address
 const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TestSummary {
     /// Server spoke JSON-RPC: no such method
     MissingMethod,
@@ -2172,11 +2173,12 @@ pub(super) async fn create_tests(
     }
     tests.sort_by_key(|test| test.request.method_name.clone());
 
-    tests.extend(create_tests_that_run_last(snapshot_files)?);
+    tests.extend(create_deferred_tests(snapshot_files)?);
     Ok(tests)
 }
 
-fn create_tests_that_run_last(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<RpcTest>> {
+// Some tests, especially those mutating the node's state, need to be run last.
+fn create_deferred_tests(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 
     if !snapshot_files.is_empty() {
@@ -2339,10 +2341,9 @@ pub(super) async fn run_tests(
 
     // Return error if any tests failed
     if has_failures {
-        Err(anyhow::Error::msg("Some tests failed"))
-    } else {
-        Ok(())
+        anyhow::bail!("Some tests failed")
     }
+    Ok(())
 }
 
 /// Evaluate whether a test is successful based on the test result and criteria

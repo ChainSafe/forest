@@ -42,7 +42,7 @@ pub enum NodeType {
 /// Report mode for the API compare tests.
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum ReportMode {
-    /// Show everything (default)
+    /// Show everything
     Full,
     /// Show summary and failures only
     FailureOnly,
