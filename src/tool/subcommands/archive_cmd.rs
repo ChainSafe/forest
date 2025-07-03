@@ -70,11 +70,11 @@ pub enum ExportMode {
 }
 
 impl ExportMode {
-    pub fn export_lite(&self) -> bool {
+    pub fn lite(&self) -> bool {
         matches!(self, ExportMode::All | ExportMode::Lite)
     }
 
-    pub fn export_diff(&self) -> bool {
+    pub fn diff(&self) -> bool {
         matches!(self, ExportMode::All | ExportMode::Diff)
     }
 }
@@ -160,7 +160,7 @@ pub enum ArchiveCommands {
         dry_run: bool,
         /// Export mode
         #[arg(long, value_enum, default_value_t = ExportMode::All)]
-        mode: ExportMode,
+        export_mode: ExportMode,
     },
 }
 
@@ -218,8 +218,8 @@ impl ArchiveCommands {
                 snapshot_files,
                 endpoint,
                 dry_run,
-                mode,
-            } => sync_bucket(snapshot_files, endpoint, dry_run, mode).await,
+                export_mode,
+            } => sync_bucket(snapshot_files, endpoint, dry_run, export_mode).await,
         }
     }
 }
@@ -857,7 +857,7 @@ async fn sync_bucket(
     snapshot_files: Vec<PathBuf>,
     endpoint: String,
     dry_run: bool,
-    mode: ExportMode,
+    export_mode: ExportMode,
 ) -> anyhow::Result<()> {
     check_aws_config(&endpoint)?;
 
@@ -873,7 +873,7 @@ async fn sync_bucket(
 
     println!("Network: {}", info.network);
     println!("Range:   {} to {}", range.start, range.end);
-    if mode.export_lite() {
+    if export_mode.lite() {
         println!("Lites:",);
         for epoch in steps_in_range(&range, 30_000, 800) {
             println!(
@@ -883,7 +883,7 @@ async fn sync_bucket(
             );
         }
     }
-    if mode.export_diff() {
+    if export_mode.diff() {
         println!("Diffs:");
         for epoch in steps_in_range(&range, 3_000, 3_800) {
             println!(
@@ -894,7 +894,7 @@ async fn sync_bucket(
         }
     }
 
-    if mode.export_lite() {
+    if export_mode.lite() {
         for epoch in steps_in_range(&range, 30_000, 800) {
             if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
                 println!("  {epoch}: Exporting lite snapshot",);
@@ -915,7 +915,7 @@ async fn sync_bucket(
         }
     }
 
-    if mode.export_diff() {
+    if export_mode.diff() {
         for epoch in steps_in_range(&range, 3_000, 3_800) {
             if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
                 println!("  {epoch}: Exporting diff snapshot",);
