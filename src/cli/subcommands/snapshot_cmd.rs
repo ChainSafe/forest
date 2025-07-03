@@ -53,7 +53,13 @@ impl SnapshotCommands {
 
                 let raw_network_name = StateNetworkName::call(&client, ()).await?;
 
-                let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
+                // For historical reasons and backwards compatibility if snapshot services or their
+                // consumers relied on the `calibnet`, we use `calibnet` as the chain name.
+                let chain_name = if raw_network_name == "calibrationnet" {
+                    "calibnet"
+                } else {
+                    raw_network_name.as_str()
+                };
 
                 let tipset =
                     ChainGetTipSetByHeight::call(&client, (epoch, Default::default())).await?;

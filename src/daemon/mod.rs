@@ -249,7 +249,7 @@ async fn create_p2p_service(
         Arc::clone(ctx.state_manager.chain_store()),
         peer_manager.clone(),
         ctx.net_keypair.clone(),
-        ctx.network_name.as_str(),
+        config.chain.genesis_name().as_ref(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
     )
     .await?;
@@ -265,7 +265,6 @@ fn create_mpool(
     let provider = MpoolRpcProvider::new(publisher.clone(), ctx.state_manager.clone());
     Ok(MessagePool::new(
         provider,
-        ctx.network_name.clone(),
         p2p_service.network_sender().clone(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
@@ -363,7 +362,6 @@ fn maybe_start_rpc_service(
             let sync_network_context = chain_follower.network.clone();
             let tipset_send = chain_follower.tipset_sender.clone();
             let keystore = ctx.keystore.clone();
-            let network_name = ctx.network_name.clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             let msgs_in_tipset = Arc::new(crate::chain::MsgsInTipsetCache::default());
             async move {
@@ -377,7 +375,6 @@ fn maybe_start_rpc_service(
                         sync_status,
                         eth_event_handler,
                         sync_network_context,
-                        network_name,
                         start_time,
                         shutdown,
                         tipset_send,
@@ -545,11 +542,9 @@ pub(super) async fn start_services(
 ) -> anyhow::Result<()> {
     let mut services = JoinSet::new();
     maybe_start_track_peak_rss_service(&mut services, opts);
+    let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;
-    info!(
-        "Using network :: {}",
-        get_actual_chain_name(&ctx.network_name)
-    );
+    info!("Using network :: {network}");
     utils::misc::display_chain_logo(config.chain());
     if opts.exit_after_init {
         return Ok(());
@@ -557,11 +552,6 @@ pub(super) async fn start_services(
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.clone(), &ctx)?;
-
-    info!(
-        "Starting network:: {}",
-        get_actual_chain_name(&ctx.network_name)
-    );
 
     maybe_start_rpc_service(
         &mut services,
@@ -685,14 +675,6 @@ async fn propagate_error(
         }
     }
     std::future::pending().await
-}
-
-pub fn get_actual_chain_name(internal_network_name: &str) -> &str {
-    match internal_network_name {
-        "testnetnet" => "mainnet",
-        "calibrationnet" => "calibnet",
-        _ => internal_network_name,
-    }
 }
 
 /// Run the closure on a thread where blocking is allowed
