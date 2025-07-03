@@ -1228,6 +1228,106 @@ mod test_selection {
     }
 
     #[tokio::test]
+    async fn message_selection_trimming_msgs_two_senders_complex() {
+        let mut joinset = JoinSet::new();
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
+
+        let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_1 = Wallet::new(keystore_1);
+        let address_1 = wallet_1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let keystore_2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_2 = Wallet::new(keystore_2);
+        let address_2 = wallet_2.generate_addr(SignatureType::Bls).unwrap();
+
+        api.set_state_balance_raw(&address_1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&address_2, TokenAmount::from_whole(1));
+
+        // create two almost max-length chains of equal value
+        let mut counter = 0;
+        for i in 0..CBOR_GEN_LIMIT {
+            counter += 1;
+            let msg = create_smsg(
+                &address_2,
+                &address_1,
+                &mut wallet_1,
+                i as u64,
+                300_000,
+                100,
+            );
+            mpool.add(msg).unwrap();
+            // higher has price, those should be preferred and fill the block up to
+            // the [`CBOR_GEN_LIMIT`] messages.
+            let msg = create_smsg(
+                &address_1,
+                &address_2,
+                &mut wallet_2,
+                i as u64,
+                300_000,
+                100,
+            );
+            mpool.add(msg).unwrap();
+        }
+
+        // address_1 8192th message is worth more than address_2 8192th message
+        let msg = create_smsg(
+            &address_2,
+            &address_1,
+            &mut wallet_1,
+            counter as u64,
+            300_000,
+            1000,
+        );
+        mpool.add(msg).unwrap();
+
+        let msg = create_smsg(
+            &address_1,
+            &address_2,
+            &mut wallet_2,
+            counter as u64,
+            300_000,
+            100,
+        );
+        mpool.add(msg).unwrap();
+
+        counter += 1;
+
+        // address 2 (uneselectable) message is worth so much!
+        let msg = create_smsg(
+            &address_2,
+            &address_1,
+            &mut wallet_1,
+            counter as u64,
+            400_000,
+            1_000_000,
+        );
+        mpool.add(msg).unwrap();
+
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
+        // check that the gas limit is not exceeded
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(
+            m_gas_limit <= BLOCK_GAS_LIMIT,
+            "Selected messages gas limit {m_gas_limit} exceeds block gas limit {BLOCK_GAS_LIMIT}",
+        );
+        // We should have taken the SECP chain from address_1.
+        let secps_len = msgs.iter().filter(|m| m.is_secp256k1()).count();
+        assert_eq!(
+            CBOR_GEN_LIMIT, secps_len,
+            "Expected {CBOR_GEN_LIMIT} secp messages, got {secps_len}."
+        );
+        // The remaining messages should be BLS messages.
+        assert_eq!(
+            msgs.len(),
+            BLOCK_MESSAGE_LIMIT,
+            "Expected {BLOCK_MESSAGE_LIMIT} messages, got {}",
+            msgs.len()
+        );
+    }
+
+    #[tokio::test]
     async fn message_selection_priority() {
         let db = MemoryDB::default();
 
