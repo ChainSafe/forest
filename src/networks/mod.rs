@@ -72,7 +72,7 @@ impl FromStr for NetworkChain {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mainnet" => Ok(NetworkChain::Mainnet),
+            "mainnet" | "testnetnet" => Ok(NetworkChain::Mainnet),
             "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
             "butterflynet" => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
@@ -81,6 +81,18 @@ impl FromStr for NetworkChain {
 }
 
 impl NetworkChain {
+    /// Returns the `NetworkChain`s internal name as set in the genesis block, which is not the
+    /// same as the recent state network name.
+    ///
+    /// As a rule of thumb, the internal name should be used when interacting with
+    /// protocol internals and P2P.
+    pub fn genesis_name(&self) -> std::borrow::Cow<'_, str> {
+        match self {
+            NetworkChain::Mainnet => "testnetnet".into(),
+            NetworkChain::Calibnet => "calibrationnet".into(),
+            _ => self.to_string().into(),
+        }
+    }
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     pub fn from_genesis(cid: &Cid) -> Option<Self> {
