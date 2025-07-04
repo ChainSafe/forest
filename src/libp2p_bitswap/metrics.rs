@@ -23,12 +23,9 @@ impl TypeLabel {
 static MESSAGE_COUNTER: Lazy<Family<TypeLabel, Counter>> = Lazy::new(Default::default);
 static CONTAINER_CAPACITIES: Lazy<Family<TypeLabel, Gauge>> = Lazy::new(Default::default);
 pub(in crate::libp2p_bitswap) static GET_BLOCK_TIME: Lazy<Histogram> = Lazy::new(|| {
-    Histogram::new(
-        [
-            0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
-        ]
-        .into_iter(),
-    )
+    Histogram::new([
+        0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
+    ])
 });
 
 /// Register bitswap metrics
