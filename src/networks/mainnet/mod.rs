@@ -24,6 +24,12 @@ use super::{
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 
+/// Well-known network names.
+pub const NETWORK_COMMON_NAME: &str = "mainnet";
+/// Network name as defined in the genesis block. Refer to [`crate::networks::network_names`] for
+/// additional information.
+pub const NETWORK_GENESIS_NAME: &str = "testnetnet";
+
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID

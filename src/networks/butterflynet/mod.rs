@@ -21,6 +21,9 @@ use super::{
     drand::DRAND_QUICKNET, parse_bootstrap_peers,
 };
 
+/// Well-known network names.
+pub const NETWORK_COMMON_NAME: &str = "butterflynet";
+
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V24;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
