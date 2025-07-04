@@ -296,14 +296,19 @@ impl ArchiveInfo {
                 lowest_message_epoch = tipset.epoch();
             }
 
-            if tipset.epoch() == 0 {
-                if tipset.min_ticket_block().cid() == &*calibnet::GENESIS_CID {
-                    network = "calibnet".into();
-                } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
-                    network = "mainnet".into();
-                } else if tipset.min_ticket_block().cid() == &*butterflynet::GENESIS_CID {
-                    network = "butterflynet".into();
+            let mut update_network_name = |block_cid: &Cid| {
+                if block_cid == &*calibnet::GENESIS_CID {
+                    network = calibnet::NETWORK_COMMON_NAME.into();
+                } else if block_cid == &*mainnet::GENESIS_CID {
+                    network = mainnet::NETWORK_COMMON_NAME.into();
+                } else if block_cid == &*butterflynet::GENESIS_CID {
+                    network = butterflynet::NETWORK_COMMON_NAME.into();
                 }
+            };
+
+            if tipset.epoch() == 0 {
+                let block_cid = tipset.min_ticket_block().cid();
+                update_network_name(block_cid);
             }
 
             // If we've already found the lowest-stateroot-epoch and
@@ -313,13 +318,7 @@ impl ArchiveInfo {
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
                 let genesis_block = tipset.genesis(&store)?;
-                if genesis_block.cid() == &*calibnet::GENESIS_CID {
-                    network = "calibnet".into();
-                } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
-                    network = "mainnet".into();
-                } else if genesis_block.cid() == &*butterflynet::GENESIS_CID {
-                    network = "butterflynet".into();
-                }
+                update_network_name(genesis_block.cid());
                 break;
             }
         }
