@@ -1,14 +1,12 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-
 //! There are two concepts of "network name" in Forest:
 //! 1. [`GenesisNetworkName`]: The network name as defined in the genesis block.
 //!    This is not necessarily the same as the network name that the node is
 //!    currently on.
 //! 2. [`StateNetworkName`]: The network name as defined by the state of the node.
 //!    This is the network name that the node is currently on.
-
 
 /// The network name as defined in the genesis block.
 /// This is not necessarily the same as the network name that the node is
