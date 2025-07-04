@@ -45,8 +45,8 @@ impl PerformanceMetrics {
         Some(Self {
             total_duration_ms,
             average_duration_ms,
-            min_duration_ms: *durations.iter().min().unwrap(),
-            max_duration_ms: *durations.iter().max().unwrap(),
+            min_duration_ms: *durations.iter().min().expect("durations is not empty"),
+            max_duration_ms: *durations.iter().max().expect("durations is not empty"),
             test_count,
         })
     }
