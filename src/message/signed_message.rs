@@ -145,3 +145,35 @@ impl MessageTrait for SignedMessage {
         self.message.set_gas_premium(prem)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shim::{address::Address, crypto::Signature, message::Message};
+    use fvm_ipld_encoding::to_vec;
+
+    #[test]
+    fn test_chain_length() {
+        let message = Message {
+            to: Address::new_id(1),
+            from: Address::new_id(2),
+            ..Message::default()
+        };
+
+        // BLS signature, which does not include the signature in the chain length
+        let bls_sig = Signature::new_bls(vec![0; 96]);
+        let signed_message_bls = SignedMessage::new_unchecked(message.clone(), bls_sig);
+        assert_eq!(
+            signed_message_bls.chain_length().unwrap(),
+            to_vec(&message).unwrap().len()
+        );
+
+        // Secp256k1 signature, which includes the signature in the chain length
+        let secp_sig = Signature::new_secp256k1(vec![0; 65]);
+        let signed_message_secp = SignedMessage::new_unchecked(message.clone(), secp_sig);
+        assert_eq!(
+            signed_message_secp.chain_length().unwrap(),
+            to_vec(&signed_message_secp).unwrap().len()
+        );
+    }
+}
