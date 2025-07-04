@@ -212,6 +212,10 @@ impl EthUint64 {
                 .try_into()?,
         )))
     }
+
+    pub fn to_hex_string(&self) -> String {
+        format!("0x{:x}", self.0)
+    }
 }
 
 #[derive(

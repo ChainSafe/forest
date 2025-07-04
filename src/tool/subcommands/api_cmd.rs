@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_compare_tests;
+mod api_run_tests;
 mod generate_test_snapshot;
 mod test_snapshot;
 
@@ -157,6 +158,14 @@ pub enum ApiCommands {
         #[arg(num_args = 1.., required = true)]
         files: Vec<PathBuf>,
     },
+    Run {
+        /// Forest address
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/2345/http")]
+        forest: UrlFromMultiAddr,
+        /// Lotus address
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/1234/http")]
+        lotus: UrlFromMultiAddr,
+    },
 }
 
 impl ApiCommands {
@@ -302,6 +311,16 @@ impl ApiCommands {
                         }
                     };
                 }
+            }
+            Self::Run {
+                forest: UrlFromMultiAddr(forest),
+                lotus: UrlFromMultiAddr(lotus),
+            } => {
+                let forest = Arc::new(rpc::Client::from_url(forest));
+                let lotus = Arc::new(rpc::Client::from_url(lotus));
+
+                let tests = api_run_tests::create_tests().await?;
+                api_run_tests::run_tests(tests, forest.clone(), lotus.clone()).await?;
             }
             Self::DumpTests {
                 create_tests_args,
