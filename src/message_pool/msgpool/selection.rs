@@ -85,13 +85,13 @@ impl SelectedMessages {
         self.gas_limit = self.gas_limit.saturating_sub(gas);
     }
 
-    /// Reduces the BLS limit by the specified amount. It ensures that the BLS limit does not
+    /// Reduces the BLS limit by the specified amount. It ensures that the BLS message limit does not
     /// go below zero (which would cause a panic).
     fn reduce_bls_limit(&mut self, bls: u64) {
         self.bls_limit = self.bls_limit.saturating_sub(bls);
     }
 
-    /// Reduces the Secp256k1 limit by the specified amount. It ensures that the Secp256k1 limit
+    /// Reduces the `Secp256k1` limit by the specified amount. It ensures that the `Secp256k1` message limit
     /// does not go below zero (which would cause a panic).
     fn reduce_secp_limit(&mut self, secp: u64) {
         self.secp_limit = self.secp_limit.saturating_sub(secp);
