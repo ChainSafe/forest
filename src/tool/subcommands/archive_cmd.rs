@@ -58,10 +58,9 @@ use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
-#[derive(Debug, Clone, ValueEnum, Default)]
+#[derive(Debug, Clone, ValueEnum)]
 pub enum ExportMode {
     /// Export all types of snapshots.
-    #[default]
     All,
     /// Export only lite snapshots.
     Lite,
