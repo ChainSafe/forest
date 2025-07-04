@@ -344,14 +344,6 @@ where
     }
 
     #[allow(clippy::indexing_slicing)]
-    #[tracing::instrument(
-        name = "select_messages_optimal",
-        skip(self, cur_ts, target_tipset),
-        fields(
-            target_tipset = %target_tipset.key(),
-            ticket_quality = %ticket_quality,
-        )
-    )]
     fn select_messages_optimal(
         &self,
         cur_ts: &Tipset,
