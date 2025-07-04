@@ -72,9 +72,13 @@ impl FromStr for NetworkChain {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mainnet" | "testnetnet" => Ok(NetworkChain::Mainnet),
-            "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
-            "butterflynet" => Ok(NetworkChain::Butterflynet),
+            mainnet::NETWORK_COMMON_NAME | mainnet::NETWORK_GENESIS_NAME => {
+                Ok(NetworkChain::Mainnet)
+            }
+            calibnet::NETWORK_COMMON_NAME | calibnet::NETWORK_GENESIS_NAME => {
+                Ok(NetworkChain::Calibnet)
+            }
+            butterflynet::NETWORK_COMMON_NAME => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
         }
     }
@@ -88,8 +92,8 @@ impl NetworkChain {
     /// protocol internals and P2P.
     pub fn genesis_name(&self) -> std::borrow::Cow<'_, str> {
         match self {
-            NetworkChain::Mainnet => "testnetnet".into(),
-            NetworkChain::Calibnet => "calibrationnet".into(),
+            NetworkChain::Mainnet => mainnet::NETWORK_GENESIS_NAME.into(),
+            NetworkChain::Calibnet => calibnet::NETWORK_GENESIS_NAME.into(),
             _ => self.to_string().into(),
         }
     }
@@ -684,9 +688,18 @@ mod tests {
 
     #[test]
     fn network_chain_display() {
-        assert_eq!(NetworkChain::Mainnet.to_string(), "mainnet");
-        assert_eq!(NetworkChain::Calibnet.to_string(), "calibnet");
-        assert_eq!(NetworkChain::Butterflynet.to_string(), "butterflynet");
+        assert_eq!(
+            NetworkChain::Mainnet.to_string(),
+            mainnet::NETWORK_COMMON_NAME
+        );
+        assert_eq!(
+            NetworkChain::Calibnet.to_string(),
+            calibnet::NETWORK_COMMON_NAME
+        );
+        assert_eq!(
+            NetworkChain::Butterflynet.to_string(),
+            butterflynet::NETWORK_COMMON_NAME
+        );
         assert_eq!(
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"
