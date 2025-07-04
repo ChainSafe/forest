@@ -38,6 +38,7 @@ use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, rpc};
 use ahash::HashMap;
+use anyhow::anyhow;
 use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
@@ -2339,10 +2340,8 @@ pub(super) async fn run_tests(
         report_builder.print_summary();
     }
 
-    // Return error if any tests failed
-    if has_failures {
-        anyhow::bail!("Some tests failed")
-    }
+    anyhow::ensure!(!has_failures, "Some tests failed");
+
     Ok(())
 }
 
