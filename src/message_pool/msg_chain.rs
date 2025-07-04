@@ -21,7 +21,7 @@ use crate::{
 use ahash::HashMap;
 use num_traits::Zero;
 use slotmap::{SlotMap, new_key_type};
-use tracing::{debug, warn};
+use tracing::warn;
 
 use super::errors::Error;
 use crate::message_pool::{
@@ -208,13 +208,6 @@ impl Chains {
             #[allow(clippy::indexing_slicing)]
             let msg = &chain_node.msgs[i as usize];
             let gas_reward = get_gas_reward(msg, base_fee);
-            debug!(
-                "chain node gas reward: {}, gas_reward: {}, chain node gas limit: {}, gas limit: {}",
-                chain_node.gas_reward,
-                gas_reward,
-                chain_node.gas_limit,
-                msg.gas_limit()
-            );
             chain_node.gas_reward -= gas_reward;
             chain_node.gas_limit = chain_node.gas_limit.saturating_sub(msg.gas_limit());
             if chain_node.gas_limit > 0 {
