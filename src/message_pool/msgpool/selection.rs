@@ -73,9 +73,7 @@ impl SelectedMessages {
 
     /// Truncates the selected messages to the specified length.
     fn truncate(&mut self, len: usize) {
-        if len < self.msgs.len() {
-            self.msgs.truncate(len);
-        }
+        self.msgs.truncate(len);
     }
 
     /// Reduces the gas limit by the specified amount. It ensures that the gas limit does not
