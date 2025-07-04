@@ -35,14 +35,17 @@ const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
 const CBOR_GEN_LIMIT: usize = 8192; // Same limits as in Go's `cbor-gen`.
 
+/// A structure that holds the selected messages for a block.
+/// It tracks the gas limit and the limits for different signature types
+/// to ensure that the block does not exceed the limits set by the protocol.
 struct SelectedMessages {
     /// The messages selected for inclusion in the block.
     msgs: Vec<SignedMessage>,
     /// The remaining gas limit for the block.
     gas_limit: u64,
-    /// The limit for `secp256k1` messages in the block.
+    /// The remaining limit for `secp256k1` messages in the block.
     secp_limit: u64,
-    /// The limit for `bls` messages in the block.
+    /// The remaining limit for `bls` messages in the block.
     bls_limit: u64,
 }
 
@@ -82,6 +85,18 @@ impl SelectedMessages {
         self.gas_limit = self.gas_limit.saturating_sub(gas);
     }
 
+    /// Reduces the BLS limit by the specified amount. It ensures that the BLS limit does not
+    /// go below zero (which would cause a panic).
+    fn reduce_bls_limit(&mut self, bls: u64) {
+        self.bls_limit = self.bls_limit.saturating_sub(bls);
+    }
+
+    /// Reduces the Secp256k1 limit by the specified amount. It ensures that the Secp256k1 limit
+    /// does not go below zero (which would cause a panic).
+    fn reduce_secp_limit(&mut self, secp: u64) {
+        self.secp_limit = self.secp_limit.saturating_sub(secp);
+    }
+
     /// Extends the selected messages with the given messages.
     fn extend(&mut self, msgs: Vec<SignedMessage>) {
         self.msgs.extend(msgs);
@@ -112,8 +127,8 @@ impl SelectedMessages {
                 );
 
                 self.extend(message_chain.msgs);
-                self.bls_limit -= msg_chain_len as u64;
-                self.gas_limit -= message_chain.gas_limit;
+                self.reduce_bls_limit(msg_chain_len as u64);
+                self.reduce_gas_limit(message_chain.gas_limit);
             }
             Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
                 ensure!(
@@ -123,8 +138,8 @@ impl SelectedMessages {
                 );
 
                 self.extend(message_chain.msgs);
-                self.secp_limit -= msg_chain_len as u64;
-                self.gas_limit -= message_chain.gas_limit;
+                self.reduce_secp_limit(msg_chain_len as u64);
+                self.reduce_gas_limit(message_chain.gas_limit);
             }
             None => {
                 // This is a message with no signature type, which is not allowed in the current
@@ -222,10 +237,10 @@ impl SelectedMessages {
 
         match message_chain.sig_type {
             Some(SignatureType::Bls) => {
-                self.bls_limit = self.bls_limit.saturating_sub(chain_msg_limit as u64);
+                self.reduce_bls_limit(chain_msg_limit as u64);
             }
             Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
-                self.secp_limit = self.secp_limit.saturating_sub(chain_msg_limit as u64);
+                self.reduce_secp_limit(chain_msg_limit as u64);
             }
             None => {
                 // This is a message with no signature type, which is not allowed in the current
