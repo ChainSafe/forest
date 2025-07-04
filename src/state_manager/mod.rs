@@ -297,11 +297,18 @@ where
     }
 
     /// Returns the internal, protocol-level network chain from the state.
-    pub fn get_network_state_name(&self, state_cid: Cid) -> anyhow::Result<String> {
+    pub fn get_network_state_name(
+        &self,
+        state_cid: Cid,
+    ) -> anyhow::Result<crate::networks::StateNetworkName> {
         let init_act = self
             .get_actor(&init::ADDRESS.into(), state_cid)?
             .ok_or_else(|| Error::state("Init actor address could not be resolved"))?;
-        Ok(State::load(self.blockstore(), init_act.code, init_act.state)?.into_network_name())
+        Ok(
+            State::load(self.blockstore(), init_act.code, init_act.state)?
+                .into_network_name()
+                .into(),
+        )
     }
 
     /// Returns true if miner has been slashed or is considered invalid.

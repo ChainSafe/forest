@@ -249,7 +249,7 @@ async fn create_p2p_service(
         Arc::clone(ctx.state_manager.chain_store()),
         peer_manager.clone(),
         ctx.net_keypair.clone(),
-        config.chain.genesis_name().as_ref(),
+        config.chain.genesis_name(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
     )
     .await?;
