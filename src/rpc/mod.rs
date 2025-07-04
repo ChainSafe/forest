@@ -446,7 +446,6 @@ pub struct RPCState<DB> {
     pub sync_status: Arc<parking_lot::RwLock<crate::chain_sync::SyncStatusReport>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
-    pub network_name: String,
     pub tipset_send: flume::Sender<Arc<FullTipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,

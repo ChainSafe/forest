@@ -16,8 +16,8 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.11"
 futures = "0.3"
-libp2p = { version = "0.55", default-features = false }
-libp2p-swarm-test = { version = "0.5", default-features = false, features = ["tokio"] }
+libp2p = { version = "0.56", default-features = false }
+libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
 tokio = "1"
@@ -96,7 +96,7 @@ gethostname = "1"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
-hickory-resolver = { version = "0.25.0-alpha", default-features = false, features = ["system-config", "tokio-runtime"] }
+hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
 http = "1"
 human-repr = "1"
 human_bytes = "0.4"
@@ -110,7 +110,7 @@ itertools = "0.14"
 jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
-kubert-prometheus-process = "0.1"
+kubert-prometheus-process = "0.2"
 lazy-regex = "3"
 libp2p = { workspace = true, features = [
   'autonat',
@@ -161,7 +161,7 @@ pathfinding = "4"
 pin-project-lite = "0.2"
 positioned-io = "0.3"
 pretty_assertions = "1"
-prometheus-client = "0.22"
+prometheus-client = "0.23"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"
 rand = "0.8"

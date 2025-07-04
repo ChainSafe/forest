@@ -45,6 +45,8 @@
 
 - [#5773](https://github.com/ChainSafe/forest/pull/5773) The `forest-tool index backfill` now correctly respects the `--from` argument. At the same time, it's been made optional and will default to the chain head.
 
+- [#5610](https://github.com/ChainSafe/forest/issues/5610) Fix `Filecoin.StateGetNetworkParams` and `Filecoin.StateNetworkName` RPC methods output for mainnet. They now return `mainnet` (and not `testnetnet`) as the network name, which is consistent with Lotus.
+
 - [#5750](https://github.com/ChainSafe/forest/pull/5750) Fix regression causing the `Filecoin.ChainNotify` RPC endpoint to be unreachable.
 
 ## Forest v0.27.0 "Whisperer in Darkness"

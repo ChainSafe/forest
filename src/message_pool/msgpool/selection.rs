@@ -717,15 +717,7 @@ mod test_selection {
     fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
-        MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            joinset,
-        )
-        .unwrap()
+        MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()
     }
 
     #[tokio::test]
