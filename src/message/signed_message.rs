@@ -10,7 +10,7 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use fvm_ipld_encoding::RawBytes;
+use fvm_ipld_encoding::{RawBytes, to_vec};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Represents a wrapped message with signature bytes.
@@ -82,6 +82,21 @@ impl SignedMessage {
             cid::Cid::from_cbor_blake2b256(self).expect("message serialization is infallible")
         }
     }
+
+    /// Returns the length of the chain message in bytes.
+    pub fn chain_length(&self) -> anyhow::Result<usize> {
+        let serialized = match self.signature.signature_type() {
+            SignatureType::Bls => {
+                // BLS chain message length doesn't include the signature
+                to_vec(&self.message)?
+            }
+            SignatureType::Secp256k1 | SignatureType::Delegated => {
+                // SECP and Delegated chain message length includes the signature
+                to_vec(&self)?
+            }
+        };
+        Ok(serialized.len())
+    }
 }
 
 impl MessageTrait for SignedMessage {
@@ -128,5 +143,37 @@ impl MessageTrait for SignedMessage {
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shim::{address::Address, crypto::Signature, message::Message};
+    use fvm_ipld_encoding::to_vec;
+
+    #[test]
+    fn test_chain_length() {
+        let message = Message {
+            to: Address::new_id(1),
+            from: Address::new_id(2),
+            ..Message::default()
+        };
+
+        // BLS signature, which does not include the signature in the chain length
+        let bls_sig = Signature::new_bls(vec![0; 96]);
+        let signed_message_bls = SignedMessage::new_unchecked(message.clone(), bls_sig);
+        assert_eq!(
+            signed_message_bls.chain_length().unwrap(),
+            to_vec(&message).unwrap().len()
+        );
+
+        // Secp256k1 signature, which includes the signature in the chain length
+        let secp_sig = Signature::new_secp256k1(vec![0; 65]);
+        let signed_message_secp = SignedMessage::new_unchecked(message.clone(), secp_sig);
+        assert_eq!(
+            signed_message_secp.chain_length().unwrap(),
+            to_vec(&signed_message_secp).unwrap().len()
+        );
     }
 }

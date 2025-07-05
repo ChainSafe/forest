@@ -53,6 +53,9 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
+/// large messages from being added to the message pool.
+const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -228,7 +231,7 @@ where
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
-        if to_vec(msg)?.len() > 32 * 1024 {
+        if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
@@ -624,7 +627,7 @@ fn verify_msg_before_add(
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
-        .on_chain_message(to_vec(m)?.len());
+        .on_chain_message(m.chain_length()?);
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.block_headers().is_empty() {
         let base_fee = &cur_ts.block_headers().first().parent_base_fee;

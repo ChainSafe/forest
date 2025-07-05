@@ -39,7 +39,7 @@ pub mod mainnet;
 pub mod metrics;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V25;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
