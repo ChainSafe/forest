@@ -29,7 +29,7 @@ use libp2p::{
 use tokio::time::Interval;
 use tracing::{debug, info, trace, warn};
 
-use crate::utils::version::FOREST_VERSION_STRING;
+use crate::{networks::GenesisNetworkName, utils::version::FOREST_VERSION_STRING};
 
 #[derive(NetworkBehaviour)]
 pub struct DerivedDiscoveryBehaviour {
@@ -73,12 +73,12 @@ pub struct DiscoveryConfig<'a> {
     target_peer_count: u64,
     enable_mdns: bool,
     enable_kademlia: bool,
-    network_name: &'a str,
+    network_name: &'a GenesisNetworkName,
 }
 
 impl<'a> DiscoveryConfig<'a> {
     /// Create a default configuration with the given public key.
-    pub fn new(local_public_key: PublicKey, network_name: &'a str) -> Self {
+    pub fn new(local_public_key: PublicKey, network_name: &'a GenesisNetworkName) -> Self {
         DiscoveryConfig {
             local_peer_id: local_public_key.to_peer_id(),
             local_public_key,
@@ -632,7 +632,7 @@ mod tests {
             keypair: Keypair,
             seed_peers: impl IntoIterator<Item = Multiaddr>,
         ) -> DiscoveryBehaviour {
-            DiscoveryConfig::new(keypair.public(), "calibnet")
+            DiscoveryConfig::new(keypair.public(), &GenesisNetworkName::from("calibnet"))
                 .with_mdns(false)
                 .with_kademlia(true)
                 .with_user_defined(seed_peers)
