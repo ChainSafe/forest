@@ -51,6 +51,8 @@
 
 - [#5750](https://github.com/ChainSafe/forest/pull/5750) Fix regression causing the `Filecoin.ChainNotify` RPC endpoint to be unreachable.
 
+- [#5730](https://github.com/ChainSafe/forest/issues/5730) Fixed various bugs in the mempool selection logic, including gas overpricing and incorrect message chain pruning. Additional logic was added to limit the number of messages in the block.
+
 ## Forest v0.27.0 "Whisperer in Darkness"
 
 This is a non-mandatory but highly recommended release for all node operators. It introduces a fix for the forest node
