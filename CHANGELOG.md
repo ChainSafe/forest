@@ -37,6 +37,8 @@
 
 - [#5771](https://github.com/ChainSafe/forest/issues/5771) Update OpenRPC schemars by bumping `schemars` create.
 
+- [#5816](https://github.com/ChainSafe/forest/pull/5816) Changed the monitoring stack to include a full Forest node. This allows for one-click local deployment of a fully-monitored Forest setup via `docker compose up` in `./monitored-stack`.
+
 ### Removed
 
 ### Fixed
