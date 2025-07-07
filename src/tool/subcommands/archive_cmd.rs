@@ -45,7 +45,7 @@ use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
 use cid::Cid;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -57,6 +57,26 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ExportMode {
+    /// Export all types of snapshots.
+    All,
+    /// Export only lite snapshots.
+    Lite,
+    /// Export only diff snapshots.
+    Diff,
+}
+
+impl ExportMode {
+    pub fn lite(&self) -> bool {
+        matches!(self, ExportMode::All | ExportMode::Lite)
+    }
+
+    pub fn diff(&self) -> bool {
+        matches!(self, ExportMode::All | ExportMode::Diff)
+    }
+}
 
 #[derive(Debug, Subcommand)]
 pub enum ArchiveCommands {
@@ -137,6 +157,9 @@ pub enum ArchiveCommands {
         /// Don't generate or upload files, just show what would be done.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+        /// Export mode
+        #[arg(long, value_enum, default_value_t = ExportMode::All)]
+        export_mode: ExportMode,
     },
 }
 
@@ -194,7 +217,8 @@ impl ArchiveCommands {
                 snapshot_files,
                 endpoint,
                 dry_run,
-            } => sync_bucket(snapshot_files, endpoint, dry_run).await,
+                export_mode,
+            } => sync_bucket(snapshot_files, endpoint, dry_run, export_mode).await,
         }
     }
 }
@@ -831,6 +855,7 @@ async fn sync_bucket(
     snapshot_files: Vec<PathBuf>,
     endpoint: String,
     dry_run: bool,
+    export_mode: ExportMode,
 ) -> anyhow::Result<()> {
     check_aws_config(&endpoint)?;
 
@@ -846,57 +871,65 @@ async fn sync_bucket(
 
     println!("Network: {}", info.network);
     println!("Range:   {} to {}", range.start, range.end);
-    println!("Lites:",);
-    for epoch in steps_in_range(&range, 30_000, 800) {
-        println!(
-            "  {}: {}",
-            epoch,
-            bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
-        );
+    if export_mode.lite() {
+        println!("Lites:",);
+        for epoch in steps_in_range(&range, 30_000, 800) {
+            println!(
+                "  {}: {}",
+                epoch,
+                bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await?
+            );
+        }
     }
-    println!("Diffs:");
-    for epoch in steps_in_range(&range, 3_000, 3_800) {
-        println!(
-            "  {}: {}",
-            epoch,
-            bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
-        );
+    if export_mode.diff() {
+        println!("Diffs:");
+        for epoch in steps_in_range(&range, 3_000, 3_800) {
+            println!(
+                "  {}: {}",
+                epoch,
+                bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await?
+            );
+        }
     }
 
-    for epoch in steps_in_range(&range, 30_000, 800) {
-        if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {epoch}: Exporting lite snapshot",);
-            if !dry_run {
-                let output_path = export_lite_snapshot(
-                    store.clone(),
-                    heaviest_tipset.clone(),
-                    &info.network,
-                    genesis_timestamp,
-                    epoch,
-                )
-                .await?;
-                upload_to_forest_bucket(output_path, &info.network, "lite")?;
-            } else {
-                println!("  {epoch}: Would upload lite snapshot to S3");
+    if export_mode.lite() {
+        for epoch in steps_in_range(&range, 30_000, 800) {
+            if !bucket_has_lite_snapshot(&info.network, genesis_timestamp, epoch).await? {
+                println!("  {epoch}: Exporting lite snapshot",);
+                if !dry_run {
+                    let output_path = export_lite_snapshot(
+                        store.clone(),
+                        heaviest_tipset.clone(),
+                        &info.network,
+                        genesis_timestamp,
+                        epoch,
+                    )
+                    .await?;
+                    upload_to_forest_bucket(output_path, &info.network, "lite")?;
+                } else {
+                    println!("  {epoch}: Would upload lite snapshot to S3");
+                }
             }
         }
     }
 
-    for epoch in steps_in_range(&range, 3_000, 3_800) {
-        if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
-            println!("  {epoch}: Exporting diff snapshot",);
-            if !dry_run {
-                let output_path = export_diff_snapshot(
-                    store.clone(),
-                    heaviest_tipset.clone(),
-                    &info.network,
-                    genesis_timestamp,
-                    epoch,
-                )
-                .await?;
-                upload_to_forest_bucket(output_path, &info.network, "diff")?;
-            } else {
-                println!("  {epoch}: Would upload diff snapshot to S3");
+    if export_mode.diff() {
+        for epoch in steps_in_range(&range, 3_000, 3_800) {
+            if !bucket_has_diff_snapshot(&info.network, genesis_timestamp, epoch).await? {
+                println!("  {epoch}: Exporting diff snapshot",);
+                if !dry_run {
+                    let output_path = export_diff_snapshot(
+                        store.clone(),
+                        heaviest_tipset.clone(),
+                        &info.network,
+                        genesis_timestamp,
+                        epoch,
+                    )
+                    .await?;
+                    upload_to_forest_bucket(output_path, &info.network, "diff")?;
+                } else {
+                    println!("  {epoch}: Would upload diff snapshot to S3");
+                }
             }
         }
     }
