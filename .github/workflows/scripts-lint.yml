@@ -54,7 +54,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: validate compose file
-        run: docker compose -f monitoring/docker-compose.yml config
+        run: |
+          cp monitored-stack/.env.example monitored-stack/.env
+          docker compose -f monitored-stack/docker-compose.yml config
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: "Dockerfile*"
