@@ -1706,6 +1706,19 @@ Options:
           - valid-and-timeout:   Test pass when first endpoint returns a valid result and the second one timeout
           - timeout-and-timeout: Test pass when both endpoints timeout
 
+      --report-dir <REPORT_DIR>
+          Specify a directory to dump the test report
+
+      --report-mode <REPORT_MODE>
+          Report detail level: full (default), failure-only, or summary
+
+          [default: full]
+
+          Possible values:
+          - full:         Show everything
+          - failure-only: Show summary and failures only
+          - summary:      Show summary only
+
   -h, --help
           Print help (see a summary with '-h')
 ````
