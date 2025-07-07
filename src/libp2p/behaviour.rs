@@ -7,15 +7,18 @@ use super::{
     PeerManager,
     discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
 };
-use crate::libp2p::{
-    chain_exchange::ChainExchangeBehaviour,
-    config::Libp2pConfig,
-    discovery::{DiscoveryBehaviour, DiscoveryConfig},
-    gossip_params::{build_peer_score_params, build_peer_score_threshold},
-    hello::HelloBehaviour,
-};
 use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
+use crate::{
+    libp2p::{
+        chain_exchange::ChainExchangeBehaviour,
+        config::Libp2pConfig,
+        discovery::{DiscoveryBehaviour, DiscoveryConfig},
+        gossip_params::{build_peer_score_params, build_peer_score_threshold},
+        hello::HelloBehaviour,
+    },
+    networks::GenesisNetworkName,
+};
 use ahash::{HashMap, HashSet};
 use libp2p::{
     Multiaddr, allow_block_list, connection_limits,
@@ -67,7 +70,7 @@ impl ForestBehaviour {
     pub async fn new(
         local_key: &Keypair,
         config: &Libp2pConfig,
-        network_name: &str,
+        network_name: &GenesisNetworkName,
         peer_manager: Arc<PeerManager>,
     ) -> anyhow::Result<Self> {
         const MAX_ESTABLISHED_PER_PEER: u32 = 4;

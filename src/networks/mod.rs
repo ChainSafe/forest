@@ -23,6 +23,8 @@ use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
+pub use network_name::{GenesisNetworkName, StateNetworkName};
+
 mod actors_bundle;
 pub use actors_bundle::{
     ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, generate_actor_bundle,
@@ -30,6 +32,8 @@ pub use actors_bundle::{
 };
 
 mod drand;
+
+pub mod network_name;
 
 pub mod butterflynet;
 pub mod calibnet;
@@ -90,7 +94,7 @@ impl NetworkChain {
     ///
     /// As a rule of thumb, the internal name should be used when interacting with
     /// protocol internals and P2P.
-    pub fn genesis_name(&self) -> std::borrow::Cow<'_, str> {
+    pub fn genesis_name(&self) -> GenesisNetworkName {
         match self {
             NetworkChain::Mainnet => mainnet::NETWORK_GENESIS_NAME.into(),
             NetworkChain::Calibnet => calibnet::NETWORK_GENESIS_NAME.into(),
