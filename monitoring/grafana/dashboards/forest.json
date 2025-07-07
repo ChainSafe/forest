@@ -34,6 +34,78 @@
       "title": "Overview",
       "type": "row"
     },
+    
+    {
+      "datasource": {
+    "type": "prometheus",
+    "name": "prometheus"
+  },
+  "description": "Current Filecoin network version",
+  "fieldConfig": {
+    "defaults": {
+      "color": {
+        "mode": "thresholds"
+      },
+      "mappings": [],
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "yellow",
+            "value": 20
+          },
+          {
+            "color": "red",
+            "value": 30
+          }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "gridPos": {
+    "h": 8,
+    "w": 6,
+    "x": 18,
+    "y": 0
+  },
+  "id": 40,
+  "options": {
+    "colorMode": "value",
+    "graphMode": "area",
+    "justifyMode": "auto",
+    "orientation": "auto",
+    "reduceOptions": {
+      "calcs": [
+        "lastNotNull"
+      ],
+      "fields": "",
+      "values": false
+    },
+    "textMode": "auto",
+    "wideLayout": true
+  },
+  "pluginVersion": "11.2.0-72847",
+  "targets": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "name": "prometheus"
+      },
+      "editorMode": "code",
+      "expr": "filecoin_network_version{}",
+      "legendFormat": "Network Version",
+      "range": true,
+      "refId": "A"
+    }
+  ],
+  "title": "Network Version",
+  "type": "stat"
+},
     {
       "datasource": {
         "type": "prometheus",

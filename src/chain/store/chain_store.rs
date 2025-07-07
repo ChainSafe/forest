@@ -25,6 +25,7 @@ use crate::{
 };
 use crate::{
     chain_sync::metrics,
+    metrics::NETWORK_VERSION,
     db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
@@ -148,6 +149,10 @@ where
     /// Sets heaviest tipset
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         metrics::HEAD_EPOCH.set(ts.epoch());
+
+        let network_version = self.chain_config.network_version(ts.epoch());
+        NETWORK_VERSION.set(network_version as f64);
+
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {

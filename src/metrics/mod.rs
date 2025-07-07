@@ -13,6 +13,7 @@ use prometheus_client::{
         counter::Counter,
         family::Family,
         histogram::{Histogram, exponential_buckets},
+        gauge::Gauge,
     },
 };
 use std::sync::Arc;
@@ -61,6 +62,16 @@ pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(
     crate::metrics::default_registry().register(
         "rpc_processing_time",
         "Duration of RPC method call in milliseconds",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static NETWORK_VERSION: Lazy<Gauge> = Lazy::new(|| {
+    let metric = Gauge::default();
+    DEFAULT_REGISTRY.write().register(
+        "filecoin_network_version",
+        "Current Filecoin network version",
         metric.clone(),
     );
     metric
