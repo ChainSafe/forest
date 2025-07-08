@@ -1493,10 +1493,28 @@ Usage: forest-tool archive sync-bucket [OPTIONS] <SNAPSHOT_FILES>...
 Arguments:
   <SNAPSHOT_FILES>...
 
+
 Options:
-      --endpoint <ENDPOINT>  `S3` endpoint URL [default: https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com]
-      --dry-run              Don't generate or upload files, just show what would be done
-  -h, --help                 Print help
+      --endpoint <ENDPOINT>
+          `S3` endpoint URL
+
+          [default: https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com]
+
+      --dry-run
+          Don't generate or upload files, just show what would be done
+
+      --export-mode <EXPORT_MODE>
+          Export mode
+
+          [default: all]
+
+          Possible values:
+          - all:  Export all types of snapshots
+          - lite: Export only lite snapshots
+          - diff: Export only diff snapshots
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool db`
