@@ -5,7 +5,7 @@ use std::{
     convert::TryFrom,
     num::NonZeroU64,
     sync::{
-        Arc,
+        Arc, LazyLock,
         atomic::{AtomicU64, Ordering},
     },
     time::{Duration, Instant},
@@ -28,7 +28,6 @@ use crate::{
 };
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -38,8 +37,8 @@ use tracing::{debug, trace};
 /// Timeout milliseconds for response from an RPC request
 // This value is automatically adapted in the range of [5, 60] for different network conditions,
 // being decreased on success and increased on failure
-static CHAIN_EXCHANGE_TIMEOUT_MILLIS: Lazy<ExponentialAdaptiveValueProvider<u64>> =
-    Lazy::new(|| ExponentialAdaptiveValueProvider::new(5000, 2000, 60000, false));
+static CHAIN_EXCHANGE_TIMEOUT_MILLIS: LazyLock<ExponentialAdaptiveValueProvider<u64>> =
+    LazyLock::new(|| ExponentialAdaptiveValueProvider::new(5000, 2000, 60000, false));
 
 /// Maximum number of concurrent chain exchange request being sent to the
 /// network.

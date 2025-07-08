@@ -52,14 +52,18 @@ use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
 use num_traits::Signed;
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
 use std::path::Path;
 use std::time::Instant;
-use std::{path::PathBuf, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    path::PathBuf,
+    str::FromStr,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 use tokio::sync::Semaphore;
 use tracing::debug;
 
@@ -67,7 +71,7 @@ const COLLECTION_SAMPLE_SIZE: usize = 5;
 
 /// This address has been funded by the calibnet faucet and the private keys
 /// has been discarded. It should always have a non-zero balance.
-static KNOWN_CALIBNET_ADDRESS: Lazy<Address> = Lazy::new(|| {
+static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
     crate::shim::address::Network::Testnet
         .parse_address("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui")
         .unwrap()

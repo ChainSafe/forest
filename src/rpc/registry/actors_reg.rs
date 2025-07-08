@@ -14,8 +14,8 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, anyhow};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use once_cell::sync::Lazy;
 use serde_json::Value;
+use std::sync::LazyLock;
 
 #[derive(Debug)]
 pub struct ActorRegistry {
@@ -48,7 +48,7 @@ impl ActorRegistry {
     }
 }
 
-pub(crate) static ACTOR_REGISTRY: Lazy<ActorRegistry> = Lazy::new(ActorRegistry::new);
+pub(crate) static ACTOR_REGISTRY: LazyLock<ActorRegistry> = LazyLock::new(ActorRegistry::new);
 
 pub fn get_actor_type_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
     ACTOR_REGISTRY

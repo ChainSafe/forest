@@ -3123,7 +3123,6 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "nunny",
- "once_cell",
  "openrpc-types",
  "parity-db",
  "parking_lot",

@@ -1,13 +1,13 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use once_cell::sync::Lazy;
 use prometheus_client::{
     encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
     metrics::{counter::Counter, family::Family, gauge::Gauge, histogram::Histogram},
 };
+use std::sync::LazyLock;
 
-pub static TIPSET_PROCESSING_TIME: Lazy<Histogram> = Lazy::new(|| {
+pub static TIPSET_PROCESSING_TIME: LazyLock<Histogram> = LazyLock::new(|| {
     let metric = crate::metrics::default_histogram();
     crate::metrics::default_registry().register(
         "tipset_processing_time",
@@ -16,7 +16,7 @@ pub static TIPSET_PROCESSING_TIME: Lazy<Histogram> = Lazy::new(|| {
     );
     metric
 });
-pub static BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
+pub static BLOCK_VALIDATION_TIME: LazyLock<Histogram> = LazyLock::new(|| {
     let metric = crate::metrics::default_histogram();
     crate::metrics::default_registry().register(
         "block_validation_time",
@@ -25,16 +25,17 @@ pub static BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
     );
     metric
 });
-pub static LIBP2P_MESSAGE_TOTAL: Lazy<Family<Libp2pMessageKindLabel, Counter>> = Lazy::new(|| {
-    let metric = Family::default();
-    crate::metrics::default_registry().register(
-        "libp2p_messsage_total",
-        "Total number of libp2p messages by type",
-        metric.clone(),
-    );
-    metric
-});
-pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
+pub static LIBP2P_MESSAGE_TOTAL: LazyLock<Family<Libp2pMessageKindLabel, Counter>> =
+    LazyLock::new(|| {
+        let metric = Family::default();
+        crate::metrics::default_registry().register(
+            "libp2p_messsage_total",
+            "Total number of libp2p messages by type",
+            metric.clone(),
+        );
+        metric
+    });
+pub static INVALID_TIPSET_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     let metric = Counter::default();
     crate::metrics::default_registry().register(
         "invalid_tipset_total",
@@ -43,7 +44,7 @@ pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
     );
     metric
 });
-pub static HEAD_EPOCH: Lazy<Gauge> = Lazy::new(|| {
+pub static HEAD_EPOCH: LazyLock<Gauge> = LazyLock::new(|| {
     let metric = Gauge::default();
     crate::metrics::default_registry().register(
         "head_epoch",
