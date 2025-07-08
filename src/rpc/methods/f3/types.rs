@@ -18,11 +18,11 @@ use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;
 use num::Zero as _;
-use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use std::io::Read as _;
+use std::sync::LazyLock;
 use std::{cmp::Ordering, time::Duration};
 
 const MAX_LEASE_INSTANCES: u64 = 5;
@@ -53,7 +53,7 @@ impl TryFrom<F3TipSetKey> for TipsetKey {
     type Error = anyhow::Error;
 
     fn try_from(tsk: F3TipSetKey) -> Result<Self, Self::Error> {
-        static BLOCK_HEADER_CID_LEN: Lazy<usize> = Lazy::new(|| {
+        static BLOCK_HEADER_CID_LEN: LazyLock<usize> = LazyLock::new(|| {
             let buf = [0_u8; 256];
             let cid = Cid::new_v1(
                 fvm_ipld_encoding::DAG_CBOR,

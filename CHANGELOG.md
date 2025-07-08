@@ -39,6 +39,8 @@
 
 ### Removed
 
+- [#5822](https://github.com/ChainSafe/forest/issues/5822) Remove `mimalloc` feature.
+
 ### Fixed
 
 - [#5752](https://github.com/ChainSafe/forest/issues/5752) Fix duplicated events in `Filecoin.ChainGetEvents` RPC method.

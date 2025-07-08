@@ -1,10 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use once_cell::sync::Lazy;
 use prometheus_client::metrics::{counter::Counter, gauge::Gauge};
+use std::sync::LazyLock;
 
-pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
+pub static PEER_FAILURE_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     let metric = Counter::default();
     crate::metrics::default_registry().register(
         "peer_failure_total",
@@ -14,7 +14,7 @@ pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
     metric
 });
 
-pub static FULL_PEERS: Lazy<Gauge> = Lazy::new(|| {
+pub static FULL_PEERS: LazyLock<Gauge> = LazyLock::new(|| {
     let metric = Gauge::default();
     crate::metrics::default_registry().register(
         "full_peers",
@@ -24,7 +24,7 @@ pub static FULL_PEERS: Lazy<Gauge> = Lazy::new(|| {
     metric
 });
 
-pub static BAD_PEERS: Lazy<Gauge> = Lazy::new(|| {
+pub static BAD_PEERS: LazyLock<Gauge> = LazyLock::new(|| {
     let metric = Gauge::default();
     crate::metrics::default_registry().register(
         "bad_peers",

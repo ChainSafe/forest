@@ -3,6 +3,7 @@
 
 use std::io::{self, Cursor};
 use std::path::Path;
+use std::sync::LazyLock;
 
 use ahash::HashMap;
 use anyhow::ensure;
@@ -13,7 +14,6 @@ use futures::{StreamExt, TryStreamExt, stream};
 use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
-use once_cell::sync::Lazy;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -69,7 +69,7 @@ macro_rules! actor_bundle_info {
     }
 }
 
-pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
+pub static ACTOR_BUNDLES: LazyLock<Box<[ActorBundleInfo]>> = LazyLock::new(|| {
     Box::new(actor_bundle_info![
         "bafy2bzacedrdn6z3z7xz7lx4wll3tlgktirhllzqxb766dxpaqp3ukxsjfsba" @ "8.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
@@ -129,7 +129,7 @@ impl ActorBundleMetadata {
 
 type ActorBundleMetadataMap = HashMap<(NetworkChain, String), ActorBundleMetadata>;
 
-pub static ACTOR_BUNDLES_METADATA: Lazy<ActorBundleMetadataMap> = Lazy::new(|| {
+pub static ACTOR_BUNDLES_METADATA: LazyLock<ActorBundleMetadataMap> = LazyLock::new(|| {
     let json: &str = include_str!("../../build/manifest.json");
     let metadata_vec: Vec<ActorBundleMetadata> =
         serde_json::from_str(json).expect("invalid manifest");

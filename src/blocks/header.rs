@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
 
 use super::{ElectionProof, Error, Ticket, TipsetKey};
 use crate::beacon::{BeaconEntry, BeaconSchedule};
@@ -16,22 +19,21 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use num::BigInt;
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
 // See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
 // and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
 #[cfg(test)]
-static FILECOIN_GENESIS_CID: once_cell::sync::Lazy<Cid> = once_cell::sync::Lazy::new(|| {
+static FILECOIN_GENESIS_CID: std::sync::LazyLock<Cid> = std::sync::LazyLock::new(|| {
     "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
         .parse()
         .expect("Infallible")
 });
 
 #[cfg(test)]
-pub static GENESIS_BLOCK_PARENTS: once_cell::sync::Lazy<TipsetKey> =
-    once_cell::sync::Lazy::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
+pub static GENESIS_BLOCK_PARENTS: std::sync::LazyLock<TipsetKey> =
+    std::sync::LazyLock::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
 
 #[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
@@ -222,7 +224,7 @@ impl RawBlockHeader {
 #[derive(Debug)]
 pub struct CachingBlockHeader {
     uncached: RawBlockHeader,
-    cid: OnceCell<Cid>,
+    cid: OnceLock<Cid>,
     has_ever_been_verified_against_any_signature: AtomicBool,
 }
 
@@ -266,7 +268,7 @@ impl CachingBlockHeader {
     pub fn new(uncached: RawBlockHeader) -> Self {
         Self {
             uncached,
-            cid: OnceCell::new(),
+            cid: OnceLock::new(),
             has_ever_been_verified_against_any_signature: AtomicBool::new(false),
         }
     }
@@ -278,7 +280,7 @@ impl CachingBlockHeader {
         if let Some(uncached) = store.get_cbor::<RawBlockHeader>(&cid)? {
             Ok(Some(Self {
                 uncached,
-                cid: OnceCell::with_value(cid),
+                cid: cid.into(),
                 has_ever_been_verified_against_any_signature: AtomicBool::new(false),
             }))
         } else {

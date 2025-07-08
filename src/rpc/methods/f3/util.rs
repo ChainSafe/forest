@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 const F3_PERMANENT_PARTICIPATING_MINER_IDS_ENV_KEY: &str =
     "FOREST_F3_PERMANENT_PARTICIPATING_MINER_ADDRESSES";
 
-pub static F3_PERMANENT_PARTICIPATING_MINER_IDS: Lazy<Option<HashSet<u64>>> =
-    Lazy::new(get_f3_permanent_participating_miner_ids);
+pub static F3_PERMANENT_PARTICIPATING_MINER_IDS: LazyLock<Option<HashSet<u64>>> =
+    LazyLock::new(get_f3_permanent_participating_miner_ids);
 
 /// loads f3 permanent participating miner IDs.
 /// Note that this environment variable should only be used for testing purpose.

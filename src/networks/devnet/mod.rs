@@ -3,7 +3,7 @@
 
 use ahash::HashMap;
 use cid::Cid;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
@@ -17,7 +17,7 @@ pub const ETH_CHAIN_ID: EthChainId = 31415926;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 0;
 
-pub static GENESIS_NETWORK_VERSION: Lazy<NetworkVersion> = Lazy::new(|| {
+pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| {
     if let Ok(version) = std::env::var("FOREST_GENESIS_NETWORK_VERSION") {
         NetworkVersion::from(
             version
@@ -32,7 +32,7 @@ pub static GENESIS_NETWORK_VERSION: Lazy<NetworkVersion> = Lazy::new(|| {
 /// Height epochs.
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
-pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
     HashMap::from_iter([
         make_height!(
             Breeze,
@@ -174,7 +174,7 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
+pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 1]> = LazyLock::new(|| {
     [DrandPoint {
         height: 0,
         config: &DRAND_QUICKNET,

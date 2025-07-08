@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use ahash::HashMap;
 use cid::Cid;
 use fil_actors_shared::v13::runtime::Policy;
 use itertools::Itertools;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use tracing::warn;
@@ -49,7 +49,8 @@ const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
 const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 
-static INITIAL_FIL_RESERVED: Lazy<TokenAmount> = Lazy::new(|| TokenAmount::from_whole(300_000_000));
+static INITIAL_FIL_RESERVED: LazyLock<TokenAmount> =
+    LazyLock::new(|| TokenAmount::from_whole(300_000_000));
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -229,7 +230,7 @@ pub struct HeightInfo {
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
-    pub config: &'a Lazy<DrandConfig<'a>>,
+    pub config: &'a LazyLock<DrandConfig<'a>>,
 }
 
 /// Defines all network configuration parameters.

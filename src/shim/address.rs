@@ -16,15 +16,17 @@ use fvm_shared4::address::Address as Address_latest;
 pub use fvm_shared4::address::{Error, Network, PAYLOAD_HASH_LEN, Payload, Protocol};
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{
+    LazyLock,
+    atomic::{AtomicU8, Ordering},
+};
 
 /// Zero address used to avoid allowing it to be used for verification.
 /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
 /// signature verification.
 // Copied from ref-fvm due to a bug in their definition.
-pub static ZERO_ADDRESS: Lazy<Address> = Lazy::new(|| {
+pub static ZERO_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
     Network::Mainnet
         .parse_address(
             "f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a",

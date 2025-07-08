@@ -65,17 +65,16 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
-use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
-static FOREST_TRACE_FILTER_MAX_RESULT: Lazy<u64> =
-    Lazy::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
+static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
+    LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 

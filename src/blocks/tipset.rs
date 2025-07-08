@@ -1,8 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-use std::{fmt, sync::OnceLock};
+use std::{
+    fmt,
+    sync::{Arc, OnceLock},
+};
 
 use crate::cid_collections::SmallCidNonEmptyVec;
 use crate::networks::{calibnet, mainnet};
@@ -16,7 +18,6 @@ use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
@@ -145,7 +146,7 @@ pub struct Tipset {
     /// Sorted
     headers: NonEmpty<CachingBlockHeader>,
     // key is lazily initialized via `fn key()`.
-    key: OnceCell<TipsetKey>,
+    key: OnceLock<TipsetKey>,
 }
 
 impl From<RawBlockHeader> for Tipset {
@@ -164,7 +165,7 @@ impl From<CachingBlockHeader> for Tipset {
     fn from(value: CachingBlockHeader) -> Self {
         Self {
             headers: nonempty![value],
-            key: OnceCell::new(),
+            key: OnceLock::new(),
         }
     }
 }
@@ -238,7 +239,7 @@ impl Tipset {
 
         Ok(Self {
             headers,
-            key: OnceCell::new(),
+            key: OnceLock::new(),
         })
     }
 
@@ -448,7 +449,7 @@ impl Tipset {
 pub struct FullTipset {
     blocks: NonEmpty<Block>,
     // key is lazily initialized via `fn key()`.
-    key: OnceCell<TipsetKey>,
+    key: OnceLock<TipsetKey>,
 }
 
 impl std::hash::Hash for FullTipset {
@@ -462,7 +463,7 @@ impl From<Block> for FullTipset {
     fn from(block: Block) -> Self {
         FullTipset {
             blocks: nonempty![block],
-            key: OnceCell::new(),
+            key: OnceLock::new(),
         }
     }
 }
@@ -489,7 +490,7 @@ impl FullTipset {
 
         Ok(Self {
             blocks,
-            key: OnceCell::new(),
+            key: OnceLock::new(),
         })
     }
     /// Returns the first block of the tipset.

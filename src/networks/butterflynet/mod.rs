@@ -4,8 +4,8 @@
 use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use url::Url;
 
 use crate::{
@@ -45,12 +45,12 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 }
 
 /// Genesis CID
-pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
     Cid::from_str("bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
-static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
+static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
     "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
@@ -58,7 +58,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
 /// `<https://github.com/filecoin-project/lotus/commit/c6068b60c526d44270bfc5d612045f0b27322dfb>`
-static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
+static GENESIS_URL_ALT: LazyLock<Url> = LazyLock::new(|| {
     "https://github.com/filecoin-project/lotus/raw/c6068b60c526d44270bfc5d612045f0b27322dfb/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
@@ -67,8 +67,8 @@ pub(crate) const MINIMUM_VERIED_ALLOCATION: i64 = 1 << 20;
 pub(crate) const PRE_COMMIT_CHALLENGE_DELAY: i64 = 150;
 
 /// Default bootstrap peer ids.
-pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
-    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/butterflynet")));
+pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =
+    LazyLock::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/butterflynet")));
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
 pub const ETH_CHAIN_ID: EthChainId = 3141592;
@@ -76,7 +76,7 @@ pub const ETH_CHAIN_ID: EthChainId = 3141592;
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
     HashMap::from_iter([
         make_height!(Breeze, -50),
         make_height!(Smoke, -2),
@@ -118,7 +118,7 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
+pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 1]> = LazyLock::new(|| {
     [DrandPoint {
         height: 0,
         config: &DRAND_QUICKNET,

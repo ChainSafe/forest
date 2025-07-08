@@ -11,6 +11,7 @@
 
 use std::env;
 use std::fmt::{self, Debug};
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
@@ -21,7 +22,6 @@ use jsonrpsee::core::ClientError;
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::traits::ToRpcParams;
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use tracing::{Instrument, Level, debug};
 use url::Url;
@@ -44,7 +44,7 @@ impl Client {
     ///
     /// If `token` is provided, use that over the token in either of the above.
     pub fn default_or_from_env(token: Option<&str>) -> anyhow::Result<Self> {
-        static DEFAULT: Lazy<Url> = Lazy::new(|| "http://127.0.0.1:2345/".parse().unwrap());
+        static DEFAULT: LazyLock<Url> = LazyLock::new(|| "http://127.0.0.1:2345/".parse().unwrap());
 
         let mut base_url = match env::var("FULLNODE_API_INFO") {
             Ok(it) => {

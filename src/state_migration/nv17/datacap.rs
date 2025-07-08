@@ -4,8 +4,6 @@
 //! This module contains the migration logic for the `NV17` upgrade for the `datacap`
 //! actor.
 
-use std::str::FromStr;
-
 use crate::shim::address::Address;
 use crate::shim::bigint::BigInt;
 use crate::shim::state_tree::{ActorState, StateTree};
@@ -17,13 +15,14 @@ use fil_actors_shared::frc46_token::token::state::TokenState;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
-use once_cell::sync::Lazy;
 use std::ops::Deref;
+use std::str::FromStr;
+use std::sync::LazyLock;
 
 use super::util::hamt_addr_key_to_key;
 
 const DATA_CAP_GRANULARITY: u64 = TokenAmount::PRECISION;
-static INFINITE_ALLOWANCE: Lazy<StoragePower> = Lazy::new(|| {
+static INFINITE_ALLOWANCE: LazyLock<StoragePower> = LazyLock::new(|| {
     StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE")
         * TokenAmount::PRECISION
 });

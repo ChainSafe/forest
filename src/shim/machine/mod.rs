@@ -7,10 +7,9 @@ pub use manifest::{BuiltinActor, BuiltinActorManifest};
 use fvm2::machine::MultiEngine as MultiEngine_v2;
 use fvm3::engine::MultiEngine as MultiEngine_v3;
 use fvm4::engine::MultiEngine as MultiEngine_v4;
-use once_cell::sync::Lazy;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
-pub static GLOBAL_MULTI_ENGINE: Lazy<Arc<MultiEngine>> = Lazy::new(Default::default);
+pub static GLOBAL_MULTI_ENGINE: LazyLock<Arc<MultiEngine>> = LazyLock::new(Default::default);
 
 pub struct MultiEngine {
     pub v2: MultiEngine_v2,

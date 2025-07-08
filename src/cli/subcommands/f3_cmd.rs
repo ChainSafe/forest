@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 use crate::{
     blocks::TipsetKey,
@@ -24,7 +24,6 @@ use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use itertools::Itertools as _;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use tera::Tera;
@@ -33,7 +32,7 @@ const MANIFEST_TEMPLATE_NAME: &str = "manifest.tpl";
 const CERTIFICATE_TEMPLATE_NAME: &str = "certificate.tpl";
 const PROGRESS_TEMPLATE_NAME: &str = "progress.tpl";
 
-static TEMPLATES: Lazy<Tera> = Lazy::new(|| {
+static TEMPLATES: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
     tera.add_raw_template(MANIFEST_TEMPLATE_NAME, include_str!("f3_cmd/manifest.tpl"))
         .unwrap();

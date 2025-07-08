@@ -4,7 +4,7 @@
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, LazyLock},
 };
 
 use crate::Config;
@@ -14,7 +14,6 @@ use anyhow::Context as _;
 use anyhow::bail;
 use itertools::Itertools;
 use multimap::MultiMap;
-use once_cell::sync::Lazy;
 use semver::Version;
 use tracing::debug;
 
@@ -133,7 +132,7 @@ type MigrationsMap = MultiMap<Version, (Version, Migrator)>;
 /// `<FROM version> -> <TO version> @ <Migrator object>`
 macro_rules! create_migrations {
     ($($from:literal -> $to:literal @ $migration:tt),* $(,)?) => {
-pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
+pub(super) static MIGRATIONS: LazyLock<MigrationsMap> = LazyLock::new(|| {
     MigrationsMap::from_iter(
         [
             $((

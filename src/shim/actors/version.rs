@@ -3,14 +3,14 @@
 use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use fil_actors_shared::v11::runtime::builtins::Type;
-use once_cell::sync::Lazy;
 use paste::paste;
+use std::sync::LazyLock;
 
 macro_rules! impl_actor_cids_type_actor {
     ($($actor_type:ident, $actor:ident),*) => {
         $(
 paste! {
-static [<$actor:upper _ACTOR_CIDS>]: Lazy<Vec<(u64, Cid)>> = Lazy::new(|| {
+static [<$actor:upper _ACTOR_CIDS>]: LazyLock<Vec<(u64, Cid)>> = LazyLock::new(|| {
     let mut actors: Vec<_> = crate::networks::ACTOR_BUNDLES_METADATA
         .values()
         .filter_map(|bundle| {

@@ -1,13 +1,13 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use once_cell::sync::Lazy;
 use parking_lot::MappedRwLockReadGuard;
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, gauge::Gauge, histogram::Histogram},
     registry::Registry,
 };
+use std::sync::LazyLock;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 struct TypeLabel {
@@ -20,9 +20,9 @@ impl TypeLabel {
     }
 }
 
-static MESSAGE_COUNTER: Lazy<Family<TypeLabel, Counter>> = Lazy::new(Default::default);
-static CONTAINER_CAPACITIES: Lazy<Family<TypeLabel, Gauge>> = Lazy::new(Default::default);
-pub(in crate::libp2p_bitswap) static GET_BLOCK_TIME: Lazy<Histogram> = Lazy::new(|| {
+static MESSAGE_COUNTER: LazyLock<Family<TypeLabel, Counter>> = LazyLock::new(Default::default);
+static CONTAINER_CAPACITIES: LazyLock<Family<TypeLabel, Gauge>> = LazyLock::new(Default::default);
+pub(in crate::libp2p_bitswap) static GET_BLOCK_TIME: LazyLock<Histogram> = LazyLock::new(|| {
     Histogram::new([
         0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
     ])

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use git_version::git_version;
-use once_cell::sync::Lazy;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeLabelSet, EncodeMetric},
     metrics::{family::Family, gauge::Gauge},
 };
+use std::sync::LazyLock;
 
 /// Current git commit hash of the Forest repository.
 pub const GIT_HASH: &str =
@@ -15,11 +15,11 @@ pub const GIT_HASH: &str =
 
 /// Current version of the Forest repository with git hash embedded
 /// E.g., `0.8.0+git.e69baf3e4`
-pub static FOREST_VERSION_STRING: Lazy<String> =
-    Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
+pub static FOREST_VERSION_STRING: LazyLock<String> =
+    LazyLock::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
-pub static FOREST_VERSION: Lazy<semver::Version> =
-    Lazy::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
+pub static FOREST_VERSION: LazyLock<semver::Version> =
+    LazyLock::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 pub struct VersionLabel {

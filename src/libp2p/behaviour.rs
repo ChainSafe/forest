@@ -1,7 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock},
+};
 
 use super::{
     PeerManager,
@@ -32,7 +35,6 @@ use libp2p::{
     ping, request_response,
     swarm::NetworkBehaviour,
 };
-use once_cell::sync::Lazy;
 use tracing::info;
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
@@ -74,15 +76,17 @@ impl ForestBehaviour {
         peer_manager: Arc<PeerManager>,
     ) -> anyhow::Result<Self> {
         const MAX_ESTABLISHED_PER_PEER: u32 = 4;
-        static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
-            std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
+        static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: LazyLock<usize> = LazyLock::new(
+            || {
+                std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
                 .ok()
                 .map(|it|
                     it.parse::<NonZeroUsize>()
                         .expect("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer is expected.")
                         .get())
                 .unwrap_or(10)
-        });
+            },
+        );
 
         let max_concurrent_request_response_streams = (config.target_peer_count as usize)
             .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);

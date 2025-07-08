@@ -8,8 +8,8 @@ use num::{
     BigInt, Integer,
     bigint::{ParseBigIntError, Sign},
 };
-use once_cell::sync::Lazy;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use std::sync::LazyLock;
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;
@@ -25,7 +25,7 @@ fn parse(strings: &[&str]) -> Result<Vec<BigInt>, ParseBigIntError> {
         .collect()
 }
 
-static EXP_NUM_COEF: Lazy<Vec<BigInt>> = Lazy::new(|| {
+static EXP_NUM_COEF: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
     parse(&[
         "-648770010757830093818553637600",
         "67469480939593786226847644286976",
@@ -38,7 +38,7 @@ static EXP_NUM_COEF: Lazy<Vec<BigInt>> = Lazy::new(|| {
     ])
     .unwrap()
 });
-static EXP_DENO_COEF: Lazy<Vec<BigInt>> = Lazy::new(|| {
+static EXP_DENO_COEF: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
     parse(&[
         "1225524182432722209606361",
         "114095592300906098243859450",
