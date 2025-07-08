@@ -3109,7 +3109,6 @@ dependencies = [
  "md-5",
  "memmap2 0.9.5",
  "memory-stats",
- "mimalloc",
  "multiaddr",
  "multihash-codetable",
  "multihash-derive",
@@ -5079,16 +5078,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
-name = "libmimalloc-sys"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88cd67e9de251c1781dbe2f641a1a3ad66eaae831b8a2c38fbdc5ddae16d4d"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "libp2p"
 version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5840,15 +5829,6 @@ dependencies = [
  "serde",
  "tempfile",
  "typenum",
-]
-
-[[package]]
-name = "mimalloc"
-version = "0.1.47"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1791cbe101e95af5764f06f20f6760521f7158f69dbf9d6baf941ee1bf6bc40"
-dependencies = [
- "libmimalloc-sys",
 ]
 
 [[package]]
