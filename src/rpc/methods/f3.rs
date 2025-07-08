@@ -742,6 +742,30 @@ impl RpcMethod<1> for F3GetF3PowerTableByInstance {
     }
 }
 
+pub enum F3ExportLatestSnapshot {}
+impl RpcMethod<1> for F3ExportLatestSnapshot {
+    const NAME: &'static str = "Filecoin.F3ExportLatestSnapshot";
+    const PARAM_NAMES: [&'static str; 1] = ["path"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Gets the power table (committee) used to validate the specified instance");
+
+    type Params = (String,);
+    type Ok = ();
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (path,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(path)?;
+        let response = client.request(Self::NAME, params).await?;
+        Ok(response)
+    }
+}
+
 pub enum F3IsRunning {}
 
 impl F3IsRunning {

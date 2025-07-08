@@ -2,6 +2,8 @@ module f3-sidecar/v2
 
 go 1.23.10
 
+replace github.com/filecoin-project/go-f3 => ./../../hanabi1224/go-f3
+
 require (
 	github.com/filecoin-project/go-f3 v0.8.7
 	github.com/filecoin-project/go-jsonrpc v0.8.0

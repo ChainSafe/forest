@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"os"
 
 	"github.com/filecoin-project/go-f3"
 	"github.com/filecoin-project/go-f3/certs"
@@ -49,6 +51,21 @@ func (h *F3ServerHandler) F3GetLatestCertificate(ctx context.Context) (*certs.Fi
 
 func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gpbft.PowerEntries, error) {
 	return h.f3.GetPowerTable(ctx, tsk)
+}
+
+func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) error {
+	cs, err := h.f3.GetCertStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriter(f)
+	return cs.ExportLatestSnapshot(ctx, writer)
 }
 
 // F3GetF3PowerTableByInstance retrieves the power table for a specific consensus instance.
