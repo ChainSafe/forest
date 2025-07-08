@@ -33,7 +33,8 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 // A cap on maximum number of message to include in a block
 const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
-const CBOR_GEN_LIMIT: usize = 8192; // Same limits as in Go's `cbor-gen`.
+const CBOR_GEN_LIMIT: usize = 8192; // Same limits as in
+// [cbor-gen](https://github.com/whyrusleeping/cbor-gen/blob/cba3eeea9ae8ec4db1b7283e3654d8c18979affe/gen.go#L32), which Lotus uses.
 
 /// A structure that holds the selected messages for a block.
 /// It tracks the gas limit and the limits for different signature types
