@@ -10,35 +10,36 @@ use jsonrpsee::MethodResponse;
 use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{ErrorObject, Id};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use tower::Layer;
 
-static VERSION_METHODS_MAPPINGS: Lazy<HashMap<ApiPaths, HashSet<&'static str>>> = Lazy::new(|| {
-    let mut map = HashMap::default();
-    for version in [ApiPaths::V0, ApiPaths::V1, ApiPaths::V2] {
-        let mut supported = HashSet::default();
+static VERSION_METHODS_MAPPINGS: LazyLock<HashMap<ApiPaths, HashSet<&'static str>>> =
+    LazyLock::new(|| {
+        let mut map = HashMap::default();
+        for version in [ApiPaths::V0, ApiPaths::V1, ApiPaths::V2] {
+            let mut supported = HashSet::default();
 
-        macro_rules! insert {
-            ($ty:ty) => {
-                if <$ty>::API_PATHS.contains(version) {
-                    supported.insert(<$ty>::NAME);
-                    if let Some(alias) = <$ty>::NAME_ALIAS {
-                        supported.insert(alias);
+            macro_rules! insert {
+                ($ty:ty) => {
+                    if <$ty>::API_PATHS.contains(version) {
+                        supported.insert(<$ty>::NAME);
+                        if let Some(alias) = <$ty>::NAME_ALIAS {
+                            supported.insert(alias);
+                        }
                     }
-                }
-            };
+                };
+            }
+
+            for_each_rpc_method!(insert);
+
+            supported.insert(crate::rpc::chain::CHAIN_NOTIFY);
+            supported.insert(crate::rpc::channel::CANCEL_METHOD_NAME);
+
+            map.insert(version, supported);
         }
 
-        for_each_rpc_method!(insert);
-
-        supported.insert(crate::rpc::chain::CHAIN_NOTIFY);
-        supported.insert(crate::rpc::channel::CANCEL_METHOD_NAME);
-
-        map.insert(version, supported);
-    }
-
-    map
-});
+        map
+    });
 
 /// JSON-RPC middleware layer for segregating RPC methods by the versions they support.
 #[derive(Clone, Default)]

@@ -410,11 +410,10 @@ use jsonrpsee::{
     core::middleware::RpcServiceBuilder,
     server::{RpcModule, Server, StopHandle, TowerServiceBuilder, stop_channel},
 };
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::env;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tower::Service;
@@ -425,7 +424,7 @@ use openrpc_types::{self, ParamStructure};
 pub const DEFAULT_PORT: u16 = 2345;
 
 /// Request timeout read from environment variables
-static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
     env::var("FOREST_RPC_DEFAULT_TIMEOUT")
         .ok()
         .and_then(|it| Duration::from_secs(it.parse().ok()?).into())

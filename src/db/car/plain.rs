@@ -493,8 +493,8 @@ mod tests {
     };
     use futures::{TryStreamExt as _, executor::block_on};
     use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
-    use once_cell::sync::Lazy;
     use std::io::Cursor;
+    use std::sync::LazyLock;
     use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
     #[test]
@@ -571,7 +571,8 @@ mod tests {
     }
 
     fn chain4_car() -> &'static [u8] {
-        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(chain4_car_zst()).unwrap());
+        static CAR: LazyLock<Vec<u8>> =
+            LazyLock::new(|| zstd::decode_all(chain4_car_zst()).unwrap());
         CAR.as_slice()
     }
 
@@ -580,7 +581,8 @@ mod tests {
     }
 
     fn carv2_car() -> &'static [u8] {
-        static CAR: Lazy<Vec<u8>> = Lazy::new(|| zstd::decode_all(carv2_car_zst()).unwrap());
+        static CAR: LazyLock<Vec<u8>> =
+            LazyLock::new(|| zstd::decode_all(carv2_car_zst()).unwrap());
         CAR.as_slice()
     }
 }

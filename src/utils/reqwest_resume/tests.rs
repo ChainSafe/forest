@@ -7,10 +7,10 @@ use axum::response::IntoResponse;
 use bytes::Bytes;
 use futures::stream;
 use http_range_header::parse_range_header;
-use once_cell::sync::Lazy;
 use rand::Rng;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio_stream::StreamExt as _;
@@ -18,7 +18,7 @@ use tokio_stream::StreamExt as _;
 const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
-static RANDOM_BYTES: Lazy<Bytes> = Lazy::new(|| {
+static RANDOM_BYTES: LazyLock<Bytes> = LazyLock::new(|| {
     let mut rng = crate::utils::rand::forest_rng();
     (0..8192).map(|_| rng.r#gen()).collect()
 });

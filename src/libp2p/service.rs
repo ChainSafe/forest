@@ -52,13 +52,13 @@ use crate::libp2p::{
 };
 
 pub(in crate::libp2p) mod metrics {
-    use once_cell::sync::Lazy;
     use prometheus_client::metrics::{family::Family, gauge::Gauge};
+    use std::sync::LazyLock;
 
     use crate::metrics::KindLabel;
 
-    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Family<KindLabel, Gauge>> = {
-        Lazy::new(|| {
+    pub static NETWORK_CONTAINER_CAPACITIES: LazyLock<Family<KindLabel, Gauge>> = {
+        LazyLock::new(|| {
             let metric = Family::default();
             crate::metrics::default_registry().register(
                 "network_container_capacities",

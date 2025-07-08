@@ -7,14 +7,15 @@ use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, bail};
 use cid::Cid;
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::sync::LazyLock;
 
 use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, get_actor_type_from_code};
 
 // Global registry for method parameter deserialization
-static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(MethodRegistry::with_known_methods);
+static METHOD_REGISTRY: LazyLock<MethodRegistry> =
+    LazyLock::new(MethodRegistry::with_known_methods);
 
 type ParamDeserializerFn = Box<dyn Fn(&[u8]) -> Result<Value> + Send + Sync>;
 
