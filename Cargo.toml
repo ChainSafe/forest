@@ -221,7 +221,6 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
-mimalloc = { version = "0.1", optional = true, default-features = false }
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
@@ -295,7 +294,6 @@ interop-tests-private = []                                                # see 
 # Allocator
 rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
-mimalloc = ["dep:mimalloc"]
 
 tokio-console = ["dep:console-subscriber"]
 tracing-loki = ["dep:tracing-loki"]
