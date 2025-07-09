@@ -3150,7 +3150,7 @@ dependencies = [
  "rlp",
  "rs-car-ipfs",
  "rust2go",
- "schemars 1.0.3",
+ "schemars 1.0.4",
  "scopeguard",
  "semver",
  "serde",
@@ -6285,7 +6285,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a917062db7bc4aacea810b261939fd1c7e21c1156a641e3d9faa07740e3c4fb2"
 dependencies = [
  "quickcheck",
- "schemars 1.0.3",
+ "schemars 1.0.4",
  "serde",
 ]
 
@@ -6344,7 +6344,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673c1e7e37c496011686862fa4eeb4650e74bd1588c5c41ca1de203104e3b37d"
 dependencies = [
- "schemars 1.0.3",
+ "schemars 1.0.4",
  "semver",
  "serde",
  "serde_json",
@@ -7145,15 +7145,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.290"
+version = "0.0.293"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22a344a5fb4ea961fccfd589e11c931198696050712133dbe2a0852301e4922f"
+checksum = "0c55140aa991c2edc1b8d8d0f3b42dd62fd996081ccbaebb6a814b3abdf7152f"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.290"
+version = "0.0.293"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e4b9c37a927fa1ce146eabfa82dd2ee7bcc5fd94f5975e4f08064ad8d056a78"
+checksum = "18e5683ed92d6bf9b3885913be0e96c93d863a3724648db93768d6b6b221eaed"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7164,9 +7164,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.290"
+version = "0.0.293"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e305abc0af248c43efe29c34e399693e0e7799191cc4e86a65e0af2e4746db"
+checksum = "9805ea213fa9bc27882e73f2c8faaf785ad7ff9c09fd20881d46623be300a284"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7180,9 +7180,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.290"
+version = "0.0.293"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11e1aca4fe78398142112333a2330e125a57ceea4442048acab01ef366488919"
+checksum = "d89f528c8bbe4f4ea2709ce020a40756acad7894324ff4415d37758a911718a4"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -7868,9 +7868,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1375ba8ef45a6f15d83fa8748f1079428295d403d6ea991d09ab100155fbc06d"
+checksum = "82d20c4491bc164fa2f6c5d44565947a52ad80b9505d8e36f8d54c27c739fcd0"
 dependencies = [
  "chrono",
  "dyn-clone",
@@ -7883,9 +7883,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b13ed22d6d49fe23712e068770b5c4df4a693a2b02eeff8e7ca3135627a24f6"
+checksum = "33d020396d1d138dc19f1165df7545479dcd58d93810dc5d646a16e55abefa80"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8138,7 +8138,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.10.0",
  "schemars 0.9.0",
- "schemars 1.0.3",
+ "schemars 1.0.4",
  "serde",
  "serde_derive",
  "serde_json",
@@ -9031,9 +9031,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.46.0"
+version = "1.46.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1140bb80481756a8cbe10541f37433b459c5aa1e727b4c020fbfebdc25bf3ec4"
+checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
 dependencies = [
  "backtrace",
  "bytes",
