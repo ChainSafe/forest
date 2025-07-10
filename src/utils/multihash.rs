@@ -240,6 +240,9 @@ mod tests {
                 let mh2 = code.digest_byte_stream(&mut cursor).unwrap();
                 assert_eq!(mh1, mh2);
             }
+
+            cursor.set_position(0);
+            Identity.digest_byte_stream(&mut cursor).unwrap_err();
         }
     }
 }
