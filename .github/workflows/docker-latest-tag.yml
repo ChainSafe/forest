@@ -32,12 +32,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Re-tag image
+      - name: Re-tag image and push to GHCR
+        if: ${{ !fromJSON(github.event.inputs.dry_run) }} 
         run: |
-          docker buildx imagetools create -t ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}
-          docker buildx imagetools create -t ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat
-      - name: Push image
-        if: ${{ !fromJSON(github.event.inputs.dry_run) }}
+          docker buildx imagetools create --tag ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}
+          docker buildx imagetools create --tag ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat
+      - name: Re-tag image (dry run)
+        if: ${{ fromJSON(github.event.inputs.dry_run) }}
         run: |
-          docker push ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}
-          docker push ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat
+          docker buildx imagetools create --dry-run --tag ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}
+          docker buildx imagetools create --dry-run --tag ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat
