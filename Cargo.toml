@@ -102,7 +102,7 @@ human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
 indexmap = { version = "2", features = ["serde"] }
-indicatif = { version = "0.17", features = ["tokio"] }
+indicatif = { version = "0.18", features = ["tokio"] }
 integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
@@ -136,7 +136,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.15"
+lru = "0.16"
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
