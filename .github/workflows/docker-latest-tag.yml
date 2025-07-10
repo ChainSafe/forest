@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag of the base image to use'
+        description: "Tag of the base image to use"
         required: true
         type: string
       new_tag:
-        description: 'New tag to use'
-        default: 'latest'
+        description: "New tag to use"
+        default: "latest"
         required: true
         type: string
       dry_run:

@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: 'Forest image to use'
+        description: "Forest image to use"
         required: false
-        default: 'ghcr.io/chainsafe/forest:edge-fat'
+        default: "ghcr.io/chainsafe/forest:edge-fat"
         type: string
 
   schedule:
@@ -40,7 +40,7 @@ jobs:
           echo "FROM $IMAGE" > Dockerfile-RPC
           export FOREST_DOCKERFILE_OVERRIDE=Dockerfile-RPC
           ./scripts/tests/api_compare/setup.sh
-        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
