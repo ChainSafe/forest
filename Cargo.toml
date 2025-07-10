@@ -206,7 +206,7 @@ ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
-toml = "0.9"
+toml = "0.8"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["compression-full", "sensitive-headers"] }
 tracing = "0.1"
