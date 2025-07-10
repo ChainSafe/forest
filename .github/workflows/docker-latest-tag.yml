@@ -34,10 +34,8 @@ jobs:
 
       - name: Re-tag image
         run: |
-          docker pull ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}
-          docker tag ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}
-          docker pull ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat
-          docker tag ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat
+          docker buildx imagetools create -t ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}
+          docker buildx imagetools create -t ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}-fat ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }}-fat
       - name: Push image
         if: ${{ !fromJSON(github.event.inputs.dry_run) }}
         run: |
