@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: "${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v5
         with:
@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: "${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - uses: actions/setup-go@v5
         with:
@@ -101,7 +101,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
-        timeout-minutes: "${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install Apt Dependencies
         run: |
@@ -131,7 +131,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-check:
     needs:
       - build-ubuntu
@@ -157,7 +157,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
         env:
           CC: clang
           CXX: clang++
@@ -186,7 +186,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_mode_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-stateless-rpc-check:
     needs:
       - build-ubuntu
@@ -212,7 +212,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_rpc_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   state-migrations-check:
     needs:
       - build-ubuntu
@@ -234,7 +234,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
     needs:
       - build-ubuntu
@@ -261,7 +261,7 @@ jobs:
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check:
     needs:
       - build-ubuntu
@@ -283,7 +283,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-no-discovery-checks:
     needs:
       - build-ubuntu
@@ -304,7 +304,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_no_discovery_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-kademlia-checks:
     needs:
       - build-ubuntu
@@ -325,7 +325,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_kademlia_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-eth-mapping-check:
     needs:
       - build-ubuntu
@@ -351,7 +351,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
       - build-ubuntu
@@ -371,7 +371,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-24.04
@@ -401,10 +401,10 @@ jobs:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
         run: ./scripts/devnet/setup.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Devnet check
         run: ./scripts/devnet/check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
@@ -451,13 +451,13 @@ jobs:
           cp ./scripts/devnet/setup.sh ./scripts/devnet-curio/setup.sh
           chmod +x ./scripts/devnet-curio/setup.sh
           ./scripts/devnet-curio/setup.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Devnet check
         run: |
           cp ./scripts/devnet/check.sh ./scripts/devnet-curio/check.sh
           chmod +x ./scripts/devnet-curio/check.sh
           ./scripts/devnet-curio/check.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
@@ -485,7 +485,7 @@ jobs:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
         run: ./scripts/tests/bootstrapper/test_bootstrapper.sh forest
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
@@ -504,7 +504,7 @@ jobs:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
         run: ./scripts/tests/bootstrapper/test_bootstrapper.sh lotus
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
@@ -538,7 +538,7 @@ jobs:
           name: "forest-${{ runner.os }}"
       - name: Run api compare tests
         run: ./scripts/tests/api_compare/setup.sh
-        timeout-minutes: "${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}"
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
