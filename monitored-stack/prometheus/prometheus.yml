@@ -2,6 +2,6 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-  - job_name: 'forest'
+  - job_name: "forest"
     static_configs:
-      - targets: ['forest:6116']
+      - targets: ["forest:6116"]
