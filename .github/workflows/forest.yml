@@ -1,7 +1,7 @@
 name: Integration tests
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: "${{ github.ref != 'refs/heads/main' }}"
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 on:
   workflow_dispatch:
   merge_group:
