@@ -170,7 +170,7 @@ impl MultihashCode {
                 self.wrap(hash(&mut hasher, bytes)?)?
             }
             _ => {
-                unimplemented!("{self:?}")
+                anyhow::bail!("`digest_byte_stream` is unimplemented for {self:?}");
             }
         })
     }
@@ -226,18 +226,20 @@ mod tests {
     fn test_digest_byte_stream() {
         use MultihashCode::*;
 
-        let mut bytes = vec![0; 10000];
-        forest_rng().fill_bytes(&mut bytes);
-        let mut cursor = Cursor::new(bytes.clone());
-        for code in [
-            Sha2_256, Sha2_512, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Keccak224, Keccak256,
-            Keccak384, Keccak512, Blake2b256, Blake2b512, Blake2s128, Blake2s256, Blake3_256,
-            Ripemd160, Ripemd256, Ripemd320,
-        ] {
-            cursor.set_position(0);
-            let mh1 = code.digest(&bytes);
-            let mh2 = code.digest_byte_stream(&mut cursor).unwrap();
-            assert_eq!(mh1, mh2);
+        for len in [0, 1, 100, 1024, 10000] {
+            let mut bytes = vec![0; len];
+            forest_rng().fill_bytes(&mut bytes);
+            let mut cursor = Cursor::new(bytes.clone());
+            for code in [
+                Sha2_256, Sha2_512, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Keccak224, Keccak256,
+                Keccak384, Keccak512, Blake2b256, Blake2b512, Blake2s128, Blake2s256, Blake3_256,
+                Ripemd160, Ripemd256, Ripemd320,
+            ] {
+                cursor.set_position(0);
+                let mh1 = code.digest(&bytes);
+                let mh2 = code.digest_byte_stream(&mut cursor).unwrap();
+                assert_eq!(mh1, mh2);
+            }
         }
     }
 }
