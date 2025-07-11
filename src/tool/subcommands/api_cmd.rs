@@ -319,7 +319,7 @@ impl ApiCommands {
                 let forest = Arc::new(rpc::Client::from_url(forest));
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
 
-                let tests = api_run_tests::create_tests().await?;
+                let tests = api_run_tests::create_tests().await;
                 api_run_tests::run_tests(tests, forest.clone(), lotus.clone()).await?;
             }
             Self::DumpTests {

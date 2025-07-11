@@ -1,16 +1,15 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::eth::{EthChainId as EthChainIdType, SAFE_EPOCH_DELAY};
-use crate::lotus_json::HasLotusJson;
-use crate::message::{Message as _, SignedMessage};
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
 };
 use crate::rpc::{self, prelude::*};
+use std::io::{self, Write};
 use std::pin::Pin;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct RpcTestScenario {
     pub run: Arc<
         dyn Fn(Arc<rpc::Client>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
@@ -18,13 +17,99 @@ pub struct RpcTestScenario {
             + Sync,
     >,
     pub ignore: Option<&'static str>,
+    pub name: Option<&'static str>,
+    pub should_fail_with: Option<&'static str>,
 }
 
 impl RpcTestScenario {
+    /// Create a basic scenario from a simple async closure.
+    pub fn basic<F, Fut>(run_fn: F) -> Self
+    where
+        F: Fn(Arc<rpc::Client>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = anyhow::Result<()>> + Send + 'static,
+    {
+        let run = Arc::new(move |client: Arc<rpc::Client>| {
+            Box::pin(run_fn(client)) as Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
+        });
+        Self {
+            run,
+            ignore: None,
+            name: None,
+            should_fail_with: None,
+        }
+    }
+
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
     }
+
+    fn name(mut self, name: &'static str) -> Self {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn should_fail_with(mut self, msg: &'static str) -> Self {
+        self.should_fail_with = Some(msg);
+        self
+    }
+}
+
+pub(super) async fn run_tests(
+    tests: impl IntoIterator<Item = RpcTestScenario> + Clone,
+    forest: impl Into<Arc<rpc::Client>>,
+    lotus: impl Into<Arc<rpc::Client>>,
+) -> anyhow::Result<()> {
+    let lotus = Into::<Arc<rpc::Client>>::into(lotus);
+
+    let mut passed = 0;
+    let mut failed = 0;
+    let ignored = 0;
+    let filtered = 0;
+
+    println!("running {} tests", tests.clone().into_iter().count());
+
+    for (i, test) in tests.into_iter().enumerate() {
+        print!(
+            "test {} ... ",
+            if let Some(name) = test.name {
+                name.to_string()
+            } else {
+                format!("#{i}")
+            }
+        );
+
+        io::stdout().flush()?;
+
+        let result = (test.run)(lotus.clone()).await;
+
+        match result {
+            Ok(_) => {
+                println!("ok");
+                passed += 1;
+            }
+            Err(e) => {
+                if let Some(expected_msg) = test.should_fail_with {
+                    let err_str = format!("{:#}", e);
+                    if err_str.contains(expected_msg) {
+                        println!("ok");
+                        passed += 1;
+                    } else {
+                        println!("FAILED ({:#})", e);
+                        failed += 1;
+                    }
+                } else {
+                    println!("FAILED {:#}", e);
+                    failed += 1;
+                }
+            }
+        }
+    }
+    let status = if failed == 0 { "ok" } else { "FAILED" };
+    println!(
+        "test result: {status}. {passed} passed; {failed} failed; {ignored} ignored; {filtered} filtered out"
+    );
+    Ok(())
 }
 
 /// eth_newFilter -> poll with eth_getFilterChanges
@@ -35,72 +120,84 @@ impl RpcTestScenario {
 /// eth_getFilterChanges
 
 fn create_eth_new_filter_test() -> RpcTestScenario {
-    RpcTestScenario {
-        run: Arc::new(|client: Arc<rpc::Client>| {
-            Box::pin(async move {
-                const BLOCK_RANGE: u64 = 200;
+    RpcTestScenario::basic(|client| async move {
+        const BLOCK_RANGE: u64 = 200;
 
-                // Get the last block number
-                let last_block = client.call(EthBlockNumber::request(())?).await?;
+        let last_block = client.call(EthBlockNumber::request(())?).await?;
 
-                // Create filter spec
-                let filter_spec = EthFilterSpec {
-                    from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
-                    to_block: Some(last_block.to_hex_string()),
-                    ..Default::default()
-                };
+        let filter_spec = EthFilterSpec {
+            from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
+            to_block: Some(last_block.to_hex_string()),
+            ..Default::default()
+        };
 
-                // Create new filter
-                let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
+        let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
 
-                // Uninstall the filter - should succeed
-                let removed = client
-                    .call(EthUninstallFilter::request((filter_id.clone(),))?)
-                    .await?;
-                anyhow::ensure!(removed);
+        let removed = client
+            .call(EthUninstallFilter::request((filter_id.clone(),))?)
+            .await?;
+        anyhow::ensure!(removed);
 
-                // Try uninstalling again - should fail
-                let removed = client
-                    .call(EthUninstallFilter::request((filter_id,))?)
-                    .await?;
-                anyhow::ensure!(removed == false);
+        let removed = client
+            .call(EthUninstallFilter::request((filter_id,))?)
+            .await?;
+        anyhow::ensure!(!removed);
 
-                Ok(())
-            })
-        }),
-        ignore: None,
-    }
+        Ok(())
+    })
 }
 
-pub(super) async fn create_tests() -> anyhow::Result<Vec<RpcTestScenario>> {
-    let mut tests = vec![];
+fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| async move {
+        const BLOCK_RANGE: u64 = 200;
 
-    tests.push(create_eth_new_filter_test());
+        let last_block = client.call(EthBlockNumber::request(())?).await?;
 
-    Ok(tests)
-}
+        let filter_spec = EthFilterSpec {
+            from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
+            to_block: Some(last_block.to_hex_string()),
+            ..Default::default()
+        };
 
-pub(super) async fn run_tests(
-    tests: impl IntoIterator<Item = RpcTestScenario>,
-    forest: impl Into<Arc<rpc::Client>>,
-    lotus: impl Into<Arc<rpc::Client>>,
-) -> anyhow::Result<()> {
-    let lotus = Into::<Arc<rpc::Client>>::into(lotus);
+        let mut ids = vec![];
 
-    for (i, test) in tests.into_iter().enumerate() {
-        println!("Running test #{}...", i);
+        for _ in 0..count {
+            let result = client
+                .call(EthNewFilter::request((filter_spec.clone(),))?)
+                .await;
 
-        let result = (test.run)(lotus.clone()).await;
-
-        match result {
-            Ok(_) => {
-                println!("Test #{} passed.", i);
-            }
-            Err(e) => {
-                eprintln!("Test #{} failed: {:#}", i, e);
+            match result {
+                Ok(filter_id) => ids.push(filter_id),
+                Err(e) => {
+                    // Cleanup any filters created so far to leave a clean state
+                    for id in ids {
+                        let removed = client.call(EthUninstallFilter::request((id,))?).await?;
+                        anyhow::ensure!(removed);
+                    }
+                    anyhow::bail!(e)
+                }
             }
         }
-    }
 
-    Ok(())
+        for id in ids {
+            let removed = client.call(EthUninstallFilter::request((id,))?).await?;
+            anyhow::ensure!(removed);
+        }
+
+        Ok(())
+    })
+}
+
+const LOTUS_EVENTS_MAXFILTERS: usize = 100;
+
+pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
+    vec![
+        create_eth_new_filter_test().name("eth_newFilter install/uninstall"),
+        create_eth_new_filter_limit_test(20).name("eth_newFilter under limit"),
+        create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS)
+            .name("eth_newFilter just under limit"),
+        create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
+            .name("eth_newFilter over limit")
+            .should_fail_with("maximum number of filters registered"),
+    ]
 }
