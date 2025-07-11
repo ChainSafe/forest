@@ -115,7 +115,7 @@ pub(super) async fn run_tests(
 /// eth_newFilter -> poll with eth_getFilterChanges
 /// eth_uninstallFilter
 /// eth_newPendingTransactionFilter -> poll with eth_getFilterChanges
-/// eth_newBlockFilter -> poll with eth_getFilterChanges
+/// eth_newBlockFilter -> poll with eth_getFilterChanges/eth_getFilterLogs
 /// eth_getFilterLogs -> get all at once
 /// eth_getFilterChanges
 
@@ -188,6 +188,41 @@ fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
     })
 }
 
+fn create_eth_new_block_filter() -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| async move {
+        let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
+
+        let filter_result = client
+            .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+            .await?;
+
+        let result = if let EthFilterResult::Blocks(hashes) = filter_result {
+            dbg!(&hashes);
+
+            let filter_result = client
+                .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                .await?;
+
+            if let EthFilterResult::Blocks(hashes) = filter_result {
+                dbg!(&hashes);
+
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("expecting blocks"))
+            }
+        } else {
+            Err(anyhow::anyhow!("expecting blocks"))
+        };
+
+        let removed = client
+            .call(EthUninstallFilter::request((filter_id,))?)
+            .await?;
+        anyhow::ensure!(removed);
+
+        result
+    })
+}
+
 const LOTUS_EVENTS_MAXFILTERS: usize = 100;
 
 pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
@@ -199,5 +234,6 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
         create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
             .name("eth_newFilter over limit")
             .should_fail_with("maximum number of filters registered"),
+        create_eth_new_block_filter().name("eth_newBlockFilter"),
     ]
 }
