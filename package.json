@@ -8,7 +8,9 @@
   "scripts": {
     "prettier-version": "prettier --version",
     "md-fmt": "prettier --write '**/*.md'",
-    "md-check": "prettier --check '**/*.md'"
+    "md-check": "prettier --check '**/*.md'",
+    "yaml-fmt": "prettier --write '**/*.{yml,yaml}'",
+    "yaml-check": "prettier --check '**/*.{yml,yaml}'"
   },
   "packageManager": "yarn@4.9.2"
 }

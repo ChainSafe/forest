@@ -1,7 +1,7 @@
 # Docker compose file to run Forest bootstrap tests.
 
 services:
-  init: 
+  init:
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -12,7 +12,7 @@ services:
       - bootstrap-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
       - |
@@ -40,7 +40,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
       - |
@@ -51,7 +51,7 @@ services:
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --p2p-listen-address /ip4/0.0.0.0/tcp/$FOREST_P2P_PORT \
-          --stateless 
+          --stateless
   forest-peer:
     depends_on:
       init:
@@ -66,7 +66,7 @@ services:
       - bootstrap-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
       - |
@@ -87,7 +87,7 @@ services:
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
-      test: [ "CMD", "forest-cli", "sync", "wait" ]
+      test: ["CMD", "forest-cli", "sync", "wait"]
       interval: 15s
       timeout: 10m
       retries: 3
@@ -109,7 +109,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest-peer/tcp/${FOREST_RPC_PORT}/http
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     user: 0:0
     command:
       - |
@@ -129,7 +129,7 @@ services:
     image: busybox
     networks:
       - bootstrap-tests
-    entrypoint: [ "/bin/sh", "-c" ]
+    entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -euxo pipefail

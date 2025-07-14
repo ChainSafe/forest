@@ -28,7 +28,7 @@ services:
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
     env_file:
       - lotus.env
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -77,7 +77,7 @@ services:
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
     env_file:
       - lotus.env
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -120,7 +120,7 @@ services:
     env_file:
       - lotus-miner.env
     restart: on-failure # lotus node might not be ready
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -152,7 +152,7 @@ services:
       - LOTUS_WAFFLE_HEIGHT=${WAFFLE_HEIGHT}
       - LOTUS_TUKTUK_HEIGHT=${TUKTUK_HEIGHT}
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     env_file:
       - lotus.env
     networks:
@@ -203,7 +203,7 @@ services:
       - devnet
     ports:
       - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -228,7 +228,7 @@ services:
       - ./data/forest:${FOREST_DATA_DIR}
     networks:
       - devnet
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -264,7 +264,7 @@ services:
       - .env
     networks:
       - devnet
-    entrypoint: [ "/bin/bash", "/run_curio.sh" ]
+    entrypoint: ["/bin/bash", "/run_curio.sh"]
 
   yugabyte:
     container_name: yugabyte
@@ -279,14 +279,19 @@ services:
     restart: unless-stopped
     volumes:
       - ./data/yugabyte:/home/yugabyte/yb_data
-    command: [ "bin/yugabyted", "start", "--base_dir=/home/yugabyte/yb_data", "--background=false" ]
+    command:
+      [
+        "bin/yugabyted",
+        "start",
+        "--base_dir=/home/yugabyte/yb_data",
+        "--background=false",
+      ]
     networks:
       - devnet
 
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
   filecoin-proofs:
-
 
 networks:
   devnet:

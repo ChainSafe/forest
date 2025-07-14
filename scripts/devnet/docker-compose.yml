@@ -29,7 +29,7 @@ services:
       - LOTUS_TOCK_FIX_HEIGHT=${TOCK_FIX_HEIGHT}
     env_file:
       - lotus.env
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -82,7 +82,7 @@ services:
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
     env_file:
       - lotus.env
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -126,7 +126,7 @@ services:
     env_file:
       - lotus-miner.env
     restart: on-failure # lotus node might not be ready
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -160,7 +160,7 @@ services:
       - LOTUS_TEEP_HEIGHT=${TEEP_HEIGHT}
       - LOTUS_TOCK_HEIGHT=${TOCK_HEIGHT}
       - LOTUS_TOCK_FIX_HEIGHT=${TOCK_FIX_HEIGHT}
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     env_file:
       - lotus.env
     networks:
@@ -213,7 +213,7 @@ services:
       - devnet
     ports:
       - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -262,7 +262,7 @@ services:
       - devnet
     ports:
       - ${FOREST_OFFLINE_RPC_PORT}:${FOREST_OFFLINE_RPC_PORT}
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
@@ -270,7 +270,7 @@ services:
           grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json | tr -d '"' | tee ${FOREST_DATA_DIR}/network_name
         fi
         NETWORK_NAME=$$(cat ${FOREST_DATA_DIR}/network_name)
-        forest-tool api serve --chain $$NETWORK_NAME --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}  
+        forest-tool api serve --chain $$NETWORK_NAME --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
@@ -286,7 +286,7 @@ services:
       - forest-data:${FOREST_DATA_DIR}
     networks:
       - devnet
-    entrypoint: ["/bin/bash", "-c" ]
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail

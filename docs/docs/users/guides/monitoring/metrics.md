@@ -29,7 +29,7 @@ The metrics include:
 - RPC metrics (e.g., number of requests, response times),
 - internal metrics (e.g., cache sizes, number of tasks).
 
-Those can be used to monitor the node's health and create alerts. A sample Grafana dashboard is available in the [monitoring](https://github.com/ChainSafe/forest/tree/main/monitoring) directory in the Forest repository. It includes the entire Docker Compose setup to run monitoring locally. See the instructions in the [README](https://github.com/ChainSafe/forest/blob/main/monitoring/README.md) file. Note that [Loki](https://grafana.com/oss/loki/) is not enabled by default. To allow it, pass `--loki` to the Forest daemon.
+Those can be used to monitor the node's health and create alerts. A sample monitoring stack is available in the [monitored-stack](https://github.com/ChainSafe/forest/tree/main/monitored-stack) directory in the Forest repository. It includes the entire Docker Compose setup to run Forest with monitoring locally. See the instructions in the [README](https://github.com/ChainSafe/forest/blob/main/monitored-stack/README.md) file.
 
 :::tip
 Because of the high cardinality of some of the metrics, a high retention period, together with high sampling rates, can lead to a large amount of data being stored. Make sure to adjust the retention period and sampling rates to your needs.
