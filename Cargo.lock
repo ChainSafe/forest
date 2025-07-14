@@ -326,9 +326,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.25"
+version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40f6024f3f856663b45fd0c9b6f2024034a702f453549449e0d84a305900dad4"
+checksum = "ddb939d66e4ae03cee6091612804ba446b12878410cfa17f785f4dd67d4014e8"
 dependencies = [
  "brotli",
  "flate2",
@@ -3120,7 +3120,7 @@ dependencies = [
  "libsecp256k1",
  "lru 0.16.0",
  "md-5",
- "memmap2 0.9.5",
+ "memmap2 0.9.7",
  "memory-stats",
  "multiaddr",
  "multihash-codetable",
@@ -3169,7 +3169,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
- "serde_tuple 1.1.0",
+ "serde_tuple 1.1.1",
  "serde_with",
  "serde_yaml",
  "serial_test",
@@ -5800,9 +5800,9 @@ dependencies = [
 
 [[package]]
 name = "memmap2"
-version = "0.9.5"
+version = "0.9.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd3f7eed9d3848f8b98834af67102b720745c4ec028fcd0aa0239277e7de374f"
+checksum = "483758ad303d734cec05e5c12b41d7e93e6a6390c5e9dae6bdeb7c1259012d28"
 dependencies = [
  "libc",
 ]
@@ -6430,7 +6430,7 @@ dependencies = [
  "libc",
  "log",
  "lz4",
- "memmap2 0.9.5",
+ "memmap2 0.9.7",
  "parking_lot",
  "rand 0.9.1",
  "siphasher",
@@ -7152,15 +7152,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.293"
+version = "0.0.294"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c55140aa991c2edc1b8d8d0f3b42dd62fd996081ccbaebb6a814b3abdf7152f"
+checksum = "732efa3d4cd5edc1578be0a33fa0f8052a348e52e6b95e7e161199f7166445b7"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.293"
+version = "0.0.294"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e5683ed92d6bf9b3885913be0e96c93d863a3724648db93768d6b6b221eaed"
+checksum = "df3bf4cde715c2343c24a39283534e7bd5498e29b6b938615ba0e02ba4e262b4"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7171,9 +7171,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.293"
+version = "0.0.294"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9805ea213fa9bc27882e73f2c8faaf785ad7ff9c09fd20881d46623be300a284"
+checksum = "b565a5d6e364b3c6f955a5b20e1633e5db15df9f804fba26615150524eeccb2c"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7187,9 +7187,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.293"
+version = "0.0.294"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d89f528c8bbe4f4ea2709ce020a40756acad7894324ff4415d37758a911718a4"
+checksum = "092f544af4e1c974924417ec5d1864544d99329d26ecc72cded2c99a86e6f710"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -8091,12 +8091,12 @@ dependencies = [
 
 [[package]]
 name = "serde_tuple"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0f9b739e59a0e07b7a73bc11c3dcd6abf790d0f54042b67a422d4bd1f6cf6c0"
+checksum = "3be56ac39d7339f9b7fad7f252eb9f542e09f78ed6949c04d14c6f3d17bbbc90"
 dependencies = [
  "serde",
- "serde_tuple_macros 1.0.1",
+ "serde_tuple_macros 1.1.1",
 ]
 
 [[package]]
@@ -8112,13 +8112,13 @@ dependencies = [
 
 [[package]]
 name = "serde_tuple_macros"
-version = "1.0.1"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e87546e85c5047d03b454d12ee25266fc269a461a4029956ca58d246b9aefae"
+checksum = "19543df7d1738995a8a68fea985c76428da623e10384c2878fd3f7272934bce0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.104",
 ]
 
 [[package]]
