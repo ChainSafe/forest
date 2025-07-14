@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/filecoin-project/go-f3"
@@ -15,7 +14,6 @@ import (
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/ipfs/go-cid"
-	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
 func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
@@ -60,7 +58,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	if err != nil {
 		return err
 	}
-	ds, err := leveldb.NewDatastore(filepath.Join(f3Root, "db"), nil)
+	ds, err := getDatastore(f3Root)
 	if err != nil {
 		return err
 	}

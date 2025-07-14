@@ -48,6 +48,13 @@ func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string
 	return err == nil
 }
 
+func (f3 *f3Impl) import_snap(f3_root *string, snapshot *string) string {
+	if err := importSnap(f3.ctx, *f3_root, *snapshot); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 func checkError(err error) {
 	if err != nil {
 		panic(err)
