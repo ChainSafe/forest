@@ -4,7 +4,7 @@ use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
 };
-use crate::rpc::{self, prelude::*};
+use crate::rpc::{self, RpcMethod, prelude::*};
 use std::io::{self, Write};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -19,6 +19,7 @@ pub struct RpcTestScenario {
     pub ignore: Option<&'static str>,
     pub name: Option<&'static str>,
     pub should_fail_with: Option<&'static str>,
+    pub used_methods: Vec<&'static str>,
 }
 
 impl RpcTestScenario {
@@ -33,9 +34,10 @@ impl RpcTestScenario {
         });
         Self {
             run,
-            ignore: None,
-            name: None,
-            should_fail_with: None,
+            ignore: Default::default(),
+            name: Default::default(),
+            should_fail_with: Default::default(),
+            used_methods: Default::default(),
         }
     }
 
@@ -53,23 +55,40 @@ impl RpcTestScenario {
         self.should_fail_with = Some(msg);
         self
     }
+
+    fn using<const ARITY: usize, M>(mut self) -> Self
+    where
+        M: RpcMethod<ARITY>,
+    {
+        self.used_methods.push(M::NAME);
+        if let Some(alias) = M::NAME_ALIAS {
+            self.used_methods.push(alias);
+        }
+        self
+    }
 }
 
 pub(super) async fn run_tests(
     tests: impl IntoIterator<Item = RpcTestScenario> + Clone,
     forest: impl Into<Arc<rpc::Client>>,
     lotus: impl Into<Arc<rpc::Client>>,
+    filter: String,
 ) -> anyhow::Result<()> {
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
 
     let mut passed = 0;
     let mut failed = 0;
     let ignored = 0;
-    let filtered = 0;
+    let mut filtered = 0;
 
     println!("running {} tests", tests.clone().into_iter().count());
 
     for (i, test) in tests.into_iter().enumerate() {
+        if !filter.is_empty() && !test.used_methods.iter().any(|m| m.starts_with(&filter)) {
+            filtered += 1;
+            continue;
+        }
+
         print!(
             "test {} ... ",
             if let Some(name) = test.name {
@@ -225,15 +244,45 @@ fn create_eth_new_block_filter() -> RpcTestScenario {
 
 const LOTUS_EVENTS_MAXFILTERS: usize = 100;
 
+macro_rules! with_methods {
+    ( $builder:expr, $( $method:ty ),+ ) => {{
+        let mut b = $builder;
+        $(
+            b = b.using::<{ <$method>::N_REQUIRED_PARAMS }, $method>();
+        )+
+        b
+    }};
+}
+
 pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
     vec![
-        create_eth_new_filter_test().name("eth_newFilter install/uninstall"),
-        create_eth_new_filter_limit_test(20).name("eth_newFilter under limit"),
-        create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS)
-            .name("eth_newFilter just under limit"),
-        create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
-            .name("eth_newFilter over limit")
-            .should_fail_with("maximum number of filters registered"),
-        create_eth_new_block_filter().name("eth_newBlockFilter"),
+        with_methods!(
+            create_eth_new_filter_test().name("eth_newFilter install/uninstall"),
+            EthNewFilter,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            create_eth_new_filter_limit_test(20).name("eth_newFilter under limit"),
+            EthNewFilter,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS)
+                .name("eth_newFilter just under limit"),
+            EthNewFilter,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
+                .name("eth_newFilter over limit")
+                .should_fail_with("maximum number of filters registered"),
+            EthNewFilter,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            create_eth_new_block_filter().name("eth_newBlockFilter works"),
+            EthNewBlockFilter,
+            EthGetFilterChanges
+        ),
     ]
 }

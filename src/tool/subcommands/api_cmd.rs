@@ -165,6 +165,9 @@ pub enum ApiCommands {
         /// Lotus address
         #[clap(long, default_value = "/ip4/127.0.0.1/tcp/1234/http")]
         lotus: UrlFromMultiAddr,
+        /// Filter which tests to run according to method name. Case sensitive.
+        #[arg(long, default_value = "")]
+        filter: String,
     },
 }
 
@@ -315,12 +318,13 @@ impl ApiCommands {
             Self::Run {
                 forest: UrlFromMultiAddr(forest),
                 lotus: UrlFromMultiAddr(lotus),
+                filter,
             } => {
                 let forest = Arc::new(rpc::Client::from_url(forest));
                 let lotus = Arc::new(rpc::Client::from_url(lotus));
 
                 let tests = api_run_tests::create_tests().await;
-                api_run_tests::run_tests(tests, forest.clone(), lotus.clone()).await?;
+                api_run_tests::run_tests(tests, forest.clone(), lotus.clone(), filter).await?;
             }
             Self::DumpTests {
                 create_tests_args,
