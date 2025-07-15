@@ -117,4 +117,35 @@ license:
 docs:
 	cargo doc --no-deps
 
+## Profiling
+
+# Profile with gperftools (Memory/Heap profiler)
+# There is a workaround there, as outlined in https://github.com/gperftools/gperftools/issues/1603
+gperfheapprofile = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+	ulimit -n 8192; \
+	HEAPPROFILE_USE_PID=t HEAPPROFILE=/tmp/gperfheap.$(1).prof target/profiling/$(1) $(2)
+
+gperfheapprofile.forest:
+	$(call gperfheapprofile,forest, --chain calibnet --encrypt-keystore=false)
+
+# To visualize the CPU profile, run:
+#   pprof --web /path/to/forest /tmp/gperf.forest.prof
+# To visualize the heap profile, run:
+#   pprof --web --heap /path/to/forest /tmp/gperfheap.forest.prof
+
+memprofile = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+						 ulimit -n 8192; \
+             heaptrack -o /tmp/heaptrack.$(1).%p.zst target/profiling/$(1) $(2)
+
+memprofile-massif = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+	           ulimit -n 8192; \
+						 valgrind --tool=massif target/profiling/$(1) $(2); \
+						 ms_print massif.out.* > /tmp/massif.$(1).txt
+
+memprofile.forest:
+	$(call memprofile,forest, --chain calibnet --encrypt-keystore=false)
+
+memprofile-massif.forest:
+	$(call memprofile-massif,forest, --chain calibnet --encrypt-keystore=false)
+
 .PHONY: $(MAKECMDGOALS)
