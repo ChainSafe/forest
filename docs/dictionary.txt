@@ -80,8 +80,8 @@ NV22
 NV23
 NV24
 NVMe
-orchestrator
 onwards
+orchestrator
 Organisation
 P2P
 p2p
@@ -98,8 +98,8 @@ roadmap
 RPC
 rustup
 S3-compatible
-semver
 SecP256k1
+semver
 serverless
 stateroots
 struct
@@ -110,9 +110,9 @@ TabItem
 TBD
 Terraform
 testnet
+Tipset
 tipset
 tipsets
-Tipset
 V0
 V1
 VPS
