@@ -114,4 +114,21 @@ license:
 docs:
 	cargo doc --no-deps
 
+## Profiling
+
+memprofile = FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1 cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+						 ulimit -n 8192; \
+             heaptrack -o /tmp/heaptrack.$(1).%p.zst target/profiling/$(1) $(2)
+
+memprofile-massif = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+	           ulimit -n 8192; \
+						 valgrind --tool=massif target/profiling/$(1) $(2); \
+						 ms_print massif.out.* > /tmp/massif.$(1).txt
+
+memprofile.forest:
+	$(call memprofile,forest, --chain calibnet --encrypt-keystore=false)
+
+memprofile-massif.forest:
+	$(call memprofile-massif,forest, --chain calibnet --encrypt-keystore=false)
+
 .PHONY: $(MAKECMDGOALS)
