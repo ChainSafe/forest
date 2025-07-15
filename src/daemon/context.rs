@@ -39,7 +39,6 @@ pub struct AppContext {
     pub state_manager: Arc<StateManager<DbType>>,
     pub keystore: Arc<RwLock<KeyStore>>,
     pub admin_jwt: String,
-    pub network_name: String,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
 }
 
@@ -50,7 +49,6 @@ impl AppContext {
         let (db, db_meta_data) = setup_db(opts, cfg).await?;
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
-        let network_name = state_manager.get_network_name_from_genesis()?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();
         Ok(Self {
             net_keypair,
@@ -60,7 +58,6 @@ impl AppContext {
             state_manager,
             keystore,
             admin_jwt,
-            network_name,
             snapshot_progress_tracker,
         })
     }

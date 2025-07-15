@@ -4,8 +4,8 @@
 use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use crate::{
     eth::EthChainId,
@@ -20,17 +20,23 @@ use super::{
     parse_bootstrap_peers,
 };
 
+/// Well-known network names.
+pub const NETWORK_COMMON_NAME: &str = "calibnet";
+/// Network name as defined in the genesis block. Refer to [`crate::networks::network_names`] for
+/// additional information.
+pub const NETWORK_GENESIS_NAME: &str = "calibrationnet";
+
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
-pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
     Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 /// Default bootstrap peer ids.
-pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
-    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet")));
+pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =
+    LazyLock::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet")));
 
 const LIGHTNING_EPOCH: i64 = 489_094;
 
@@ -45,7 +51,7 @@ pub const ETH_CHAIN_ID: EthChainId = 314159;
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
     HashMap::from_iter([
         make_height!(Breeze, -1),
         make_height!(Smoke, -2),
@@ -97,7 +103,7 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
+pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 2]> = LazyLock::new(|| {
     [
         DrandPoint {
             height: 0,

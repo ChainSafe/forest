@@ -2944,6 +2944,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mermaid-js/parser@npm:^0.6.1":
+  version: 0.6.1
+  resolution: "@mermaid-js/parser@npm:0.6.1"
+  dependencies:
+    langium: "npm:3.3.1"
+  checksum: 10c0/5f7cf90f8bae58f20fdc7eeb150ff027cb00c32787d1e9693d624a81848cd2a414427fbb78cf093b4c6160461ad9a34a7cb93904b213f5bcd31ea957fa494665
+  languageName: node
+  linkType: hard
+
 "@napi-rs/wasm-runtime@npm:^0.2.3":
   version: 0.2.11
   resolution: "@napi-rs/wasm-runtime@npm:0.2.11"
@@ -7671,7 +7680,7 @@ __metadata:
     "@docusaurus/tsconfig": "npm:^3.8.1"
     "@easyops-cn/docusaurus-search-local": "npm:^0.51.1"
     mdx-mermaid: "npm:^2.0.3"
-    mermaid: "npm:^11.6.0"
+    mermaid: "npm:^11.8.1"
     prettier: "npm:^3.6.2"
     prism-react-renderer: "npm:^2.4.1"
     react: "npm:^19.1.0"
@@ -10232,7 +10241,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mermaid@npm:>=11.6.0, mermaid@npm:^11.6.0":
+"mermaid@npm:>=11.6.0":
   version: 11.7.0
   resolution: "mermaid@npm:11.7.0"
   dependencies:
@@ -10257,6 +10266,34 @@ __metadata:
     ts-dedent: "npm:^2.2.0"
     uuid: "npm:^11.1.0"
   checksum: 10c0/ab37f563b54d53c513d792a91aae54c6e2ed20f4d8606cdec993d60b8c50534ac6ab740408d710a655c6190341704cf133f0a7fb47e230c0c94b38cf08e07775
+  languageName: node
+  linkType: hard
+
+"mermaid@npm:^11.8.1":
+  version: 11.8.1
+  resolution: "mermaid@npm:11.8.1"
+  dependencies:
+    "@braintree/sanitize-url": "npm:^7.0.4"
+    "@iconify/utils": "npm:^2.1.33"
+    "@mermaid-js/parser": "npm:^0.6.1"
+    "@types/d3": "npm:^7.4.3"
+    cytoscape: "npm:^3.29.3"
+    cytoscape-cose-bilkent: "npm:^4.1.0"
+    cytoscape-fcose: "npm:^2.2.0"
+    d3: "npm:^7.9.0"
+    d3-sankey: "npm:^0.12.3"
+    dagre-d3-es: "npm:7.0.11"
+    dayjs: "npm:^1.11.13"
+    dompurify: "npm:^3.2.5"
+    katex: "npm:^0.16.9"
+    khroma: "npm:^2.1.0"
+    lodash-es: "npm:^4.17.21"
+    marked: "npm:^15.0.7"
+    roughjs: "npm:^4.6.6"
+    stylis: "npm:^4.3.6"
+    ts-dedent: "npm:^2.2.0"
+    uuid: "npm:^11.1.0"
+  checksum: 10c0/7865be834d4a9afa96250dafb08b1d0737a3d4543292e357cfd8b9708dcdd2228ad302d9323b61460d97c4c9fec19248f6d6a86a0a3b3a50659bc3e1669ee496
   languageName: node
   linkType: hard
 

@@ -53,6 +53,9 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
+/// large messages from being added to the message pool.
+const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -176,7 +179,6 @@ pub struct MessagePool<T> {
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
@@ -214,11 +216,12 @@ where
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
+        let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
-                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
+                    topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
                     message: msg_ser,
                 })
                 .await
@@ -228,7 +231,7 @@ where
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
-        if to_vec(msg)?.len() > 32 * 1024 {
+        if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
@@ -457,7 +460,6 @@ where
     /// Creates a new `MessagePool` instance.
     pub fn new(
         api: T,
-        network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
@@ -481,7 +483,6 @@ where
             pending,
             cur_tipset: tipset,
             api: Arc::new(api),
-            network_name,
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
@@ -545,7 +546,6 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
-        let network_name = mp.network_name.clone();
         let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
         // Reacts to republishing requests
         services.spawn(async move {
@@ -559,7 +559,6 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
-                    network_name.as_ref(),
                     pending.as_ref(),
                     cur_tipset.as_ref(),
                     republished.as_ref(),
@@ -628,7 +627,7 @@ fn verify_msg_before_add(
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
-        .on_chain_message(to_vec(m)?.len());
+        .on_chain_message(m.chain_length()?);
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.block_headers().is_empty() {
         let base_fee = &cur_ts.block_headers().first().parent_base_fee;

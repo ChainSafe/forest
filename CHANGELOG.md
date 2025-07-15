@@ -29,11 +29,19 @@
 
 ### Added
 
+- [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--export-mode` flag to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
+
+- [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`
+
 ### Changed
 
 - [#5771](https://github.com/ChainSafe/forest/issues/5771) Update OpenRPC schemars by bumping `schemars` create.
 
+- [#5816](https://github.com/ChainSafe/forest/pull/5816) Changed the monitoring stack to include a full Forest node. This allows for one-click local deployment of a fully-monitored Forest setup via `docker compose up` in `./monitored-stack`.
+
 ### Removed
+
+- [#5822](https://github.com/ChainSafe/forest/issues/5822) Remove `mimalloc` feature.
 
 ### Fixed
 
@@ -42,6 +50,12 @@
 - [#5762](https://github.com/ChainSafe/forest/issues/5762) Cleanup temporary CAR DB files on node start.
 
 - [#5773](https://github.com/ChainSafe/forest/pull/5773) The `forest-tool index backfill` now correctly respects the `--from` argument. At the same time, it's been made optional and will default to the chain head.
+
+- [#5610](https://github.com/ChainSafe/forest/issues/5610) Fix `Filecoin.StateGetNetworkParams` and `Filecoin.StateNetworkName` RPC methods output for mainnet. They now return `mainnet` (and not `testnetnet`) as the network name, which is consistent with Lotus.
+
+- [#5750](https://github.com/ChainSafe/forest/pull/5750) Fix regression causing the `Filecoin.ChainNotify` RPC endpoint to be unreachable.
+
+- [#5730](https://github.com/ChainSafe/forest/issues/5730) Fixed various bugs in the mempool selection logic, including gas overpricing and incorrect message chain pruning. Additional logic was added to limit the number of messages in the block.
 
 ## Forest v0.27.0 "Whisperer in Darkness"
 

@@ -52,12 +52,15 @@ use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
 use lru::LruCache;
 use num::Signed as _;
-use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    str::FromStr as _,
+    sync::{Arc, LazyLock, OnceLock},
+};
 
-pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
+pub static F3_LEASE_MANAGER: OnceLock<F3LeaseManager> = OnceLock::new();
 
 pub enum GetRawNetworkName {}
 
@@ -71,7 +74,7 @@ impl RpcMethod<0> for GetRawNetworkName {
     type Ok = String;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.network_name.clone())
+        Ok(ctx.chain_config().network.genesis_name().into())
     }
 }
 
@@ -163,7 +166,7 @@ impl GetPowerTable {
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
-        static BLOCKSTORE_CACHE: Lazy<Arc<LruBlockstoreReadCache>> = Lazy::new(|| {
+        static BLOCKSTORE_CACHE: LazyLock<Arc<LruBlockstoreReadCache>> = LazyLock::new(|| {
             Arc::new(LruBlockstoreReadCache::new(
                 BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
             ))
@@ -469,8 +472,8 @@ impl RpcMethod<1> for GetPowerTable {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (f3_tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        static CACHE: Lazy<tokio::sync::Mutex<LruCache<TipsetKey, Vec<F3PowerEntry>>>> =
-            Lazy::new(|| {
+        static CACHE: LazyLock<tokio::sync::Mutex<LruCache<TipsetKey, Vec<F3PowerEntry>>>> =
+            LazyLock::new(|| {
                 tokio::sync::Mutex::new(LruCache::new(32.try_into().expect("Infallible")))
             });
         let tsk = f3_tsk.try_into()?;

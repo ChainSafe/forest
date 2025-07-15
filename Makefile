@@ -23,10 +23,6 @@ install-minimum-quick:
 install-with-rustalloc:
 	cargo install --locked --path . --force --no-default-features --features rustalloc
 
-# Installs Forest binaries with MiMalloc global allocator
-install-with-mimalloc:
-	cargo install --locked --path . --force --no-default-features --features mimalloc
-
 install-lint-tools:
 	cargo install --locked taplo-cli
 	cargo install --locked cargo-deny

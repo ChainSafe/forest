@@ -34,11 +34,14 @@ use ipld_core::ipld::Ipld;
 use jsonrpsee::types::Params;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use num::BigInt;
-use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::{collections::VecDeque, path::PathBuf, sync::Arc};
+use std::{
+    collections::VecDeque,
+    path::PathBuf,
+    sync::{Arc, LazyLock},
+};
 use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
@@ -298,7 +301,7 @@ impl RpcMethod<1> for ChainExport {
             dry_run,
         } = params;
 
-        static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
         let _locked = LOCK.try_lock();
         if _locked.is_err() {

@@ -5,15 +5,15 @@ on:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - '.github/workflows/docs-deploy.yml'
+      - "docs/**"
+      - ".github/workflows/docs-deploy.yml"
   merge_group:
   pull_request:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - '.github/workflows/docs-deploy.yml'
+      - "docs/**"
+      - ".github/workflows/docs-deploy.yml"
 
 permissions:
   contents: read

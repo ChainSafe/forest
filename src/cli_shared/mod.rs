@@ -11,8 +11,6 @@ use std::path::PathBuf;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
-    } else if #[cfg(feature = "mimalloc")] {
-        pub use mimalloc;
     } else if #[cfg(feature = "jemalloc")] {
         pub use tikv_jemallocator;
     }

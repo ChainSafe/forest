@@ -10,17 +10,17 @@ on:
     branches:
       - main
     paths:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/docs-check.yml'
+      - "**.md"
+      - "docs/**"
+      - ".github/workflows/docs-check.yml"
   merge_group:
   pull_request:
     branches:
       - main
     paths:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/docs-check.yml'
+      - "**.md"
+      - "docs/**"
+      - ".github/workflows/docs-check.yml"
 
 jobs:
   docs-check:

@@ -12,8 +12,8 @@ use crate::{
 use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use super::{
     DrandPoint, Height, HeightInfo, NetworkChain,
@@ -24,16 +24,22 @@ use super::{
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 
+/// Well-known network names.
+pub const NETWORK_COMMON_NAME: &str = "mainnet";
+/// Network name as defined in the genesis block. Refer to [`crate::networks::network_names`] for
+/// additional information.
+pub const NETWORK_GENESIS_NAME: &str = "testnetnet";
+
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
-pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
     Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
-pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
-    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));
+pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =
+    LazyLock::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));
 
 // The rollover period is the duration between nv19 and nv20 which both old
 // proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
@@ -46,7 +52,7 @@ pub const ETH_CHAIN_ID: EthChainId = 314;
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|| {
     HashMap::from_iter([
         make_height!(Breeze, 41_280),
         make_height!(Smoke, SMOKE_HEIGHT),
@@ -94,7 +100,7 @@ fn get_bundle_cid(version: &str) -> Cid {
         .bundle_cid
 }
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| {
+pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 3]> = LazyLock::new(|| {
     [
         DrandPoint {
             height: 0,

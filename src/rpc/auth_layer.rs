@@ -16,13 +16,12 @@ use jsonrpsee::core::middleware::{Batch, BatchEntry, BatchEntryErr, Notification
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::Id;
 use jsonrpsee::types::{ErrorObject, error::ErrorCode};
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tower::Layer;
 use tracing::debug;
 
-static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::new(|| {
+static METHOD_NAME2REQUIRED_PERMISSION: LazyLock<HashMap<&str, Permission>> = LazyLock::new(|| {
     let mut access = HashMap::new();
 
     macro_rules! insert {
