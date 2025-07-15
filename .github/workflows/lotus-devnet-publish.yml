@@ -52,4 +52,3 @@ jobs:
           push: true
       - name: List docker images
         run: docker image ls
-

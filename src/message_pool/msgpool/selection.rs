@@ -10,10 +10,14 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{Message, SignedMessage};
+use crate::message_pool::msg_chain::MsgChainNode;
+use crate::shim::crypto::SignatureType;
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
+use anyhow::{Context, bail, ensure};
 use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
+use tracing::{debug, error, warn};
 
 use super::{msg_pool::MessagePool, provider::Provider};
 use crate::message_pool::{
@@ -29,6 +33,254 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 // A cap on maximum number of message to include in a block
 const MAX_BLOCK_MSGS: usize = 16000;
 const MAX_BLOCKS: usize = 15;
+const CBOR_GEN_LIMIT: usize = 8192; // Same limits as in
+// [cbor-gen](https://github.com/whyrusleeping/cbor-gen/blob/cba3eeea9ae8ec4db1b7283e3654d8c18979affe/gen.go#L32), which Lotus uses.
+
+/// A structure that holds the selected messages for a block.
+/// It tracks the gas limit and the limits for different signature types
+/// to ensure that the block does not exceed the limits set by the protocol.
+struct SelectedMessages {
+    /// The messages selected for inclusion in the block.
+    msgs: Vec<SignedMessage>,
+    /// The remaining gas limit for the block.
+    gas_limit: u64,
+    /// The remaining limit for `secp256k1` messages in the block.
+    secp_limit: u64,
+    /// The remaining limit for `bls` messages in the block.
+    bls_limit: u64,
+}
+
+impl Default for SelectedMessages {
+    fn default() -> Self {
+        SelectedMessages {
+            msgs: Vec::new(),
+            gas_limit: crate::shim::econ::BLOCK_GAS_LIMIT,
+            secp_limit: CBOR_GEN_LIMIT as u64,
+            bls_limit: CBOR_GEN_LIMIT as u64,
+        }
+    }
+}
+
+impl SelectedMessages {
+    fn new(msgs: Vec<SignedMessage>, gas_limit: u64) -> Self {
+        SelectedMessages {
+            msgs,
+            gas_limit,
+            ..Default::default()
+        }
+    }
+
+    /// Returns the number of messages selected for inclusion in the block.
+    fn len(&self) -> usize {
+        self.msgs.len()
+    }
+
+    /// Truncates the selected messages to the specified length.
+    fn truncate(&mut self, len: usize) {
+        self.msgs.truncate(len);
+    }
+
+    /// Reduces the gas limit by the specified amount. It ensures that the gas limit does not
+    /// go below zero (which would cause a panic).
+    fn reduce_gas_limit(&mut self, gas: u64) {
+        self.gas_limit = self.gas_limit.saturating_sub(gas);
+    }
+
+    /// Reduces the BLS limit by the specified amount. It ensures that the BLS message limit does not
+    /// go below zero (which would cause a panic).
+    fn reduce_bls_limit(&mut self, bls: u64) {
+        self.bls_limit = self.bls_limit.saturating_sub(bls);
+    }
+
+    /// Reduces the `Secp256k1` limit by the specified amount. It ensures that the `Secp256k1` message limit
+    /// does not go below zero (which would cause a panic).
+    fn reduce_secp_limit(&mut self, secp: u64) {
+        self.secp_limit = self.secp_limit.saturating_sub(secp);
+    }
+
+    /// Extends the selected messages with the given messages.
+    fn extend(&mut self, msgs: Vec<SignedMessage>) {
+        self.msgs.extend(msgs);
+    }
+
+    /// Tries to add a message chain to the selected messages. Returns an error if the chain can't
+    /// be added due to block constraints.
+    fn try_to_add(&mut self, message_chain: MsgChainNode) -> anyhow::Result<()> {
+        let msg_chain_len = message_chain.msgs.len();
+        ensure!(
+            BLOCK_MESSAGE_LIMIT >= msg_chain_len + self.len(),
+            "Message chain is too long to fit in the block: {} messages, limit is {BLOCK_MESSAGE_LIMIT}",
+            msg_chain_len + self.len(),
+        );
+        ensure!(
+            self.gas_limit >= message_chain.gas_limit,
+            "Message chain gas limit is too high: {} gas, limit is {}",
+            message_chain.gas_limit,
+            self.gas_limit
+        );
+
+        match message_chain.sig_type {
+            Some(SignatureType::Bls) => {
+                ensure!(
+                    self.bls_limit >= msg_chain_len as u64,
+                    "BLS limit is too low: {msg_chain_len} messages, limit is {}",
+                    self.bls_limit
+                );
+
+                self.extend(message_chain.msgs);
+                self.reduce_bls_limit(msg_chain_len as u64);
+                self.reduce_gas_limit(message_chain.gas_limit);
+            }
+            Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
+                ensure!(
+                    self.secp_limit >= msg_chain_len as u64,
+                    "Secp256k1 limit is too low: {msg_chain_len} messages, limit is {}",
+                    self.secp_limit
+                );
+
+                self.extend(message_chain.msgs);
+                self.reduce_secp_limit(msg_chain_len as u64);
+                self.reduce_gas_limit(message_chain.gas_limit);
+            }
+            None => {
+                // This is a message with no signature type, which is not allowed in the current
+                // implementation. This _should_ never happen, but we handle it gracefully.
+                warn!("Tried to add a message chain with no signature type");
+            }
+        }
+        Ok(())
+    }
+
+    /// Tries to add a message chain with dependencies to the selected messages.
+    /// It will trim or invalidate if appropriate.
+    fn try_to_add_with_deps(
+        &mut self,
+        idx: usize,
+        chains: &mut Chains,
+        base_fee: &TokenAmount,
+    ) -> anyhow::Result<()> {
+        let message_chain = chains
+            .get_mut_at(idx)
+            .context("Couldn't find required message chain")?;
+        // compute the dependencies that must be merged and the gas limit including deps
+        let mut chain_gas_limit = message_chain.gas_limit;
+        let mut chain_msg_limit = message_chain.msgs.len();
+        let mut dep_gas_limit = 0;
+        let mut dep_message_limit = 0;
+        let selected_messages_limit = match message_chain.sig_type {
+            Some(SignatureType::Bls) => self.bls_limit as usize,
+            Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
+                self.secp_limit as usize
+            }
+            None => {
+                // This is a message with no signature type, which is not allowed in the current
+                // implementation. This _should_ never happen, but we handle it gracefully.
+                bail!("Tried to add a message chain with no signature type");
+            }
+        };
+        let selected_messages_limit =
+            selected_messages_limit.min(BLOCK_MESSAGE_LIMIT.saturating_sub(self.len()));
+
+        let mut chain_deps = vec![];
+        let mut cur_chain = message_chain.prev;
+        let _ = message_chain; // drop the mutable borrow to avoid conflicts
+        while let Some(cur_chn) = cur_chain {
+            let node = chains.get(cur_chn).unwrap();
+            if !node.merged {
+                chain_deps.push(cur_chn);
+                chain_gas_limit += node.gas_limit;
+                chain_msg_limit += node.msgs.len();
+                dep_gas_limit += node.gas_limit;
+                dep_message_limit += node.msgs.len();
+                cur_chain = node.prev;
+            } else {
+                break;
+            }
+        }
+
+        // the chain doesn't fit as-is, so trim / invalidate it and return false
+        if chain_gas_limit > self.gas_limit || chain_msg_limit > selected_messages_limit {
+            // it doesn't all fit; now we have to take into account the dependent chains before
+            // making a decision about trimming or invalidating.
+            // if the dependencies exceed the block limits, then we must invalidate the chain
+            // as it can never be included.
+            // Otherwise we can just trim and continue
+            if dep_gas_limit > self.gas_limit || dep_message_limit >= selected_messages_limit {
+                chains.invalidate(chains.get_key_at(idx));
+            } else {
+                // dependencies fit, just trim it
+                chains.trim_msgs_at(
+                    idx,
+                    self.gas_limit.saturating_sub(dep_gas_limit),
+                    selected_messages_limit.saturating_sub(dep_message_limit),
+                    base_fee,
+                );
+            }
+
+            bail!("Chain doesn't fit in the block");
+        }
+        for dep in chain_deps.iter().rev() {
+            let cur_chain = chains.get_mut(*dep);
+            if let Some(node) = cur_chain {
+                node.merged = true;
+                self.extend(node.msgs.clone());
+            } else {
+                bail!("Couldn't find required dependent message chain");
+            }
+        }
+
+        let message_chain = chains
+            .get_mut_at(idx)
+            .context("Couldn't find required message chain")?;
+        message_chain.merged = true;
+        self.extend(message_chain.msgs.clone());
+        self.reduce_gas_limit(chain_gas_limit);
+
+        match message_chain.sig_type {
+            Some(SignatureType::Bls) => {
+                self.reduce_bls_limit(chain_msg_limit as u64);
+            }
+            Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
+                self.reduce_secp_limit(chain_msg_limit as u64);
+            }
+            None => {
+                // This is a message with no signature type, which is not allowed in the current
+                // implementation. This _should_ never happen, but we handle it gracefully.
+                bail!("Tried to add a message chain with no signature type");
+            }
+        }
+
+        Ok(())
+    }
+
+    fn trim_chain_at(&mut self, chains: &mut Chains, idx: usize, base_fee: &TokenAmount) {
+        let message_chain = match chains.get_at(idx) {
+            Some(message_chain) => message_chain,
+            None => {
+                error!("Tried to trim a message chain that doesn't exist");
+                return;
+            }
+        };
+        let msg_limit = BLOCK_MESSAGE_LIMIT.saturating_sub(self.len());
+        let msg_limit = match message_chain.sig_type {
+            Some(SignatureType::Bls) => std::cmp::min(self.bls_limit, msg_limit as u64),
+            Some(SignatureType::Secp256k1) | Some(SignatureType::Delegated) => {
+                std::cmp::min(self.secp_limit, msg_limit as u64)
+            }
+            _ => {
+                // This is a message with no signature type, which is not allowed in the current
+                // implementation. This _should_ never happen, but we handle it gracefully.
+                error!("Tried to trim a message chain with no signature type");
+                return;
+            }
+        };
+
+        if message_chain.gas_limit > self.gas_limit || message_chain.msgs.len() > msg_limit as usize
+        {
+            chains.trim_msgs_at(idx, self.gas_limit, msg_limit as usize, base_fee);
+        }
+    }
+}
 
 impl<T> MessagePool<T>
 where
@@ -51,17 +303,21 @@ where
         }?;
 
         if msgs.len() > MAX_BLOCK_MSGS {
+            warn!(
+                "Message selection chose too many messages: {} > {MAX_BLOCK_MSGS}",
+                msgs.len(),
+            );
             msgs.truncate(MAX_BLOCK_MSGS)
         }
 
-        Ok(msgs)
+        Ok(msgs.msgs)
     }
 
     fn select_messages_greedy(
         &self,
         cur_ts: &Tipset,
         ts: &Tipset,
-    ) -> Result<Vec<SignedMessage>, Error> {
+    ) -> Result<SelectedMessages, Error> {
         let base_fee = self.api.chain_compute_base_fee(ts)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current
@@ -69,15 +325,15 @@ where
         let mut pending = self.get_pending_messages(cur_ts, ts)?;
 
         if pending.is_empty() {
-            return Ok(Vec::new());
+            return Ok(SelectedMessages::default());
         }
 
         // 0b. Select all priority messages that fit in the block
-        let (result, gas_limit) = self.select_priority_messages(&mut pending, &base_fee, ts)?;
+        let selected_msgs = self.select_priority_messages(&mut pending, &base_fee, ts)?;
 
         // check if block has been filled
-        if gas_limit < MIN_GAS || result.len() > BLOCK_MESSAGE_LIMIT {
-            return Ok(result);
+        if selected_msgs.gas_limit < MIN_GAS || selected_msgs.len() >= BLOCK_MESSAGE_LIMIT {
+            return Ok(selected_msgs);
         }
 
         // 1. Create a list of dependent message chains with maximal gas reward per
@@ -95,8 +351,12 @@ where
             )?;
         }
 
-        let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
-        Ok(msgs)
+        Ok(merge_and_trim(
+            &mut chains,
+            selected_msgs,
+            &base_fee,
+            MIN_GAS,
+        ))
     }
 
     #[allow(clippy::indexing_slicing)]
@@ -105,7 +365,7 @@ where
         cur_ts: &Tipset,
         target_tipset: &Tipset,
         ticket_quality: f64,
-    ) -> Result<Vec<SignedMessage>, Error> {
+    ) -> Result<SelectedMessages, Error> {
         let base_fee = self.api.chain_compute_base_fee(target_tipset)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current
@@ -113,16 +373,16 @@ where
         let mut pending = self.get_pending_messages(cur_ts, target_tipset)?;
 
         if pending.is_empty() {
-            return Ok(Vec::new());
+            return Ok(SelectedMessages::default());
         }
 
         // 0b. Select all priority messages that fit in the block
-        let (mut result, mut gas_limit) =
+        let mut selected_msgs =
             self.select_priority_messages(&mut pending, &base_fee, target_tipset)?;
 
         // check if block has been filled
-        if gas_limit < MIN_GAS {
-            return Ok(result);
+        if selected_msgs.gas_limit < MIN_GAS || selected_msgs.len() >= BLOCK_MESSAGE_LIMIT {
+            return Ok(selected_msgs);
         }
 
         // 1. Create a list of dependent message chains with maximal gas reward per
@@ -148,28 +408,31 @@ where
                 "all messages in mpool have non-positive gas performance {}",
                 chains[0].gas_perf
             );
-            return Ok(result);
+            return Ok(selected_msgs);
         }
 
         // 3. Partition chains into blocks (without trimming)
         //    we use the full block_gas_limit (as opposed to the residual `gas_limit`
-        // from the    priority message selection) as we have to account for
-        // what other miners are doing
+        //    from the priority message selection) as we have to account for
+        //    what other block providers are doing
         let mut next_chain = 0;
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
             let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
+            let mut msg_limit = BLOCK_MESSAGE_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                let chain = chains.get(chain_key).unwrap();
+                let chain_gas_limit = chain.gas_limit;
                 if gas_limit < chain_gas_limit {
                     break;
                 }
                 gas_limit = gas_limit.saturating_sub(chain_gas_limit);
-                if gas_limit < MIN_GAS {
+                msg_limit = msg_limit.saturating_sub(chain.msgs.len());
+                if gas_limit < MIN_GAS || msg_limit == 0 {
                     break;
                 }
             }
@@ -201,9 +464,9 @@ where
         chains.sort_effective();
 
         // 6. Merge the head chains to produce the list of messages selected for
-        // inclusion    subject to the residual gas limit
+        //    inclusion subject to the residual block limits
         //    When a chain is merged in, all its previous dependent chains *must* also
-        // be    merged in or we'll have a broken block
+        //    be merged in or we'll have a broken block
         let mut last = chains.len();
         for i in 0..chains.len() {
             // did we run out of performing chains?
@@ -216,65 +479,40 @@ where
                 continue;
             }
 
-            // compute the dependencies that must be merged and the gas limit including
-            // dependencies
-            let mut chain_gas_limit = chains[i].gas_limit;
-            let mut chain_deps = vec![];
-            let mut cur_chain = chains[i].prev;
-            while let Some(cur_chn) = cur_chain {
-                let node = chains.get(cur_chn).unwrap();
-                if !node.merged {
-                    chain_deps.push(cur_chn);
-                    chain_gas_limit += node.gas_limit;
-                    cur_chain = node.prev;
-                } else {
-                    break;
-                }
-            }
-
-            // does it all fit in the block?
-            if chain_gas_limit <= gas_limit {
-                // include it together with all dependencies
-                chain_deps.iter().rev().for_each(|dep| {
-                    if let Some(node) = chains.get_mut(*dep) {
-                        node.merged = true;
-                        result.extend(node.msgs.clone());
-                    }
-                });
-
-                chains[i].merged = true;
-
-                // adjust the effective performance for all subsequent chains
-                if let Some(next_key) = chains[i].next {
-                    let next_node = chains.get_mut(next_key).unwrap();
-                    if next_node.eff_perf > 0.0 {
-                        next_node.eff_perf += next_node.parent_offset;
-                        let mut next_next_key = next_node.next;
-                        while let Some(nnk) = next_next_key {
-                            let (nn_node, prev_perfs) = chains.get_mut_with_prev_eff(nnk);
-                            if let Some(nn_node) = nn_node {
-                                if nn_node.eff_perf > 0.0 {
-                                    nn_node.set_eff_perf(prev_perfs);
-                                    next_next_key = nn_node.next;
+            match selected_msgs.try_to_add_with_deps(i, &mut chains, &base_fee) {
+                Ok(_) => {
+                    // adjust the effective performance for all subsequent chains
+                    if let Some(next_key) = chains[i].next {
+                        let next_node = chains.get_mut(next_key).unwrap();
+                        if next_node.eff_perf > 0.0 {
+                            next_node.eff_perf += next_node.parent_offset;
+                            let mut next_next_key = next_node.next;
+                            while let Some(nnk) = next_next_key {
+                                let (nn_node, prev_perfs) = chains.get_mut_with_prev_eff(nnk);
+                                if let Some(nn_node) = nn_node {
+                                    if nn_node.eff_perf > 0.0 {
+                                        nn_node.set_eff_perf(prev_perfs);
+                                        next_next_key = nn_node.next;
+                                    } else {
+                                        break;
+                                    }
                                 } else {
                                     break;
                                 }
-                            } else {
-                                break;
                             }
                         }
                     }
+
+                    // re-sort to account for already merged chains and effective performance
+                    // adjustments the sort *must* be stable or we end up getting
+                    // negative gasPerfs pushed up.
+                    chains.sort_range_effective(i + 1..);
+
+                    continue;
                 }
-
-                result.extend(chains[i].msgs.clone());
-                gas_limit = gas_limit.saturating_sub(chain_gas_limit);
-
-                // re-sort to account for already merged chains and effective performance
-                // adjustments the sort *must* be stable or we end up getting
-                // negative gasPerfs pushed up.
-                chains.sort_range_effective(i + 1..);
-
-                continue;
+                Err(e) => {
+                    debug!("Failed to add message chain with dependencies: {e}");
+                }
             }
 
             // we can't fit this chain and its dependencies because of block gasLimit -- we
@@ -285,16 +523,21 @@ where
 
         // 7. We have reached the edge of what can fit wholesale; if we still hae
         // available    gasLimit to pack some more chains, then trim the last
-        // chain and push it down.    Trimming invalidaates subsequent dependent
-        // chains so that they can't be selected    as their dependency cannot
-        // be (fully) included.    We do this in a loop because the blocker
-        // might have been inordinately large and    we might have to do it
-        // multiple times to satisfy tail packing
-        'tail_loop: while gas_limit >= MIN_GAS && last < chains.len() {
-            // trim if necessary
-            if chains[last].gas_limit > gas_limit {
-                chains.trim_msgs_at(last, gas_limit, &base_fee);
+        // chain and push it down.
+        //
+        // Trimming invalidates subsequent dependent chains so that they can't be selected
+        // as their dependency cannot be (fully) included. We do this in a loop because the blocker
+        // might have been inordinately large and we might have to do it
+        // multiple times to satisfy tail packing.
+        'tail_loop: while selected_msgs.gas_limit >= MIN_GAS && last < chains.len() {
+            if !chains[last].valid {
+                // the chain has been invalidated, we can't use it
+                last += 1;
+                continue;
             }
+
+            // trim if necessary
+            selected_msgs.trim_chain_at(&mut chains, last, &base_fee);
 
             // push down if it hasn't been invalidated
             if chains[last].valid {
@@ -326,51 +569,11 @@ where
                     break 'tail_loop;
                 }
 
-                // compute the dependencies that must be merged and the gas limit including deps
-                let mut chain_gas_limit = chain.gas_limit;
-                let mut dep_gas_limit = 0;
-                let mut chain_deps = vec![];
-                let mut cur_chain = chains[i].prev;
-                while let Some(cur_chn) = cur_chain {
-                    chain_deps.push(cur_chn);
-                    let node = chains.get(cur_chn).unwrap();
-                    chain_gas_limit += node.gas_limit;
-                    dep_gas_limit += node.gas_limit;
-                    cur_chain = node.prev;
+                match selected_msgs.try_to_add_with_deps(i, &mut chains, &base_fee) {
+                    Ok(_) => continue,
+                    Err(e) => debug!("Failed to add message chain with dependencies: {e}"),
                 }
 
-                // does it all fit in a block
-                if chain_gas_limit <= gas_limit {
-                    // include it together with all dependencies
-                    for i in (0..=chain_deps.len()).rev() {
-                        if let Some(cur_chain) = chain_deps.get(i) {
-                            let node = chains.get_mut(*cur_chain).unwrap();
-                            node.merged = true;
-                            result.extend(node.msgs.clone());
-                        }
-
-                        chains[i].merged = true;
-                        result.extend(chains[i].msgs.clone());
-                        gas_limit = gas_limit.saturating_sub(chain_gas_limit);
-                        continue;
-                    }
-                }
-
-                // it doesn't all fit; now we have to take into account the dependent chains
-                // before making a decision about trimming or invalidating.
-                // if the dependencies exceed the gas limit, then we must invalidate the chain
-                // as it can never be included.
-                // Otherwise we can just trim and continue
-                if dep_gas_limit > gas_limit {
-                    let key = chains.get_key_at(i);
-                    chains.invalidate(key);
-                    last += i + 1;
-                    continue 'tail_loop;
-                }
-
-                // dependencies fit, just trim it
-                chains.trim_msgs_at(i, gas_limit - dep_gas_limit, &base_fee);
-                last += i;
                 continue 'tail_loop;
             }
 
@@ -379,18 +582,19 @@ where
             break;
         }
 
-        // if we have gasLimit to spare, pick some random (non-negative) chains to fill
-        // the block we pick randomly so that we minimize the probability of
-        // duplication among all miners
-        if gas_limit >= MIN_GAS {
-            let mut random_count = 0;
+        // if we have room to spare, pick some random (non-negative) chains to fill
+        // the block
+        // we pick randomly so that we minimize the probability of
+        // duplication among all block producers
+        if selected_msgs.gas_limit >= MIN_GAS && selected_msgs.msgs.len() <= BLOCK_MESSAGE_LIMIT {
+            let pre_random_length = selected_msgs.len();
 
             chains
                 .key_vec
                 .shuffle(&mut crate::utils::rand::forest_rng());
 
             for i in 0..chains.len() {
-                if gas_limit < MIN_GAS {
+                if selected_msgs.gas_limit < MIN_GAS || selected_msgs.len() >= BLOCK_MESSAGE_LIMIT {
                     break;
                 }
 
@@ -404,59 +608,33 @@ where
                     continue;
                 }
 
-                // compute the dependencies that must be merged and the gas limit including deps
-                let mut chain_gas_limit = chains[i].gas_limit;
-                let mut dep_gas_limit = 0;
-                let mut chain_deps = vec![];
-                let mut cur_chain = chains[i].prev;
-                while let Some(cur_chn) = cur_chain {
-                    chain_deps.push(cur_chn);
-                    let node = chains.get(cur_chn).unwrap();
-                    chain_gas_limit += node.gas_limit;
-                    dep_gas_limit += node.gas_limit;
-                    cur_chain = node.prev;
-                }
-
-                // do the deps fit? if the deps won't fit, invalidate the chain
-                if dep_gas_limit > gas_limit {
-                    let key = chains.get_key_at(i);
-                    chains.invalidate(key);
+                if selected_msgs
+                    .try_to_add_with_deps(i, &mut chains, &base_fee)
+                    .is_ok()
+                {
+                    // we added it, continue
                     continue;
                 }
 
-                // do they fit as it? if it doesn't fit, trim to make it fit if possible
-                if chain_gas_limit > gas_limit {
-                    chains.trim_msgs_at(i, gas_limit - dep_gas_limit, &base_fee);
-
-                    if !chains[i].valid {
-                        continue;
-                    }
+                if chains[i].valid {
+                    // chain got trimmer on the previous call to `try_to_add_with_deps`, so it can
+                    // now be included.
+                    selected_msgs
+                        .try_to_add_with_deps(i, &mut chains, &base_fee)
+                        .context("Failed to add message chain with dependencies")?;
+                    continue;
                 }
-
-                // include it together with all dependencies
-                for i in (0..chain_deps.len()).rev() {
-                    let cur_chain = chain_deps[i];
-                    let node = chains.get_mut(cur_chain).unwrap();
-                    node.merged = true;
-                    result.extend(node.msgs.clone());
-                    random_count += node.msgs.len();
-                }
-
-                chains[i].merged = true;
-                result.extend(chains[i].msgs.clone());
-                random_count += chains[i].msgs.len();
-                gas_limit = gas_limit.saturating_sub(chain_gas_limit);
             }
 
-            if random_count > 0 {
+            if selected_msgs.len() != pre_random_length {
                 tracing::warn!(
                     "optimal selection failed to pack a block; picked {} messages with random selection",
-                    random_count
+                    selected_msgs.len() - pre_random_length
                 );
             }
         }
 
-        Ok(result)
+        Ok(selected_msgs)
     }
 
     fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
@@ -499,7 +677,7 @@ where
         pending: &mut Pending,
         base_fee: &TokenAmount,
         ts: &Tipset,
-    ) -> Result<(Vec<SignedMessage>, u64), Error> {
+    ) -> Result<SelectedMessages, Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
         let gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
@@ -524,14 +702,13 @@ where
         }
 
         if chains.is_empty() {
-            return Ok((Vec::new(), gas_limit));
+            return Ok(SelectedMessages::new(Vec::new(), gas_limit));
         }
 
         Ok(merge_and_trim(
             &mut chains,
-            result,
+            SelectedMessages::new(result, gas_limit),
             base_fee,
-            gas_limit,
             min_gas,
         ))
     }
@@ -541,57 +718,55 @@ where
 #[allow(clippy::indexing_slicing)]
 fn merge_and_trim(
     chains: &mut Chains,
-    mut result: Vec<SignedMessage>,
+    mut selected_msgs: SelectedMessages,
     base_fee: &TokenAmount,
-    gas_limit: u64,
     min_gas: u64,
-) -> (Vec<SignedMessage>, u64) {
+) -> SelectedMessages {
     if chains.is_empty() {
-        return (result, gas_limit);
+        return selected_msgs;
     }
 
-    let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
 
     let first_chain_gas_perf = chains[0].gas_perf;
 
     if !chains.is_empty() && first_chain_gas_perf < 0.0 {
-        tracing::warn!(
+        warn!(
             "all priority messages in mpool have negative gas performance bestGasPerf: {}",
             first_chain_gas_perf
         );
-        return (Vec::new(), gas_limit);
+        return selected_msgs;
     }
 
     // 3. Merge chains until the block limit, as long as they have non-negative gas
     // performance
     let mut last = chains.len();
-    let chain_len = chains.len();
-    for i in 0..chain_len {
+    for i in 0..chains.len() {
         let node = &chains[i];
 
         if node.gas_perf < 0.0 {
             break;
         }
 
-        if node.gas_limit <= gas_limit {
-            gas_limit = gas_limit.saturating_sub(node.gas_limit);
-            result.extend(node.msgs.clone());
+        if selected_msgs.try_to_add(node.clone()).is_ok() {
+            // there was room, we added the chain, keep going
             continue;
         }
+
+        // we can't fit this chain because of block gas limit -- we are at the edge
         last = i;
         break;
     }
 
-    'tail_loop: while gas_limit >= min_gas && last < chain_len {
+    'tail_loop: while selected_msgs.gas_limit >= min_gas && last < chains.len() {
         // trim, discard negative performing messages
-        chains.trim_msgs_at(last, gas_limit, base_fee);
+        selected_msgs.trim_chain_at(chains, last, base_fee);
 
         // push down if it hasn't been invalidated
         let node = &chains[last];
         if node.valid {
-            for i in last..chain_len - 1 {
+            for i in last..chains.len() - 1 {
                 // slot_chains
                 let cur_node = &chains[i];
                 let next_node = &chains[i + 1];
@@ -606,7 +781,7 @@ fn merge_and_trim(
         // select the next (valid and fitting) chain for inclusion
         let lst = last; // to make clippy happy, see: https://rust-lang.github.io/rust-clippy/master/index.html#mut_range_bound
         for i in lst..chains.len() {
-            let chain = &mut chains[i];
+            let chain = chains[i].clone();
             if !chain.valid {
                 continue;
             }
@@ -617,12 +792,12 @@ fn merge_and_trim(
             }
 
             // does it fit in the block?
-            if chain.gas_limit <= gas_limit {
-                gas_limit = gas_limit.saturating_sub(chain.gas_limit);
-                result.append(&mut chain.msgs);
+            if selected_msgs.try_to_add(chain).is_ok() {
+                // there was room, we added the chain, keep going
                 continue;
             }
 
+            // this chain needs to be trimmed
             last += i;
             continue 'tail_loop;
         }
@@ -630,7 +805,7 @@ fn merge_and_trim(
         break;
     }
 
-    (result, gas_limit)
+    selected_msgs
 }
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
@@ -701,6 +876,7 @@ mod test_selection {
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message::Message;
     use crate::shim::crypto::SignatureType;
+    use crate::shim::econ::BLOCK_GAS_LIMIT;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -717,15 +893,35 @@ mod test_selection {
     fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
-        MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            joinset,
+        MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()
+    }
+
+    /// Creates a a tipset with a mocked block and performs a head change to setup the
+    /// [`MessagePool`] for testing.
+    async fn mock_tipset(mpool: &mut MessagePool<TestApi>) -> Tipset {
+        let b1 = mock_block(1, 1);
+        let ts = Tipset::from(&b1);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::from(b1)],
         )
-        .unwrap()
+        .await
+        .unwrap();
+
+        ts
     }
 
     #[tokio::test]
@@ -763,7 +959,6 @@ mod test_selection {
         .await
         .unwrap();
 
-        // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
@@ -892,9 +1087,11 @@ mod test_selection {
     }
 
     #[tokio::test]
-    async fn message_selection_trimming() {
+    async fn message_selection_trimming_gas() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -903,27 +1100,6 @@ mod test_selection {
         let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
@@ -957,11 +1133,204 @@ mod test_selection {
 
         let expected = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         assert_eq!(msgs.len(), expected as usize);
-        let mut m_gas_lim = 0;
-        for m in msgs.iter() {
-            m_gas_lim += m.gas_limit();
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(m_gas_limit <= crate::shim::econ::BLOCK_GAS_LIMIT);
+    }
+
+    #[tokio::test]
+    async fn message_selection_trimming_msgs_basic() {
+        let mut joinset = JoinSet::new();
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
+
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let address = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        api.set_state_balance_raw(&address, TokenAmount::from_whole(1));
+
+        // create a larger than selectable chain
+        for i in 0..BLOCK_MESSAGE_LIMIT {
+            let msg = create_fake_smsg(&mpool, &address, &address, i as u64, 200_000, 100);
+            mpool.add(msg).unwrap();
         }
-        assert!(m_gas_lim <= crate::shim::econ::BLOCK_GAS_LIMIT);
+
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
+        assert_eq!(
+            msgs.len(),
+            CBOR_GEN_LIMIT,
+            "Expected {CBOR_GEN_LIMIT} messages, got {}",
+            msgs.len()
+        );
+
+        // check that the gas limit is not exceeded
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(
+            m_gas_limit <= BLOCK_GAS_LIMIT,
+            "Selected messages gas limit {m_gas_limit} exceeds block gas limit {BLOCK_GAS_LIMIT}",
+        );
+    }
+
+    #[tokio::test]
+    async fn message_selection_trimming_msgs_two_senders() {
+        let mut joinset = JoinSet::new();
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
+
+        let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_1 = Wallet::new(keystore_1);
+        let address_1 = wallet_1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let keystore_2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_2 = Wallet::new(keystore_2);
+        let address_2 = wallet_2.generate_addr(SignatureType::Bls).unwrap();
+
+        api.set_state_balance_raw(&address_1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&address_2, TokenAmount::from_whole(1));
+
+        // create 2 larger than selectable chains
+        for i in 0..BLOCK_MESSAGE_LIMIT {
+            let msg = create_smsg(
+                &address_2,
+                &address_1,
+                &mut wallet_1,
+                i as u64,
+                300_000,
+                100,
+            );
+            mpool.add(msg).unwrap();
+            // higher has price, those should be preferred and fill the block up to
+            // the [`CBOR_GEN_LIMIT`] messages.
+            let msg = create_smsg(
+                &address_1,
+                &address_2,
+                &mut wallet_2,
+                i as u64,
+                300_000,
+                1000,
+            );
+            mpool.add(msg).unwrap();
+        }
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
+        // check that the gas limit is not exceeded
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(
+            m_gas_limit <= BLOCK_GAS_LIMIT,
+            "Selected messages gas limit {m_gas_limit} exceeds block gas limit {BLOCK_GAS_LIMIT}",
+        );
+        let bls_msgs = msgs.iter().filter(|m| m.is_bls()).count();
+        assert_eq!(
+            CBOR_GEN_LIMIT, bls_msgs,
+            "Expected {CBOR_GEN_LIMIT} bls messages, got {bls_msgs}."
+        );
+        assert_eq!(
+            msgs.len(),
+            BLOCK_MESSAGE_LIMIT,
+            "Expected {BLOCK_MESSAGE_LIMIT} messages, got {}",
+            msgs.len()
+        );
+    }
+
+    #[tokio::test]
+    async fn message_selection_trimming_msgs_two_senders_complex() {
+        let mut joinset = JoinSet::new();
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
+
+        let keystore_1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_1 = Wallet::new(keystore_1);
+        let address_1 = wallet_1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let keystore_2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet_2 = Wallet::new(keystore_2);
+        let address_2 = wallet_2.generate_addr(SignatureType::Bls).unwrap();
+
+        api.set_state_balance_raw(&address_1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&address_2, TokenAmount::from_whole(1));
+
+        // create two almost max-length chains of equal value
+        let mut counter = 0;
+        for i in 0..CBOR_GEN_LIMIT {
+            counter += 1;
+            let msg = create_smsg(
+                &address_2,
+                &address_1,
+                &mut wallet_1,
+                i as u64,
+                300_000,
+                100,
+            );
+            mpool.add(msg).unwrap();
+            // higher has price, those should be preferred and fill the block up to
+            // the [`CBOR_GEN_LIMIT`] messages.
+            let msg = create_smsg(
+                &address_1,
+                &address_2,
+                &mut wallet_2,
+                i as u64,
+                300_000,
+                100,
+            );
+            mpool.add(msg).unwrap();
+        }
+
+        // address_1 8192th message is worth more than address_2 8192th message
+        let msg = create_smsg(
+            &address_2,
+            &address_1,
+            &mut wallet_1,
+            counter as u64,
+            300_000,
+            1000,
+        );
+        mpool.add(msg).unwrap();
+
+        let msg = create_smsg(
+            &address_1,
+            &address_2,
+            &mut wallet_2,
+            counter as u64,
+            300_000,
+            100,
+        );
+        mpool.add(msg).unwrap();
+
+        counter += 1;
+
+        // address 2 (uneselectable) message is worth so much!
+        let msg = create_smsg(
+            &address_2,
+            &address_1,
+            &mut wallet_1,
+            counter as u64,
+            400_000,
+            1_000_000,
+        );
+        mpool.add(msg).unwrap();
+
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
+        // check that the gas limit is not exceeded
+        let m_gas_limit = msgs.iter().map(|m| m.gas_limit()).sum::<u64>();
+        assert!(
+            m_gas_limit <= BLOCK_GAS_LIMIT,
+            "Selected messages gas limit {m_gas_limit} exceeds block gas limit {BLOCK_GAS_LIMIT}",
+        );
+        // We should have taken the SECP chain from address_1.
+        let secps_len = msgs.iter().filter(|m| m.is_secp256k1()).count();
+        assert_eq!(
+            CBOR_GEN_LIMIT, secps_len,
+            "Expected {CBOR_GEN_LIMIT} secp messages, got {secps_len}."
+        );
+        // The remaining messages should be BLS messages.
+        assert_eq!(
+            msgs.len(),
+            BLOCK_MESSAGE_LIMIT,
+            "Expected {BLOCK_MESSAGE_LIMIT} messages, got {}",
+            msgs.len()
+        );
     }
 
     #[tokio::test]
@@ -970,6 +1339,8 @@ mod test_selection {
 
         let mut joinset = JoinSet::new();
         let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -983,27 +1354,6 @@ mod test_selection {
         let mut mpool_cfg = mpool.get_config().clone();
         mpool_cfg.priority_addrs.push(a1);
         mpool.set_config(&db, mpool_cfg).unwrap();
-
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1);
-        let api = &mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            mpool.api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
@@ -1066,38 +1416,15 @@ mod test_selection {
         // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
         let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        // create a block
-        let b1 = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&b1.clone());
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
@@ -1145,38 +1472,15 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm
         // should pick messages from the second actor from the start
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
         let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
-
-        // create a block
-        let b1 = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&b1);
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(b1)],
-        )
-        .await
-        .unwrap();
 
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
@@ -1255,7 +1559,9 @@ mod test_selection {
         // actors. We select with a low ticket quality; the chain depenent
         // merging algorithm should pick messages from the median actor from the
         // start
-        let mpool = make_test_mpool(&mut joinset);
+        let mut mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mut mpool).await;
+        let api = mpool.api.clone();
 
         let n_actors = 10;
 
@@ -1269,31 +1575,6 @@ mod test_selection {
             actors.push(actor);
             wallets.push(wallet);
         }
-
-        // create a block
-        let block = mock_block(1, 1);
-        // add block to tipset
-        let ts = Tipset::from(&block);
-
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::from(block)],
-        )
-        .await
-        .unwrap();
 
         for a in &mut actors {
             api.set_state_balance_raw(a, TokenAmount::from_whole(1));

@@ -324,6 +324,23 @@ pub mod prelude {
     for_each_rpc_method!(export);
 }
 
+/// Collects all the RPC method names and permission available in the Forest
+pub fn collect_rpc_method_info() -> Vec<(&'static str, Permission)> {
+    use crate::rpc::RpcMethod;
+
+    let mut methods = Vec::new();
+
+    macro_rules! add_method {
+        ($ty:ty) => {
+            methods.push((<$ty>::NAME, <$ty>::PERMISSION));
+        };
+    }
+
+    for_each_rpc_method!(add_method);
+
+    methods
+}
+
 /// All the methods live in their own folder
 ///
 /// # Handling types
@@ -393,11 +410,10 @@ use jsonrpsee::{
     core::middleware::RpcServiceBuilder,
     server::{RpcModule, Server, StopHandle, TowerServiceBuilder, stop_channel},
 };
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::env;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tower::Service;
@@ -408,7 +424,7 @@ use openrpc_types::{self, ParamStructure};
 pub const DEFAULT_PORT: u16 = 2345;
 
 /// Request timeout read from environment variables
-static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
     env::var("FOREST_RPC_DEFAULT_TIMEOUT")
         .ok()
         .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
@@ -429,7 +445,6 @@ pub struct RPCState<DB> {
     pub sync_status: Arc<parking_lot::RwLock<crate::chain_sync::SyncStatusReport>>,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
-    pub network_name: String,
     pub tipset_send: flume::Sender<Arc<FullTipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,

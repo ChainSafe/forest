@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use ahash::HashMap;
 use cid::Cid;
 use fil_actors_shared::v13::runtime::Policy;
 use itertools::Itertools;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use tracing::warn;
@@ -23,6 +23,8 @@ use crate::shim::version::NetworkVersion;
 use crate::utils::misc::env::env_or_default;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
+pub use network_name::{GenesisNetworkName, StateNetworkName};
+
 mod actors_bundle;
 pub use actors_bundle::{
     ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, generate_actor_bundle,
@@ -30,6 +32,8 @@ pub use actors_bundle::{
 };
 
 mod drand;
+
+pub mod network_name;
 
 pub mod butterflynet;
 pub mod calibnet;
@@ -39,13 +43,14 @@ pub mod mainnet;
 pub mod metrics;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V25;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
 const ENV_PLEDGE_RULE_RAMP: &str = "FOREST_PLEDGE_RULE_RAMP";
 
-static INITIAL_FIL_RESERVED: Lazy<TokenAmount> = Lazy::new(|| TokenAmount::from_whole(300_000_000));
+static INITIAL_FIL_RESERVED: LazyLock<TokenAmount> =
+    LazyLock::new(|| TokenAmount::from_whole(300_000_000));
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -72,15 +77,31 @@ impl FromStr for NetworkChain {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mainnet" => Ok(NetworkChain::Mainnet),
-            "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
-            "butterflynet" => Ok(NetworkChain::Butterflynet),
+            mainnet::NETWORK_COMMON_NAME | mainnet::NETWORK_GENESIS_NAME => {
+                Ok(NetworkChain::Mainnet)
+            }
+            calibnet::NETWORK_COMMON_NAME | calibnet::NETWORK_GENESIS_NAME => {
+                Ok(NetworkChain::Calibnet)
+            }
+            butterflynet::NETWORK_COMMON_NAME => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
         }
     }
 }
 
 impl NetworkChain {
+    /// Returns the `NetworkChain`s internal name as set in the genesis block, which is not the
+    /// same as the recent state network name.
+    ///
+    /// As a rule of thumb, the internal name should be used when interacting with
+    /// protocol internals and P2P.
+    pub fn genesis_name(&self) -> GenesisNetworkName {
+        match self {
+            NetworkChain::Mainnet => mainnet::NETWORK_GENESIS_NAME.into(),
+            NetworkChain::Calibnet => calibnet::NETWORK_GENESIS_NAME.into(),
+            _ => self.to_string().into(),
+        }
+    }
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     pub fn from_genesis(cid: &Cid) -> Option<Self> {
@@ -209,7 +230,7 @@ pub struct HeightInfo {
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
-    pub config: &'a Lazy<DrandConfig<'a>>,
+    pub config: &'a LazyLock<DrandConfig<'a>>,
 }
 
 /// Defines all network configuration parameters.
@@ -672,9 +693,18 @@ mod tests {
 
     #[test]
     fn network_chain_display() {
-        assert_eq!(NetworkChain::Mainnet.to_string(), "mainnet");
-        assert_eq!(NetworkChain::Calibnet.to_string(), "calibnet");
-        assert_eq!(NetworkChain::Butterflynet.to_string(), "butterflynet");
+        assert_eq!(
+            NetworkChain::Mainnet.to_string(),
+            mainnet::NETWORK_COMMON_NAME
+        );
+        assert_eq!(
+            NetworkChain::Calibnet.to_string(),
+            calibnet::NETWORK_COMMON_NAME
+        );
+        assert_eq!(
+            NetworkChain::Butterflynet.to_string(),
+            butterflynet::NETWORK_COMMON_NAME
+        );
         assert_eq!(
             NetworkChain::Devnet("dummydevnet".into()).to_string(),
             "dummydevnet"

@@ -8,10 +8,9 @@ use crate::utils::io::WithProgress;
 use crate::utils::reqwest_resume;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
-use once_cell::sync::Lazy;
 use reqwest::Response;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tap::Pipe;
 use tokio::io::AsyncBufRead;
 use tokio_util::{
@@ -22,7 +21,7 @@ use tracing::info;
 use url::Url;
 
 pub fn global_http_client() -> reqwest::Client {
-    static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
+    static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
     CLIENT.clone()
 }
 

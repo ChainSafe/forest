@@ -1,0 +1,78 @@
+services:
+  forest:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ${FOREST_IMAGE}
+    networks:
+      - forest-internal
+    environment:
+      - FOREST_CHAIN_INDEXER_ENABLED=1
+      - FOREST_KEYSTORE_PHRASE=${FOREST_KEYSTORE_PHRASE}
+      - FOREST_RPC_PORT=${FOREST_RPC_PORT}
+      - FOREST_HEALTHZ_RPC_PORT=${FOREST_HEALTHZ_RPC_PORT}
+    entrypoint: ["/bin/bash", "-c"]
+    ports:
+      - "${FOREST_RPC_PORT}:${FOREST_RPC_PORT}"
+      - "${FOREST_HEALTHZ_RPC_PORT}:${FOREST_HEALTHZ_RPC_PORT}"
+      - "${FOREST_P2P_LISTEN_PORT}:${FOREST_P2P_LISTEN_PORT}"
+    restart: unless-stopped
+    command:
+      - |
+        set -euxo pipefail
+        forest --chain ${CHAIN} \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
+          --metrics-address 0.0.0.0:6116 \
+          --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_LISTEN_PORT} \
+          --auto-download-snapshot \
+          --loki \
+          --loki-endpoint=http://loki:3100
+    healthcheck:
+      test: ["CMD", "forest-cli", "sync", "wait"]
+      interval: 15s
+      timeout: 10m
+      retries: 3
+      start_period: 10m
+  prometheus:
+    image: prom/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus/
+    restart: unless-stopped
+    networks:
+      - forest-internal
+
+  loki:
+    image: grafana/loki
+    restart: unless-stopped
+    networks:
+      - forest-internal
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - ./grafana/provisioning/:/etc/grafana/provisioning
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions
+    restart: unless-stopped
+    networks:
+      - forest-internal
+    ports:
+      - "3000:3000"
+
+volumes:
+  prometheus_data:
+
+networks:
+  forest-internal:

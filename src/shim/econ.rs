@@ -4,6 +4,7 @@
 use std::{
     fmt,
     ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign},
+    sync::LazyLock,
 };
 
 use super::fvm_shared_latest::econ::TokenAmount as TokenAmount_latest;
@@ -13,7 +14,6 @@ pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
 use fvm_shared4::econ::TokenAmount as TokenAmount_v4;
 use num_bigint::BigInt;
 use num_traits::Zero;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
 
@@ -21,8 +21,8 @@ const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared2::BLOCK_GAS_LIMIT as u64);
 const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 
 /// Total Filecoin available to the network.
-pub static TOTAL_FILECOIN: Lazy<TokenAmount> =
-    Lazy::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
+pub static TOTAL_FILECOIN: LazyLock<TokenAmount> =
+    LazyLock::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
 #[serde(transparent)]

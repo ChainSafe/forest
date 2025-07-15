@@ -11,9 +11,9 @@ use ahash::HashSet;
 use cid::Cid;
 use directories::ProjectDirs;
 use futures::{TryStreamExt, stream::FuturesUnordered};
-use once_cell::sync::Lazy;
 use std::mem::discriminant;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::{io::Cursor, path::Path};
 use tracing::{info, warn};
 
@@ -77,7 +77,7 @@ pub async fn load_actor_bundles_from_path(
     Ok(())
 }
 
-pub static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
+pub static ACTOR_BUNDLE_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest");
     project_dir
         .map(|d| d.cache_dir().to_path_buf())

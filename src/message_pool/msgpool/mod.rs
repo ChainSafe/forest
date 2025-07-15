@@ -55,7 +55,6 @@ where
 async fn republish_pending_messages<T>(
     api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
-    network_name: &str,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
@@ -87,6 +86,7 @@ where
 
     let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
 
+    let network_name = chain_config.network.genesis_name();
     for m in msgs.iter() {
         let mb = to_vec(m)?;
         network_sender
@@ -186,7 +186,7 @@ where
 
         // we can't fit the current chain but there is gas to spare
         // trim it and push it down
-        chains.trim_msgs_at(i, gas_limit, &base_fee);
+        chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
             #[allow(clippy::indexing_slicing)]
@@ -196,6 +196,10 @@ where
             chains.key_vec.swap(i, i + 1);
             j += 1;
         }
+    }
+
+    if msgs.len() > REPUB_MSG_LIMIT {
+        msgs.truncate(REPUB_MSG_LIMIT);
     }
 
     Ok(msgs)
@@ -351,15 +355,8 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -438,15 +435,8 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -506,15 +496,8 @@ pub mod tests {
         }
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
 
         {
             let mut api_temp = mpool.api.inner.lock();
@@ -606,15 +589,8 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {

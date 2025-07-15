@@ -151,7 +151,8 @@ impl RpcMethod<0> for StateNetworkName {
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         Ok(ctx
             .state_manager
-            .get_network_name(*heaviest_tipset.parent_state())?)
+            .get_network_state_name(*heaviest_tipset.parent_state())?
+            .into())
     }
 }
 
@@ -2851,10 +2852,15 @@ impl RpcMethod<0> for StateGetNetworkParams {
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let config = ctx.chain_config().as_ref();
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
+        let network_name = ctx
+            .state_manager
+            .get_network_state_name(*heaviest_tipset.parent_state())?
+            .into();
         let policy = &config.policy;
 
         let params = NetworkParams {
-            network_name: ctx.network_name.clone(),
+            network_name,
             block_delay_secs: config.block_delay_secs as u64,
             consensus_miner_min_power: policy.minimum_consensus_power.clone(),
             pre_commit_challenge_delay: policy.pre_commit_challenge_delay,

@@ -5,6 +5,7 @@ use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::networks::calibnet;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, chain::ChainExportParams, prelude::*};
 use anyhow::Context as _;
@@ -53,7 +54,13 @@ impl SnapshotCommands {
 
                 let raw_network_name = StateNetworkName::call(&client, ()).await?;
 
-                let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
+                // For historical reasons and backwards compatibility if snapshot services or their
+                // consumers relied on the `calibnet`, we use `calibnet` as the chain name.
+                let chain_name = if raw_network_name == calibnet::NETWORK_GENESIS_NAME {
+                    calibnet::NETWORK_COMMON_NAME
+                } else {
+                    raw_network_name.as_str()
+                };
 
                 let tipset =
                     ChainGetTipSetByHeight::call(&client, (epoch, Default::default())).await?;

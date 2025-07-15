@@ -14,8 +14,8 @@ use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
-use once_cell::sync::Lazy;
 use serde::de;
+use std::sync::LazyLock;
 use tracing::log;
 
 pub fn lookup_eth_address<DB: Blockstore>(
@@ -121,7 +121,7 @@ const ERROR_FUNCTION_SELECTOR: [u8; 4] = [0x08, 0xc3, 0x79, 0xa0]; // keccak256(
 const PANIC_FUNCTION_SELECTOR: [u8; 4] = [0x4e, 0x48, 0x7b, 0x71]; // keccak256("Panic(uint256)") [first 4 bytes]
 
 // Lazily initialized HashMap for panic codes
-static PANIC_ERROR_CODES: Lazy<HashMap<u64, &'static str>> = Lazy::new(|| {
+static PANIC_ERROR_CODES: LazyLock<HashMap<u64, &'static str>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     m.insert(0x00, "Panic()");
     m.insert(0x01, "Assert()");

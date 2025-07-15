@@ -83,7 +83,7 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
             .unwrap();
             background_tasks.push(Box::pin(task));
             layers.push(Box::new(
-                layer.with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
+                layer.with_filter(tracing_subscriber::filter::LevelFilter::INFO),
             ));
         }
     }
