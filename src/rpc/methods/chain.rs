@@ -293,6 +293,79 @@ impl RpcMethod<1> for ChainExport {
     }
 }
 
+pub enum ChainExportV2 {}
+impl RpcMethod<1> for ChainExportV2 {
+    const NAME: &'static str = "Filecoin.ChainExportV2";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ChainExportParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys: ApiTipsetKey(tsk),
+            skip_checksum,
+            dry_run,
+        } = params;
+
+        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+        let _locked = LOCK.try_lock();
+        if _locked.is_err() {
+            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        }
+
+        let chain_finality = ctx.chain_config().policy.chain_finality;
+        if recent_roots < chain_finality {
+            return Err(anyhow::anyhow!(format!(
+                "recent-stateroots must be greater than {chain_finality}"
+            ))
+            .into());
+        }
+
+        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts =
+            ctx.chain_index()
+                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
+
+        match if dry_run {
+            crate::chain::export_v2::<Sha256>(
+                &ctx.store_owned(),
+                None,
+                &start_ts,
+                recent_roots,
+                VoidAsyncWriter,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } else {
+            let file = tokio::fs::File::create(&output_path).await?;
+            crate::chain::export_v2::<Sha256>(
+                &ctx.store_owned(),
+                None,
+                &start_ts,
+                recent_roots,
+                file,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } {
+            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+            Err(e) => Err(anyhow::anyhow!(e).into()),
+        }
+    }
+}
+
 pub enum ChainReadObj {}
 impl RpcMethod<1> for ChainReadObj {
     const NAME: &'static str = "Filecoin.ChainReadObj";

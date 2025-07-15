@@ -15,6 +15,9 @@ rm --force --verbose ./*.{car,car.zst,sha256sum}
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
+echo "Exporting zstd compressed snapshot in the experimetal v2 format"
+$FOREST_CLI_PATH snapshot export --v2 -o v2.forest.car.zst
+
 echo "Testing snapshot validity"
 zstd --test ./*.car.zst
 
@@ -22,8 +25,7 @@ echo "Verifying snapshot checksum"
 sha256sum --check ./*.sha256sum
 
 echo "Validating CAR files"
-zstd --decompress ./*.car.zst
-for f in *.car; do
+for f in *.car.zst; do
   echo "Validating CAR file $f"
   $FOREST_TOOL_PATH snapshot validate "$f"
 done
