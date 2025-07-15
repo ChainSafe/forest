@@ -232,7 +232,7 @@ termios = "0.3"
 ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.20"
+cargo_metadata = "0.21"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.6", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
@@ -250,7 +250,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.293"
+ra_ap_syntax = "0.0.294"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
