@@ -5,9 +5,12 @@ use crate::rpc::eth::{
     new_eth_tx_from_signed_message, types::*,
 };
 use crate::rpc::{self, RpcMethod, prelude::*};
+use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use std::io::{self, Write};
 use std::pin::Pin;
 use std::sync::Arc;
+
+use tokio::time::{Duration, sleep};
 
 #[derive(Clone)]
 pub struct RpcTestScenario {
@@ -215,15 +218,27 @@ fn create_eth_new_block_filter() -> RpcTestScenario {
             .call(EthGetFilterChanges::request((filter_id.clone(),))?)
             .await?;
 
-        let result = if let EthFilterResult::Blocks(hashes) = filter_result {
-            dbg!(&hashes);
+        let result = if let EthFilterResult::Blocks(prev_hashes) = filter_result {
+            let verify_hashes = async |hashes: &[EthHash]| {
+                for hash in hashes {
+                    let _block = client
+                        .call(EthGetBlockByHash::request((hash.clone(), false))?)
+                        .await?;
+                }
+                Ok::<(), crate::rpc::ClientError>(())
+            };
+            verify_hashes(&prev_hashes).await?;
+
+            // Wait till the next block arrive
+            sleep(Duration::from_secs(EPOCH_DURATION_SECONDS as u64)).await;
 
             let filter_result = client
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
                 .await?;
 
             if let EthFilterResult::Blocks(hashes) = filter_result {
-                dbg!(&hashes);
+                verify_hashes(&hashes).await?;
+                anyhow::ensure!(prev_hashes != hashes);
 
                 Ok(())
             } else {
