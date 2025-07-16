@@ -12,13 +12,15 @@ use std::sync::Arc;
 
 use tokio::time::{Duration, sleep};
 
+type TestRunner = Arc<
+    dyn Fn(Arc<rpc::Client>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
+        + Send
+        + Sync,
+>;
+
 #[derive(Clone)]
 pub struct RpcTestScenario {
-    pub run: Arc<
-        dyn Fn(Arc<rpc::Client>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
-            + Send
-            + Sync,
-    >,
+    pub run: TestRunner,
     pub ignore: Option<&'static str>,
     pub name: Option<&'static str>,
     pub should_fail_with: Option<&'static str>,
@@ -112,16 +114,16 @@ pub(super) async fn run_tests(
             }
             Err(e) => {
                 if let Some(expected_msg) = test.should_fail_with {
-                    let err_str = format!("{:#}", e);
+                    let err_str = format!("{e:#}");
                     if err_str.contains(expected_msg) {
                         println!("ok");
                         passed += 1;
                     } else {
-                        println!("FAILED ({:#})", e);
+                        println!("FAILED ({e:#})");
                         failed += 1;
                     }
                 } else {
-                    println!("FAILED {:#}", e);
+                    println!("FAILED {e:#}");
                     failed += 1;
                 }
             }
@@ -134,12 +136,12 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
-/// eth_newFilter -> poll with eth_getFilterChanges
-/// eth_uninstallFilter
-/// eth_newPendingTransactionFilter -> poll with eth_getFilterChanges
-/// eth_newBlockFilter -> poll with eth_getFilterChanges/eth_getFilterLogs
-/// eth_getFilterLogs -> get all at once
-/// eth_getFilterChanges
+// eth_newFilter -> poll with eth_getFilterChanges
+// uninstall with eth_uninstallFilter
+// eth_newPendingTransactionFilter -> poll with eth_getFilterChanges
+// uninstall with eth_uninstallFilter
+// eth_newBlockFilter -> poll with eth_getFilterChanges/get all at once with eth_getFilterLogs
+// uninstall with eth_uninstallFilter
 
 fn create_eth_new_filter_test() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
