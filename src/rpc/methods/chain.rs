@@ -46,13 +46,16 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
+use tokio::task::JoinHandle;
 
-pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+pub(crate) fn new_heads<DB: Blockstore>(
+    data: &crate::rpc::RPCState<DB>,
+) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(100);
 
     let mut subscriber = data.chain_store().publisher().subscribe();
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let headers = match v {
                 HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
@@ -63,7 +66,7 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
         }
     });
 
-    receiver
+    (receiver, handle)
 }
 
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
@@ -79,14 +82,14 @@ use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
 pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
-) -> Subscriber<Vec<EthLog>> {
+) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
     let (sender, receiver) = broadcast::channel(100);
 
     let mut subscriber = ctx.chain_store().publisher().subscribe();
 
     let ctx = ctx.clone();
 
-    tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             match v {
                 HeadChange::Apply(ts) => {
@@ -105,7 +108,7 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
         }
     });
 
-    receiver
+    (receiver, handle)
 }
 
 pub enum ChainGetMessage {}

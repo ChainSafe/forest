@@ -174,7 +174,7 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
             };
 
             // Spawn newHeads task
-            let new_heads = crate::rpc::new_heads(&ctx);
+            let (new_heads, handle) = crate::rpc::new_heads(&ctx);
 
             tokio::spawn(async move {
                 tracing::trace!(
@@ -182,7 +182,7 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
                     sink.subscription_id()
                 );
 
-                handle_subscription(new_heads, sink).await;
+                handle_subscription(new_heads, sink, handle).await;
             });
         }
         Subscription::Logs(filter) => {
@@ -200,7 +200,7 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
             let filter_spec: Option<EthFilterSpec> = filter.map(Into::into);
 
             // Spawn logs task
-            let logs = crate::rpc::chain::logs(&ctx, filter_spec);
+            let (logs, handle) = crate::rpc::chain::logs(&ctx, filter_spec);
 
             tokio::spawn(async move {
                 tracing::trace!(
@@ -208,7 +208,7 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
                     sink.subscription_id()
                 );
 
-                handle_subscription(logs, sink).await;
+                handle_subscription(logs, sink, handle).await;
             });
         }
         Subscription::PendingTransactions => {
@@ -227,8 +227,11 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
     Ok(())
 }
 
-async fn handle_subscription<T>(mut subscriber: Subscriber<T>, sink: jsonrpsee::SubscriptionSink)
-where
+async fn handle_subscription<T>(
+    mut subscriber: Subscriber<T>,
+    sink: jsonrpsee::SubscriptionSink,
+    handle: tokio::task::JoinHandle<()>,
+) where
     T: serde::Serialize + Clone,
 {
     loop {
@@ -261,6 +264,7 @@ where
             }
         }
     }
+    handle.abort();
 
     tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
 }
