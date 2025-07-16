@@ -171,15 +171,10 @@ impl ArchiveCommands {
                 let variant = store.variant().to_string();
                 let heaviest = store.heaviest_tipset()?;
                 let index_size_bytes = store.index_size_bytes();
-                let snapshot_version = match &store {
-                    AnyCar::Forest(car) => {
-                        if let Some(metadata) = car.metadata() {
-                            metadata.version
-                        } else {
-                            1
-                        }
-                    }
-                    _ => 1,
+                let snapshot_version = if let Some(metadata) = store.metadata() {
+                    metadata.version
+                } else {
+                    1
                 };
                 println!(
                     "{}",

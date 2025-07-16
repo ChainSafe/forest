@@ -61,7 +61,7 @@ use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
 use futures::{Stream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{CborStore, to_vec};
+use fvm_ipld_encoding::CborStore as _;
 use nunny::Vec as NonEmpty;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
@@ -314,7 +314,10 @@ impl Encoder {
 
         let header = CarV1Header { roots, version: 1 };
         let mut header_uvi_frame = BytesMut::new();
-        UviBytes::default().encode(Bytes::from(to_vec(&header)?), &mut header_uvi_frame)?;
+        UviBytes::default().encode(
+            Bytes::from(fvm_ipld_encoding::to_vec(&header)?),
+            &mut header_uvi_frame,
+        )?;
         header_encoder.write_all(&header_uvi_frame)?;
         let header_bytes = header_encoder.finish()?.into_inner().freeze();
 
