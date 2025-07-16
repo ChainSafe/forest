@@ -18,7 +18,7 @@ exclude = [
   # Bot protection / 403 Forbidden errors
   "crates.io",
   # Bot protection / 403 Forbidden errors
-  "linuxhint.com/understanding_vm_swappiness",
+  "linuxhint.com",
 ]
 timeout = 30
 max_retries = 6
