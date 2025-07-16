@@ -162,15 +162,21 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
 
     match subscription {
         Subscription::NewHeads => {
+            // Mark the subscription is accepted after the params has been parsed successful.
+            // This is actually responds the underlying RPC method call and may fail if the
+            // connection is closed.
+            let sink = match pending.accept().await {
+                Ok(sink) => sink,
+                Err(e) => {
+                    tracing::error!("Failed to accept subscription: {:?}", e);
+                    return Ok(());
+                }
+            };
+
             // Spawn newHeads task
             let new_heads = crate::rpc::new_heads(&ctx);
 
             tokio::spawn(async move {
-                // Mark the subscription is accepted after the params has been parsed successful.
-                // This is actually responds the underlying RPC method call and may fail if the
-                // connection is closed.
-                let sink = pending.accept().await.unwrap();
-
                 tracing::trace!(
                     "Subscription task started (id: {:?})",
                     sink.subscription_id()
@@ -180,17 +186,23 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
             });
         }
         Subscription::Logs(filter) => {
+            // Mark the subscription is accepted after the params has been parsed successful.
+            // This is actually responds the underlying RPC method call and may fail if the
+            // connection is closed.
+            let sink = match pending.accept().await {
+                Ok(sink) => sink,
+                Err(e) => {
+                    tracing::error!("Failed to accept subscription: {:?}", e);
+                    return Ok(());
+                }
+            };
+
             let filter_spec: Option<EthFilterSpec> = filter.map(Into::into);
 
             // Spawn logs task
             let logs = crate::rpc::chain::logs(&ctx, filter_spec);
 
             tokio::spawn(async move {
-                // Mark the subscription is accepted after the params has been parsed successful.
-                // This is actually responds the underlying RPC method call and may fail if the
-                // connection is closed.
-                let sink = pending.accept().await.unwrap();
-
                 tracing::trace!(
                     "Logs subscription task started (id: {:?})",
                     sink.subscription_id()
@@ -201,6 +213,14 @@ pub async fn eth_subscribe<DB: Blockstore + Sync + Send + 'static>(
         }
         Subscription::PendingTransactions => {
             // TODO(akaladarshi): https://github.com/ChainSafe/forest/pull/5782
+            pending
+                .reject(jsonrpsee::types::ErrorObjectOwned::owned(
+                    jsonrpsee::types::error::METHOD_NOT_FOUND_CODE,
+                    "pendingTransactions subscription not yet implemented",
+                    None::<()>,
+                ))
+                .await;
+            return Ok(());
         }
     }
 
