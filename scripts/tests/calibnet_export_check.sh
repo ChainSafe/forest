@@ -15,7 +15,7 @@ rm --force --verbose ./*.{car,car.zst,sha256sum}
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export -o v1.forest.car.zst
 
-echo "Exporting zstd compressed snapshot in the experimetal v2 format"
+echo "Exporting zstd compressed snapshot in the experimental v2 format"
 $FOREST_CLI_PATH snapshot export --v2 -o v2.forest.car.zst
 
 echo "Inspecting archive info and metadata"
