@@ -13,10 +13,18 @@ echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
 echo "Exporting zstd compressed snapshot"
-$FOREST_CLI_PATH snapshot export
+$FOREST_CLI_PATH snapshot export -o v1.forest.car.zst
 
 echo "Exporting zstd compressed snapshot in the experimetal v2 format"
 $FOREST_CLI_PATH snapshot export --v2 -o v2.forest.car.zst
+
+echo "Inspecting archive info and metadata"
+for f in *.car.zst; do
+  echo "Inspecting archive info $f"
+  $FOREST_TOOL_PATH archive info "$f"
+  echo "Inspecting archive metadata $f"
+  $FOREST_TOOL_PATH archive metadata "$f"
+done
 
 echo "Testing snapshot validity"
 zstd --test ./*.car.zst

@@ -82,7 +82,12 @@ impl ExportMode {
 pub enum ArchiveCommands {
     /// Show basic information about an archive.
     Info {
-        /// Path to an uncompressed archive (CAR)
+        /// Path to an archive (`.car` or `.car.zst`).
+        snapshot: PathBuf,
+    },
+    /// Show FRC-0108 metadata of an Filecoin snapshot archive.
+    Metadata {
+        /// Path to an archive (`.car` or `.car.zst`).
         snapshot: PathBuf,
     },
     /// Trim a snapshot of the chain and write it to `<output_path>`
@@ -186,6 +191,15 @@ impl ArchiveCommands {
                         index_size_bytes
                     )?
                 );
+                Ok(())
+            }
+            Self::Metadata { snapshot } => {
+                let store = AnyCar::try_from(snapshot.as_path())?;
+                if let Some(metadata) = store.metadata() {
+                    println!("{metadata}");
+                } else {
+                    println!("No FRC-0108 metadata found in the snapshot");
+                }
                 Ok(())
             }
             Self::Export {
