@@ -116,7 +116,20 @@ docs:
 
 ## Profiling
 
-memprofile = FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1 cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+# Profile with gperftools (Memory/Heap profiler)
+gperfheapprofile = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
+	ulimit -n 8192; \
+	HEAPPROFILE=/tmp/gperfheap.$(1).prof target/profiling/$(1) $(2)
+
+gperfheapprofile.forest:
+	$(call gperfheapprofile,forest, --chain calibnet --encrypt-keystore=false)
+
+# To visualize the CPU profile, run:
+#   pprof --web /path/to/forest /tmp/gperf.forest.prof
+# To visualize the heap profile, run:
+#   pprof --web --heap /path/to/forest /tmp/gperfheap.forest.prof
+
+memprofile = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
 						 ulimit -n 8192; \
              heaptrack -o /tmp/heaptrack.$(1).%p.zst target/profiling/$(1) $(2)
 
