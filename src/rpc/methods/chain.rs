@@ -88,13 +88,19 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
 
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
-            let logs = match v {
-                HeadChange::Apply(ts) => eth_logs_with_filter(&ctx, &ts, filter.clone(), None)
-                    .await
-                    .unwrap(),
-            };
-            if !logs.is_empty() && sender.send(logs).is_err() {
-                break;
+            match v {
+                HeadChange::Apply(ts) => {
+                    match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                        Ok(logs) => {
+                            if !logs.is_empty() && sender.send(logs).is_err() {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
+                        }
+                    }
+                }
             }
         }
     });
