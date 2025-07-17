@@ -8,7 +8,7 @@ use std::sync::{
     atomic::{self, AtomicUsize},
 };
 
-use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::{cache::SizeTrackingLruCache, get_size};
 
 pub trait BlockstoreReadCache {
     fn get(&self, k: &Cid) -> Option<Vec<u8>>;
@@ -20,15 +20,15 @@ pub trait BlockstoreReadCache {
     fn size_in_bytes(&self) -> usize;
 }
 
-pub type LruBlockstoreReadCache = SizeTrackingLruCache<Cid, Vec<u8>>;
+pub type LruBlockstoreReadCache = SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>;
 
-impl BlockstoreReadCache for SizeTrackingLruCache<Cid, Vec<u8>> {
+impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.get_cloned(k)
+        self.get_cloned(&get_size::CidWrapper(*k))
     }
 
     fn put(&self, k: Cid, block: Vec<u8>) {
-        self.push(k, block);
+        self.push(k.into(), block);
     }
 
     fn len(&self) -> usize {

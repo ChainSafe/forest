@@ -12,7 +12,7 @@ use std::{
     },
 };
 
-use crate::{external::get_size::GetSize, metrics::default_registry};
+use get_size2::GetSize;
 use lru::LruCache;
 use parking_lot::RwLock;
 use prometheus_client::{
@@ -22,6 +22,8 @@ use prometheus_client::{
     registry::Registry,
     registry::Unit,
 };
+
+use crate::metrics::default_registry;
 
 #[derive(Debug, Clone)]
 pub struct SizeTrackingLruCache<K, V>
