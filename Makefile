@@ -117,9 +117,10 @@ docs:
 ## Profiling
 
 # Profile with gperftools (Memory/Heap profiler)
+# There is a workaround there, as outlined in https://github.com/gperftools/gperftools/issues/1603
 gperfheapprofile = cargo build --no-default-features --features system-alloc --profile=profiling --bin $(1); \
 	ulimit -n 8192; \
-	HEAPPROFILE=/tmp/gperfheap.$(1).prof target/profiling/$(1) $(2)
+	HEAPPROFILE_USE_PID=t HEAPPROFILE=/tmp/gperfheap.$(1).prof target/profiling/$(1) $(2)
 
 gperfheapprofile.forest:
 	$(call gperfheapprofile,forest, --chain calibnet --encrypt-keystore=false)
