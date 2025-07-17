@@ -36,6 +36,7 @@ impl RpcMethod<1> for SyncCheckBad {
             .as_ref()
             .context("bad block cache is disabled")?
             .peek(&cid)
+            .map(|_| "bad".to_string())
             .unwrap_or_default())
     }
 }
@@ -57,7 +58,7 @@ impl RpcMethod<1> for SyncMarkBad {
         ctx.bad_blocks
             .as_ref()
             .context("bad block cache is disabled")?
-            .put(cid, "Marked bad manually through RPC API".to_string());
+            .put(cid);
         Ok(())
     }
 }
