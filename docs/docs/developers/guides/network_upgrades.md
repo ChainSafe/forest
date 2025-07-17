@@ -3,8 +3,6 @@ title: Network Upgrades
 sidebar_position: 1
 ---
 
-## Network upgrades
-
 This document describes the process of network upgrades in the Filecoin network and how they are handled in Forest.
 
 ## Overview
