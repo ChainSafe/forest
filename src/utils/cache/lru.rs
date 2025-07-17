@@ -79,11 +79,11 @@ where
 
     pub fn push(&self, k: K, v: V) -> Option<(K, V)> {
         self.size_in_bytes
-            .inc_by((k.get_size() + v.get_size()) as _);
+            .inc_by(k.get_size().saturating_add(v.get_size()) as _);
         let old = self.cache.write().push(k, v);
         if let Some((old_k, old_v)) = &old {
             self.size_in_bytes
-                .dec_by((old_k.get_size() + old_v.get_size()) as _);
+                .dec_by(old_k.get_size().saturating_add(old_v.get_size()) as _);
         }
         old
     }
