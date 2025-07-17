@@ -93,6 +93,8 @@ fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
 gethostname = "1"
+get-size2 = { version = "0.5.2", features = ["derive"] }
+get-size-derive2 = "*"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
@@ -183,7 +185,7 @@ semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
-serde_tuple = "1"
+serde_tuple = "1.1.2"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }

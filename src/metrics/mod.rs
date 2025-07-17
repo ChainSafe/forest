@@ -11,6 +11,7 @@ use prometheus_client::{
     metrics::{
         counter::Counter,
         family::Family,
+        gauge::Gauge,
         histogram::{Histogram, exponential_buckets},
     },
 };
@@ -26,6 +27,46 @@ static DEFAULT_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>>
 pub fn default_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
     DEFAULT_REGISTRY.write()
 }
+
+pub static BAD_BLOCK_CACHE_SIZE: LazyLock<Family<KindLabel, Gauge>> = LazyLock::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY.write().register(
+        "bad_block_cache_size",
+        "Current size of the bad block cache",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static BAD_BLOCK_CACHE_LEN: LazyLock<Family<KindLabel, Gauge>> = LazyLock::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY.write().register(
+        "bad_block_cache_len",
+        "Current len of the bad block cache",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static TIPSET_CACHE_SIZE: LazyLock<Family<KindLabel, Gauge>> = LazyLock::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY.write().register(
+        "tipset_cache_size",
+        "Current size of the tipset cache",
+        metric.clone(),
+    );
+    metric
+});
+
+pub static TIPSET_CACHE_LEN: LazyLock<Family<KindLabel, Gauge>> = LazyLock::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY.write().register(
+        "tipset_cache_len",
+        "Current len of the tipset cache",
+        metric.clone(),
+    );
+    metric
+});
 
 pub static LRU_CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
@@ -154,6 +195,7 @@ pub mod values {
     pub const TIPSET: KindLabel = KindLabel::new("tipset");
     /// tipset cache in state manager
     pub const STATE_MANAGER_TIPSET: KindLabel = KindLabel::new("sm_tipset");
+    pub const BLOCK: KindLabel = KindLabel::new("block");
 }
 
 pub fn default_histogram() -> Histogram {

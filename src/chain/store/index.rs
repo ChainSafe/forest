@@ -1,19 +1,23 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::atomic::AtomicU64;
+use std::time::Instant;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::{RawBlockHeader, Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
+use get_size2::GetSize;
 use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
+use tracing::info;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
@@ -27,6 +31,8 @@ pub struct ChainIndex<DB> {
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
+
+    counter: AtomicU64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,12 +47,54 @@ pub enum ResolveNullTipset {
 impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
-        Self { ts_cache, db }
+        Self {
+            ts_cache,
+            db,
+            counter: AtomicU64::new(0),
+        }
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
+        self.counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // every now and then, check the cache size
+        if self.counter.load(std::sync::atomic::Ordering::Relaxed) % 10000 == 0 {
+            let timer = Instant::now();
+            let total = self
+                .ts_cache
+                .lock()
+                .iter()
+                .map(|(tsk, ts)| {
+                    let tipset_size = tsk.len() * 40;
+                    let ts_size = ts
+                        .block_headers()
+                        .iter()
+                        .map(|bh| {
+                            let raw = bh.clone().into_raw();
+                            raw.get_size() + std::mem::size_of::<RawBlockHeader>()
+                        })
+                        .sum::<usize>();
+                    tipset_size + ts_size
+                })
+                .sum::<usize>();
+            info!(
+                "Tipset cache size: {} bytes ({} MB), {} entries in cache, took {} ms",
+                total,
+                total / (1024 * 1024),
+                self.ts_cache.lock().len(),
+                timer.elapsed().as_millis()
+            );
+
+            metrics::TIPSET_CACHE_SIZE
+                .get_or_create(&metrics::values::TIPSET)
+                .set(total as i64);
+        }
+
+        metrics::TIPSET_CACHE_LEN
+            .get_or_create(&metrics::values::TIPSET)
+            .set(self.ts_cache.lock().len() as i64);
         if !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED") {
             if let Some(ts) = self.ts_cache.lock().get(tsk) {
                 metrics::LRU_CACHE_HIT

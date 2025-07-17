@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::encoding::{blake2b_256, serde_byte_array};
+use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize, Hash)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize, Hash, GetSize,
+)]
 pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {

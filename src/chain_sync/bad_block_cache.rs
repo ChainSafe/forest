@@ -4,16 +4,25 @@
 use std::num::NonZeroUsize;
 
 use cid::Cid;
+use get_size2::GetSize;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 
+use crate::metrics;
+
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate
 /// work.
-#[derive(Debug)]
+#[derive(Debug, GetSize)]
 pub struct BadBlockCache {
+    #[get_size(size_fn = cache_helper)]
     cache: Mutex<LruCache<Cid, String>>,
+}
+
+fn cache_helper(cache: &Mutex<LruCache<Cid, String>>) -> usize {
+    let cache = cache.lock();
+    cache.iter().map(|(k, v)| k.get_size() + v.get_size()).sum()
 }
 
 impl Default for BadBlockCache {
@@ -31,7 +40,16 @@ impl BadBlockCache {
 
     /// Puts a bad block `Cid` in the cache with a given reason.
     pub fn put(&self, c: Cid, reason: String) -> Option<String> {
-        self.cache.lock().put(c, reason)
+        println!("Adding bad block to cache: {} with reason: {}", c, reason);
+        use get_size2::GetSize;
+        let v = self.cache.lock().put(c, reason);
+        crate::metrics::BAD_BLOCK_CACHE_LEN
+            .get_or_create(&metrics::values::BLOCK)
+            .set(self.cache.lock().len() as i64);
+        crate::metrics::BAD_BLOCK_CACHE_SIZE
+            .get_or_create(&metrics::values::BLOCK)
+            .set(self.get_size() as i64);
+        v
     }
 
     /// Returns `Some` with the reason if the block CID is in bad block cache.
