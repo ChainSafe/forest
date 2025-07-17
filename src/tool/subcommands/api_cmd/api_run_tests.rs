@@ -303,28 +303,14 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
                 to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
                 from: Address::from_str("t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy").unwrap(),
                 method_num: EVMMethod::InvokeContract as u64,
-                gas_limit: 1000000,
-                gas_fee_cap: TokenAmount::from_atto(1000000000),
-                gas_premium: TokenAmount::from_atto(100000),
-                sequence: 6,
                 params: encoded.into(),
                 ..Default::default()
             };
 
             let smsg = client
-                .call(WalletSignMessage::request((message.from, message))?)
+                .call(MpoolPushMessage::request((message, None))?)
                 .await?;
-
-            let (addr, tx) = eth_tx_from_signed_eth_message(&smsg, calibnet::ETH_CHAIN_ID)?;
-            println!("addr: {}", addr.to_filecoin_address()?);
-            println!("tx: {:?}", tx);
-            let bytes = EthBytes(tx.rlp_signed_message()?);
-
-            let hash = client
-                .call(EthSendRawTransaction::request((bytes,))?)
-                .await?;
-            let cid = hash.to_cid();
-            println!("cid: {cid}");
+            println!("cid: {}", smsg.cid());
 
             Ok(())
         } else {
