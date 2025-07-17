@@ -3,15 +3,12 @@
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use lru::LruCache;
-use parking_lot::Mutex;
-use std::{
-    num::NonZeroUsize,
-    sync::{
-        Arc,
-        atomic::{self, AtomicUsize},
-    },
+use std::sync::{
+    Arc,
+    atomic::{self, AtomicUsize},
 };
+
+use crate::utils::cache::SizeTrackingLruCache;
 
 pub trait BlockstoreReadCache {
     fn get(&self, k: &Cid) -> Option<Vec<u8>>;
@@ -23,50 +20,23 @@ pub trait BlockstoreReadCache {
     fn size_in_bytes(&self) -> usize;
 }
 
-pub struct LruBlockstoreReadCache {
-    lru: Mutex<LruCache<Cid, Vec<u8>>>,
-    size_in_bytes: AtomicUsize,
-}
+pub type LruBlockstoreReadCache = SizeTrackingLruCache<Cid, Vec<u8>>;
 
-impl LruBlockstoreReadCache {
-    pub fn new(cap: NonZeroUsize) -> Self {
-        Self {
-            lru: Mutex::new(LruCache::new(cap)),
-            size_in_bytes: AtomicUsize::default(),
-        }
-    }
-}
-
-impl BlockstoreReadCache for LruBlockstoreReadCache {
+impl BlockstoreReadCache for SizeTrackingLruCache<Cid, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.lru.lock().get(k).cloned()
+        self.get_cloned(k)
     }
 
     fn put(&self, k: Cid, block: Vec<u8>) {
-        let block_size = block.len();
-        if let Some((_, old_block)) = self.lru.lock().push(k, block) {
-            let old_block_size = old_block.len();
-            if block_size >= old_block_size {
-                self.size_in_bytes
-                    .fetch_add(block_size - old_block_size, atomic::Ordering::Relaxed);
-            } else {
-                self.size_in_bytes
-                    .fetch_sub(old_block_size - block_size, atomic::Ordering::Relaxed);
-            }
-        } else {
-            self.size_in_bytes.fetch_add(
-                std::mem::size_of::<Cid>() + block_size,
-                atomic::Ordering::Relaxed,
-            );
-        }
+        self.push(k, block);
     }
 
     fn len(&self) -> usize {
-        self.lru.lock().len()
+        self.len()
     }
 
     fn size_in_bytes(&self) -> usize {
-        self.size_in_bytes.load(atomic::Ordering::Relaxed)
+        self.size_in_bytes()
     }
 }
 
@@ -213,7 +183,10 @@ mod tests {
             mem_db.put_keyed(&key, &record).unwrap();
             records.push((key, record));
         }
-        let cache = Arc::new(LruBlockstoreReadCache::new(CACHE_SIZE.try_into().unwrap()));
+        let cache = Arc::new(LruBlockstoreReadCache::new_without_metrics_registry(
+            "test_blockstore_read_cache".into(),
+            CACHE_SIZE.try_into().unwrap(),
+        ));
         let db = BlockstoreWithReadCache::new(
             mem_db.clone(),
             cache.clone(),
