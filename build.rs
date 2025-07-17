@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 fn main() {
+    println!("cargo:rustc-link-lib=tcmalloc");
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
 
