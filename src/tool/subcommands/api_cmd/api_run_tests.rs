@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::eth::EVMMethod;
 use crate::networks::calibnet;
+use crate::rpc::eth::eth_tx_from_signed_eth_message;
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
@@ -15,7 +16,8 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use rpc::eth::eth_tx_from_signed_eth_message;
+use anyhow::Context;
+use cbor4ii::core::Value;
 use tokio::time::{Duration, sleep};
 
 type TestRunner = Arc<
@@ -290,8 +292,12 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
             };
             verify_transactions(&prev_hashes).await?;
 
-            let bytes = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
+            let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
                 .unwrap();
+
+            let encoded =
+                cbor4ii::serde::to_vec(Vec::with_capacity(payload.len()), &Value::Bytes(payload))
+                    .context("failed to encode params")?;
 
             let message = Message {
                 to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
@@ -300,7 +306,8 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
                 gas_limit: 1000000,
                 gas_fee_cap: TokenAmount::from_atto(1000000000),
                 gas_premium: TokenAmount::from_atto(100000),
-                sequence: 5,
+                sequence: 6,
+                params: encoded.into(),
                 ..Default::default()
             };
 
