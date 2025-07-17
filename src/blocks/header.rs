@@ -18,6 +18,7 @@ use crate::utils::{cid::CidCborExt as _, encoding::blake2b_256};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use get_size2::GetSize;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
@@ -35,39 +36,83 @@ static FILECOIN_GENESIS_CID: std::sync::LazyLock<Cid> = std::sync::LazyLock::new
 pub static GENESIS_BLOCK_PARENTS: std::sync::LazyLock<TipsetKey> =
     std::sync::LazyLock::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
 
-#[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug, GetSize)]
 pub struct RawBlockHeader {
     /// The address of the miner actor that mined this block
+    #[get_size(size = 20)]
     pub miner_address: Address,
     pub ticket: Option<Ticket>,
     pub election_proof: Option<ElectionProof>,
     /// The verifiable oracle randomness used to elect this block's author leader
     pub beacon_entries: Vec<BeaconEntry>,
+    #[get_size(size_fn = post_proof_size_helper)]
     pub winning_post_proof: Vec<PoStProof>,
     /// The set of parents this block was based on.
     /// Typically one, but can be several in the case where there were multiple
     /// winning ticket-holders for an epoch
+    #[get_size(size_fn = tipset_key_size_helper)]
     pub parents: TipsetKey,
     /// The aggregate chain weight of the parent set
     #[serde(with = "crate::shim::fvm_shared_latest::bigint::bigint_ser")]
+    #[get_size(size_fn = bigint_size_helper)]
     pub weight: BigInt,
     /// The period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
     pub epoch: ChainEpoch,
     /// The CID of the parent state root after calculating parent tipset.
+    #[get_size(size_fn = cid_size_helper)]
     pub state_root: Cid,
     /// The CID of the root of an array of `MessageReceipts`
+    #[get_size(size_fn = cid_size_helper)]
     pub message_receipts: Cid,
     /// The CID of the Merkle links for `bls_messages` and `secp_messages`
+    #[get_size(size_fn = cid_size_helper)]
     pub messages: Cid,
     /// Aggregate signature of miner in block
+    #[get_size(size_fn = signature_size_helper)]
     pub bls_aggregate: Option<Signature>,
     /// Block creation time, in seconds since the Unix epoch
     pub timestamp: u64,
+    #[get_size(size_fn = signature_size_helper)]
     pub signature: Option<Signature>,
     pub fork_signal: u64,
     /// The base fee of the parent block
+    #[get_size(size_fn = tokenamount_size_helper)]
     pub parent_base_fee: TokenAmount,
+}
+
+fn cid_size_helper(cid: &Cid) -> usize {
+    // Cid is a wrapper around a Vec<u8>, so we can use its size directly
+    cid.hash().digest().len()
+}
+
+fn post_proof_size_helper(post_proof: &Vec<PoStProof>) -> usize {
+    post_proof
+        .iter()
+        .map(|p| std::mem::size_of_val(p) + p.proof_bytes.len())
+        .sum::<usize>()
+}
+
+fn tipset_key_size_helper(tipset_key: &TipsetKey) -> usize {
+    // according to the smallcid docs, the median size of it is 40 bytes
+    tipset_key.len() * 40
+}
+
+fn bigint_size_helper(bigint: &BigInt) -> usize {
+    // BigInt is a wrapper around a Vec<u8>, so we can use its size directly
+    bigint.to_bytes_le().1.len()
+}
+
+fn tokenamount_size_helper(token_amount: &TokenAmount) -> usize {
+    // TokenAmount is a wrapper around BigInt, so we can use its size directly
+    bigint_size_helper(token_amount.atto())
+}
+
+fn signature_size_helper(signature: &Option<Signature>) -> usize {
+    // Signature is a wrapper around a Vec<u8>, so we can use its size directly
+    signature
+        .as_ref()
+        .map_or(0, |s| s.bytes().len() + std::mem::size_of::<Signature>())
 }
 
 #[cfg(test)]
