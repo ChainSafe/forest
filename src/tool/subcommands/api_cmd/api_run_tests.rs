@@ -1,15 +1,21 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use crate::eth::EVMMethod;
+use crate::networks::calibnet;
 use crate::rpc::eth::{
     BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
     new_eth_tx_from_signed_message, types::*,
 };
 use crate::rpc::{self, RpcMethod, prelude::*};
 use crate::shim::clock::EPOCH_DURATION_SECONDS;
+use crate::shim::econ::TokenAmount;
+use crate::shim::{address::Address, message::Message};
 use std::io::{self, Write};
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 
+use rpc::eth::eth_tx_from_signed_eth_message;
 use tokio::time::{Duration, sleep};
 
 type TestRunner = Arc<
@@ -79,7 +85,10 @@ pub(super) async fn run_tests(
     lotus: impl Into<Arc<rpc::Client>>,
     filter: String,
 ) -> anyhow::Result<()> {
-    let lotus = Into::<Arc<rpc::Client>>::into(lotus);
+    let client: Arc<rpc::Client> = rpc::Client::default_or_from_env(None)?.into();
+    if let Some(token) = client.token() {
+        println!("token: {}", token);
+    }
 
     let mut passed = 0;
     let mut failed = 0;
@@ -105,7 +114,7 @@ pub(super) async fn run_tests(
 
         io::stdout().flush()?;
 
-        let result = (test.run)(lotus.clone()).await;
+        let result = (test.run)(client.clone()).await;
 
         match result {
             Ok(_) => {
@@ -220,7 +229,7 @@ fn create_eth_new_block_filter() -> RpcTestScenario {
             .call(EthGetFilterChanges::request((filter_id.clone(),))?)
             .await?;
 
-        let result = if let EthFilterResult::Blocks(prev_hashes) = filter_result {
+        let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
             let verify_hashes = async |hashes: &[EthHash]| {
                 for hash in hashes {
                     let _block = client
@@ -238,7 +247,7 @@ fn create_eth_new_block_filter() -> RpcTestScenario {
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
                 .await?;
 
-            if let EthFilterResult::Blocks(hashes) = filter_result {
+            if let EthFilterResult::Hashes(hashes) = filter_result {
                 verify_hashes(&hashes).await?;
                 anyhow::ensure!(prev_hashes != hashes);
 
@@ -248,6 +257,71 @@ fn create_eth_new_block_filter() -> RpcTestScenario {
             }
         } else {
             Err(anyhow::anyhow!("expecting blocks"))
+        };
+
+        let removed = client
+            .call(EthUninstallFilter::request((filter_id,))?)
+            .await?;
+        anyhow::ensure!(removed);
+
+        result
+    })
+}
+
+fn eth_new_pending_transaction_filter() -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| async move {
+        let filter_id = client
+            .call(EthNewPendingTransactionFilter::request(())?)
+            .await?;
+
+        let filter_result = client
+            .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+            .await?;
+        dbg!(&filter_result);
+
+        let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
+            let verify_transactions = async |hashes: &[EthHash]| {
+                for hash in hashes {
+                    let _block = client
+                        .call(EthGetTransactionByHash::request((hash.clone(),))?)
+                        .await?;
+                }
+                Ok::<(), crate::rpc::ClientError>(())
+            };
+            verify_transactions(&prev_hashes).await?;
+
+            let bytes = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
+                .unwrap();
+
+            let message = Message {
+                to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
+                from: Address::from_str("t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy").unwrap(),
+                method_num: EVMMethod::InvokeContract as u64,
+                gas_limit: 1000000,
+                gas_fee_cap: TokenAmount::from_atto(1000000000),
+                gas_premium: TokenAmount::from_atto(100000),
+                sequence: 5,
+                ..Default::default()
+            };
+
+            let smsg = client
+                .call(WalletSignMessage::request((message.from, message))?)
+                .await?;
+
+            let (addr, tx) = eth_tx_from_signed_eth_message(&smsg, calibnet::ETH_CHAIN_ID)?;
+            println!("addr: {}", addr.to_filecoin_address()?);
+            println!("tx: {:?}", tx);
+            let bytes = EthBytes(tx.rlp_signed_message()?);
+
+            let hash = client
+                .call(EthSendRawTransaction::request((bytes,))?)
+                .await?;
+            let cid = hash.to_cid();
+            println!("cid: {cid}");
+
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("expecting transactions"))
         };
 
         let removed = client
@@ -299,7 +373,14 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
         with_methods!(
             create_eth_new_block_filter().name("eth_newBlockFilter works"),
             EthNewBlockFilter,
-            EthGetFilterChanges
+            EthGetFilterChanges,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            eth_new_pending_transaction_filter().name("eth_newPendingTransactionFilter works"),
+            EthNewPendingTransactionFilter,
+            EthGetFilterChanges,
+            EthUninstallFilter
         ),
     ]
 }
