@@ -58,7 +58,7 @@ impl RpcMethod<1> for SyncMarkBad {
         ctx.bad_blocks
             .as_ref()
             .context("bad block cache is disabled")?
-            .put(cid);
+            .push(cid);
         Ok(())
     }
 }

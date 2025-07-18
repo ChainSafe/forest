@@ -694,7 +694,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             // Mark all blocks in the tipset as bad
             if let Some(bad_block_cache) = &self.bad_block_cache {
                 for block in tipset.blocks() {
-                    bad_block_cache.put(*block.cid());
+                    bad_block_cache.push(*block.cid());
                 }
             }
 

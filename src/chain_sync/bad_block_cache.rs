@@ -4,16 +4,16 @@
 use std::num::NonZeroUsize;
 
 use cid::Cid;
-use lru::LruCache;
 use nonzero_ext::nonzero;
-use parking_lot::Mutex;
+
+use crate::utils::{cache::SizeTrackingLruCache, get_size};
 
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate
 /// work.
 #[derive(Debug)]
 pub struct BadBlockCache {
-    cache: Mutex<LruCache<Cid, ()>>,
+    cache: SizeTrackingLruCache<get_size::CidWrapper, ()>,
 }
 
 impl Default for BadBlockCache {
@@ -25,17 +25,20 @@ impl Default for BadBlockCache {
 impl BadBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: Mutex::new(LruCache::new(cap)),
+            cache: SizeTrackingLruCache::new_with_default_metrics_registry(
+                "bad_block_cache".into(),
+                cap,
+            ),
         }
     }
 
-    pub fn put(&self, c: Cid) {
-        self.cache.lock().put(c, ());
+    pub fn push(&self, c: Cid) {
+        self.cache.push(c.into(), ());
     }
 
     /// Returns `Some` if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<()> {
-        self.cache.lock().peek(c).cloned()
+        self.cache.peek_cloned(&(*c).into())
     }
 }
