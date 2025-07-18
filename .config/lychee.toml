@@ -17,6 +17,8 @@ exclude = [
   "filecoin.io/slack",
   # Bot protection / 403 Forbidden errors
   "crates.io",
+  # Bot protection / 403 Forbidden errors
+  "linuxhint.com",
 ]
 timeout = 30
 max_retries = 6

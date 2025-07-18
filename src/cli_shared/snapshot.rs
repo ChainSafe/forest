@@ -167,7 +167,7 @@ mod parse {
     use anyhow::{anyhow, bail};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use nom::{
-        Err,
+        Err, Parser,
         branch::alt,
         bytes::complete::{tag, take_until},
         character::complete::digit1,
@@ -175,7 +175,6 @@ mod parse {
         error::ErrorKind,
         error_position,
         multi::many1,
-        sequence::tuple,
     };
 
     use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
@@ -241,14 +240,14 @@ mod parse {
     where
         T: FromStr,
     {
-        map_res(recognize(many1(digit1)), T::from_str)(input)
+        map_res(recognize(many1(digit1)), T::from_str).parse(input)
     }
 
     /// Create a parser for `YYYY-MM-DD` etc
     fn ymd(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, NaiveDate> + '_ {
         move |input| {
             let (rest, (year, _, month, _, day)) =
-                tuple((number, tag(separator), number, tag(separator), number))(input)?;
+                (number, tag(separator), number, tag(separator), number).parse(input)?;
             match NaiveDate::from_ymd_opt(year, month, day) {
                 Some(date) => Ok((rest, date)),
                 None => Err(Err::Error(error_position!(input, ErrorKind::Verify))),
@@ -260,7 +259,7 @@ mod parse {
     fn hms(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, NaiveTime> + '_ {
         move |input| {
             let (rest, (hour, _, minute, _, second)) =
-                tuple((number, tag(separator), number, tag(separator), number))(input)?;
+                (number, tag(separator), number, tag(separator), number).parse(input)?;
             match NaiveTime::from_hms_opt(hour, minute, second) {
                 Some(date) => Ok((rest, date)),
                 None => Err(Err::Error(error_position!(input, ErrorKind::Verify))),
@@ -269,17 +268,17 @@ mod parse {
     }
 
     fn full(input: &str) -> nom::IResult<&str, ParsedFilename> {
-        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, car_zst)) =
-            tuple((
-                take_until("_snapshot_"),
-                tag("_snapshot_"),
-                take_until("_"),
-                tag("_"),
-                ymd("-"),
-                tag("_height_"),
-                number,
-                alt((tag(".car.zst"), tag(FOREST_CAR_FILE_EXTENSION))),
-            ))(input)?;
+        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, car_zst)) = (
+            take_until("_snapshot_"),
+            tag("_snapshot_"),
+            take_until("_"),
+            tag("_"),
+            ymd("-"),
+            tag("_height_"),
+            number,
+            alt((tag(".car.zst"), tag(FOREST_CAR_FILE_EXTENSION))),
+        )
+            .parse(input)?;
         Ok((
             rest,
             ParsedFilename::Full {
@@ -293,19 +292,20 @@ mod parse {
     }
 
     fn short(input: &str) -> nom::IResult<&str, ParsedFilename> {
-        let (rest, (height, _, date, _, time, _)) = tuple((
+        let (rest, (height, _, date, _, time, _)) = (
             number,
             tag("_"),
             ymd("_"),
             tag("T"),
             hms("_"),
             tag("Z.car.zst"),
-        ))(input)?;
+        )
+            .parse(input)?;
         Ok((rest, ParsedFilename::Short { date, time, height }))
     }
 
     fn enter_nom<'a, T>(
-        mut parser: impl nom::Parser<&'a str, T, nom::error::Error<&'a str>>,
+        mut parser: impl nom::Parser<&'a str, Output = T, Error = nom::error::Error<&'a str>>,
         input: &'a str,
     ) -> anyhow::Result<T> {
         let (rest, t) = parser
@@ -372,6 +372,16 @@ mod parse {
                 );
                 assert_eq!(value.to_string(), text, "mismatch in serialize");
             }
+        }
+
+        #[test]
+        fn test_wrong_ext() {
+            ParsedFilename::parse_str("forest_snapshot_mainnet_2023-05-30_height_2905376.car.zstt")
+                .unwrap_err();
+            ParsedFilename::parse_str(
+                "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst.tmp",
+            )
+            .unwrap_err();
         }
 
         impl ParsedFilename<'static> {
