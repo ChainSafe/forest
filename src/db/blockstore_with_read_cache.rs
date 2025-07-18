@@ -24,7 +24,7 @@ pub type LruBlockstoreReadCache = SizeTrackingLruCache<get_size::CidWrapper, Vec
 
 impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
-        self.get_cloned(&get_size::CidWrapper(*k))
+        self.get_cloned(&(*k).into())
     }
 
     fn put(&self, k: Cid, block: Vec<u8>) {

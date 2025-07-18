@@ -96,6 +96,14 @@ where
         self.cache.write().get(k).cloned()
     }
 
+    pub fn peek_cloned<Q>(&self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.write().peek(k).cloned()
+    }
+
     pub fn len(&self) -> usize {
         self.cache.read().len()
     }
