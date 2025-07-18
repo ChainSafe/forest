@@ -10,6 +10,7 @@ import (
 	"github.com/filecoin-project/go-f3/gpbft"
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-state-types/crypto"
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -53,19 +54,23 @@ func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gp
 	return h.f3.GetPowerTable(ctx, tsk)
 }
 
-func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) error {
+func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) (*cid.Cid, error) {
 	cs, err := h.f3.GetCertStore(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	writer := bufio.NewWriter(f)
-	return cs.ExportLatestSnapshot(ctx, writer)
+	cid, _, err := cs.ExportLatestSnapshot(ctx, writer)
+	if err != nil {
+		return nil, err
+	}
+	return &cid, nil
 }
 
 // F3GetF3PowerTableByInstance retrieves the power table for a specific consensus instance.

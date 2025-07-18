@@ -24,7 +24,7 @@ use crate::{
         DefaultBlockstoreReadCacheStats, LruBlockstoreReadCache,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
-    lotus_json::HasLotusJson as _,
+    lotus_json::{HasLotusJson as _, LotusJson},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
@@ -46,6 +46,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
+use cid::Cid;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
@@ -755,7 +756,7 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
         Some("Gets the power table (committee) used to validate the specified instance");
 
     type Params = (String,);
-    type Ok = ();
+    type Ok = Cid;
 
     async fn handle(
         _ctx: Ctx<impl Blockstore>,
@@ -764,8 +765,8 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(path)?;
-        let response = client.request(Self::NAME, params).await?;
-        Ok(response)
+        let LotusJson(cid): LotusJson<Cid> = client.request(Self::NAME, params).await?;
+        Ok(cid)
     }
 }
 
