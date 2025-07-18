@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::CachingBlockHeader;
-use crate::rpc::eth::pubsub::LogFilter;
+use crate::rpc::eth::pubsub_trait::LogFilter;
 use anyhow::ensure;
 use ipld_core::serde::SerdeError;
 use jsonrpsee::core::traits::IdProvider;

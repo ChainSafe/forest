@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 mod auth_layer;
 mod channel;
 mod client;
@@ -12,7 +13,6 @@ mod request;
 mod segregation_layer;
 mod set_extension_layer;
 
-use crate::rpc::chain::new_heads;
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::shim::clock::ChainEpoch;
 pub use client::Client;
@@ -404,10 +404,7 @@ mod methods {
 use crate::rpc::auth_layer::AuthLayer;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::channel::RpcModule as FilRpcModule;
-use crate::rpc::eth::{
-    EthSubscribe, EthUnsubscribe,
-    pubsub::{ETH_SUBSCRIPTION, eth_subscribe},
-};
+use crate::rpc::eth::pubsub::EthPubSub;
 use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
@@ -514,20 +511,6 @@ where
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
-
-    // Register `Filecoin.EthSubscribe` and related methods.
-    module.register_subscription(
-        EthSubscribe::NAME,
-        ETH_SUBSCRIPTION,
-        EthUnsubscribe::NAME,
-        eth_subscribe,
-    )?;
-    if let Some(alias) = EthSubscribe::NAME_ALIAS {
-        module.register_alias(alias, EthSubscribe::NAME)?;
-    }
-    if let Some(alias) = EthUnsubscribe::NAME_ALIAS {
-        module.register_alias(alias, EthUnsubscribe::NAME)?;
-    }
 
     let mut pubsub_module = FilRpcModule::default();
 
@@ -662,7 +645,7 @@ fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut module = RpcModule::from_arc(state);
+    let mut module = RpcModule::from_arc(state.clone());
     macro_rules! register {
         ($ty:ty) => {
             // Register only non-subscription RPC methods.
@@ -675,6 +658,11 @@ where
         };
     }
     for_each_rpc_method!(register);
+
+    let eth_pubsub = EthPubSub::new(state.clone());
+    module
+        .merge(eth_pubsub.into_rpc())
+        .expect("Could not merge eth pubsub module");
     module
 }
 
