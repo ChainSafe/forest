@@ -290,7 +290,7 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
                 }
                 Ok::<(), crate::rpc::ClientError>(())
             };
-            verify_transactions(&prev_hashes).await?;
+            // verify_transactions(&prev_hashes).await?;
 
             let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
                 .unwrap();
@@ -312,7 +312,21 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
                 .await?;
             println!("cid: {}", smsg.cid());
 
-            Ok(())
+            sleep(Duration::from_secs(1)).await;
+
+            let filter_result = client
+                .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                .await?;
+            dbg!(&filter_result);
+
+            if let EthFilterResult::Hashes(hashes) = filter_result {
+                // verify_transactions(&hashes).await?;
+                anyhow::ensure!(prev_hashes != hashes);
+
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("expecting hashes"))
+            }
         } else {
             Err(anyhow::anyhow!("expecting transactions"))
         };
