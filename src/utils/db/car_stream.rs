@@ -13,7 +13,7 @@ use integer_encoding::VarInt;
 use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io::{self, SeekFrom};
+use std::io::{self, Cursor, Read, SeekFrom, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{
@@ -53,15 +53,8 @@ pub struct CarBlock {
 
 impl CarBlock {
     // Write a varint frame containing the cid and the data
-    pub fn write(&self, mut writer: &mut impl io::Write) -> io::Result<()> {
-        let frame_length = self.cid.encoded_len() + self.data.len();
-        writer.write_all(&frame_length.encode_var_vec())?;
-        #[allow(clippy::needless_borrows_for_generic_args)]
-        self.cid
-            .write_bytes(&mut writer)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        writer.write_all(&self.data)?;
-        Ok(())
+    pub fn write(&self, writer: &mut impl Write) -> io::Result<()> {
+        writer.write_car_block(self.cid, self.data.len(), &mut Cursor::new(&self.data))
     }
 
     pub fn from_bytes(bytes: impl Into<Bytes>) -> io::Result<CarBlock> {
@@ -90,6 +83,31 @@ impl CarBlock {
             "CID/Block mismatch for block {}, actual: {actual}",
             self.cid
         );
+        Ok(())
+    }
+}
+
+pub trait CarBlockWrite {
+    fn write_car_block(
+        &mut self,
+        cid: Cid,
+        data_len: usize,
+        data: &mut impl Read,
+    ) -> io::Result<()>;
+}
+
+impl<T: Write> CarBlockWrite for T {
+    fn write_car_block(
+        &mut self,
+        cid: Cid,
+        data_len: usize,
+        data: &mut impl Read,
+    ) -> io::Result<()> {
+        let frame_length = cid.encoded_len() + data_len;
+        self.write_all(&frame_length.encode_var_vec())?;
+        cid.write_bytes(&mut *self)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        std::io::copy(data, self)?;
         Ok(())
     }
 }

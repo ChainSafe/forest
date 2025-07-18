@@ -35,6 +35,9 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
+        /// Export snapshot in the experimental v2 format(FRC-0108).
+        #[arg(long)]
+        v2: bool,
     },
 }
 
@@ -47,6 +50,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                v2,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -119,9 +123,15 @@ impl SnapshotCommands {
                 });
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = client
-                    .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
-                    .await?;
+                let hash_result = if v2 {
+                    client
+                        .call(ChainExportV2::request((params,))?.with_timeout(Duration::MAX))
+                        .await?
+                } else {
+                    client
+                        .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                        .await?
+                };
 
                 handle.abort();
                 let _ = handle.await;

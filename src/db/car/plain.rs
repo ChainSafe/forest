@@ -60,6 +60,7 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::chain::FilecoinSnapshotMetadata;
 use crate::cid_collections::{CidHashMap, hash_map::Entry as CidHashMapEntry};
 use crate::db::PersistentStore;
 use crate::utils::db::car_stream::{CarV1Header, CarV2Header};
@@ -70,11 +71,11 @@ use crate::{
 use CidHashMapEntry::{Occupied, Vacant};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore as _;
 use integer_encoding::{FixedIntReader, VarIntReader};
 use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
-use std::ops::DerefMut;
 use std::{
     any::Any,
     io::{
@@ -83,6 +84,8 @@ use std::{
         Read, Seek, SeekFrom,
     },
     iter,
+    ops::DerefMut,
+    sync::OnceLock,
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace};
@@ -115,6 +118,7 @@ pub struct PlainCar<ReaderT> {
     version: u64,
     header_v1: CarV1Header,
     header_v2: Option<CarV2Header>,
+    metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
@@ -167,13 +171,32 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
                     version,
                     header_v1,
                     header_v2,
+                    metadata: OnceLock::new(),
                 })
             }
         }
     }
 
-    pub fn roots(&self) -> &NonEmpty<Cid> {
-        &self.header_v1.roots
+    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
+        self.metadata.get_or_init(|| {
+            if self.header_v1.roots.len() == 1 {
+                let maybe_metadata_cid = self.header_v1.roots.first();
+                if let Ok(Some(metadata)) =
+                    self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
+                {
+                    return Some(metadata);
+                }
+            }
+            None
+        })
+    }
+
+    pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
+        if let Some(metadata) = self.metadata() {
+            &metadata.head_tipset_key
+        } else {
+            &self.header_v1.roots
+        }
     }
 
     pub fn version(&self) -> u64 {
@@ -181,7 +204,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset_key(&self) -> TipsetKey {
-        TipsetKey::from(self.roots().clone())
+        TipsetKey::from(self.head_tipset_key().clone())
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -202,6 +225,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             version: self.version,
             header_v1: self.header_v1,
             header_v2: self.header_v2,
+            metadata: self.metadata,
         }
     }
 }
@@ -503,7 +527,7 @@ mod tests {
         let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.version(), 1);
-        assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.head_tipset_key().len(), 1);
         assert_eq!(car_backed.cids().len(), 1222);
 
         let reference_car = reference(Cursor::new(car));
@@ -526,7 +550,7 @@ mod tests {
         let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.version(), 2);
-        assert_eq!(car_backed.roots().len(), 1);
+        assert_eq!(car_backed.head_tipset_key().len(), 1);
         assert_eq!(car_backed.cids().len(), 7153);
 
         let reference_car = reference(Cursor::new(car));

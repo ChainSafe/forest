@@ -59,6 +59,7 @@ macro_rules! for_each_rpc_method {
         // chain vertical
         $callback!($crate::rpc::chain::ChainPruneSnapshot);
         $callback!($crate::rpc::chain::ChainExport);
+        $callback!($crate::rpc::chain::ChainExportV2);
         $callback!($crate::rpc::chain::ChainGetBlock);
         $callback!($crate::rpc::chain::ChainGetBlockMessages);
         $callback!($crate::rpc::chain::ChainGetEvents);
