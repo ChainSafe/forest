@@ -453,7 +453,7 @@ impl GetPowerTable {
         power_entries.sort();
 
         if let Some(stats) = db.stats() {
-            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), cache_size=%human_bytes::human_bytes(BLOCKSTORE_CACHE.size_in_bytes() as f64), "F3.GetPowerTable blockstore read cache");
+            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), "F3.GetPowerTable blockstore read cache");
         }
 
         Ok(power_entries)

@@ -16,8 +16,6 @@ pub trait BlockstoreReadCache {
     fn put(&self, k: Cid, block: Vec<u8>);
 
     fn len(&self) -> usize;
-
-    fn size_in_bytes(&self) -> usize;
 }
 
 pub type LruBlockstoreReadCache = SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>;
@@ -34,10 +32,6 @@ impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>
     fn len(&self) -> usize {
         self.len()
     }
-
-    fn size_in_bytes(&self) -> usize {
-        self.size_in_bytes()
-    }
 }
 
 #[derive(Debug, Default)]
@@ -53,10 +47,6 @@ impl BlockstoreReadCache for VoidBlockstoreReadCache {
     fn len(&self) -> usize {
         0
     }
-
-    fn size_in_bytes(&self) -> usize {
-        0
-    }
 }
 
 impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
@@ -70,10 +60,6 @@ impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
 
     fn len(&self) -> usize {
         self.as_ref().len()
-    }
-
-    fn size_in_bytes(&self) -> usize {
-        self.as_ref().size_in_bytes()
     }
 }
 

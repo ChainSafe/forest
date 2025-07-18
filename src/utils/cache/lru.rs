@@ -25,22 +25,35 @@ use prometheus_client::{
 
 use crate::metrics::default_registry;
 
+pub trait KeyConstraints:
+    GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
+{
+}
+
+impl<T> KeyConstraints for T where
+    T: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
+{
+}
+
+pub trait ValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
+
+impl<T> ValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
+
 #[derive(Debug, Clone)]
 pub struct SizeTrackingLruCache<K, V>
 where
-    K: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static,
-    V: GetSize + Debug + Send + Sync + Clone + 'static,
+    K: KeyConstraints,
+    V: ValueConstraints,
 {
     cache_id: usize,
     cache_name: Cow<'static, str>,
     cache: Arc<RwLock<LruCache<K, V>>>,
-    size_in_bytes: Gauge,
 }
 
 impl<K, V> SizeTrackingLruCache<K, V>
 where
-    K: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static,
-    V: GetSize + Debug + Send + Sync + Clone + 'static,
+    K: KeyConstraints,
+    V: ValueConstraints,
 {
     pub fn register_metrics(&self, registry: &mut Registry) {
         registry.register_collector(Box::new(self.clone()));
@@ -56,7 +69,6 @@ where
             cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
             cache_name,
             cache: Arc::new(RwLock::new(LruCache::new(capacity))),
-            size_in_bytes: Default::default(),
         }
     }
 
@@ -78,14 +90,7 @@ where
     }
 
     pub fn push(&self, k: K, v: V) -> Option<(K, V)> {
-        self.size_in_bytes
-            .inc_by(k.get_size().saturating_add(v.get_size()) as _);
-        let old = self.cache.write().push(k, v);
-        if let Some((old_k, old_v)) = &old {
-            self.size_in_bytes
-                .dec_by(old_k.get_size().saturating_add(old_v.get_size()) as _);
-        }
-        old
+        self.cache.write().push(k, v)
     }
 
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
@@ -108,18 +113,29 @@ where
         self.cache.read().len()
     }
 
-    pub fn size_in_bytes(&self) -> usize {
-        self.size_in_bytes.get() as _
+    fn size_in_bytes(&self) -> usize {
+        let mut size = 0_usize;
+        for (k, v) in self.cache.read().iter() {
+            size = size
+                .saturating_add(k.get_size())
+                .saturating_add(v.get_size());
+        }
+        size
     }
 }
 
 impl<K, V> Collector for SizeTrackingLruCache<K, V>
 where
-    K: GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static,
-    V: GetSize + Debug + Send + Sync + Clone + 'static,
+    K: KeyConstraints,
+    V: ValueConstraints,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         {
+            let size_in_bytes = {
+                let g: Gauge = Default::default();
+                g.set(self.size_in_bytes() as _);
+                g
+            };
             let size_metric_name = format!("{}_{}_size", self.cache_name, self.cache_id);
             let size_metric_help = format!(
                 "Size of LruCache {}_{} in bytes",
@@ -129,9 +145,9 @@ where
                 &size_metric_name,
                 &size_metric_help,
                 Some(&Unit::Bytes),
-                self.size_in_bytes.metric_type(),
+                size_in_bytes.metric_type(),
             )?;
-            self.size_in_bytes.encode(size_metric_encoder)?;
+            size_in_bytes.encode(size_metric_encoder)?;
         }
         {
             let len_metric_name = format!("{}_{}_len", self.cache_name, self.cache_id);
