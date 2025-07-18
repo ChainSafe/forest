@@ -4831,10 +4831,12 @@ checksum = "1fba77a59c4c644fd48732367624d1bcf6f409f9c9a286fbc71d2f1fc0b2ea16"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
+ "jsonrpsee-proc-macros",
  "jsonrpsee-server",
  "jsonrpsee-types",
  "jsonrpsee-ws-client",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4908,6 +4910,19 @@ dependencies = [
  "tokio",
  "tower 0.5.2",
  "url",
+]
+
+[[package]]
+name = "jsonrpsee-proc-macros"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fa4f5daed39f982a1bb9d15449a28347490ad42b212f8eaa2a2a344a0dce9e9"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro-crate 3.3.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]

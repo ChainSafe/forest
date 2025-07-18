@@ -5,6 +5,7 @@ pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
 pub mod pubsub;
+pub(crate) mod pubsub_trait;
 mod trace;
 pub mod types;
 mod utils;
