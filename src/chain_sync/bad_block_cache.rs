@@ -29,12 +29,11 @@ impl BadBlockCache {
         }
     }
 
-    /// Puts a bad block `Cid` in the cache with a given reason.
-    pub fn put(&self, c: Cid) -> Option<()> {
-        self.cache.lock().put(c, ())
+    pub fn put(&self, c: Cid) {
+        self.cache.lock().put(c, ());
     }
 
-    /// Returns `Some` with the reason if the block CID is in bad block cache.
+    /// Returns `Some` if the block CID is in bad block cache.
     /// This function does not update the head position of the `Cid` key.
     pub fn peek(&self, c: &Cid) -> Option<()> {
         self.cache.lock().peek(c).cloned()
