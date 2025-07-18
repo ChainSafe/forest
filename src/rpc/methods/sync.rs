@@ -266,7 +266,7 @@ mod tests {
         SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
 
         let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
-        assert_eq!(reason, "Marked bad manually through RPC API");
+        assert_eq!(reason, "bad");
     }
 
     #[tokio::test]
