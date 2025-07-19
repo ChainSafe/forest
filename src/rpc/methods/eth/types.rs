@@ -500,8 +500,7 @@ lotus_json_with_self!(EthFilterSpec);
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthFilterResult {
-    Blocks(Vec<EthHash>),
-    Txs(Vec<EthHash>),
+    Hashes(Vec<EthHash>),
     Logs(Vec<EthLog>),
 }
 lotus_json_with_self!(EthFilterResult);
@@ -509,8 +508,7 @@ lotus_json_with_self!(EthFilterResult);
 impl EthFilterResult {
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::Blocks(v) => v.is_empty(),
-            Self::Txs(v) => v.is_empty(),
+            Self::Hashes(v) => v.is_empty(),
             Self::Logs(v) => v.is_empty(),
         }
     }
@@ -519,8 +517,7 @@ impl EthFilterResult {
 impl PartialEq for EthFilterResult {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Blocks(a), Self::Blocks(b)) => a == b,
-            (Self::Txs(a), Self::Txs(b)) => a == b,
+            (Self::Hashes(a), Self::Hashes(b)) => a == b,
             (Self::Logs(a), Self::Logs(b)) => a == b,
             _ => self.is_empty() && other.is_empty(),
         }
