@@ -1,9 +1,9 @@
 module test/v2
 
-go 1.23.10
+go 1.24.5
 
 require (
-	github.com/ihciah/rust2go v0.0.0-20250608231442-a833a4a103e0
+	github.com/ihciah/rust2go v0.0.0-20250717023419-6e5b74b1f846
 	github.com/ipfs/boxo v0.33.0
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-datastore v0.8.2
