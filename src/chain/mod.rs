@@ -185,7 +185,9 @@ impl<'de> Deserialize<'de> for FilecoinSnapshotVersion {
         let i = u64::deserialize(deserializer)?;
         match FilecoinSnapshotVersion::from_u64(i) {
             Some(v) => Ok(v),
-            None => Err(serde::de::Error::custom("invalid snapshot version {i}")),
+            None => Err(serde::de::Error::custom(format!(
+                "invalid snapshot version {i}"
+            ))),
         }
     }
 }
