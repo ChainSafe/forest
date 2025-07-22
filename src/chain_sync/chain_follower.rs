@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 //! This module contains the logic for driving Forest forward in the Filecoin
 //! blockchain.
 //!
@@ -15,12 +16,14 @@
 //!
 //! The state machine does not do any network requests or validation. Those are
 //! handled by an external actor.
+
 use crate::libp2p::hello::HelloRequest;
 use crate::message_pool::MessagePool;
 use crate::message_pool::MpoolRpcProvider;
 use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use crate::utils::flume::SizeTrackingReceiver;
 use crate::utils::misc::env::is_env_truthy;
 use ahash::{HashMap, HashSet};
 use chrono::Utc;
@@ -65,7 +68,7 @@ pub struct ChainFollower<DB> {
     pub bad_blocks: Option<Arc<BadBlockCache>>,
 
     /// Incoming network events to be handled by synchronizer
-    net_handler: flume::Receiver<NetworkEvent>,
+    net_handler: SizeTrackingReceiver<NetworkEvent>,
 
     /// Tipset channel sender
     pub tipset_sender: flume::Sender<Arc<FullTipset>>,
@@ -88,7 +91,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
         genesis: Arc<Tipset>,
-        net_handler: flume::Receiver<NetworkEvent>,
+        net_handler: SizeTrackingReceiver<NetworkEvent>,
         stateless_mode: bool,
         mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     ) -> Self {
@@ -134,7 +137,7 @@ impl<DB: Blockstore + Sync + Send + 'static> ChainFollower<DB> {
 pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     bad_block_cache: Option<Arc<BadBlockCache>>,
-    network_rx: flume::Receiver<NetworkEvent>,
+    network_rx: SizeTrackingReceiver<NetworkEvent>,
     tipset_receiver: flume::Receiver<Arc<FullTipset>>,
     network: SyncNetworkContext<DB>,
     mem_pool: Arc<MessagePool<MpoolRpcProvider<DB>>>,

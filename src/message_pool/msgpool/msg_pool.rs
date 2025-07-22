@@ -23,6 +23,7 @@ use crate::shim::{
     gas::{Gas, price_list_by_network_version},
 };
 use crate::state_manager::is_valid_for_sending;
+use crate::utils::flume::SizeTrackingSender;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
@@ -180,7 +181,7 @@ pub struct MessagePool<T> {
     /// The underlying provider
     pub api: Arc<T>,
     /// Sender half to send messages to other components
-    pub network_sender: flume::Sender<NetworkMessage>,
+    pub network_sender: SizeTrackingSender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
     pub bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>,
     /// A cache for BLS signature keyed by Cid
@@ -460,7 +461,7 @@ where
     /// Creates a new `MessagePool` instance.
     pub fn new(
         api: T,
-        network_sender: flume::Sender<NetworkMessage>,
+        network_sender: SizeTrackingSender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
         services: &mut JoinSet<anyhow::Result<()>>,

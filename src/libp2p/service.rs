@@ -1,11 +1,19 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+use super::{
+    ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
+    chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
+    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
 };
-
+use crate::libp2p::{
+    PeerManager, PeerOperation,
+    chain_exchange::ChainExchangeBehaviour,
+    discovery::DiscoveryEvent,
+    hello::{HelloBehaviour, HelloRequest, HelloResponse},
+    rpc::RequestResponseError,
+};
+use crate::utils::flume::{SizeTrackingReceiver, SizeTrackingSender};
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
@@ -21,6 +29,7 @@ use cid::Cid;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
+use get_size2::GetSize;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
@@ -35,21 +44,12 @@ use libp2p::{
     swarm::{DialError, SwarmEvent},
     tcp, yamux,
 };
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
-
-use super::{
-    ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
-    chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
-    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
-};
-use crate::libp2p::{
-    PeerManager, PeerOperation,
-    chain_exchange::ChainExchangeBehaviour,
-    discovery::DiscoveryEvent,
-    hello::{HelloBehaviour, HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-};
 
 pub(in crate::libp2p) mod metrics {
     use prometheus_client::metrics::{family::Family, gauge::Gauge};
@@ -112,6 +112,15 @@ pub enum NetworkEvent {
     PeerDisconnected(PeerId),
 }
 
+impl GetSize for NetworkEvent {
+    fn get_heap_size(&self) -> usize {
+        match self {
+            Self::HelloResponseOutbound { request, .. } => request.get_heap_size(),
+            _ => 0,
+        }
+    }
+}
+
 /// Message types that can come over `GossipSub`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
@@ -148,6 +157,12 @@ pub enum NetworkMessage {
     },
 }
 
+impl GetSize for NetworkMessage {
+    fn get_heap_size(&self) -> usize {
+        0
+    }
+}
+
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
@@ -170,10 +185,10 @@ pub struct Libp2pService<DB> {
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
-    network_receiver_in: flume::Receiver<NetworkMessage>,
-    network_sender_in: Sender<NetworkMessage>,
-    network_receiver_out: flume::Receiver<NetworkEvent>,
-    network_sender_out: Sender<NetworkEvent>,
+    network_receiver_in: SizeTrackingReceiver<NetworkMessage>,
+    network_sender_in: SizeTrackingSender<NetworkMessage>,
+    network_receiver_out: SizeTrackingReceiver<NetworkEvent>,
+    network_sender_out: SizeTrackingSender<NetworkEvent>,
     network_name: String,
     genesis_cid: Cid,
 }
@@ -223,8 +238,10 @@ where
                 .with_context(|| format!("Failed to subscribe gossipsub topic {t}"))?;
         }
 
-        let (network_sender_in, network_receiver_in) = flume::unbounded();
-        let (network_sender_out, network_receiver_out) = flume::unbounded();
+        let (network_sender_in, network_receiver_in) =
+            crate::utils::flume::unbounded_with_default_metrics_registry("network_messages".into());
+        let (network_sender_out, network_receiver_out) =
+            crate::utils::flume::unbounded_with_default_metrics_registry("network_events".into());
 
         // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
         // peer's multiaddress. Useful if others want to use this node to bootstrap
@@ -289,7 +306,7 @@ where
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
-        let mut network_stream = self.network_receiver_in.stream().fuse();
+        let mut network_stream = self.network_receiver_in.stream();
         let mut interval =
             IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
@@ -383,12 +400,12 @@ where
     }
 
     /// Returns a sender which allows sending messages to the libp2p service.
-    pub fn network_sender(&self) -> Sender<NetworkMessage> {
+    pub fn network_sender(&self) -> SizeTrackingSender<NetworkMessage> {
         self.network_sender_in.clone()
     }
 
     /// Returns a receiver to listen to network events emitted from the service.
-    pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
+    pub fn network_receiver(&self) -> SizeTrackingReceiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }
 
@@ -442,7 +459,7 @@ async fn handle_network_message(
     store: Arc<impl BitswapStoreReadWrite>,
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
     peer_manager: &Arc<PeerManager>,
 ) {
     match message {
@@ -581,7 +598,7 @@ async fn handle_network_message(
 async fn handle_discovery_event(
     peer_info_map: &HashMap<PeerId, PeerInfo>,
     discovery_out: DiscoveryEvent,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
     peer_manager: &PeerManager,
 ) {
     match discovery_out {
@@ -626,7 +643,7 @@ async fn handle_discovery_event(
 
 async fn handle_gossip_event(
     e: gossipsub::Event,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) {
@@ -681,7 +698,7 @@ async fn handle_hello_event(
     event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
     peer_manager: &PeerManager,
     genesis_cid: &Cid,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
 ) {
     match event {
         request_response::Event::Message { peer, message, .. } => match message {
@@ -791,7 +808,7 @@ async fn handle_chain_exchange_event<DB>(
     chain_exchange: &mut ChainExchangeBehaviour,
     ce_event: request_response::Event<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
     cx_response_tx: Sender<(
         request_response::InboundRequestId,
         request_response::ResponseChannel<ChainExchangeResponse>,
@@ -870,7 +887,7 @@ async fn handle_forest_behaviour_event<DB>(
     event: ForestBehaviourEvent,
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
-    network_sender_out: &Sender<NetworkEvent>,
+    network_sender_out: &SizeTrackingSender<NetworkEvent>,
     cx_response_tx: Sender<(
         request_response::InboundRequestId,
         request_response::ResponseChannel<ChainExchangeResponse>,
@@ -931,7 +948,7 @@ async fn handle_forest_behaviour_event<DB>(
     }
 }
 
-async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
+async fn emit_event(sender: &SizeTrackingSender<NetworkEvent>, event: NetworkEvent) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }

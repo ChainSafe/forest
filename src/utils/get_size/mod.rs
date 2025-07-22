@@ -5,6 +5,13 @@ use cid::Cid;
 use derive_more::{From, Into};
 use get_size2::GetSize;
 
+pub fn vec_alike_get_size<V, T>(slice: &V) -> usize
+where
+    V: AsRef<[T]>,
+{
+    std::mem::size_of_val(slice.as_ref())
+}
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, From, Into)]
 pub struct CidWrapper(pub Cid);
 impl GetSize for CidWrapper {}

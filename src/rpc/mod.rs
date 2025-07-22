@@ -13,6 +13,7 @@ mod segregation_layer;
 mod set_extension_layer;
 
 use crate::shim::clock::ChainEpoch;
+use crate::utils::flume::SizeTrackingSender;
 pub use client::Client;
 pub use error::ServerError;
 use eth::filter::EthEventHandler;
@@ -476,7 +477,7 @@ impl<DB: Blockstore> RPCState<DB> {
         self.state_manager.blockstore_owned()
     }
 
-    pub fn network_send(&self) -> &flume::Sender<crate::libp2p::NetworkMessage> {
+    pub fn network_send(&self) -> &SizeTrackingSender<crate::libp2p::NetworkMessage> {
         self.sync_network_context.network_send()
     }
 

@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::chain_sync::SyncStatusReport;
+use crate::utils::flume::{SizeTrackingReceiver, bounded_with_default_metrics_registry};
 use crate::{
     KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
@@ -98,10 +99,11 @@ async fn ctx(
     chain_config: Arc<ChainConfig>,
 ) -> anyhow::Result<(
     Arc<RPCState<ReadOpsTrackingStore<ManyCar<ParityDb>>>>,
-    flume::Receiver<NetworkMessage>,
+    SizeTrackingReceiver<NetworkMessage>,
     tokio::sync::mpsc::Receiver<()>,
 )> {
-    let (network_send, network_rx) = flume::bounded(5);
+    let (network_send, network_rx) =
+        bounded_with_default_metrics_registry(5, "network_messages".into());
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
