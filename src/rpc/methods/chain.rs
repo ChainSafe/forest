@@ -295,7 +295,7 @@ impl RpcMethod<1> for ChainExport {
 
 pub enum ChainExportV2 {}
 impl RpcMethod<1> for ChainExportV2 {
-    const NAME: &'static str = "Filecoin.ChainExportV2";
+    const NAME: &'static str = "Forest.ChainExportV2";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;

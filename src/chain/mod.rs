@@ -19,6 +19,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use itertools::Itertools as _;
 use multihash_derive::MultihashDigest as _;
+use num::FromPrimitive as _;
+use num_derive::FromPrimitive;
 use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -159,19 +161,51 @@ pub async fn export_v2<D: Digest>(
     Ok(digest)
 }
 
+#[derive(Debug, Copy, FromPrimitive, Clone, PartialEq, Eq)]
+#[repr(u64)]
+pub enum FilecoinSnapshotVersion {
+    V1 = 1,
+    V2 = 2,
+}
+
+impl Serialize for FilecoinSnapshotVersion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(*self as u64)
+    }
+}
+
+impl<'de> Deserialize<'de> for FilecoinSnapshotVersion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let i = u64::deserialize(deserializer)?;
+        match FilecoinSnapshotVersion::from_u64(i) {
+            Some(v) => Ok(v),
+            None => Err(serde::de::Error::custom("invalid snapshot version {i}")),
+        }
+    }
+}
+
 /// <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#snapshotmetadata>
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct FilecoinSnapshotMetadata {
-    pub version: u64,
+    /// Snapshot version
+    pub version: FilecoinSnapshotVersion,
+    /// Chain head tipset key
     pub head_tipset_key: NonEmpty<Cid>,
+    /// F3 snapshot `CID`
     pub f3_data: Option<Cid>,
 }
 
 impl FilecoinSnapshotMetadata {
     pub fn new_v2(head_tipset_key: NonEmpty<Cid>, f3_data: Option<Cid>) -> Self {
         Self {
-            version: 2,
+            version: FilecoinSnapshotVersion::V2,
             head_tipset_key,
             f3_data,
         }
@@ -180,7 +214,7 @@ impl FilecoinSnapshotMetadata {
 
 impl std::fmt::Display for FilecoinSnapshotMetadata {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Snapshot version: {}", self.version)?;
+        writeln!(f, "Snapshot version: {}", self.version as u64)?;
         let head_tipset_key_string = self
             .head_tipset_key
             .iter()
@@ -195,5 +229,25 @@ impl std::fmt::Display for FilecoinSnapshotMetadata {
                 .unwrap_or_else(|| "not found".into())
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_snapshot_version_cbor_serde() {
+        assert_eq!(
+            fvm_ipld_encoding::to_vec(&FilecoinSnapshotVersion::V2),
+            fvm_ipld_encoding::to_vec(&2_u64)
+        );
+        assert_eq!(
+            fvm_ipld_encoding::from_slice::<FilecoinSnapshotVersion>(
+                &fvm_ipld_encoding::to_vec(&2_u64).unwrap()
+            )
+            .unwrap(),
+            FilecoinSnapshotVersion::V2
+        );
     }
 }

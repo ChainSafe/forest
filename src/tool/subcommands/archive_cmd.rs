@@ -27,6 +27,7 @@
 //! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::Tipset;
+use crate::chain::FilecoinSnapshotVersion;
 use crate::chain::{
     ChainEpochDelta,
     index::{ChainIndex, ResolveNullTipset},
@@ -179,7 +180,7 @@ impl ArchiveCommands {
                 let snapshot_version = if let Some(metadata) = store.metadata() {
                     metadata.version
                 } else {
-                    1
+                    FilecoinSnapshotVersion::V1
                 };
                 println!(
                     "{}",
@@ -256,14 +257,14 @@ pub struct ArchiveInfo {
     tipsets: ChainEpoch,
     messages: ChainEpoch,
     head: Tipset,
-    snapshot_version: u64,
+    snapshot_version: FilecoinSnapshotVersion,
     index_size_bytes: Option<u32>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "CAR format:       {}", self.variant)?;
-        writeln!(f, "Snapshot version: {}", self.snapshot_version)?;
+        writeln!(f, "Snapshot version: {}", self.snapshot_version as u64)?;
         writeln!(f, "Network:          {}", self.network)?;
         writeln!(f, "Epoch:            {}", self.epoch)?;
         writeln!(f, "State-roots:      {}", self.epoch - self.tipsets + 1)?;
@@ -294,7 +295,7 @@ impl ArchiveInfo {
         store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
-        snapshot_version: u64,
+        snapshot_version: FilecoinSnapshotVersion,
         index_size_bytes: Option<u32>,
     ) -> anyhow::Result<Self> {
         Self::from_store_with(
@@ -314,7 +315,7 @@ impl ArchiveInfo {
         store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
-        snapshot_version: u64,
+        snapshot_version: FilecoinSnapshotVersion,
         index_size_bytes: Option<u32>,
         progress: bool,
     ) -> anyhow::Result<Self> {
@@ -903,7 +904,7 @@ async fn sync_bucket(
         &store,
         "ManyCAR".to_string(),
         heaviest_tipset.clone(),
-        1,
+        FilecoinSnapshotVersion::V1,
         None,
     )?;
 
@@ -1040,7 +1041,14 @@ mod tests {
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
         let index_size_bytes = store.index_size_bytes();
-        let info = ArchiveInfo::from_store(&store, variant, ts, 1, index_size_bytes).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            variant,
+            ts,
+            FilecoinSnapshotVersion::V1,
+            index_size_bytes,
+        )
+        .unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
@@ -1051,7 +1059,14 @@ mod tests {
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
         let index_size_bytes = store.index_size_bytes();
-        let info = ArchiveInfo::from_store(&store, variant, ts, 1, index_size_bytes).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            variant,
+            ts,
+            FilecoinSnapshotVersion::V1,
+            index_size_bytes,
+        )
+        .unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }

@@ -179,6 +179,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
 
     pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
         self.metadata.get_or_init(|| {
+            // <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
             if self.header_v1.roots.len() == 1 {
                 let maybe_metadata_cid = self.header_v1.roots.first();
                 if let Ok(Some(metadata)) =
@@ -192,6 +193,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
+        // <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
         if let Some(metadata) = self.metadata() {
             &metadata.head_tipset_key
         } else {

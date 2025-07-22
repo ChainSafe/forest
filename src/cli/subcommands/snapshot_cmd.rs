@@ -16,6 +16,12 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum SnapshotFormat {
+    V1,
+    V2,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
@@ -36,8 +42,8 @@ pub enum SnapshotCommands {
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
         /// Export snapshot in the experimental v2 format(FRC-0108).
-        #[arg(long)]
-        v2: bool,
+        #[arg(long, value_enum, default_value_t = SnapshotFormat::V1)]
+        format: SnapshotFormat,
     },
 }
 
@@ -50,7 +56,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
-                v2,
+                format,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -123,14 +129,17 @@ impl SnapshotCommands {
                 });
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = if v2 {
-                    client
-                        .call(ChainExportV2::request((params,))?.with_timeout(Duration::MAX))
-                        .await?
-                } else {
-                    client
-                        .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
-                        .await?
+                let hash_result = match format {
+                    SnapshotFormat::V1 => {
+                        client
+                            .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                            .await?
+                    }
+                    SnapshotFormat::V2 => {
+                        client
+                            .call(ChainExportV2::request((params,))?.with_timeout(Duration::MAX))
+                            .await?
+                    }
                 };
 
                 handle.abort();

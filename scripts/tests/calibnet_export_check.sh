@@ -16,7 +16,7 @@ echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export -o v1.forest.car.zst
 
 echo "Exporting zstd compressed snapshot in the experimental v2 format"
-$FOREST_CLI_PATH snapshot export --v2 -o v2.forest.car.zst
+$FOREST_CLI_PATH snapshot export --format v2 -o v2.forest.car.zst
 
 echo "Inspecting archive info and metadata"
 for f in *.car.zst; do
