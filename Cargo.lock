@@ -342,9 +342,9 @@ dependencies = [
 
 [[package]]
 name = "async-fs"
-version = "2.1.2"
+version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebcd09b382f40fcd159c2d695175b2ae620ffa5f3bd6f664131efff4e8b9e04a"
+checksum = "09f7e37c0ed80b2a977691c47dae8625cfb21e205827106c64f7c588766b2e50"
 dependencies = [
  "async-lock",
  "blocking",
@@ -1953,7 +1953,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -3217,7 +3217,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
- "serde_tuple 1.1.1",
+ "serde_tuple 1.1.2",
  "serde_with",
  "serde_yaml",
  "serial_test",
@@ -7280,9 +7280,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.116.0"
+version = "0.121.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6101374afb267e6c27e4e2eb0b1352e9f3504c1a8f716f619cd39244e2ed92ab"
+checksum = "22944e31fb91e9b3e75bcbc91e37d958b8c0825a6160927f2856831d2ce83b36"
 dependencies = [
  "memchr",
  "unicode-properties",
@@ -7291,15 +7291,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.294"
+version = "0.0.295"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732efa3d4cd5edc1578be0a33fa0f8052a348e52e6b95e7e161199f7166445b7"
+checksum = "a3564398f3b5c5d9ef44b703540d23750d856b60deb45f76a587679006d538b0"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.294"
+version = "0.0.295"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df3bf4cde715c2343c24a39283534e7bd5498e29b6b938615ba0e02ba4e262b4"
+checksum = "796eda86d1840acaa3210e2057e96ca5b1d04082f43450d35e0096998e39ced4"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7310,9 +7310,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.294"
+version = "0.0.295"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b565a5d6e364b3c6f955a5b20e1633e5db15df9f804fba26615150524eeccb2c"
+checksum = "c913a77c9c5ce0d589e1be6e2319b434fb4581fa33504c53ce5d3cc9099983a6"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7326,9 +7326,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.294"
+version = "0.0.295"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092f544af4e1c974924417ec5d1864544d99329d26ecc72cded2c99a86e6f710"
+checksum = "aee3205230d84fad587179a02be176b32421edd17bed3637dc75c7db253badbc"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -8178,9 +8178,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.140"
+version = "1.0.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
+checksum = "30b9eff21ebe718216c6ec64e1d9ac57087aad11efc64e32002bce4a0d4c03d3"
 dependencies = [
  "itoa",
  "memchr",
@@ -8230,12 +8230,12 @@ dependencies = [
 
 [[package]]
 name = "serde_tuple"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3be56ac39d7339f9b7fad7f252eb9f542e09f78ed6949c04d14c6f3d17bbbc90"
+checksum = "52569c5296679bd28e2457f067f97d270077df67da0340647da5412c8eac8d9e"
 dependencies = [
  "serde",
- "serde_tuple_macros 1.1.1",
+ "serde_tuple_macros 1.1.2",
 ]
 
 [[package]]
@@ -8251,9 +8251,9 @@ dependencies = [
 
 [[package]]
 name = "serde_tuple_macros"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19543df7d1738995a8a68fea985c76428da623e10384c2878fd3f7272934bce0"
+checksum = "2f46c707781471741d5f2670edb36476479b26e94cf43efe21ca3c220b97ef2e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8810,23 +8810,22 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "rustversion",
  "syn 2.0.104",
 ]
 
