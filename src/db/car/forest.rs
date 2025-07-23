@@ -229,9 +229,9 @@ where
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
-                        block_map.insert(cid, data);
+                        block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(k).cloned();
+                    let get_result = block_map.get(&(*k).into()).cloned();
                     self.frame_cache
                         .lock()
                         .put(position, self.cache_key, block_map);
