@@ -237,7 +237,7 @@ where
 
     /// Not supported, use [`super::ManyCar`] instead.
     fn put_keyed(&self, _: &Cid, _: &[u8]) -> anyhow::Result<()> {
-        anyhow::bail!("PlainCar is read-only, use ManyCar instead");
+        unreachable!("PlainCar is read-only, use ManyCar instead");
     }
 }
 
