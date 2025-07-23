@@ -41,7 +41,7 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
             tracing::info!("zstd frame max size is set to {size} via {ENV_KEY}");
             return size;
         } else {
-            tracing::warn!("Failed to parse {ENV_KEY}={value}, value should be a positive integer");
+            tracing::error!("Failed to parse {ENV_KEY}={value}, value should be a positive integer");
         }
     }
     // 256 MiB
