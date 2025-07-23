@@ -6,7 +6,10 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
-use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
+use crate::{
+    shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree},
+    utils::{cache::SizeTrackingLruCache, get_size::CidWrapper},
+};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -16,43 +19,44 @@ pub(in crate::state_migration) mod migrators;
 mod state_migration;
 pub(in crate::state_migration) mod verifier;
 
-use lru::LruCache;
-use parking_lot::RwLock;
 pub(in crate::state_migration) use state_migration::StateMigration;
 pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
 /// Cache of existing CID to CID migrations for an actor.
 #[derive(Clone)]
 pub(in crate::state_migration) struct MigrationCache {
-    cache: Arc<RwLock<LruCache<String, Cid>>>,
+    cache: Arc<SizeTrackingLruCache<String, CidWrapper>>,
 }
 
 impl MigrationCache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(RwLock::new(LruCache::new(size))),
+            cache: Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+                "migration_cache".into(),
+                size,
+            )),
         }
     }
 
     pub fn get(&self, key: &str) -> Option<Cid> {
-        self.cache.write().get(key).cloned()
+        self.cache.get_cloned(key).map(From::from)
     }
 
     pub fn get_or_insert_with<F>(&self, key: String, f: F) -> anyhow::Result<Cid>
     where
         F: FnOnce() -> anyhow::Result<Cid>,
     {
-        if self.cache.read().contains(&key) {
-            Ok(self.cache.write().get(&key).cloned().unwrap())
+        if let Some(v) = self.cache.get_cloned(&key) {
+            Ok(v.into())
         } else {
             let v = f()?;
-            self.cache.write().put(key, v);
+            self.push(key, v);
             Ok(v)
         }
     }
 
-    pub fn insert(&self, key: String, value: Cid) {
-        self.cache.write().put(key, value);
+    pub fn push(&self, key: String, value: Cid) {
+        self.cache.push(key, value.into());
     }
 }
 
@@ -136,7 +140,7 @@ mod tests {
     fn test_migration_cache() {
         let cache = MigrationCache::new(NonZeroUsize::new(10).unwrap());
         let cid = Cid::from_cbor_blake2b256(&42).unwrap();
-        cache.insert("Cthulhu".to_owned(), cid);
+        cache.push("Cthulhu".to_owned(), cid);
         assert_eq!(cache.get("Cthulhu"), Some(cid));
         assert_eq!(cache.get("Ao"), None);
 

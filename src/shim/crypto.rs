@@ -15,13 +15,14 @@ use fvm_ipld_encoding::{
     ser, strict_bytes,
 };
 pub use fvm_shared3::TICKET_RANDOMNESS_LOOKBACK;
+use get_size2::GetSize;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use schemars::JsonSchema;
 use std::borrow::Cow;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Signature {
     pub sig_type: SignatureType,
@@ -307,6 +308,7 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
     strum::Display,
     strum::EnumString,
     JsonSchema,
+    GetSize,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u8)]
