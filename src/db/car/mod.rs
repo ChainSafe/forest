@@ -44,8 +44,8 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
             tracing::warn!("Failed to parse {ENV_KEY}={value}, value should be a positive integer");
         }
     }
-    // 1GiB
-    1024 * 1024 * 1024
+    // 256 MiB
+    256 * 1024 * 1024
 });
 
 pub struct ZstdFrameCache {

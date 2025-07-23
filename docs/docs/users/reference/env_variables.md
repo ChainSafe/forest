@@ -49,7 +49,7 @@ process.
 | `FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS`                      | non-negative integer             | 20160                                          | 8000                                                          | The interval in epochs for scheduling snapshot GC                                                                     |
 | `FOREST_SNAPSHOT_GC_CHECK_INTERVAL_SECONDS`               | non-negative integer             | 300                                            | 60                                                            | The interval in seconds for checking if snapshot GC should run                                                        |
 | `FOREST_DISABLE_BAD_BLOCK_CACHE`                          | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable bad block cache                                                                             |
-| `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE`                | positive integer                 | 1073741824                                     | 536870912                                                     | The default zstd frame cache max size in bytes                                                                        |
+| `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE`                | positive integer                 | 268435456                                      | 536870912                                                     | The default zstd frame cache max size in bytes                                                                        |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
