@@ -16,11 +16,10 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
-use crate::utils::flume::SizeTrackingSender;
+use crate::utils::{cache::SizeTrackingLruCache, flume::SizeTrackingSender, get_size::CidWrapper};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
-use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
@@ -212,7 +211,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
-    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
@@ -234,7 +233,7 @@ where
             let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
-                let smsg = recover_sig(&mut bls_sig_cache.lock(), msg)?;
+                let smsg = recover_sig(bls_sig_cache, msg)?;
                 msgs.push(smsg)
             }
         }
@@ -422,7 +421,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.sig_val_cache.lock().put(cid, ());
+        pool.sig_val_cache.push(cid.into(), ());
         signed
     }
 

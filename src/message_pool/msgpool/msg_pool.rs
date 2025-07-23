@@ -23,14 +23,13 @@ use crate::shim::{
     gas::{Gas, price_list_by_network_version},
 };
 use crate::state_manager::is_valid_for_sending;
-use crate::utils::flume::SizeTrackingSender;
+use crate::utils::{cache::SizeTrackingLruCache, flume::SizeTrackingSender, get_size::CidWrapper};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
-use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
@@ -183,9 +182,9 @@ pub struct MessagePool<T> {
     /// Sender half to send messages to other components
     pub network_sender: SizeTrackingSender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>,
+    pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
     /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: Arc<Mutex<LruCache<Cid, ()>>>,
+    pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -262,14 +261,14 @@ where
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid();
 
-        if let Some(()) = self.sig_val_cache.lock().get(&cid) {
+        if let Some(()) = self.sig_val_cache.get_cloned(&(cid).into()) {
             return Ok(());
         }
 
         msg.verify(self.chain_config.eth_chain_id)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        self.sig_val_cache.lock().put(cid, ());
+        self.sig_val_cache.push(cid.into(), ());
 
         Ok(())
     }
@@ -414,7 +413,7 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(&mut self.bls_sig_cache.lock(), msg)?;
+                let smsg = recover_sig(self.bls_sig_cache.as_ref(), msg)?;
                 msg_vec.push(smsg)
             }
         }
@@ -472,8 +471,14 @@ where
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
-        let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
+        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+            "bls_sig_cache".into(),
+            BLS_SIG_CACHE_SIZE,
+        ));
+        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+            "sig_val_cache".into(),
+            SIG_VAL_CACHE_SIZE,
+        ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -584,7 +589,7 @@ where
 /// hash-map.
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
-    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
@@ -593,7 +598,7 @@ where
     T: Provider,
 {
     if msg.signature().signature_type() == SignatureType::Bls {
-        bls_sig_cache.lock().put(msg.cid(), msg.signature().clone());
+        bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
     if msg.message().gas_limit > 100_000_000 {
