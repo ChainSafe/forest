@@ -59,17 +59,25 @@ where
         registry.register_collector(Box::new(self.clone()));
     }
 
-    pub fn new_without_metrics_registry(
-        cache_name: Cow<'static, str>,
-        capacity: NonZeroUsize,
-    ) -> Self {
+    fn new_inner(cache_name: Cow<'static, str>, capacity: Option<NonZeroUsize>) -> Self {
         static ID_GENERATOR: AtomicUsize = AtomicUsize::new(0);
 
         Self {
             cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
             cache_name,
-            cache: Arc::new(RwLock::new(LruCache::new(capacity))),
+            cache: Arc::new(RwLock::new(
+                capacity
+                    .map(LruCache::new)
+                    .unwrap_or_else(LruCache::unbounded),
+            )),
         }
+    }
+
+    pub fn new_without_metrics_registry(
+        cache_name: Cow<'static, str>,
+        capacity: NonZeroUsize,
+    ) -> Self {
+        Self::new_inner(cache_name, Some(capacity))
     }
 
     pub fn new_with_metrics_registry(
@@ -87,6 +95,23 @@ where
         capacity: NonZeroUsize,
     ) -> Self {
         Self::new_with_metrics_registry(cache_name, capacity, &mut default_registry())
+    }
+
+    pub fn unbounded_without_metrics_registry(cache_name: Cow<'static, str>) -> Self {
+        Self::new_inner(cache_name, None)
+    }
+
+    pub fn unbounded_with_metrics_registry(
+        cache_name: Cow<'static, str>,
+        metrics_registry: &mut Registry,
+    ) -> Self {
+        let c = Self::unbounded_without_metrics_registry(cache_name);
+        c.register_metrics(metrics_registry);
+        c
+    }
+
+    pub fn unbounded_with_default_metrics_registry(cache_name: Cow<'static, str>) -> Self {
+        Self::unbounded_with_metrics_registry(cache_name, &mut default_registry())
     }
 
     pub fn cache(&self) -> &Arc<RwLock<LruCache<K, V>>> {
@@ -111,6 +136,10 @@ where
         Q: Hash + Eq + ?Sized,
     {
         self.cache.read().peek(k).cloned()
+    }
+
+    pub fn pop_lru(&self) -> Option<(K, V)> {
+        self.cache.write().pop_lru()
     }
 
     pub fn len(&self) -> usize {
