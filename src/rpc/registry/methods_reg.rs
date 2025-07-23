@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
+use crate::rpc::registry::actors::system;
+use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, ActorRegistry};
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
@@ -10,8 +12,6 @@ use cid::Cid;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::LazyLock;
-
-use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, get_actor_type_from_code};
 
 // Global registry for method parameter deserialization
 static METHOD_REGISTRY: LazyLock<MethodRegistry> =
@@ -63,7 +63,7 @@ impl MethodRegistry {
             return Ok(Some(deserializer(params_bytes)?));
         }
 
-        let (actor_type, version) = get_actor_type_from_code(code_cid)?;
+        let (actor_type, version) = ActorRegistry::get_actor_details_from_code(code_cid)?;
 
         bail!(
             "No deserializer registered for actor type {:?} (v{}), method {}",
@@ -82,6 +82,7 @@ impl MethodRegistry {
                 BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
                 BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
                 BuiltinActor::Init => init::register_actor_methods(self, cid),
+                BuiltinActor::System => system::register_actor_methods(self, cid),
                 _ => {}
             }
         }
@@ -97,6 +98,25 @@ pub fn deserialize_params(
 }
 
 macro_rules! register_actor_methods {
+    // Handle empty params case
+    ($registry:expr, $code_cid:expr, [
+        $( ($method:expr, empty) ),* $(,)?
+    ]) => {
+        $(
+            $registry.register_method(
+                $code_cid,
+                $method as MethodNum,
+                |bytes| -> anyhow::Result<()> {
+                    if bytes.is_empty() {
+                        Ok(())
+                    } else {
+                        Ok(fvm_ipld_encoding::from_slice(bytes)?)
+                    }
+                },
+            );
+        )*
+    };
+
     ($registry:expr, $code_cid:expr, [
         $( ($method:expr, $param_type:ty) ),* $(,)?
     ]) => {
@@ -291,5 +311,16 @@ mod test {
         // Test unregistered method 3
         let result3 = registry.deserialize_params(&test_cid, 3, &encoded);
         assert!(result3.is_err());
+    }
+
+    #[test]
+    fn test_system_actor_deserialize_params_cbor_null() {
+        let system_cid = get_real_actor_cid(BuiltinActor::System)
+            .expect("Should have System actor CID in registry");
+
+        // Test with null data
+        let result = deserialize_params(&system_cid, 1, &vec![]);
+
+        assert!(result.is_ok(), "Should handle CBOR null: {result:?}");
     }
 }
