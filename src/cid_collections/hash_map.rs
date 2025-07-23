@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(dead_code)]
+
 use super::{CidV1DagCborBlake2b256, MaybeCompactedCid, Uncompactable};
 use cid::Cid;
 #[cfg(doc)]
