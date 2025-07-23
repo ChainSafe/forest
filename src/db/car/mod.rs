@@ -41,7 +41,9 @@ pub static ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE: LazyLock<usize> = LazyLock::new(||
             tracing::info!("zstd frame max size is set to {size} via {ENV_KEY}");
             return size;
         } else {
-            tracing::error!("Failed to parse {ENV_KEY}={value}, value should be a positive integer");
+            tracing::error!(
+                "Failed to parse {ENV_KEY}={value}, value should be a positive integer"
+            );
         }
     }
     // 256 MiB
@@ -112,5 +114,47 @@ impl ZstdFrameCache {
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::{multihash::MultihashCode, rand::forest_rng};
+    use ahash::HashMap;
+    use fvm_ipld_encoding::IPLD_RAW;
+    use multihash_derive::MultihashDigest;
+    use rand::Rng;
+
+    #[test]
+    fn test_zstd_frame_cache_size() {
+        let mut rng = forest_rng();
+        let cache = ZstdFrameCache::new(10);
+        for i in 0..100 {
+            let index = gen_index(&mut rng);
+            cache.put(i, i, index);
+            assert_eq!(
+                cache.current_size.load(Ordering::Relaxed),
+                cache.lru.size_in_bytes()
+            );
+            let index2 = gen_index(&mut rng);
+            cache.put(i, i, index2);
+            assert_eq!(
+                cache.current_size.load(Ordering::Relaxed),
+                cache.lru.size_in_bytes()
+            );
+        }
+    }
+
+    fn gen_index(rng: &mut impl Rng) -> HashMap<CidWrapper, Vec<u8>> {
+        let mut map = HashMap::default();
+        for _ in 0..10 {
+            let vec_len = rng.gen_range(64..1024);
+            let mut data = vec![0; vec_len];
+            rng.fill_bytes(&mut data);
+            let cid = Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(&data));
+            map.insert(cid.into(), data);
+        }
+        map
     }
 }

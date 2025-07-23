@@ -65,9 +65,11 @@ where
         Self {
             cache_id: ID_GENERATOR.fetch_add(1, Ordering::Relaxed),
             cache_name,
+            #[allow(clippy::disallowed_methods)]
             cache: Arc::new(RwLock::new(
                 capacity
                     .map(LruCache::new)
+                    // For constructing lru cache that is bounded by memory usage instead of length
                     .unwrap_or_else(LruCache::unbounded),
             )),
         }
@@ -150,7 +152,7 @@ where
         self.cache.read().cap().get()
     }
 
-    fn size_in_bytes(&self) -> usize {
+    pub(crate) fn size_in_bytes(&self) -> usize {
         let mut size = 0_usize;
         for (k, v) in self.cache.read().iter() {
             size = size
