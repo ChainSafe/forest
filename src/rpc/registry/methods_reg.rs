@@ -271,21 +271,6 @@ mod test {
     }
 
     #[test]
-    fn test_unsupported_actor_types() {
-        // Test actors that are not registered in the method registry
-        if let Some(system_cid) = get_real_actor_cid(BuiltinActor::System) {
-            let method_num = 1;
-
-            let result = deserialize_params(&system_cid, method_num, &[]);
-            assert!(result.is_err());
-
-            let error_msg = result.unwrap_err().to_string();
-            assert!(error_msg.contains("No deserializer registered for actor type"));
-            assert!(error_msg.contains("System"));
-        }
-    }
-
-    #[test]
     fn test_register_actor_methods_macro() {
         let mut registry = MethodRegistry::new();
         let test_cid = create_test_cid(b"macro_test");
@@ -319,7 +304,7 @@ mod test {
             .expect("Should have System actor CID in registry");
 
         // Test with null data
-        let result = deserialize_params(&system_cid, 1, &vec![]);
+        let result = deserialize_params(&system_cid, 1, &[]);
 
         assert!(result.is_ok(), "Should handle CBOR null: {result:?}");
     }
