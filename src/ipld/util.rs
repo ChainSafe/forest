@@ -102,7 +102,7 @@ impl Iterator for DfsIter {
 
 enum Task {
     // Yield the block, don't visit it.
-    Emit(Cid),
+    Emit(Cid, Option<Vec<u8>>),
     // Visit all the elements, recursively.
     Iterate(VecDeque<Cid>),
 }
@@ -192,13 +192,19 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
         loop {
             while let Some(task) = this.dfs.front_mut() {
                 match task {
-                    Emit(cid) => {
-                        let cid = *cid;
-                        this.dfs.pop_front();
-                        if let Some(data) = this.db.get(&cid)? {
+                    Emit(_, _) => {
+                        if let Some(Emit(cid, data)) = this.dfs.pop_front() {
+                            let data = if let Some(data) = data {
+                                data
+                            } else if let Some(data) = this.db.get(&cid)? {
+                                data
+                            } else {
+                                return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                    "missing key: {}",
+                                    cid
+                                ))));
+                            };
                             return Poll::Ready(Some(Ok(CarBlock { cid, data })));
-                        } else if fail_on_dead_links {
-                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
                     Iterate(cid_vec) => {
@@ -212,10 +218,11 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let new_values = extract_cids(&data)?;
-                                        cid_vec.reserve(new_values.len());
-
-                                        for v in new_values.into_iter().rev() {
-                                            cid_vec.push_front(v)
+                                        if !new_values.is_empty() {
+                                            cid_vec.reserve(new_values.len());
+                                            for v in new_values.into_iter().rev() {
+                                                cid_vec.push_front(v)
+                                            }
                                         }
                                     }
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
@@ -237,14 +244,15 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.borrow().block_headers() {
-                    if this.seen.insert(*block.cid()) {
+                    let (cid, data) = block.car_block()?;
+                    if this.seen.insert(cid) {
                         // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(*block.cid()));
+                        this.dfs.push_back(Emit(*block.cid(), Some(data)));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents {
-                                this.dfs.push_back(Emit(p));
+                                this.dfs.push_back(Emit(p, None));
                             }
                         }
 
@@ -287,7 +295,7 @@ pin_project! {
         block_recv_stream: Fuse<flume::r#async::RecvStream<'a, anyhow::Result<CarBlock>>>,
         extract_sender: flume::Sender<Cid>,
         stateroot_limit: ChainEpoch,
-        queue: Vec<Cid>,
+        queue: Vec<(Cid, Option<Vec<u8>>)>,
         fail_on_dead_links: bool,
     }
 
@@ -304,17 +312,47 @@ impl<'a, DB, T> UnorderedChainStream<'a, DB, T> {
         self
     }
 
-    pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
-        self.fail_on_dead_links = fail_on_dead_links;
-        self
-    }
-
     pub fn into_seen(self) -> CidHashSet {
         let mut set = CidHashSet::new();
         let mut guard = self.seen.lock();
         let data = guard.deref_mut();
         mem::swap(data, &mut set);
         set
+    }
+}
+
+fn unordered_stream_chain_inner<
+    'a,
+    DB: Blockstore + Sync + Send + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: ITER,
+    stateroot_limit: ChainEpoch,
+    fail_on_dead_links: bool,
+) -> UnorderedChainStream<'a, DB, ITER> {
+    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = flume::unbounded();
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
+        db.clone(),
+        sender,
+        extract_receiver,
+        seen.clone(),
+        fail_on_dead_links,
+    );
+
+    UnorderedChainStream {
+        seen,
+        db,
+        worker_handle: handle,
+        block_recv_stream: receiver.into_stream().fuse(),
+        queue: Vec::new(),
+        extract_sender,
+        tipset_iter,
+        stateroot_limit,
+        fail_on_dead_links,
     }
 }
 
@@ -338,29 +376,7 @@ pub fn unordered_stream_chain<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<'a, DB, ITER> {
-    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = flume::unbounded();
-    let fail_on_dead_links = true;
-    let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
-        db.clone(),
-        sender.clone(),
-        extract_receiver,
-        seen.clone(),
-        fail_on_dead_links,
-    );
-
-    UnorderedChainStream {
-        seen,
-        db,
-        worker_handle: handle,
-        block_recv_stream: receiver.into_stream().fuse(),
-        queue: Vec::new(),
-        extract_sender,
-        tipset_iter,
-        stateroot_limit,
-        fail_on_dead_links,
-    }
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, true)
 }
 
 // Stream available graph in unordered search. All reachable nodes are touched and dead-links
@@ -375,7 +391,7 @@ pub fn unordered_stream_graph<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<'a, DB, ITER> {
-    unordered_stream_chain(db, tipset_iter, stateroot_limit).fail_on_dead_links(false)
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, false)
 }
 
 impl<
@@ -394,7 +410,7 @@ impl<
     ) -> JoinHandle<anyhow::Result<()>> {
         task::spawn(async move {
             let mut handles = JoinSet::new();
-            for _ in 0..num_cpus::get().clamp(1, 4) {
+            for _ in 0..num_cpus::get().clamp(1, 8) {
                 let seen = seen.clone();
                 let extract_receiver = extract_receiver.clone();
                 let db = db.clone();
@@ -407,22 +423,19 @@ impl<
                                 if let Some(data) = db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let mut new_values = extract_cids(&data)?;
-                                        cid_vec.append(&mut new_values);
+                                        if !new_values.is_empty() {
+                                            cid_vec.append(&mut new_values);
+                                        }
                                     }
                                     // Break out of the loop if the receiving end quit.
-                                    if block_sender
-                                        .send_async(Ok(CarBlock { cid, data }))
-                                        .await
-                                        .is_err()
-                                    {
+                                    if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
                                         break 'main;
                                     }
                                 } else if fail_on_dead_links {
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send_async(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                        .await;
+                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)));
                                     break 'main;
                                 }
                             }
@@ -455,8 +468,10 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
         let fail_on_dead_links = self.fail_on_dead_links;
 
         loop {
-            while let Some(cid) = self.queue.pop() {
-                if let Some(data) = self.db.get(&cid)? {
+            while let Some((cid, data)) = self.queue.pop() {
+                if let Some(data) = data {
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                } else if let Some(data) = self.db.get(&cid)? {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if fail_on_dead_links {
                     return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
@@ -473,15 +488,16 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                     // has been reached yield a block without walking the graph it represents.
                     if let Some(tipset) = this.tipset_iter.next() {
                         for block in tipset.into_block_headers().into_iter() {
-                            if this.seen.lock().insert(*block.cid()) {
+                            let (cid, data) = block.car_block()?;
+                            if this.seen.lock().insert(cid) {
                                 // Make sure we always yield a block, directly to the stream to avoid extra
                                 // work.
-                                this.queue.push(*block.cid());
+                                this.queue.push((cid, Some(data)));
 
                                 if block.epoch == 0 {
                                     // The genesis block has some kind of dummy parent that needs to be emitted.
                                     for p in &block.parents {
-                                        this.queue.push(p);
+                                        this.queue.push((p, None));
                                     }
                                 }
 
@@ -494,7 +510,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                         // This will simply return an error once we reach that item in
                                         // the queue.
                                     } else if fail_on_dead_links {
-                                        this.queue.push(block.messages);
+                                        this.queue.push((block.messages, None));
                                     } else {
                                         // Make sure we update seen here as we don't send the block for
                                         // inspection.
@@ -512,7 +528,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                         // This will simply return an error once we reach that item in
                                         // the queue.
                                     } else if fail_on_dead_links {
-                                        this.queue.push(block.state_root);
+                                        this.queue.push((block.state_root, None));
                                     } else {
                                         // Make sure we update seen here as we don't send the block for
                                         // inspection.
