@@ -117,3 +117,4 @@ V0
 V1
 VPS
 WIP
+zstd
