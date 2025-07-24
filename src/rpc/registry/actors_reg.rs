@@ -50,14 +50,6 @@ impl ActorRegistry {
 
 pub(crate) static ACTOR_REGISTRY: LazyLock<ActorRegistry> = LazyLock::new(ActorRegistry::new);
 
-pub fn get_actor_type_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
-    ACTOR_REGISTRY
-        .map
-        .get(code_cid)
-        .copied()
-        .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
-}
-
 macro_rules! load_and_serialize_state {
     ($store:expr, $code_cid:expr, $state_cid:expr, $actor_type:expr, $state_type:ty) => {{
         let state = <$state_type>::load($store, *$code_cid, *$state_cid).context(format!(
