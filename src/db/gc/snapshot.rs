@@ -43,7 +43,7 @@
 //!
 
 use crate::blocks::{Tipset, TipsetKey};
-use crate::cid_collections::CidHashSet;
+use crate::chain::ExportOptions;
 use crate::cli_shared::chain_path;
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::db::{
@@ -225,8 +225,10 @@ where
             &db,
             self.recent_state_roots,
             file,
-            CidHashSet::default(),
-            true,
+            Some(ExportOptions {
+                skip_checksum: true,
+                ..Default::default()
+            }),
         )
         .await?;
         let target_path = self.car_db_dir.join(format!(

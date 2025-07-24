@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -222,25 +222,26 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
-pub enum ChainExport {}
-impl RpcMethod<1> for ChainExport {
-    const NAME: &'static str = "Filecoin.ChainExport";
+pub enum ForestChainExport {}
+impl RpcMethod<1> for ForestChainExport {
+    const NAME: &'static str = "Forest.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (ChainExportParams,);
+    type Params = (ForestChainExportParams,);
     type Ok = Option<String>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
+        let ForestChainExportParams {
             epoch,
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
+            unordered,
             skip_checksum,
             dry_run,
         } = params;
@@ -265,14 +266,18 @@ impl RpcMethod<1> for ChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
+        let option = Some(ExportOptions {
+            skip_checksum,
+            unordered,
+            ..Default::default()
+        });
         match if dry_run {
             crate::chain::export::<Sha256>(
                 &ctx.store_owned(),
                 &start_ts,
                 recent_roots,
                 VoidAsyncWriter,
-                CidHashSet::default(),
-                skip_checksum,
+                option,
             )
             .await
         } else {
@@ -282,14 +287,52 @@ impl RpcMethod<1> for ChainExport {
                 &start_ts,
                 recent_roots,
                 file,
-                CidHashSet::default(),
-                skip_checksum,
+                option,
             )
             .await
         } {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ChainExport {}
+impl RpcMethod<1> for ChainExport {
+    const NAME: &'static str = "Filecoin.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ChainExportParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys,
+            skip_checksum,
+            dry_run,
+        } = params;
+
+        ForestChainExport::handle(
+            ctx,
+            (ForestChainExportParams {
+                unordered: false,
+                epoch,
+                recent_roots,
+                output_path,
+                tipset_keys,
+                skip_checksum,
+                dry_run,
+            },),
+        )
+        .await
     }
 }
 
@@ -839,6 +882,20 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportParams {
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub unordered: bool,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+lotus_json_with_self!(ForestChainExportParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

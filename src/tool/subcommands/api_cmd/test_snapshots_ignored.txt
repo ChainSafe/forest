@@ -78,6 +78,7 @@ Filecoin.WalletSignMessage
 Filecoin.WalletValidateAddress
 Filecoin.WalletVerify
 Filecoin.Web3ClientVersion
+Forest.ChainExport
 Forest.ChainGetMinBaseFee
 Forest.NetInfo
 Forest.SnapshotGC
