@@ -1,8 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(dead_code)]
-
 use super::{CidV1DagCborBlake2b256, MaybeCompactedCid, Uncompactable};
 use cid::Cid;
 #[cfg(doc)]
@@ -110,6 +108,7 @@ impl<V> CidHashMap<V> {
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
     ///
     /// See also [`HashMap::entry`].
+    #[allow(dead_code)]
     pub fn entry(&mut self, key: Cid) -> Entry<V> {
         match MaybeCompactedCid::from(key) {
             MaybeCompactedCid::Compact(c) => match self.compact.entry(c) {
@@ -135,6 +134,7 @@ impl<V> CidHashMap<V> {
 /// A view into a single entry in a map, which may either be vacant or occupied.
 ///
 /// This `enum` is constructed using [`CidHashMap::entry`].
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Entry<'a, V: 'a> {
     /// An occupied entry.
@@ -147,6 +147,7 @@ pub enum Entry<'a, V: 'a> {
 /// It is part of the [`Entry`] enum.
 ///
 /// See also [`std::collections::hash_map::OccupiedEntry`].
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct OccupiedEntry<'a, V> {
     inner: OccupiedEntryInner<'a, V>,
@@ -156,6 +157,7 @@ impl<V> OccupiedEntry<'_, V> {
     /// Gets a reference to the value in the entry.
     ///
     /// See also [`std::collections::hash_map::OccupiedEntry::get`].
+    #[allow(dead_code)]
     pub fn get(&self) -> &V {
         match &self.inner {
             OccupiedEntryInner::Compact(c) => c.get(),
@@ -165,6 +167,7 @@ impl<V> OccupiedEntry<'_, V> {
 }
 
 /// Hides compaction from users.
+#[allow(dead_code)]
 #[derive(Debug)]
 enum OccupiedEntryInner<'a, V> {
     Compact(StdOccupiedEntry<'a, CidV1DagCborBlake2b256, V>),
@@ -175,6 +178,7 @@ enum OccupiedEntryInner<'a, V> {
 /// It is part of the [`Entry`] enum.
 ///
 /// See also [`std::collections::hash_map::VacantEntry`].
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct VacantEntry<'a, V> {
     inner: VacantEntryInner<'a, V>,
@@ -185,6 +189,7 @@ impl<'a, V> VacantEntry<'a, V> {
     /// and returns a mutable reference to it.
     ///
     /// See also [`std::collections::hash_map::VacantEntry::insert`].
+    #[allow(dead_code)]
     pub fn insert(self, value: V) -> &'a mut V {
         match self.inner {
             VacantEntryInner::Compact(c) => c.insert(value),
@@ -194,6 +199,7 @@ impl<'a, V> VacantEntry<'a, V> {
 }
 
 /// Hides compaction from users.
+#[allow(dead_code)]
 #[derive(Debug)]
 enum VacantEntryInner<'a, V> {
     Compact(StdVacantEntry<'a, CidV1DagCborBlake2b256, V>),
