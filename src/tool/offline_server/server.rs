@@ -18,6 +18,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
+use crate::utils::flume::bounded_with_default_metrics_registry;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, JWT_IDENTIFIER};
@@ -88,7 +89,7 @@ pub async fn start_offline_server(
     backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
     populate_eth_mappings(&state_manager, &head_ts)?;
 
-    let (network_send, _) = flume::bounded(5);
+    let (network_send, _) = bounded_with_default_metrics_registry(5, "network_message".into());
     let (tipset_send, _) = flume::bounded(5);
     let message_pool: MessagePool<MpoolRpcProvider<ManyCar>> = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),

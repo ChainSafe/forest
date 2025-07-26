@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain_sync::SyncStatusReport;
+use crate::utils::flume::{SizeTrackingReceiver, bounded_with_default_metrics_registry};
 use crate::{
     KeyStore, KeyStoreConfig,
     chain::ChainStore,
@@ -129,10 +130,11 @@ async fn ctx(
     chain_config: Arc<ChainConfig>,
 ) -> anyhow::Result<(
     Arc<RPCState<ManyCar<MemoryDB>>>,
-    flume::Receiver<NetworkMessage>,
+    SizeTrackingReceiver<NetworkMessage>,
     tokio::sync::mpsc::Receiver<()>,
 )> {
-    let (network_send, network_rx) = flume::bounded(5);
+    let (network_send, network_rx) =
+        bounded_with_default_metrics_registry(5, "network_messages".into());
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
