@@ -4,7 +4,7 @@
 mod eip_1559_transaction;
 mod eip_155_transaction;
 mod homestead_transaction;
-mod transaction;
+pub mod transaction;
 
 pub use eip_155_transaction::*;
 pub use eip_1559_transaction::*;
