@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
+
 ### Changed
 
 ### Removed
