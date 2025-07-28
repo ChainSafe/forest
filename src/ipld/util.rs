@@ -194,17 +194,15 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                 match task {
                     Emit(_, _) => {
                         if let Some(Emit(cid, data)) = this.dfs.pop_front() {
-                            let data = if let Some(data) = data {
-                                data
+                            if let Some(data) = data {
+                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                             } else if let Some(data) = this.db.get(&cid)? {
-                                data
-                            } else {
+                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                            } else if fail_on_dead_links {
                                 return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                    "missing key: {}",
-                                    cid
+                                    "missing key: {cid}"
                                 ))));
                             };
-                            return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                         }
                     }
                     Iterate(cid_vec) => {
@@ -228,8 +226,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if fail_on_dead_links {
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                        "missing key: {}",
-                                        cid
+                                        "missing key: {cid}"
                                     ))));
                                 }
                             }
@@ -435,7 +432,7 @@ impl<
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)));
+                                        .send(Err(anyhow::anyhow!("missing key: {cid}")));
                                     break 'main;
                                 }
                             }
@@ -474,7 +471,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                 } else if let Some(data) = self.db.get(&cid)? {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if fail_on_dead_links {
-                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
                 }
             }
 
