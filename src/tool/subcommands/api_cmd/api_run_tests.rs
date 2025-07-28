@@ -279,19 +279,8 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
         let filter_result = client
             .call(EthGetFilterChanges::request((filter_id.clone(),))?)
             .await?;
-        dbg!(&filter_result);
 
         let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-            let verify_transactions = async |hashes: &[EthHash]| {
-                for hash in hashes {
-                    let _block = client
-                        .call(EthGetTransactionByHash::request((hash.clone(),))?)
-                        .await?;
-                }
-                Ok::<(), crate::rpc::ClientError>(())
-            };
-            // verify_transactions(&prev_hashes).await?;
-
             let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
                 .unwrap();
 
@@ -310,18 +299,27 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
             let smsg = client
                 .call(MpoolPushMessage::request((message, None))?)
                 .await?;
-            println!("cid: {}", smsg.cid());
 
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(2)).await;
 
             let filter_result = client
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
                 .await?;
-            dbg!(&filter_result);
 
             if let EthFilterResult::Hashes(hashes) = filter_result {
-                // verify_transactions(&hashes).await?;
                 anyhow::ensure!(prev_hashes != hashes);
+
+                let mut cids = vec![];
+                for hash in hashes {
+                    if let Some(cid) = client
+                        .call(EthGetMessageCidByTransactionHash::request((hash,))?)
+                        .await?
+                    {
+                        cids.push(cid);
+                    }
+                }
+
+                anyhow::ensure!(cids.contains(&smsg.cid()));
 
                 Ok(())
             } else {
