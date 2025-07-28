@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
+
 ### Removed
 
 ### Fixed
