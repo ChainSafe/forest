@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
@@ -59,7 +60,6 @@ use similar::{ChangeTag, TextDiff};
 use std::path::Path;
 use std::time::Instant;
 use std::{
-    fmt,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, LazyLock},
@@ -88,7 +88,9 @@ const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address
 const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum TestSummary {
     /// Server spoke JSON-RPC: no such method
@@ -107,22 +109,6 @@ pub enum TestSummary {
     Timeout,
     /// Server returned JSON-RPC, and it matched our schema, and passed validation
     Valid,
-}
-
-impl fmt::Display for TestSummary {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            TestSummary::MissingMethod => "MissingMethod",
-            TestSummary::Rejected(_) => "Rejected",
-            TestSummary::NotJsonRPC => "NotJsonRPC",
-            TestSummary::InfraError => "InfraError",
-            TestSummary::BadJson => "BadJson",
-            TestSummary::CustomCheckFailed => "CustomCheckFailed",
-            TestSummary::Timeout => "Timeout",
-            TestSummary::Valid => "Valid",
-        };
-        write!(f, "{s}")
-    }
 }
 
 impl TestSummary {

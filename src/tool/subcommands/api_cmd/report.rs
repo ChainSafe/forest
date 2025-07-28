@@ -7,6 +7,7 @@ use crate::rpc::{FilterList, Permission};
 use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};
@@ -325,11 +326,8 @@ impl ReportBuilder {
                             }
                         }
 
-                        let reasons_str = reasons
-                            .iter()
-                            .map(|s| s.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ");
+                        let reasons_str =
+                            reasons.iter().map(|s| s.as_str()).collect_vec().join(", ");
 
                         if *success_count == 0 {
                             format!("❌ All Failed ({reasons_str})")
