@@ -50,6 +50,12 @@ use tokio::task::JoinHandle;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
+/// Subscribes to head changes from the chain store and broadcasts new blocks.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
 pub(crate) fn new_heads<DB: Blockstore>(
     data: &crate::rpc::RPCState<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
@@ -73,6 +79,12 @@ pub(crate) fn new_heads<DB: Blockstore>(
 
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
 
+/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
 pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
