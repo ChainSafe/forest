@@ -1845,6 +1845,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         code_cid: Cid::default(),
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
+    let datacap_constructor_params = fil_actor_datacap_state::v16::ConstructorParams {
+        governor: Address::new_id(3000).into(),
+    };
+
+    let datacap_mint_params = fil_actor_datacap_state::v16::MintParams {
+        to: Address::new_id(3001).into(),
+        amount: fvm_shared4::econ::TokenAmount::from_atto(1_000_000_000_000_000_000_i64),
+        operators: vec![Address::new_id(3002).into(), Address::new_id(3003).into()],
+    };
+
+    let datacap_destroy_params = fil_actor_datacap_state::v16::DestroyParams {
+        owner: Address::new_id(3004).into(),
+        amount: fvm_shared4::econ::TokenAmount::from_atto(500_000_000_000_000_000_i64),
+    };
+
+    let datacap_balance_params = fil_actor_datacap_state::v16::BalanceParams {
+        address: Address::new_id(3005).into(),
+    };
 
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
@@ -1893,6 +1911,31 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::INIT_ACTOR,
             3,
             to_vec(&init_exec4_params)?,
+            tipset.key().into(),
+        ))?),
+        // DataCap actor tests
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            1, // Constructor
+            to_vec(&datacap_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            2643134072, // frc42_dispatch::method_hash!("Mint")
+            to_vec(&datacap_mint_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            2643134073, // frc42_dispatch::method_hash!("Destroy")
+            to_vec(&datacap_destroy_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            2643134074, // frc42_dispatch::method_hash!("Balance")
+            to_vec(&datacap_balance_params)?,
             tipset.key().into(),
         ))?),
     ];

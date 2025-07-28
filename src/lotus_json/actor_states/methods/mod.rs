@@ -3,6 +3,10 @@
 use super::*;
 mod account_authenticate_params;
 mod account_constructor_params;
+mod datacap_balance_params;
+mod datacap_constructor_params;
+mod datacap_destroy_params;
+mod datacap_mint_params;
 mod evm_constructor_params;
 mod init_constructor_params;
 mod init_exec4_params;
