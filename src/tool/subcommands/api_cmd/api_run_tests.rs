@@ -223,7 +223,7 @@ fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
     })
 }
 
-fn create_eth_new_block_filter() -> RpcTestScenario {
+fn eth_new_block_filter() -> RpcTestScenario {
     RpcTestScenario::basic(move |client| async move {
         let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
 
@@ -338,6 +338,70 @@ fn eth_new_pending_transaction_filter() -> RpcTestScenario {
     })
 }
 
+fn eth_get_filter_logs() -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| async move {
+        const BLOCK_RANGE: u64 = 200;
+
+        let last_block = client.call(EthBlockNumber::request(())?).await?;
+
+        let filter_spec = EthFilterSpec {
+            from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
+            to_block: Some(last_block.to_hex_string()),
+            ..Default::default()
+        };
+
+        let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
+
+        let filter_result = client
+            .call(EthGetFilterLogs::request((filter_id.clone(),))?)
+            .await?;
+
+        let result = if let EthFilterResult::Logs(prev_logs) = filter_result {
+            let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
+                .unwrap();
+
+            let encoded =
+                cbor4ii::serde::to_vec(Vec::with_capacity(payload.len()), &Value::Bytes(payload))
+                    .context("failed to encode params")?;
+
+            let message = Message {
+                to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
+                from: Address::from_str("t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy").unwrap(),
+                method_num: EVMMethod::InvokeContract as u64,
+                params: encoded.into(),
+                ..Default::default()
+            };
+
+            let _smsg = client
+                .call(MpoolPushMessage::request((message, None))?)
+                .await?;
+
+            sleep(Duration::from_secs(2)).await;
+
+            let filter_result = client
+                .call(EthGetFilterLogs::request((filter_id.clone(),))?)
+                .await?;
+
+            if let EthFilterResult::Logs(logs) = filter_result {
+                anyhow::ensure!(prev_logs != logs);
+
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("expecting logs"))
+            }
+        } else {
+            Err(anyhow::anyhow!("expecting logs"))
+        };
+
+        let removed = client
+            .call(EthUninstallFilter::request((filter_id,))?)
+            .await?;
+        anyhow::ensure!(removed);
+
+        result
+    })
+}
+
 const LOTUS_EVENTS_MAXFILTERS: usize = 100;
 
 macro_rules! with_methods {
@@ -376,7 +440,7 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
             EthUninstallFilter
         ),
         with_methods!(
-            create_eth_new_block_filter().name("eth_newBlockFilter works"),
+            eth_new_block_filter().name("eth_newBlockFilter works"),
             EthNewBlockFilter,
             EthGetFilterChanges,
             EthUninstallFilter
@@ -385,6 +449,12 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
             eth_new_pending_transaction_filter().name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
+            EthUninstallFilter
+        ),
+        with_methods!(
+            eth_get_filter_logs().name("eth_getFilterLogs works"),
+            EthNewPendingTransactionFilter,
+            EthGetFilterLogs,
             EthUninstallFilter
         ),
     ]
