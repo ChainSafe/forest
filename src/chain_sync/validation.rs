@@ -26,8 +26,8 @@ pub enum TipsetValidationError {
     EpochTooLarge,
     #[error("Tipset has an insufficient weight")]
     InsufficientWeight,
-    #[error("Tipset block = [CID = {0}] is invalid: {1}")]
-    InvalidBlock(Cid, String),
+    #[error("Tipset block = [CID = {0}] is invalid")]
+    InvalidBlock(Cid),
     #[error("Tipset headers are invalid")]
     InvalidRoots,
     #[error("Tipset IPLD error: {0}")]
@@ -75,8 +75,8 @@ impl TipsetValidator<'_> {
         for block in self.0.blocks() {
             self.validate_msg_root(&chainstore.db, block)?;
             if let Some(bad_block_cache) = bad_block_cache {
-                if let Some(bad) = bad_block_cache.peek(block.cid()) {
-                    return Err(TipsetValidationError::InvalidBlock(*block.cid(), bad));
+                if bad_block_cache.peek(block.cid()).is_some() {
+                    return Err(TipsetValidationError::InvalidBlock(*block.cid()));
                 }
             }
         }

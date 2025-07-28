@@ -92,10 +92,7 @@ pub enum BitswapMessage {
 
 impl BitswapMessage {
     pub fn into_proto(self) -> IOResult<bitswap_pb::Message> {
-        let mut msg = bitswap_pb::Message {
-            wantlist: Some(Default::default()),
-            ..Default::default()
-        };
+        let mut msg = bitswap_pb::Message::default();
         match self {
             Self::Request(BitswapRequest {
                 ty,
