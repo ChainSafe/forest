@@ -48,10 +48,12 @@ use tokio::sync::{
 };
 use tokio::task::JoinHandle;
 
+const HEAD_CHANNEL_CAPACITY: usize = 10;
+
 pub(crate) fn new_heads<DB: Blockstore>(
     data: &crate::rpc::RPCState<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     let mut subscriber = data.chain_store().publisher().subscribe();
 
@@ -83,7 +85,7 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     let mut subscriber = ctx.chain_store().publisher().subscribe();
 
@@ -786,7 +788,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &crate::rpc::RPCState<DB>,
 ) -> Subscriber<Vec<ApiHeadChange>> {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store().heaviest_tipset();
