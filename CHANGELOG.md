@@ -29,6 +29,20 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#5863](https://github.com/ChainSafe/forest/pull/5863) Fixed needless GC runs on a stateless node.
+
+## Forest v0.28.0 "Denethor's Folly"
+
+This is a non-mandatory release recommended for all node operators. It includes numerous fixes and quality-of-life improvements for development and archival snapshot operations. It also includes a memory leak fix that would surface on long-running nodes.
+
+### Added
+
 - [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--export-mode` flag to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
 
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).

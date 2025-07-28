@@ -49,7 +49,6 @@
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
-use crate::db::PersistentStore;
 use crate::db::car::RandomAccessFileReader;
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header};
@@ -63,7 +62,7 @@ use futures::{Stream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use nunny::Vec as NonEmpty;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
@@ -97,7 +96,6 @@ pub struct ForestCar<ReaderT> {
     indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     index_size_bytes: u32,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
-    write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     header: CarV1Header,
     metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
 }
@@ -118,7 +116,6 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             indexed,
             index_size_bytes,
             frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
-            write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
             header,
             metadata: OnceLock::new(),
         })
@@ -201,7 +198,6 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             }),
             index_size_bytes: self.index_size_bytes,
             frame_cache: self.frame_cache,
-            write_cache: self.write_cache,
             header: self.header,
             metadata: self.metadata,
         }
@@ -229,11 +225,6 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        // Return immediately if the value is cached.
-        if let Some(value) = self.write_cache.read().get(k) {
-            return Ok(Some(value.clone()));
-        }
-
         let indexed = &self.indexed;
         for position in indexed.get(*k)?.into_iter() {
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
@@ -270,26 +261,9 @@ where
         Ok(None)
     }
 
-    #[tracing::instrument(level = "trace", skip(self, block))]
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        debug_assert!(
-            CarBlock {
-                cid: *k,
-                data: block.to_vec()
-            }
-            .valid()
-        );
-        self.write_cache.write().insert(*k, Vec::from(block));
-        Ok(())
-    }
-}
-
-impl<ReaderT> PersistentStore for ForestCar<ReaderT>
-where
-    ReaderT: ReadAt,
-{
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.put_keyed(k, block)
+    /// Not supported, use [`super::ManyCar`] instead.
+    fn put_keyed(&self, _: &Cid, _: &[u8]) -> anyhow::Result<()> {
+        unreachable!("ForestCar is read-only, use ManyCar instead");
     }
 }
 

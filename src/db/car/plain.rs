@@ -61,14 +61,13 @@
 //! - A wrapper that abstracts over car formats for reading.
 
 use crate::chain::FilecoinSnapshotMetadata;
-use crate::cid_collections::{CidHashMap, hash_map::Entry as CidHashMapEntry};
+use crate::cid_collections::CidHashMap;
 use crate::db::PersistentStore;
 use crate::utils::db::car_stream::{CarV1Header, CarV2Header};
 use crate::{
     blocks::{Tipset, TipsetKey},
     utils::encoding::from_slice_with_fallback,
 };
-use CidHashMapEntry::{Occupied, Vacant};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
@@ -77,14 +76,12 @@ use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
 use std::{
-    any::Any,
     io::{
         self, BufReader,
         ErrorKind::{InvalidData, Unsupported},
         Read, Seek, SeekFrom,
     },
     iter,
-    ops::DerefMut,
     sync::OnceLock,
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -104,7 +101,7 @@ use tracing::{debug, trace};
 ///
 /// When a block is requested, [`PlainCar`] scrolls to that offset, and reads the block, on-demand.
 ///
-/// Writes for new blocks (which don't exist in the CAR already) are currently cached in-memory.
+/// Writes for new blocks (which don't exist in the CAR already) are not supported.
 ///
 /// Random-access performance is expected to be poor, as the OS will have to load separate parts of
 /// the file from disk, and flush it for each read. However, (near) linear access should be pretty
@@ -113,7 +110,6 @@ use tracing::{debug, trace};
 /// See [module documentation](mod@self) for more.
 pub struct PlainCar<ReaderT> {
     reader: ReaderT,
-    write_cache: RwLock<CidHashMap<Vec<u8>>>,
     index: RwLock<CidHashMap<UncompressedBlockDataLocation>>,
     version: u64,
     header_v1: CarV1Header,
@@ -166,7 +162,6 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
                     reader,
-                    write_cache: RwLock::new(CidHashMap::new()),
                     index: RwLock::new(index),
                     version,
                     header_v1,
@@ -222,7 +217,6 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     pub fn into_dyn(self) -> PlainCar<Box<dyn super::RandomAccessFileReader>> {
         PlainCar {
             reader: Box::new(self.reader),
-            write_cache: self.write_cache,
             index: self.index,
             version: self.version,
             header_v1: self.header_v1,
@@ -253,39 +247,23 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (self.index.read().get(k), self.write_cache.read().get(k)) {
-            (Some(_location), Some(_cached)) => {
-                trace!("evicting from write cache");
-                Ok(self.write_cache.write().remove(k))
-            }
-            (Some(UncompressedBlockDataLocation { offset, length }), None) => {
+        match self.index.read().get(k) {
+            Some(UncompressedBlockDataLocation { offset, length }) => {
                 trace!("fetching from disk");
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
                 self.reader.read_exact_at(*offset, &mut data)?;
                 Ok(Some(data))
             }
-            (None, Some(cached)) => {
-                trace!("getting from write cache");
-                Ok(Some(cached.clone()))
-            }
-            (None, None) => {
+            None => {
                 trace!("not found");
                 Ok(None)
             }
         }
     }
 
-    /// # Panics
-    /// - If the write cache already contains different data with this CID
-    /// - See also [`Self::new`].
-    ///
-    /// Note: Locks have to be acquired in exactly the same order as in `get`, otherwise a
-    /// deadlock is imminent in a multi-threaded context.
-    #[tracing::instrument(level = "trace", skip(self, block))]
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let mut index = self.index.write();
-        let mut cache = self.write_cache.write();
-        handle_write_cache(cache.deref_mut(), index.deref_mut(), k, block)
+    /// Not supported, use [`super::ManyCar`] instead.
+    fn put_keyed(&self, _: &Cid, _: &[u8]) -> anyhow::Result<()> {
+        unreachable!("PlainCar is read-only, use ManyCar instead");
     }
 }
 
@@ -313,40 +291,6 @@ pub async fn write_skip_frame_header_async(
 pub struct CompressedBlockDataLocation {
     pub zstd_frame_offset: u64,
     pub location_in_frame: UncompressedBlockDataLocation,
-}
-
-/// # Panics
-/// - If the write cache already contains different data with this CID
-///
-/// Note: This could potentially be enhanced with fine-grained read/write
-/// locking, however the performance is acceptable for now.
-fn handle_write_cache(
-    write_cache: &mut CidHashMap<Vec<u8>>,
-    index: &mut CidHashMap<impl Any>,
-    k: &Cid,
-    block: &[u8],
-) -> anyhow::Result<()> {
-    match (index.get(k), write_cache.entry(*k)) {
-        (None, Occupied(already)) => match already.get() == block {
-            true => {
-                trace!("already in cache");
-                Ok(())
-            }
-            false => panic!("mismatched content on second write for CID {k}"),
-        },
-        (None, Vacant(vacant)) => {
-            trace!(bytes = block.len(), "insert into cache");
-            vacant.insert(block.to_owned());
-            Ok(())
-        }
-        (Some(_), Vacant(_)) => {
-            trace!("already on disk");
-            Ok(())
-        }
-        (Some(_), Occupied(_)) => {
-            unreachable!("we don't insert a CID in the write cache if it exists on disk")
-        }
-    }
 }
 
 fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {

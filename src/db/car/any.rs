@@ -11,7 +11,6 @@
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
-use crate::db::PersistentStore;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -147,19 +146,6 @@ where
             AnyCar::Forest(forest) => forest.put_keyed(k, block),
             AnyCar::Plain(plain) => plain.put_keyed(k, block),
             AnyCar::Memory(mem) => mem.put_keyed(k, block),
-        }
-    }
-}
-
-impl<ReaderT> PersistentStore for AnyCar<ReaderT>
-where
-    ReaderT: ReadAt,
-{
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        match self {
-            AnyCar::Forest(forest) => forest.put_keyed_persistent(k, block),
-            AnyCar::Plain(plain) => plain.put_keyed_persistent(k, block),
-            AnyCar::Memory(mem) => mem.put_keyed_persistent(k, block),
         }
     }
 }

@@ -89,6 +89,10 @@ where
         Self::new_with_metrics_registry(cache_name, capacity, &mut default_registry())
     }
 
+    pub fn cache(&self) -> &Arc<RwLock<LruCache<K, V>>> {
+        &self.cache
+    }
+
     pub fn push(&self, k: K, v: V) -> Option<(K, V)> {
         self.cache.write().push(k, v)
     }
@@ -106,11 +110,15 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.cache.write().peek(k).cloned()
+        self.cache.read().peek(k).cloned()
     }
 
     pub fn len(&self) -> usize {
         self.cache.read().len()
+    }
+
+    pub fn cap(&self) -> usize {
+        self.cache.read().cap().get()
     }
 
     fn size_in_bytes(&self) -> usize {
