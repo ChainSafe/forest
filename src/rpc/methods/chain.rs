@@ -73,14 +73,6 @@ pub(crate) fn new_heads<DB: Blockstore>(
 
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
 
-/// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
-/// |-------------|----------------------------|------------------------------|--------------------------------------------|
-/// | `address`   | Yes                        | Yes                          | Can be a single address or an array        |
-/// | `topics`    | Yes                        | Yes                          | Same topic filtering rules apply           |
-/// | `fromBlock` | Yes                        | No                           | Not relevant for real-time subscriptions   |
-/// | `toBlock`   | Yes                        | No                           | Same as above                              |
-/// | `blockhash` | Yes                        | No                           | Specific to a single block, not for streams|
-///
 pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
