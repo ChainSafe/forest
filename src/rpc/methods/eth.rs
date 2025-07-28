@@ -2663,6 +2663,11 @@ impl RpcMethod<0> for EthUnsubscribe {
     type Params = ();
     type Ok = ();
 
+    // This method is a placeholder and is never actually called.
+    // Subscription handling is performed in `pubsub.rs`.
+    //
+    // We still need to implement the `RpcMethod` trait to expose method metadata
+    // like `NAME`, `NAME_ALIAS`, `PERMISSION`, etc..
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
@@ -2683,6 +2688,11 @@ impl RpcMethod<0> for EthSubscribe {
     type Params = ();
     type Ok = ();
 
+    // This method is a placeholder and is never actually called.
+    // Subscription handling is performed in `pubsub.rs`.
+    //
+    // We still need to implement the `RpcMethod` trait to expose method metadata
+    // like `NAME`, `NAME_ALIAS`, `PERMISSION`, etc..
     async fn handle(
         _: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
