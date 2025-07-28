@@ -1020,7 +1020,10 @@ mod tests {
 
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
-        db::{MemoryDB, car::PlainCar},
+        db::{
+            MemoryDB,
+            car::{AnyCar, ManyCar},
+        },
         networks::{self, ChainConfig},
     };
 
@@ -1132,10 +1135,12 @@ mod tests {
         let _ = (a, c1);
     }
 
-    impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
+    impl ChainStore<Chain4U<ManyCar>> {
         fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
             let db = Arc::new(Chain4U::with_blockstore(
-                PlainCar::new(genesis_car).unwrap(),
+                ManyCar::new(MemoryDB::default())
+                    .with_read_only(AnyCar::new(genesis_car).unwrap())
+                    .unwrap(),
             ));
             let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(

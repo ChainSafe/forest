@@ -31,6 +31,20 @@
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#5863](https://github.com/ChainSafe/forest/pull/5863) Fixed needless GC runs on a stateless node.
+
+## Forest v0.28.0 "Denethor's Folly"
+
+This is a non-mandatory release recommended for all node operators. It includes numerous fixes and quality-of-life improvements for development and archival snapshot operations. It also includes a memory leak fix that would surface on long-running nodes.
+
+### Added
+
 - [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--export-mode` flag to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
 
 - [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`
@@ -58,6 +72,8 @@
 - [#5750](https://github.com/ChainSafe/forest/pull/5750) Fix regression causing the `Filecoin.ChainNotify` RPC endpoint to be unreachable.
 
 - [#5730](https://github.com/ChainSafe/forest/issues/5730) Fixed various bugs in the mempool selection logic, including gas overpricing and incorrect message chain pruning. Additional logic was added to limit the number of messages in the block.
+
+- [#5842](https://github.com/ChainSafe/forest/pull/5842) Fixed a memory leak in the bad block cache that could lead to excessive memory usage over time.
 
 ## Forest v0.27.0 "Whisperer in Darkness"
 
