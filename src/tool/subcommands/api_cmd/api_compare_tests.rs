@@ -59,6 +59,7 @@ use similar::{ChangeTag, TextDiff};
 use std::path::Path;
 use std::time::Instant;
 use std::{
+    fmt,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, LazyLock},
@@ -106,6 +107,22 @@ pub enum TestSummary {
     Timeout,
     /// Server returned JSON-RPC, and it matched our schema, and passed validation
     Valid,
+}
+
+impl fmt::Display for TestSummary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TestSummary::MissingMethod => "MissingMethod",
+            TestSummary::Rejected(_) => "Rejected",
+            TestSummary::NotJsonRPC => "NotJsonRPC",
+            TestSummary::InfraError => "InfraError",
+            TestSummary::BadJson => "BadJson",
+            TestSummary::CustomCheckFailed => "CustomCheckFailed",
+            TestSummary::Timeout => "Timeout",
+            TestSummary::Valid => "Valid",
+        };
+        write!(f, "{s}")
+    }
 }
 
 impl TestSummary {
