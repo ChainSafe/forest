@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#5863](https://github.com/ChainSafe/forest/pull/5863) Fixed needless GC runs on a stateless node.
+
 ## Forest v0.28.0 "Denethor's Folly"
 
 This is a non-mandatory release recommended for all node operators. It includes numerous fixes and quality-of-life improvements for development and archival snapshot operations. It also includes a memory leak fix that would surface on long-running nodes.
