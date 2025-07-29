@@ -48,10 +48,18 @@ use tokio::sync::{
 };
 use tokio::task::JoinHandle;
 
+const HEAD_CHANNEL_CAPACITY: usize = 10;
+
+/// Subscribes to head changes from the chain store and broadcasts new blocks.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
 pub(crate) fn new_heads<DB: Blockstore>(
     data: &crate::rpc::RPCState<DB>,
 ) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     let mut subscriber = data.chain_store().publisher().subscribe();
 
@@ -71,19 +79,17 @@ pub(crate) fn new_heads<DB: Blockstore>(
 
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
 
-/// | Field       | Supported in `eth_getLogs` | Supported in `eth_subscribe` | Notes                                      |
-/// |-------------|----------------------------|------------------------------|--------------------------------------------|
-/// | `address`   | Yes                        | Yes                          | Can be a single address or an array        |
-/// | `topics`    | Yes                        | Yes                          | Same topic filtering rules apply           |
-/// | `fromBlock` | Yes                        | No                           | Not relevant for real-time subscriptions   |
-/// | `toBlock`   | Yes                        | No                           | Same as above                              |
-/// | `blockhash` | Yes                        | No                           | Specific to a single block, not for streams|
+/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
 ///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
 pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     ctx: &Ctx<DB>,
     filter: Option<EthFilterSpec>,
 ) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     let mut subscriber = ctx.chain_store().publisher().subscribe();
 
@@ -786,7 +792,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &crate::rpc::RPCState<DB>,
 ) -> Subscriber<Vec<ApiHeadChange>> {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store().heaviest_tipset();
@@ -1020,7 +1026,10 @@ mod tests {
 
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
-        db::{MemoryDB, car::PlainCar},
+        db::{
+            MemoryDB,
+            car::{AnyCar, ManyCar},
+        },
         networks::{self, ChainConfig},
     };
 
@@ -1132,10 +1141,12 @@ mod tests {
         let _ = (a, c1);
     }
 
-    impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
+    impl ChainStore<Chain4U<ManyCar>> {
         fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
             let db = Arc::new(Chain4U::with_blockstore(
-                PlainCar::new(genesis_car).unwrap(),
+                ManyCar::new(MemoryDB::default())
+                    .with_read_only(AnyCar::new(genesis_car).unwrap())
+                    .unwrap(),
             ));
             let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(
