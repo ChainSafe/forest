@@ -6524,9 +6524,9 @@ dependencies = [
 
 [[package]]
 name = "parity-db"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d9a72b43499342c9e3b039cb3f48030bf469c3cedbf21cfafc3a302ea5e1302"
+checksum = "6985a45b0597d68448dac9db2907f9f72bbaf63fe3383d4ba15f99096c87212f"
 dependencies = [
  "blake2",
  "crc32fast",
@@ -7278,9 +7278,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.121.0"
+version = "0.122.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22944e31fb91e9b3e75bcbc91e37d958b8c0825a6160927f2856831d2ce83b36"
+checksum = "415f0821f512608d825b3215489a6a6a2c18ed9f0045953d514e7ec23d4b90ab"
 dependencies = [
  "memchr",
  "unicode-properties",
@@ -7289,15 +7289,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.295"
+version = "0.0.296"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3564398f3b5c5d9ef44b703540d23750d856b60deb45f76a587679006d538b0"
+checksum = "dc3fbde70afb324a176bcadfdaa6d4b1851f373f56bca06781c556ae49143530"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.295"
+version = "0.0.296"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "796eda86d1840acaa3210e2057e96ca5b1d04082f43450d35e0096998e39ced4"
+checksum = "e5b351daf0d4804ee7fd2cb9304b8b22e86a649702ec0e51cb72873bb786af61"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7308,9 +7308,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.295"
+version = "0.0.296"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c913a77c9c5ce0d589e1be6e2319b434fb4581fa33504c53ce5d3cc9099983a6"
+checksum = "72d3bbbce1b520262a474fe2876306206ebab83a922b286a82a2b93d95c467ea"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7324,9 +7324,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.295"
+version = "0.0.296"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aee3205230d84fad587179a02be176b32421edd17bed3637dc75c7db253badbc"
+checksum = "4c515e1089728d68ede5e3b49c7858c2be834c80d67fe2efa8cd09b613a1810d"
 dependencies = [
  "either",
  "itertools 0.14.0",
