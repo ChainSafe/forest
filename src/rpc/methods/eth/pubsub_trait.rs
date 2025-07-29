@@ -1,6 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// src/rpc/methods/eth/traits.rs
+
 use crate::rpc::eth::types::{EthAddressList, EthTopicSpec};
 use jsonrpsee::proc_macros::rpc;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,9 @@ pub trait EthPubSubApi {
     /// Subscribe to Ethereum events
     #[subscription(
         name = "subscribe" => "subscription",
+        aliases = ["Filecoin.EthSubscribe"],
         unsubscribe = "unsubscribe",
+        unsubscribe_aliases = ["Filecoin.EthUnsubscribe"],
         item = serde_json::Value
     )]
     async fn subscribe(
