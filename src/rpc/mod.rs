@@ -59,7 +59,6 @@ macro_rules! for_each_rpc_method {
         // chain vertical
         $callback!($crate::rpc::chain::ChainPruneSnapshot);
         $callback!($crate::rpc::chain::ChainExport);
-        $callback!($crate::rpc::chain::ChainExportV2);
         $callback!($crate::rpc::chain::ChainGetBlock);
         $callback!($crate::rpc::chain::ChainGetBlockMessages);
         $callback!($crate::rpc::chain::ChainGetEvents);
@@ -79,6 +78,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainSetHead);
         $callback!($crate::rpc::chain::ChainStatObj);
         $callback!($crate::rpc::chain::ChainTipSetWeight);
+        $callback!($crate::rpc::chain::ForestChainExport);
 
         // common vertical
         $callback!($crate::rpc::common::Session);
