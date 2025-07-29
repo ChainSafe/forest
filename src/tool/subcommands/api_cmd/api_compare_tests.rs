@@ -1913,28 +1913,27 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),
-        // DataCap actor tests
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            1, // Constructor
+            1,
             to_vec(&datacap_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            2643134072, // frc42_dispatch::method_hash!("Mint")
+            116935346, // frc42_dispatch::method_hash!("Mint")
             to_vec(&datacap_mint_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            2643134073, // frc42_dispatch::method_hash!("Destroy")
+            2624896501, // frc42_dispatch::method_hash!("Destroy")
             to_vec(&datacap_destroy_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            2643134074, // frc42_dispatch::method_hash!("Balance")
+            3261979605, // frc42_dispatch::method_hash!("Balance")
             to_vec(&datacap_balance_params)?,
             tipset.key().into(),
         ))?),

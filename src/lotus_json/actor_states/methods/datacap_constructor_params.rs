@@ -7,7 +7,7 @@ use fil_actor_datacap_state as datacap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "PascalCase")]
+#[serde(transparent)]
 pub struct DatacapConstructorParamsLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
@@ -23,7 +23,7 @@ macro_rules! impl_datacap_constructor_params_lotus_json {
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     vec![(
-                        serde_json::json!({"governor": "f01234"}),
+                        serde_json::json!("f01234"),
                         datacap::$version::ConstructorParams {
                             governor: Address::new_id(1234).into(),
                         },
