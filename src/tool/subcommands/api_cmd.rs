@@ -18,6 +18,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
+use crate::tool::subcommands::api_cmd::api_run_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{Context as _, bail, ensure};
@@ -26,6 +27,7 @@ use clap::{Subcommand, ValueEnum};
 use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -181,6 +183,15 @@ pub enum ApiCommands {
     Run {
         /// Client address
         addr: UrlFromMultiAddr,
+        /// Test Transaction to address
+        #[arg(long)]
+        to: String,
+        /// Test Transaction from address
+        #[arg(long)]
+        from: String,
+        /// Test Transaction hex payload
+        #[arg(long)]
+        payload: String,
         /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
@@ -333,11 +344,19 @@ impl ApiCommands {
             }
             Self::Run {
                 addr: UrlFromMultiAddr(url),
+                to,
+                from,
+                payload,
                 filter,
             } => {
                 let client = Arc::new(rpc::Client::from_url(url));
 
-                let tests = api_run_tests::create_tests().await;
+                let to = Address::from_str(&to)?;
+                let from = Address::from_str(&from)?;
+                let payload = hex::decode(payload)?;
+                let tx = TestTransaction { to, from, payload };
+
+                let tests = api_run_tests::create_tests(tx).await;
                 api_run_tests::run_tests(tests, client.clone(), filter).await?;
             }
             Self::DumpTests {

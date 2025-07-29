@@ -7,7 +7,6 @@ use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::{address::Address, message::Message};
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -19,6 +18,13 @@ type TestRunner = Arc<
         + Send
         + Sync,
 >;
+
+#[derive(Clone)]
+pub struct TestTransaction {
+    pub to: Address,
+    pub from: Address,
+    pub payload: Vec<u8>,
+}
 
 #[derive(Clone)]
 pub struct RpcTestScenario {
@@ -263,135 +269,139 @@ fn eth_new_block_filter() -> RpcTestScenario {
     })
 }
 
-fn eth_new_pending_transaction_filter() -> RpcTestScenario {
-    RpcTestScenario::basic(move |client| async move {
-        let filter_id = client
-            .call(EthNewPendingTransactionFilter::request(())?)
-            .await?;
-
-        let filter_result = client
-            .call(EthGetFilterChanges::request((filter_id.clone(),))?)
-            .await?;
-
-        let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-            let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
-                .unwrap();
-
-            let encoded =
-                cbor4ii::serde::to_vec(Vec::with_capacity(payload.len()), &Value::Bytes(payload))
-                    .context("failed to encode params")?;
-
-            let message = Message {
-                to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
-                from: Address::from_str("t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy").unwrap(),
-                method_num: EVMMethod::InvokeContract as u64,
-                params: encoded.into(),
-                ..Default::default()
-            };
-
-            let smsg = client
-                .call(MpoolPushMessage::request((message, None))?)
+fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            let filter_id = client
+                .call(EthNewPendingTransactionFilter::request(())?)
                 .await?;
-
-            sleep(Duration::from_secs(2)).await;
 
             let filter_result = client
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
                 .await?;
 
-            if let EthFilterResult::Hashes(hashes) = filter_result {
-                anyhow::ensure!(prev_hashes != hashes);
+            let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
+                let encoded = cbor4ii::serde::to_vec(
+                    Vec::with_capacity(tx.payload.len()),
+                    &Value::Bytes(tx.payload.clone()),
+                )
+                .context("failed to encode params")?;
 
-                let mut cids = vec![];
-                for hash in hashes {
-                    if let Some(cid) = client
-                        .call(EthGetMessageCidByTransactionHash::request((hash,))?)
-                        .await?
-                    {
-                        cids.push(cid);
+                let message = Message {
+                    to: tx.to,
+                    from: tx.from,
+                    method_num: EVMMethod::InvokeContract as u64,
+                    params: encoded.into(),
+                    ..Default::default()
+                };
+
+                let smsg = client
+                    .call(MpoolPushMessage::request((message, None))?)
+                    .await?;
+
+                sleep(Duration::from_secs(2)).await;
+
+                let filter_result = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+
+                if let EthFilterResult::Hashes(hashes) = filter_result {
+                    anyhow::ensure!(prev_hashes != hashes);
+
+                    let mut cids = vec![];
+                    for hash in hashes {
+                        if let Some(cid) = client
+                            .call(EthGetMessageCidByTransactionHash::request((hash,))?)
+                            .await?
+                        {
+                            cids.push(cid);
+                        }
                     }
+
+                    anyhow::ensure!(cids.contains(&smsg.cid()));
+
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("expecting hashes"))
                 }
-
-                anyhow::ensure!(cids.contains(&smsg.cid()));
-
-                Ok(())
             } else {
-                Err(anyhow::anyhow!("expecting hashes"))
-            }
-        } else {
-            Err(anyhow::anyhow!("expecting transactions"))
-        };
+                Err(anyhow::anyhow!("expecting transactions"))
+            };
 
-        let removed = client
-            .call(EthUninstallFilter::request((filter_id,))?)
-            .await?;
-        anyhow::ensure!(removed);
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await?;
+            anyhow::ensure!(removed);
 
-        result
+            result
+        }
     })
 }
 
-fn eth_get_filter_logs() -> RpcTestScenario {
-    RpcTestScenario::basic(move |client| async move {
-        const BLOCK_RANGE: u64 = 200;
+fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
+    RpcTestScenario::basic(move |client| {
+        let tx = tx.clone();
+        async move {
+            const BLOCK_RANGE: u64 = 200;
 
-        let last_block = client.call(EthBlockNumber::request(())?).await?;
+            let last_block = client.call(EthBlockNumber::request(())?).await?;
 
-        let filter_spec = EthFilterSpec {
-            from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
-            to_block: Some(last_block.to_hex_string()),
-            ..Default::default()
-        };
-
-        let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
-
-        let filter_result = client
-            .call(EthGetFilterLogs::request((filter_id.clone(),))?)
-            .await?;
-
-        let result = if let EthFilterResult::Logs(prev_logs) = filter_result {
-            let payload = hex::decode("40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000")
-                .unwrap();
-
-            let encoded =
-                cbor4ii::serde::to_vec(Vec::with_capacity(payload.len()), &Value::Bytes(payload))
-                    .context("failed to encode params")?;
-
-            let message = Message {
-                to: Address::from_str("t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi").unwrap(),
-                from: Address::from_str("t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy").unwrap(),
-                method_num: EVMMethod::InvokeContract as u64,
-                params: encoded.into(),
+            let filter_spec = EthFilterSpec {
+                from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
+                to_block: Some(last_block.to_hex_string()),
                 ..Default::default()
             };
 
-            let _smsg = client
-                .call(MpoolPushMessage::request((message, None))?)
-                .await?;
-
-            sleep(Duration::from_secs(2)).await;
+            let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
 
             let filter_result = client
                 .call(EthGetFilterLogs::request((filter_id.clone(),))?)
                 .await?;
 
-            if let EthFilterResult::Logs(logs) = filter_result {
-                anyhow::ensure!(prev_logs != logs);
+            let result = if let EthFilterResult::Logs(prev_logs) = filter_result {
+                let encoded = cbor4ii::serde::to_vec(
+                    Vec::with_capacity(tx.payload.len()),
+                    &Value::Bytes(tx.payload.clone()),
+                )
+                .context("failed to encode params")?;
 
-                Ok(())
+                let message = Message {
+                    to: tx.to,
+                    from: tx.from,
+                    method_num: EVMMethod::InvokeContract as u64,
+                    params: encoded.into(),
+                    ..Default::default()
+                };
+
+                let _smsg = client
+                    .call(MpoolPushMessage::request((message, None))?)
+                    .await?;
+
+                sleep(Duration::from_secs(2)).await;
+
+                let filter_result = client
+                    .call(EthGetFilterLogs::request((filter_id.clone(),))?)
+                    .await?;
+
+                if let EthFilterResult::Logs(logs) = filter_result {
+                    anyhow::ensure!(prev_logs != logs);
+
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("expecting logs"))
+                }
             } else {
                 Err(anyhow::anyhow!("expecting logs"))
-            }
-        } else {
-            Err(anyhow::anyhow!("expecting logs"))
-        };
+            };
 
-        let removed = client
-            .call(EthUninstallFilter::request((filter_id,))?)
-            .await?;
-        anyhow::ensure!(removed);
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await?;
+            anyhow::ensure!(removed);
 
-        result
+            result
+        }
     })
 }
 
@@ -407,7 +417,7 @@ macro_rules! with_methods {
     }};
 }
 
-pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
+pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
     vec![
         with_methods!(
             create_eth_new_filter_test().name("eth_newFilter install/uninstall"),
@@ -439,13 +449,14 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
             EthUninstallFilter
         ),
         with_methods!(
-            eth_new_pending_transaction_filter().name("eth_newPendingTransactionFilter works"),
+            eth_new_pending_transaction_filter(tx.clone())
+                .name("eth_newPendingTransactionFilter works"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthUninstallFilter
         ),
         with_methods!(
-            eth_get_filter_logs().name("eth_getFilterLogs works"),
+            eth_get_filter_logs(tx.clone()).name("eth_getFilterLogs works"),
             EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter
