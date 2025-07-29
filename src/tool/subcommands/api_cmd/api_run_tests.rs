@@ -146,13 +146,6 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
-// eth_newFilter -> poll with eth_getFilterChanges
-// uninstall with eth_uninstallFilter
-// eth_newPendingTransactionFilter -> poll with eth_getFilterChanges
-// uninstall with eth_uninstallFilter
-// eth_newBlockFilter -> poll with eth_getFilterChanges/get all at once with eth_getFilterLogs
-// uninstall with eth_uninstallFilter
-
 fn create_eth_new_filter_test() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
         const BLOCK_RANGE: u64 = 200;
