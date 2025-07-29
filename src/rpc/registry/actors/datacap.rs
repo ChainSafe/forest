@@ -12,11 +12,7 @@ macro_rules! register_datacap_v9 {
         register_actor_methods!(
             $registry,
             $code_cid,
-            [
-                (Method::Constructor, ()),
-                (Method::Mint, MintParams),
-                (Method::Destroy, DestroyParams),
-            ]
+            [(Method::Mint, MintParams), (Method::Destroy, DestroyParams),]
         );
     }};
 }
@@ -28,7 +24,6 @@ macro_rules! register_datacap_v10 {
             $registry,
             $code_cid,
             [
-                (Method::Constructor, ()),
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
             ]
