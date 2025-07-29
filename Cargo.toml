@@ -92,7 +92,7 @@ fvm_ipld_encoding = "0.5.3"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
-get-size2 = { version = "0.5", features = ["derive"] }
+get-size2 = { version = "0.6", features = ["derive"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
@@ -155,7 +155,7 @@ num-traits = "0.2"
 num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
-parity-db = { version = "0.5", default-features = false }
+parity-db = { version = "0.5" }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4"
 pin-project-lite = "0.2"
@@ -235,7 +235,7 @@ assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.21"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
-criterion = { version = "0.6", features = ["async_tokio", "csv_output"] }
+criterion = { version = "0.7", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
