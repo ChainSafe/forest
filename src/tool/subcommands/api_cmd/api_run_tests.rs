@@ -29,7 +29,6 @@ pub struct TestTransaction {
 #[derive(Clone)]
 pub struct RpcTestScenario {
     pub run: TestRunner,
-    // pub ignore: Option<&'static str>,
     pub name: Option<&'static str>,
     pub should_fail_with: Option<&'static str>,
     pub used_methods: Vec<&'static str>,
@@ -47,17 +46,11 @@ impl RpcTestScenario {
         });
         Self {
             run,
-            // ignore: Default::default(),
             name: Default::default(),
             should_fail_with: Default::default(),
             used_methods: Default::default(),
         }
     }
-
-    // fn ignore(mut self, msg: &'static str) -> Self {
-    //     self.ignore = Some(msg);
-    //     self
-    // }
 
     fn name(mut self, name: &'static str) -> Self {
         self.name = Some(name);
@@ -332,6 +325,13 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
     })
 }
 
+fn as_logs(input: EthFilterResult) -> EthFilterResult {
+    match input {
+        EthFilterResult::Hashes(vec) if vec.is_empty() => EthFilterResult::Logs(Vec::new()),
+        other => other,
+    }
+}
+
 fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
     RpcTestScenario::basic(move |client| {
         let tx = tx.clone();
@@ -348,9 +348,11 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
 
             let filter_id = client.call(EthNewFilter::request((filter_spec,))?).await?;
 
-            let filter_result = client
-                .call(EthGetFilterLogs::request((filter_id.clone(),))?)
-                .await?;
+            let filter_result = as_logs(
+                client
+                    .call(EthGetFilterLogs::request((filter_id.clone(),))?)
+                    .await?,
+            );
 
             let result = if let EthFilterResult::Logs(prev_logs) = filter_result {
                 let encoded = cbor4ii::serde::to_vec(
@@ -373,9 +375,11 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
 
                 sleep(Duration::from_secs(2)).await;
 
-                let filter_result = client
-                    .call(EthGetFilterLogs::request((filter_id.clone(),))?)
-                    .await?;
+                let filter_result = as_logs(
+                    client
+                        .call(EthGetFilterLogs::request((filter_id.clone(),))?)
+                        .await?,
+                );
 
                 if let EthFilterResult::Logs(logs) = filter_result {
                     anyhow::ensure!(prev_logs != logs);
