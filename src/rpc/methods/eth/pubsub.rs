@@ -96,7 +96,6 @@ where
         match kind {
             SubscriptionKind::NewHeads => self.handle_new_heads_subscription(sink, ctx).await,
             SubscriptionKind::PendingTransactions => {
-                // TODO(akaladarshi): https://github.com/ChainSafe/forest/pull/5782
                 return Err(SubscriptionError::from(
                     jsonrpsee::types::ErrorObjectOwned::owned(
                         jsonrpsee::types::error::METHOD_NOT_FOUND_CODE,

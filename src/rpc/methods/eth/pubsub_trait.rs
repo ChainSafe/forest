@@ -22,7 +22,6 @@ pub trait EthPubSubApi {
     ) -> jsonrpsee::core::SubscriptionResult;
 }
 
-// Keep the existing types but make them more structured
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SubscriptionKind {

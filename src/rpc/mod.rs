@@ -512,6 +512,10 @@ where
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
 
+    // register eth subscription APIs
+    let eth_pubsub = EthPubSub::new(state.clone());
+    module.merge(eth_pubsub.into_rpc())?;
+
     let mut pubsub_module = FilRpcModule::default();
 
     pubsub_module.register_channel("Filecoin.ChainNotify", {
@@ -645,7 +649,7 @@ fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut module = RpcModule::from_arc(state.clone());
+    let mut module = RpcModule::from_arc(state);
     macro_rules! register {
         ($ty:ty) => {
             // Register only non-subscription RPC methods.
@@ -658,11 +662,6 @@ where
         };
     }
     for_each_rpc_method!(register);
-
-    let eth_pubsub = EthPubSub::new(state.clone());
-    module
-        .merge(eth_pubsub.into_rpc())
-        .expect("Could not merge eth pubsub module");
     module
 }
 
