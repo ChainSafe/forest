@@ -453,7 +453,7 @@ pub(super) async fn create_tests() -> Vec<RpcTestScenario> {
         ),
         with_methods!(
             eth_get_filter_logs().name("eth_getFilterLogs works"),
-            EthNewPendingTransactionFilter,
+            EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter
         ),
