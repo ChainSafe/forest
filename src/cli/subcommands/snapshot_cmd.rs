@@ -12,8 +12,11 @@ use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use num::Zero as _;
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Subcommand)]
@@ -92,11 +95,12 @@ impl SnapshotCommands {
                 };
 
                 let handle = tokio::spawn({
+                    let start = Instant::now();
                     let tmp_file = temp_path.to_owned();
                     let output_path = output_path.clone();
                     async move {
                         let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.25));
+                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.5));
                         println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
@@ -108,10 +112,17 @@ impl SnapshotCommands {
                                 anes::MoveCursorToPreviousLine(1),
                                 anes::ClearLine::All
                             );
+                            let elapsed_secs = start.elapsed().as_secs_f64();
                             println!(
-                                "{}: {}",
+                                "{}: {} ({}/s)",
                                 &output_path.to_string_lossy(),
-                                snapshot_size.human_count_bytes()
+                                snapshot_size.human_count_bytes(),
+                                if elapsed_secs.is_zero() {
+                                    0.
+                                } else {
+                                    (snapshot_size as f64) / elapsed_secs
+                                }
+                                .human_count_bytes(),
                             );
                             let _ = std::io::stdout().flush();
                         }
