@@ -4,9 +4,10 @@
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::shim::address::Address;
 use fil_actor_datacap_state as datacap;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, schemars::JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(transparent)]
 pub struct DatacapBalanceParamsLotusJson {
     #[schemars(with = "LotusJson<Address>")]

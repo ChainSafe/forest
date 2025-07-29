@@ -1851,13 +1851,13 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
 
     let datacap_mint_params = fil_actor_datacap_state::v16::MintParams {
         to: Address::new_id(3001).into(),
-        amount: fvm_shared4::econ::TokenAmount::from_atto(1_000_000_000_000_000_000_i64),
+        amount: TokenAmount::default().into(),
         operators: vec![Address::new_id(3002).into(), Address::new_id(3003).into()],
     };
 
     let datacap_destroy_params = fil_actor_datacap_state::v16::DestroyParams {
         owner: Address::new_id(3004).into(),
-        amount: fvm_shared4::econ::TokenAmount::from_atto(500_000_000_000_000_000_i64),
+        amount: TokenAmount::default().into(),
     };
 
     let datacap_balance_params = fil_actor_datacap_state::v16::BalanceParams {
