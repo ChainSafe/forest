@@ -4,9 +4,10 @@ pub mod store;
 mod weight;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
-use crate::db::car::forest::{self, finalize_frame};
+use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::ipld::stream_chain;
+use crate::lotus_json::lotus_json_with_self;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -22,6 +23,7 @@ use multihash_derive::MultihashDigest as _;
 use num::FromPrimitive as _;
 use num_derive::FromPrimitive;
 use nunny::Vec as NonEmpty;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::sync::Arc;
@@ -51,39 +53,18 @@ pub async fn export<D: Digest>(
     seen: CidHashSet,
     skip_checksum: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
-    let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let roots = tipset.key().to_cids();
-
-    // Wrap writer in optional checksum calculator
-    let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
-
-    // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
-    // stream all block headers until genesis.
-    let blocks = par_buffer(
-        // Queue 1k blocks. This is enough to saturate the compressor and blocks
-        // are small enough that keeping 1k in memory isn't a problem. Average
-        // block size is between 1kb and 2kb.
-        1024,
-        stream_chain(
-            Arc::clone(db),
-            tipset.clone().chain_owned(Arc::clone(db)),
-            stateroot_lookup_limit,
-        )
-        .with_seen(seen),
-    );
-
-    // Encode Ipld key-value pairs in zstd frames
-    let frames = forest::Encoder::compress_stream_default(blocks);
-
-    // Write zstd frames and include a skippable index
-    forest::Encoder::write(&mut writer, roots, frames).await?;
-
-    // Flush to ensure everything has been successfully written
-    writer.flush().await.context("failed to flush")?;
-
-    let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
-
-    Ok(digest)
+    export_to_forest_car::<D>(
+        roots,
+        None,
+        db,
+        tipset,
+        lookup_depth,
+        writer,
+        seen,
+        skip_checksum,
+    )
+    .await
 }
 
 pub async fn export_v2<D: Digest>(
@@ -95,7 +76,6 @@ pub async fn export_v2<D: Digest>(
     seen: CidHashSet,
     skip_checksum: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
-    let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let head = tipset.key().to_cids();
     let f3_cid = f3.as_ref().map(|(cid, _)| *cid);
     let snap_meta = FilecoinSnapshotMetadata::new_v2(head, f3_cid);
@@ -128,6 +108,32 @@ pub async fn export_v2<D: Digest>(
         });
     }
 
+    export_to_forest_car::<D>(
+        roots,
+        Some(prefix_data_frames),
+        db,
+        tipset,
+        lookup_depth,
+        writer,
+        seen,
+        skip_checksum,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn export_to_forest_car<D: Digest>(
+    roots: NonEmpty<Cid>,
+    prefix_data_frames: Option<Vec<anyhow::Result<ForestCarFrame>>>,
+    db: &Arc<impl Blockstore + Send + Sync + 'static>,
+    tipset: &Tipset,
+    lookup_depth: ChainEpochDelta,
+    writer: impl AsyncWrite + Unpin,
+    seen: CidHashSet,
+    skip_checksum: bool,
+) -> anyhow::Result<Option<digest::Output<D>>, Error> {
+    let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
+
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
 
@@ -148,7 +154,7 @@ pub async fn export_v2<D: Digest>(
 
     // Encode Ipld key-value pairs in zstd frames
     let block_frames = forest::Encoder::compress_stream_default(blocks);
-    let frames = futures::stream::iter(prefix_data_frames).chain(block_frames);
+    let frames = futures::stream::iter(prefix_data_frames.unwrap_or_default()).chain(block_frames);
 
     // Write zstd frames and include a skippable index
     forest::Encoder::write(&mut writer, roots, frames).await?;
@@ -161,12 +167,13 @@ pub async fn export_v2<D: Digest>(
     Ok(digest)
 }
 
-#[derive(Debug, Copy, FromPrimitive, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, clap::ValueEnum, FromPrimitive, Clone, PartialEq, Eq, JsonSchema)]
 #[repr(u64)]
 pub enum FilecoinSnapshotVersion {
     V1 = 1,
     V2 = 2,
 }
+lotus_json_with_self!(FilecoinSnapshotVersion);
 
 impl Serialize for FilecoinSnapshotVersion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -205,12 +212,20 @@ pub struct FilecoinSnapshotMetadata {
 }
 
 impl FilecoinSnapshotMetadata {
-    pub fn new_v2(head_tipset_key: NonEmpty<Cid>, f3_data: Option<Cid>) -> Self {
+    pub fn new(
+        version: FilecoinSnapshotVersion,
+        head_tipset_key: NonEmpty<Cid>,
+        f3_data: Option<Cid>,
+    ) -> Self {
         Self {
-            version: FilecoinSnapshotVersion::V2,
+            version,
             head_tipset_key,
             f3_data,
         }
+    }
+
+    pub fn new_v2(head_tipset_key: NonEmpty<Cid>, f3_data: Option<Cid>) -> Self {
+        Self::new(FilecoinSnapshotVersion::V2, head_tipset_key, f3_data)
     }
 }
 

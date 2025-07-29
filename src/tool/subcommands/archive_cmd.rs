@@ -199,7 +199,9 @@ impl ArchiveCommands {
                 if let Some(metadata) = store.metadata() {
                     println!("{metadata}");
                 } else {
-                    println!("No FRC-0108 metadata found in the snapshot");
+                    println!(
+                        "No metadata found (required by v2 snapshot) - this appears to be a v1 snapshot"
+                    );
                 }
                 Ok(())
             }
@@ -324,7 +326,7 @@ impl ArchiveInfo {
 
         let tipsets = head.clone().chain(store);
 
-        let windowed = (std::iter::once(head.clone()).chain(tipsets)).tuple_windows();
+        let windowed = std::iter::once(head.clone()).chain(tipsets).tuple_windows();
 
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;

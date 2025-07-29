@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{self, chain::ChainExportParams, prelude::*};
+use crate::rpc::{self, chain::ForestChainExportParams, prelude::*, types::ApiTipsetKey};
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
@@ -18,12 +18,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::io::AsyncWriteExt;
-
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum SnapshotFormat {
-    V1,
-    V2,
-}
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -45,8 +39,8 @@ pub enum SnapshotCommands {
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
         /// Export snapshot in the experimental v2 format(FRC-0108).
-        #[arg(long, value_enum, default_value_t = SnapshotFormat::V1)]
-        format: SnapshotFormat,
+        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
+        format: FilecoinSnapshotVersion,
     },
 }
 
@@ -95,7 +89,8 @@ impl SnapshotCommands {
                 let output_dir = output_path.parent().context("invalid output path")?;
                 let temp_path = new_forest_car_temp_path_in(output_dir)?;
 
-                let params = ChainExportParams {
+                let params = ForestChainExportParams {
+                    version: format,
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
@@ -140,20 +135,9 @@ impl SnapshotCommands {
                 });
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = match format {
-                    SnapshotFormat::V1 => {
-                        client
-                            .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
-                            .await?
-                    }
-                    SnapshotFormat::V2 => {
-                        client
-                            .call(
-                                ForestChainExport::request((params,))?.with_timeout(Duration::MAX),
-                            )
-                            .await?
-                    }
-                };
+                let hash_result = client
+                    .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .await?;
 
                 handle.abort();
                 let _ = handle.await;

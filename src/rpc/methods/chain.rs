@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::{ChainStore, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -222,6 +222,86 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
+pub enum ForestChainExport {}
+impl RpcMethod<1> for ForestChainExport {
+    const NAME: &'static str = "Forest.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ForestChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ForestChainExportParams {
+            version,
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys: ApiTipsetKey(tsk),
+            skip_checksum,
+            dry_run,
+        } = params;
+
+        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+        let _locked = LOCK.try_lock();
+        if _locked.is_err() {
+            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        }
+
+        let chain_finality = ctx.chain_config().policy.chain_finality;
+        if recent_roots < chain_finality {
+            return Err(anyhow::anyhow!(format!(
+                "recent-stateroots must be greater than {chain_finality}"
+            ))
+            .into());
+        }
+
+        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts =
+            ctx.chain_index()
+                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
+
+        let writer = if dry_run {
+            tokio_util::either::Either::Left(VoidAsyncWriter)
+        } else {
+            tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
+        };
+        match match version {
+            FilecoinSnapshotVersion::V1 => {
+                crate::chain::export::<Sha256>(
+                    &ctx.store_owned(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
+            FilecoinSnapshotVersion::V2 => {
+                crate::chain::export_v2::<Sha256>(
+                    &ctx.store_owned(),
+                    None,
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
+        } {
+            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+            Err(e) => Err(anyhow::anyhow!(e).into()),
+        }
+    }
+}
+
 pub enum ChainExport {}
 impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
@@ -234,135 +314,28 @@ impl RpcMethod<1> for ChainExport {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (params,): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
+        (ChainExportParams {
             epoch,
             recent_roots,
             output_path,
-            tipset_keys: ApiTipsetKey(tsk),
+            tipset_keys,
             skip_checksum,
             dry_run,
-        } = params;
-
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-        let _locked = LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
-        }
-
-        let chain_finality = ctx.chain_config().policy.chain_finality;
-        if recent_roots < chain_finality {
-            return Err(anyhow::anyhow!(format!(
-                "recent-stateroots must be greater than {chain_finality}"
-            ))
-            .into());
-        }
-
-        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts =
-            ctx.chain_index()
-                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
-
-        match if dry_run {
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
-        } else {
-            let file = tokio::fs::File::create(&output_path).await?;
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                file,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
-        } {
-            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
-            Err(e) => Err(anyhow::anyhow!(e).into()),
-        }
-    }
-}
-
-pub enum ForestChainExport {}
-impl RpcMethod<1> for ForestChainExport {
-    const NAME: &'static str = "Forest.ChainExport";
-    const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (ChainExportParams,);
-    type Ok = Option<String>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (params,): Self::Params,
+        },): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
-            epoch,
-            recent_roots,
-            output_path,
-            tipset_keys: ApiTipsetKey(tsk),
-            skip_checksum,
-            dry_run,
-        } = params;
-
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-        let _locked = LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
-        }
-
-        let chain_finality = ctx.chain_config().policy.chain_finality;
-        if recent_roots < chain_finality {
-            return Err(anyhow::anyhow!(format!(
-                "recent-stateroots must be greater than {chain_finality}"
-            ))
-            .into());
-        }
-
-        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts =
-            ctx.chain_index()
-                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
-
-        match if dry_run {
-            crate::chain::export_v2::<Sha256>(
-                &ctx.store_owned(),
-                None,
-                &start_ts,
+        ForestChainExport::handle(
+            ctx,
+            (ForestChainExportParams {
+                version: FilecoinSnapshotVersion::V1,
+                epoch,
                 recent_roots,
-                VoidAsyncWriter,
-                CidHashSet::default(),
+                output_path,
+                tipset_keys,
                 skip_checksum,
-            )
-            .await
-        } else {
-            let file = tokio::fs::File::create(&output_path).await?;
-            crate::chain::export_v2::<Sha256>(
-                &ctx.store_owned(),
-                None,
-                &start_ts,
-                recent_roots,
-                file,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
-        } {
-            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
-            Err(e) => Err(anyhow::anyhow!(e).into()),
-        }
+                dry_run,
+            },),
+        )
+        .await
     }
 }
 
@@ -912,6 +885,20 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportParams {
+    pub version: FilecoinSnapshotVersion,
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+lotus_json_with_self!(ForestChainExportParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

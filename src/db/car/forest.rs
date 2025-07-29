@@ -88,6 +88,9 @@ pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
 const ZSTD_SKIP_FRAME_LEN: u64 = 8;
 
+/// `zstd` frame of Forest CAR
+pub type ForestCarFrame = (Vec<Cid>, Bytes);
+
 pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
@@ -122,8 +125,9 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
     pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
         self.metadata.get_or_init(|| {
-            // <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
-            if self.header.roots.len() == 1 {
+            /// According to FRC-0108, v2 snapshots have exactly one root pointing to metadata
+            const V2_SNAPSHOT_ROOT_COUNT: usize = 1;
+            if self.header.roots.len() == V2_SNAPSHOT_ROOT_COUNT {
                 let maybe_metadata_cid = self.header.roots.first();
                 if let Ok(Some(metadata)) =
                     self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
@@ -278,7 +282,7 @@ impl Encoder {
     pub async fn write(
         mut sink: impl AsyncWrite + Unpin,
         roots: NonEmpty<Cid>,
-        mut stream: impl Stream<Item = anyhow::Result<(Vec<Cid>, Bytes)>> + Unpin,
+        mut stream: impl Stream<Item = anyhow::Result<ForestCarFrame>> + Unpin,
     ) -> anyhow::Result<()> {
         let mut offset = 0;
 
@@ -323,7 +327,7 @@ impl Encoder {
     /// `compress_stream` with [`DEFAULT_FOREST_CAR_FRAME_SIZE`] as default frame size and [`DEFAULT_FOREST_CAR_COMPRESSION_LEVEL`] as default compression level.
     pub fn compress_stream_default(
         stream: impl Stream<Item = anyhow::Result<CarBlock>>,
-    ) -> impl Stream<Item = anyhow::Result<(Vec<Cid>, Bytes)>> {
+    ) -> impl Stream<Item = anyhow::Result<ForestCarFrame>> {
         Self::compress_stream(
             DEFAULT_FOREST_CAR_FRAME_SIZE,
             DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
@@ -337,7 +341,7 @@ impl Encoder {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         stream: impl Stream<Item = anyhow::Result<CarBlock>>,
-    ) -> impl Stream<Item = anyhow::Result<(Vec<Cid>, Bytes)>> {
+    ) -> impl Stream<Item = anyhow::Result<ForestCarFrame>> {
         let mut encoder_store = new_encoder(zstd_compression_level);
         let mut frame_cids = vec![];
 
