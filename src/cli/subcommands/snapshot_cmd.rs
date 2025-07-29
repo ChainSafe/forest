@@ -11,9 +11,11 @@ use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
-use num::Zero;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use num::Zero as _;
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Subcommand)]

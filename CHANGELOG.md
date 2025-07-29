@@ -29,15 +29,21 @@
 
 ### Added
 
+- [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
+
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
 
 ### Changed
+
+- [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
 
 ### Removed
 
 ### Fixed
 
 - [#5863](https://github.com/ChainSafe/forest/pull/5863) Fixed needless GC runs on a stateless node.
+
+- [#5859](https://github.com/ChainSafe/forest/pull/5859) Fixed size calculation for zstd frame cache.
 
 ## Forest v0.28.0 "Denethor's Folly"
 
