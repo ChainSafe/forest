@@ -1,15 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::eth::EVMMethod;
-use crate::networks::calibnet;
-use crate::rpc::eth::eth_tx_from_signed_eth_message;
-use crate::rpc::eth::{
-    BlockNumberOrHash, EthInt64, ExtBlockNumberOrHash, ExtPredefined, Predefined,
-    new_eth_tx_from_signed_message, types::*,
-};
+use crate::rpc::eth::types::*;
 use crate::rpc::{self, RpcMethod, prelude::*};
 use crate::shim::clock::EPOCH_DURATION_SECONDS;
-use crate::shim::econ::TokenAmount;
 use crate::shim::{address::Address, message::Message};
 use std::io::{self, Write};
 use std::pin::Pin;
