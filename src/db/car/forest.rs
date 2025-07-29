@@ -61,7 +61,6 @@ use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use nunny::Vec as NonEmpty;
-use parking_lot::Mutex;
 use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
@@ -94,7 +93,7 @@ pub struct ForestCar<ReaderT> {
     cache_key: CacheKey,
     indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     index_size_bytes: u32,
-    frame_cache: Arc<Mutex<ZstdFrameCache>>,
+    frame_cache: Arc<ZstdFrameCache>,
     roots: NonEmpty<Cid>,
 }
 
@@ -113,7 +112,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             cache_key: 0,
             indexed,
             index_size_bytes,
-            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
+            frame_cache: Arc::new(ZstdFrameCache::default()),
             roots: header.roots,
         })
     }
@@ -179,7 +178,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
         Self {
             cache_key: key,
             frame_cache: cache,
@@ -203,7 +202,7 @@ where
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let indexed = &self.indexed;
         for position in indexed.get(*k)?.into_iter() {
-            let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
+            let cache_query = self.frame_cache.get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
                 Some(Some(val)) => return Ok(Some(val)),
@@ -220,12 +219,10 @@ where
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
-                        block_map.insert(cid, data);
+                        block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(k).cloned();
-                    self.frame_cache
-                        .lock()
-                        .put(position, self.cache_key, block_map);
+                    let get_result = block_map.get(&(*k).into()).cloned();
+                    self.frame_cache.put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {
