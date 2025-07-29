@@ -23,7 +23,7 @@ type TestRunner = Arc<
 #[derive(Clone)]
 pub struct RpcTestScenario {
     pub run: TestRunner,
-    pub ignore: Option<&'static str>,
+    // pub ignore: Option<&'static str>,
     pub name: Option<&'static str>,
     pub should_fail_with: Option<&'static str>,
     pub used_methods: Vec<&'static str>,
@@ -41,17 +41,17 @@ impl RpcTestScenario {
         });
         Self {
             run,
-            ignore: Default::default(),
+            // ignore: Default::default(),
             name: Default::default(),
             should_fail_with: Default::default(),
             used_methods: Default::default(),
         }
     }
 
-    fn ignore(mut self, msg: &'static str) -> Self {
-        self.ignore = Some(msg);
-        self
-    }
+    // fn ignore(mut self, msg: &'static str) -> Self {
+    //     self.ignore = Some(msg);
+    //     self
+    // }
 
     fn name(mut self, name: &'static str) -> Self {
         self.name = Some(name);
@@ -77,13 +77,12 @@ impl RpcTestScenario {
 
 pub(super) async fn run_tests(
     tests: impl IntoIterator<Item = RpcTestScenario> + Clone,
-    forest: impl Into<Arc<rpc::Client>>,
-    lotus: impl Into<Arc<rpc::Client>>,
+    client: impl Into<Arc<rpc::Client>>,
     filter: String,
 ) -> anyhow::Result<()> {
-    let client: Arc<rpc::Client> = rpc::Client::default_or_from_env(None)?.into();
+    let client: Arc<rpc::Client> = client.into();
     if let Some(token) = client.token() {
-        println!("token: {}", token);
+        println!("token: {token}");
     }
 
     let mut passed = 0;
