@@ -5,6 +5,8 @@
 
 set -eu
 
+format="${1:-v1}"
+
 source "$(dirname "$0")/harness.sh"
 
 forest_init "$@"
@@ -12,13 +14,14 @@ forest_init "$@"
 echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
-echo "Exporting zstd compressed snapshot"
-$FOREST_CLI_PATH snapshot export -o v1.forest.car.zst
+echo "Exporting zstd compressed snapshot at genesis"
+$FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 
-echo "Exporting zstd compressed snapshot in the experimental v2 format"
-$FOREST_CLI_PATH snapshot export --format v2 -o v2.forest.car.zst
+echo "Exporting zstd compressed snapshot in $format format"
+$FOREST_CLI_PATH snapshot export --format "$format"
 
-echo "Inspecting archive info and metadata"
+$FOREST_CLI_PATH shutdown --force
+
 for f in *.car.zst; do
   echo "Inspecting archive info $f"
   $FOREST_TOOL_PATH archive info "$f"
@@ -32,14 +35,7 @@ zstd --test ./*.car.zst
 echo "Verifying snapshot checksum"
 sha256sum --check ./*.sha256sum
 
-echo "Validating CAR files"
 for f in *.car.zst; do
   echo "Validating CAR file $f"
   $FOREST_TOOL_PATH snapshot validate "$f"
 done
-
-echo "Exporting zstd compressed snapshot at genesis"
-$FOREST_CLI_PATH snapshot export --tipset 0
-
-echo "Testing genesis snapshot validity"
-zstd --test forest_snapshot_calibnet_2022-11-01_height_0.forest.car.zst
