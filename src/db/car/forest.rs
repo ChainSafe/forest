@@ -125,9 +125,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
     pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
         self.metadata.get_or_init(|| {
-            /// According to FRC-0108, v2 snapshots have exactly one root pointing to metadata
-            const V2_SNAPSHOT_ROOT_COUNT: usize = 1;
-            if self.header.roots.len() == V2_SNAPSHOT_ROOT_COUNT {
+            if self.header.roots.len() == super::V2_SNAPSHOT_ROOT_COUNT {
                 let maybe_metadata_cid = self.header.roots.first();
                 if let Ok(Some(metadata)) =
                     self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
@@ -168,7 +166,8 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
-        // <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
+        // head tipset key is stored in v2 snapshot metadata
+        // See <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
         if let Some(metadata) = self.metadata() {
             &metadata.head_tipset_key
         } else {

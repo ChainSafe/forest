@@ -199,7 +199,7 @@ impl<'de> Deserialize<'de> for FilecoinSnapshotVersion {
     }
 }
 
-/// <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#snapshotmetadata>
+/// Defined in <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#snapshotmetadata>
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct FilecoinSnapshotMetadata {
