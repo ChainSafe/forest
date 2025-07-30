@@ -1,12 +1,14 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::eth::EVMMethod;
+use crate::rpc::eth::EthUint64;
 use crate::rpc::eth::types::*;
 use crate::rpc::{self, RpcMethod, prelude::*};
 use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::{address::Address, message::Message};
 use std::io::{self, Write};
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -336,13 +338,48 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
     RpcTestScenario::basic(move |client| {
         let tx = tx.clone();
         async move {
-            const BLOCK_RANGE: u64 = 200;
+            const BLOCK_RANGE: u64 = 1;
 
-            let last_block = client.call(EthBlockNumber::request(())?).await?;
+            let tipset = client.call(ChainHead::request(())?).await?;
+
+            let encoded = cbor4ii::serde::to_vec(
+                Vec::with_capacity(tx.payload.len()),
+                &Value::Bytes(tx.payload.clone()),
+            )
+            .context("failed to encode params")?;
+
+            let message = Message {
+                to: tx.to,
+                from: tx.from,
+                method_num: EVMMethod::InvokeContract as u64,
+                params: encoded.into(),
+                ..Default::default()
+            };
+
+            let smsg = client
+                .call(MpoolPushMessage::request((message, None))?)
+                .await?;
+
+            let lookup = client
+                .call(
+                    StateWaitMsg::request((smsg.cid(), 0, tipset.epoch(), false))?
+                        .with_timeout(Duration::MAX),
+                )
+                .await?;
+
+            let block_num = EthUint64(lookup.height as u64);
+
+            let topics = EthTopicSpec(vec![EthHashList::Single(Some(
+                EthHash::from_str(
+                    &"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                )
+                .unwrap(),
+            ))]);
 
             let filter_spec = EthFilterSpec {
-                from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
-                to_block: Some(last_block.to_hex_string()),
+                from_block: Some(format!("0x{:x}", block_num.0 - BLOCK_RANGE)),
+                to_block: Some(block_num.to_hex_string()),
+                topics: Some(topics),
                 ..Default::default()
             };
 
@@ -354,40 +391,9 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
                     .await?,
             );
 
-            let result = if let EthFilterResult::Logs(prev_logs) = filter_result {
-                let encoded = cbor4ii::serde::to_vec(
-                    Vec::with_capacity(tx.payload.len()),
-                    &Value::Bytes(tx.payload.clone()),
-                )
-                .context("failed to encode params")?;
-
-                let message = Message {
-                    to: tx.to,
-                    from: tx.from,
-                    method_num: EVMMethod::InvokeContract as u64,
-                    params: encoded.into(),
-                    ..Default::default()
-                };
-
-                let _smsg = client
-                    .call(MpoolPushMessage::request((message, None))?)
-                    .await?;
-
-                sleep(Duration::from_secs(2)).await;
-
-                let filter_result = as_logs(
-                    client
-                        .call(EthGetFilterLogs::request((filter_id.clone(),))?)
-                        .await?,
-                );
-
-                if let EthFilterResult::Logs(logs) = filter_result {
-                    anyhow::ensure!(prev_logs != logs);
-
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!("expecting logs"))
-                }
+            let result = if let EthFilterResult::Logs(logs) = filter_result {
+                anyhow::ensure!(!logs.is_empty());
+                Ok(())
             } else {
                 Err(anyhow::anyhow!("expecting logs"))
             };
