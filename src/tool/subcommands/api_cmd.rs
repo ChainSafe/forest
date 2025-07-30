@@ -192,6 +192,9 @@ pub enum ApiCommands {
         /// Test Transaction hex payload
         #[arg(long)]
         payload: String,
+        /// Log topic to search for
+        #[arg(long)]
+        topic: String,
         /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
@@ -347,6 +350,7 @@ impl ApiCommands {
                 to,
                 from,
                 payload,
+                topic,
                 filter,
             } => {
                 let client = Arc::new(rpc::Client::from_url(url));
@@ -354,7 +358,13 @@ impl ApiCommands {
                 let to = Address::from_str(&to)?;
                 let from = Address::from_str(&from)?;
                 let payload = hex::decode(payload)?;
-                let tx = TestTransaction { to, from, payload };
+                let topic = EthHash::from_str(&topic)?;
+                let tx = TestTransaction {
+                    to,
+                    from,
+                    payload,
+                    topic,
+                };
 
                 let tests = api_run_tests::create_tests(tx).await;
                 api_run_tests::run_tests(tests, client.clone(), filter).await?;

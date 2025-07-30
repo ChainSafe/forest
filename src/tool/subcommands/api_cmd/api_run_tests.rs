@@ -8,7 +8,6 @@ use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::{address::Address, message::Message};
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -26,6 +25,7 @@ pub struct TestTransaction {
     pub to: Address,
     pub from: Address,
     pub payload: Vec<u8>,
+    pub topic: EthHash,
 }
 
 #[derive(Clone)]
@@ -369,12 +369,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
 
             let block_num = EthUint64(lookup.height as u64);
 
-            let topics = EthTopicSpec(vec![EthHashList::Single(Some(
-                EthHash::from_str(
-                    &"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                )
-                .unwrap(),
-            ))]);
+            let topics = EthTopicSpec(vec![EthHashList::Single(Some(tx.topic))]);
 
             let filter_spec = EthFilterSpec {
                 from_block: Some(format!("0x{:x}", block_num.0 - BLOCK_RANGE)),
