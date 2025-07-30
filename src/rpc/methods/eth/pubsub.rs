@@ -157,8 +157,8 @@ async fn handle_subscription<T>(
                     Ok(v) => {
                         match jsonrpsee::SubscriptionMessage::new("eth_subscription", sink.subscription_id(), &v) {
                             Ok(msg) => {
-                                // This fails only if the connection is closed
-                                if sink.send(msg).await.is_err() {
+                                if let Err(e) = sink.send(msg).await {
+                                    tracing::error!("Failed to send message: {:?}", e);
                                     break;
                                 }
                             }
