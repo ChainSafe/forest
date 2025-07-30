@@ -5,8 +5,9 @@ use super::ReportMode;
 use crate::rpc;
 use crate::rpc::{FilterList, Permission};
 use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};
@@ -313,18 +314,33 @@ impl ReportBuilder {
                     };
 
                     let status = if *failure_count == 0 {
-                        "✅ All Passed"
-                    } else if *success_count == 0 {
-                        "❌ All Failed"
+                        "✅ All Passed".into()
                     } else {
-                        "⚠️  Mixed Results"
+                        let mut reasons = HashSet::new();
+                        for failure in &report.failed_test_params {
+                            if failure.forest_status != TestSummary::Valid {
+                                reasons.insert(failure.forest_status.to_string());
+                            }
+                            if failure.lotus_status != TestSummary::Valid {
+                                reasons.insert(failure.lotus_status.to_string());
+                            }
+                        }
+
+                        let reasons_str =
+                            reasons.iter().map(|s| s.as_str()).collect_vec().join(", ");
+
+                        if *success_count == 0 {
+                            format!("❌ All Failed ({reasons_str})")
+                        } else {
+                            format!("⚠️  Mixed Results ({reasons_str})")
+                        }
                     };
 
                     builder.push_record([
                         method_name.as_str(),
                         &format!("{success_count}/{total_count}"),
                         &format!("{success_count}/{total_count}"),
-                        status,
+                        &status,
                     ]);
                 }
                 MethodTestStatus::NotTested | MethodTestStatus::Filtered => {
