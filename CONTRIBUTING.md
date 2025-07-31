@@ -31,8 +31,8 @@ forward to your contributions. 🎉
 - [Your First Code Contribution](#your-first-code-contribution)
 - [Improving The Documentation](#improving-the-documentation)
 - [Styleguides](#styleguides)
-- [Commit Messages](#commit-messages)
-- [Join The Project Team](#join-the-project-team)
+- [Commit Messages](#-commit-messages)
+- [Attribution](#attribution)
 
 ## I Have a Question
 
