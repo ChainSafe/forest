@@ -29,7 +29,7 @@ forward to your contributions. 🎉
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Enhancements](#suggesting-enhancements)
 - [Your First Code Contribution](#your-first-code-contribution)
-- [Improving The Documentation](#improving-the-documentation)
+- [Improving The Documentation](#-improving-the-documentation)
 - [Styleguides](#styleguides)
 - [Commit Messages](#-commit-messages)
 - [Attribution](#attribution)
