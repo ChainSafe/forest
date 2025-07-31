@@ -32,7 +32,7 @@ use crate::{
         LruBlockstoreReadCache,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
-    lotus_json::HasLotusJson as _,
+    lotus_json::{HasLotusJson as _, LotusJson},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
@@ -43,6 +43,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
+use cid::Cid;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
@@ -620,6 +621,39 @@ impl RpcMethod<2> for SignMessage {
         let addr = Address::new_bls(&pubkey)?;
         // Signing can be delegated to curio, we will follow how lotus does it once the feature lands.
         WalletSign::handle(ctx, (addr, message)).await
+    }
+}
+
+pub enum F3ExportLatestSnapshot {}
+
+impl F3ExportLatestSnapshot {
+    pub async fn run(path: String) -> anyhow::Result<Cid> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(path)?;
+        let LotusJson(cid): LotusJson<Cid> = client
+            .request("Filecoin.F3ExportLatestSnapshot", params)
+            .await?;
+        Ok(cid)
+    }
+}
+
+impl RpcMethod<1> for F3ExportLatestSnapshot {
+    const NAME: &'static str = "F3.ExportLatestSnapshot";
+    const PARAM_NAMES: [&'static str; 1] = ["path"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Gets the power table (committee) used to validate the specified instance");
+
+    type Params = (String,);
+    type Ok = Cid;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (path,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(Self::run(path).await?)
     }
 }
 

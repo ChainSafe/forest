@@ -18,4 +18,6 @@ pub trait GoF3Node {
         finality: i64,
         f3_root: String,
     ) -> bool;
+
+    fn import_snap(f3_root: String, snapshot: String) -> String;
 }

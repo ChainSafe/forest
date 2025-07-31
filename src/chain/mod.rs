@@ -69,7 +69,7 @@ pub async fn export<D: Digest>(
 
 pub async fn export_v2<D: Digest>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
-    f3: Option<(Cid, &mut File)>,
+    f3: Option<(Cid, File)>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
@@ -97,10 +97,10 @@ pub async fn export_v2<D: Digest>(
         ))
     }];
 
-    if let Some((f3_cid, f3_data)) = f3 {
+    if let Some((f3_cid, mut f3_data)) = f3 {
         prefix_data_frames.push({
             let mut encoder = forest::new_encoder(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
-            encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, f3_data)?;
+            encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
             anyhow::Ok((
                 vec![f3_cid],
                 finalize_frame(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL, &mut encoder)?,

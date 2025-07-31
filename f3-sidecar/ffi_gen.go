@@ -30,6 +30,7 @@ var GoF3NodeImpl GoF3Node
 
 type GoF3Node interface {
 	run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, f3_root *string) bool
+	import_snap(f3_root *string, snapshot *string) string
 }
 
 //export CGoF3Node_run
@@ -43,6 +44,18 @@ func CGoF3Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint C.
 	_new_f3_root := newString(f3_root)
 	resp := GoF3NodeImpl.run(&_new_rpc_endpoint, &_new_jwt, &_new_f3_rpc_endpoint, &_new_initial_power_table, &_new_bootstrap_epoch, &_new_finality, &_new_f3_root)
 	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
+	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
+	runtime.KeepAlive(resp_ref)
+	runtime.KeepAlive(resp)
+	runtime.KeepAlive(buffer)
+}
+
+//export CGoF3Node_import_snap
+func CGoF3Node_import_snap(f3_root C.StringRef, snapshot C.StringRef, slot *C.void, cb *C.void) {
+	_new_f3_root := newString(f3_root)
+	_new_snapshot := newString(snapshot)
+	resp := GoF3NodeImpl.import_snap(&_new_f3_root, &_new_snapshot)
+	resp_ref, buffer := cvt_ref(cntString, refString)(&resp)
 	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
 	runtime.KeepAlive(resp_ref)
 	runtime.KeepAlive(resp)

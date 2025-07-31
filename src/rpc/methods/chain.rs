@@ -16,6 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -36,6 +37,7 @@ use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::fs::File;
 use std::{
     collections::VecDeque,
     path::PathBuf,
@@ -284,9 +286,28 @@ impl RpcMethod<1> for ForestChainExport {
                 .await
             }
             FilecoinSnapshotVersion::V2 => {
+                let f3_snap_tmp_path = {
+                    let mut f3_snap_dir = output_path.clone();
+                    if f3_snap_dir.pop() {
+                        tempfile::NamedTempFile::new_in(&f3_snap_dir)
+                    } else {
+                        tempfile::NamedTempFile::new_in(".")
+                    }?
+                    .into_temp_path()
+                };
+                let f3_snap = {
+                    match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string()).await
+                    {
+                        Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
+                        Err(e) => {
+                            tracing::error!("Failed to export F3 snapshot: {e}");
+                            None
+                        }
+                    }
+                };
                 crate::chain::export_v2::<Sha256>(
                     &ctx.store_owned(),
-                    None,
+                    f3_snap,
                     &start_ts,
                     recent_roots,
                     writer,
