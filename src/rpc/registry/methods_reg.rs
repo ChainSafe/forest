@@ -77,7 +77,9 @@ impl MethodRegistry {
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
-                BuiltinActor::Account => account::register_account_actor_methods(self, cid, version),
+                BuiltinActor::Account => {
+                    account::register_account_actor_methods(self, cid, version)
+                }
                 BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid, version),
                 BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid, version),
                 BuiltinActor::Init => init::register_actor_methods(self, cid, version),

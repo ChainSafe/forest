@@ -23,15 +23,15 @@ macro_rules! register_miner_version {
 
 pub(crate) fn register_miner_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
     match version {
-        8 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v8),
-        9 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v9),
-        10 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v10),
-        11 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v11),
-        12 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v12),
-        13 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v13),
-        14 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v14),
-        15 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v15),
-        16 =>  register_miner_version!(registry, cid, fil_actor_miner_state::v16),
+        8 => register_miner_version!(registry, cid, fil_actor_miner_state::v8),
+        9 => register_miner_version!(registry, cid, fil_actor_miner_state::v9),
+        10 => register_miner_version!(registry, cid, fil_actor_miner_state::v10),
+        11 => register_miner_version!(registry, cid, fil_actor_miner_state::v11),
+        12 => register_miner_version!(registry, cid, fil_actor_miner_state::v12),
+        13 => register_miner_version!(registry, cid, fil_actor_miner_state::v13),
+        14 => register_miner_version!(registry, cid, fil_actor_miner_state::v14),
+        15 => register_miner_version!(registry, cid, fil_actor_miner_state::v15),
+        16 => register_miner_version!(registry, cid, fil_actor_miner_state::v16),
         _ => {}
     }
 }

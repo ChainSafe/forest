@@ -30,6 +30,6 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
         14 => register_system_version!(registry, cid, fil_actor_system_state::v14),
         15 => register_system_version!(registry, cid, fil_actor_system_state::v15),
         16 => register_system_version!(registry, cid, fil_actor_system_state::v16),
-        _ => {},
+        _ => {}
     }
 }

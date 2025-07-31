@@ -44,7 +44,11 @@ macro_rules! register_account_version {
 }
 
 // register account actor methods, cid is unique for each version of the actor
-pub(crate) fn register_account_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_account_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: u64,
+) {
     match version {
         11 => register_account_version!(registry, cid, fil_actor_account_state::v11),
         12 => register_account_version!(registry, cid, fil_actor_account_state::v12),
@@ -52,6 +56,6 @@ pub(crate) fn register_account_actor_methods(registry: &mut MethodRegistry, cid:
         14 => register_account_version!(registry, cid, fil_actor_account_state::v14),
         15 => register_account_version!(registry, cid, fil_actor_account_state::v15, with_types),
         16 => register_account_version!(registry, cid, fil_actor_account_state::v16, with_types),
-        _ => {},
+        _ => {}
     }
 }

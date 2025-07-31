@@ -27,6 +27,6 @@ pub(crate) fn register_evm_actor_methods(registry: &mut MethodRegistry, cid: Cid
         14 => register_evm_version!(registry, cid, fil_actor_evm_state::v14),
         15 => register_evm_version!(registry, cid, fil_actor_evm_state::v15),
         16 => register_evm_version!(registry, cid, fil_actor_evm_state::v16),
-        _ => {},
+        _ => {}
     }
 }

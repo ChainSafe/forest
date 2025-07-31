@@ -128,11 +128,11 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
         9 => register_power_versions_8_to_9!(registry, cid, 9),
         10 => register_power_versions_10_to_15!(registry, cid, 10),
         11 => register_power_versions_10_to_15!(registry, cid, 11),
-        12  => register_power_versions_10_to_15!(registry, cid, 12),
+        12 => register_power_versions_10_to_15!(registry, cid, 12),
         13 => register_power_versions_10_to_15!(registry, cid, 13),
         14 => register_power_versions_10_to_15!(registry, cid, 14),
         15 => register_power_versions_10_to_15!(registry, cid, 15),
         16 => register_power_version_16!(registry, cid, fil_actor_power_state::v16),
-        _ => {},
+        _ => {}
     }
 }

@@ -5,7 +5,6 @@ use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;
-use paste::paste;
 
 // Macro for versions 8-10 that only have Exec method
 macro_rules! register_init_versions_8_to_10 {
@@ -51,6 +50,6 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
         14 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v14),
         15 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v15),
         16 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v16),
-        _ => {},
+        _ => {}
     }
 }
