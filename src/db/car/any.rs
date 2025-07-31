@@ -10,6 +10,7 @@
 
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::FilecoinSnapshotMetadata;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -48,6 +49,14 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
             ErrorKind::InvalidData,
             "input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)",
         ))
+    }
+
+    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
+        match self {
+            AnyCar::Forest(forest) => forest.metadata(),
+            AnyCar::Plain(plain) => plain.metadata(),
+            AnyCar::Memory(mem) => mem.metadata(),
+        }
     }
 
     pub fn heaviest_tipset_key(&self) -> TipsetKey {

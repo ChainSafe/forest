@@ -141,7 +141,7 @@ function forest_print_logs_and_metrics {
 function forest_cleanup {
   if pkill -0 forest 2>/dev/null; then
     forest_print_logs_and_metrics
-    $FOREST_CLI_PATH shutdown --force
+    $FOREST_CLI_PATH shutdown --force || true
     timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
   fi
 }
