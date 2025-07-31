@@ -106,4 +106,6 @@ If you are running a public RPC node, it is recommended to filter certain method
 # Potentially resource-intensive.
 !Filecoin.StateCompute
 !Filecoin.StateReplay
+# Very memory-intensive on mainnet (way over 64 GB per call). It's fine on testnets.
+!Filecoin.StateMarketDeals
 ```
