@@ -68,7 +68,8 @@ pub(crate) fn new_heads<DB: Blockstore>(
             let headers = match v {
                 HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
             };
-            if sender.send(headers).is_err() {
+            if let Err(e) = sender.send(headers) {
+                tracing::error!("Failed to send headers: {}", e);
                 break;
             }
         }
