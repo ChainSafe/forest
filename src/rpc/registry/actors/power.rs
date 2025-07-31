@@ -9,7 +9,9 @@ use cid::Cid;
 // Macro for versions 8-9 that have limited methods
 macro_rules! register_power_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{CreateMinerParams, UpdateClaimedPowerParams, EnrollCronEventParams, Method};
+        use $state_version::{
+            CreateMinerParams, EnrollCronEventParams, Method, UpdateClaimedPowerParams,
+        };
 
         // Register methods with parameters
         register_actor_methods!(
@@ -38,7 +40,10 @@ macro_rules! register_power_versions_8_to_9 {
 // Macro for versions 10-15 that have most methods but not MinerPowerParams
 macro_rules! register_power_versions_10_to_15 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{CreateMinerParams, UpdateClaimedPowerParams, EnrollCronEventParams, UpdatePledgeTotalParams, MinerRawPowerParams, Method};
+        use $state_version::{
+            CreateMinerParams, EnrollCronEventParams, Method, MinerRawPowerParams,
+            UpdateClaimedPowerParams, UpdatePledgeTotalParams,
+        };
 
         // Register methods with parameters
         register_actor_methods!(

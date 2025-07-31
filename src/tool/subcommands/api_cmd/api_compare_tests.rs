@@ -24,7 +24,7 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::executor::Receipt;
-use crate::shim::sector::SectorSize;
+use crate::shim::sector::{SectorSize, StoragePower};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -1849,6 +1849,36 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
+        owner: Address::new_id(1000).into(),
+        worker: Address::new_id(1001).into(),
+        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
+        peer: b"miner".to_vec(),
+        multiaddrs: Default::default(),
+    };
+
+    // not supported by the lotus
+    // let _power_miner_power_exp_params = fil_actor_power_state::v16::MinerPowerParams{
+    //     miner: 1234,
+    // };
+
+    let power_update_claim_params = fil_actor_power_state::v16::UpdateClaimedPowerParams {
+        raw_byte_delta: StoragePower::from(1024u64),
+        quality_adjusted_delta: StoragePower::from(2048u64),
+    };
+
+    let power_enroll_event_params = fil_actor_power_state::v16::EnrollCronEventParams {
+        event_epoch: 123,
+        payload: Default::default(),
+    };
+
+    let power_update_pledge_ttl_params = fil_actor_power_state::v16::UpdatePledgeTotalParams {
+        pledge_delta: Default::default(),
+    };
+
+    let power_miner_raw_params = fil_actor_power_state::v16::MinerRawPowerParams { miner: 1234 };
+
+    use fil_actor_power_state::v16::Method;
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1898,6 +1928,49 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::CreateMiner as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::UpdateClaimedPower as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            to_vec(&power_update_claim_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::EnrollCronEvent as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            to_vec(&power_enroll_event_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::UpdatePledgeTotal as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            to_vec(&power_update_pledge_ttl_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::CreateMinerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            Method::MinerRawPowerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            to_vec(&power_miner_raw_params)?,
+            tipset.key().into(),
+        ))?),
+        // Not supported by the lotus
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::POWER_ACTOR,
+        //     Method::MinerPowerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+        //     to_vec(&power_miner_power_exp_params)?,
+        //     tipset.key().into(),
+        // ))?),
     ];
 
     Ok(tests)

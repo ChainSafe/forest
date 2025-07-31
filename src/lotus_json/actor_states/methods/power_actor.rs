@@ -23,7 +23,7 @@ pub struct CreateMinerParamsLotusJson {
     pub worker: Address,
     #[schemars(with = "LotusJson<RegisteredPoStProof>")]
     #[serde(with = "crate::lotus_json")]
-    pub window_post_proof_type: RegisteredPoStProof,
+    pub window_po_st_proof_type: RegisteredPoStProof,
     #[schemars(with = "LotusJson<Vec<u8>>")]
     #[serde(with = "crate::lotus_json")]
     pub peer: Vec<u8>,
@@ -56,19 +56,15 @@ pub struct EnrollCronEventParamsLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct UpdatePledgeTotalParamsLotusJson {
+pub struct UpdatePledgeTotalParamsLotusJson(
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    pub pledge_delta: TokenAmount,
-}
+    TokenAmount,
+);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct MinerRawPowerParamsLotusJson {
-    #[schemars(with = "LotusJson<ActorID>")]
-    #[serde(with = "crate::lotus_json")]
-    pub miner: ActorID,
-}
+pub struct MinerRawPowerParamsLotusJson(ActorID);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -112,7 +108,7 @@ macro_rules! impl_lotus_json_for_power_create_miner_params {
                         CreateMinerParamsLotusJson {
                             owner: self.owner.into(),
                             worker: self.worker.into(),
-                            window_post_proof_type: self.window_post_proof_type.into(),
+                            window_po_st_proof_type: self.window_post_proof_type.into(),
                             peer: self.peer,
                             multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
                         }
@@ -122,7 +118,7 @@ macro_rules! impl_lotus_json_for_power_create_miner_params {
                         Self {
                             owner: lotus_json.owner.into(),
                             worker: lotus_json.worker.into(),
-                            window_post_proof_type: lotus_json.window_post_proof_type.into(),
+                            window_post_proof_type: lotus_json.window_po_st_proof_type.into(),
                             peer: lotus_json.peer,
                             multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
                         }
@@ -242,14 +238,12 @@ macro_rules! impl_lotus_json_for_power_update_pledge_total_params {
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
-                        UpdatePledgeTotalParamsLotusJson {
-                            pledge_delta: self.pledge_delta.into(),
-                        }
+                        UpdatePledgeTotalParamsLotusJson(self.pledge_delta.into())
                     }
 
                     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                         Self {
-                            pledge_delta: lotus_json.pledge_delta.into(),
+                            pledge_delta: lotus_json.0.into(),
                         }
                     }
                 }
@@ -281,14 +275,12 @@ macro_rules! impl_lotus_json_for_power_miner_raw_power_params {
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
-                        MinerRawPowerParamsLotusJson {
-                            miner: self.miner,
-                        }
+                        MinerRawPowerParamsLotusJson(self.miner)
                     }
 
                     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                         Self {
-                            miner: lotus_json.miner,
+                            miner: lotus_json.0,
                         }
                     }
                 }
