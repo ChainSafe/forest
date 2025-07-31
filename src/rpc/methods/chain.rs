@@ -16,7 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::eth::types::ApiHeaders;
+use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -77,8 +77,6 @@ pub(crate) fn new_heads<DB: Blockstore>(
     (receiver, handle)
 }
 
-use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::EthFilterSpec};
-
 /// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
 ///
 /// # Notes
@@ -101,8 +99,15 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
                 HeadChange::Apply(ts) => {
                     match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
                         Ok(logs) => {
-                            if !logs.is_empty() && sender.send(logs).is_err() {
-                                break;
+                            if !logs.is_empty() {
+                                if let Err(e) = sender.send(logs) {
+                                    tracing::error!(
+                                        "Failed to send logs for tipset {}: {}",
+                                        ts.key(),
+                                        e
+                                    );
+                                    break;
+                                }
                             }
                         }
                         Err(e) => {

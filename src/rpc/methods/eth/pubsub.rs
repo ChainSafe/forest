@@ -155,7 +155,7 @@ async fn handle_subscription<T>(
             action = subscriber.recv() => {
                 match action {
                     Ok(v) => {
-                        match jsonrpsee::SubscriptionMessage::new("eth_subscription", sink.subscription_id(), &v) {
+                        match jsonrpsee::SubscriptionMessage::new(sink.method_name(), sink.subscription_id(), &v) {
                             Ok(msg) => {
                                 if let Err(e) = sink.send(msg).await {
                                     tracing::error!("Failed to send message: {:?}", e);
