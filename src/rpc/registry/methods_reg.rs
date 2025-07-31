@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
-use crate::rpc::registry::actors::system;
 use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, ActorRegistry};
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
@@ -74,15 +73,15 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, evm, init, miner};
+        use crate::rpc::registry::actors::{account, evm, init, miner, system};
 
-        for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
+        for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
-                BuiltinActor::Account => account::register_account_actor_methods(self, cid),
-                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
-                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
-                BuiltinActor::Init => init::register_actor_methods(self, cid),
-                BuiltinActor::System => system::register_actor_methods(self, cid),
+                BuiltinActor::Account => account::register_account_actor_methods(self, cid, version),
+                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid, version),
+                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid, version),
+                BuiltinActor::Init => init::register_actor_methods(self, cid, version),
+                BuiltinActor::System => system::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }
@@ -98,7 +97,7 @@ pub fn deserialize_params(
 }
 
 macro_rules! register_actor_methods {
-    // Handle empty params case
+    // Handle an empty params case
     ($registry:expr, $code_cid:expr, [
         $( ($method:expr, empty) ),* $(,)?
     ]) => {
