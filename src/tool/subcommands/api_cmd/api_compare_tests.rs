@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
@@ -87,7 +88,9 @@ const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address
 const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum TestSummary {
     /// Server spoke JSON-RPC: no such method
