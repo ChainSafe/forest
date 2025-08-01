@@ -69,4 +69,4 @@ pub async fn test_eth_method(client: Arc<Client>) -> anyhow::Result<()> {
 
 The current test framework assumes a running node and a valid wallet.
 
-Consider implementing `forest-tool evm deploy` and `forest-tool evm invoke` subcommands to simplify contract deployement and test invokation.
+Consider implementing `forest-tool evm deploy` and `forest-tool evm invoke` subcommands to simplify contract deployment and test invocation.
