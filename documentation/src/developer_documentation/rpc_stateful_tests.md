@@ -38,7 +38,7 @@ test eth_newFilter over limit ... ok
 test eth_newBlockFilter works ... ok
 test eth_newPendingTransactionFilter works ... ok
 test eth_getFilterLogs works ... ok
-test result: FAILED. 7 passed; 0 failed; 0 ignored; 0 filtered out
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
 ```
 
 The goal is to ensure that Forest now passes all the existing scenarios. These scenarios are not exhaustive, and additional ones can be added as needed.
