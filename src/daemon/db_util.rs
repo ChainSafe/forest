@@ -132,6 +132,7 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
+    rpc_endpoint: String,
     f3_root: String,
     is_sidecar_ffi_enabled: bool,
     snapshot_progress_tracker: &SnapshotProgressTracker,
@@ -248,7 +249,13 @@ pub async fn import_chain_as_forest_car(
             let mut f = File::create(&temp_f3_snap_path)?;
             std::io::copy(&mut f3_data, &mut f)?;
         }
-        crate::f3::import_f3_snapshot(f3_root, temp_f3_snap_path.display().to_string())?;
+        if let Err(e) = crate::f3::import_f3_snapshot(
+            rpc_endpoint,
+            f3_root,
+            temp_f3_snap_path.display().to_string(),
+        ) {
+            tracing::error!("Failed to import F3 snapshot: {e}");
+        }
     }
 
     let ts = forest_car.heaviest_tipset()?;
@@ -516,6 +523,7 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
+            "".into(),
             "".into(),
             true,
             &SnapshotProgressTracker::default(),

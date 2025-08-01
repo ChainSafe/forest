@@ -140,6 +140,7 @@ async fn maybe_import_snapshot(
             path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
             config.client.import_mode,
+            config.client.rpc_v1_endpoint(),
             crate::f3::get_f3_root(config),
             crate::f3::is_sidecar_ffi_enabled(ctx.chain_config()),
             &snapshot_tracker,
@@ -408,7 +409,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
     }
 
     if !opts.halt_after_import && !opts.stateless {
-        let rpc_address = config.client.rpc_address;
+        let rpc_endpoint = config.client.rpc_v1_endpoint();
         let state_manager = &ctx.state_manager;
         let p2p_peer_id = ctx.p2p_peer_id;
         let admin_jwt = ctx.admin_jwt.clone();
@@ -429,7 +430,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
                     &chain_config,
-                    format!("http://{rpc_address}/rpc/v1"),
+                    rpc_endpoint,
                     admin_jwt,
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
                     initial_power_table

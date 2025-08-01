@@ -49,7 +49,7 @@ func main() {
 	ctx := context.Background()
 
 	if len(snapshot) > 0 {
-		if err := importSnap(ctx, root, snapshot); err != nil {
+		if err := importSnap(ctx, rpcEndpoint, root, snapshot); err != nil {
 			panic(err)
 		}
 	}

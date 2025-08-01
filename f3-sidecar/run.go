@@ -30,17 +30,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 
-	var rawNetwork string
-	for {
-		rawNetwork, err = ec.f3api.GetRawNetworkName(ctx)
-		if err == nil {
-			logger.Infoln("Forest RPC server is online")
-			break
-		} else {
-			logger.Warnln("waiting for Forest RPC server")
-			time.Sleep(5 * time.Second)
-		}
-	}
+	rawNetwork := waitRawNetworkName(ctx, &ec.f3api)
 	listenAddrs, err := api.NetAddrsListen(ctx)
 	if err != nil {
 		return err
@@ -64,12 +54,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 	defer ds.Close()
 	verif := blssig.VerifierWithKeyOnG1()
-	networkName := gpbft.NetworkName(rawNetwork)
-	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
-	// mainnet is called testnetnet in state.
-	if networkName == "testnetnet" {
-		networkName = "filecoin"
-	}
+	networkName := getNetworkName(rawNetwork)
 	m := Network2PredefinedManifestMappings[networkName]
 	if m == nil {
 		m2 := manifest.LocalDevnetManifest()

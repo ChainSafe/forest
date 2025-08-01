@@ -111,12 +111,16 @@ pub fn run_f3_sidecar_if_enabled(
     }
 }
 
-pub fn import_f3_snapshot(_f3_root: String, _snapshot: String) -> anyhow::Result<()> {
+pub fn import_f3_snapshot(
+    _rpc_endpoint: String,
+    _f3_root: String,
+    _snapshot: String,
+) -> anyhow::Result<()> {
     #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
     {
         let sw = std::time::Instant::now();
         tracing::info!("Importing F3 snapshot ...");
-        let err = GoF3NodeImpl::import_snap(_f3_root, _snapshot);
+        let err = GoF3NodeImpl::import_snap(_rpc_endpoint, _f3_root, _snapshot);
         if !err.is_empty() {
             anyhow::bail!("{err}");
         }
