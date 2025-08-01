@@ -20,6 +20,5 @@ func importSnap(ctx context.Context, f3Root string, snapshot string) error {
 		return err
 	}
 	defer f.Close()
-	certstore.ImportSnapshotToDatastore(ctx, bufio.NewReader(f), ds)
-	return nil
+	return certstore.ImportSnapshotToDatastore(ctx, bufio.NewReader(f), ds)
 }

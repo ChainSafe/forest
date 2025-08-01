@@ -248,11 +248,7 @@ pub async fn import_chain_as_forest_car(
             let mut f = File::create(&temp_f3_snap_path)?;
             std::io::copy(&mut f3_data, &mut f)?;
         }
-        // #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
-        {
-            tracing::info!("Importing F3 snapshot ...");
-            crate::f3::import_f3_snapshot(f3_root, temp_f3_snap_path.display().to_string());
-        }
+        crate::f3::import_f3_snapshot(f3_root, temp_f3_snap_path.display().to_string())?;
     }
 
     let ts = forest_car.heaviest_tipset()?;

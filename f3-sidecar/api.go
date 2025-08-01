@@ -64,8 +64,10 @@ func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path strin
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
 	writer := bufio.NewWriter(f)
+	defer writer.Flush()
 	cid, _, err := cs.ExportLatestSnapshot(ctx, writer)
 	if err != nil {
 		return nil, err
