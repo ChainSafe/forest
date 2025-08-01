@@ -56,7 +56,12 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
             register_reward_version_8_to_10!(registry, cid, fil_actor_reward_state::v9, fvm_shared2)
         }
         10 => {
-            register_reward_version_8_to_10!(registry, cid, fil_actor_reward_state::v10, fvm_shared3)
+            register_reward_version_8_to_10!(
+                registry,
+                cid,
+                fil_actor_reward_state::v10,
+                fvm_shared3
+            )
         }
         11 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v11),
         12 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v12),
