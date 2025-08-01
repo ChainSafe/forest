@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_compare_tests;
+mod api_run_tests;
 mod generate_test_snapshot;
 mod report;
 mod test_snapshot;
@@ -17,6 +18,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
+use crate::tool::subcommands::api_cmd::api_run_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{Context as _, bail, ensure};
@@ -25,6 +27,7 @@ use clap::{Subcommand, ValueEnum};
 use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -177,6 +180,47 @@ pub enum ApiCommands {
         #[arg(num_args = 1.., required = true)]
         files: Vec<PathBuf>,
     },
+    /// Run multiple stateful JSON-RPC tests against a Filecoin node.
+    ///
+    /// Some tests require sending a transaction to trigger events; the provided
+    /// `from`, `to`, `payload`, and `topic` inputs are used for those cases.
+    ///
+    /// Useful for verifying methods like `eth_newFilter`, `eth_getFilterLogs`, and others
+    /// that rely on internal state.
+    ///
+    /// Use `--filter` to run only tests that interact with a specific RPC method.
+    ///
+    /// Example output:
+    /// ```markdown
+    /// running 7 tests
+    /// test eth_newFilter install/uninstall ... ok
+    /// test eth_newFilter under limit ... ok
+    /// test eth_newFilter just under limit ... ok
+    /// test eth_newFilter over limit ... ok
+    /// test eth_newBlockFilter works ... ok
+    /// test eth_newPendingTransactionFilter works ... ok
+    /// test eth_getFilterLogs works ... ok
+    /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
+    /// ```
+    Run {
+        /// Client address
+        addr: UrlFromMultiAddr,
+        /// Test Transaction `to` address
+        #[arg(long)]
+        to: String,
+        /// Test Transaction `from` address
+        #[arg(long)]
+        from: String,
+        /// Test Transaction hex `payload`
+        #[arg(long)]
+        payload: String,
+        /// Log `topic` to search for
+        #[arg(long)]
+        topic: String,
+        /// Filter which tests to run according to method name. Case sensitive.
+        #[arg(long, default_value = "")]
+        filter: String,
+    },
 }
 
 impl ApiCommands {
@@ -322,6 +366,30 @@ impl ApiCommands {
                         }
                     };
                 }
+            }
+            Self::Run {
+                addr: UrlFromMultiAddr(url),
+                to,
+                from,
+                payload,
+                topic,
+                filter,
+            } => {
+                let client = Arc::new(rpc::Client::from_url(url));
+
+                let to = Address::from_str(&to)?;
+                let from = Address::from_str(&from)?;
+                let payload = hex::decode(payload)?;
+                let topic = EthHash::from_str(&topic)?;
+                let tx = TestTransaction {
+                    to,
+                    from,
+                    payload,
+                    topic,
+                };
+
+                let tests = api_run_tests::create_tests(tx).await;
+                api_run_tests::run_tests(tests, client.clone(), filter).await?;
             }
             Self::DumpTests {
                 create_tests_args,
