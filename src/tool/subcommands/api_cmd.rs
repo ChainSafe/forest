@@ -180,19 +180,41 @@ pub enum ApiCommands {
         #[arg(num_args = 1.., required = true)]
         files: Vec<PathBuf>,
     },
+    /// Run multiple stateful JSON-RPC tests against a Filecoin node.
+    ///
+    /// Some tests require sending a transaction to trigger events; the provided
+    /// `from`, `to`, `payload`, and `topic` inputs are used for those cases.
+    ///
+    /// Useful for verifying methods like `eth_newFilter`, `eth_getFilterLogs`, and others
+    /// that rely on internal state.
+    ///
+    /// Use `--filter` to run only tests that interact with a specific RPC method.
+    ///
+    /// Example output:
+    /// ```markdown
+    /// running 7 tests
+    /// test eth_newFilter install/uninstall ... ok
+    /// test eth_newFilter under limit ... ok
+    /// test eth_newFilter just under limit ... ok
+    /// test eth_newFilter over limit ... ok
+    /// test eth_newBlockFilter works ... ok
+    /// test eth_newPendingTransactionFilter works ... ok
+    /// test eth_getFilterLogs works ... ok
+    /// test result: FAILED. 7 passed; 0 failed; 0 ignored; 0 filtered out
+    /// ```
     Run {
         /// Client address
         addr: UrlFromMultiAddr,
-        /// Test Transaction to address
+        /// Test Transaction `to` address
         #[arg(long)]
         to: String,
-        /// Test Transaction from address
+        /// Test Transaction `from` address
         #[arg(long)]
         from: String,
-        /// Test Transaction hex payload
+        /// Test Transaction hex `payload`
         #[arg(long)]
         payload: String,
-        /// Log topic to search for
+        /// Log `topic` to search for
         #[arg(long)]
         topic: String,
         /// Filter which tests to run according to method name. Case sensitive.
