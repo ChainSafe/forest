@@ -19,6 +19,17 @@ pub struct F3Options {
     pub initial_power_table: Option<Cid>,
 }
 
+pub fn get_f3_root(config: &crate::Config) -> String {
+    std::env::var("FOREST_F3_ROOT").unwrap_or_else(|_| {
+        config
+            .client
+            .data_dir
+            .join(format!("f3/{}", config.chain()))
+            .display()
+            .to_string()
+    })
+}
+
 pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
     let chain_finality = std::env::var("FOREST_F3_FINALITY")
         .ok()
@@ -97,6 +108,14 @@ pub fn run_f3_sidecar_if_enabled(
                 _f3_root,
             );
         }
+    }
+}
+
+pub fn import_f3_snapshot(_f3_root: String, _snapshot: String) {
+    #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
+    {
+        tracing::info!("Importing F3 snapshot ...");
+        GoF3NodeImpl::import_snap(_f3_root, _snapshot);
     }
 }
 

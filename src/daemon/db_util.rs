@@ -18,6 +18,7 @@ use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
+use std::fs::File;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -131,6 +132,8 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
+    f3_root: String,
+    is_sidecar_ffi_enabled: bool,
     snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
@@ -230,7 +233,29 @@ pub async fn import_chain_as_forest_car(
         }
     };
 
-    let ts = ForestCar::try_from(forest_car_db_path.as_path())?.heaviest_tipset()?;
+    let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
+
+    if !is_sidecar_ffi_enabled {
+        tracing::warn!("F3 sidecar is disabled, skip importing F3 snapshot");
+    } else if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data)
+        && let Some(mut f3_data) = forest_car.get_reader(f3_cid)?
+    {
+        let temp_f3_snap_path = tempfile::Builder::new()
+            .suffix(".f3snap.bin")
+            .tempfile_in(forest_car_db_dir)?
+            .into_temp_path();
+        {
+            let mut f = File::create(&temp_f3_snap_path)?;
+            std::io::copy(&mut f3_data, &mut f)?;
+        }
+        // #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
+        {
+            tracing::info!("Importing F3 snapshot ...");
+            crate::f3::import_f3_snapshot(f3_root, temp_f3_snap_path.display().to_string());
+        }
+    }
+
+    let ts = forest_car.heaviest_tipset()?;
     info!(
         "Imported snapshot in: {}s, heaviest tipset epoch: {}, key: {}",
         stopwatch.elapsed().as_secs(),
@@ -495,6 +520,8 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
+            "".into(),
+            true,
             &SnapshotProgressTracker::default(),
         )
         .await?;

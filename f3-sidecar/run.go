@@ -62,6 +62,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	if err != nil {
 		return err
 	}
+	defer ds.Close()
 	verif := blssig.VerifierWithKeyOnG1()
 	networkName := gpbft.NetworkName(rawNetwork)
 	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,

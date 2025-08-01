@@ -14,10 +14,12 @@ func importSnap(ctx context.Context, f3Root string, snapshot string) error {
 	if err != nil {
 		return err
 	}
+	defer ds.Close()
 	f, err := os.Open(snapshot)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	certstore.ImportSnapshotToDatastore(ctx, bufio.NewReader(f), ds)
 	return nil
 }

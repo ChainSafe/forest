@@ -288,10 +288,12 @@ impl RpcMethod<1> for ForestChainExport {
             FilecoinSnapshotVersion::V2 => {
                 let f3_snap_tmp_path = {
                     let mut f3_snap_dir = output_path.clone();
+                    let mut builder = tempfile::Builder::new();
+                    let with_suffix = builder.suffix(".f3snap.bin");
                     if f3_snap_dir.pop() {
-                        tempfile::NamedTempFile::new_in(&f3_snap_dir)
+                        with_suffix.tempfile_in(&f3_snap_dir)
                     } else {
-                        tempfile::NamedTempFile::new_in(".")
+                        with_suffix.tempfile_in(".")
                     }?
                     .into_temp_path()
                 };

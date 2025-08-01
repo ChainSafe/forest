@@ -3107,7 +3107,6 @@ dependencies = [
  "directories",
  "displaydoc",
  "educe",
- "either",
  "enumflags2",
  "ethereum-types",
  "ez-jsonrpc-types",

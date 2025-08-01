@@ -14,9 +14,10 @@ use crate::chain::FilecoinSnapshotMetadata;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Either;
 use positioned_io::ReadAt;
 use std::borrow::Cow;
-use std::io::{Error, ErrorKind, Result};
+use std::io::{Error, ErrorKind, Read, Result};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -110,6 +111,16 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         match self {
             Self::Forest(car) => Some(car.index_size_bytes()),
             _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    /// Gets a reader of the block data by its `Cid`
+    pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
+        match self {
+            Self::Forest(car) => Ok(car.get_reader(k)?.map(Either::Left)),
+            Self::Plain(car) => Ok(car.get_reader(k).map(|r| Either::Right(Either::Left(r)))),
+            Self::Memory(car) => Ok(car.get_reader(k).map(|r| Either::Right(Either::Right(r)))),
         }
     }
 }

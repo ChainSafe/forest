@@ -224,6 +224,17 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             metadata: self.metadata,
         }
     }
+
+    #[allow(dead_code)]
+    /// Gets a reader of the block data by its `Cid`
+    pub fn get_reader(&self, k: Cid) -> Option<std::io::Take<impl Read>> {
+        self.index
+            .read()
+            .get(&k)
+            .map(|UncompressedBlockDataLocation { offset, length }| {
+                positioned_io::Cursor::new_pos(&self.reader, *offset).take(*length as u64)
+            })
+    }
 }
 
 impl TryFrom<&'static [u8]> for PlainCar<&'static [u8]> {
