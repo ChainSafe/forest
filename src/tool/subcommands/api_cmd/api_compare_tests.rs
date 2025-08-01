@@ -52,6 +52,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use num_bigint::BigInt;
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -1849,6 +1850,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
+        power: Some(Default::default()),
+    };
+
+    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
+        miner: Address::new_id(1000).into(),
+        penalty: Default::default(),
+        gas_reward: Default::default(),
+        win_count: 0,
+    };
+
+    let rewar_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
+            111,
+        ))),
+    };
+
+    use fil_actor_reward_state::v16::Method;
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1896,6 +1915,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::INIT_ACTOR,
             3,
             to_vec(&init_exec4_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            Method::Constructor as u64,
+            to_vec(&reward_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            Method::AwardBlockReward as u64,
+            to_vec(&reward_award_block_reward_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            Method::UpdateNetworkKPI as u64,
+            to_vec(&rewar_update_network_params)?,
             tipset.key().into(),
         ))?),
     ];
