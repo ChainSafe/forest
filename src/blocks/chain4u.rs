@@ -16,7 +16,7 @@ use crate::{
         sector::PoStProof,
     },
 };
-use chain4u::header::GENESIS_BLOCK_PARENTS;
+use chain4u::header::{FILECOIN_GENESIS_BLOCK, FILECOIN_GENESIS_CID, GENESIS_BLOCK_PARENTS};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -161,7 +161,13 @@ impl Chain4U {
 }
 
 impl<T> Chain4U<T> {
-    pub fn with_blockstore(blockstore: T) -> Self {
+    pub fn with_blockstore(blockstore: T) -> Self
+    where
+        T: Blockstore,
+    {
+        blockstore
+            .put_keyed(&FILECOIN_GENESIS_CID, &FILECOIN_GENESIS_BLOCK)
+            .unwrap();
         Self {
             blockstore,
             inner: Default::default(),
