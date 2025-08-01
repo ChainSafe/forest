@@ -74,7 +74,7 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, evm, init, miner};
+        use crate::rpc::registry::actors::{account, evm, init, miner, reward};
 
         for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
@@ -83,6 +83,7 @@ impl MethodRegistry {
                 BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
                 BuiltinActor::Init => init::register_actor_methods(self, cid),
                 BuiltinActor::System => system::register_actor_methods(self, cid),
+                BuiltinActor::Reward => reward::register_actor_methods(self, cid, _version),
                 _ => {}
             }
         }
