@@ -1861,7 +1861,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         win_count: 0,
     };
 
-    let rewar_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
         curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
             111,
         ))),
@@ -1932,7 +1932,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         RpcTest::identity(StateDecodeParams::request((
             Address::REWARD_ACTOR,
             Method::UpdateNetworkKPI as u64,
-            to_vec(&rewar_update_network_params)?,
+            to_vec(&reward_update_network_params)?,
             tipset.key().into(),
         ))?),
     ];
