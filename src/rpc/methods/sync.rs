@@ -170,12 +170,17 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
+    use crate::utils::flume::{SizeTrackingReceiver, bounded_with_default_metrics_registry};
     use parking_lot::RwLock;
     use tokio::sync::mpsc;
     use tokio::task::JoinSet;
 
-    fn ctx() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
-        let (network_send, network_rx) = flume::bounded(5);
+    fn ctx() -> (
+        Arc<RPCState<MemoryDB>>,
+        SizeTrackingReceiver<NetworkMessage>,
+    ) {
+        let (network_send, network_rx) =
+            bounded_with_default_metrics_registry(5, "network_messages".into());
         let (tipset_send, _) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
