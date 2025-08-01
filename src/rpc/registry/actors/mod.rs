@@ -5,4 +5,5 @@ pub(crate) mod account;
 pub(crate) mod evm;
 pub(crate) mod init;
 pub(crate) mod miner;
+pub(crate) mod power;
 pub(crate) mod system;
