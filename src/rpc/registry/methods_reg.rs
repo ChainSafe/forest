@@ -85,7 +85,7 @@ impl MethodRegistry {
                 BuiltinActor::Init => init::register_actor_methods(self, cid, version),
                 BuiltinActor::System => system::register_actor_methods(self, cid, version),
                 BuiltinActor::Power => power::register_actor_methods(self, cid, version),
-                BuiltinActor::Reward => reward::register_actor_methods(self, cid, version)
+                BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }
