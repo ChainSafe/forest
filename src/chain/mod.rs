@@ -6,7 +6,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::db::car::forest;
 use crate::db::{SettingsStore, SettingsStoreExt};
-use crate::ipld::stream_chain;
+use crate::ipld::{stream_chain, unordered_stream_chain};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
@@ -17,17 +17,23 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub use self::{store::*, weight::*};
 
+#[derive(Debug, Clone, Default)]
+pub struct ExportOptions {
+    pub skip_checksum: bool,
+    pub unordered: bool,
+    pub seen: CidHashSet,
+}
+
 pub async fn export_from_head<D: Digest>(
     db: &Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    option: Option<ExportOptions>,
 ) -> anyhow::Result<(Tipset, Option<digest::Output<D>>), Error> {
     let head_key = SettingsStoreExt::read_obj::<TipsetKey>(db, crate::db::setting_keys::HEAD_KEY)?
         .context("chain head key not found")?;
     let head_ts = Tipset::load_required(&db, &head_key)?;
-    let digest = export::<D>(db, &head_ts, lookup_depth, writer, seen, skip_checksum).await?;
+    let digest = export::<D>(db, &head_ts, lookup_depth, writer, option).await?;
     Ok((head_ts, digest))
 }
 
@@ -36,9 +42,14 @@ pub async fn export<D: Digest>(
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    option: Option<ExportOptions>,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
+    let ExportOptions {
+        skip_checksum,
+        unordered,
+        seen,
+    } = option.unwrap_or_default();
+
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let roots = tipset.key().to_cids();
 
@@ -52,12 +63,25 @@ pub async fn export<D: Digest>(
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.
         1024,
-        stream_chain(
-            Arc::clone(db),
-            tipset.clone().chain_owned(Arc::clone(db)),
-            stateroot_lookup_limit,
-        )
-        .with_seen(seen),
+        if unordered {
+            futures::future::Either::Left(
+                unordered_stream_chain(
+                    Arc::clone(db),
+                    tipset.clone().chain_owned(Arc::clone(db)),
+                    stateroot_lookup_limit,
+                )
+                .with_seen(seen),
+            )
+        } else {
+            futures::future::Either::Right(
+                stream_chain(
+                    Arc::clone(db),
+                    tipset.clone().chain_owned(Arc::clone(db)),
+                    stateroot_lookup_limit,
+                )
+                .with_seen(seen),
+            )
+        },
     );
 
     // Encode Ipld key-value pairs in zstd frames

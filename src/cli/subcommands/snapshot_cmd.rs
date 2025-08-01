@@ -6,8 +6,7 @@ use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{self, chain::ChainExportParams, prelude::*};
+use crate::rpc::{self, chain::ForestChainExportParams, prelude::*, types::ApiTipsetKey};
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
@@ -38,6 +37,9 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
+        /// Traverse chain in non-deterministic order for better performance with more parallelization.
+        #[arg(long)]
+        unordered: bool,
     },
 }
 
@@ -50,6 +52,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                unordered,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -85,11 +88,12 @@ impl SnapshotCommands {
                 let output_dir = output_path.parent().context("invalid output path")?;
                 let temp_path = new_forest_car_temp_path_in(output_dir)?;
 
-                let params = ChainExportParams {
+                let params = ForestChainExportParams {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    unordered,
                     skip_checksum,
                     dry_run,
                 };
@@ -131,16 +135,18 @@ impl SnapshotCommands {
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
                 let hash_result = client
-                    .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
                 handle.abort();
                 let _ = handle.await;
 
-                if let Some(hash) = hash_result {
-                    save_checksum(&output_path, hash).await?;
+                if !dry_run {
+                    if let Some(hash) = hash_result {
+                        save_checksum(&output_path, hash).await?;
+                    }
+                    temp_path.persist(output_path)?;
                 }
-                temp_path.persist(output_path)?;
 
                 println!("Export completed.");
                 Ok(())
