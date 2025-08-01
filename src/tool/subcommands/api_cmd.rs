@@ -200,7 +200,7 @@ pub enum ApiCommands {
     /// test eth_newBlockFilter works ... ok
     /// test eth_newPendingTransactionFilter works ... ok
     /// test eth_getFilterLogs works ... ok
-    /// test result: FAILED. 7 passed; 0 failed; 0 ignored; 0 filtered out
+    /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
     /// ```
     Run {
         /// Client address
