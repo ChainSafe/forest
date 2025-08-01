@@ -1918,25 +1918,25 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            1,
+            fil_actor_datacap_state::v16::Method::Constructor as u64,
             to_vec(&datacap_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            116935346, // frc42_dispatch::method_hash!("Mint")
+            fil_actor_datacap_state::v16::Method::MintExported as u64,
             to_vec(&datacap_mint_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            2624896501, // frc42_dispatch::method_hash!("Destroy")
+            fil_actor_datacap_state::v16::Method::DestroyExported as u64,
             to_vec(&datacap_destroy_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
-            3261979605, // frc42_dispatch::method_hash!("Balance")
+            fil_actor_datacap_state::v16::Method::BalanceExported as u64,
             to_vec(&datacap_balance_params)?,
             tipset.key().into(),
         ))?),
