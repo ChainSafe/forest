@@ -1936,38 +1936,39 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
-            Method::UpdateClaimedPower as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            Method::UpdateClaimedPower as u64,
             to_vec(&power_update_claim_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
-            Method::EnrollCronEvent as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            Method::EnrollCronEvent as u64,
             to_vec(&power_enroll_event_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
-            Method::UpdatePledgeTotal as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            Method::UpdatePledgeTotal as u64,
             to_vec(&power_update_pledge_ttl_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
-            Method::CreateMinerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            Method::CreateMinerExported as u64,
             to_vec(&power_create_miner_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
-            Method::MinerRawPowerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+            Method::MinerRawPowerExported as u64,
             to_vec(&power_miner_raw_params)?,
             tipset.key().into(),
         ))?),
-        // Not supported by the lotus
+        // Not supported by the lotus,
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::POWER_ACTOR,
-        //     Method::MinerPowerExported as u64, // frc42_dispatch::method_hash!("MinerPower"),
+        //     Method::MinerPowerExported as u64,
         //     to_vec(&power_miner_power_exp_params)?,
         //     tipset.key().into(),
         // ))?),
