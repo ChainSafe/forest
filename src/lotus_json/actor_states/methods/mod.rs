@@ -10,3 +10,4 @@ mod init_exec_params;
 mod miner_change_worker_params;
 mod miner_constructor_params;
 mod reward_methods;
+mod power_actor;
