@@ -360,7 +360,6 @@ mod tests {
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
-    use multihash_derive::MultihashDigest as _;
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
