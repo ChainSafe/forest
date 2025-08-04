@@ -9,3 +9,4 @@ mod init_exec4_params;
 mod init_exec_params;
 mod miner_change_worker_params;
 mod miner_constructor_params;
+mod power_actor;
