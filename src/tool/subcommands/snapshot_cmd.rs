@@ -6,9 +6,9 @@ use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
-use crate::db::PersistentStore;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
+use crate::db::{MemoryDB, PersistentStore};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::stream_chain;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -172,7 +172,8 @@ impl SnapshotCommands {
                 for file in snapshot_files {
                     println!("Validating {}", file.display());
                     let result = async {
-                        let store = AnyCar::try_from(file.as_path())?;
+                        let store = ManyCar::new(MemoryDB::default())
+                            .with_read_only(AnyCar::try_from(file.as_path())?)?;
                         validate_with_blockstore(
                             store.heaviest_tipset()?,
                             Arc::new(store),

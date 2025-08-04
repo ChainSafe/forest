@@ -16,6 +16,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -45,6 +46,82 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
+use tokio::task::JoinHandle;
+
+const HEAD_CHANNEL_CAPACITY: usize = 10;
+
+/// Subscribes to head changes from the chain store and broadcasts new blocks.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
+pub(crate) fn new_heads<DB: Blockstore>(
+    data: &crate::rpc::RPCState<DB>,
+) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    let handle = tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if let Err(e) = sender.send(headers) {
+                tracing::error!("Failed to send headers: {}", e);
+                break;
+            }
+        }
+    });
+
+    (receiver, handle)
+}
+
+/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
+pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    filter: Option<EthFilterSpec>,
+) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+
+    let mut subscriber = ctx.chain_store().publisher().subscribe();
+
+    let ctx = ctx.clone();
+
+    let handle = tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            match v {
+                HeadChange::Apply(ts) => {
+                    match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                        Ok(logs) => {
+                            if !logs.is_empty() {
+                                if let Err(e) = sender.send(logs) {
+                                    tracing::error!(
+                                        "Failed to send logs for tipset {}: {}",
+                                        ts.key(),
+                                        e
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    (receiver, handle)
+}
 
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
@@ -721,7 +798,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &crate::rpc::RPCState<DB>,
 ) -> Subscriber<Vec<ApiHeadChange>> {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store().heaviest_tipset();
@@ -955,7 +1032,10 @@ mod tests {
 
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
-        db::{MemoryDB, car::PlainCar},
+        db::{
+            MemoryDB,
+            car::{AnyCar, ManyCar},
+        },
         networks::{self, ChainConfig},
     };
 
@@ -1067,10 +1147,12 @@ mod tests {
         let _ = (a, c1);
     }
 
-    impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
+    impl ChainStore<Chain4U<ManyCar>> {
         fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
             let db = Arc::new(Chain4U::with_blockstore(
-                PlainCar::new(genesis_car).unwrap(),
+                ManyCar::new(MemoryDB::default())
+                    .with_read_only(AnyCar::new(genesis_car).unwrap())
+                    .unwrap(),
             ));
             let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(

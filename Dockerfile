@@ -7,7 +7,7 @@
 # ```
 # 
 
-FROM golang:1.23-bookworm AS build-env
+FROM golang:1.24-bookworm AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
