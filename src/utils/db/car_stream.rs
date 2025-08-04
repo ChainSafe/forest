@@ -231,9 +231,9 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
     fn try_decode_header_v2_from_fill_buf(fill_buf: &[u8]) -> io::Result<Option<CarV2Header>> {
         let is_compressed = is_zstd(fill_buf);
         let fill_buf_reader = if is_compressed {
-            either::Either::Right(zstd::Decoder::new(fill_buf)?)
+            itertools::Either::Right(zstd::Decoder::new(fill_buf)?)
         } else {
-            either::Either::Left(fill_buf)
+            itertools::Either::Left(fill_buf)
         };
         read_v2_header(fill_buf_reader)
     }

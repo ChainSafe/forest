@@ -8,16 +8,18 @@ use std::sync::{
 };
 
 use super::{ElectionProof, Error, Ticket, TipsetKey};
-use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::shim::clock::ChainEpoch;
-use crate::shim::{
-    address::Address, crypto::Signature, econ::TokenAmount, sector::PoStProof,
-    version::NetworkVersion,
+use crate::{
+    beacon::{BeaconEntry, BeaconSchedule},
+    shim::{
+        address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
+        sector::PoStProof, version::NetworkVersion,
+    },
+    utils::{encoding::blake2b_256, multihash::MultihashCode},
 };
-use crate::utils::{cid::CidCborExt as _, encoding::blake2b_256};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
@@ -102,7 +104,15 @@ impl Default for RawBlockHeader {
 
 impl RawBlockHeader {
     pub fn cid(&self) -> Cid {
-        Cid::from_cbor_blake2b256(self).unwrap()
+        self.car_block().expect("CBOR serialization failed").0
+    }
+    pub fn car_block(&self) -> anyhow::Result<(Cid, Vec<u8>)> {
+        let data = fvm_ipld_encoding::to_vec(self)?;
+        let cid = Cid::new_v1(
+            fvm_ipld_encoding::DAG_CBOR,
+            MultihashCode::Blake2b256.digest(&data),
+        );
+        Ok((cid, data))
     }
     pub(super) fn tipset_sort_key(&self) -> Option<([u8; 32], Vec<u8>)> {
         let ticket_hash = blake2b_256(self.ticket.as_ref()?.vrfproof.as_bytes());
