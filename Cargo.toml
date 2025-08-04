@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.27.0"
+version = "0.28.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -61,7 +61,6 @@ digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
 educe = { version = "0.6.0", features = ["Debug"], default-features = false }
-either = "1"
 enumflags2 = "0.7"
 ethereum-types = { version = "0.15", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
@@ -92,7 +91,7 @@ fvm_ipld_encoding = "0.5.3"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
-get-size2 = { version = "0.5", features = ["derive"] }
+get-size2 = { version = "0.6", features = ["derive"] }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
@@ -108,7 +107,7 @@ integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
-jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.2"
@@ -155,7 +154,7 @@ num-traits = "0.2"
 num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars1"] }
 openrpc-types = "0.5"
-parity-db = { version = "0.5", default-features = false }
+parity-db = { version = "0.5" }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4"
 pin-project-lite = "0.2"
@@ -235,7 +234,7 @@ assert_cmd = "2"
 bimap = "0.6"
 cargo_metadata = "0.21"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
-criterion = { version = "0.6", features = ["async_tokio", "csv_output"] }
+criterion = { version = "0.7", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
@@ -251,7 +250,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.294"
+ra_ap_syntax = "0.0.296"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

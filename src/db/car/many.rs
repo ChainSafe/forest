@@ -23,7 +23,7 @@ use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::cmp::Ord;
 use std::collections::BinaryHeap;
 use std::{path::PathBuf, sync::Arc};
@@ -64,7 +64,7 @@ impl PartialEq for WithHeaviestEpoch {
 }
 
 pub struct ManyCar<WriterT = MemoryDB> {
-    shared_cache: Arc<Mutex<ZstdFrameCache>>,
+    shared_cache: Arc<ZstdFrameCache>,
     read_only: Arc<RwLock<BinaryHeap<WithHeaviestEpoch>>>,
     writer: WriterT,
 }
@@ -72,7 +72,7 @@ pub struct ManyCar<WriterT = MemoryDB> {
 impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
-            shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
+            shared_cache: Arc::new(ZstdFrameCache::default()),
             read_only: Arc::new(RwLock::new(BinaryHeap::default())),
             writer,
         }

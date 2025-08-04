@@ -127,8 +127,8 @@ impl MinerMigrator {
                     out_array.flush()?
                 };
 
-                cache.insert(miner_prev_sectors_in_key(address), in_root.to_owned());
-                cache.insert(miner_prev_sectors_out_key(address), out_root.to_owned());
+                cache.push(miner_prev_sectors_in_key(address), in_root.to_owned());
+                cache.push(miner_prev_sectors_out_key(address), out_root.to_owned());
                 Ok(out_root)
             })
             .map(|cid| cid.to_owned())

@@ -4,6 +4,7 @@
 use crate::utils::encoding::serde_byte_array;
 use byteorder::{BigEndian, ByteOrder as _};
 use digest::Digest as _;
+use get_size2::GetSize;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// The result from getting an entry from `Drand`.
@@ -12,7 +13,17 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 /// This beacon entry is stored on chain in the block header.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(
-    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize_tuple, Deserialize_tuple,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Serialize_tuple,
+    Deserialize_tuple,
+    GetSize,
 )]
 pub struct BeaconEntry {
     round: u64,

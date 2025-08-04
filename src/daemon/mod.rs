@@ -508,11 +508,16 @@ pub(super) async fn start(
         .set(snap_gc.clone())
         .ok()
         .context("failed to set GLOBAL_SNAPSHOT_GC")?;
-    tokio::task::spawn({
-        let snap_gc = snap_gc.clone();
-        async move { snap_gc.event_loop().await }
-    });
-    if !opts.no_gc {
+
+    // If the node is stateless, GC shouldn't get triggered even on demand.
+    if !opts.stateless {
+        tokio::task::spawn({
+            let snap_gc = snap_gc.clone();
+            async move { snap_gc.event_loop().await }
+        });
+    }
+    // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
+    if !opts.no_gc && !opts.stateless {
         tokio::task::spawn({
             let snap_gc = snap_gc.clone();
             async move { snap_gc.scheduler_loop().await }
