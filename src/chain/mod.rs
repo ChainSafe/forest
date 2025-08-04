@@ -45,6 +45,8 @@ pub async fn export_from_head<D: Digest>(
     Ok((head_ts, digest))
 }
 
+/// Exports a Filecoin snapshot in v1 format
+/// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
 pub async fn export<D: Digest>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
@@ -67,6 +69,8 @@ pub async fn export<D: Digest>(
     .await
 }
 
+/// Exports a Filecoin snapshot in v1 format
+/// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
 pub async fn export_v2<D: Digest>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
     f3: Option<(Cid, &mut File)>,
@@ -199,7 +203,7 @@ impl<'de> Deserialize<'de> for FilecoinSnapshotVersion {
     }
 }
 
-/// Defined in <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#snapshotmetadata>
+/// Defined in <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#snapshotmetadata>
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct FilecoinSnapshotMetadata {

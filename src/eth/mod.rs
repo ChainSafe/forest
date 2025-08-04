@@ -37,5 +37,5 @@ pub const ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID: u64 = 0;
 /// > Research into Filecoin chain behavior suggests that probabilistic finality
 /// > generally approaches the intended stability guarantee at, or near, 30 epochs.
 /// > Although a strictly "finalized" safe recommendation remains 900 epochs.
-/// > See <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0089.md>
+/// > See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0089.md>
 pub const SAFE_EPOCH_DELAY: i64 = 30;

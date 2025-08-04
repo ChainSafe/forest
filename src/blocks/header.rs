@@ -24,24 +24,10 @@ use num::BigInt;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
-// See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
-// and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
 #[cfg(test)]
-pub static FILECOIN_GENESIS_CID: std::sync::LazyLock<Cid> = std::sync::LazyLock::new(|| {
-    "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
-        .parse()
-        .expect("Infallible")
-});
-
+mod test;
 #[cfg(test)]
-pub static FILECOIN_GENESIS_BLOCK: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
-    hex::decode("a5684461746574696d6573323031372d30352d30352030313a32373a3531674e6574776f726b6846696c65636f696e65546f6b656e6846696c65636f696e6c546f6b656e416d6f756e7473a36b546f74616c537570706c796d322c3030302c3030302c303030664d696e6572736d312c3430302c3030302c3030306c50726f746f636f6c4c616273a36b446576656c6f706d656e746b3330302c3030302c3030306b46756e6472616973696e676b3230302c3030302c3030306a466f756e646174696f6e6b3130302c3030302c303030674d657373616765784854686973206973207468652047656e6573697320426c6f636b206f66207468652046696c65636f696e20446563656e7472616c697a65642053746f72616765204e6574776f726b2e")
-        .expect("Infallible")
-});
-
-#[cfg(test)]
-pub static GENESIS_BLOCK_PARENTS: std::sync::LazyLock<TipsetKey> =
-    std::sync::LazyLock::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
+pub use test::*;
 
 #[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
@@ -76,30 +62,6 @@ pub struct RawBlockHeader {
     pub fork_signal: u64,
     /// The base fee of the parent block
     pub parent_base_fee: TokenAmount,
-}
-
-#[cfg(test)]
-impl Default for RawBlockHeader {
-    fn default() -> Self {
-        Self {
-            parents: GENESIS_BLOCK_PARENTS.clone(),
-            miner_address: Default::default(),
-            ticket: Default::default(),
-            election_proof: Default::default(),
-            beacon_entries: Default::default(),
-            winning_post_proof: Default::default(),
-            weight: Default::default(),
-            epoch: Default::default(),
-            state_root: Default::default(),
-            message_receipts: Default::default(),
-            messages: Default::default(),
-            bls_aggregate: Default::default(),
-            timestamp: Default::default(),
-            signature: Default::default(),
-            fork_signal: Default::default(),
-            parent_base_fee: Default::default(),
-        }
-    }
 }
 
 impl RawBlockHeader {
