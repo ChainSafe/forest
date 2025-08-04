@@ -119,8 +119,14 @@ pin_project! {
 }
 
 impl<DB, T> ChainStream<DB, T> {
-    pub fn with_seen(self, seen: CidHashSet) -> Self {
-        ChainStream { seen, ..self }
+    pub fn with_seen(mut self, seen: CidHashSet) -> Self {
+        self.seen = seen;
+        self
+    }
+
+    pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
+        self.fail_on_dead_links = fail_on_dead_links;
+        self
     }
 
     #[allow(dead_code)]
@@ -162,14 +168,7 @@ pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> ChainStream<DB, ITER> {
-    ChainStream {
-        tipset_iter,
-        db,
-        dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
-        stateroot_limit,
-        fail_on_dead_links: false,
-    }
+    stream_chain(db, tipset_iter, stateroot_limit).fail_on_dead_links(false)
 }
 
 impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
@@ -287,7 +286,7 @@ pin_project! {
         block_receiver: flume::Receiver<anyhow::Result<CarBlock>>,
         extract_sender: flume::Sender<Cid>,
         stateroot_limit: ChainEpoch,
-        queue: Vec<(Cid,Option<Vec<u8>>)>,
+        queue: Vec<(Cid, Option<Vec<u8>>)>,
         fail_on_dead_links: bool,
     }
 
@@ -305,6 +304,40 @@ impl<DB, T> UnorderedChainStream<DB, T> {
         let data = guard.deref_mut();
         mem::swap(data, &mut set);
         set
+    }
+}
+
+fn unordered_stream_chain_inner<
+    DB: Blockstore + Sync + Send + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: ITER,
+    stateroot_limit: ChainEpoch,
+    fail_on_dead_links: bool,
+) -> UnorderedChainStream<DB, ITER> {
+    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = flume::unbounded();
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
+        db.clone(),
+        sender.clone(),
+        extract_receiver,
+        seen.clone(),
+        fail_on_dead_links,
+    );
+
+    UnorderedChainStream {
+        seen,
+        db,
+        worker_handle: handle,
+        block_receiver: receiver,
+        queue: Vec::new(),
+        extract_sender,
+        tipset_iter,
+        stateroot_limit,
+        fail_on_dead_links,
     }
 }
 
@@ -328,29 +361,7 @@ pub fn unordered_stream_chain<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, ITER> {
-    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = flume::unbounded();
-    let fail_on_dead_links = true;
-    let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
-        db.clone(),
-        sender.clone(),
-        extract_receiver,
-        seen.clone(),
-        fail_on_dead_links,
-    );
-
-    UnorderedChainStream {
-        seen,
-        db,
-        worker_handle: handle,
-        block_receiver: receiver,
-        queue: Vec::new(),
-        extract_sender,
-        tipset_iter,
-        stateroot_limit,
-        fail_on_dead_links,
-    }
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, true)
 }
 
 // Stream available graph in unordered search. All reachable nodes are touched and dead-links
@@ -364,29 +375,7 @@ pub fn unordered_stream_graph<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, ITER> {
-    let (sender, receiver) = flume::bounded(2048);
-    let (extract_sender, extract_receiver) = flume::unbounded();
-    let fail_on_dead_links = false;
-    let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
-        db.clone(),
-        sender.clone(),
-        extract_receiver,
-        seen.clone(),
-        fail_on_dead_links,
-    );
-
-    UnorderedChainStream {
-        seen,
-        db,
-        worker_handle: handle,
-        block_receiver: receiver,
-        queue: Vec::new(),
-        tipset_iter,
-        extract_sender,
-        stateroot_limit,
-        fail_on_dead_links,
-    }
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, false)
 }
 
 impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>
