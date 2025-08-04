@@ -178,16 +178,10 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
+
         let fail_on_dead_links = self.fail_on_dead_links;
         let stateroot_limit = self.stateroot_limit;
         let this = self.project();
-
-        let ipld_to_cid = |ipld| {
-            if let Ipld::Link(cid) = ipld {
-                return Some(cid);
-            }
-            None
-        };
 
         loop {
             while let Some(task) = this.dfs.front_mut() {
@@ -244,7 +238,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid) {
                         // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(*block.cid(), Some(data)));
+                        this.dfs.push_back(Emit(cid, Some(data)));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
@@ -540,5 +534,13 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                 }
             }
         }
+    }
+}
+
+fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
+    if let Ipld::Link(cid) = ipld {
+        Some(cid)
+    } else {
+        None
     }
 }

@@ -8,14 +8,14 @@ use std::sync::{
 };
 
 use super::{ElectionProof, Error, Ticket, TipsetKey};
-use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::shim::clock::ChainEpoch;
-use crate::shim::{
-    address::Address, crypto::Signature, econ::TokenAmount, sector::PoStProof,
-    version::NetworkVersion,
+use crate::{
+    beacon::{BeaconEntry, BeaconSchedule},
+    shim::{
+        address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
+        sector::PoStProof, version::NetworkVersion,
+    },
+    utils::{encoding::blake2b_256, multihash::MultihashCode},
 };
-use crate::utils::encoding::blake2b_256;
-use crate::utils::multihash::MultihashCode;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
@@ -98,7 +98,7 @@ impl Default for RawBlockHeader {
 
 impl RawBlockHeader {
     pub fn cid(&self) -> Cid {
-        self.car_block().expect("Infallible").0
+        self.car_block().expect("CBOR serialization failed").0
     }
     pub fn car_block(&self) -> anyhow::Result<(Cid, Vec<u8>)> {
         let data = fvm_ipld_encoding::to_vec(self)?;
@@ -345,15 +345,13 @@ impl<'de> Deserialize<'de> for CachingBlockHeader {
 
 #[cfg(test)]
 mod tests {
+    use super::RawBlockHeader;
     use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon};
+    use crate::blocks::{CachingBlockHeader, Error};
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
     use crate::utils::encoding::from_slice_with_fallback;
     use fvm_ipld_encoding::to_vec;
-
-    use crate::blocks::{CachingBlockHeader, Error};
-
-    use super::RawBlockHeader;
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {

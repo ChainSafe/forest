@@ -367,8 +367,8 @@ impl RpcModule {
                                     Ok(msg) => {
                                         match create_notif_message(&sink, &msg) {
                                             Ok(msg) => {
-                                                // This fails only if the connection is closed
-                                                if sink.send(msg).await.is_err() {
+                                                if let Err(e) = sink.send(msg).await {
+                                                    tracing::error!("Failed to send message: {:?}", e);
                                                     break;
                                                 }
                                             }
