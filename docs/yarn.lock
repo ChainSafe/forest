@@ -2712,9 +2712,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@easyops-cn/docusaurus-search-local@npm:^0.52.0":
-  version: 0.52.0
-  resolution: "@easyops-cn/docusaurus-search-local@npm:0.52.0"
+"@easyops-cn/docusaurus-search-local@npm:^0.52.1":
+  version: 0.52.1
+  resolution: "@easyops-cn/docusaurus-search-local@npm:0.52.1"
   dependencies:
     "@docusaurus/plugin-content-docs": "npm:^2 || ^3"
     "@docusaurus/theme-translations": "npm:^2 || ^3"
@@ -2737,7 +2737,7 @@ __metadata:
     "@docusaurus/theme-common": ^2 || ^3
     react: ^16.14.0 || ^17 || ^18 || ^19
     react-dom: ^16.14.0 || 17 || ^18 || ^19
-  checksum: 10c0/06d75be9f590877736fb83bb8e286162db3196384ac8bcaccbb496e1daca84ffc7674410038e4f6079e37ccba12eacba96cdd4436fd582cfdcc4fbccb6a01b21
+  checksum: 10c0/dd028d0ac432ad3c7cae4c923e733bfe1fc9da03707369d79e0ba50c7acea45899be77e302699e47da76bef90290fa917f3f683223805b66b336f694d0e379ad
   languageName: node
   linkType: hard
 
@@ -7692,13 +7692,13 @@ __metadata:
     "@docusaurus/preset-classic": "npm:^3.8.1"
     "@docusaurus/theme-mermaid": "npm:^3.8.1"
     "@docusaurus/tsconfig": "npm:^3.8.1"
-    "@easyops-cn/docusaurus-search-local": "npm:^0.52.0"
+    "@easyops-cn/docusaurus-search-local": "npm:^0.52.1"
     mdx-mermaid: "npm:^2.0.3"
     mermaid: "npm:^11.9.0"
     prettier: "npm:^3.6.2"
     prism-react-renderer: "npm:^2.4.1"
-    react: "npm:^19.1.0"
-    react-dom: "npm:^19.1.0"
+    react: "npm:^19.1.1"
+    react-dom: "npm:^19.1.1"
     spellchecker-cli: "npm:^7.0.0"
     typescript: "npm:^5.8.3"
   languageName: unknown
@@ -13276,14 +13276,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:^19.1.0":
-  version: 19.1.0
-  resolution: "react-dom@npm:19.1.0"
+"react-dom@npm:^19.1.1":
+  version: 19.1.1
+  resolution: "react-dom@npm:19.1.1"
   dependencies:
     scheduler: "npm:^0.26.0"
   peerDependencies:
-    react: ^19.1.0
-  checksum: 10c0/3e26e89bb6c67c9a6aa86cb888c7a7f8258f2e347a6d2a15299c17eb16e04c19194e3452bc3255bd34000a61e45e2cb51e46292392340432f133e5a5d2dfb5fc
+    react: ^19.1.1
+  checksum: 10c0/8c91198510521299c56e4e8d5e3a4508b2734fb5e52f29eeac33811de64e76fe586ad32c32182e2e84e070d98df67125da346c3360013357228172dbcd20bcdd
   languageName: node
   linkType: hard
 
@@ -13397,10 +13397,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:^19.1.0":
-  version: 19.1.0
-  resolution: "react@npm:19.1.0"
-  checksum: 10c0/530fb9a62237d54137a13d2cfb67a7db6a2156faed43eecc423f4713d9b20c6f2728b026b45e28fcd72e8eadb9e9ed4b089e99f5e295d2f0ad3134251bdd3698
+"react@npm:^19.1.1":
+  version: 19.1.1
+  resolution: "react@npm:19.1.1"
+  checksum: 10c0/8c9769a2dfd02e603af6445058325e6c8a24b47b185d0e461f66a6454765ddcaecb3f0a90184836c68bb509f3c38248359edbc42f0d07c23eb500a5c30c87b4e
   languageName: node
   linkType: hard
 
