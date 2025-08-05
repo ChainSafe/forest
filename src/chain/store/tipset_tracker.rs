@@ -34,7 +34,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         }
     }
 
-    /// Create a new TipsetTracker with slasher service integration
+    /// Create a new [`TipsetTracker`] with slasher service enabled
     pub fn with_slasher(
         db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
