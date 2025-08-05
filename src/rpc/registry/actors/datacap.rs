@@ -47,13 +47,20 @@ macro_rules! register_datacap_version {
     }};
 }
 
-pub(crate) fn register_datacap_actor_methods(registry: &mut MethodRegistry, cid: Cid) {
-    register_datacap_v9!(registry, cid);
-    register_datacap_v10!(registry, cid);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v11);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v12);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v13);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v14);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v15);
-    register_datacap_version!(registry, cid, fil_actor_datacap_state::v16);
+pub(crate) fn register_datacap_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: u64,
+) {
+    match version {
+        9 => register_datacap_v9!(registry, cid),
+        10 => register_datacap_v10!(registry, cid),
+        11 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v11),
+        12 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v12),
+        13 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v13),
+        14 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v14),
+        15 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v15),
+        16 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v16),
+        _ => {}
+    }
 }

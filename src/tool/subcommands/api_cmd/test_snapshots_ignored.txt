@@ -18,6 +18,8 @@ Filecoin.EthGetFilterChanges
 Filecoin.EthGetFilterLogs
 Filecoin.EthSendRawTransaction
 Filecoin.EthSyncing
+Filecoin.EthSubscribe
+Filecoin.EthUnsubscribe
 Filecoin.F3GetCertificate
 Filecoin.F3GetECPowerTable
 Filecoin.F3GetF3PowerTable

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
-use crate::rpc::registry::actors::system;
 use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, ActorRegistry};
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
@@ -74,16 +73,24 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, datacap, evm, init, miner};
+        use crate::rpc::registry::actors::{
+            account, datacap, evm, init, miner, power, reward, system,
+        };
 
-        for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
+        for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
-                BuiltinActor::Account => account::register_account_actor_methods(self, cid),
-                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
-                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
-                BuiltinActor::Init => init::register_actor_methods(self, cid),
-                BuiltinActor::System => system::register_actor_methods(self, cid),
-                BuiltinActor::DataCap => datacap::register_datacap_actor_methods(self, cid),
+                BuiltinActor::Account => {
+                    account::register_account_actor_methods(self, cid, version)
+                }
+                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid, version),
+                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid, version),
+                BuiltinActor::Init => init::register_actor_methods(self, cid, version),
+                BuiltinActor::System => system::register_actor_methods(self, cid, version),
+                BuiltinActor::DataCap => {
+                    datacap::register_datacap_actor_methods(self, cid, version)
+                }
+                BuiltinActor::Power => power::register_actor_methods(self, cid, version),
+                BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }
@@ -99,7 +106,7 @@ pub fn deserialize_params(
 }
 
 macro_rules! register_actor_methods {
-    // Handle empty params case
+    // Handle an empty params case
     ($registry:expr, $code_cid:expr, [
         $( ($method:expr, empty) ),* $(,)?
     ]) => {
@@ -142,6 +149,7 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
+    const V16: u64 = 16;
     // Test parameter type for testing
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct TestParams {
@@ -170,13 +178,13 @@ mod test {
         Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(data))
     }
 
-    fn get_real_actor_cid(target_actor: BuiltinActor) -> Option<Cid> {
+    fn get_real_actor_cid(target_actor: BuiltinActor, target_version: u64) -> Option<Cid> {
         ACTOR_REGISTRY
             .iter()
-            .find(|(_, (actor_type, _))| actor_type == &target_actor)
-            .map(|(&cid, _)| cid)
+            .find_map(|(&cid, &(actor_type, version))| {
+                (actor_type == target_actor && version == target_version).then_some(cid)
+            })
     }
-
     #[test]
     fn test_method_registry_initialization() {
         let result = deserialize_params(&create_test_cid(b"unknown"), 1, &[]);
@@ -230,7 +238,7 @@ mod test {
 
     #[test]
     fn test_deserialize_params_registered_actor_unregistered_method() {
-        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account) {
+        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account, V16) {
             let unregistered_method = 999;
 
             let result = deserialize_params(&account_cid, unregistered_method, &[]);
@@ -253,7 +261,7 @@ mod test {
         ];
 
         for actor_type in supported_actors {
-            let actor_cid = get_real_actor_cid(actor_type).unwrap();
+            let actor_cid = get_real_actor_cid(actor_type, V16).unwrap();
             // Test that the Constructor method (typically method 1) is registered
             let constructor_method = 1;
 
@@ -301,7 +309,7 @@ mod test {
 
     #[test]
     fn test_system_actor_deserialize_params_cbor_null() {
-        let system_cid = get_real_actor_cid(BuiltinActor::System)
+        let system_cid = get_real_actor_cid(BuiltinActor::System, V16)
             .expect("Should have System actor CID in registry");
 
         // Test with null data

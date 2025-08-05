@@ -102,7 +102,7 @@ impl Iterator for DfsIter {
 
 enum Task {
     // Yield the block, don't visit it.
-    Emit(Cid),
+    Emit(Cid, Option<Vec<u8>>),
     // Visit all the elements, recursively.
     Iterate(VecDeque<Cid>),
 }
@@ -119,8 +119,14 @@ pin_project! {
 }
 
 impl<DB, T> ChainStream<DB, T> {
-    pub fn with_seen(self, seen: CidHashSet) -> Self {
-        ChainStream { seen, ..self }
+    pub fn with_seen(mut self, seen: CidHashSet) -> Self {
+        self.seen = seen;
+        self
+    }
+
+    pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
+        self.fail_on_dead_links = fail_on_dead_links;
+        self
     }
 
     #[allow(dead_code)]
@@ -162,14 +168,7 @@ pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> ChainStream<DB, ITER> {
-    ChainStream {
-        tipset_iter,
-        db,
-        dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
-        stateroot_limit,
-        fail_on_dead_links: false,
-    }
+    stream_chain(db, tipset_iter, stateroot_limit).fail_on_dead_links(false)
 }
 
 impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
@@ -179,26 +178,25 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
+
+        let fail_on_dead_links = self.fail_on_dead_links;
+        let stateroot_limit = self.stateroot_limit;
         let this = self.project();
 
-        let ipld_to_cid = |ipld| {
-            if let Ipld::Link(cid) = ipld {
-                return Some(cid);
-            }
-            None
-        };
-
-        let stateroot_limit = *this.stateroot_limit;
         loop {
             while let Some(task) = this.dfs.front_mut() {
                 match task {
-                    Emit(cid) => {
-                        let cid = *cid;
-                        this.dfs.pop_front();
-                        if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok(CarBlock { cid, data })));
-                        } else if *this.fail_on_dead_links {
-                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
+                    Emit(_, _) => {
+                        if let Some(Emit(cid, data)) = this.dfs.pop_front() {
+                            if let Some(data) = data {
+                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                            } else if let Some(data) = this.db.get(&cid)? {
+                                return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                            } else if fail_on_dead_links {
+                                return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                    "missing key: {cid}"
+                                ))));
+                            };
                         }
                     }
                     Iterate(cid_vec) => {
@@ -212,17 +210,17 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let new_values = extract_cids(&data)?;
-                                        cid_vec.reserve(new_values.len());
-
-                                        for v in new_values.into_iter().rev() {
-                                            cid_vec.push_front(v)
+                                        if !new_values.is_empty() {
+                                            cid_vec.reserve(new_values.len());
+                                            for v in new_values.into_iter().rev() {
+                                                cid_vec.push_front(v)
+                                            }
                                         }
                                     }
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
-                                } else if *this.fail_on_dead_links {
+                                } else if fail_on_dead_links {
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                        "missing key: {}",
-                                        cid
+                                        "missing key: {cid}"
                                     ))));
                                 }
                             }
@@ -237,14 +235,15 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.borrow().block_headers() {
-                    if this.seen.insert(*block.cid()) {
+                    let (cid, data) = block.car_block()?;
+                    if this.seen.insert(cid) {
                         // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(*block.cid()));
+                        this.dfs.push_back(Emit(cid, Some(data)));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents {
-                                this.dfs.push_back(Emit(p));
+                                this.dfs.push_back(Emit(p, None));
                             }
                         }
 
@@ -287,7 +286,7 @@ pin_project! {
         block_receiver: flume::Receiver<anyhow::Result<CarBlock>>,
         extract_sender: flume::Sender<Cid>,
         stateroot_limit: ChainEpoch,
-        queue: Vec<Cid>,
+        queue: Vec<(Cid, Option<Vec<u8>>)>,
         fail_on_dead_links: bool,
     }
 
@@ -305,6 +304,40 @@ impl<DB, T> UnorderedChainStream<DB, T> {
         let data = guard.deref_mut();
         mem::swap(data, &mut set);
         set
+    }
+}
+
+fn unordered_stream_chain_inner<
+    DB: Blockstore + Sync + Send + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: ITER,
+    stateroot_limit: ChainEpoch,
+    fail_on_dead_links: bool,
+) -> UnorderedChainStream<DB, ITER> {
+    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = flume::unbounded();
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
+        db.clone(),
+        sender.clone(),
+        extract_receiver,
+        seen.clone(),
+        fail_on_dead_links,
+    );
+
+    UnorderedChainStream {
+        seen,
+        db,
+        worker_handle: handle,
+        block_receiver: receiver,
+        queue: Vec::new(),
+        extract_sender,
+        tipset_iter,
+        stateroot_limit,
+        fail_on_dead_links,
     }
 }
 
@@ -328,29 +361,7 @@ pub fn unordered_stream_chain<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, ITER> {
-    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = flume::unbounded();
-    let fail_on_dead_links = true;
-    let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
-        db.clone(),
-        sender.clone(),
-        extract_receiver,
-        seen.clone(),
-        fail_on_dead_links,
-    );
-
-    UnorderedChainStream {
-        seen,
-        db,
-        worker_handle: handle,
-        block_receiver: receiver,
-        queue: Vec::new(),
-        extract_sender,
-        tipset_iter,
-        stateroot_limit,
-        fail_on_dead_links,
-    }
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, true)
 }
 
 // Stream available graph in unordered search. All reachable nodes are touched and dead-links
@@ -364,29 +375,7 @@ pub fn unordered_stream_graph<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, ITER> {
-    let (sender, receiver) = flume::bounded(2048);
-    let (extract_sender, extract_receiver) = flume::unbounded();
-    let fail_on_dead_links = false;
-    let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
-        db.clone(),
-        sender.clone(),
-        extract_receiver,
-        seen.clone(),
-        fail_on_dead_links,
-    );
-
-    UnorderedChainStream {
-        seen,
-        db,
-        worker_handle: handle,
-        block_receiver: receiver,
-        queue: Vec::new(),
-        tipset_iter,
-        extract_sender,
-        stateroot_limit,
-        fail_on_dead_links,
-    }
+    unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, false)
 }
 
 impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>
@@ -425,7 +414,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<I
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)));
+                                        .send(Err(anyhow::anyhow!("missing key: {cid}")));
                                     break 'main;
                                 }
                             }
@@ -454,6 +443,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
     type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let stateroot_limit = self.stateroot_limit;
+        let fail_on_dead_links = self.fail_on_dead_links;
         let this = self.project();
         let receive_block = || {
             if let Ok(item) = this.block_receiver.try_recv() {
@@ -462,11 +453,13 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             None
         };
         loop {
-            while let Some(cid) = this.queue.pop() {
-                if let Some(data) = this.db.get(&cid)? {
+            while let Some((cid, data)) = this.queue.pop() {
+                if let Some(data) = data {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
-                } else if *this.fail_on_dead_links {
-                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
+                } else if let Some(data) = this.db.get(&cid)? {
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                } else if fail_on_dead_links {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
                 }
             }
 
@@ -474,21 +467,21 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 return Poll::Ready(Some(block));
             }
 
-            let stateroot_limit = *this.stateroot_limit;
             // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
             // the extract queue. The emit queue is processed in the loop above. Once the desired depth
             // has been reached yield a block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.into_block_headers().into_iter() {
-                    if this.seen.lock().insert(*block.cid()) {
+                    let (cid, data) = block.car_block()?;
+                    if this.seen.lock().insert(cid) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
                         // work.
-                        this.queue.push(*block.cid());
+                        this.queue.push((cid, Some(data)));
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents {
-                                this.queue.push(p);
+                                this.queue.push((p, None));
                             }
                         }
 
@@ -500,8 +493,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 this.extract_sender.send(block.messages)?;
                                 // This will simply return an error once we reach that item in
                                 // the queue.
-                            } else if *this.fail_on_dead_links {
-                                this.queue.push(block.messages);
+                            } else if fail_on_dead_links {
+                                this.queue.push((block.messages, None));
                             } else {
                                 // Make sure we update seen here as we don't send the block for
                                 // inspection.
@@ -518,8 +511,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 this.extract_sender.send(block.state_root)?;
                                 // This will simply return an error once we reach that item in
                                 // the queue.
-                            } else if *this.fail_on_dead_links {
-                                this.queue.push(block.state_root);
+                            } else if fail_on_dead_links {
+                                this.queue.push((block.state_root, None));
                             } else {
                                 // Make sure we update seen here as we don't send the block for
                                 // inspection.
@@ -548,5 +541,13 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 }
             }
         }
+    }
+}
+
+fn ipld_to_cid(ipld: Ipld) -> Option<Cid> {
+    if let Ipld::Link(cid) = ipld {
+        Some(cid)
+    } else {
+        None
     }
 }

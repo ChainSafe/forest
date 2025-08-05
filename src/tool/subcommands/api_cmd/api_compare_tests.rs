@@ -24,7 +24,7 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::executor::Receipt;
-use crate::shim::sector::SectorSize;
+use crate::shim::sector::{SectorSize, StoragePower};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -52,6 +52,7 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use num_bigint::BigInt;
 use num_traits::Signed;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -1867,6 +1868,52 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         address: Address::new_id(3005).into(),
     };
 
+    let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
+        owner: Address::new_id(1000).into(),
+        worker: Address::new_id(1001).into(),
+        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
+        peer: b"miner".to_vec(),
+        multiaddrs: Default::default(),
+    };
+
+    // not supported by the lotus
+    // let _power_miner_power_exp_params = fil_actor_power_state::v16::MinerPowerParams{
+    //     miner: 1234,
+    // };
+
+    let power_update_claim_params = fil_actor_power_state::v16::UpdateClaimedPowerParams {
+        raw_byte_delta: StoragePower::from(1024u64),
+        quality_adjusted_delta: StoragePower::from(2048u64),
+    };
+
+    let power_enroll_event_params = fil_actor_power_state::v16::EnrollCronEventParams {
+        event_epoch: 123,
+        payload: Default::default(),
+    };
+
+    let power_update_pledge_ttl_params = fil_actor_power_state::v16::UpdatePledgeTotalParams {
+        pledge_delta: Default::default(),
+    };
+
+    let power_miner_raw_params = fil_actor_power_state::v16::MinerRawPowerParams { miner: 1234 };
+
+    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
+        power: Some(Default::default()),
+    };
+
+    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
+        miner: Address::new_id(1000).into(),
+        penalty: Default::default(),
+        gas_reward: Default::default(),
+        win_count: 0,
+    };
+
+    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
+            111,
+        ))),
+    };
+
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1940,6 +1987,68 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&datacap_balance_params)?,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::Constructor as u64,
+            to_vec(&reward_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
+            to_vec(&reward_award_block_reward_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
+            to_vec(&reward_update_network_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMiner as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdateClaimedPower as u64,
+            to_vec(&power_update_claim_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::EnrollCronEvent as u64,
+            to_vec(&power_enroll_event_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdatePledgeTotal as u64,
+            to_vec(&power_update_pledge_ttl_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMinerExported as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerRawPowerExported as u64,
+            to_vec(&power_miner_raw_params)?,
+            tipset.key().into(),
+        ))?),
+        // Not supported by the lotus,
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::POWER_ACTOR,
+        //     Method::MinerPowerExported as u64,
+        //     to_vec(&power_miner_power_exp_params)?,
+        //     tipset.key().into(),
+        // ))?),
     ];
 
     Ok(tests)

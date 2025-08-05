@@ -19,14 +19,17 @@ macro_rules! register_system_version {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid) {
-    register_system_version!(registry, cid, fil_actor_system_state::v8);
-    register_system_version!(registry, cid, fil_actor_system_state::v9);
-    register_system_version!(registry, cid, fil_actor_system_state::v10);
-    register_system_version!(registry, cid, fil_actor_system_state::v11);
-    register_system_version!(registry, cid, fil_actor_system_state::v12);
-    register_system_version!(registry, cid, fil_actor_system_state::v13);
-    register_system_version!(registry, cid, fil_actor_system_state::v14);
-    register_system_version!(registry, cid, fil_actor_system_state::v15);
-    register_system_version!(registry, cid, fil_actor_system_state::v16);
+pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+    match version {
+        8 => register_system_version!(registry, cid, fil_actor_system_state::v8),
+        9 => register_system_version!(registry, cid, fil_actor_system_state::v9),
+        10 => register_system_version!(registry, cid, fil_actor_system_state::v10),
+        11 => register_system_version!(registry, cid, fil_actor_system_state::v11),
+        12 => register_system_version!(registry, cid, fil_actor_system_state::v12),
+        13 => register_system_version!(registry, cid, fil_actor_system_state::v13),
+        14 => register_system_version!(registry, cid, fil_actor_system_state::v14),
+        15 => register_system_version!(registry, cid, fil_actor_system_state::v15),
+        16 => register_system_version!(registry, cid, fil_actor_system_state::v16),
+        _ => {}
+    }
 }
