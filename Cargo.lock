@@ -7282,9 +7282,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.122.0"
+version = "0.123.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "415f0821f512608d825b3215489a6a6a2c18ed9f0045953d514e7ec23d4b90ab"
+checksum = "2b734cfcb577d09877799a22742f1bd398be6c00bc428d9de56d48d11ece5771"
 dependencies = [
  "memchr",
  "unicode-properties",
@@ -7293,15 +7293,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.296"
+version = "0.0.297"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc3fbde70afb324a176bcadfdaa6d4b1851f373f56bca06781c556ae49143530"
+checksum = "868635ebf111927e63daabfe75c1ee0d29811a16d2de9d08e44f4d09f4f0fb73"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.296"
+version = "0.0.297"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5b351daf0d4804ee7fd2cb9304b8b22e86a649702ec0e51cb72873bb786af61"
+checksum = "e754299b8b2c68e8ab1123ea9df1669899830e0d010daf2f5f31c864ad851c57"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7312,9 +7312,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.296"
+version = "0.0.297"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72d3bbbce1b520262a474fe2876306206ebab83a922b286a82a2b93d95c467ea"
+checksum = "773d4a4dd6c7ed2a3a249258adbb84b8a29d5bf7d0809c56b2d6867850d31b9e"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7328,9 +7328,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.296"
+version = "0.0.297"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c515e1089728d68ede5e3b49c7858c2be834c80d67fe2efa8cd09b613a1810d"
+checksum = "8ca25c8fc16966f0844e78d2b5549ce32a42c64cc9da7471ccf38fe7766a806b"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -9188,9 +9188,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.47.0"
+version = "1.47.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43864ed400b6043a4757a25c7a64a8efde741aed79a056a2fb348a406701bb35"
+checksum = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
 dependencies = [
  "backtrace",
  "bytes",
@@ -9255,9 +9255,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.15"
+version = "0.7.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
+checksum = "14307c986784f72ef81c89db7d9e28d6ac26d16213b109ea501696195e6e3ce5"
 dependencies = [
  "bytes",
  "futures-core",
