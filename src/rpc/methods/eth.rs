@@ -213,7 +213,7 @@ impl EthUint64 {
     }
 
     pub fn to_hex_string(&self) -> String {
-        format!("0x{:x}", self.0)
+        format!("0x{}", hex::encode(&self.0.to_be_bytes()))
     }
 }
 
