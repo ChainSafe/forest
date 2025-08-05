@@ -7,6 +7,7 @@ use super::Error;
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
+use crate::slasher::service::SlasherService;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use nunny::vec as nonempty;
@@ -19,6 +20,8 @@ pub(in crate::chain) struct TipsetTracker<DB> {
     entries: Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>,
     db: Arc<DB>,
     chain_config: Arc<ChainConfig>,
+    /// Optional slasher service for consensus fault detection
+    slasher_service: Option<Arc<SlasherService>>,
 }
 
 impl<DB: Blockstore> TipsetTracker<DB> {
@@ -27,6 +30,21 @@ impl<DB: Blockstore> TipsetTracker<DB> {
             entries: Default::default(),
             db,
             chain_config,
+            slasher_service: None,
+        }
+    }
+
+    /// Create a new TipsetTracker with slasher service integration
+    pub fn with_slasher(
+        db: Arc<DB>,
+        chain_config: Arc<ChainConfig>,
+        slasher_service: Arc<SlasherService>,
+    ) -> Self {
+        Self {
+            entries: Default::default(),
+            db,
+            chain_config,
+            slasher_service: Some(slasher_service),
         }
     }
 
@@ -42,6 +60,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         cids.push(*header.cid());
         drop(map_lock);
 
+        self.check_consensus_fault(header);
         self.check_multiple_blocks_from_same_miner(&cids_to_verify, header);
         self.prune_entries(header.epoch);
     }
@@ -65,6 +84,20 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                     );
                 }
             }
+        }
+    }
+
+    /// Process block with slasher service for consensus fault detection
+    fn check_consensus_fault(&self, header: &CachingBlockHeader) {
+        if let Some(slasher) = &self.slasher_service {
+            let slasher = slasher.clone();
+            let header = header.clone();
+
+            tokio::spawn(async move {
+                if let Err(e) = slasher.process_block(&header).await {
+                    warn!("Error processing block with slasher service: {}", e);
+                }
+            });
         }
     }
 
@@ -136,6 +169,7 @@ mod test {
             db: Arc::new(db),
             chain_config: chain_config.clone(),
             entries: Mutex::new(entries),
+            slasher_service: None,
         };
 
         tipset_tracker.prune_entries(head_epoch);

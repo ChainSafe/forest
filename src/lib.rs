@@ -61,6 +61,7 @@ mod metrics;
 mod networks;
 mod rpc;
 mod shim;
+mod slasher;
 mod state_manager;
 mod state_migration;
 mod statediff;
