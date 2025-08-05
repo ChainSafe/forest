@@ -73,7 +73,9 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, evm, init, miner, power, reward, system};
+        use crate::rpc::registry::actors::{
+            account, evm, init, miner, power, reward, system, verified_reg,
+        };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
@@ -86,6 +88,9 @@ impl MethodRegistry {
                 BuiltinActor::System => system::register_actor_methods(self, cid, version),
                 BuiltinActor::Power => power::register_actor_methods(self, cid, version),
                 BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
+                BuiltinActor::VerifiedRegistry => {
+                    verified_reg::register_actor_methods(self, cid, version)
+                }
                 _ => {}
             }
         }
@@ -127,7 +132,7 @@ macro_rules! register_actor_methods {
             $registry.register_method(
                 $code_cid,
                 $method as MethodNum,
-                |bytes| -> Result<$param_type> { Ok(fvm_ipld_encoding::from_slice(bytes)?) },
+                |bytes| -> anyhow::Result<$param_type> { Ok(fvm_ipld_encoding::from_slice(bytes)?) },
             );
         )*
     };
