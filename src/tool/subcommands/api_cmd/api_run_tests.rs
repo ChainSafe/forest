@@ -4,15 +4,18 @@ use crate::eth::EVMMethod;
 use crate::rpc::eth::EthUint64;
 use crate::rpc::eth::types::*;
 use crate::rpc::{self, RpcMethod, prelude::*};
-use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::{address::Address, message::Message};
-use std::io::{self, Write};
-use std::pin::Pin;
-use std::sync::Arc;
 
 use anyhow::Context;
 use cbor4ii::core::Value;
-use tokio::time::{Duration, sleep};
+use futures::{SinkExt, StreamExt};
+use serde_json::json;
+use tokio::time::Duration;
+use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
+
+use std::io::{self, Write};
+use std::pin::Pin;
+use std::sync::Arc;
 
 type TestRunner = Arc<
     dyn Fn(Arc<rpc::Client>) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send>>
@@ -141,6 +144,62 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
+async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
+    let mut url = client.base_url().clone();
+    url.set_scheme("ws")
+        .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
+    url.set_path("rpc/v0");
+
+    let (mut ws_stream, _) = connect_async(url.as_str()).await?;
+
+    let request = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "Filecoin.ChainNotify",
+        "params": []
+    });
+    ws_stream
+        .send(WsMessage::Text(request.to_string().into()))
+        .await?;
+
+    let mut channel_id: Option<serde_json::Value> = None;
+
+    while let Some(msg) = ws_stream.next().await {
+        if let Ok(WsMessage::Text(text)) = msg {
+            let json: serde_json::Value = serde_json::from_str(&text)?;
+            // dbg!(&json);
+            if let Some(id) = json.get("result") {
+                channel_id = Some(id.clone());
+            } else {
+                let method = json!("xrpc.ch.val");
+                anyhow::ensure!(json.get("method") == Some(&method));
+
+                if let Some(params) = json.get("params").and_then(|v| v.as_array()) {
+                    if let Some(id) = params.get(0) {
+                        anyhow::ensure!(Some(id) == channel_id.as_ref());
+                    } else {
+                        anyhow::bail!("expecting an open channel");
+                    }
+                    if let Some(changes) = params.get(1).and_then(|v| v.as_array()) {
+                        for change in changes {
+                            if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
+                                if type_ == "apply" {
+                                    // TODO: close channel
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    anyhow::bail!("expecting params");
+                }
+            }
+        }
+    }
+
+    anyhow::bail!("WebSocket stream closed")
+}
+
 fn create_eth_new_filter_test() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
         const BLOCK_RANGE: u64 = 200;
@@ -229,8 +288,8 @@ fn eth_new_block_filter() -> RpcTestScenario {
             };
             verify_hashes(&prev_hashes).await?;
 
-            // Wait till the next block arrive
-            sleep(Duration::from_secs(EPOCH_DURATION_SECONDS as u64)).await;
+            // Wait for the next block to arrive
+            next_tipset(&client).await?;
 
             let filter_result = client
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
@@ -287,8 +346,6 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 let smsg = client
                     .call(MpoolPushMessage::request((message, None))?)
                     .await?;
-
-                sleep(Duration::from_secs(2)).await;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
