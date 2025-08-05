@@ -32,10 +32,7 @@ impl SlasherService {
 
         let filter = Arc::new(RwLock::new(
             SlasherFilter::new(data_dir.clone()).with_context(|| {
-                format!(
-                    "Failed to create slasher filter in directory: {:?}",
-                    data_dir
-                )
+                format!("Failed to create slasher filter in directory: {data_dir:?}")
             })?,
         ));
 
@@ -111,8 +108,16 @@ impl SlasherService {
         };
 
         let params = fil_actor_miner_state::v16::ReportConsensusFaultParams {
-            header1: fault.block_headers[0].to_bytes(),
-            header2: fault.block_headers[1].to_bytes(),
+            header1: fault
+                .block_headers
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("No first block header found"))?
+                .to_bytes(),
+            header2: fault
+                .block_headers
+                .get(1)
+                .ok_or_else(|| anyhow::anyhow!("No second block header found"))?
+                .to_bytes(),
             header_extra: fault
                 .extra_evidence
                 .map(|cid| cid.to_bytes())

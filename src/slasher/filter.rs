@@ -26,8 +26,10 @@ impl SlasherFilter {
         std::fs::create_dir_all(&data_dir)?;
 
         let mut options = Options::with_columns(&data_dir, 1);
-        options.columns[0].btree_index = true;
-        options.columns[0].uniform = false;
+        if let Some(column) = options.columns.get_mut(0) {
+            column.btree_index = true;
+            column.uniform = false;
+        }
 
         let db = Db::open_or_create(&options)?;
 
