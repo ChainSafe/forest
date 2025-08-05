@@ -21,7 +21,7 @@ use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
-use parking_lot::{Mutex, RwLock as SyncRwLock};
+use parking_lot::RwLock as SyncRwLock;
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
@@ -57,7 +57,7 @@ async fn republish_pending_messages<T>(
     api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &Mutex<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
     chain_config: &ChainConfig,
@@ -65,7 +65,7 @@ async fn republish_pending_messages<T>(
 where
     T: Provider,
 {
-    let ts = cur_tipset.lock().clone();
+    let ts = cur_tipset.read().clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().clear();
@@ -216,7 +216,7 @@ pub async fn head_change<T>(
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &Mutex<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Arc<Tipset>>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -227,7 +227,7 @@ where
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
         let pts = api.load_tipset(ts.parents())?;
-        *cur_tipset.lock() = pts;
+        *cur_tipset.write() = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
@@ -266,7 +266,7 @@ where
                 }
             }
         }
-        *cur_tipset.lock() = Arc::new(ts);
+        *cur_tipset.write() = Arc::new(ts);
     }
     if repub {
         repub_trigger
@@ -276,7 +276,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
+            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
@@ -616,7 +616,7 @@ pub mod tests {
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
 
-        let cur_ts = mpool.cur_tipset.lock().clone();
+        let cur_ts = mpool.current_tipset();
         assert_eq!(cur_ts.as_ref(), &tipset);
     }
 
