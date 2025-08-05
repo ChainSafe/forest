@@ -3281,7 +3281,6 @@ dependencies = [
  "tracing-subscriber",
  "unsigned-varint 0.8.0",
  "url",
- "use",
  "uuid",
  "walkdir",
  "zstd",
@@ -9764,12 +9763,6 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
-
-[[package]]
-name = "use"
-version = "0.0.1-pre.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f916b8b6102de89f9999988ddc8e9bd0f119a8344e06bb19b0b03fb655769035"
 
 [[package]]
 name = "utf8_iter"

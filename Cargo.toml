@@ -229,7 +229,6 @@ paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
-use = "0.0.1-pre.0"
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"
