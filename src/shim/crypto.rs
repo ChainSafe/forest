@@ -68,6 +68,93 @@ impl<'de> de::Deserialize<'de> for Signature {
     }
 }
 
+impl From<fvm_shared3::crypto::signature::Signature> for Signature {
+    fn from(sig: fvm_shared3::crypto::signature::Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                fvm_shared3::crypto::signature::SignatureType::BLS => SignatureType::Bls,
+                fvm_shared3::crypto::signature::SignatureType::Secp256k1 => {
+                    SignatureType::Secp256k1
+                }
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
+impl From<fvm_shared4::crypto::signature::Signature> for Signature {
+    fn from(sig: fvm_shared4::crypto::signature::Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                fvm_shared4::crypto::signature::SignatureType::BLS => SignatureType::Bls,
+                fvm_shared4::crypto::signature::SignatureType::Secp256k1 => {
+                    SignatureType::Secp256k1
+                }
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
+impl From<Signature> for fvm_shared3::crypto::signature::Signature {
+    fn from(sig: Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                SignatureType::Bls => fvm_shared3::crypto::signature::SignatureType::BLS,
+                SignatureType::Secp256k1 => {
+                    fvm_shared3::crypto::signature::SignatureType::Secp256k1
+                }
+                SignatureType::Delegated => fvm_shared3::crypto::signature::SignatureType::BLS, // fallback v3 doesn't have Delegated
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
+impl From<fvm_shared2::crypto::signature::Signature> for Signature {
+    fn from(sig: fvm_shared2::crypto::signature::Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                fvm_shared2::crypto::signature::SignatureType::BLS => SignatureType::Bls,
+                fvm_shared2::crypto::signature::SignatureType::Secp256k1 => {
+                    SignatureType::Secp256k1
+                }
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
+impl From<Signature> for fvm_shared2::crypto::signature::Signature {
+    fn from(sig: Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                SignatureType::Bls => fvm_shared2::crypto::signature::SignatureType::BLS,
+                SignatureType::Secp256k1 => {
+                    fvm_shared2::crypto::signature::SignatureType::Secp256k1
+                }
+                SignatureType::Delegated => fvm_shared2::crypto::signature::SignatureType::BLS, // fallback if v2 doesn't have Delegated
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
+impl From<Signature> for fvm_shared4::crypto::signature::Signature {
+    fn from(sig: Signature) -> Self {
+        Self {
+            sig_type: match sig.sig_type {
+                SignatureType::Bls => fvm_shared4::crypto::signature::SignatureType::BLS,
+                SignatureType::Secp256k1 => {
+                    fvm_shared4::crypto::signature::SignatureType::Secp256k1
+                }
+                SignatureType::Delegated => fvm_shared4::crypto::signature::SignatureType::BLS, // fallback v4 doesn't have Delegated
+            },
+            bytes: sig.bytes,
+        }
+    }
+}
+
 impl Signature {
     pub fn new(sig_type: SignatureType, bytes: Vec<u8>) -> Self {
         Signature { sig_type, bytes }
