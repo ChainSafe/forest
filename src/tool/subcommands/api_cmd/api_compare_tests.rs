@@ -1964,6 +1964,12 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::ThisEpochReward as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
             fil_actor_power_state::v16::Method::CreateMiner as u64,
             to_vec(&power_create_miner_params)?,
@@ -2007,6 +2013,48 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         //     to_vec(&power_miner_power_exp_params)?,
         //     tipset.key().into(),
         // ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::OnEpochTickEnd as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CurrentTotalPower as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::NetworkRawPowerExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerConsensusCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::SYSTEM_ACTOR,
+            fil_actor_system_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
     ];
 
     Ok(tests)
