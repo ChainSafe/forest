@@ -36,6 +36,7 @@ impl RpcMethod<1> for SyncCheckBad {
             .as_ref()
             .context("bad block cache is disabled")?
             .peek(&cid)
+            .map(|_| "bad".to_string())
             .unwrap_or_default())
     }
 }
@@ -57,7 +58,7 @@ impl RpcMethod<1> for SyncMarkBad {
         ctx.bad_blocks
             .as_ref()
             .context("bad block cache is disabled")?
-            .put(cid, "Marked bad manually through RPC API".to_string());
+            .push(cid);
         Ok(())
     }
 }
@@ -116,8 +117,9 @@ impl RpcMethod<1> for SyncSubmitBlock {
         if !matches!(ctx.sync_status.read().status, NodeSyncStatus::Synced) {
             Err(anyhow!("the node isn't in 'follow' mode"))?
         }
+        let genesis_network_name = ctx.chain_config().network.genesis_name();
         let encoded_message = to_vec(&block_msg)?;
-        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
+        let pubsub_block_str = format!("{PUBSUB_BLOCK_STR}/{genesis_network_name}");
         let (bls_messages, secp_messages) =
             chain::store::block_messages(&ctx.chain_store().db, &block_msg.header)?;
         let block = Block {
@@ -172,8 +174,6 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::task::JoinSet;
 
-    const TEST_NET_NAME: &str = "test";
-
     fn ctx() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
         let (network_send, network_rx) = flume::bounded(5);
         let (tipset_send, _) = flume::bounded(5);
@@ -222,7 +222,6 @@ mod tests {
                 MpoolRpcProvider::new(cs_arc.publisher().clone(), state_manager_for_thread.clone());
             MessagePool::new(
                 provider,
-                "test".to_string(),
                 mpool_network_send,
                 Default::default(),
                 state_manager_for_thread.chain_config().clone(),
@@ -244,7 +243,6 @@ mod tests {
             sync_status: Arc::new(RwLock::new(SyncStatusReport::default())),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             sync_network_context,
-            network_name: TEST_NET_NAME.to_owned(),
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
@@ -268,7 +266,7 @@ mod tests {
         SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
 
         let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
-        assert_eq!(reason, "Marked bad manually through RPC API");
+        assert_eq!(reason, "bad");
     }
 
     #[tokio::test]

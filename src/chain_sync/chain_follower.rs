@@ -507,7 +507,7 @@ fn load_full_tipset<DB: Blockstore>(
 
 enum SyncEvent {
     NewFullTipsets(Vec<Arc<FullTipset>>),
-    BadTipset(Arc<FullTipset>, String),
+    BadTipset(Arc<FullTipset>),
     ValidatedTipset {
         tipset: Arc<FullTipset>,
         is_proposed_head: bool,
@@ -526,13 +526,8 @@ impl std::fmt::Display for SyncEvent {
 
         match self {
             Self::NewFullTipsets(tss) => write!(f, "NewFullTipsets({})", tss_to_string(tss)),
-            Self::BadTipset(ts, reason) => {
-                write!(
-                    f,
-                    "BadTipset(reason: {reason}, epoch: {}, key: {})",
-                    ts.epoch(),
-                    ts.key()
-                )
+            Self::BadTipset(ts) => {
+                write!(f, "BadTipset(epoch: {}, key: {})", ts.epoch(), ts.key())
             }
             Self::ValidatedTipset {
                 tipset,
@@ -635,7 +630,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             trace!("Skipping invalid tipset: {}", why);
-            self.mark_bad_tipset(tipset, why.to_string());
+            self.mark_bad_tipset(tipset);
             return;
         }
 
@@ -644,7 +639,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         let epoch_diff = heaviest.epoch() - tipset.epoch();
 
         if epoch_diff > self.cs.chain_config.policy.chain_finality {
-            self.mark_bad_tipset(tipset, "old tipset".to_string());
+            self.mark_bad_tipset(tipset);
             return;
         }
 
@@ -691,7 +686,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
     // Mark blocks in tipset as bad.
     // Mark all descendants of tipsets as bad.
     // Remove all bad tipsets from the tipset map.
-    fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>, reason: String) {
+    fn mark_bad_tipset(&mut self, tipset: Arc<FullTipset>) {
         let mut stack = vec![tipset];
 
         while let Some(tipset) = stack.pop() {
@@ -699,7 +694,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             // Mark all blocks in the tipset as bad
             if let Some(bad_block_cache) = &self.bad_block_cache {
                 for block in tipset.blocks() {
-                    bad_block_cache.put(*block.cid(), reason.clone());
+                    bad_block_cache.push(*block.cid());
                 }
             }
 
@@ -760,7 +755,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
                     self.add_full_tipset(tipset);
                 }
             }
-            SyncEvent::BadTipset(tipset, reason) => self.mark_bad_tipset(tipset, reason),
+            SyncEvent::BadTipset(tipset) => self.mark_bad_tipset(tipset),
             SyncEvent::ValidatedTipset {
                 tipset,
                 is_proposed_head,
@@ -876,7 +871,7 @@ impl SyncTask {
                     }),
                     Err(e) => {
                         warn!("Error validating tipset: {}", e);
-                        Some(SyncEvent::BadTipset(tipset, e.to_string()))
+                        Some(SyncEvent::BadTipset(tipset))
                     }
                 }
             }

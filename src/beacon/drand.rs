@@ -12,14 +12,13 @@ use super::{
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
+use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::net::global_http_client;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use itertools::Itertools as _;
-use lru::LruCache;
-use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use tracing::debug;
 use url::Url;
@@ -244,7 +243,7 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 
     /// Keeps track of verified beacon entries.
-    verified_beacons: RwLock<LruCache<u64, BeaconEntry>>,
+    verified_beacons: SizeTrackingLruCache<u64, BeaconEntry>,
 }
 
 impl DrandBeacon {
@@ -262,14 +261,15 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: RwLock::new(LruCache::new(
+            verified_beacons: SizeTrackingLruCache::new_with_default_metrics_registry(
+                "verified_beacons_cache".into(),
                 NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
-            )),
+            ),
         }
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        let cache = self.verified_beacons.read();
+        let cache = self.verified_beacons.cache().read();
         cache.peek(&entry.round()) == Some(entry)
     }
 }
@@ -333,12 +333,12 @@ impl Beacon for DrandBeacon {
         };
 
         if is_valid && !validated.is_empty() {
-            let mut cache = self.verified_beacons.write();
-            if cache.cap().get() < validated.len() {
-                tracing::warn!(cap=%cache.cap().get(), validated_len=%validated.len(), "verified_beacons.cap() is too small");
+            let cap = self.verified_beacons.cap();
+            if cap < validated.len() {
+                tracing::warn!(%cap, validated_len=%validated.len(), "verified_beacons.cap() is too small");
             }
             for entry in validated {
-                cache.put(entry.round(), entry.clone());
+                self.verified_beacons.push(entry.round(), entry.clone());
             }
         }
 
@@ -346,7 +346,7 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.verified_beacons.read().peek(&round).cloned();
+        let cached: Option<BeaconEntry> = self.verified_beacons.peek_cloned(&round);
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {

@@ -4,6 +4,8 @@
 pub(crate) mod errors;
 mod eth_tx;
 pub mod filter;
+pub mod pubsub;
+pub(crate) mod pubsub_trait;
 mod trace;
 pub mod types;
 mod utils;
@@ -65,17 +67,16 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use ipld_core::ipld::Ipld;
 use itertools::Itertools;
 use num::{BigInt, Zero as _};
-use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tracing::log;
 use utils::{decode_payload, lookup_eth_address};
 
-static FOREST_TRACE_FILTER_MAX_RESULT: Lazy<u64> =
-    Lazy::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
+static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
+    LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -1326,7 +1327,7 @@ async fn new_eth_tx_receipt<DB: Blockstore + Send + Sync + 'static>(
     Ok(tx_receipt)
 }
 
-async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
+pub async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'static>(
     ctx: &Ctx<DB>,
     ts: &Arc<Tipset>,
     block_hash: &EthHash,
@@ -1337,22 +1338,33 @@ async fn eth_logs_for_block_and_transaction<DB: Blockstore + Send + Sync + 'stat
         ..Default::default()
     };
 
+    eth_logs_with_filter(ctx, ts, Some(spec), Some(tx_hash)).await
+}
+
+pub async fn eth_logs_with_filter<DB: Blockstore + Send + Sync + 'static>(
+    ctx: &Ctx<DB>,
+    ts: &Arc<Tipset>,
+    spec: Option<EthFilterSpec>,
+    tx_hash: Option<&EthHash>,
+) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events(
         ctx,
         ts,
-        Some(&spec),
+        spec.as_ref(),
         SkipEvent::OnUnresolvedAddress,
         &mut events,
     )
     .await?;
 
     let logs = eth_filter_logs_from_events(ctx, &events)?;
-    let out: Vec<_> = logs
-        .into_iter()
-        .filter(|log| &log.transaction_hash == tx_hash)
-        .collect();
-    Ok(out)
+    Ok(match tx_hash {
+        Some(hash) => logs
+            .into_iter()
+            .filter(|log| &log.transaction_hash == hash)
+            .collect(),
+        None => logs, // no tx hash, keep all logs
+    })
 }
 
 fn get_signed_message<DB: Blockstore>(ctx: &Ctx<DB>, message_cid: Cid) -> Result<SignedMessage> {
@@ -2637,6 +2649,56 @@ impl RpcMethod<1> for EthUninstallFilter {
         let eth_event_handler = ctx.eth_event_handler.clone();
 
         Ok(eth_event_handler.eth_uninstall_filter(&filter_id)?)
+    }
+}
+
+pub enum EthUnsubscribe {}
+impl RpcMethod<0> for EthUnsubscribe {
+    const NAME: &'static str = "Filecoin.EthUnsubscribe";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_unsubscribe");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const SUBSCRIPTION: bool = true;
+
+    type Params = ();
+    type Ok = ();
+
+    // This method is a placeholder and is never actually called.
+    // Subscription handling is performed in [`pubsub.rs`](pubsub).
+    //
+    // We still need to implement the [`RpcMethod`] trait to expose method metadata
+    // like [`NAME`](Self::NAME), [`NAME_ALIAS`](Self::NAME_ALIAS), [`PERMISSION`](Self::PERMISSION), etc..
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(())
+    }
+}
+
+pub enum EthSubscribe {}
+impl RpcMethod<0> for EthSubscribe {
+    const NAME: &'static str = "Filecoin.EthSubscribe";
+    const NAME_ALIAS: Option<&'static str> = Some("eth_subscribe");
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const SUBSCRIPTION: bool = true;
+
+    type Params = ();
+    type Ok = ();
+
+    // This method is a placeholder and is never actually called.
+    // Subscription handling is performed in [`pubsub.rs`](pubsub).
+    //
+    // We still need to implement the [`RpcMethod`] trait to expose method metadata
+    // like [`NAME`](Self::NAME), [`NAME_ALIAS`](Self::NAME_ALIAS), [`PERMISSION`](Self::PERMISSION), etc..
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(())
     }
 }
 

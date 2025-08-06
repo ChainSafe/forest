@@ -15,13 +15,21 @@ pub use self::types::{
 };
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
+use crate::shim::actors::{
+    convert::{
+        from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
+        from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
+        from_policy_v13_to_v16,
+    },
+    miner, power,
+};
 use crate::{
     blocks::Tipset,
     chain::index::ResolveNullTipset,
     chain_sync::TipsetValidator,
     db::{
-        BlockstoreReadCache as _, BlockstoreReadCacheStats as _, BlockstoreWithReadCache,
-        DefaultBlockstoreReadCacheStats, LruBlockstoreReadCache,
+        BlockstoreReadCacheStats as _, BlockstoreWithReadCache, DefaultBlockstoreReadCacheStats,
+        LruBlockstoreReadCache,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
     lotus_json::HasLotusJson as _,
@@ -33,31 +41,22 @@ use crate::{
     },
     utils::misc::env::is_env_set_and_truthy,
 };
-use crate::{
-    blocks::TipsetKey,
-    shim::actors::{
-        convert::{
-            from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
-            from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
-            from_policy_v13_to_v16,
-        },
-        miner, power,
-    },
-};
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
 use libp2p::PeerId;
-use lru::LruCache;
 use num::Signed as _;
-use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
-use std::{borrow::Cow, fmt::Display, str::FromStr as _, sync::Arc};
+use std::{
+    borrow::Cow,
+    fmt::Display,
+    str::FromStr as _,
+    sync::{Arc, LazyLock, OnceLock},
+};
 
-pub static F3_LEASE_MANAGER: OnceCell<F3LeaseManager> = OnceCell::new();
+pub static F3_LEASE_MANAGER: OnceLock<F3LeaseManager> = OnceLock::new();
 
 pub enum GetRawNetworkName {}
 
@@ -71,7 +70,7 @@ impl RpcMethod<0> for GetRawNetworkName {
     type Ok = String;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.network_name.clone())
+        Ok(ctx.chain_config().network.genesis_name().into())
     }
 }
 
@@ -163,10 +162,11 @@ impl GetPowerTable {
     ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
-        static BLOCKSTORE_CACHE: Lazy<Arc<LruBlockstoreReadCache>> = Lazy::new(|| {
-            Arc::new(LruBlockstoreReadCache::new(
+        static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
+            LruBlockstoreReadCache::new_with_default_metrics_registry(
+                "get_powertable_cache".into(),
                 BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
-            ))
+            )
         });
         let db = BlockstoreWithReadCache::new(
             ctx.store_owned(),
@@ -449,7 +449,7 @@ impl GetPowerTable {
         power_entries.sort();
 
         if let Some(stats) = db.stats() {
-            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), cache_size=%human_bytes::human_bytes(BLOCKSTORE_CACHE.size_in_bytes() as f64), "F3.GetPowerTable blockstore read cache");
+            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), "F3.GetPowerTable blockstore read cache");
         }
 
         Ok(power_entries)
@@ -469,21 +469,11 @@ impl RpcMethod<1> for GetPowerTable {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (f3_tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        static CACHE: Lazy<tokio::sync::Mutex<LruCache<TipsetKey, Vec<F3PowerEntry>>>> =
-            Lazy::new(|| {
-                tokio::sync::Mutex::new(LruCache::new(32.try_into().expect("Infallible")))
-            });
         let tsk = f3_tsk.try_into()?;
-        let mut cache = CACHE.lock().await;
-        if let Some(v) = cache.get(&tsk) {
-            return Ok(v.clone());
-        }
-
         let start = std::time::Instant::now();
         let ts = ctx.chain_index().load_required_tipset(&tsk)?;
         let power_entries = Self::compute(&ctx, &ts).await?;
         tracing::debug!(epoch=%ts.epoch(), %tsk, "F3.GetPowerTable, took {}", humantime::format_duration(start.elapsed()));
-        cache.push(tsk, power_entries.clone());
         Ok(power_entries)
     }
 }

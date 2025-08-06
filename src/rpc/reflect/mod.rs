@@ -34,7 +34,7 @@ use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{
-    Deserialize,
+    Deserialize, Serialize,
     de::{Error as _, Unexpected},
 };
 use std::{future::Future, str::FromStr, sync::Arc};
@@ -80,10 +80,25 @@ pub trait RpcMethod<const ARITY: usize> {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
+    /// If it a subscription method. Defaults to false.
+    const SUBSCRIPTION: bool = false;
 }
 
 /// The permission required to call an RPC method.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, displaydoc::Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    displaydoc::Display,
+    Serialize,
+    Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum Permission {
     /// admin
     Admin,

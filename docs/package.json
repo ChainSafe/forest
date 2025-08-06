@@ -21,13 +21,13 @@
     "@docusaurus/core": "^3.8.1",
     "@docusaurus/preset-classic": "^3.8.1",
     "@docusaurus/theme-mermaid": "^3.8.1",
-    "@easyops-cn/docusaurus-search-local": "^0.51.1",
+    "@easyops-cn/docusaurus-search-local": "^0.52.1",
     "mdx-mermaid": "^2.0.3",
-    "mermaid": "^11.6.0",
+    "mermaid": "^11.9.0",
     "prettier": "^3.6.2",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.8.1",

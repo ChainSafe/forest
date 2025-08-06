@@ -6,7 +6,6 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use crate::{
@@ -15,6 +14,7 @@ use crate::{
     },
     utils::flume::FlumeSenderExt as _,
 };
+use crate::{message::SignedMessage, networks::GenesisNetworkName};
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -52,13 +52,13 @@ use crate::libp2p::{
 };
 
 pub(in crate::libp2p) mod metrics {
-    use once_cell::sync::Lazy;
     use prometheus_client::metrics::{family::Family, gauge::Gauge};
+    use std::sync::LazyLock;
 
     use crate::metrics::KindLabel;
 
-    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Family<KindLabel, Gauge>> = {
-        Lazy::new(|| {
+    pub static NETWORK_CONTAINER_CAPACITIES: LazyLock<Family<KindLabel, Gauge>> = {
+        LazyLock::new(|| {
             let metric = Family::default();
             crate::metrics::default_registry().register(
                 "network_container_capacities",
@@ -187,11 +187,12 @@ where
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
         net_keypair: Keypair,
-        network_name: &str,
+        network_name: GenesisNetworkName,
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
         let behaviour =
-            ForestBehaviour::new(&net_keypair, &config, network_name, peer_manager.clone()).await?;
+            ForestBehaviour::new(&net_keypair, &config, &network_name, peer_manager.clone())
+                .await?;
         let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
             .with_tokio()
             .with_tcp(

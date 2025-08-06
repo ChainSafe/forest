@@ -23,15 +23,16 @@ use crate::shim::{
     gas::{Gas, price_list_by_network_version},
 };
 use crate::state_manager::is_valid_for_sending;
+use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
-use lru::LruCache;
 use nonzero_ext::nonzero;
-use parking_lot::{Mutex, RwLock as SyncRwLock};
+use parking_lot::RwLock as SyncRwLock;
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
 
@@ -53,6 +54,9 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+/// Maximum size of a serialized message in bytes. This is an anti-DOS measure to prevent
+/// large messages from being added to the message pool.
+const MAX_MESSAGE_SIZE: usize = 64 << 10; // 64 KiB
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -173,16 +177,15 @@ pub struct MessagePool<T> {
     /// A map of pending messages where the key is the address
     pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
-    pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
+    pub cur_tipset: Arc<SyncRwLock<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>,
+    pub bls_sig_cache: Arc<SizeTrackingLruCache<CidWrapper, Signature>>,
     /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: Arc<Mutex<LruCache<Cid, ()>>>,
+    pub sig_val_cache: Arc<SizeTrackingLruCache<CidWrapper, ()>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of
@@ -199,6 +202,11 @@ impl<T> MessagePool<T>
 where
     T: Provider,
 {
+    /// Gets the current tipset
+    pub fn current_tipset(&self) -> Arc<Tipset> {
+        self.cur_tipset.read().clone()
+    }
+
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().push(m.from());
@@ -211,14 +219,15 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid();
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
+        let network_name = self.chain_config.network.genesis_name();
         self.add_local(msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
-                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
+                    topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
                     message: msg_ser,
                 })
                 .await
@@ -228,7 +237,7 @@ where
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
-        if to_vec(msg)?.len() > 32 * 1024 {
+        if to_vec(msg)?.len() > MAX_MESSAGE_SIZE {
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
@@ -245,10 +254,8 @@ where
     /// fits the parameters to be pushed to the `MessagePool`.
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
-
-        let tip = self.cur_tipset.lock().clone();
-
-        self.add_tipset(msg, &tip, false)?;
+        let ts = self.current_tipset();
+        self.add_tipset(msg, &ts, false)?;
         Ok(())
     }
 
@@ -258,14 +265,14 @@ where
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid();
 
-        if let Some(()) = self.sig_val_cache.lock().get(&cid) {
+        if let Some(()) = self.sig_val_cache.get_cloned(&(cid).into()) {
             return Ok(());
         }
 
         msg.verify(self.chain_config.eth_chain_id)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        self.sig_val_cache.lock().put(cid, ());
+        self.sig_val_cache.push(cid.into(), ());
 
         Ok(())
     }
@@ -316,7 +323,7 @@ where
     /// the pending hash-map.
     fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = msg.from();
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
@@ -329,7 +336,7 @@ where
     /// Get the sequence for a given address, return Error if there is a failure
     /// to retrieve the respective sequence.
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
@@ -374,7 +381,7 @@ where
             )
         }
 
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
 
         Ok((out, cur_ts))
     }
@@ -410,7 +417,7 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(&mut self.bls_sig_cache.lock(), msg)?;
+                let smsg = recover_sig(self.bls_sig_cache.as_ref(), msg)?;
                 msg_vec.push(smsg)
             }
         }
@@ -457,7 +464,6 @@ where
     /// Creates a new `MessagePool` instance.
     pub fn new(
         api: T,
-        network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
@@ -468,9 +474,15 @@ where
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
-        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
-        let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
+        let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
+        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+            "bls_sig_cache".into(),
+            BLS_SIG_CACHE_SIZE,
+        ));
+        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+            "sig_val_cache".into(),
+            SIG_VAL_CACHE_SIZE,
+        ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -481,7 +493,6 @@ where
             pending,
             cur_tipset: tipset,
             api: Arc::new(api),
-            network_name,
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
@@ -545,7 +556,6 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
-        let network_name = mp.network_name.clone();
         let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
         // Reacts to republishing requests
         services.spawn(async move {
@@ -559,7 +569,6 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
-                    network_name.as_ref(),
                     pending.as_ref(),
                     cur_tipset.as_ref(),
                     republished.as_ref(),
@@ -584,7 +593,7 @@ where
 /// hash-map.
 pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
-    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
@@ -593,7 +602,7 @@ where
     T: Provider,
 {
     if msg.signature().signature_type() == SignatureType::Bls {
-        bls_sig_cache.lock().put(msg.cid(), msg.signature().clone());
+        bls_sig_cache.push(msg.cid().into(), msg.signature().clone());
     }
 
     if msg.message().gas_limit > 100_000_000 {
@@ -628,7 +637,7 @@ fn verify_msg_before_add(
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
-        .on_chain_message(to_vec(m)?.len());
+        .on_chain_message(m.chain_length()?);
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.block_headers().is_empty() {
         let base_fee = &cur_ts.block_headers().first().parent_base_fee;

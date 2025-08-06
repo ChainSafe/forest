@@ -119,10 +119,8 @@ async fn ctx(
     );
 
     let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config).unwrap());
-    let network_name = state_manager.get_network_name_from_genesis()?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
-        network_name.clone(),
         network_send.clone(),
         Default::default(),
         state_manager.chain_config().clone(),
@@ -142,7 +140,6 @@ async fn ctx(
         sync_status: Arc::new(RwLock::new(SyncStatusReport::init())),
         eth_event_handler: Arc::new(EthEventHandler::new()),
         sync_network_context,
-        network_name,
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,

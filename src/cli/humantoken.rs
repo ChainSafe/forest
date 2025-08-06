@@ -108,7 +108,7 @@ mod parse {
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
     use nom::{
-        IResult,
+        IResult, Parser,
         bytes::complete::tag,
         character::complete::multispace0,
         combinator::{map_res, opt},
@@ -157,7 +157,7 @@ mod parse {
         Ok(TokenAmount::from_atto(attos))
     }
 
-    fn nom2anyhow(e: nom::Err<nom::error::VerboseError<&str>>) -> anyhow::Error {
+    fn nom2anyhow(e: nom::Err<nom::error::Error<&str>>) -> anyhow::Error {
         anyhow!("parse error: {e}")
     }
 
@@ -172,8 +172,12 @@ mod parse {
             _ => input,
         };
 
-        let (input, big_decimal) = permit_trailing_ws(bigdecimal)(input).map_err(nom2anyhow)?;
-        let (input, scale) = opt(permit_trailing_ws(si_scale))(input).map_err(nom2anyhow)?;
+        let (input, big_decimal) = permit_trailing_ws(bigdecimal)
+            .parse(input)
+            .map_err(nom2anyhow)?;
+        let (input, scale) = opt(permit_trailing_ws(si_scale))
+            .parse(input)
+            .map_err(nom2anyhow)?;
 
         if !input.is_empty() {
             bail!("Unexpected trailing input: {input}")
@@ -182,11 +186,11 @@ mod parse {
         Ok((big_decimal, scale))
     }
 
-    fn permit_trailing_ws<'a, F, O, E: ParseError<&'a str>>(
-        inner: F,
-    ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+    fn permit_trailing_ws<'a, I, O, E: ParseError<&'a str>>(
+        inner: I,
+    ) -> impl Parser<&'a str, Output = O, Error = E>
     where
-        F: FnMut(&'a str) -> IResult<&'a str, O, E>,
+        I: FnMut(&'a str) -> IResult<&'a str, O, E>,
     {
         terminated(inner, multispace0)
     }
@@ -223,7 +227,7 @@ mod parse {
     where
         E: ParseError<&'a str> + FromExternalError<&'a str, ParseBigDecimalError>,
     {
-        map_res(recognize_float, str::parse)(input)
+        map_res(recognize_float, str::parse).parse(input)
     }
 
     #[cfg(test)]
@@ -245,7 +249,7 @@ mod parse {
         fn parse_bigdecimal() {
             fn do_test(input: &str, expected: &str) {
                 let expected = BigDecimal::from_str(expected).unwrap();
-                let (rem, actual) = bigdecimal::<nom::error::VerboseError<_>>(input).unwrap();
+                let (rem, actual) = bigdecimal::<nom::error::Error<_>>(input).unwrap();
                 assert_eq!(expected, actual);
                 assert!(rem.is_empty());
             }
@@ -343,6 +347,12 @@ mod parse {
                     test_dec_scale(&format!("1 {prefix}"), "1", *scale);
                 }
             }
+        }
+
+        #[test]
+        fn wrong_unit() {
+            parse("1 attoo").unwrap_err();
+            parse("1 atto filecoin").unwrap_err();
         }
     }
 }

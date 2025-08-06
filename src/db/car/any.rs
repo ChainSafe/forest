@@ -10,11 +10,9 @@
 
 use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
-use crate::db::PersistentStore;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::Mutex;
 use positioned_io::ReadAt;
 use std::borrow::Cow;
 use std::io::{Error, ErrorKind, Result};
@@ -90,7 +88,7 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<ZstdFrameCache>, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),
@@ -138,19 +136,6 @@ where
             AnyCar::Forest(forest) => forest.put_keyed(k, block),
             AnyCar::Plain(plain) => plain.put_keyed(k, block),
             AnyCar::Memory(mem) => mem.put_keyed(k, block),
-        }
-    }
-}
-
-impl<ReaderT> PersistentStore for AnyCar<ReaderT>
-where
-    ReaderT: ReadAt,
-{
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        match self {
-            AnyCar::Forest(forest) => forest.put_keyed_persistent(k, block),
-            AnyCar::Plain(plain) => plain.put_keyed_persistent(k, block),
-            AnyCar::Memory(mem) => mem.put_keyed_persistent(k, block),
         }
     }
 }

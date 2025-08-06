@@ -111,7 +111,7 @@ pub fn is_sidecar_ffi_enabled(chain_config: &ChainConfig) -> bool {
         }
         else {
             if enabled {
-                tracing::error!("Failed to enable F3 sidecar, the Forest binary is not compiled with f3-sidecar Go lib");
+                tracing::info!("Failed to enable F3 sidecar, the Forest binary is not compiled with f3-sidecar Go lib");
             }
             false
         }

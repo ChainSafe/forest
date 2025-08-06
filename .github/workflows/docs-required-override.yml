@@ -3,8 +3,8 @@
 
 name: Docs Required Override
 concurrency:
-  group: '${{ github.workflow }}-${{ github.ref }}'
-  cancel-in-progress: '${{ github.ref != ''refs/heads/main'' }}'
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: "${{ github.ref != 'refs/heads/main' }}"
 
 on:
   workflow_dispatch:
@@ -13,16 +13,16 @@ on:
     branches:
       - main
     paths:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/docs-*.yml'
+      - "**.md"
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
   push:
     branches:
       - main
     paths:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/docs-*.yml'
+      - "**.md"
+      - "docs/**"
+      - ".github/workflows/docs-*.yml"
 
 jobs:
   # We need this because merge groups dont support path filters

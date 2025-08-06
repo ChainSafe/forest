@@ -5,7 +5,6 @@ pub mod db;
 
 use crate::db::DBStatistics;
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
-use once_cell::sync::Lazy;
 use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
     encoding::EncodeLabelSet,
@@ -15,27 +14,27 @@ use prometheus_client::{
         histogram::{Histogram, exponential_buckets},
     },
 };
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::{path::PathBuf, time::Instant};
 use tokio::net::TcpListener;
 use tower_http::compression::CompressionLayer;
 use tracing::warn;
 
-static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
-    Lazy::new(Default::default);
+static DEFAULT_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>> =
+    LazyLock::new(Default::default);
 
 pub fn default_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
     DEFAULT_REGISTRY.write()
 }
 
-pub static LRU_CACHE_HIT: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
+pub static LRU_CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY
         .write()
         .register("lru_cache_hit", "Stats of lru cache hit", metric.clone());
     metric
 });
-pub static LRU_CACHE_MISS: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
+pub static LRU_CACHE_MISS: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY
         .write()
@@ -43,7 +42,7 @@ pub static LRU_CACHE_MISS: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
     metric
 });
 
-pub static RPC_METHOD_FAILURE: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new(|| {
+pub static RPC_METHOD_FAILURE: LazyLock<Family<RpcMethodLabel, Counter>> = LazyLock::new(|| {
     let metric = Family::default();
     DEFAULT_REGISTRY.write().register(
         "rpc_method_failure",
@@ -53,7 +52,7 @@ pub static RPC_METHOD_FAILURE: Lazy<Family<RpcMethodLabel, Counter>> = Lazy::new
     metric
 });
 
-pub static RPC_METHOD_TIME: Lazy<Family<RpcMethodLabel, Histogram>> = Lazy::new(|| {
+pub static RPC_METHOD_TIME: LazyLock<Family<RpcMethodLabel, Histogram>> = LazyLock::new(|| {
     let metric = Family::<RpcMethodLabel, Histogram>::new_with_constructor(|| {
         // Histogram with 5 buckets starting from 0.1ms going to 1s, each bucket 10 times as big as the last.
         Histogram::new(exponential_buckets(0.1, 10., 5))
@@ -159,12 +158,9 @@ pub mod values {
 
 pub fn default_histogram() -> Histogram {
     // Default values from go client(https://github.com/prometheus/client_golang/blob/5d584e2717ef525673736d72cd1d12e304f243d7/prometheus/histogram.go#L68)
-    Histogram::new(
-        [
-            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
-        ]
-        .into_iter(),
-    )
+    Histogram::new([
+        0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+    ])
 }
 
 pub struct HistogramTimer<'a> {

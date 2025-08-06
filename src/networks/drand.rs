@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::beacon::{ChainInfo, DrandConfig, DrandNetwork};
-use once_cell::sync::Lazy;
 use std::borrow::Cow;
+use std::sync::LazyLock;
 
-pub(super) static DRAND_MAINNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
+pub(super) static DRAND_MAINNET: LazyLock<DrandConfig<'static>> = LazyLock::new(|| {
     let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
@@ -32,7 +32,7 @@ pub(super) static DRAND_MAINNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
     parse_drand_config_from_env_var("FOREST_DRAND_MAINNET_CONFIG").unwrap_or(default)
 });
 
-pub(super) static DRAND_QUICKNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
+pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new(|| {
     let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
@@ -59,7 +59,7 @@ pub(super) static DRAND_QUICKNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
     parse_drand_config_from_env_var("FOREST_DRAND_QUICKNET_CONFIG").unwrap_or(default)
 });
 
-pub(super) static DRAND_INCENTINET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
+pub(super) static DRAND_INCENTINET: LazyLock<DrandConfig<'static>> = LazyLock::new(|| {
     let default = DrandConfig {
         // Note: This URL is no longer valid.
         // See <https://github.com/filecoin-project/lotus/pull/10476/files> and its related issues

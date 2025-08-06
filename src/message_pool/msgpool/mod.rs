@@ -16,11 +16,12 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
+use crate::utils::cache::SizeTrackingLruCache;
+use crate::utils::get_size::CidWrapper;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
-use lru::LruCache;
-use parking_lot::{Mutex, RwLock as SyncRwLock};
+use parking_lot::RwLock as SyncRwLock;
 use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
@@ -55,9 +56,8 @@ where
 async fn republish_pending_messages<T>(
     api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
-    network_name: &str,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &Mutex<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
     chain_config: &ChainConfig,
@@ -65,7 +65,7 @@ async fn republish_pending_messages<T>(
 where
     T: Provider,
 {
-    let ts = cur_tipset.lock().clone();
+    let ts = cur_tipset.read().clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().clear();
@@ -87,6 +87,7 @@ where
 
     let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
 
+    let network_name = chain_config.network.genesis_name();
     for m in msgs.iter() {
         let mb = to_vec(m)?;
         network_sender
@@ -186,7 +187,7 @@ where
 
         // we can't fit the current chain but there is gas to spare
         // trim it and push it down
-        chains.trim_msgs_at(i, gas_limit, &base_fee);
+        chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
             #[allow(clippy::indexing_slicing)]
@@ -198,6 +199,10 @@ where
         }
     }
 
+    if msgs.len() > REPUB_MSG_LIMIT {
+        msgs.truncate(REPUB_MSG_LIMIT);
+    }
+
     Ok(msgs)
 }
 
@@ -207,11 +212,11 @@ where
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
-    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
+    bls_sig_cache: &SizeTrackingLruCache<CidWrapper, Signature>,
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &Mutex<Arc<Tipset>>,
+    cur_tipset: &SyncRwLock<Arc<Tipset>>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -222,14 +227,14 @@ where
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
         let pts = api.load_tipset(ts.parents())?;
-        *cur_tipset.lock() = pts;
+        *cur_tipset.write() = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.block_headers() {
             let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
-                let smsg = recover_sig(&mut bls_sig_cache.lock(), msg)?;
+                let smsg = recover_sig(bls_sig_cache, msg)?;
                 msgs.push(smsg)
             }
         }
@@ -261,7 +266,7 @@ where
                 }
             }
         }
-        *cur_tipset.lock() = Arc::new(ts);
+        *cur_tipset.write() = Arc::new(ts);
     }
     if repub {
         repub_trigger
@@ -271,7 +276,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
+            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.read().clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
@@ -351,15 +356,8 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -423,7 +421,7 @@ pub mod tests {
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid();
-        pool.sig_val_cache.lock().put(cid, ());
+        pool.sig_val_cache.push(cid.into(), ());
         signed
     }
 
@@ -438,15 +436,8 @@ pub mod tests {
 
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -506,15 +497,8 @@ pub mod tests {
         }
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
 
         {
             let mut api_temp = mpool.api.inner.lock();
@@ -606,15 +590,8 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
-        let mpool = MessagePool::new(
-            tma,
-            "mptest".to_string(),
-            tx,
-            Default::default(),
-            Arc::default(),
-            &mut services,
-        )
-        .unwrap();
+        let mpool =
+            MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
 
         let mut smsg_vec = Vec::new();
         for i in 0..3 {
@@ -639,7 +616,7 @@ pub mod tests {
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
 
-        let cur_ts = mpool.cur_tipset.lock().clone();
+        let cur_ts = mpool.current_tipset();
         assert_eq!(cur_ts.as_ref(), &tipset);
     }
 

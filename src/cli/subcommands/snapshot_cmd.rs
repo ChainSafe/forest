@@ -5,14 +5,18 @@ use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::networks::calibnet;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, chain::ChainExportParams, prelude::*};
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use num::Zero as _;
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Subcommand)]
@@ -53,7 +57,13 @@ impl SnapshotCommands {
 
                 let raw_network_name = StateNetworkName::call(&client, ()).await?;
 
-                let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
+                // For historical reasons and backwards compatibility if snapshot services or their
+                // consumers relied on the `calibnet`, we use `calibnet` as the chain name.
+                let chain_name = if raw_network_name == calibnet::NETWORK_GENESIS_NAME {
+                    calibnet::NETWORK_COMMON_NAME
+                } else {
+                    raw_network_name.as_str()
+                };
 
                 let tipset =
                     ChainGetTipSetByHeight::call(&client, (epoch, Default::default())).await?;
@@ -85,11 +95,12 @@ impl SnapshotCommands {
                 };
 
                 let handle = tokio::spawn({
+                    let start = Instant::now();
                     let tmp_file = temp_path.to_owned();
                     let output_path = output_path.clone();
                     async move {
                         let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.25));
+                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.5));
                         println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
@@ -101,10 +112,17 @@ impl SnapshotCommands {
                                 anes::MoveCursorToPreviousLine(1),
                                 anes::ClearLine::All
                             );
+                            let elapsed_secs = start.elapsed().as_secs_f64();
                             println!(
-                                "{}: {}",
+                                "{}: {} ({}/s)",
                                 &output_path.to_string_lossy(),
-                                snapshot_size.human_count_bytes()
+                                snapshot_size.human_count_bytes(),
+                                if elapsed_secs.is_zero() {
+                                    0.
+                                } else {
+                                    (snapshot_size as f64) / elapsed_secs
+                                }
+                                .human_count_bytes(),
                             );
                             let _ = std::io::stdout().flush();
                         }

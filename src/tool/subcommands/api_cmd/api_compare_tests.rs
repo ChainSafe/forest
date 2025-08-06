@@ -1,5 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
@@ -22,7 +24,7 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::executor::Receipt;
-use crate::shim::sector::SectorSize;
+use crate::shim::sector::{SectorSize, StoragePower};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -33,10 +35,12 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
 use crate::tool::subcommands::api_cmd::NetworkChain;
+use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, rpc};
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
+use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
@@ -48,24 +52,28 @@ use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use libp2p::PeerId;
+use num_bigint::BigInt;
 use num_traits::Signed;
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use similar::{ChangeTag, TextDiff};
-use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
-use tabled::{builder::Builder, settings::Style};
+use std::path::Path;
+use std::time::Instant;
+use std::{
+    path::PathBuf,
+    str::FromStr,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 use tokio::sync::Semaphore;
 use tracing::debug;
-
-use super::{CreateTestsArgs, RunIgnored, TestCriteriaOverride};
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
 /// This address has been funded by the calibnet faucet and the private keys
 /// has been discarded. It should always have a non-zero balance.
-static KNOWN_CALIBNET_ADDRESS: Lazy<Address> = Lazy::new(|| {
+static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
     crate::shim::address::Network::Testnet
         .parse_address("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui")
         .unwrap()
@@ -81,8 +89,11 @@ const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address
 const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-enum TestSummary {
+#[derive(
+    Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum TestSummary {
     /// Server spoke JSON-RPC: no such method
     MissingMethod,
     /// Server spoke JSON-RPC: bad request (or other error)
@@ -93,9 +104,11 @@ enum TestSummary {
     InfraError,
     /// Server returned JSON-RPC and it didn't match our schema
     BadJson,
-    /// Server returned JSON-RPC and it matched our schema, but failed validation
+    /// Server returned JSON-RPC, and it matched our schema, but failed validation
     CustomCheckFailed,
+    /// Server timed out
     Timeout,
+    /// Server returned JSON-RPC, and it matched our schema, and passed validation
     Valid,
 }
 
@@ -125,8 +138,8 @@ impl TestSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct TestDump {
     pub request: rpc::Request,
-    pub forest_response: Result<serde_json::Value, String>,
-    pub lotus_response: Result<serde_json::Value, String>,
+    pub forest_response: Result<Value, String>,
+    pub lotus_response: Result<Value, String>,
 }
 
 impl std::fmt::Display for TestDump {
@@ -171,13 +184,16 @@ impl std::fmt::Display for TestDump {
     }
 }
 
-struct TestResult {
+/// Result of running a single RPC test
+pub struct TestResult {
     /// Forest result after calling the RPC method.
-    forest_status: TestSummary,
+    pub forest_status: TestSummary,
     /// Lotus result after calling the RPC method.
-    lotus_status: TestSummary,
+    pub lotus_status: TestSummary,
     /// Optional data dump if either status was invalid.
-    test_dump: Option<TestDump>,
+    pub test_dump: Option<TestDump>,
+    /// Duration of the RPC call.
+    pub duration: Duration,
 }
 
 pub(super) enum PolicyOnRejected {
@@ -323,6 +339,7 @@ impl RpcTest {
     }
 
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        let start = Instant::now();
         let forest_resp = forest.call(self.request.clone()).await;
         let forest_response = forest_resp.as_ref().map_err(|e| e.to_string()).cloned();
         let lotus_resp = lotus.call(self.request.clone()).await;
@@ -382,6 +399,7 @@ impl RpcTest {
                 forest_response,
                 lotus_response,
             }),
+            duration: start.elapsed(),
         }
     }
 }
@@ -1832,6 +1850,52 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
+        owner: Address::new_id(1000).into(),
+        worker: Address::new_id(1001).into(),
+        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
+        peer: b"miner".to_vec(),
+        multiaddrs: Default::default(),
+    };
+
+    // not supported by the lotus
+    // let _power_miner_power_exp_params = fil_actor_power_state::v16::MinerPowerParams{
+    //     miner: 1234,
+    // };
+
+    let power_update_claim_params = fil_actor_power_state::v16::UpdateClaimedPowerParams {
+        raw_byte_delta: StoragePower::from(1024u64),
+        quality_adjusted_delta: StoragePower::from(2048u64),
+    };
+
+    let power_enroll_event_params = fil_actor_power_state::v16::EnrollCronEventParams {
+        event_epoch: 123,
+        payload: Default::default(),
+    };
+
+    let power_update_pledge_ttl_params = fil_actor_power_state::v16::UpdatePledgeTotalParams {
+        pledge_delta: Default::default(),
+    };
+
+    let power_miner_raw_params = fil_actor_power_state::v16::MinerRawPowerParams { miner: 1234 };
+
+    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
+        power: Some(Default::default()),
+    };
+
+    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
+        miner: Address::new_id(1000).into(),
+        penalty: Default::default(),
+        gas_reward: Default::default(),
+        win_count: 0,
+    };
+
+    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
+            111,
+        ))),
+    };
+
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             MINER_ADDRESS,
@@ -1881,6 +1945,68 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::Constructor as u64,
+            to_vec(&reward_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
+            to_vec(&reward_award_block_reward_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
+            to_vec(&reward_update_network_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMiner as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdateClaimedPower as u64,
+            to_vec(&power_update_claim_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::EnrollCronEvent as u64,
+            to_vec(&power_enroll_event_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdatePledgeTotal as u64,
+            to_vec(&power_update_pledge_ttl_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMinerExported as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerRawPowerExported as u64,
+            to_vec(&power_miner_raw_params)?,
+            tipset.key().into(),
+        ))?),
+        // Not supported by the lotus,
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::POWER_ACTOR,
+        //     Method::MinerPowerExported as u64,
+        //     to_vec(&power_miner_power_exp_params)?,
+        //     tipset.key().into(),
+        // ))?),
     ];
 
     Ok(tests)
@@ -2152,7 +2278,7 @@ pub(super) async fn create_tests(
     tests.extend(state_tests());
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
-        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);
         revalidate_chain(store.clone(), n_tipsets).await?;
         tests.extend(snapshot_tests(
             store,
@@ -2162,6 +2288,23 @@ pub(super) async fn create_tests(
         )?);
     }
     tests.sort_by_key(|test| test.request.method_name.clone());
+
+    tests.extend(create_deferred_tests(snapshot_files)?);
+    Ok(tests)
+}
+
+// Some tests, especially those mutating the node's state, need to be run last.
+fn create_deferred_tests(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    if !snapshot_files.is_empty() {
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        tests.push(RpcTest::identity(ChainSetHead::request((store
+            .heaviest_tipset()?
+            .key()
+            .clone(),))?));
+    }
+
     Ok(tests)
 }
 
@@ -2201,22 +2344,6 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     Ok(())
 }
 
-pub(super) fn create_tests_pass_2(
-    CreateTestsArgs { snapshot_files, .. }: CreateTestsArgs,
-) -> anyhow::Result<Vec<RpcTest>> {
-    let mut tests = vec![];
-
-    if !snapshot_files.is_empty() {
-        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.push(RpcTest::identity(ChainSetHead::request((store
-            .heaviest_tipset()?
-            .key()
-            .clone(),))?));
-    }
-
-    Ok(tests)
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
@@ -2229,6 +2356,8 @@ pub(super) async fn run_tests(
     fail_fast: bool,
     dump_dir: Option<PathBuf>,
     test_criteria_overrides: &[TestCriteriaOverride],
+    report_dir: Option<PathBuf>,
+    report_mode: ReportMode,
 ) -> anyhow::Result<()> {
     let forest = Into::<Arc<rpc::Client>>::into(forest);
     let lotus = Into::<Arc<rpc::Client>>::into(lotus);
@@ -2240,6 +2369,9 @@ pub(super) async fn run_tests(
     } else {
         FilterList::default().allow(filter.clone())
     };
+
+    // Always use ReportBuilder for consistency
+    let mut report_builder = ReportBuilder::new(&filter_list, report_mode);
 
     // deduplicate tests by their hash-able representations
     for test in tests.into_iter().unique_by(
@@ -2288,125 +2420,95 @@ pub(super) async fn run_tests(
         futures.push(future);
     }
 
-    let mut success_results = HashMap::default();
-    let mut failed_results = HashMap::default();
-    let mut fail_details = Vec::new();
+    // If no tests to run after filtering, return early without saving/printing
+    if futures.is_empty() {
+        return Ok(());
+    }
+
     while let Some(Ok((test, test_result))) = futures.next().await {
-        let method_name = test.request.method_name;
-        let forest_status = test_result.forest_status;
-        let lotus_status = test_result.lotus_status;
-        let success = match (&forest_status, &lotus_status) {
-            (TestSummary::Valid, TestSummary::Valid) => true,
-            (TestSummary::Valid, TestSummary::Timeout) => {
-                test_criteria_overrides.contains(&TestCriteriaOverride::ValidAndTimeout)
-            }
-            (TestSummary::Timeout, TestSummary::Timeout) => {
-                test_criteria_overrides.contains(&TestCriteriaOverride::TimeoutAndTimeout)
-            }
-            (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
-                match test.policy_on_rejected {
-                    PolicyOnRejected::Pass => true,
-                    PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
-                    PolicyOnRejected::PassWithQuasiIdenticalError => {
-                        reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        };
+        let method_name = test.request.method_name.clone();
+        let success = evaluate_test_success(&test_result, &test, test_criteria_overrides);
 
-        if let Some(dump_dir) = &dump_dir
-            && let Some(test_dump) = &test_result.test_dump
-        {
-            let dir = dump_dir.join(if success { "valid" } else { "invalid" });
-            if !dir.is_dir() {
-                std::fs::create_dir_all(&dir)?;
-            }
-            let filename = format!(
-                "{}_{}.json",
-                test_dump
-                    .request
-                    .method_name
-                    .as_ref()
-                    .replace(".", "_")
-                    .to_lowercase(),
-                chrono::Utc::now().timestamp_micros()
-            );
-            std::fs::write(dir.join(filename), serde_json::to_string_pretty(test_dump)?)?;
+        report_builder.track_test_result(
+            method_name.as_ref(),
+            success,
+            &test_result,
+            &test.request.params,
+        );
+
+        // Dump test data if configured
+        if let (Some(dump_dir), Some(test_dump)) = (&dump_dir, &test_result.test_dump) {
+            dump_test_data(dump_dir, success, test_dump)?;
         }
 
-        let result_entry = (method_name, forest_status, lotus_status);
-        if success {
-            success_results
-                .entry(result_entry)
-                .and_modify(|v| *v += 1)
-                .or_insert(1u32);
-        } else {
-            if let Some(test_dump) = test_result.test_dump {
-                fail_details.push(test_dump);
-            }
-            failed_results
-                .entry(result_entry)
-                .and_modify(|v| *v += 1)
-                .or_insert(1u32);
-        }
-
-        if !failed_results.is_empty() && fail_fast {
+        if !success && fail_fast {
             break;
         }
     }
-    print_error_details(&fail_details);
-    print_test_results(&success_results, &failed_results);
 
-    if failed_results.is_empty() {
-        Ok(())
+    let has_failures = report_builder.has_failures();
+    // Save the report if configured
+    if let Some(path) = report_dir {
+        report_builder.finalize_and_save(&path)?;
     } else {
-        Err(anyhow::Error::msg("Some tests failed"))
+        // Print detailed summary
+        report_builder.print_summary();
+    }
+
+    anyhow::ensure!(!has_failures, "Some tests failed");
+
+    Ok(())
+}
+
+/// Evaluate whether a test is successful based on the test result and criteria
+fn evaluate_test_success(
+    test_result: &TestResult,
+    test: &RpcTest,
+    test_criteria_overrides: &[TestCriteriaOverride],
+) -> bool {
+    match (&test_result.forest_status, &test_result.lotus_status) {
+        (TestSummary::Valid, TestSummary::Valid) => true,
+        (TestSummary::Valid, TestSummary::Timeout) => {
+            test_criteria_overrides.contains(&TestCriteriaOverride::ValidAndTimeout)
+        }
+        (TestSummary::Timeout, TestSummary::Timeout) => {
+            test_criteria_overrides.contains(&TestCriteriaOverride::TimeoutAndTimeout)
+        }
+        (TestSummary::Rejected(reason_forest), TestSummary::Rejected(reason_lotus)) => {
+            match test.policy_on_rejected {
+                PolicyOnRejected::Pass => true,
+                PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
+                PolicyOnRejected::PassWithQuasiIdenticalError => {
+                    reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
+                }
+                _ => false,
+            }
+        }
+        _ => false,
     }
 }
 
-fn print_error_details(fail_details: &[TestDump]) {
-    for dump in fail_details {
-        println!("{dump}")
+/// Dump test data to the specified directory
+fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyhow::Result<()> {
+    let dir = dump_dir.join(if success { "valid" } else { "invalid" });
+    if !dir.is_dir() {
+        std::fs::create_dir_all(&dir)?;
     }
-}
-
-fn print_test_results(
-    success_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
-    failed_results: &HashMap<(Cow<'static, str>, TestSummary, TestSummary), u32>,
-) {
-    // Combine all results
-    let mut combined_results = success_results.clone();
-    for (key, &value) in failed_results {
-        combined_results.insert(key.clone(), value);
-    }
-
-    // Collect and display results in Markdown format
-    let mut results = combined_results.into_iter().collect::<Vec<_>>();
-    results.sort();
-    println!("{}", format_as_markdown(&results));
-}
-
-#[allow(clippy::type_complexity)]
-fn format_as_markdown(results: &[((Cow<'static, str>, TestSummary, TestSummary), u32)]) -> String {
-    let mut builder = Builder::default();
-
-    builder.push_record(["RPC Method", "Forest", "Lotus"]);
-
-    for ((method, forest_status, lotus_status), n) in results {
-        builder.push_record([
-            if *n > 1 {
-                format!("{method} ({n})")
-            } else {
-                method.to_string()
-            },
-            format!("{forest_status:?}"),
-            format!("{lotus_status:?}"),
-        ]);
-    }
-
-    builder.build().with(Style::markdown()).to_string()
+    let file_name = format!(
+        "{}_{}.json",
+        test_dump
+            .request
+            .method_name
+            .as_ref()
+            .replace(".", "_")
+            .to_lowercase(),
+        Utc::now().timestamp_micros()
+    );
+    std::fs::write(
+        dir.join(file_name),
+        serde_json::to_string_pretty(test_dump)?,
+    )?;
+    Ok(())
 }
 
 fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {

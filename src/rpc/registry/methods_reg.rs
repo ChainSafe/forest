@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
+use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, ActorRegistry};
 use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, bail};
 use cid::Cid;
-use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-
-use crate::rpc::registry::actors_reg::{ACTOR_REGISTRY, get_actor_type_from_code};
+use std::sync::LazyLock;
 
 // Global registry for method parameter deserialization
-static METHOD_REGISTRY: Lazy<MethodRegistry> = Lazy::new(MethodRegistry::with_known_methods);
+static METHOD_REGISTRY: LazyLock<MethodRegistry> =
+    LazyLock::new(MethodRegistry::with_known_methods);
 
 type ParamDeserializerFn = Box<dyn Fn(&[u8]) -> Result<Value> + Send + Sync>;
 
@@ -62,7 +62,7 @@ impl MethodRegistry {
             return Ok(Some(deserializer(params_bytes)?));
         }
 
-        let (actor_type, version) = get_actor_type_from_code(code_cid)?;
+        let (actor_type, version) = ActorRegistry::get_actor_details_from_code(code_cid)?;
 
         bail!(
             "No deserializer registered for actor type {:?} (v{}), method {}",
@@ -73,15 +73,22 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, cron, evm, init, miner};
+        use crate::rpc::registry::actors::{
+            account, cron, evm, init, miner, power, reward, system,
+        };
 
-        for (&cid, &(actor_type, _version)) in ACTOR_REGISTRY.iter() {
+        for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
-                BuiltinActor::Account => account::register_account_actor_methods(self, cid),
-                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid),
-                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid),
-                BuiltinActor::Init => init::register_actor_methods(self, cid),
-                BuiltinActor::Cron => cron::register_actor_methods(self, cid),
+                BuiltinActor::Account => {
+                    account::register_account_actor_methods(self, cid, version)
+                }
+                BuiltinActor::Miner => miner::register_miner_actor_methods(self, cid, version),
+                BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid, version),
+                BuiltinActor::Init => init::register_actor_methods(self, cid, version),
+                BuiltinActor::System => system::register_actor_methods(self, cid, version),
+                BuiltinActor::Power => power::register_actor_methods(self, cid, version),
+                BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
+                BuiltinActor::Cron => cron::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }
@@ -97,6 +104,25 @@ pub fn deserialize_params(
 }
 
 macro_rules! register_actor_methods {
+    // Handle an empty params case
+    ($registry:expr, $code_cid:expr, [
+        $( ($method:expr, empty) ),* $(,)?
+    ]) => {
+        $(
+            $registry.register_method(
+                $code_cid,
+                $method as MethodNum,
+                |bytes| -> anyhow::Result<()> {
+                    if bytes.is_empty() {
+                        Ok(())
+                    } else {
+                        Ok(fvm_ipld_encoding::from_slice(bytes)?)
+                    }
+                },
+            );
+        )*
+    };
+
     ($registry:expr, $code_cid:expr, [
         $( ($method:expr, $param_type:ty) ),* $(,)?
     ]) => {
@@ -121,6 +147,7 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
+    const V16: u64 = 16;
     // Test parameter type for testing
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct TestParams {
@@ -149,13 +176,13 @@ mod test {
         Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(data))
     }
 
-    fn get_real_actor_cid(target_actor: BuiltinActor) -> Option<Cid> {
+    fn get_real_actor_cid(target_actor: BuiltinActor, target_version: u64) -> Option<Cid> {
         ACTOR_REGISTRY
             .iter()
-            .find(|(_, (actor_type, _))| actor_type == &target_actor)
-            .map(|(&cid, _)| cid)
+            .find_map(|(&cid, &(actor_type, version))| {
+                (actor_type == target_actor && version == target_version).then_some(cid)
+            })
     }
-
     #[test]
     fn test_method_registry_initialization() {
         let result = deserialize_params(&create_test_cid(b"unknown"), 1, &[]);
@@ -209,7 +236,7 @@ mod test {
 
     #[test]
     fn test_deserialize_params_registered_actor_unregistered_method() {
-        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account) {
+        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account, V16) {
             let unregistered_method = 999;
 
             let result = deserialize_params(&account_cid, unregistered_method, &[]);
@@ -232,7 +259,7 @@ mod test {
         ];
 
         for actor_type in supported_actors {
-            let actor_cid = get_real_actor_cid(actor_type).unwrap();
+            let actor_cid = get_real_actor_cid(actor_type, V16).unwrap();
             // Test that the Constructor method (typically method 1) is registered
             let constructor_method = 1;
 
@@ -247,21 +274,6 @@ mod test {
                     "Actor type {actor_type:?} should have methods registered but got error: {error_msg}"
                 );
             }
-        }
-    }
-
-    #[test]
-    fn test_unsupported_actor_types() {
-        // Test actors that are not registered in the method registry
-        if let Some(system_cid) = get_real_actor_cid(BuiltinActor::System) {
-            let method_num = 1;
-
-            let result = deserialize_params(&system_cid, method_num, &[]);
-            assert!(result.is_err());
-
-            let error_msg = result.unwrap_err().to_string();
-            assert!(error_msg.contains("No deserializer registered for actor type"));
-            assert!(error_msg.contains("System"));
         }
     }
 
@@ -291,5 +303,16 @@ mod test {
         // Test unregistered method 3
         let result3 = registry.deserialize_params(&test_cid, 3, &encoded);
         assert!(result3.is_err());
+    }
+
+    #[test]
+    fn test_system_actor_deserialize_params_cbor_null() {
+        let system_cid = get_real_actor_cid(BuiltinActor::System, V16)
+            .expect("Should have System actor CID in registry");
+
+        // Test with null data
+        let result = deserialize_params(&system_cid, 1, &[]);
+
+        assert!(result.is_ok(), "Should handle CBOR null: {result:?}");
     }
 }
