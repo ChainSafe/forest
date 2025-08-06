@@ -198,7 +198,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                 anyhow::ensure!(json.get("method") == Some(&method));
 
                 if let Some(params) = json.get("params").and_then(|v| v.as_array()) {
-                    if let Some(id) = params.get(0) {
+                    if let Some(id) = params.first() {
                         anyhow::ensure!(Some(id) == channel_id.as_ref());
                     } else {
                         anyhow::bail!("expecting an open channel");
