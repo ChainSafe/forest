@@ -3,11 +3,13 @@
 use crate::eth::EVMMethod;
 use crate::rpc::eth::EthUint64;
 use crate::rpc::eth::types::*;
+use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, RpcMethod, prelude::*};
 use crate::shim::{address::Address, message::Message};
 
 use anyhow::Context;
 use cbor4ii::core::Value;
+use cid::Cid;
 use futures::{SinkExt, StreamExt};
 use serde_json::json;
 use tokio::time::Duration;
@@ -200,6 +202,25 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     anyhow::bail!("WebSocket stream closed")
 }
 
+async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
+    let mut retries = 10;
+    loop {
+        let pending = client
+            .call(MpoolPending::request((ApiTipsetKey(None),))?)
+            .await?;
+        dbg!(pending.0.len());
+        if pending.0.iter().any(|msg| msg.cid() == message_cid) {
+            break Ok(());
+        }
+        if retries == 0 {
+            anyhow::bail!("Message not found in mpool");
+        }
+        retries -= 1;
+
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
 fn create_eth_new_filter_test() -> RpcTestScenario {
     RpcTestScenario::basic(|client| async move {
         const BLOCK_RANGE: u64 = 200;
@@ -346,6 +367,8 @@ fn eth_new_pending_transaction_filter(tx: TestTransaction) -> RpcTestScenario {
                 let smsg = client
                     .call(MpoolPushMessage::request((message, None))?)
                     .await?;
+
+                wait_pending_message(&client, smsg.cid()).await?;
 
                 let filter_result = client
                     .call(EthGetFilterChanges::request((filter_id.clone(),))?)
