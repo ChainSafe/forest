@@ -170,6 +170,15 @@ impl From<CachingBlockHeader> for Tipset {
     }
 }
 
+impl From<NonEmpty<CachingBlockHeader>> for Tipset {
+    fn from(headers: NonEmpty<CachingBlockHeader>) -> Self {
+        Self {
+            headers,
+            key: OnceLock::new(),
+        }
+    }
+}
+
 impl PartialEq for Tipset {
     fn eq(&self, other: &Self) -> bool {
         self.headers.eq(&other.headers)
