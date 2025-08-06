@@ -27,6 +27,18 @@ function forest_download_and_import_snapshot {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
+function forest_download_and_import_snapshot_with_f3 {
+  echo "Downloading v1 snapshot"
+  aria2c -x5 https://forest-archive.chainsafe.dev/latest/calibnet/ -o v1.forest.car.zst
+  echo "Downloading F3 snapshot"
+  aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_552628.bin -o f3.bin
+  echo "Generating v2 snapshot"
+  $FOREST_TOOL_PATH archive merge-f3 --filecoin v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
+  $FOREST_TOOL_PATH archive info v2.forest.car.zst
+  $FOREST_TOOL_PATH archive metadata v2.forest.car.zst
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot v2.forest.car.zst
+}
+
 function get_epoch_from_car_db {
   DB_PATH=$($FOREST_TOOL_PATH db stats --chain calibnet | grep "Database path:" | cut -d':' -f2- | xargs)
   SNAPSHOT=$(ls "$DB_PATH/car_db"/*.car.zst)
@@ -97,6 +109,11 @@ function forest_wait_for_sync {
   timeout 30m $FOREST_CLI_PATH sync wait
 }
 
+function forest_wait_for_healthcheck_ready {
+  echo "Waiting for healthcheck ready"
+  timeout 30m $FOREST_CLI_PATH healthcheck ready --wait
+}
+
 function forest_init {
   forest_download_and_import_snapshot
 
@@ -115,6 +132,25 @@ function forest_init {
   forest_wait_api
   forest_wait_for_sync
   forest_check_db_stats
+}
+
+function forest_init_with_f3 {
+  forest_download_and_import_snapshot_with_f3
+
+  forest_check_db_stats
+  forest_run_node_detached
+
+  forest_wait_api
+
+  forest_wait_for_sync
+  forest_check_db_stats
+
+  forest_wait_for_healthcheck_ready
+  
+  # print the latest F3 certificate
+  $FOREST_CLI_PATH f3 c get
+  echo "ensure F3 certificate at instance 550000 has been imported"
+  $FOREST_CLI_PATH f3 c get 550000
 }
 
 function forest_init_stateless {

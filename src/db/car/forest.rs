@@ -222,9 +222,9 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             // `position` is the frame start offset.
             let cursor = Cursor::new_pos(entire_file, position);
             let mut decoder = zstd::Decoder::new(cursor)?.single_frame();
-            while let Ok(frame_len) = decoder.read_varint::<usize>() {
+            while let Ok(car_block_len) = decoder.read_varint::<usize>() {
                 let cid = Cid::read_bytes(&mut decoder)?;
-                let data_len = frame_len.saturating_sub(cid.encoded_len()) as u64;
+                let data_len = car_block_len.saturating_sub(cid.encoded_len()) as u64;
                 if cid == k {
                     // return the reader instead of decoding the entire data block into memory
                     return Ok(Some(decoder.take(data_len)));

@@ -236,9 +236,10 @@ pub async fn import_chain_as_forest_car(
 
     let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
 
-    if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data)
-        && let Some(mut f3_data) = forest_car.get_reader(f3_cid)?
-    {
+    if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data) {
+        let mut f3_data = forest_car
+            .get_reader(f3_cid)?
+            .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
         let temp_f3_snap_path = tempfile::Builder::new()
             .suffix(".f3snap.bin")
             .tempfile_in(forest_car_db_dir)?
@@ -522,8 +523,8 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
-            "".into(),
-            "".into(),
+            "test".into(),
+            "test".into(),
             &ChainConfig::devnet(),
             &SnapshotProgressTracker::default(),
         )

@@ -27,14 +27,16 @@
 //! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::Tipset;
-use crate::chain::FilecoinSnapshotVersion;
 use crate::chain::{
     ChainEpochDelta,
     index::{ChainIndex, ResolveNullTipset},
 };
+use crate::chain::{FilecoinSnapshotMetadata, FilecoinSnapshotVersion};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
+use crate::db::car::forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL;
 use crate::db::car::{AnyCar, ManyCar};
+use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -43,16 +45,22 @@ use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
+use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
+use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use futures::TryStreamExt;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
+use multihash_derive::MultihashDigest as _;
 use sha2::Sha256;
+use std::fs::File;
+use std::io::{Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -138,6 +146,18 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+    MergeF3 {
+        /// Path to the Filecoin snapshot
+        #[arg(long)]
+        filecoin: PathBuf,
+        /// Path to the F3 snapshot
+        #[arg(long)]
+        f3: PathBuf,
+        /// Snapshot output filename
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Show the difference between the canonical and computed state of a
     /// tipset.
     Diff {
@@ -198,6 +218,13 @@ impl ArchiveCommands {
                 let store = AnyCar::try_from(snapshot.as_path())?;
                 if let Some(metadata) = store.metadata() {
                     println!("{metadata}");
+                    if let Some(f3_cid) = metadata.f3_data {
+                        let mut f3_data = store
+                            .get_reader(f3_cid)?
+                            .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
+                        let f3_snap_header = F3SnapshotHeader::decode_from_snapshot(&mut f3_data)?;
+                        println!("{f3_snap_header}");
+                    }
                 } else {
                     println!(
                         "No metadata found (required by v2 snapshot) - this appears to be a v1 snapshot"
@@ -236,6 +263,11 @@ impl ArchiveCommands {
                 output_path,
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
+            Self::MergeF3 {
+                filecoin,
+                f3,
+                output,
+            } => merge_f3_snapshot(filecoin, f3, output).await,
             Self::Diff {
                 snapshot_files,
                 epoch,
@@ -603,6 +635,89 @@ async fn merge_snapshots(
 
     // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
+
+    Ok(())
+}
+
+async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> anyhow::Result<()> {
+    {
+        let store = AnyCar::try_from(filecoin.as_path())?;
+        anyhow::ensure!(
+            store.metadata().is_none(),
+            "The filecoin snapshot is not in v1 format"
+        );
+    }
+
+    let mut f3_data = File::open(f3)?;
+    let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
+
+    let car_stream = CarStream::new(tokio::io::BufReader::new(
+        tokio::fs::File::open(&filecoin).await?,
+    ))
+    .await?;
+
+    let chain_head = car_stream.header_v1.roots.clone();
+
+    println!("f3 snapshot cid: {f3_cid}");
+    println!(
+        "chain head:      [{}]",
+        chain_head.iter().map(|c| c.to_string()).join(", ")
+    );
+
+    let snap_meta = FilecoinSnapshotMetadata::new_v2(chain_head, Some(f3_cid));
+    let snap_meta_cbor_encoded = fvm_ipld_encoding::to_vec(&snap_meta)?;
+    let snap_meta_block = CarBlock {
+        cid: Cid::new_v1(
+            DAG_CBOR,
+            MultihashCode::Blake2b256.digest(&snap_meta_cbor_encoded),
+        ),
+        data: snap_meta_cbor_encoded,
+    };
+
+    let roots = nunny::vec![snap_meta_block.cid];
+    let snap_meta_frame = {
+        let mut encoder =
+            crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
+        snap_meta_block.write(&mut encoder)?;
+        anyhow::Ok((
+            vec![snap_meta_block.cid],
+            crate::db::car::forest::finalize_frame(
+                DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
+                &mut encoder,
+            )?,
+        ))
+    };
+    let f3_frame = {
+        let mut encoder =
+            crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
+        f3_data.seek(SeekFrom::Start(0))?;
+        encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
+        anyhow::Ok((
+            vec![f3_cid],
+            crate::db::car::forest::finalize_frame(
+                DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
+                &mut encoder,
+            )?,
+        ))
+    };
+
+    let block_frames = crate::db::car::forest::Encoder::compress_stream_default(
+        car_stream.map_err(anyhow::Error::from),
+    );
+    let frames = futures::stream::iter([snap_meta_frame, f3_frame]).chain(block_frames);
+
+    let temp_output = {
+        let mut dir = output.clone();
+        if dir.pop() {
+            tempfile::NamedTempFile::new_in(dir)?
+        } else {
+            tempfile::NamedTempFile::new_in(".")?
+        }
+    };
+    let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&temp_output).await?);
+    crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
+    writer.shutdown().await?;
+    temp_output.persist(&output)?;
 
     Ok(())
 }

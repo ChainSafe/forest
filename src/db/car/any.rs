@@ -114,7 +114,6 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         }
     }
 
-    #[allow(dead_code)]
     /// Gets a reader of the block data by its `Cid`
     pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
         match self {

@@ -23,7 +23,7 @@ use cid::Cid;
 use digest::Digest;
 use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
@@ -83,10 +83,7 @@ pub async fn export_v2<D: Digest>(
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
         f3_data.seek(SeekFrom::Start(0))?;
-        let expected_cid = Cid::new_v1(
-            IPLD_RAW,
-            MultihashCode::Blake2b256.digest_byte_stream(f3_data)?,
-        );
+        let expected_cid = crate::f3::snapshot::get_f3_snapshot_cid(f3_data)?;
         anyhow::ensure!(
             f3_cid == &expected_cid,
             "f3 snapshot integrity check failed, actual cid: {f3_cid}, expected cid: {expected_cid}"

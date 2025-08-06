@@ -8,6 +8,8 @@ mod go_ffi;
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
 
+pub mod snapshot;
+
 use cid::Cid;
 
 use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
