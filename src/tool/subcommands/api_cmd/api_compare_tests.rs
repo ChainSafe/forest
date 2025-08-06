@@ -1807,15 +1807,37 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
 }
 
 fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
-    let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
-        address: Address::new_id(1234).into(),
+    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
+        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
+        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
-    let account_auth_params = fil_actor_account_state::v16::types::AuthenticateMessageParams {
-        signature: vec![0x00; 32], // dummy signature
-        message: b"test message".to_vec(),
-    };
+    let mut tests = vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
+            1,
+            to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::SYSTEM_ACTOR,
+            fil_actor_system_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+    ];
 
+    tests.extend(miner_actor_state_decode_params_tests(tipset)?);
+    tests.extend(account_actor_state_decode_params_tests(tipset)?);
+    tests.extend(init_actor_state_decode_params_tests(tipset)?);
+    tests.extend(reward_actor_state_decode_params_tests(tipset)?);
+    tests.extend(power_actor_state_decode_params_tests(tipset)?);
+    tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+
+    Ok(tests)
+}
+
+fn miner_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let miner_constructor_params = fil_actor_miner_state::v16::MinerConstructorParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
@@ -1830,11 +1852,49 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         new_control_addresses: vec![Address::new_id(2001).into()],
     };
 
-    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
-        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
-        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            1,
+            to_vec(&miner_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            3,
+            to_vec(&miner_change_worker_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn account_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
+        address: Address::new_id(1234).into(),
     };
 
+    let account_auth_params = fil_actor_account_state::v16::types::AuthenticateMessageParams {
+        signature: vec![0x00; 32], // dummy signature
+        message: b"test message".to_vec(),
+    };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            1,
+            to_vec(&account_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
+            to_vec(&account_auth_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn init_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let init_constructor_params = fil_actor_init_state::v16::ConstructorParams {
         network_name: "calibnet".to_string(),
     };
@@ -1850,6 +1910,75 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            1,
+            to_vec(&init_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            2,
+            to_vec(&init_exec_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            3,
+            to_vec(&init_exec4_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn reward_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
+        power: Some(Default::default()),
+    };
+
+    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
+        miner: Address::new_id(1000).into(),
+        penalty: Default::default(),
+        gas_reward: Default::default(),
+        win_count: 0,
+    };
+
+    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
+            111,
+        ))),
+    };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::Constructor as u64,
+            to_vec(&reward_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
+            to_vec(&reward_award_block_reward_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
+            to_vec(&reward_update_network_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::ThisEpochReward as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn power_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
@@ -1879,23 +2008,91 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
 
     let power_miner_raw_params = fil_actor_power_state::v16::MinerRawPowerParams { miner: 1234 };
 
-    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
-        power: Some(Default::default()),
-    };
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMiner as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdateClaimedPower as u64,
+            to_vec(&power_update_claim_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::EnrollCronEvent as u64,
+            to_vec(&power_enroll_event_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::UpdatePledgeTotal as u64,
+            to_vec(&power_update_pledge_ttl_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CreateMinerExported as u64,
+            to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerRawPowerExported as u64,
+            to_vec(&power_miner_raw_params)?,
+            tipset.key().into(),
+        ))?),
+        // Not supported by the lotus,
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::POWER_ACTOR,
+        //     Method::MinerPowerExported as u64,
+        //     to_vec(&power_miner_power_exp_params)?,
+        //     tipset.key().into(),
+        // ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::OnEpochTickEnd as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CurrentTotalPower as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::NetworkRawPowerExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerConsensusCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+    ])
+}
 
-    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
-        miner: Address::new_id(1000).into(),
-        penalty: Default::default(),
-        gas_reward: Default::default(),
-        win_count: 0,
-    };
-
-    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
-        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
-            111,
-        ))),
-    };
-
+fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let verified_reg_constructor_params = fil_actor_verifreg_state::v16::ConstructorParams {
         root_key: Address::new_id(1000).into(),
     };
@@ -1987,165 +2184,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             payload: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56, 0x78]),
         };
 
-    let tests = vec![
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            1,
-            to_vec(&miner_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            3,
-            to_vec(&miner_change_worker_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            ACCOUNT_ADDRESS,
-            1,
-            to_vec(&account_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            ACCOUNT_ADDRESS,
-            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
-            to_vec(&account_auth_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
-            1,
-            to_vec(&evm_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            1,
-            to_vec(&init_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            2,
-            to_vec(&init_exec_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            3,
-            to_vec(&init_exec4_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::Constructor as u64,
-            to_vec(&reward_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
-            to_vec(&reward_award_block_reward_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
-            to_vec(&reward_update_network_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::ThisEpochReward as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::CreateMiner as u64,
-            to_vec(&power_create_miner_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::UpdateClaimedPower as u64,
-            to_vec(&power_update_claim_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::EnrollCronEvent as u64,
-            to_vec(&power_enroll_event_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::UpdatePledgeTotal as u64,
-            to_vec(&power_update_pledge_ttl_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::CreateMinerExported as u64,
-            to_vec(&power_create_miner_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::MinerRawPowerExported as u64,
-            to_vec(&power_miner_raw_params)?,
-            tipset.key().into(),
-        ))?),
-        // Not supported by the lotus,
-        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
-        // RpcTest::identity(StateDecodeParams::request((
-        //     Address::POWER_ACTOR,
-        //     Method::MinerPowerExported as u64,
-        //     to_vec(&power_miner_power_exp_params)?,
-        //     tipset.key().into(),
-        // ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::Constructor as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::OnEpochTickEnd as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::CurrentTotalPower as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::NetworkRawPowerExported as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::MinerCountExported as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::MinerConsensusCountExported as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::SYSTEM_ACTOR,
-            fil_actor_system_state::v16::Method::Constructor as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
+    Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::VERIFIED_REGISTRY_ACTOR,
             fil_actor_verifreg_state::v16::Method::Constructor as u64,
@@ -2242,9 +2281,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&verified_reg_universal_receiver_params)?,
             tipset.key().into(),
         ))?),
-    ];
-
-    Ok(tests)
+    ])
 }
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
