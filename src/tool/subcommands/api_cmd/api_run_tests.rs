@@ -207,16 +207,16 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                         for change in changes {
                             if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
                                 if type_ == "apply" {
-                                    let channel_id = channel_id.unwrap();
-                                    close_channel(&mut ws_stream, &channel_id).await?;
+                                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                                    ws_stream.close(None).await?;
                                     return Ok(());
                                 }
                             }
                         }
                     }
                 } else {
-                    let channel_id = channel_id.unwrap();
-                    close_channel(&mut ws_stream, &channel_id).await?;
+                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                    ws_stream.close(None).await?;
                     anyhow::bail!("expecting params");
                 }
             }
