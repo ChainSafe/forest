@@ -386,6 +386,53 @@ where
                 .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
         }
     }
+    pub fn for_each_cacheless(
+        &self,
+        mut f: impl FnMut(u64, Result<DealProposal, anyhow::Error>) -> anyhow::Result<(), anyhow::Error>,
+    ) -> anyhow::Result<()> {
+        match self {
+            DealProposals::V9(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V10(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V11(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V12(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V13(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V14(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V15(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+            DealProposals::V16(deal_array) => {
+                Ok(deal_array.for_each_cacheless(|key, deal_proposal| {
+                    f(key, DealProposal::try_from(deal_proposal))
+                })?)
+            }
+        }
+    }
 
     pub fn get(&self, key: u64) -> anyhow::Result<Option<DealProposal>> {
         match self {
@@ -399,6 +446,19 @@ where
             DealProposals::V16(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
         }
         .transpose()
+    }
+
+    pub fn count(&self) -> u64 {
+        match self {
+            DealProposals::V9(deal_array) => deal_array.count(),
+            DealProposals::V10(deal_array) => deal_array.count(),
+            DealProposals::V11(deal_array) => deal_array.count(),
+            DealProposals::V12(deal_array) => deal_array.count(),
+            DealProposals::V13(deal_array) => deal_array.count(),
+            DealProposals::V14(deal_array) => deal_array.count(),
+            DealProposals::V15(deal_array) => deal_array.count(),
+            DealProposals::V16(deal_array) => deal_array.count(),
+        }
     }
 }
 

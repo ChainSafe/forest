@@ -10,7 +10,7 @@ use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
-use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::networks::ChainConfig;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
 use crate::shim::actors::init;
@@ -68,6 +68,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -497,7 +498,7 @@ impl RpcMethod<1> for StateMarketDeals {
         let sa = market_state.states(ctx.store())?;
 
         let mut out = HashMap::new();
-        da.for_each(|deal_id, d| {
+        da.for_each_cacheless(|deal_id, d| {
             let s = sa.get(deal_id)?.unwrap_or(market::DealState {
                 sector_start_epoch: -1,
                 last_updated_epoch: -1,
@@ -513,6 +514,125 @@ impl RpcMethod<1> for StateMarketDeals {
                 }
                 .into(),
             );
+            Ok(())
+        })?;
+        Ok(out)
+    }
+}
+
+pub enum StateMarketDealsDump {}
+
+impl RpcMethod<2> for StateMarketDealsDump {
+    const NAME: &'static str = "Forest.StateMarketDealsDump";
+    const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "outputFile"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::Experimental);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Dumps information about every deal in the Storage Market to a NDJSON file.");
+
+    type Params = (ApiTipsetKey, String);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk), output_file): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
+
+        let da = market_state.proposals(ctx.store())?;
+        let sa = market_state.states(ctx.store())?;
+
+        let output_path = PathBuf::from(&output_file);
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent)
+                .context("Failed to create output directory for market deals")?;
+        }
+        let file = std::fs::File::create(&output_path)
+            .context("Failed to create market deals output file")?;
+        let mut writer = std::io::BufWriter::new(file);
+
+        da.for_each_cacheless(|deal_id, d| {
+            let s = sa.get(deal_id)?.unwrap_or_else(DealState::empty);
+            let market_deal = ApiMarketDeal {
+                proposal: d?.into(),
+                state: s.into(),
+            };
+            writeln!(
+                writer,
+                "{}",
+                crate::lotus_json::HasLotusJson::into_lotus_json_string(market_deal)?
+            )?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct StateMarketDealsFilter {
+    #[schemars(with = "LotusJson<Option<Address>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub allowed_clients: Option<Vec<Address>>,
+    #[schemars(with = "LotusJson<Option<Address>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub allowed_providers: Option<Vec<Address>>,
+}
+
+lotus_json_with_self!(StateMarketDealsFilter);
+
+pub enum StateMarketDealsFiltered {}
+
+impl RpcMethod<2> for StateMarketDealsFiltered {
+    const NAME: &'static str = "Forest.StateMarketDealsFiltered";
+    const PARAM_NAMES: [&'static str; 2] = ["tipsetKey", "filter"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::Experimental);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns information about every deal in the Storage Market, optionally filtered by client and provider addresses.",
+    );
+
+    type Params = (ApiTipsetKey, StateMarketDealsFilter);
+    type Ok = HashMap<u64, ApiMarketDeal>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (
+            ApiTipsetKey(tsk),
+            StateMarketDealsFilter {
+                allowed_clients,
+                allowed_providers,
+            },
+        ): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
+
+        let da = market_state.proposals(ctx.store())?;
+        let sa = market_state.states(ctx.store())?;
+
+        let mut out = HashMap::default();
+
+        let allowed_clients = allowed_clients
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<_>>();
+        let allowed_providers = allowed_providers
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<_>>();
+        da.for_each_cacheless(|deal_id, d| {
+            let state = sa.get(deal_id)?.unwrap_or_else(DealState::empty);
+
+            let proposal = d?;
+            if !allowed_clients.contains(&proposal.client.into())
+                && !allowed_providers.contains(&proposal.provider.into())
+            {
+                return Ok(());
+            }
+
+            out.insert(deal_id, MarketDeal { proposal, state }.into());
             Ok(())
         })?;
         Ok(out)

@@ -207,6 +207,8 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateLookupRobustAddress);
         $callback!($crate::rpc::state::StateMarketBalance);
         $callback!($crate::rpc::state::StateMarketDeals);
+        $callback!($crate::rpc::state::StateMarketDealsFiltered);
+        $callback!($crate::rpc::state::StateMarketDealsDump);
         $callback!($crate::rpc::state::StateMarketParticipants);
         $callback!($crate::rpc::state::StateMarketStorageDeal);
         $callback!($crate::rpc::state::StateMinerActiveSectors);

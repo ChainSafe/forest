@@ -3672,8 +3672,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_amt"
 version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1698bcbe8e3978844ff2db0e5f9037aad537f40d8cffc9a4a94c8d33e6a855c"
+source = "git+https://github.com/filecoin-project/ref-fvm?rev=a633547ae414a333b2d076beef87d4d30cdb7fb4#a633547ae414a333b2d076beef87d4d30cdb7fb4"
 dependencies = [
  "anyhow",
  "cid",
@@ -3689,8 +3688,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_bitfield"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de140b940443d5d783824563f15b5fe6d1559e7b103a7b55082da93655585350"
+source = "git+https://github.com/filecoin-project/ref-fvm?rev=a633547ae414a333b2d076beef87d4d30cdb7fb4#a633547ae414a333b2d076beef87d4d30cdb7fb4"
 dependencies = [
  "fvm_ipld_encoding",
  "serde",
@@ -3701,8 +3699,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_blockstore"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97b8b31e022f71b73440054f7e5171231a1ebc745adf075014d5aa8ea78ea283"
+source = "git+https://github.com/filecoin-project/ref-fvm?rev=a633547ae414a333b2d076beef87d4d30cdb7fb4#a633547ae414a333b2d076beef87d4d30cdb7fb4"
 dependencies = [
  "anyhow",
  "cid",
@@ -3712,8 +3709,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_encoding"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4fd0c7d16be0076920acd5bf13e705a80dfe6540d4722b19745daa9ea93722a"
+source = "git+https://github.com/filecoin-project/ref-fvm?rev=a633547ae414a333b2d076beef87d4d30cdb7fb4#a633547ae414a333b2d076beef87d4d30cdb7fb4"
 dependencies = [
  "anyhow",
  "cid",
@@ -3729,8 +3725,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_hamt"
 version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e92fa6ad9ebdb821f7d3183666a94b6fabd6640d5c83ce1cd850865746d2e4db"
+source = "git+https://github.com/filecoin-project/ref-fvm?rev=a633547ae414a333b2d076beef87d4d30cdb7fb4#a633547ae414a333b2d076beef87d4d30cdb7fb4"
 dependencies = [
  "anyhow",
  "byteorder",

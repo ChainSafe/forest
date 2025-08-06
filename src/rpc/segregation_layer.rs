@@ -16,7 +16,12 @@ use tower::Layer;
 static VERSION_METHODS_MAPPINGS: LazyLock<HashMap<ApiPaths, HashSet<&'static str>>> =
     LazyLock::new(|| {
         let mut map = HashMap::default();
-        for version in [ApiPaths::V0, ApiPaths::V1, ApiPaths::V2] {
+        for version in [
+            ApiPaths::V0,
+            ApiPaths::V1,
+            ApiPaths::V2,
+            ApiPaths::Experimental,
+        ] {
             let mut supported = HashSet::default();
 
             macro_rules! insert {
