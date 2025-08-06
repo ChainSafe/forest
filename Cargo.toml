@@ -107,7 +107,7 @@ integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
-jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.2"
@@ -251,7 +251,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.296"
+ra_ap_syntax = "0.0.297"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

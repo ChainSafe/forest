@@ -9,13 +9,14 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::{ChainStore, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -45,6 +46,82 @@ use tokio::sync::{
     Mutex,
     broadcast::{self, Receiver as Subscriber},
 };
+use tokio::task::JoinHandle;
+
+const HEAD_CHANNEL_CAPACITY: usize = 10;
+
+/// Subscribes to head changes from the chain store and broadcasts new blocks.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
+pub(crate) fn new_heads<DB: Blockstore>(
+    data: &crate::rpc::RPCState<DB>,
+) -> (Subscriber<ApiHeaders>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+
+    let mut subscriber = data.chain_store().publisher().subscribe();
+
+    let handle = tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if let Err(e) = sender.send(headers) {
+                tracing::error!("Failed to send headers: {}", e);
+                break;
+            }
+        }
+    });
+
+    (receiver, handle)
+}
+
+/// Subscribes to head changes from the chain store and broadcasts new `Ethereum` logs.
+///
+/// # Notes
+///
+/// Spawns an internal `tokio` task that can be aborted anytime via the returned `JoinHandle`,
+/// allowing manual cleanup if needed.
+pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    filter: Option<EthFilterSpec>,
+) -> (Subscriber<Vec<EthLog>>, JoinHandle<()>) {
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
+
+    let mut subscriber = ctx.chain_store().publisher().subscribe();
+
+    let ctx = ctx.clone();
+
+    let handle = tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            match v {
+                HeadChange::Apply(ts) => {
+                    match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
+                        Ok(logs) => {
+                            if !logs.is_empty() {
+                                if let Err(e) = sender.send(logs) {
+                                    tracing::error!(
+                                        "Failed to send logs for tipset {}: {}",
+                                        ts.key(),
+                                        e
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to fetch logs for tipset {}: {}", ts.key(), e);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    (receiver, handle)
+}
 
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
@@ -222,21 +299,22 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
-pub enum ChainExport {}
-impl RpcMethod<1> for ChainExport {
-    const NAME: &'static str = "Filecoin.ChainExport";
+pub enum ForestChainExport {}
+impl RpcMethod<1> for ForestChainExport {
+    const NAME: &'static str = "Forest.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (ChainExportParams,);
+    type Params = (ForestChainExportParams,);
     type Ok = Option<String>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
+        let ForestChainExportParams {
+            version,
             epoch,
             recent_roots,
             output_path,
@@ -265,31 +343,76 @@ impl RpcMethod<1> for ChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
-        match if dry_run {
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
+        let writer = if dry_run {
+            tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
-            let file = tokio::fs::File::create(&output_path).await?;
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                file,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
+            tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
+        };
+        match match version {
+            FilecoinSnapshotVersion::V1 => {
+                crate::chain::export::<Sha256>(
+                    &ctx.store_owned(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
+            FilecoinSnapshotVersion::V2 => {
+                crate::chain::export_v2::<Sha256>(
+                    &ctx.store_owned(),
+                    None,
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
         } {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ChainExport {}
+impl RpcMethod<1> for ChainExport {
+    const NAME: &'static str = "Filecoin.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ChainExportParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys,
+            skip_checksum,
+            dry_run,
+        },): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        ForestChainExport::handle(
+            ctx,
+            (ForestChainExportParams {
+                version: FilecoinSnapshotVersion::V1,
+                epoch,
+                recent_roots,
+                output_path,
+                tipset_keys,
+                skip_checksum,
+                dry_run,
+            },),
+        )
+        .await
     }
 }
 
@@ -721,7 +844,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &crate::rpc::RPCState<DB>,
 ) -> Subscriber<Vec<ApiHeadChange>> {
-    let (sender, receiver) = broadcast::channel(100);
+    let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store().heaviest_tipset();
@@ -839,6 +962,20 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportParams {
+    pub version: FilecoinSnapshotVersion,
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+lotus_json_with_self!(ForestChainExportParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

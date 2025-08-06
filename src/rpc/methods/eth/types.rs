@@ -2,9 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::blocks::CachingBlockHeader;
+use crate::rpc::eth::pubsub_trait::LogFilter;
 use anyhow::ensure;
 use ipld_core::serde::SerdeError;
+use jsonrpsee::core::traits::IdProvider;
+use jsonrpsee::types::SubscriptionId;
 use libsecp256k1::util::FULL_PUBLIC_KEY_SIZE;
+use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
@@ -385,12 +390,41 @@ pub struct FilterID(EthHash);
 
 lotus_json_with_self!(FilterID);
 
+#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
+pub struct SubscriptionID(pub String);
+
+lotus_json_with_self!(SubscriptionID);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
+
+lotus_json_with_self!(ApiHeaders);
+
 impl FilterID {
     pub fn new() -> Result<Self, uuid::Error> {
         let raw_id = crate::utils::rand::new_uuid_v4();
         let mut id = [0u8; 32];
         id[..16].copy_from_slice(raw_id.as_bytes());
         Ok(FilterID(EthHash(ethereum_types::H256::from_slice(&id))))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct RandomHexStringIdProvider {}
+
+impl RandomHexStringIdProvider {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl IdProvider for RandomHexStringIdProvider {
+    fn next_id(&self) -> SubscriptionId<'static> {
+        let mut bytes = [0u8; 32];
+        let mut rng = crate::utils::rand::forest_rng();
+        rng.fill(&mut bytes);
+
+        SubscriptionId::Str(format!("{}", EthHash::from(bytes)).into())
     }
 }
 
@@ -492,6 +526,18 @@ pub struct EthFilterSpec {
     pub block_hash: Option<EthHash>,
 }
 lotus_json_with_self!(EthFilterSpec);
+
+impl From<LogFilter> for EthFilterSpec {
+    fn from(filter: LogFilter) -> Self {
+        EthFilterSpec {
+            from_block: None,
+            to_block: None,
+            block_hash: None,
+            address: filter.address,
+            topics: filter.topics,
+        }
+    }
+}
 
 /// `EthFilterResult` represents the response from executing a filter:
 /// - A list of block hashes

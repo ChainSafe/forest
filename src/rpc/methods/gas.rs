@@ -221,7 +221,7 @@ impl GasEstimateGasLimit {
             .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
             .unwrap_or_default();
 
-        let ts = data.mpool.cur_tipset.lock().clone();
+        let ts = data.mpool.current_tipset();
         // Pretend that the message is signed. This has an influence on the gas
         // cost. We obviously can't generate a valid signature. Instead, we just
         // fill the signature with zeros. The validity is not checked.
