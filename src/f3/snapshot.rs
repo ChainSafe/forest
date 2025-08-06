@@ -6,10 +6,7 @@ mod tests;
 
 use crate::{rpc::f3::F3PowerEntry, utils::multihash::MultihashCode};
 use cid::Cid;
-use fvm_ipld_encoding::{
-    IPLD_RAW,
-    tuple::{Deserialize_tuple, Serialize_tuple},
-};
+use fvm_ipld_encoding::{IPLD_RAW, tuple::*};
 use integer_encoding::VarIntReader as _;
 use std::io::Read;
 

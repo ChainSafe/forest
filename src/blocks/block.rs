@@ -5,7 +5,7 @@ use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use fvm_ipld_encoding::tuple::*;
 
 use super::CachingBlockHeader;
 

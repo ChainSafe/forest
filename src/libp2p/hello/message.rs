@@ -4,8 +4,8 @@
 use crate::shim::bigint::BigInt;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
+use fvm_ipld_encoding::tuple::*;
 use nunny::Vec as NonEmpty;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
