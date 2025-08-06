@@ -7,7 +7,7 @@ use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::{backfill_db, populate_eth_mappings};
+use crate::daemon::db_util::backfill_db;
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
