@@ -613,11 +613,11 @@ macro_rules! impl_remove_data_cap_params {
                             data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
                             verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                 verifier: lotus_json.verifier_request_1.verifier.into(),
-                                signature: lotus_json.verifier_request_1.signature.into(),
+                                signature: lotus_json.verifier_request_1.signature.try_into().unwrap(),
                             },
                             verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                 verifier: lotus_json.verifier_request_2.verifier.into(),
-                                signature: lotus_json.verifier_request_2.signature.into()
+                                signature: lotus_json.verifier_request_2.signature.try_into().unwrap()
                             },
                         }
                     }
