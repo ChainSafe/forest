@@ -7,7 +7,6 @@ use crate::db::car::forest::{
 };
 use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
-use crate::networks::Height;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::{NO_CALLBACK, StateManager};
@@ -280,63 +279,14 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
-/// For the need for Ethereum RPC API, a new column in parity-db has been introduced to handle
-/// mapping of:
-/// - [`struct@EthHash`] to [`TipsetKey`].
-/// - [`struct@EthHash`] to delegated message [`Cid`].
+/// To support the Event RPC API, a new column has been added to parity-db to handle the mapping:
+/// - Events root [`Cid`] -> [`TipsetKey`].
 ///
-/// This function traverses the chain store and populates the column.
-pub fn populate_eth_mappings<DB>(
-    state_manager: &StateManager<DB>,
-    head_ts: &Tipset,
-) -> anyhow::Result<()>
-where
-    DB: fvm_ipld_blockstore::Blockstore,
-{
-    let mut delegated_messages = vec![];
-
-    // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
-    // Before this height, no notion of an Ethereum-like API existed.
-    let hygge = state_manager.chain_config().epoch(Height::Hygge);
-
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/5567
-    let from_epoch = std::env::var("FOREST_ETH_MAPPINGS_RANGE")
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .map(|num_epochs| (head_ts.epoch().saturating_sub(num_epochs)).max(hygge))
-        .unwrap_or(hygge);
-
-    tracing::info!(
-        "Populating column EthMappings from range: [{}, {}]",
-        from_epoch,
-        head_ts.epoch()
-    );
-
-    for ts in head_ts
-        .clone()
-        .chain(&state_manager.chain_store().blockstore())
-    {
-        if ts.epoch() < from_epoch {
-            break;
-        }
-        delegated_messages.append(
-            &mut state_manager
-                .chain_store()
-                .headers_delegated_messages(ts.block_headers().iter())?,
-        );
-        state_manager.chain_store().put_tipset_key(ts.key())?;
-    }
-    state_manager
-        .chain_store()
-        .process_signed_messages(&delegated_messages)?;
-
-    Ok(())
-}
-
-/// To support the Event RPC API, a new column has been added to parity-db for handling the mapping of:
-/// - [`Cid`] to [`TipsetKey`].
+/// Similarly, to support the Ethereum RPC API, another column has been introduced to map:
+/// - [`struct@EthHash`] -> [`TipsetKey`],
+/// - [`struct@EthHash`] -> Delegated message [`Cid`].
 ///
-/// This function traverses the chain store and populates the new column accordingly.
+/// This function traverses the chain store and populates these columns accordingly.
 pub async fn backfill_db<DB>(
     state_manager: &Arc<StateManager<DB>>,
     head_ts: &Tipset,
@@ -345,8 +295,15 @@ pub async fn backfill_db<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
 {
+    tracing::info!(
+        "Starting index backfill (from: {}, to: {})",
+        head_ts.epoch(),
+        to_epoch
+    );
+
     let mut delegated_messages = vec![];
 
+    let mut num_backfills = 0;
     for ts in head_ts
         .clone()
         .chain(&state_manager.chain_store().blockstore())
@@ -363,7 +320,7 @@ where
             .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
             .await?;
         for events_root in state_output.events_roots.iter().flatten() {
-            println!("Indexing events root @{epoch}: {events_root}");
+            tracing::trace!("Indexing events root @{epoch}: {events_root}");
 
             state_manager.chain_store().put_index(events_root, &tsk)?;
         }
@@ -373,13 +330,17 @@ where
                 .chain_store()
                 .headers_delegated_messages(ts.block_headers().iter())?,
         );
-        println!("Indexing tipset @{}: {}", epoch, &tsk);
+        tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
         state_manager.chain_store().put_tipset_key(&tsk)?;
+
+        num_backfills += 1;
     }
 
     state_manager
         .chain_store()
         .process_signed_messages(&delegated_messages)?;
+
+    tracing::info!("Total successful backfills: {}", num_backfills);
 
     Ok(())
 }
