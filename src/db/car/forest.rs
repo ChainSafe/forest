@@ -168,7 +168,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
     pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
         // head tipset key is stored in v2 snapshot metadata
-        // See <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md#v2-specification>
+        // See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
         if let Some(metadata) = self.metadata() {
             &metadata.head_tipset_key
         } else {
