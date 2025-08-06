@@ -86,7 +86,6 @@ pub async fn start_offline_server(
     ensure_proof_params_downloaded().await?;
 
     backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
-    populate_eth_mappings(&state_manager, &head_ts)?;
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);

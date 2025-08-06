@@ -345,8 +345,15 @@ pub async fn backfill_db<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
 {
+    tracing::info!(
+        "Starting index backfill (from: {}, to: {})",
+        head_ts.epoch(),
+        to_epoch
+    );
+
     let mut delegated_messages = vec![];
 
+    let mut num_backfills = 0;
     for ts in head_ts
         .clone()
         .chain(&state_manager.chain_store().blockstore())
@@ -363,7 +370,7 @@ where
             .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
             .await?;
         for events_root in state_output.events_roots.iter().flatten() {
-            println!("Indexing events root @{epoch}: {events_root}");
+            tracing::trace!("Indexing events root @{epoch}: {events_root}");
 
             state_manager.chain_store().put_index(events_root, &tsk)?;
         }
@@ -373,13 +380,17 @@ where
                 .chain_store()
                 .headers_delegated_messages(ts.block_headers().iter())?,
         );
-        println!("Indexing tipset @{}: {}", epoch, &tsk);
+        tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
         state_manager.chain_store().put_tipset_key(&tsk)?;
+
+        num_backfills += 1;
     }
 
     state_manager
         .chain_store()
         .process_signed_messages(&delegated_messages)?;
+
+    tracing::info!("Total successful backfills: {}", num_backfills);
 
     Ok(())
 }
