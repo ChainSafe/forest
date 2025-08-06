@@ -19,10 +19,10 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use fvm_ipld_encoding::tuple::*;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
-use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
 #[cfg(test)]
 mod test;

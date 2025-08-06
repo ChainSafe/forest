@@ -13,7 +13,7 @@ use byteorder::ByteOrder as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use flate2::read::DeflateDecoder;
-use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
+use fvm_ipld_encoding::tuple::*;
 use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;

@@ -2028,9 +2028,9 @@ dependencies = [
 
 [[package]]
 name = "derive-where"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "510c292c8cf384b1a340b816a9a6cf2599eb8f566a44949024af88418000c50b"
+checksum = "ef941ded77d15ca19b40374869ac6000af1c9f2a4c0f3d4c70926287e6364a8f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3216,7 +3216,6 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
- "serde_tuple 1.1.2",
  "serde_with",
  "serde_yaml",
  "serial_test",
@@ -3551,7 +3550,7 @@ dependencies = [
  "replace_with",
  "serde",
  "serde_repr",
- "serde_tuple 0.5.0",
+ "serde_tuple",
  "thiserror 2.0.12",
  "wasmtime",
  "yastl",
@@ -3587,7 +3586,7 @@ dependencies = [
  "rayon",
  "replace_with",
  "serde",
- "serde_tuple 0.5.0",
+ "serde_tuple",
  "thiserror 2.0.12",
  "wasmtime",
  "wasmtime-environ",
@@ -3721,7 +3720,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_repr",
- "serde_tuple 0.5.0",
+ "serde_tuple",
  "thiserror 2.0.12",
 ]
 
@@ -3787,7 +3786,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_repr",
- "serde_tuple 0.5.0",
+ "serde_tuple",
  "thiserror 2.0.12",
  "unsigned-varint 0.8.0",
 ]
@@ -3817,7 +3816,7 @@ dependencies = [
  "num-traits",
  "quickcheck",
  "serde",
- "serde_tuple 0.5.0",
+ "serde_tuple",
  "thiserror 2.0.12",
  "unsigned-varint 0.8.0",
 ]
@@ -8075,9 +8074,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "3.2.0"
+version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
+checksum = "80fb1d92c5028aa318b4b8bd7302a5bfcf48be96a37fc6fc790f806b0004ee0c"
 dependencies = [
  "bitflags 2.9.1",
  "core-foundation 0.10.1",
@@ -8227,17 +8226,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4f025b91216f15a2a32aa39669329a475733590a015835d1783549a56d09427"
 dependencies = [
  "serde",
- "serde_tuple_macros 0.5.0",
-]
-
-[[package]]
-name = "serde_tuple"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52569c5296679bd28e2457f067f97d270077df67da0340647da5412c8eac8d9e"
-dependencies = [
- "serde",
- "serde_tuple_macros 1.1.2",
+ "serde_tuple_macros",
 ]
 
 [[package]]
@@ -8249,17 +8238,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "serde_tuple_macros"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f46c707781471741d5f2670edb36476479b26e94cf43efe21ca3c220b97ef2e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.104",
 ]
 
 [[package]]

@@ -4,8 +4,8 @@
 use crate::utils::encoding::serde_byte_array;
 use byteorder::{BigEndian, ByteOrder as _};
 use digest::Digest as _;
+use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that
