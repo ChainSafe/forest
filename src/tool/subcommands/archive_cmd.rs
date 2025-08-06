@@ -690,8 +690,9 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
     let f3_frame = {
         let mut encoder =
             crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
+        let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
         f3_data.seek(SeekFrom::Start(0))?;
-        encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
+        encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
         anyhow::Ok((
             vec![f3_cid],
             crate::db::car::forest::finalize_frame(

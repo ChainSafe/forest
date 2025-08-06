@@ -18,7 +18,6 @@ use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
-use std::fs::File;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -240,20 +239,21 @@ pub async fn import_chain_as_forest_car(
         let mut f3_data = forest_car
             .get_reader(f3_cid)?
             .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
-        let temp_f3_snap_path = tempfile::Builder::new()
+        let mut temp_f3_snap = tempfile::Builder::new()
             .suffix(".f3snap.bin")
-            .tempfile_in(forest_car_db_dir)?
-            .into_temp_path();
+            .tempfile_in(forest_car_db_dir)?;
         {
-            let mut f = File::create(&temp_f3_snap_path)?;
-            std::io::copy(&mut f3_data, &mut f)?;
+            let f = temp_f3_snap.as_file_mut();
+            std::io::copy(&mut f3_data, f)?;
+            f.sync_all()?;
         }
         if let Err(e) = crate::f3::import_f3_snapshot(
             chain_config,
             rpc_endpoint,
             f3_root,
-            temp_f3_snap_path.display().to_string(),
+            temp_f3_snap.path().display().to_string(),
         ) {
+            // Do not make it a hard error if anything is wrong with F3 snapshot
             tracing::error!("Failed to import F3 snapshot: {e}");
         }
     }

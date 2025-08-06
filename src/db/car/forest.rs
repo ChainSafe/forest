@@ -511,7 +511,15 @@ mod tests {
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
         assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
-            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+            assert_eq!(forest_car.get(&block.cid).unwrap().unwrap(), block.data);
+            let mut buf = vec![];
+            forest_car
+                .get_reader(block.cid)
+                .unwrap()
+                .unwrap()
+                .read_to_end(&mut buf)
+                .unwrap();
+            assert_eq!(buf, block.data);
         }
     }
 

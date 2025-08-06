@@ -644,7 +644,7 @@ impl RpcMethod<1> for F3ExportLatestSnapshot {
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
-        Some("Gets the power table (committee) used to validate the specified instance");
+        Some("Exports the latest F3 snapshot to the specified path and returns its CID");
 
     type Params = (String,);
     type Ok = Cid;

@@ -30,7 +30,14 @@ pub struct F3SnapshotHeader {
 
 impl F3SnapshotHeader {
     pub fn decode_from_snapshot(f3_snapshot: &mut impl Read) -> anyhow::Result<Self> {
+        // Reasonable upper bound for snapshot header size (100MiB)
+        const MAX_HEADER_SIZE: usize = 100 * 1024 * 1024;
+
         let data_len = f3_snapshot.read_varint::<usize>()?;
+        anyhow::ensure!(
+            data_len <= MAX_HEADER_SIZE,
+            "F3 snapshot header size {data_len} exceeds maximum allowed size {MAX_HEADER_SIZE}"
+        );
         let mut data_bytes = vec![0; data_len];
         f3_snapshot.read_exact(&mut data_bytes)?;
         Ok(fvm_ipld_encoding::from_slice(&data_bytes)?)

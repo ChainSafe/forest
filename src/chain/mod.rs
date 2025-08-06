@@ -112,10 +112,11 @@ pub async fn export_v2<D: Digest>(
     }];
 
     if let Some((f3_cid, mut f3_data)) = f3 {
+        let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
         f3_data.seek(SeekFrom::Start(0))?;
         prefix_data_frames.push({
             let mut encoder = forest::new_encoder(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
-            encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
+            encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
             anyhow::Ok((
                 vec![f3_cid],
                 finalize_frame(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL, &mut encoder)?,
