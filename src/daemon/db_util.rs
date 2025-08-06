@@ -280,11 +280,11 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
 }
 
 /// To support the Event RPC API, a new column has been added to parity-db to handle the mapping:
-/// - Events root [`Cid`] → [`TipsetKey`].
+/// - Events root [`Cid`] -> [`TipsetKey`].
 ///
 /// Similarly, to support the Ethereum RPC API, another column has been introduced to map:
-/// - [`struct@EthHash`] → [`TipsetKey`],
-/// - [`struct@EthHash`] → Delegated message [`Cid`].
+/// - [`struct@EthHash`] -> [`TipsetKey`],
+/// - [`struct@EthHash`] -> Delegated message [`Cid`].
 ///
 /// This function traverses the chain store and populates these columns accordingly.
 pub async fn backfill_db<DB>(
