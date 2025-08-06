@@ -227,7 +227,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
 
     #[allow(dead_code)]
     /// Gets a reader of the block data by its `Cid`
-    pub fn get_reader(&self, k: Cid) -> Option<std::io::Take<impl Read>> {
+    pub fn get_reader(&self, k: Cid) -> Option<impl Read> {
         self.index
             .read()
             .get(&k)

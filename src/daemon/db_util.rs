@@ -7,7 +7,7 @@ use crate::db::car::forest::{
 };
 use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
-use crate::networks::Height;
+use crate::networks::{ChainConfig, Height};
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::{NO_CALLBACK, StateManager};
@@ -134,7 +134,7 @@ pub async fn import_chain_as_forest_car(
     import_mode: ImportMode,
     rpc_endpoint: String,
     f3_root: String,
-    is_sidecar_ffi_enabled: bool,
+    chain_config: &ChainConfig,
     snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
@@ -236,9 +236,7 @@ pub async fn import_chain_as_forest_car(
 
     let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
 
-    if !is_sidecar_ffi_enabled {
-        tracing::warn!("F3 sidecar is disabled, skip importing F3 snapshot");
-    } else if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data)
+    if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data)
         && let Some(mut f3_data) = forest_car.get_reader(f3_cid)?
     {
         let temp_f3_snap_path = tempfile::Builder::new()
@@ -250,6 +248,7 @@ pub async fn import_chain_as_forest_car(
             std::io::copy(&mut f3_data, &mut f)?;
         }
         if let Err(e) = crate::f3::import_f3_snapshot(
+            chain_config,
             rpc_endpoint,
             f3_root,
             temp_f3_snap_path.display().to_string(),
@@ -525,7 +524,7 @@ mod test {
             import_mode,
             "".into(),
             "".into(),
-            true,
+            &ChainConfig::devnet(),
             &SnapshotProgressTracker::default(),
         )
         .await?;

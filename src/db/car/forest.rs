@@ -215,16 +215,18 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     /// Gets a reader of the block data by its `Cid`
-    pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<std::io::Take<impl Read>>> {
+    pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
         for position in self.indexed.get(k)? {
-            // Decode entire frame into memory, "position" arg is the frame start offset.
-            let entire_file = self.indexed.reader().get_ref(); // escape the positioned_io::Slice
+            // escape the positioned_io::Slice
+            let entire_file = self.indexed.reader().get_ref();
+            // `position` is the frame start offset.
             let cursor = Cursor::new_pos(entire_file, position);
             let mut decoder = zstd::Decoder::new(cursor)?.single_frame();
             while let Ok(frame_len) = decoder.read_varint::<usize>() {
                 let cid = Cid::read_bytes(&mut decoder)?;
                 let data_len = frame_len.saturating_sub(cid.encoded_len()) as u64;
                 if cid == k {
+                    // return the reader instead of decoding the entire data block into memory
                     return Ok(Some(decoder.take(data_len)));
                 }
                 // Discard data bytes

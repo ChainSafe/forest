@@ -142,7 +142,7 @@ async fn maybe_import_snapshot(
             config.client.import_mode,
             config.client.rpc_v1_endpoint(),
             crate::f3::get_f3_root(config),
-            crate::f3::is_sidecar_ffi_enabled(ctx.chain_config()),
+            ctx.chain_config(),
             &snapshot_tracker,
         )
         .await?;
