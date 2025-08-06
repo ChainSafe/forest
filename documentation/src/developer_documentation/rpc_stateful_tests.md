@@ -16,7 +16,7 @@ Before running the tests, perform the following setup steps:
 3. The f4 address must hold enough FIL to invoke the contract.
    
    Run the test suite with:
-  `forest-tool api run <MULTI_ADDR> --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
+  `forest-tool api test-stateful <MULTI_ADDR> --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
 
    where:
 
@@ -29,7 +29,7 @@ Before running the tests, perform the following setup steps:
 ## Example output
 
 ```
-./forest-tool api run <TOKEN>:/ip4/127.0.0.1/tcp/1234/http --to t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi --from t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy --payload 40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000 --topic 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+./forest-tool api test-stateful <TOKEN>:/ip4/127.0.0.1/tcp/1234/http --to t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi --from t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy --payload 40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000 --topic 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
 running 7 tests
 test eth_newFilter install/uninstall ... ok
 test eth_newFilter under limit ... ok

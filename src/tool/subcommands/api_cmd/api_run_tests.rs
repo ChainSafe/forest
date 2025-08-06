@@ -208,7 +208,7 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
             .await?;
-        dbg!(pending.0.len());
+
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
             break Ok(());
         }

@@ -180,7 +180,7 @@ pub enum ApiCommands {
         #[arg(num_args = 1.., required = true)]
         files: Vec<PathBuf>,
     },
-    /// Run multiple stateful JSON-RPC tests against a Filecoin node.
+    /// Run multiple stateful JSON-RPC API tests against a Filecoin node.
     ///
     /// Some tests require sending a transaction to trigger events; the provided
     /// `from`, `to`, `payload`, and `topic` inputs are used for those cases.
@@ -202,7 +202,7 @@ pub enum ApiCommands {
     /// test eth_getFilterLogs works ... ok
     /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
     /// ```
-    Run {
+    TestStateful {
         /// Client address
         addr: UrlFromMultiAddr,
         /// Test Transaction `to` address
@@ -367,7 +367,7 @@ impl ApiCommands {
                     };
                 }
             }
-            Self::Run {
+            Self::TestStateful {
                 addr: UrlFromMultiAddr(url),
                 to,
                 from,
