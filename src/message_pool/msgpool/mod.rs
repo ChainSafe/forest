@@ -16,8 +16,7 @@ use crate::libp2p::{NetworkMessage, PUBSUB_MSG_STR, Topic};
 use crate::message::{Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
-use crate::utils::cache::SizeTrackingLruCache;
-use crate::utils::get_size::CidWrapper;
+use crate::utils::{cache::SizeTrackingLruCache, flume::SizeTrackingSender, get_size::CidWrapper};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
@@ -55,7 +54,7 @@ where
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &T,
-    network_sender: &flume::Sender<NetworkMessage>,
+    network_sender: &SizeTrackingSender<NetworkMessage>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &SyncRwLock<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
@@ -335,6 +334,7 @@ pub mod tests {
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
+    use crate::utils::flume::bounded_with_default_metrics_registry;
     use num_traits::Zero;
     use test_provider::*;
     use tokio::task::JoinSet;
@@ -354,7 +354,7 @@ pub mod tests {
         let tma = TestApi::with_max_actor_pending_messages(200);
         tma.set_state_sequence(&sender, 0);
 
-        let (tx, _rx) = flume::bounded(50);
+        let (tx, _rx) = bounded_with_default_metrics_registry(50, "network_messages".into());
         let mut services = JoinSet::new();
         let mpool =
             MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
@@ -434,7 +434,7 @@ pub mod tests {
         let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
-        let (tx, _rx) = flume::bounded(50);
+        let (tx, _rx) = bounded_with_default_metrics_registry(50, "network_messages".into());
         let mut services = JoinSet::new();
         let mpool =
             MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
@@ -495,7 +495,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = flume::bounded(50);
+        let (tx, _rx) = bounded_with_default_metrics_registry(50, "network_messages".into());
         let mut services = JoinSet::new();
         let mpool =
             MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
@@ -588,7 +588,7 @@ pub mod tests {
 
         let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = flume::bounded(50);
+        let (tx, _rx) = bounded_with_default_metrics_registry(50, "network_messages".into());
         let mut services = JoinSet::new();
         let mpool =
             MessagePool::new(tma, tx, Default::default(), Arc::default(), &mut services).unwrap();
