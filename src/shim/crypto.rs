@@ -96,18 +96,21 @@ impl From<fvm_shared4::crypto::signature::Signature> for Signature {
     }
 }
 
-impl From<Signature> for fvm_shared3::crypto::signature::Signature {
-    fn from(sig: Signature) -> Self {
-        Self {
-            sig_type: match sig.sig_type {
-                SignatureType::Bls => fvm_shared3::crypto::signature::SignatureType::BLS,
-                SignatureType::Secp256k1 => {
-                    fvm_shared3::crypto::signature::SignatureType::Secp256k1
-                }
-                SignatureType::Delegated => fvm_shared3::crypto::signature::SignatureType::BLS, // fallback v3 doesn't have Delegated
-            },
+impl TryFrom<Signature> for fvm_shared3::crypto::signature::Signature {
+    type Error = anyhow::Error;
+
+    fn try_from(sig: Signature) -> Result<Self, Self::Error> {
+        let sig_type = match sig.sig_type {
+            SignatureType::Bls => fvm_shared3::crypto::signature::SignatureType::BLS,
+            SignatureType::Secp256k1 => fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+            SignatureType::Delegated => {
+                anyhow::bail!("fvm_shared3 does not support Delegated signature type")
+            }
+        };
+        Ok(Self {
+            sig_type,
             bytes: sig.bytes,
-        }
+        })
     }
 }
 
@@ -125,33 +128,39 @@ impl From<fvm_shared2::crypto::signature::Signature> for Signature {
     }
 }
 
-impl From<Signature> for fvm_shared2::crypto::signature::Signature {
-    fn from(sig: Signature) -> Self {
-        Self {
-            sig_type: match sig.sig_type {
-                SignatureType::Bls => fvm_shared2::crypto::signature::SignatureType::BLS,
-                SignatureType::Secp256k1 => {
-                    fvm_shared2::crypto::signature::SignatureType::Secp256k1
-                }
-                SignatureType::Delegated => fvm_shared2::crypto::signature::SignatureType::BLS, // fallback if v2 doesn't have Delegated
-            },
+impl TryFrom<Signature> for fvm_shared2::crypto::signature::Signature {
+    type Error = anyhow::Error;
+
+    fn try_from(sig: Signature) -> Result<Self, Self::Error> {
+        let sig_type = match sig.sig_type {
+            SignatureType::Bls => fvm_shared2::crypto::signature::SignatureType::BLS,
+            SignatureType::Secp256k1 => fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+            SignatureType::Delegated => {
+                anyhow::bail!("fvm_shared2 does not support Delegated signature type")
+            }
+        };
+        Ok(Self {
+            sig_type,
             bytes: sig.bytes,
-        }
+        })
     }
 }
 
-impl From<Signature> for fvm_shared4::crypto::signature::Signature {
-    fn from(sig: Signature) -> Self {
-        Self {
-            sig_type: match sig.sig_type {
-                SignatureType::Bls => fvm_shared4::crypto::signature::SignatureType::BLS,
-                SignatureType::Secp256k1 => {
-                    fvm_shared4::crypto::signature::SignatureType::Secp256k1
-                }
-                SignatureType::Delegated => fvm_shared4::crypto::signature::SignatureType::BLS, // fallback v4 doesn't have Delegated
-            },
+impl TryFrom<Signature> for fvm_shared4::crypto::signature::Signature {
+    type Error = anyhow::Error;
+
+    fn try_from(sig: Signature) -> Result<Self, Self::Error> {
+        let sig_type = match sig.sig_type {
+            SignatureType::Bls => fvm_shared4::crypto::signature::SignatureType::BLS,
+            SignatureType::Secp256k1 => fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+            SignatureType::Delegated => {
+                anyhow::bail!("fvm_shared4 does not support Delegated signature type")
+            }
+        };
+        Ok(Self {
+            sig_type,
             bytes: sig.bytes,
-        }
+        })
     }
 }
 
@@ -579,5 +588,61 @@ mod tests {
             .authenticate_msg(0, &signed_msg, &addr); // Invalid Chain ID
 
         assert!(result.is_err(), "Chain ID mismatch should fail");
+    }
+
+    #[test]
+    fn test_try_from_delegated_signature_to_fvm_shared() {
+        let delegated_sig = Signature::new_delegated(vec![1, 2, 3, 4]);
+
+        // Test conversion to fvm_shared2
+        let result_v2: Result<fvm_shared2::crypto::signature::Signature, _> =
+            delegated_sig.clone().try_into();
+        assert!(result_v2.is_err(), "Should fail for fvm_shared2");
+        assert!(
+            result_v2
+                .unwrap_err()
+                .to_string()
+                .contains("fvm_shared2 does not support Delegated")
+        );
+
+        // Test conversion to fvm_shared3
+        let result_v3: Result<fvm_shared3::crypto::signature::Signature, _> =
+            delegated_sig.clone().try_into();
+        assert!(result_v3.is_err(), "Should fail for fvm_shared3");
+        assert!(
+            result_v3
+                .unwrap_err()
+                .to_string()
+                .contains("fvm_shared3 does not support Delegated")
+        );
+
+        // Test conversion to fvm_shared4
+        let result_v4: Result<fvm_shared4::crypto::signature::Signature, _> =
+            delegated_sig.try_into();
+        assert!(result_v4.is_err(), "Should fail for fvm_shared4");
+        assert!(
+            result_v4
+                .unwrap_err()
+                .to_string()
+                .contains("fvm_shared4 does not support Delegated")
+        );
+    }
+
+    #[test]
+    fn test_try_from_valid_signatures_to_fvm_shared() {
+        let bls_sig = Signature::new_bls(vec![1, 2, 3, 4]);
+        let secp_sig = Signature::new_secp256k1(vec![5, 6, 7, 8]);
+
+        // Test BLS conversion succeeds
+        let result_bls: Result<fvm_shared4::crypto::signature::Signature, _> = bls_sig.try_into();
+        assert!(result_bls.is_ok(), "BLS conversion should succeed");
+        let converted = result_bls.unwrap();
+        assert_eq!(converted.bytes, vec![1, 2, 3, 4]);
+
+        // Test Secp256k1 conversion succeeds
+        let result_secp: Result<fvm_shared4::crypto::signature::Signature, _> = secp_sig.try_into();
+        assert!(result_secp.is_ok(), "Secp256k1 conversion should succeed");
+        let converted = result_secp.unwrap();
+        assert_eq!(converted.bytes, vec![5, 6, 7, 8]);
     }
 }
