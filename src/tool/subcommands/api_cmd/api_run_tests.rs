@@ -147,6 +147,27 @@ pub(super) async fn run_tests(
 }
 
 async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
+    async fn close_channel(
+        stream: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        id: &serde_json::Value,
+    ) -> anyhow::Result<()> {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "xrpc.cancel",
+            "params": [id]
+        });
+
+        stream
+            .send(WsMessage::Text(request.to_string().into()))
+            .await
+            .context("failed to send close channel request")?;
+
+        Ok(())
+    }
+
     let mut url = client.base_url().clone();
     url.set_scheme("ws")
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
@@ -169,7 +190,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     while let Some(msg) = ws_stream.next().await {
         if let Ok(WsMessage::Text(text)) = msg {
             let json: serde_json::Value = serde_json::from_str(&text)?;
-            // dbg!(&json);
+
             if let Some(id) = json.get("result") {
                 channel_id = Some(id.clone());
             } else {
@@ -186,13 +207,16 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                         for change in changes {
                             if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
                                 if type_ == "apply" {
-                                    // TODO: close channel
+                                    let channel_id = channel_id.unwrap();
+                                    close_channel(&mut ws_stream, &channel_id).await?;
                                     return Ok(());
                                 }
                             }
                         }
                     }
                 } else {
+                    let channel_id = channel_id.unwrap();
+                    close_channel(&mut ws_stream, &channel_id).await?;
                     anyhow::bail!("expecting params");
                 }
             }
