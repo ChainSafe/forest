@@ -210,6 +210,10 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                                     close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
                                     ws_stream.close(None).await?;
                                     return Ok(());
+                                } else if type_ == "revert" {
+                                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                                    ws_stream.close(None).await?;
+                                    anyhow::bail!("revert");
                                 }
                             }
                         }
@@ -316,46 +320,70 @@ fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
 
 fn eth_new_block_filter() -> RpcTestScenario {
     RpcTestScenario::basic(move |client| async move {
-        let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
-
-        let filter_result = client
-            .call(EthGetFilterChanges::request((filter_id.clone(),))?)
-            .await?;
-
-        let result = if let EthFilterResult::Hashes(prev_hashes) = filter_result {
-            let verify_hashes = async |hashes: &[EthHash]| {
-                for hash in hashes {
-                    let _block = client
-                        .call(EthGetBlockByHash::request((hash.clone(), false))?)
-                        .await?;
-                }
-                Ok::<(), crate::rpc::ClientError>(())
-            };
-            verify_hashes(&prev_hashes).await?;
-
-            // Wait for the next block to arrive
-            next_tipset(&client).await?;
-
+        async fn process_filter(client: &rpc::Client, filter_id: &FilterID) -> anyhow::Result<()> {
             let filter_result = client
                 .call(EthGetFilterChanges::request((filter_id.clone(),))?)
                 .await?;
 
-            if let EthFilterResult::Hashes(hashes) = filter_result {
-                verify_hashes(&hashes).await?;
-                anyhow::ensure!(prev_hashes != hashes);
+            if let EthFilterResult::Hashes(prev_hashes) = filter_result {
+                let verify_hashes = async |hashes: &[EthHash]| -> anyhow::Result<()> {
+                    for hash in hashes {
+                        let _block = client
+                            .call(EthGetBlockByHash::request((hash.clone(), false))?)
+                            .await?;
+                    }
+                    Ok(())
+                };
+                verify_hashes(&prev_hashes).await?;
 
-                Ok(())
+                // Wait for the next block to arrive
+                next_tipset(client).await?;
+
+                let filter_result = client
+                    .call(EthGetFilterChanges::request((filter_id.clone(),))?)
+                    .await?;
+
+                if let EthFilterResult::Hashes(hashes) = filter_result {
+                    verify_hashes(&hashes).await?;
+                    anyhow::ensure!(prev_hashes != hashes);
+
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!("expecting blocks"))
+                }
             } else {
                 Err(anyhow::anyhow!("expecting blocks"))
             }
-        } else {
-            Err(anyhow::anyhow!("expecting blocks"))
-        };
+        }
 
-        let removed = client
-            .call(EthUninstallFilter::request((filter_id,))?)
-            .await?;
-        anyhow::ensure!(removed);
+        let mut retries = 5;
+        let result = loop {
+            // Create the filter
+            let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
+
+            let result = match process_filter(&client, &filter_id).await {
+                Ok(()) => Ok(()),
+                Err(e) if retries != 0 && e.to_string().contains("revert") => {
+                    // Cleanup
+                    let removed = client
+                        .call(EthUninstallFilter::request((filter_id,))?)
+                        .await?;
+                    anyhow::ensure!(removed);
+
+                    retries -= 1;
+                    continue;
+                }
+                Err(e) => Err(e),
+            };
+
+            // Cleanup
+            let removed = client
+                .call(EthUninstallFilter::request((filter_id,))?)
+                .await?;
+            anyhow::ensure!(removed);
+
+            break result;
+        };
 
         result
     })
