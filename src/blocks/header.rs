@@ -19,23 +19,15 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use fvm_ipld_encoding::tuple::*;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
-use serde_tuple::{Deserialize_tuple, Serialize_tuple};
-
-// See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
-// and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
-#[cfg(test)]
-static FILECOIN_GENESIS_CID: std::sync::LazyLock<Cid> = std::sync::LazyLock::new(|| {
-    "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
-        .parse()
-        .expect("Infallible")
-});
 
 #[cfg(test)]
-pub static GENESIS_BLOCK_PARENTS: std::sync::LazyLock<TipsetKey> =
-    std::sync::LazyLock::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
+mod test;
+#[cfg(test)]
+pub use test::*;
 
 #[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
@@ -70,30 +62,6 @@ pub struct RawBlockHeader {
     pub fork_signal: u64,
     /// The base fee of the parent block
     pub parent_base_fee: TokenAmount,
-}
-
-#[cfg(test)]
-impl Default for RawBlockHeader {
-    fn default() -> Self {
-        Self {
-            parents: GENESIS_BLOCK_PARENTS.clone(),
-            miner_address: Default::default(),
-            ticket: Default::default(),
-            election_proof: Default::default(),
-            beacon_entries: Default::default(),
-            winning_post_proof: Default::default(),
-            weight: Default::default(),
-            epoch: Default::default(),
-            state_root: Default::default(),
-            message_receipts: Default::default(),
-            messages: Default::default(),
-            bls_aggregate: Default::default(),
-            timestamp: Default::default(),
-            signature: Default::default(),
-            fork_signal: Default::default(),
-            parent_base_fee: Default::default(),
-        }
-    }
 }
 
 impl RawBlockHeader {
@@ -345,13 +313,15 @@ impl<'de> Deserialize<'de> for CachingBlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use super::RawBlockHeader;
+    use super::*;
     use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon};
     use crate::blocks::{CachingBlockHeader, Error};
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
     use crate::utils::encoding::from_slice_with_fallback;
-    use fvm_ipld_encoding::to_vec;
+    use crate::utils::multihash::MultihashCode;
+    use cid::Cid;
+    use fvm_ipld_encoding::{DAG_CBOR, to_vec};
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -412,5 +382,16 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_genesis_parent() {
+        assert_eq!(
+            Cid::new_v1(
+                DAG_CBOR,
+                MultihashCode::Sha2_256.digest(&FILECOIN_GENESIS_BLOCK)
+            ),
+            *FILECOIN_GENESIS_CID
+        );
     }
 }

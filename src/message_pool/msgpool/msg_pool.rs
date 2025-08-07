@@ -32,7 +32,7 @@ use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
-use parking_lot::{Mutex, RwLock as SyncRwLock};
+use parking_lot::RwLock as SyncRwLock;
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
 
@@ -177,7 +177,7 @@ pub struct MessagePool<T> {
     /// A map of pending messages where the key is the address
     pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
-    pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
+    pub cur_tipset: Arc<SyncRwLock<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
     /// Sender half to send messages to other components
@@ -202,6 +202,11 @@ impl<T> MessagePool<T>
 where
     T: Provider,
 {
+    /// Gets the current tipset
+    pub fn current_tipset(&self) -> Arc<Tipset> {
+        self.cur_tipset.read().clone()
+    }
+
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().push(m.from());
@@ -214,7 +219,7 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid();
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
         let network_name = self.chain_config.network.genesis_name();
@@ -249,10 +254,8 @@ where
     /// fits the parameters to be pushed to the `MessagePool`.
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
-
-        let tip = self.cur_tipset.lock().clone();
-
-        self.add_tipset(msg, &tip, false)?;
+        let ts = self.current_tipset();
+        self.add_tipset(msg, &ts, false)?;
         Ok(())
     }
 
@@ -320,7 +323,7 @@ where
     /// the pending hash-map.
     fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = msg.from();
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
@@ -333,7 +336,7 @@ where
     /// Get the sequence for a given address, return Error if there is a failure
     /// to retrieve the respective sequence.
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
@@ -378,7 +381,7 @@ where
             )
         }
 
-        let cur_ts = self.cur_tipset.lock().clone();
+        let cur_ts = self.current_tipset();
 
         Ok((out, cur_ts))
     }
@@ -471,7 +474,7 @@ where
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
-        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
+        let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
         let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
             "bls_sig_cache".into(),
             BLS_SIG_CACHE_SIZE,

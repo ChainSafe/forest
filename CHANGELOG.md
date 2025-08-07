@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
+
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in v2 format(FRC-0108).
+
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
 
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
@@ -55,7 +59,7 @@ This is a non-mandatory release recommended for all node operators. It includes 
 
 - [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--export-mode` flag to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
 
-- [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`
+- [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`.
 
 ### Changed
 

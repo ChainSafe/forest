@@ -129,6 +129,9 @@ unrepresentable
 untrusted
 URL
 UUID
+v0
+v1
+v2
 validator/S
 varint
 verifier

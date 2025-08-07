@@ -215,7 +215,7 @@ mod tests {
         db.export_forest_car(&mut car_db_bytes).await.unwrap();
 
         let car = ForestCar::new(car_db_bytes).unwrap();
-        assert_eq!(car.roots(), &nonempty![key1]);
+        assert_eq!(car.head_tipset_key(), &nonempty![key1]);
         assert!(car.has(&key1).unwrap());
         assert!(car.has(&key2).unwrap());
     }

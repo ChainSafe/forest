@@ -10,8 +10,8 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
+use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_encoding::{RawBytes, to_vec};
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Represents a wrapped message with signature bytes.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]

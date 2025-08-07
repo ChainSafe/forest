@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
@@ -40,6 +41,9 @@ pub enum SnapshotCommands {
         /// Traverse chain in non-deterministic order for better performance with more parallelization.
         #[arg(long)]
         unordered: bool,
+        /// Export snapshot in the experimental v2 format(FRC-0108).
+        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
+        format: FilecoinSnapshotVersion,
     },
 }
 
@@ -53,6 +57,7 @@ impl SnapshotCommands {
                 tipset,
                 depth,
                 unordered,
+                format,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -89,6 +94,7 @@ impl SnapshotCommands {
                 let temp_path = new_forest_car_temp_path_in(output_dir)?;
 
                 let params = ForestChainExportParams {
+                    version: format,
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),

@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, ExportOptions, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -314,6 +314,7 @@ impl RpcMethod<1> for ForestChainExport {
         (params,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ForestChainExportParams {
+            version,
             epoch,
             recent_roots,
             output_path,
@@ -343,30 +344,38 @@ impl RpcMethod<1> for ForestChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
-        let option = Some(ExportOptions {
+        let options = Some(ExportOptions {
             skip_checksum,
             unordered,
-            ..Default::default()
+            seen: Default::default(),
         });
-        match if dry_run {
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                option,
-            )
-            .await
+        let writer = if dry_run {
+            tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
-            let file = tokio::fs::File::create(&output_path).await?;
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                file,
-                option,
-            )
-            .await
+            tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
+        };
+        match match version {
+            FilecoinSnapshotVersion::V1 => {
+                crate::chain::export::<Sha256>(
+                    &ctx.store_owned(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    options,
+                )
+                .await
+            }
+            FilecoinSnapshotVersion::V2 => {
+                crate::chain::export_v2::<Sha256>(
+                    &ctx.store_owned(),
+                    None,
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    options,
+                )
+                .await
+            }
         } {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
@@ -386,26 +395,25 @@ impl RpcMethod<1> for ChainExport {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (params,): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
+        (ChainExportParams {
             epoch,
             recent_roots,
             output_path,
             tipset_keys,
             skip_checksum,
             dry_run,
-        } = params;
-
+        },): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
         ForestChainExport::handle(
             ctx,
             (ForestChainExportParams {
-                unordered: false,
+                version: FilecoinSnapshotVersion::V1,
                 epoch,
                 recent_roots,
                 output_path,
                 tipset_keys,
                 skip_checksum,
+                unordered: false,
                 dry_run,
             },),
         )
@@ -962,6 +970,7 @@ lotus_json_with_self!(ApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ForestChainExportParams {
+    pub version: FilecoinSnapshotVersion,
     pub epoch: ChainEpoch,
     pub recent_roots: i64,
     pub output_path: PathBuf,

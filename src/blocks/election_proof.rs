@@ -4,11 +4,11 @@
 use crate::blocks::VRFProof;
 use crate::shim::clock::BLOCKS_PER_EPOCH;
 use crate::utils::encoding::blake2b_256;
+use fvm_ipld_encoding::tuple::*;
 use num::{
     BigInt, Integer,
     bigint::{ParseBigIntError, Sign},
 };
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::sync::LazyLock;
 
 const PRECISION: u64 = 256;

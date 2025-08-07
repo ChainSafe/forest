@@ -183,7 +183,6 @@ semver = "1"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
-serde_tuple = "1"
 serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10", default-features = false }
@@ -250,7 +249,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.296"
+ra_ap_syntax = "0.0.297"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
