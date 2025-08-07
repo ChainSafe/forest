@@ -39,6 +39,7 @@ use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 use crate::{Config, rpc};
 use ahash::HashMap;
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
@@ -2048,6 +2049,42 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&power_miner_raw_params)?,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::OnEpochTickEnd as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::CurrentTotalPower as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::NetworkRawPowerExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::POWER_ACTOR,
+            fil_actor_power_state::v16::Method::MinerConsensusCountExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
         // Not supported by the lotus,
         // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/401
         // RpcTest::identity(StateDecodeParams::request((
@@ -2111,39 +2148,15 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::Constructor as u64,
-            vec![],
+            Address::new_id(18101), // https://calibration.filscan.io/en/address/t018101/,
+            fil_actor_multisig_state::v16::Method::LockBalance as u64,
+            to_vec(&multisig_lock_bal_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::OnEpochTickEnd as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::CurrentTotalPower as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::NetworkRawPowerExported as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::MinerCountExported as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::POWER_ACTOR,
-            fil_actor_power_state::v16::Method::MinerConsensusCountExported as u64,
-            vec![],
+            Address::new_id(18101), // https://calibration.filscan.io/en/address/t018101/,
+            fil_actor_multisig_state::v16::Method::UniversalReceiverHook as u64,
+            BASE64_STANDARD.decode("ghgqRBI0Vng=").unwrap(),
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
