@@ -97,6 +97,11 @@ function forest_wait_for_sync {
   timeout 30m $FOREST_CLI_PATH sync wait
 }
 
+function forest_wait_for_healthcheck_ready {
+  echo "Waiting for healthcheck ready"
+  timeout 30m $FOREST_CLI_PATH healthcheck ready --wait
+}
+
 function forest_init {
   forest_download_and_import_snapshot
 

@@ -284,7 +284,7 @@ pin_project! {
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
         block_recv_stream: Fuse<flume::r#async::RecvStream<'a, anyhow::Result<CarBlock>>>,
-        extract_sender: flume::Sender<Cid>,
+        extract_sender: Option<flume::Sender<Cid>>,
         stateroot_limit: ChainEpoch,
         queue: Vec<(Cid, Option<Vec<u8>>)>,
         fail_on_dead_links: bool,
@@ -326,7 +326,7 @@ fn unordered_stream_chain_inner<
     let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
     let (extract_sender, extract_receiver) = flume::unbounded();
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
+    let worker_handle = UnorderedChainStream::<DB, ITER>::start_workers(
         db.clone(),
         sender,
         extract_receiver,
@@ -337,10 +337,10 @@ fn unordered_stream_chain_inner<
     UnorderedChainStream {
         seen,
         db,
-        worker_handle: handle,
+        worker_handle,
         block_recv_stream: receiver.into_stream().fuse(),
         queue: Vec::new(),
-        extract_sender,
+        extract_sender: Some(extract_sender),
         tipset_iter,
         stateroot_limit,
         fail_on_dead_links,
@@ -414,9 +414,7 @@ impl<
                                 if let Some(data) = db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let mut new_values = extract_cids(&data)?;
-                                        if !new_values.is_empty() {
-                                            cid_vec.append(&mut new_values);
-                                        }
+                                        cid_vec.append(&mut new_values);
                                     }
                                     // Break out of the loop if the receiving end quit.
                                     if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
@@ -455,6 +453,14 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
     type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        fn send<T>(sender: &Option<flume::Sender<T>>, v: T) -> Result<(), flume::SendError<T>> {
+            if let Some(sender) = sender {
+                sender.send(v)
+            } else {
+                Err(flume::SendError(v))
+            }
+        }
+
         let stateroot_limit = self.stateroot_limit;
         let fail_on_dead_links = self.fail_on_dead_links;
 
@@ -473,7 +479,8 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                 Poll::Ready(None) => return Poll::Ready(None),
                 Poll::Ready(Some(block)) => return Poll::Ready(Some(block)),
                 _ => {
-                    let this = self.as_mut().project();
+                    let self_mut = self.as_mut();
+                    let this = self_mut.project();
                     // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
                     // the extract queue. The emit queue is processed in the loop above. Once the desired depth
                     // has been reached yield a block without walking the graph it represents.
@@ -497,7 +504,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                     && should_save_block_to_snapshot(block.messages)
                                 {
                                     if this.db.has(&block.messages)? {
-                                        this.extract_sender.send(block.messages)?;
+                                        send(this.extract_sender, block.messages)?;
                                         // This will simply return an error once we reach that item in
                                         // the queue.
                                     } else if fail_on_dead_links {
@@ -515,7 +522,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                     && should_save_block_to_snapshot(block.state_root)
                                 {
                                     if this.db.has(&block.state_root)? {
-                                        this.extract_sender.send(block.state_root)?;
+                                        send(this.extract_sender, block.state_root)?;
                                         // This will simply return an error once we reach that item in
                                         // the queue.
                                     } else if fail_on_dead_links {
@@ -528,8 +535,11 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                 }
                             }
                         }
-                    } else if this.extract_sender.is_empty() {
-                        this.worker_handle.abort();
+                    } else if let Some(extract_sender) = this.extract_sender
+                        && extract_sender.is_empty()
+                    {
+                        // drop the sender to abort the woker task
+                        *this.extract_sender = None;
                     }
                 }
             }

@@ -46,8 +46,7 @@ done
 
 echo "Done"
 
-echo "Waiting to be ready for serving"
-$FOREST_CLI_PATH healthcheck ready --wait
+forest_wait_for_healthcheck_ready
 
 ERROR=0
 echo "Testing Ethereum mappings"
