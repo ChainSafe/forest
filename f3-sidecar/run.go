@@ -16,7 +16,7 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) (err error) {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "Filecoin", &api, nil)
@@ -52,7 +52,11 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	if err != nil {
 		return err
 	}
-	defer ds.Close()
+	defer func() {
+		if closeErr := ds.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
 	verif := blssig.VerifierWithKeyOnG1()
 	networkName := getNetworkName(rawNetwork)
 	m := Network2PredefinedManifestMappings[networkName]

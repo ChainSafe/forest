@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"os"
 
 	"github.com/filecoin-project/go-f3"
@@ -54,7 +55,7 @@ func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gp
 	return h.f3.GetPowerTable(ctx, tsk)
 }
 
-func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) (*cid.Cid, error) {
+func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) (_ *cid.Cid, err error) {
 	cs, err := h.f3.GetCertStore()
 	if err != nil {
 		return nil, err
@@ -64,10 +65,18 @@ func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path strin
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
-	defer writer.Flush()
+	defer func() {
+		if flushErr := writer.Flush(); flushErr != nil {
+			err = errors.Join(err, flushErr)
+		}
+	}()
 	cid, _, err := cs.ExportLatestSnapshot(ctx, writer)
 	if err != nil {
 		return nil, err
