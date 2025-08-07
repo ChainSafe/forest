@@ -19,5 +19,5 @@ pub trait GoF3Node {
         f3_root: String,
     ) -> bool;
 
-    fn import_snap(f3_rpc_endpoint: String, f3_root: String, snapshot: String) -> String;
+    fn import_snap(f3_rpc_endpoint: String, f3_root: String, snapshot_path: String) -> String;
 }

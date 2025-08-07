@@ -12,8 +12,8 @@ import (
 	"github.com/ipfs/go-datastore/namespace"
 )
 
-func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshot string) (err error) {
-	logger.Infof("importing F3 snapshot at %s", snapshot)
+func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshotPath string) (err error) {
+	logger.Infof("importing F3 snapshot at %s", snapshotPath)
 
 	f3api := F3Api{}
 	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "F3", &f3api, nil)
@@ -46,7 +46,7 @@ func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshot
 		}
 	}()
 
-	f, err := os.Open(snapshot)
+	f, err := os.Open(snapshotPath)
 	if err != nil {
 		return err
 	}

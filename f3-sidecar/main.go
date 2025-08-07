@@ -39,22 +39,22 @@ func main() {
 	flag.Int64Var(&bootstrapEpoch, "bootstrap", -1, "F3 bootstrap epoch")
 	var finality int64
 	flag.Int64Var(&finality, "finality", 900, "chain finality epochs")
-	var root string
-	flag.StringVar(&root, "root", "f3-data", "path to the f3 data directory")
-	var snapshot string
-	flag.StringVar(&snapshot, "snapshot", "", "path to the f3 snapshot file")
+	var f3Root string
+	flag.StringVar(&f3Root, "root", "f3-data", "path to the f3 data directory")
+	var snapshotPath string
+	flag.StringVar(&snapshotPath, "snapshot", "", "path to the f3 snapshot file")
 
 	flag.Parse()
 
 	ctx := context.Background()
 
-	if len(snapshot) > 0 {
-		if err := importSnap(ctx, rpcEndpoint, root, snapshot); err != nil {
+	if len(snapshotPath) > 0 {
+		if err := importSnap(ctx, rpcEndpoint, f3Root, snapshotPath); err != nil {
 			panic(err)
 		}
 	}
 
-	err := run(ctx, rpcEndpoint, jwt, f3RpcEndpoint, initialPowerTable, bootstrapEpoch, finality, root)
+	err := run(ctx, rpcEndpoint, jwt, f3RpcEndpoint, initialPowerTable, bootstrapEpoch, finality, f3Root)
 	if err != nil {
 		panic(err)
 	}
