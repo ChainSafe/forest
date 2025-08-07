@@ -109,9 +109,9 @@ macro_rules! register_actor_methods {
             $registry.register_method(
                 $code_cid,
                 $method as MethodNum,
-                |bytes| -> anyhow::Result<()> {
+                |bytes| -> anyhow::Result<serde_json::Value> {
                     if bytes.is_empty() {
-                        Ok(())
+                        Ok(serde_json::json!({}))
                     } else {
                         Ok(fvm_ipld_encoding::from_slice(bytes)?)
                     }
