@@ -586,12 +586,12 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthNewFilter,
             EthUninstallFilter
         ),
-        // with_methods!(
-        //     eth_new_block_filter().name("eth_newBlockFilter works"),
-        //     EthNewBlockFilter,
-        //     EthGetFilterChanges,
-        //     EthUninstallFilter
-        // ),
+        with_methods!(
+            eth_new_block_filter().name("eth_newBlockFilter works"),
+            EthNewBlockFilter,
+            EthGetFilterChanges,
+            EthUninstallFilter
+        ),
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
                 .name("eth_newPendingTransactionFilter works")
