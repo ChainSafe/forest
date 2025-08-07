@@ -1849,6 +1849,24 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         code_cid: Cid::default(),
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
+    let datacap_constructor_params = fil_actor_datacap_state::v16::ConstructorParams {
+        governor: Address::new_id(3000).into(),
+    };
+
+    let datacap_mint_params = fil_actor_datacap_state::v16::MintParams {
+        to: Address::new_id(3001).into(),
+        amount: TokenAmount::default().into(),
+        operators: vec![Address::new_id(3002).into(), Address::new_id(3003).into()],
+    };
+
+    let datacap_destroy_params = fil_actor_datacap_state::v16::DestroyParams {
+        owner: Address::new_id(3004).into(),
+        amount: TokenAmount::default().into(),
+    };
+
+    let datacap_balance_params = fil_actor_datacap_state::v16::BalanceParams {
+        address: Address::new_id(3005).into(),
+    };
 
     let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
         owner: Address::new_id(1000).into(),
@@ -1943,6 +1961,30 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::INIT_ACTOR,
             3,
             to_vec(&init_exec4_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::Constructor as u64,
+            to_vec(&datacap_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::MintExported as u64,
+            to_vec(&datacap_mint_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::DestroyExported as u64,
+            to_vec(&datacap_destroy_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::BalanceExported as u64,
+            to_vec(&datacap_balance_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
