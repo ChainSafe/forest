@@ -417,14 +417,19 @@ impl<
                                         cid_vec.append(&mut new_values);
                                     }
                                     // Break out of the loop if the receiving end quit.
-                                    if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
+                                    if block_sender
+                                        .send_async(Ok(CarBlock { cid, data }))
+                                        .await
+                                        .is_err()
+                                    {
                                         break 'main;
                                     }
                                 } else if fail_on_dead_links {
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {cid}")));
+                                        .send_async(Err(anyhow::anyhow!("missing key: {cid}")))
+                                        .await;
                                     break 'main;
                                 }
                             }

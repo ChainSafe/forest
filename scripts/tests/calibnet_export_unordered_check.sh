@@ -13,7 +13,7 @@ echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
 echo "Exporting zstd compressed snapshot with unordred graph traversal"
-$FOREST_CLI_PATH snapshot export --unordered
+$FOREST_CLI_PATH snapshot export --unordered -o unordered.forest.car.zst
 
 $FOREST_CLI_PATH shutdown --force
 
@@ -28,7 +28,7 @@ echo "Cleanup calibnet db"
 $FOREST_TOOL_PATH db destroy --chain calibnet --force
 
 echo "Import the unordered snapshot"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-100 --import-snapshot "*.car.zst"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-100 --import-snapshot unordered.forest.car.zst
 
 echo "Check if Forest is able to sync"
 forest_run_node_detached
