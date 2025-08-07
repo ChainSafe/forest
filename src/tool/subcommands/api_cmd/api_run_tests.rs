@@ -171,7 +171,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     let mut url = client.base_url().clone();
     url.set_scheme("ws")
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
-    url.set_path("rpc/v0");
+    url.set_path("rpc/v1");
 
     let (mut ws_stream, _) = connect_async(url.as_str()).await?;
 
