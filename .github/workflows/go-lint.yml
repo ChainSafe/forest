@@ -13,9 +13,21 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - ".github/workflows/go-lint.yml"
+      - "Makefile"
+      - "go.work"
+      - "f3-sidecar/**"
+      - "interop-tests/src/tests/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/go-lint.yml"
+      - "Makefile"
+      - "go.work"
+      - "f3-sidecar/**"
+      - "interop-tests/src/tests/**"
 
 jobs:
   lint-go:
