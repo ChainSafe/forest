@@ -34,8 +34,7 @@ use crate::chain::{
 use crate::chain::{FilecoinSnapshotMetadata, FilecoinSnapshotVersion};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL;
-use crate::db::car::{AnyCar, ManyCar};
+use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
@@ -55,15 +54,18 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use human_repr::HumanCount as _;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
+use num::Zero as _;
 use sha2::Sha256;
 use std::fs::File;
-use std::io::{Seek as _, SeekFrom};
+use std::io::{Seek as _, SeekFrom, Write as _};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
@@ -716,9 +718,47 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
         }
     };
     let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&temp_output).await?);
+
+    let handle = tokio::spawn({
+        let start = Instant::now();
+        let temp_output = temp_output.path().to_owned();
+        let output = output.clone();
+        async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
+            println!("Getting ready...");
+            loop {
+                interval.tick().await;
+                let snapshot_size = std::fs::metadata(&temp_output)
+                    .map(|meta| meta.len())
+                    .unwrap_or(0);
+                print!(
+                    "{}{}",
+                    anes::MoveCursorToPreviousLine(1),
+                    anes::ClearLine::All
+                );
+                let elapsed_secs = start.elapsed().as_secs_f64();
+                println!(
+                    "{}: {} ({}/s)",
+                    output.display(),
+                    snapshot_size.human_count_bytes(),
+                    if elapsed_secs.is_zero() {
+                        0.
+                    } else {
+                        (snapshot_size as f64) / elapsed_secs
+                    }
+                    .human_count_bytes(),
+                );
+                _ = std::io::stdout().flush();
+            }
+        }
+    });
+
     crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
     writer.shutdown().await?;
     temp_output.persist(&output)?;
+
+    handle.abort();
+    handle.await?;
 
     Ok(())
 }

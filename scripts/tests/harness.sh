@@ -34,8 +34,11 @@ function forest_download_and_import_snapshot_with_f3 {
   aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_552628.bin -o f3.bin
   echo "Generating v2 snapshot"
   $FOREST_TOOL_PATH archive merge-f3 --filecoin v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
+  echo "Inspecting archive info"
   $FOREST_TOOL_PATH archive info v2.forest.car.zst
+  echo "Inspecting archive metadata"
   $FOREST_TOOL_PATH archive metadata v2.forest.car.zst
+  echo "Importing the v2 snapshot"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot v2.forest.car.zst
 }
 
@@ -147,7 +150,7 @@ function forest_init_with_f3 {
 
   forest_wait_for_healthcheck_ready
   
-  # print the latest F3 certificate
+  echo "Print the latest F3 certificate"
   $FOREST_CLI_PATH f3 c get
   echo "ensure F3 certificate at instance 550000 has been imported"
   $FOREST_CLI_PATH f3 c get 550000
