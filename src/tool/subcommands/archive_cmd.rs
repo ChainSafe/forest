@@ -54,18 +54,15 @@ use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
-use human_repr::HumanCount as _;
-use indicatif::ProgressIterator;
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
-use num::Zero as _;
 use sha2::Sha256;
 use std::fs::File;
-use std::io::{Seek as _, SeekFrom, Write as _};
+use std::io::{Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
@@ -575,8 +572,8 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
-    let pb = indicatif::ProgressBar::new_spinner().with_style(
-        indicatif::ProgressStyle::with_template(
+    let pb = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template(
             "{spinner} exported {total_bytes} with {binary_bytes_per_sec} in {elapsed}",
         )
         .expect("indicatif template must be valid"),
@@ -717,48 +714,19 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
             tempfile::NamedTempFile::new_in(".")?
         }
     };
-    let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&temp_output).await?);
-
-    let handle = tokio::spawn({
-        let start = Instant::now();
-        let temp_output = temp_output.path().to_owned();
-        let output = output.clone();
-        async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
-            println!("Getting ready...");
-            loop {
-                interval.tick().await;
-                let snapshot_size = std::fs::metadata(&temp_output)
-                    .map(|meta| meta.len())
-                    .unwrap_or(0);
-                print!(
-                    "{}{}",
-                    anes::MoveCursorToPreviousLine(1),
-                    anes::ClearLine::All
-                );
-                let elapsed_secs = start.elapsed().as_secs_f64();
-                println!(
-                    "{}: {} ({}/s)",
-                    output.display(),
-                    snapshot_size.human_count_bytes(),
-                    if elapsed_secs.is_zero() {
-                        0.
-                    } else {
-                        (snapshot_size as f64) / elapsed_secs
-                    }
-                    .human_count_bytes(),
-                );
-                _ = std::io::stdout().flush();
-            }
-        }
-    });
-
+    let writer = tokio::io::BufWriter::new(tokio::fs::File::create(&temp_output).await?);
+    let pb = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template(
+            "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
+        )
+        .expect("indicatif template must be valid"),
+    ).with_message(format!("Merging into {} ...", output.display()));
+    pb.enable_steady_tick(std::time::Duration::from_secs(1));
+    let mut writer = pb.wrap_async_write(writer);
     crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
     writer.shutdown().await?;
     temp_output.persist(&output)?;
-
-    handle.abort();
-    handle.await?;
+    pb.finish();
 
     Ok(())
 }
