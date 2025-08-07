@@ -406,7 +406,7 @@ where
             tracing::trace!("Insert mapping {} => {}", k, v);
             self.put_mapping(k, v, timestamp)?;
         }
-        tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
+        tracing::trace!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
     }
 

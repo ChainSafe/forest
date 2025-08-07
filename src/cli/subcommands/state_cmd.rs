@@ -9,7 +9,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use clap::Subcommand;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use fvm_ipld_encoding::tuple::*;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
