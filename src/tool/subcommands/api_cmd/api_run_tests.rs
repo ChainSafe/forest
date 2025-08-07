@@ -187,6 +187,10 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
 
     let mut channel_id: Option<serde_json::Value> = None;
 
+    // The goal of this loop is to wait for a new tipset to arrive without using a busy loop or sleep.
+    // It processes incoming WebSocket messages until it encounters an "apply" or "revert" change type.
+    // If an "apply" change is found, it closes the channel and exits. If a "revert" change is found,
+    // it closes the channel and raises an error. Any channel protocol or parameter validation issues result in an error.
     while let Some(msg) = ws_stream.next().await {
         if let Ok(WsMessage::Text(text)) = msg {
             let json: serde_json::Value = serde_json::from_str(&text)?;
