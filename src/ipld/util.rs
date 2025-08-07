@@ -466,6 +466,26 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
             }
         }
 
+        fn process_cid<DB: Blockstore>(
+            cid: Cid,
+            db: &DB,
+            extract_sender: &Option<flume::Sender<Cid>>,
+            queue: &mut Vec<(Cid, Option<Vec<u8>>)>,
+            seen: &Arc<Mutex<CidHashSet>>,
+            fail_on_dead_links: bool,
+        ) -> anyhow::Result<()> {
+            if should_save_block_to_snapshot(cid) {
+                if db.has(&cid)? {
+                    send(extract_sender, cid)?;
+                } else if fail_on_dead_links {
+                    queue.push((cid, None));
+                } else {
+                    seen.lock().insert(cid);
+                }
+            }
+            Ok(())
+        }
+
         let stateroot_limit = self.stateroot_limit;
         let fail_on_dead_links = self.fail_on_dead_links;
 
@@ -505,38 +525,28 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                 }
 
                                 // Process block messages.
-                                if block.epoch > stateroot_limit
-                                    && should_save_block_to_snapshot(block.messages)
-                                {
-                                    if this.db.has(&block.messages)? {
-                                        send(this.extract_sender, block.messages)?;
-                                        // This will simply return an error once we reach that item in
-                                        // the queue.
-                                    } else if fail_on_dead_links {
-                                        this.queue.push((block.messages, None));
-                                    } else {
-                                        // Make sure we update seen here as we don't send the block for
-                                        // inspection.
-                                        this.seen.lock().insert(block.messages);
-                                    }
+                                if block.epoch > stateroot_limit {
+                                    process_cid(
+                                        block.messages,
+                                        this.db,
+                                        &this.extract_sender,
+                                        this.queue,
+                                        this.seen,
+                                        fail_on_dead_links,
+                                    )?;
                                 }
 
                                 // Visit the block if it's within required depth. And a special case for `0`
                                 // epoch to match Lotus' implementation.
-                                if (block.epoch == 0 || block.epoch > stateroot_limit)
-                                    && should_save_block_to_snapshot(block.state_root)
-                                {
-                                    if this.db.has(&block.state_root)? {
-                                        send(this.extract_sender, block.state_root)?;
-                                        // This will simply return an error once we reach that item in
-                                        // the queue.
-                                    } else if fail_on_dead_links {
-                                        this.queue.push((block.state_root, None));
-                                    } else {
-                                        // Make sure we update seen here as we don't send the block for
-                                        // inspection.
-                                        this.seen.lock().insert(block.state_root);
-                                    }
+                                if block.epoch == 0 || block.epoch > stateroot_limit {
+                                    process_cid(
+                                        block.state_root,
+                                        this.db,
+                                        &this.extract_sender,
+                                        this.queue,
+                                        this.seen,
+                                        fail_on_dead_links,
+                                    )?;
                                 }
                             }
                         }

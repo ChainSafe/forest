@@ -598,6 +598,8 @@ jobs:
       - state-migrations-check
       - calibnet-wallet-check
       - calibnet-export-check
+      - calibnet-export-check-v2
+      - calibnet-unordered-export-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
