@@ -1896,7 +1896,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))),
     };
 
-    // TODO: Enable this test when lotus supports it in go-state-types.
+    // TODO(go-state-types): Enable this test when lotus supports it in go-state-types.
     // https://github.com/filecoin-project/go-state-types/issues/396
     // let cron_constructor_params = fil_actor_cron_state::v16::ConstructorParams {
     //     entries: vec![fil_actor_cron_state::v16::Entry {
@@ -1978,7 +1978,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             to_vec(&power_create_miner_params)?,
             tipset.key().into(),
         ))?),
-        // TODO: Enable this test when lotus supports it in go-state-types.
+        // TODO(go-state-types): Enable this test when lotus supports it in go-state-types.
         // https://github.com/filecoin-project/go-state-types/issues/396
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::CRON_ACTOR,
