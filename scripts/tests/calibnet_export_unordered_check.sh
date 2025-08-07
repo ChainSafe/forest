@@ -28,7 +28,7 @@ echo "Cleanup calibnet db"
 $FOREST_TOOL_PATH db destroy --chain calibnet --force
 
 echo "Import the unordered snapshot"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot *.car.zst
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-100 --import-snapshot "*.car.zst"
 
 echo "Check if Forest is able to sync"
 forest_run_node_detached
