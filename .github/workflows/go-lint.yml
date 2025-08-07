@@ -1,4 +1,6 @@
 name: Go code linters
+permissions:
+  contents: read
 
 # Cancel workflow if there is a new change to the branch.
 concurrency:
