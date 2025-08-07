@@ -357,7 +357,7 @@ fn eth_new_block_filter() -> RpcTestScenario {
         }
 
         let mut retries = 5;
-        let result = loop {
+        loop {
             // Create the filter
             let filter_id = client.call(EthNewBlockFilter::request(())?).await?;
 
@@ -383,9 +383,7 @@ fn eth_new_block_filter() -> RpcTestScenario {
             anyhow::ensure!(removed);
 
             break result;
-        };
-
-        result
+        }
     })
 }
 
