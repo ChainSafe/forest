@@ -59,19 +59,10 @@ async fn test_export_inner(version: FilecoinSnapshotVersion) -> anyhow::Result<(
 
     let checksum = match version {
         FilecoinSnapshotVersion::V1 => {
-            export::<Sha256>(&db, &head, 0, &mut car_bytes, Default::default(), false).await?
+            export::<Sha256>(&db, &head, 0, &mut car_bytes, None).await?
         }
         FilecoinSnapshotVersion::V2 => {
-            export_v2::<Sha256>(
-                &db,
-                None,
-                &head,
-                0,
-                &mut car_bytes,
-                Default::default(),
-                false,
-            )
-            .await?
+            export_v2::<Sha256>(&db, None, &head, 0, &mut car_bytes, None).await?
         }
     };
 

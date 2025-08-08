@@ -27,9 +27,8 @@
 //! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::Tipset;
-use crate::chain::FilecoinSnapshotVersion;
 use crate::chain::{
-    ChainEpochDelta,
+    ChainEpochDelta, ExportOptions, FilecoinSnapshotVersion,
     index::{ChainIndex, ResolveNullTipset},
 };
 use crate::cid_collections::CidHashSet;
@@ -550,7 +549,18 @@ async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
+    crate::chain::export::<Sha256>(
+        store,
+        &ts,
+        depth,
+        writer,
+        Some(ExportOptions {
+            skip_checksum: true,
+            seen,
+            ..Default::default()
+        }),
+    )
+    .await?;
 
     Ok(())
 }

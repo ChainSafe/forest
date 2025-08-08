@@ -38,6 +38,9 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
+        /// Traverse chain in non-deterministic order for better performance with more parallelization.
+        #[arg(long)]
+        unordered: bool,
         /// Export snapshot in the experimental v2 format(FRC-0108).
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
         format: FilecoinSnapshotVersion,
@@ -53,6 +56,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                unordered,
                 format,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
@@ -95,6 +99,7 @@ impl SnapshotCommands {
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    unordered,
                     skip_checksum,
                     dry_run,
                 };
@@ -142,10 +147,12 @@ impl SnapshotCommands {
                 handle.abort();
                 let _ = handle.await;
 
-                if let Some(hash) = hash_result {
-                    save_checksum(&output_path, hash).await?;
+                if !dry_run {
+                    if let Some(hash) = hash_result {
+                        save_checksum(&output_path, hash).await?;
+                    }
+                    temp_path.persist(output_path)?;
                 }
-                temp_path.persist(output_path)?;
 
                 println!("Export completed.");
                 Ok(())

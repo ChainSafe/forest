@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, FilecoinSnapshotVersion, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -319,6 +319,7 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
+            unordered,
             skip_checksum,
             dry_run,
         } = params;
@@ -343,6 +344,11 @@ impl RpcMethod<1> for ForestChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
+        let options = Some(ExportOptions {
+            skip_checksum,
+            unordered,
+            seen: Default::default(),
+        });
         let writer = if dry_run {
             tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
@@ -355,8 +361,7 @@ impl RpcMethod<1> for ForestChainExport {
                     &start_ts,
                     recent_roots,
                     writer,
-                    CidHashSet::default(),
-                    skip_checksum,
+                    options,
                 )
                 .await
             }
@@ -367,8 +372,7 @@ impl RpcMethod<1> for ForestChainExport {
                     &start_ts,
                     recent_roots,
                     writer,
-                    CidHashSet::default(),
-                    skip_checksum,
+                    options,
                 )
                 .await
             }
@@ -409,6 +413,7 @@ impl RpcMethod<1> for ChainExport {
                 output_path,
                 tipset_keys,
                 skip_checksum,
+                unordered: false,
                 dry_run,
             },),
         )
@@ -971,6 +976,7 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
+    pub unordered: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
