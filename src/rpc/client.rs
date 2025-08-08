@@ -89,6 +89,9 @@ impl Client {
     pub fn base_url(&self) -> &Url {
         &self.base_url
     }
+    pub fn token(&self) -> Option<&String> {
+        self.token.as_ref()
+    }
     pub async fn call<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
         &self,
         req: Request<T>,

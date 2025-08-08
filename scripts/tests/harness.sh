@@ -24,7 +24,7 @@ function forest_import_non_calibnet_snapshot {
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot --save-token ./admin_token
 }
 
 function get_epoch_from_car_db {
@@ -115,6 +115,12 @@ function forest_init {
   forest_wait_api
   forest_wait_for_sync
   forest_check_db_stats
+
+  ADMIN_TOKEN=$(cat admin_token)
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
+
+  export ADMIN_TOKEN
+  export FULLNODE_API_INFO
 }
 
 function forest_init_stateless {

@@ -60,6 +60,7 @@ pub enum EVMMethod {
 
 /// Ethereum transaction which can be of different types.
 /// The currently supported types are defined in [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
+#[derive(Debug)]
 pub enum EthTx {
     Homestead(Box<EthLegacyHomesteadTxArgs>),
     Eip1559(Box<EthEip1559TxArgs>),
@@ -155,7 +156,7 @@ impl EthTx {
         }
     }
 
-    fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Homestead(tx) => (*tx).rlp_signed_message(),
             Self::Eip1559(tx) => (*tx).rlp_signed_message(),
