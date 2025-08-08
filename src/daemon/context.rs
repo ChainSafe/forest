@@ -341,15 +341,15 @@ fn handle_admin_token(
         tracing::warn!("Failed to save the default admin token file: {e}");
     }
     if let Some(path) = opts.save_token.as_ref() {
-        if let Some(dir) = path.parent() {
-            if !dir.is_dir() {
-                std::fs::create_dir_all(dir).with_context(|| {
-                    format!(
-                        "Failed to create `--save-token` directory {}",
-                        dir.display()
-                    )
-                })?;
-            }
+        if let Some(dir) = path.parent()
+            && !dir.is_dir()
+        {
+            std::fs::create_dir_all(dir).with_context(|| {
+                format!(
+                    "Failed to create `--save-token` directory {}",
+                    dir.display()
+                )
+            })?;
         }
         std::fs::write(path, &token)
             .with_context(|| format!("Failed to save admin token to {}", path.display()))?;

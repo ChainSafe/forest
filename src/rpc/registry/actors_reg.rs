@@ -244,8 +244,8 @@ mod test {
 
                 // Some actors might fail due to state format issues, but the function
                 // should at least recognize the actor type and attempt to load it
-                if result.is_err() {
-                    let error_msg = result.unwrap_err().to_string();
+                if let Err(e) = result {
+                    let error_msg = e.to_string();
                     // Should not be "unknown actor" or "no serializer" errors
                     assert!(
                         !error_msg.contains("Unknown actor code CID")

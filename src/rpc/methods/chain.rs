@@ -102,15 +102,15 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
                 HeadChange::Apply(ts) => {
                     match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
                         Ok(logs) => {
-                            if !logs.is_empty() {
-                                if let Err(e) = sender.send(logs) {
-                                    tracing::error!(
-                                        "Failed to send logs for tipset {}: {}",
-                                        ts.key(),
-                                        e
-                                    );
-                                    break;
-                                }
+                            if !logs.is_empty()
+                                && let Err(e) = sender.send(logs)
+                            {
+                                tracing::error!(
+                                    "Failed to send logs for tipset {}: {}",
+                                    ts.key(),
+                                    e
+                                );
+                                break;
                             }
                         }
                         Err(e) => {
@@ -515,14 +515,13 @@ impl RpcMethod<2> for ChainStatObj {
                         stats.links += 1;
                         stats.size += data.len();
                     }
-                    if matches!(link_cid.codec(), fvm_ipld_encoding::DAG_CBOR) {
-                        if let Ok(ipld) =
+                    if matches!(link_cid.codec(), fvm_ipld_encoding::DAG_CBOR)
+                        && let Ok(ipld) =
                             crate::utils::encoding::from_slice_with_fallback::<Ipld>(&data)
-                        {
-                            for ipld in DfsIter::new(ipld) {
-                                if let Ipld::Link(cid) = ipld {
-                                    queue.push_back(cid);
-                                }
+                    {
+                        for ipld in DfsIter::new(ipld) {
+                            if let Ipld::Link(cid) = ipld {
+                                queue.push_back(cid);
                             }
                         }
                     }

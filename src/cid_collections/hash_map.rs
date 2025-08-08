@@ -109,7 +109,7 @@ impl<V> CidHashMap<V> {
     ///
     /// See also [`HashMap::entry`].
     #[allow(dead_code)]
-    pub fn entry(&mut self, key: Cid) -> Entry<V> {
+    pub fn entry(&mut self, key: Cid) -> Entry<'_, V> {
         match MaybeCompactedCid::from(key) {
             MaybeCompactedCid::Compact(c) => match self.compact.entry(c) {
                 StdEntry::Occupied(o) => Entry::Occupied(OccupiedEntry {
