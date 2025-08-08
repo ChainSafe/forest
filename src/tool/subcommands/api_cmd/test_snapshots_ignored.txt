@@ -1,3 +1,4 @@
+F3.ExportLatestSnapshot
 F3.Finalize
 F3.GetHead
 F3.GetParent

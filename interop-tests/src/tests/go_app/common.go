@@ -13,5 +13,6 @@ func checkError(err error) {
 // To avoid potential panics
 // See <https://github.com/ChainSafe/forest/pull/4636#issuecomment-2306500753>
 func setGoDebugEnv() {
-	os.Setenv("GODEBUG", "invalidptr=0,cgocheck=0")
+	err := os.Setenv("GODEBUG", "invalidptr=0,cgocheck=0")
+	checkError(err)
 }

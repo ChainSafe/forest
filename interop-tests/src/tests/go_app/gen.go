@@ -26,37 +26,59 @@ import (
 	"github.com/ihciah/rust2go/asmcall"
 )
 
-var GoF3NodeImpl GoF3Node
+var GoKadNodeImpl GoKadNode
 
-type GoF3Node interface {
-	run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, f3_root *string) bool
-	import_snap(f3_rpc_endpoint *string, f3_root *string, snapshot_path *string) string
+type GoKadNode interface {
+	run()
+	connect(multiaddr *string)
+	get_n_connected() uint
 }
 
-//export CGoF3Node_run
-func CGoF3Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint C.StringRef, initial_power_table C.StringRef, bootstrap_epoch C.int64_t, finality C.int64_t, f3_root C.StringRef, slot *C.void, cb *C.void) {
-	_new_rpc_endpoint := newString(rpc_endpoint)
-	_new_jwt := newString(jwt)
-	_new_f3_rpc_endpoint := newString(f3_rpc_endpoint)
-	_new_initial_power_table := newString(initial_power_table)
-	_new_bootstrap_epoch := newC_int64_t(bootstrap_epoch)
-	_new_finality := newC_int64_t(finality)
-	_new_f3_root := newString(f3_root)
-	resp := GoF3NodeImpl.run(&_new_rpc_endpoint, &_new_jwt, &_new_f3_rpc_endpoint, &_new_initial_power_table, &_new_bootstrap_epoch, &_new_finality, &_new_f3_root)
-	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
+//export CGoKadNode_run
+func CGoKadNode_run() {
+	GoKadNodeImpl.run()
+}
+
+//export CGoKadNode_connect
+func CGoKadNode_connect(multiaddr C.StringRef) {
+	_new_multiaddr := newString(multiaddr)
+	GoKadNodeImpl.connect(&_new_multiaddr)
+}
+
+//export CGoKadNode_get_n_connected
+func CGoKadNode_get_n_connected(slot *C.void, cb *C.void) {
+	resp := GoKadNodeImpl.get_n_connected()
+	resp_ref, buffer := cvt_ref(cntC_uintptr_t, refC_uintptr_t)(&resp)
 	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
 	runtime.KeepAlive(resp_ref)
 	runtime.KeepAlive(resp)
 	runtime.KeepAlive(buffer)
 }
 
-//export CGoF3Node_import_snap
-func CGoF3Node_import_snap(f3_rpc_endpoint C.StringRef, f3_root C.StringRef, snapshot_path C.StringRef, slot *C.void, cb *C.void) {
-	_new_f3_rpc_endpoint := newString(f3_rpc_endpoint)
-	_new_f3_root := newString(f3_root)
-	_new_snapshot_path := newString(snapshot_path)
-	resp := GoF3NodeImpl.import_snap(&_new_f3_rpc_endpoint, &_new_f3_root, &_new_snapshot_path)
-	resp_ref, buffer := cvt_ref(cntString, refString)(&resp)
+var GoBitswapNodeImpl GoBitswapNode
+
+type GoBitswapNode interface {
+	run()
+	connect(multiaddr *string)
+	get_block(cid *string) bool
+}
+
+//export CGoBitswapNode_run
+func CGoBitswapNode_run() {
+	GoBitswapNodeImpl.run()
+}
+
+//export CGoBitswapNode_connect
+func CGoBitswapNode_connect(multiaddr C.StringRef) {
+	_new_multiaddr := newString(multiaddr)
+	GoBitswapNodeImpl.connect(&_new_multiaddr)
+}
+
+//export CGoBitswapNode_get_block
+func CGoBitswapNode_get_block(cid C.StringRef, slot *C.void, cb *C.void) {
+	_new_cid := newString(cid)
+	resp := GoBitswapNodeImpl.get_block(&_new_cid)
+	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
 	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
 	runtime.KeepAlive(resp_ref)
 	runtime.KeepAlive(resp)
@@ -212,3 +234,4 @@ func refC_uintptr_t(p *uint, _ *[]byte) C.uintptr_t { return C.uintptr_t(*p) }
 func refC_intptr_t(p *int, _ *[]byte) C.intptr_t    { return C.intptr_t(*p) }
 func refC_float(p *float32, _ *[]byte) C.float      { return C.float(*p) }
 func refC_double(p *float64, _ *[]byte) C.double    { return C.double(*p) }
+func main()                                         {}

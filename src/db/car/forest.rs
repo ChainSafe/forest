@@ -61,6 +61,7 @@ use cid::Cid;
 use futures::{Stream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
 use std::io::{Seek, SeekFrom};
@@ -211,6 +212,28 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             frame_cache: cache,
             ..self
         }
+    }
+
+    /// Gets a reader of the block data by its `Cid`
+    pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
+        for position in self.indexed.get(k)? {
+            // escape the positioned_io::Slice
+            let entire_file = self.indexed.reader().get_ref();
+            // `position` is the frame start offset.
+            let cursor = Cursor::new_pos(entire_file, position);
+            let mut decoder = zstd::Decoder::new(cursor)?.single_frame();
+            while let Ok(car_block_len) = decoder.read_varint::<usize>() {
+                let cid = Cid::read_bytes(&mut decoder)?;
+                let data_len = car_block_len.saturating_sub(cid.encoded_len()) as u64;
+                if cid == k {
+                    // return the reader instead of decoding the entire data block into memory
+                    return Ok(Some(decoder.take(data_len)));
+                }
+                // Discard data bytes
+                io::copy(&mut decoder.by_ref().take(data_len), &mut io::sink())?;
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -488,7 +511,15 @@ mod tests {
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
         assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
-            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+            assert_eq!(forest_car.get(&block.cid).unwrap().unwrap(), block.data);
+            let mut buf = vec![];
+            forest_car
+                .get_reader(block.cid)
+                .unwrap()
+                .unwrap()
+                .read_to_end(&mut buf)
+                .unwrap();
+            assert_eq!(buf, block.data);
         }
     }
 

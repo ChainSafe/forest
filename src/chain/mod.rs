@@ -23,7 +23,7 @@ use cid::Cid;
 use digest::Digest;
 use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
@@ -83,10 +83,7 @@ pub async fn export_v2<D: Digest>(
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
         f3_data.seek(SeekFrom::Start(0))?;
-        let expected_cid = Cid::new_v1(
-            IPLD_RAW,
-            MultihashCode::Blake2b256.digest_byte_stream(f3_data)?,
-        );
+        let expected_cid = crate::f3::snapshot::get_f3_snapshot_cid(f3_data)?;
         anyhow::ensure!(
             f3_cid == &expected_cid,
             "f3 snapshot integrity check failed, actual cid: {f3_cid}, expected cid: {expected_cid}"
@@ -115,10 +112,11 @@ pub async fn export_v2<D: Digest>(
     }];
 
     if let Some((f3_cid, mut f3_data)) = f3 {
+        let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
         f3_data.seek(SeekFrom::Start(0))?;
         prefix_data_frames.push({
             let mut encoder = forest::new_encoder(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
-            encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
+            encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
             anyhow::Ok((
                 vec![f3_cid],
                 finalize_frame(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL, &mut encoder)?,

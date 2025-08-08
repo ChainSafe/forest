@@ -8,6 +8,8 @@ mod go_ffi;
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
 
+pub mod snapshot;
+
 use cid::Cid;
 
 use crate::{networks::ChainConfig, utils::misc::env::is_env_set_and_truthy};
@@ -17,6 +19,17 @@ pub struct F3Options {
     pub chain_finality: i64,
     pub bootstrap_epoch: i64,
     pub initial_power_table: Option<Cid>,
+}
+
+pub fn get_f3_root(config: &crate::Config) -> String {
+    std::env::var("FOREST_F3_ROOT").unwrap_or_else(|_| {
+        config
+            .client
+            .data_dir
+            .join(format!("f3/{}", config.chain()))
+            .display()
+            .to_string()
+    })
 }
 
 pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
@@ -98,6 +111,32 @@ pub fn run_f3_sidecar_if_enabled(
             );
         }
     }
+}
+
+pub fn import_f3_snapshot(
+    chain_config: &ChainConfig,
+    _rpc_endpoint: String,
+    _f3_root: String,
+    _snapshot: String,
+) -> anyhow::Result<()> {
+    if is_sidecar_ffi_enabled(chain_config) {
+        #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
+        {
+            let sw = std::time::Instant::now();
+            tracing::info!("Importing F3 snapshot ...");
+            let err = GoF3NodeImpl::import_snap(_rpc_endpoint, _f3_root, _snapshot);
+            if !err.is_empty() {
+                anyhow::bail!("{err}");
+            }
+            tracing::info!(
+                "Imported F3 snapshot, took {}",
+                humantime::format_duration(sw.elapsed())
+            );
+        }
+    } else {
+        tracing::warn!("F3 sidecar is disabled, skip importing the F3 snapshot");
+    }
+    Ok(())
 }
 
 /// Whether F3 sidecar via FFI is enabled.

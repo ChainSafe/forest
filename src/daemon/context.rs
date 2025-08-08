@@ -61,6 +61,10 @@ impl AppContext {
             snapshot_progress_tracker,
         })
     }
+
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        self.state_manager.chain_config()
+    }
 }
 
 fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {

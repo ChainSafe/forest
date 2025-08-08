@@ -284,6 +284,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::F3GetLatestCertificate);
         $callback!($crate::rpc::f3::F3GetOrRenewParticipationTicket);
         $callback!($crate::rpc::f3::F3Participate);
+        $callback!($crate::rpc::f3::F3ExportLatestSnapshot);
         $callback!($crate::rpc::f3::GetHead);
         $callback!($crate::rpc::f3::GetParent);
         $callback!($crate::rpc::f3::GetParticipatingMinerIDs);

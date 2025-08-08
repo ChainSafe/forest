@@ -74,16 +74,16 @@ impl FilecoinSnapshotMetadata {
 
 impl std::fmt::Display for FilecoinSnapshotMetadata {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Snapshot version: {}", self.version as u64)?;
+        writeln!(f, "Snapshot version:           {}", self.version as u64)?;
         let head_tipset_key_string = self
             .head_tipset_key
             .iter()
             .map(Cid::to_string)
-            .join("\n                  ");
-        writeln!(f, "Head Tipset:      {head_tipset_key_string}")?;
+            .join("\n                            ");
+        writeln!(f, "Head Tipset:                {head_tipset_key_string}")?;
         write!(
             f,
-            "F3 data:          {}",
+            "F3 data:                    {}",
             self.f3_data
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "not found".into())
