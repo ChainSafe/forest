@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::utils::get_size::{GetSize, nunny_vec_heap_size_helper};
 use cid::Cid;
 use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,12 @@ use crate::blocks::TipsetKey;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SmallCidNonEmptyVec(NonEmpty<SmallCid>);
+
+impl GetSize for SmallCidNonEmptyVec {
+    fn get_heap_size(&self) -> usize {
+        nunny_vec_heap_size_helper(&self.0)
+    }
+}
 
 impl SmallCidNonEmptyVec {
     /// Returns `true` if the slice contains an element with the given value.
@@ -72,10 +79,10 @@ impl IntoIterator for SmallCidNonEmptyVec {
 /// This is NOT intended as a general purpose type - other collections should use the variants
 /// of [`MaybeCompactedCid`], so that the discriminant is not repeated.
 #[cfg_vis::cfg_vis(doc, pub)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, GetSize)]
 pub enum SmallCid {
     Inline(CidV1DagCborBlake2b256),
-    Indirect(Box<Uncompactable>),
+    Indirect(Uncompactable),
 }
 
 //////////////////////////
@@ -86,7 +93,7 @@ impl From<Cid> for SmallCid {
     fn from(value: Cid) -> Self {
         match MaybeCompactedCid::from(value) {
             MaybeCompactedCid::Compact(c) => Self::Inline(c),
-            MaybeCompactedCid::Uncompactable(u) => Self::Indirect(Box::new(u)),
+            MaybeCompactedCid::Uncompactable(u) => Self::Indirect(u),
         }
     }
 }
@@ -95,7 +102,7 @@ impl From<SmallCid> for Cid {
     fn from(value: SmallCid) -> Self {
         match value {
             SmallCid::Inline(c) => c.into(),
-            SmallCid::Indirect(u) => (*u).into(),
+            SmallCid::Indirect(u) => u.into(),
         }
     }
 }

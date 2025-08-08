@@ -35,15 +35,15 @@ impl<T> KeyConstraints for T where
 {
 }
 
-pub trait ValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
+pub trait LruValueConstraints: GetSize + Debug + Send + Sync + Clone + 'static {}
 
-impl<T> ValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
+impl<T> LruValueConstraints for T where T: GetSize + Debug + Send + Sync + Clone + 'static {}
 
 #[derive(Debug, Clone)]
 pub struct SizeTrackingLruCache<K, V>
 where
     K: KeyConstraints,
-    V: ValueConstraints,
+    V: LruValueConstraints,
 {
     cache_id: usize,
     cache_name: Cow<'static, str>,
@@ -53,7 +53,7 @@ where
 impl<K, V> SizeTrackingLruCache<K, V>
 where
     K: KeyConstraints,
-    V: ValueConstraints,
+    V: LruValueConstraints,
 {
     pub fn register_metrics(&self, registry: &mut Registry) {
         registry.register_collector(Box::new(self.clone()));
@@ -166,7 +166,7 @@ where
 impl<K, V> Collector for SizeTrackingLruCache<K, V>
 where
     K: KeyConstraints,
-    V: ValueConstraints,
+    V: LruValueConstraints,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         {

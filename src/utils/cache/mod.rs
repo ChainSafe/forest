@@ -2,4 +2,4 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod lru;
-pub use lru::SizeTrackingLruCache;
+pub use lru::{LruValueConstraints, SizeTrackingLruCache};
