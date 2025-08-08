@@ -398,7 +398,13 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - run: ./scripts/tests/calibnet_api_test_stateful_check.sh
+      - name: Api test stateful check
+        env:
+          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_WALLET"
+          fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
