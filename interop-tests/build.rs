@@ -11,7 +11,7 @@ fn main() {
         .with_go_src("./src/tests/go_app")
         .with_regen_arg(rust2go::RegenArgs {
             src: "./src/tests/go_ffi.rs".into(),
-            dst: "./src/tests/go_app/gen.go".into(),
+            dst: "./src/tests/go_app/ffi_gen.go".into(),
             ..Default::default()
         })
         .build();

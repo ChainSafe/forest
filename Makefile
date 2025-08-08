@@ -77,6 +77,9 @@ DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
 	docker run --rm -i hadolint/hadolint < $<
 
+lint-go:
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.3.1 run ./f3-sidecar ./interop-tests/src/tests/go_app
+
 # Formats Rust, TOML and Markdown files.
 fmt:
 	cargo fmt --all
