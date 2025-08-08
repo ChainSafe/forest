@@ -16,6 +16,7 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
+use std::fmt::Display;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -458,11 +459,13 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
     type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        fn send<T>(sender: &Option<flume::Sender<T>>, v: T) -> Result<(), flume::SendError<T>> {
+        fn send<T: Display>(sender: &Option<flume::Sender<T>>, v: T) -> anyhow::Result<()> {
             if let Some(sender) = sender {
-                sender.send(v)
+                sender
+                    .send(v)
+                    .map_err(|e| anyhow::anyhow!("failed to send {}", e.into_inner()))
             } else {
-                Err(flume::SendError(v))
+                anyhow::bail!("attempted to enqueue after shutdown (extract_sender dropped): {v}");
             }
         }
 
@@ -553,7 +556,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                     } else if let Some(extract_sender) = this.extract_sender
                         && extract_sender.is_empty()
                     {
-                        // drop the sender to abort the woker task
+                        // drop the sender to abort the worker task
                         *this.extract_sender = None;
                     }
                 }
