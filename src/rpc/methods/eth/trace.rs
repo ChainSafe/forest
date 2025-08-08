@@ -45,10 +45,10 @@ pub fn base_environment<BS: Blockstore + Send + Sync>(
 }
 
 fn trace_to_address(trace: &ActorTrace) -> EthAddress {
-    if let Some(addr) = trace.state.delegated_address {
-        if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into()) {
-            return eth_addr;
-        }
+    if let Some(addr) = trace.state.delegated_address
+        && let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into())
+    {
+        return eth_addr;
     }
     EthAddress::from_actor_id(trace.id)
 }
@@ -550,11 +550,11 @@ fn trace_evm_private(
             // DELEGATECALL any non-EVM actor, but there's no need to encode that fact
             // here in case we decide to loosen this up in the future.
             env.last_byte_code = None;
-            if trace.msg_rct.exit_code.is_success() {
-                if let Option::Some(actor_trace) = &trace.invoked_actor {
-                    let to = trace_to_address(actor_trace);
-                    env.last_byte_code = Some(to);
-                }
+            if trace.msg_rct.exit_code.is_success()
+                && let Option::Some(actor_trace) = &trace.invoked_actor
+            {
+                let to = trace_to_address(actor_trace);
+                env.last_byte_code = Some(to);
             }
             Ok((None, None))
         }

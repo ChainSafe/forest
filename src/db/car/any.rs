@@ -36,10 +36,10 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
         }
 
         // Maybe use a tempfile for this in the future.
-        if let Ok(decompressed) = zstd::stream::decode_all(positioned_io::Cursor::new(&reader)) {
-            if let Ok(mem_car) = super::PlainCar::new(decompressed) {
-                return Ok(AnyCar::Memory(mem_car));
-            }
+        if let Ok(decompressed) = zstd::stream::decode_all(positioned_io::Cursor::new(&reader))
+            && let Ok(mem_car) = super::PlainCar::new(decompressed)
+        {
+            return Ok(AnyCar::Memory(mem_car));
         }
 
         if let Ok(plain_car) = super::PlainCar::new(reader) {

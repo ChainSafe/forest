@@ -46,11 +46,11 @@ where
             }
         }
         Ipld::Link(cid) => {
-            if cid.codec() == DAG_CBOR {
-                if let Some(mut x) = bs.get_cbor(cid)? {
-                    resolve_ipld(bs, &mut x, depth)?;
-                    *ipld = x;
-                }
+            if cid.codec() == DAG_CBOR
+                && let Some(mut x) = bs.get_cbor(cid)?
+            {
+                resolve_ipld(bs, &mut x, depth)?;
+                *ipld = x;
             }
         }
         _ => (),
