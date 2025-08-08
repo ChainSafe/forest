@@ -73,7 +73,9 @@ impl MethodRegistry {
     }
 
     fn register_known_methods(&mut self) {
-        use crate::rpc::registry::actors::{account, evm, init, miner, power, reward, system};
+        use crate::rpc::registry::actors::{
+            account, evm, init, miner, multisig, power, reward, system,
+        };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
             match actor_type {
@@ -86,6 +88,7 @@ impl MethodRegistry {
                 BuiltinActor::System => system::register_actor_methods(self, cid, version),
                 BuiltinActor::Power => power::register_actor_methods(self, cid, version),
                 BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
+                BuiltinActor::Multisig => multisig::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }
@@ -113,7 +116,9 @@ macro_rules! register_actor_methods {
                     if bytes.is_empty() {
                         Ok(serde_json::json!({}))
                     } else {
-                        Ok(fvm_ipld_encoding::from_slice(bytes)?)
+                        use base64::{Engine as _, prelude::BASE64_STANDARD};
+                        // Return bytes as base64 string, matching Lotus behavior
+                        Ok(serde_json::json!(BASE64_STANDARD.encode(bytes).as_str()))
                     }
                 },
             );
@@ -311,5 +316,31 @@ mod test {
         let result = deserialize_params(&system_cid, 1, &[]);
 
         assert!(result.is_ok(), "Should handle CBOR null: {result:?}");
+    }
+
+    #[test]
+    fn test_empty_param_type_with_bytes_returns_base64() {
+        let mut registry = MethodRegistry::new();
+        let test_cid = create_test_cid(b"empty_param_test");
+
+        // Register a method with empty parameter type
+        register_actor_methods!(registry, test_cid, [(42, empty)]);
+
+        // Test with empty bytes - should return empty JSON object
+        let result = registry.deserialize_params(&test_cid, 42, &[]);
+        assert!(result.is_ok());
+        let json_value = result.unwrap().unwrap();
+        assert_eq!(json_value, json!({}));
+
+        // Test with non-empty bytes - should return base64 encoded string
+        let test_bytes = vec![0x82, 0x18, 0x2a, 0x44, 0x12, 0x34, 0x56, 0x78]; // Sample CBOR bytes
+        let result = registry.deserialize_params(&test_cid, 42, &test_bytes);
+        assert!(result.is_ok());
+        let json_value = result.unwrap().unwrap();
+
+        use base64::engine::{Engine as _, general_purpose::STANDARD};
+        let expected_base64 = STANDARD.encode(&test_bytes);
+        assert_eq!(json_value, json!(expected_base64));
+        assert_eq!(json_value.as_str().unwrap(), "ghgqRBI0Vng=");
     }
 }
