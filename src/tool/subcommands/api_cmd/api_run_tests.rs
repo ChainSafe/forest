@@ -582,7 +582,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
                 .name("eth_newFilter over limit")
                 .should_fail_with("maximum number of filters registered")
-                .ignore("TODO: create issue"),
+                .ignore("https://github.com/ChainSafe/forest/issues/5915"),
             EthNewFilter,
             EthUninstallFilter
         ),
