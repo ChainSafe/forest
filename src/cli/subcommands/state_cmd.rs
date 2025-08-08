@@ -6,24 +6,11 @@ use crate::rpc::state::ForestStateCompute;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
 use crate::shim::clock::ChainEpoch;
-use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use clap::Subcommand;
-use fvm_ipld_encoding::tuple::*;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-
-#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
-struct VestingSchedule {
-    entries: Vec<VestingScheduleEntry>,
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
-struct VestingScheduleEntry {
-    epoch: ChainEpoch,
-    amount: TokenAmount,
-}
 
 #[derive(Debug, Subcommand)]
 pub enum StateCommands {

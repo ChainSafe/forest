@@ -76,13 +76,13 @@ mod imp {
         type Error = &'static str;
 
         fn try_from(value: Cid) -> Result<Self, Self::Error> {
-            if value.version() == cid::Version::V1 && value.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if let Ok(small_hash) = value.hash().resize() {
-                    let (code, digest, size) = small_hash.into_inner();
-                    if code == u64::from(MultihashCode::Blake2b256) && size as usize == Self::WIDTH
-                    {
-                        return Ok(Self { digest });
-                    }
+            if value.version() == cid::Version::V1
+                && value.codec() == fvm_ipld_encoding::DAG_CBOR
+                && let Ok(small_hash) = value.hash().resize()
+            {
+                let (code, digest, size) = small_hash.into_inner();
+                if code == u64::from(MultihashCode::Blake2b256) && size as usize == Self::WIDTH {
+                    return Ok(Self { digest });
                 }
             }
             Err("cannot be compacted")

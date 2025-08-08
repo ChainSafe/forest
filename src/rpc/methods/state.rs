@@ -1357,10 +1357,10 @@ impl RpcMethod<2> for StateFetchRoot {
                 }
 
                 while let Some(cid) = to_be_fetched.pop() {
-                    if task_set.len() == MAX_CONCURRENT_REQUESTS {
-                        if let Some(ret) = task_set.join_next().await {
-                            handle_worker(&mut fetched, &mut failures, ret?)
-                        }
+                    if task_set.len() == MAX_CONCURRENT_REQUESTS
+                        && let Some(ret) = task_set.join_next().await
+                    {
+                        handle_worker(&mut fetched, &mut failures, ret?)
                     }
                     task_set.spawn_blocking({
                         let network_send = network_send.clone();
@@ -2449,10 +2449,10 @@ impl RpcMethod<3> for StateListMessages {
             if ctx.state_manager.lookup_id(&to, ts.as_ref())?.is_none() {
                 return Ok(vec![]);
             }
-        } else if let Some(from) = from_to.from {
-            if ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none() {
-                return Ok(vec![]);
-            }
+        } else if let Some(from) = from_to.from
+            && ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none()
+        {
+            return Ok(vec![]);
         }
 
         let mut out = Vec::new();

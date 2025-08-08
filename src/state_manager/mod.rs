@@ -458,11 +458,11 @@ where
                 .insert_events(key, events_data);
         }
 
-        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root) {
-            if !receipts.is_empty() {
-                self.receipt_event_cache_handler
-                    .insert_receipt(key, receipts);
-            }
+        if let Ok(receipts) = Receipt::get_receipts(self.blockstore(), state_output.receipt_root)
+            && !receipts.is_empty()
+        {
+            self.receipt_event_cache_handler
+                .insert_receipt(key, receipts);
         }
     }
 
@@ -758,12 +758,12 @@ where
             }
         };
         let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
-        if let Err(error_message) = result {
-            if error_message.to_string() != REPLAY_HALT {
-                return Err(Error::Other(format!(
-                    "unexpected error during execution : {error_message:}"
-                )));
-            }
+        if let Err(error_message) = result
+            && error_message.to_string() != REPLAY_HALT
+        {
+            return Err(Error::Other(format!(
+                "unexpected error during execution : {error_message:}"
+            )));
         }
         api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
@@ -1609,12 +1609,10 @@ where
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 if let Ok(state) =
                     StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
-                {
-                    if let Ok(address) = state
+                    && let Ok(address) = state
                         .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
-                    {
-                        return Ok(address);
-                    }
+                {
+                    return Ok(address);
                 }
 
                 // If that fails, compute the tip-set and try again.

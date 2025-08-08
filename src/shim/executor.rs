@@ -191,10 +191,10 @@ impl Receipt {
         i: u64,
     ) -> anyhow::Result<Option<Self>> {
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-        if let Ok(amt) = Amtv0::load(receipts, db) {
-            if let Ok(receipts) = amt.get(i) {
-                return Ok(receipts.cloned().map(Receipt::V4));
-            }
+        if let Ok(amt) = Amtv0::load(receipts, db)
+            && let Ok(receipts) = amt.get(i)
+        {
+            return Ok(receipts.cloned().map(Receipt::V4));
         }
 
         // Fallback to Receipt_v2.
