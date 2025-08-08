@@ -255,10 +255,10 @@ impl PeerManager {
 
             let now = Instant::now();
             for (peer, expiration) in self.peer_ban_list.read().await.iter() {
-                if let Some(expiration) = expiration {
-                    if &now > expiration {
-                        unban_list.push(*peer);
-                    }
+                if let Some(expiration) = expiration
+                    && &now > expiration
+                {
+                    unban_list.push(*peer);
                 }
             }
             if !unban_list.is_empty() {

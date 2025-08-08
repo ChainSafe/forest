@@ -226,37 +226,37 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
             map.insert(key, value);
         }
 
-        if map.len() == 1 {
-            if let Some(v) = map.get("/") {
-                match v {
-                    Ipld::String(s) => {
-                        // { "/": ".." } Json block is a Cid
-                        return Ok(Ipld::Link(s.parse().map_err(de::Error::custom)?));
-                    }
-                    Ipld::Map(obj) => {
-                        if let Some(Ipld::String(s)) = obj.get(BYTES_JSON_KEY) {
-                            // { "/": { "bytes": "<multibase>" } } Json block are bytes encoded
-                            let (_, bz) = multibase::decode(s)
-                                .map_err(|e| de::Error::custom(e.to_string()))?;
-                            return Ok(Ipld::Bytes(bz));
-                        }
-                        if let Some(Ipld::String(s)) = obj.get(INT_JSON_KEY) {
-                            // { "/": { "int": "i128" } }
-                            let s = s
-                                .parse::<i128>()
-                                .map_err(|e| de::Error::custom(e.to_string()))?;
-                            return Ok(Ipld::Integer(s));
-                        }
-                        if let Some(Ipld::String(s)) = obj.get(FLOAT_JSON_KEY) {
-                            // { "/": { "float": "f64" } }
-                            let s = s
-                                .parse::<f64>()
-                                .map_err(|e| de::Error::custom(e.to_string()))?;
-                            return Ok(Ipld::Float(s));
-                        }
-                    }
-                    _ => (),
+        if map.len() == 1
+            && let Some(v) = map.get("/")
+        {
+            match v {
+                Ipld::String(s) => {
+                    // { "/": ".." } Json block is a Cid
+                    return Ok(Ipld::Link(s.parse().map_err(de::Error::custom)?));
                 }
+                Ipld::Map(obj) => {
+                    if let Some(Ipld::String(s)) = obj.get(BYTES_JSON_KEY) {
+                        // { "/": { "bytes": "<multibase>" } } Json block are bytes encoded
+                        let (_, bz) =
+                            multibase::decode(s).map_err(|e| de::Error::custom(e.to_string()))?;
+                        return Ok(Ipld::Bytes(bz));
+                    }
+                    if let Some(Ipld::String(s)) = obj.get(INT_JSON_KEY) {
+                        // { "/": { "int": "i128" } }
+                        let s = s
+                            .parse::<i128>()
+                            .map_err(|e| de::Error::custom(e.to_string()))?;
+                        return Ok(Ipld::Integer(s));
+                    }
+                    if let Some(Ipld::String(s)) = obj.get(FLOAT_JSON_KEY) {
+                        // { "/": { "float": "f64" } }
+                        let s = s
+                            .parse::<f64>()
+                            .map_err(|e| de::Error::custom(e.to_string()))?;
+                        return Ok(Ipld::Float(s));
+                    }
+                }
+                _ => (),
             }
         }
 
