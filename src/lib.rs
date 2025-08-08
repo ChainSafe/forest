@@ -113,6 +113,9 @@ pub mod interop_tests_private {
     pub mod libp2p_bitswap {
         pub use crate::libp2p_bitswap::*;
     }
+    pub mod beacon {
+        pub use crate::beacon::BeaconEntry;
+    }
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
