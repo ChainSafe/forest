@@ -149,10 +149,10 @@ impl BitswapRequestManager {
                 metrics::message_counter_get_block_failure().inc();
             }
 
-            if let Some(responder) = responder {
-                if let Err(e) = responder.send_async(success).await {
-                    debug!("{e}");
-                }
+            if let Some(responder) = responder
+                && let Err(e) = responder.send_async(success).await
+            {
+                debug!("{e}");
             }
 
             metrics::GET_BLOCK_TIME.observe((Instant::now() - start).as_secs_f64());
@@ -221,11 +221,9 @@ impl BitswapRequestManager {
             }
         }
 
-        if !success {
-            if let Ok(data) = block_saved_rx.recv_deadline(deadline) {
-                success = true;
-                block_data = data;
-            }
+        if !success && let Ok(data) = block_saved_rx.recv_deadline(deadline) {
+            success = true;
+            block_data = data;
         }
 
         if let Some(data) = block_data {

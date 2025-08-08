@@ -313,16 +313,16 @@ impl MsgChainNode {
 
     pub fn set_eff_perf(&mut self, prev: Option<(f64, u64)>) {
         let mut eff_perf = self.gas_perf * self.bp;
-        if let Some(prev) = prev {
-            if eff_perf > 0.0 {
-                let prev_eff_perf = prev.0;
-                let prev_gas_limit = prev.1;
-                let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
-                    + prev_eff_perf * prev_gas_limit as f64)
-                    / (self.gas_limit + prev_gas_limit) as f64;
-                self.parent_offset = eff_perf - eff_perf_with_parent;
-                eff_perf = eff_perf_with_parent;
-            }
+        if let Some(prev) = prev
+            && eff_perf > 0.0
+        {
+            let prev_eff_perf = prev.0;
+            let prev_gas_limit = prev.1;
+            let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
+                + prev_eff_perf * prev_gas_limit as f64)
+                / (self.gas_limit + prev_gas_limit) as f64;
+            self.parent_offset = eff_perf - eff_perf_with_parent;
+            eff_perf = eff_perf_with_parent;
         }
         self.eff_perf = eff_perf;
     }
