@@ -529,7 +529,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                     process_cid(
                                         block.messages,
                                         this.db,
-                                        &this.extract_sender,
+                                        this.extract_sender,
                                         this.queue,
                                         this.seen,
                                         fail_on_dead_links,
@@ -542,7 +542,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                                     process_cid(
                                         block.state_root,
                                         this.db,
-                                        &this.extract_sender,
+                                        this.extract_sender,
                                         this.queue,
                                         this.seen,
                                         fail_on_dead_links,
