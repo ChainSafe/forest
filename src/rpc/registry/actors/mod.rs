@@ -8,3 +8,4 @@ pub(crate) mod miner;
 pub(crate) mod power;
 pub(crate) mod reward;
 pub(crate) mod system;
+pub(crate) mod verified_reg;

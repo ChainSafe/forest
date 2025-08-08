@@ -1807,15 +1807,37 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
 }
 
 fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
-    let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
-        address: Address::new_id(1234).into(),
+    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
+        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
+        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
-    let account_auth_params = fil_actor_account_state::v16::types::AuthenticateMessageParams {
-        signature: vec![0x00; 32], // dummy signature
-        message: b"test message".to_vec(),
-    };
+    let mut tests = vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
+            1,
+            to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::SYSTEM_ACTOR,
+            fil_actor_system_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+    ];
 
+    tests.extend(miner_actor_state_decode_params_tests(tipset)?);
+    tests.extend(account_actor_state_decode_params_tests(tipset)?);
+    tests.extend(init_actor_state_decode_params_tests(tipset)?);
+    tests.extend(reward_actor_state_decode_params_tests(tipset)?);
+    tests.extend(power_actor_state_decode_params_tests(tipset)?);
+    tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+
+    Ok(tests)
+}
+
+fn miner_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let miner_constructor_params = fil_actor_miner_state::v16::MinerConstructorParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
@@ -1830,11 +1852,49 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         new_control_addresses: vec![Address::new_id(2001).into()],
     };
 
-    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
-        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
-        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            1,
+            to_vec(&miner_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            MINER_ADDRESS,
+            3,
+            to_vec(&miner_change_worker_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn account_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
+        address: Address::new_id(1234).into(),
     };
 
+    let account_auth_params = fil_actor_account_state::v16::types::AuthenticateMessageParams {
+        signature: vec![0x00; 32], // dummy signature
+        message: b"test message".to_vec(),
+    };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            1,
+            to_vec(&account_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            ACCOUNT_ADDRESS,
+            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
+            to_vec(&account_auth_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn init_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let init_constructor_params = fil_actor_init_state::v16::ConstructorParams {
         network_name: "calibnet".to_string(),
     };
@@ -1850,6 +1910,75 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            1,
+            to_vec(&init_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            2,
+            to_vec(&init_exec_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::INIT_ACTOR,
+            3,
+            to_vec(&init_exec4_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn reward_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
+        power: Some(Default::default()),
+    };
+
+    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
+        miner: Address::new_id(1000).into(),
+        penalty: Default::default(),
+        gas_reward: Default::default(),
+        win_count: 0,
+    };
+
+    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
+        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
+            111,
+        ))),
+    };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::Constructor as u64,
+            to_vec(&reward_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
+            to_vec(&reward_award_block_reward_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
+            to_vec(&reward_update_network_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::REWARD_ACTOR,
+            fil_actor_reward_state::v16::Method::ThisEpochReward as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn power_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
@@ -1879,96 +2008,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
 
     let power_miner_raw_params = fil_actor_power_state::v16::MinerRawPowerParams { miner: 1234 };
 
-    let reward_constructor_params = fil_actor_reward_state::v16::ConstructorParams {
-        power: Some(Default::default()),
-    };
-
-    let reward_award_block_reward_params = fil_actor_reward_state::v16::AwardBlockRewardParams {
-        miner: Address::new_id(1000).into(),
-        penalty: Default::default(),
-        gas_reward: Default::default(),
-        win_count: 0,
-    };
-
-    let reward_update_network_params = fil_actor_reward_state::v16::UpdateNetworkKPIParams {
-        curr_realized_power: Option::from(fvm_shared4::bigint::bigint_ser::BigIntDe(BigInt::from(
-            111,
-        ))),
-    };
-
-    let tests = vec![
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            1,
-            to_vec(&miner_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            3,
-            to_vec(&miner_change_worker_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            ACCOUNT_ADDRESS,
-            1,
-            to_vec(&account_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            ACCOUNT_ADDRESS,
-            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
-            to_vec(&account_auth_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
-            1,
-            to_vec(&evm_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            1,
-            to_vec(&init_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            2,
-            to_vec(&init_exec_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::INIT_ACTOR,
-            3,
-            to_vec(&init_exec4_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::Constructor as u64,
-            to_vec(&reward_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::AwardBlockReward as u64,
-            to_vec(&reward_award_block_reward_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::UpdateNetworkKPI as u64,
-            to_vec(&reward_update_network_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::REWARD_ACTOR,
-            fil_actor_reward_state::v16::Method::ThisEpochReward as u64,
-            vec![],
-            tipset.key().into(),
-        ))?),
+    Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::POWER_ACTOR,
             fil_actor_power_state::v16::Method::CreateMiner as u64,
@@ -2049,15 +2089,199 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             vec![],
             tipset.key().into(),
         ))?),
+    ])
+}
+
+fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let verified_reg_constructor_params = fil_actor_verifreg_state::v16::ConstructorParams {
+        root_key: Address::new_id(1000).into(),
+    };
+
+    let verified_reg_add_verifier_params = fil_actor_verifreg_state::v16::AddVerifierParams {
+        address: Address::new_id(1234).into(),
+        allowance: StoragePower::from(1048576u64), // 1MB
+    };
+
+    let verified_reg_remove_verifier_params = fil_actor_verifreg_state::v16::RemoveVerifierParams {
+        verifier: Address::new_id(1234).into(),
+    };
+
+    let verified_reg_add_verified_client_params =
+        fil_actor_verifreg_state::v16::AddVerifiedClientParams {
+            address: Address::new_id(1235).into(),
+            allowance: fil_actor_verifreg_state::v16::types::DataCap::from(2097152u64), // 2MB
+        };
+
+    let verified_reg_remove_data_cap_params = fil_actor_verifreg_state::v16::RemoveDataCapParams {
+        verified_client_to_remove: Address::new_id(1236).into(),
+        data_cap_amount_to_remove: fil_actor_verifreg_state::v16::types::DataCap::from(1048576u64),
+        verifier_request_1: fil_actor_verifreg_state::v16::RemoveDataCapRequest {
+            verifier: Address::new_id(1237).into(),
+            signature: fvm_shared4::crypto::signature::Signature::new_bls(
+                b"test_signature_1".to_vec(),
+            ),
+        },
+        verifier_request_2: fil_actor_verifreg_state::v16::RemoveDataCapRequest {
+            verifier: Address::new_id(1238).into(),
+            signature: fvm_shared4::crypto::signature::Signature::new_secp256k1(
+                b"test_signature_2".to_vec(),
+            ),
+        },
+    };
+
+    let verified_reg_remove_expired_allocations_params =
+        fil_actor_verifreg_state::v16::RemoveExpiredAllocationsParams {
+            client: 1239,
+            allocation_ids: vec![1001, 1002, 1003],
+        };
+
+    let verified_reg_claim_allocations_params =
+        fil_actor_verifreg_state::v16::ClaimAllocationsParams {
+            sectors: vec![fil_actor_verifreg_state::v16::SectorAllocationClaims {
+                sector: 42,
+                expiry: 2000000,
+                claims: vec![
+                    fil_actor_verifreg_state::v16::AllocationClaim {
+                        client: 1240,
+                        allocation_id: 2001,
+                        data: Cid::default(),
+                        size: fvm_shared4::piece::PaddedPieceSize(1024),
+                    },
+                    fil_actor_verifreg_state::v16::AllocationClaim {
+                        client: 1241,
+                        allocation_id: 2002,
+                        data: Cid::default(),
+                        size: fvm_shared4::piece::PaddedPieceSize(2048),
+                    },
+                ],
+            }],
+            all_or_nothing: false,
+        };
+
+    let verified_reg_get_claims_params = fil_actor_verifreg_state::v16::GetClaimsParams {
+        provider: 1242,
+        claim_ids: vec![3001, 3002, 3003],
+    };
+
+    let verified_reg_extend_claim_terms_params =
+        fil_actor_verifreg_state::v16::ExtendClaimTermsParams {
+            terms: vec![fil_actor_verifreg_state::v16::ClaimTerm {
+                provider: 12,
+                claim_id: 12,
+                term_max: 123,
+            }],
+        };
+
+    let verified_reg_remove_expired_claims_params =
+        fil_actor_verifreg_state::v16::RemoveExpiredClaimsParams {
+            provider: 1243,
+            claim_ids: vec![4001, 4002, 4003],
+        };
+
+    let verified_reg_universal_receiver_params =
+        fvm_actor_utils::receiver::UniversalReceiverParams {
+            type_: 42,
+            payload: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56, 0x78]),
+        };
+
+    Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
-            Address::SYSTEM_ACTOR,
-            fil_actor_system_state::v16::Method::Constructor as u64,
-            vec![],
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::Constructor as u64,
+            to_vec(&verified_reg_constructor_params)?,
             tipset.key().into(),
         ))?),
-    ];
-
-    Ok(tests)
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::AddVerifier as u64,
+            to_vec(&verified_reg_add_verifier_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveVerifier as u64,
+            to_vec(&verified_reg_remove_verifier_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::AddVerifiedClient as u64,
+            to_vec(&verified_reg_add_verified_client_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveVerifiedClientDataCap as u64,
+            to_vec(&verified_reg_remove_data_cap_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveExpiredAllocations as u64,
+            to_vec(&verified_reg_remove_expired_allocations_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::ClaimAllocations as u64,
+            to_vec(&verified_reg_claim_allocations_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::GetClaims as u64,
+            to_vec(&verified_reg_get_claims_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::ExtendClaimTerms as u64,
+            to_vec(&verified_reg_extend_claim_terms_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveExpiredClaims as u64,
+            to_vec(&verified_reg_remove_expired_claims_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::AddVerifiedClientExported as u64,
+            to_vec(&verified_reg_add_verified_client_params)?, // reuse same params
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveExpiredAllocationsExported as u64,
+            to_vec(&verified_reg_remove_expired_allocations_params)?, // reuse same params
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::GetClaimsExported as u64,
+            to_vec(&verified_reg_get_claims_params)?, // reuse same params
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::ExtendClaimTermsExported as u64,
+            to_vec(&verified_reg_extend_claim_terms_params)?, // reuse same params
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::RemoveExpiredClaimsExported as u64,
+            to_vec(&verified_reg_remove_expired_claims_params)?, // reuse same params
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            fil_actor_verifreg_state::v16::Method::UniversalReceiverHook as u64,
+            to_vec(&verified_reg_universal_receiver_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
 }
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
