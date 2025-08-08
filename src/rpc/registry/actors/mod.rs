@@ -5,6 +5,7 @@ pub(crate) mod account;
 pub(crate) mod evm;
 pub(crate) mod init;
 pub(crate) mod miner;
+pub(crate) mod multisig;
 pub(crate) mod power;
 pub(crate) mod reward;
 pub(crate) mod system;

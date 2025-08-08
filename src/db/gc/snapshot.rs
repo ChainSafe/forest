@@ -172,18 +172,16 @@ where
             if !self.running.load(Ordering::Relaxed)
                 && let Some(db) = &*self.db.read()
                 && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
+                && let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db)
+                && let Ok(head) = Tipset::load_required(db, &head_key)
             {
-                if let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db) {
-                    if let Ok(head) = Tipset::load_required(db, &head_key) {
-                        let head_epoch = head.epoch();
-                        if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
-                            && self.trigger_tx.try_send(()).is_ok()
-                        {
-                            tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
-                        } else {
-                            tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
-                        }
-                    }
+                let head_epoch = head.epoch();
+                if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                    && self.trigger_tx.try_send(()).is_ok()
+                {
+                    tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                } else {
+                    tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
                 }
             }
             tokio::time::sleep(snap_gc_check_interval).await;
@@ -271,93 +269,92 @@ where
 
     async fn cleanup_before_reboot_inner(&self) -> anyhow::Result<()> {
         tracing::info!("cleaning up db before rebooting");
-        if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() } {
-            if blessed_lite_snapshot.is_file() {
-                let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
-                for col in [
-                    DbColumn::GraphDagCborBlake2b256 as u8,
-                    DbColumn::GraphFull as u8,
-                ] {
-                    let start = Instant::now();
-                    tracing::info!("pruning parity-db column {col}...");
-                    loop {
-                        match parity_db::Db::reset_column(&mut opts, col, None) {
-                            Ok(_) => break,
-                            Err(_) => {
-                                tokio::time::sleep(Duration::from_secs(1)).await;
-                            }
+        if let Some(blessed_lite_snapshot) = { self.blessed_lite_snapshot.read().clone() }
+            && blessed_lite_snapshot.is_file()
+        {
+            let mut opts = ParityDb::to_options(self.db_root_dir.clone(), &self.db_config);
+            for col in [
+                DbColumn::GraphDagCborBlake2b256 as u8,
+                DbColumn::GraphFull as u8,
+            ] {
+                let start = Instant::now();
+                tracing::info!("pruning parity-db column {col}...");
+                loop {
+                    match parity_db::Db::reset_column(&mut opts, col, None) {
+                        Ok(_) => break,
+                        Err(_) => {
+                            tokio::time::sleep(Duration::from_secs(1)).await;
                         }
                     }
+                }
+                tracing::info!(
+                    "pruned parity-db column {col}, took {}",
+                    humantime::format_duration(start.elapsed())
+                );
+            }
+
+            for car_to_remove in walkdir::WalkDir::new(&self.car_db_dir)
+                .max_depth(1)
+                .into_iter()
+                .filter_map(|entry| {
+                    if let Ok(entry) = entry {
+                        // Also cleanup `.tmp*` files snapshot export is interrupted ungracefully
+                        if entry.path().is_file() && entry.path() != blessed_lite_snapshot.as_path()
+                        {
+                            return Some(entry.into_path());
+                        }
+                    }
+                    None
+                })
+            {
+                match std::fs::remove_file(&car_to_remove) {
+                    Ok(_) => {
+                        tracing::info!("deleted car db at {}", car_to_remove.display());
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "failed to delete car db at {}: {e}",
+                            car_to_remove.display()
+                        );
+                    }
+                }
+            }
+
+            // Backfill new db records during snapshot export
+            if let Ok(db) = open_db(self.db_root_dir.clone(), &self.db_config) {
+                if let Some(mem_db) = self.memory_db.write().take() {
+                    let count = mem_db.len();
+                    let approximate_heap_size = {
+                        let mut size = 0;
+                        for (_k, v) in mem_db.iter() {
+                            size += std::mem::size_of::<Cid>();
+                            size += v.len();
+                        }
+                        size
+                    };
+                    let start = Instant::now();
+                    if let Err(e) = db.put_many_keyed(mem_db) {
+                        tracing::warn!("{e}");
+                    }
                     tracing::info!(
-                        "pruned parity-db column {col}, took {}",
+                        "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
+                        human_bytes::human_bytes(approximate_heap_size as f64),
                         humantime::format_duration(start.elapsed())
                     );
                 }
-
-                for car_to_remove in walkdir::WalkDir::new(&self.car_db_dir)
-                    .max_depth(1)
-                    .into_iter()
-                    .filter_map(|entry| {
-                        if let Ok(entry) = entry {
-                            // Also cleanup `.tmp*` files snapshot export is interrupted ungracefully
-                            if entry.path().is_file()
-                                && entry.path() != blessed_lite_snapshot.as_path()
-                            {
-                                return Some(entry.into_path());
-                            }
-                        }
-                        None
-                    })
-                {
-                    match std::fs::remove_file(&car_to_remove) {
-                        Ok(_) => {
-                            tracing::info!("deleted car db at {}", car_to_remove.display());
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                "failed to delete car db at {}: {e}",
-                                car_to_remove.display()
-                            );
-                        }
+                match (
+                    self.memory_db_head_key.write().take(),
+                    self.exported_head_key.write().take(),
+                ) {
+                    (Some(head_key), _) if Tipset::load_required(&db, &head_key).is_ok() => {
+                        let _ = db.set_heaviest_tipset_key(&head_key);
+                        tracing::info!("set memory db head key");
                     }
-                }
-
-                // Backfill new db records during snapshot export
-                if let Ok(db) = open_db(self.db_root_dir.clone(), &self.db_config) {
-                    if let Some(mem_db) = self.memory_db.write().take() {
-                        let count = mem_db.len();
-                        let approximate_heap_size = {
-                            let mut size = 0;
-                            for (_k, v) in mem_db.iter() {
-                                size += std::mem::size_of::<Cid>();
-                                size += v.len();
-                            }
-                            size
-                        };
-                        let start = Instant::now();
-                        if let Err(e) = db.put_many_keyed(mem_db) {
-                            tracing::warn!("{e}");
-                        }
-                        tracing::info!(
-                            "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
-                            human_bytes::human_bytes(approximate_heap_size as f64),
-                            humantime::format_duration(start.elapsed())
-                        );
+                    (_, Some(head_key)) => {
+                        let _ = db.set_heaviest_tipset_key(&head_key);
+                        tracing::info!("set exported head key");
                     }
-                    match (
-                        self.memory_db_head_key.write().take(),
-                        self.exported_head_key.write().take(),
-                    ) {
-                        (Some(head_key), _) if Tipset::load_required(&db, &head_key).is_ok() => {
-                            let _ = db.set_heaviest_tipset_key(&head_key);
-                            tracing::info!("set memory db head key");
-                        }
-                        (_, Some(head_key)) => {
-                            let _ = db.set_heaviest_tipset_key(&head_key);
-                            tracing::info!("set exported head key");
-                        }
-                        _ => {}
-                    }
+                    _ => {}
                 }
             }
         }

@@ -194,6 +194,7 @@ macro_rules! exhaustive {
     ($vis:vis const $ident:ident: &[$ty:ty] = &[$($variant:path),* $(,)?];) => {
         $vis const $ident: &[$ty] = &[$($variant,)*];
         const _: () = {
+            #[allow(dead_code)]
             fn check_exhaustive(it: $ty) {
                 match it {
                     $(

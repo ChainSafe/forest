@@ -84,14 +84,13 @@ impl<'ast> Visit<'ast> for NoTestsWithReturn {
         if i.attrs
             .iter()
             .any(|attr| attr == &parse_quote!(#[test]) || attr == &parse_quote!(#[tokio::test]))
+            && let ReturnType::Type(..) = i.sig.output
         {
-            if let ReturnType::Type(..) = i.sig.output {
-                self.violations.push(
-                    Violation::new(&i.sig.output)
-                        .with_message("not allowed to have a return type")
-                        .with_color(Color::Red),
-                )
-            }
+            self.violations.push(
+                Violation::new(&i.sig.output)
+                    .with_message("not allowed to have a return type")
+                    .with_color(Color::Red),
+            )
         }
         visit::visit_item_fn(self, i)
     }
@@ -131,23 +130,22 @@ pub struct SpecializedAssertions {
 
 impl<'ast> Visit<'ast> for SpecializedAssertions {
     fn visit_macro(&mut self, i: &'ast Macro) {
-        if i.path.is_ident("assert") {
-            if let Ok(exprs) = i.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
-                if let Some(Expr::Binary(binary)) = exprs.first() {
-                    match binary.op {
-                        BinOp::Eq(_) => self.violations.push(
-                            Violation::new(i)
-                                .with_message("should be `assert_eq(..)`")
-                                .with_color(Color::Red),
-                        ),
-                        BinOp::Ne(_) => self.violations.push(
-                            Violation::new(i)
-                                .with_message("should be `assert_ne(..)`")
-                                .with_color(Color::Red),
-                        ),
-                        _ => {}
-                    }
-                }
+        if i.path.is_ident("assert")
+            && let Ok(exprs) = i.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated)
+            && let Some(Expr::Binary(binary)) = exprs.first()
+        {
+            match binary.op {
+                BinOp::Eq(_) => self.violations.push(
+                    Violation::new(i)
+                        .with_message("should be `assert_eq(..)`")
+                        .with_color(Color::Red),
+                ),
+                BinOp::Ne(_) => self.violations.push(
+                    Violation::new(i)
+                        .with_message("should be `assert_ne(..)`")
+                        .with_color(Color::Red),
+                ),
+                _ => {}
             }
         }
         visit::visit_macro(self, i)

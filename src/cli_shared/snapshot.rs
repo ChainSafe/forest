@@ -267,7 +267,7 @@ mod parse {
         }
     }
 
-    fn full(input: &str) -> nom::IResult<&str, ParsedFilename> {
+    fn full(input: &str) -> nom::IResult<&str, ParsedFilename<'_>> {
         let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, car_zst)) = (
             take_until("_snapshot_"),
             tag("_snapshot_"),
@@ -291,7 +291,7 @@ mod parse {
         ))
     }
 
-    fn short(input: &str) -> nom::IResult<&str, ParsedFilename> {
+    fn short(input: &str) -> nom::IResult<&str, ParsedFilename<'_>> {
         let (rest, (height, _, date, _, time, _)) = (
             number,
             tag("_"),
