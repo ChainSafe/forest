@@ -11,7 +11,7 @@ pub struct CidWrapper(pub Cid);
 impl GetSize for CidWrapper {}
 
 macro_rules! impl_vec_alike_heap_size_with_fn_helper {
-    ($name:ident, $t:ty, $get_stack_size: expr, $get_heap_size: expr) => {
+    ($name:ident, $t:ty, $get_stack_size: expr, $get_heap_size: expr) => {{
         let mut heap_size = 0;
         // use `____v` to avoid naming conflict
         for ____v in $name.iter() {
@@ -19,8 +19,8 @@ macro_rules! impl_vec_alike_heap_size_with_fn_helper {
         }
         let additional = usize::from($name.capacity()) - usize::from($name.len());
         heap_size += additional * $get_stack_size();
-        return heap_size;
-    };
+        heap_size
+    }};
 }
 
 macro_rules! impl_vec_alike_heap_size_helper {
@@ -30,7 +30,7 @@ macro_rules! impl_vec_alike_heap_size_helper {
             $t,
             <$t>::get_stack_size,
             GetSize::get_heap_size
-        );
+        )
     };
 }
 
@@ -39,15 +39,15 @@ pub fn vec_with_stack_only_item_heap_size_helper<T>(v: &Vec<T>) -> usize {
 }
 
 pub fn vec_heap_size_helper<T: GetSize>(v: &Vec<T>) -> usize {
-    impl_vec_alike_heap_size_helper!(v, T);
+    impl_vec_alike_heap_size_helper!(v, T)
 }
 
 pub fn vec_heap_size_with_fn_helper<T>(v: &Vec<T>, get_heap_size: impl Fn(&T) -> usize) -> usize {
-    impl_vec_alike_heap_size_with_fn_helper!(v, T, std::mem::size_of::<T>, get_heap_size);
+    impl_vec_alike_heap_size_with_fn_helper!(v, T, std::mem::size_of::<T>, get_heap_size)
 }
 
 pub fn nunny_vec_heap_size_helper<T: GetSize>(v: &nunny::Vec<T>) -> usize {
-    impl_vec_alike_heap_size_helper!(v, T);
+    impl_vec_alike_heap_size_helper!(v, T)
 }
 
 #[cfg(test)]
