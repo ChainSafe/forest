@@ -603,7 +603,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             eth_get_filter_logs(tx.clone())
                 .name("eth_getFilterLogs works")
-                .ignore("TODO: create issue"),
+                .ignore("https://github.com/ChainSafe/forest/issues/5917"),
             EthNewFilter,
             EthGetFilterLogs,
             EthUninstallFilter
