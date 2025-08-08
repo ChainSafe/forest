@@ -28,18 +28,6 @@ impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Default)]
-pub struct VoidBlockstoreReadCache;
-
-impl BlockstoreReadCache for VoidBlockstoreReadCache {
-    fn get(&self, _: &Cid) -> Option<Vec<u8>> {
-        None
-    }
-
-    fn put(&self, _: Cid, _: Vec<u8>) {}
-}
-
 impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
     fn get(&self, k: &Cid) -> Option<Vec<u8>> {
         self.as_ref().get(k)
