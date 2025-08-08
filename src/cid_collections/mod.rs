@@ -38,13 +38,14 @@ enum MaybeCompactedCid {
 
 // Hide the constructors for [`Uncompactable`] and [`CidV1DagCborBlake2b256`]
 mod imp {
-    use super::MaybeCompactedCid;
+    use super::*;
     use crate::utils::multihash::prelude::*;
     use cid::{Cid, multihash::Multihash};
+    use get_size2::GetSize;
     #[cfg(test)]
     use {crate::utils::db::CborStoreExt as _, quickcheck::Arbitrary};
 
-    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, GetSize)]
     #[repr(transparent)]
     pub struct CidV1DagCborBlake2b256 {
         digest: [u8; Self::WIDTH],
@@ -99,9 +100,10 @@ mod imp {
         }
     }
 
-    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+    #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, GetSize)]
     #[repr(transparent)]
     pub struct Uncompactable {
+        #[get_size(ignore)]
         inner: Cid,
     }
 
@@ -152,6 +154,14 @@ mod imp {
             "the default encoding is no longer v1+dagcbor+blake2b.
             consider adding the new default CID type to [`MaybeCompactCid`]"
         );
+    }
+
+    #[test]
+    fn uncompactable_get_size() {
+        let i = Uncompactable {
+            inner: Cid::default(),
+        };
+        assert_eq!(i.get_size(), std::mem::size_of_val(&i.inner));
     }
 }
 
