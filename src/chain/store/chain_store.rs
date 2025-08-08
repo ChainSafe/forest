@@ -129,10 +129,28 @@ where
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let validated_blocks = Mutex::new(HashSet::default());
 
+        let tipset_tracker = if crate::utils::misc::env::is_env_truthy(
+            "FOREST_FAULTREPORTER_ENABLECONSENSUSFAULTREPORTER",
+        ) {
+            let slasher_service = match crate::slasher::service::SlasherService::new() {
+                Ok(service) => {
+                    tracing::info!("Slasher service created successfully");
+                    Arc::new(service)
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create slasher service: {}", e);
+                    return Err(anyhow::anyhow!("Failed to create slasher service: {}", e));
+                }
+            };
+            TipsetTracker::with_slasher(Arc::clone(&db), chain_config.clone(), slasher_service)
+        } else {
+            TipsetTracker::new(Arc::clone(&db), chain_config.clone())
+        };
+
         let cs = Self {
             publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
+            tipset_tracker,
             db,
             heaviest_tipset_key_provider,
             genesis_block_header,
