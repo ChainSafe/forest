@@ -595,7 +595,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             eth_new_pending_transaction_filter(tx.clone())
                 .name("eth_newPendingTransactionFilter works")
-                .ignore("TODO: create issue"),
+                .ignore("https://github.com/ChainSafe/forest/issues/5916"),
             EthNewPendingTransactionFilter,
             EthGetFilterChanges,
             EthUninstallFilter
