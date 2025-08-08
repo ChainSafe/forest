@@ -264,8 +264,8 @@ mod test {
             // returning the "no deserializer registered" error
             let result = deserialize_params(&actor_cid, constructor_method, &[]);
 
-            if result.is_err() {
-                let error_msg = result.unwrap_err().to_string();
+            if let Err(e) = result {
+                let error_msg = e.to_string();
                 assert!(
                     !error_msg.contains("No deserializer registered"),
                     "Actor type {actor_type:?} should have methods registered but got error: {error_msg}"

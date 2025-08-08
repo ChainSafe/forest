@@ -160,14 +160,14 @@ impl EthEventHandler {
                 .install(pf)
                 .context("Installation error")?;
 
-            if let Some(filter_store) = &self.filter_store {
-                if let Err(err) = filter_store.add(filter.clone()) {
-                    ensure!(
-                        event_filter_manager.remove(filter.id()).is_some(),
-                        "Filter not found"
-                    );
-                    bail!("Adding filter failed: {}", err);
-                }
+            if let Some(filter_store) = &self.filter_store
+                && let Err(err) = filter_store.add(filter.clone())
+            {
+                ensure!(
+                    event_filter_manager.remove(filter.id()).is_some(),
+                    "Filter not found"
+                );
+                bail!("Adding filter failed: {}", err);
             }
             Ok(filter.id().clone())
         } else {
@@ -181,11 +181,11 @@ impl EthEventHandler {
     ) -> Result<FilterID, Error> {
         if let Some(manager) = filter_manager {
             let filter = manager.install().context("Installation error")?;
-            if let Some(filter_store) = &self.filter_store {
-                if let Err(err) = filter_store.add(filter.clone()) {
-                    ensure!(manager.remove(filter.id()).is_some(), "Filter not found");
-                    bail!("Adding filter failed: {}", err);
-                }
+            if let Some(filter_store) = &self.filter_store
+                && let Err(err) = filter_store.add(filter.clone())
+            {
+                ensure!(manager.remove(filter.id()).is_some(), "Filter not found");
+                bail!("Adding filter failed: {}", err);
             }
             Ok(filter.id().clone())
         } else {

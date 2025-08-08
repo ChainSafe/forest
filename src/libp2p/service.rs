@@ -239,11 +239,10 @@ where
                         address,
                         listener_id,
                     } = swarm.select_next_some().await
+                        && id == listener_id
                     {
-                        if id == listener_id {
-                            info!("p2p peer is now listening on: {address}");
-                            break;
-                        }
+                        info!("p2p peer is now listening on: {address}");
+                        break;
                     }
                 },
                 Err(err) => error!("Fail to listen on {addr}: {err}"),
