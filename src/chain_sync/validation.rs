@@ -74,10 +74,10 @@ impl TipsetValidator<'_> {
         // previously been seen in the bad blocks cache
         for block in self.0.blocks() {
             self.validate_msg_root(&chainstore.db, block)?;
-            if let Some(bad_block_cache) = bad_block_cache {
-                if bad_block_cache.peek(block.cid()).is_some() {
-                    return Err(TipsetValidationError::InvalidBlock(*block.cid()));
-                }
+            if let Some(bad_block_cache) = bad_block_cache
+                && bad_block_cache.peek(block.cid()).is_some()
+            {
+                return Err(TipsetValidationError::InvalidBlock(*block.cid()));
             }
         }
 

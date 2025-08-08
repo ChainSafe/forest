@@ -179,10 +179,10 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     all.sort();
     let mut out = Vec::new();
     for i in all {
-        if let Some(addr_str) = i.strip_prefix("wallet-") {
-            if let Ok(addr) = Address::from_str(addr_str) {
-                out.push(addr);
-            }
+        if let Some(addr_str) = i.strip_prefix("wallet-")
+            && let Ok(addr) = Address::from_str(addr_str)
+        {
+            out.push(addr);
         }
     }
     Ok(out)
@@ -202,12 +202,12 @@ pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> 
     let deleted_keyinfo = keystore
         .remove(&key_string)
         .map_err(|_| Error::KeyNotExists)?;
-    if let Ok(default_keyinfo) = keystore.get("default") {
-        if default_keyinfo == deleted_keyinfo {
-            keystore
-                .remove("default")
-                .map_err(|_| Error::KeyNotExists)?;
-        }
+    if let Ok(default_keyinfo) = keystore.get("default")
+        && default_keyinfo == deleted_keyinfo
+    {
+        keystore
+            .remove("default")
+            .map_err(|_| Error::KeyNotExists)?;
     }
     println!("wallet {addr} deleted");
     Ok(())
