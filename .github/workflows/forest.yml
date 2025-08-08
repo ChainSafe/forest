@@ -374,6 +374,32 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+    calibnet-api-test-stateful:
+      needs:
+        - build-ubuntu
+      name: Calibnet api test-stateful check
+      runs-on: ubuntu-24.04
+      steps:
+        - run: lscpu
+        - uses: actions/cache@v4
+          with:
+            path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+            key: proof-params-keys
+        - name: Checkout Sources
+          uses: actions/checkout@v4
+        - uses: actions/download-artifact@v4
+          with:
+            name: "forest-${{ runner.os }}"
+            path: ~/.cargo/bin
+        - uses: actions/download-artifact@v4
+          with:
+            name: "forest-${{ runner.os }}"
+            path: ~/.cargo/bin
+        - name: Set permissions
+          run: |
+            chmod +x ~/.cargo/bin/forest*
+        - run: ./scripts/tests/calibnet_api_test_stateful_check.sh
+          timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
       - build-ubuntu
@@ -579,6 +605,7 @@ jobs:
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
+      - calibnet-api-test-stateful
       - db-migration-checks
       - local-devnet-check
       # - local-devnet-curio-check
