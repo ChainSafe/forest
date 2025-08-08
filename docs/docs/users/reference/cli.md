@@ -742,6 +742,7 @@ Options:
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
+      --format <FORMAT>            Export snapshot in the experimental v2 format(FRC-0108) [default: v1] [possible values: v1, v2]
   -h, --help                       Print help
 ```
 
@@ -1390,6 +1391,7 @@ Usage: forest-tool archive <COMMAND>
 
 Commands:
   info         Show basic information about an archive
+  metadata     Show FRC-0108 metadata of an Filecoin snapshot archive
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
@@ -1409,7 +1411,7 @@ Show basic information about an archive
 Usage: forest-tool archive info <SNAPSHOT>
 
 Arguments:
-  <SNAPSHOT>  Path to an uncompressed archive (CAR)
+  <SNAPSHOT>  Path to an archive (`.car` or `.car.zst`)
 
 Options:
   -h, --help  Print help
