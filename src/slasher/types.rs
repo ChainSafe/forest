@@ -1,9 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::CachingBlockHeader;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use cid::Cid;
 use serde::{Deserialize, Serialize};
 
 /// Represents a detected consensus fault
@@ -16,9 +16,11 @@ pub struct ConsensusFault {
     /// The type of consensus fault
     pub fault_type: ConsensusFaultType,
     /// The block headers involved in the fault
-    pub block_headers: Vec<Cid>,
+    pub block_header_1: CachingBlockHeader,
+    /// The second block header involved in the fault
+    pub block_header_2: CachingBlockHeader,
     /// Additional evidence for parent-grinding faults
-    pub extra_evidence: Option<Cid>,
+    pub block_header_extra: Option<CachingBlockHeader>,
 }
 
 /// Types of consensus faults that can be detected

@@ -60,7 +60,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         cids.push(*header.cid());
         drop(map_lock);
 
-        self.check_consensus_fault(header);
+        self.check_consensus_faults(header);
         self.check_multiple_blocks_from_same_miner(&cids_to_verify, header);
         self.prune_entries(header.epoch);
     }
@@ -88,7 +88,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     }
 
     /// Process block with slasher service for consensus fault detection
-    fn check_consensus_fault(&self, header: &CachingBlockHeader) {
+    fn check_consensus_faults(&self, header: &CachingBlockHeader) {
         if let Some(slasher) = &self.slasher_service {
             let slasher = slasher.clone();
             let header = header.clone();
