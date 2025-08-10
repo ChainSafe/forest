@@ -32,13 +32,13 @@ func (impl *kadImpl) run() {
 	host, err := libp2p.New(libp2p.ListenAddrStrings(ListenAddr))
 	checkError(err)
 
-	dthOpts := []dht.Option{
+	dhtOpts := []dht.Option{
 		dht.Mode(dht.ModeServer),
 		dht.ProtocolPrefix("/kadtest"),
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	hostDHT, err := dht.New(impl.ctx, host, dthOpts...)
+	hostDHT, err := dht.New(impl.ctx, host, dhtOpts...)
 	checkError(err)
 
 	impl.node = &kadNode{host, hostDHT}
