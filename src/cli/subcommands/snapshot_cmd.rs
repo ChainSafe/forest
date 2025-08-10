@@ -103,7 +103,7 @@ impl SnapshotCommands {
                     )
                     .expect("indicatif template must be valid"),
                 ).with_message(format!("Exporting {} ...", output_path.display()));
-                let pb = std::sync::Arc::new(pb);
+                pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
                     let path: PathBuf = (&temp_path).into();
                     let pb = pb.clone();
