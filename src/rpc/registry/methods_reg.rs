@@ -74,7 +74,7 @@ impl MethodRegistry {
 
     fn register_known_methods(&mut self) {
         use crate::rpc::registry::actors::{
-            account, evm, init, miner, multisig, power, reward, system,
+            account, evm, init, market, miner, multisig, power, reward, system,
         };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
@@ -89,6 +89,7 @@ impl MethodRegistry {
                 BuiltinActor::Power => power::register_actor_methods(self, cid, version),
                 BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
                 BuiltinActor::Multisig => multisig::register_actor_methods(self, cid, version),
+                BuiltinActor::Market => market::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }

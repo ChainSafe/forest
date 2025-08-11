@@ -4,6 +4,7 @@
 pub(crate) mod account;
 pub(crate) mod evm;
 pub(crate) mod init;
+pub(crate) mod market;
 pub(crate) mod miner;
 pub(crate) mod multisig;
 pub(crate) mod power;
