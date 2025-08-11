@@ -140,8 +140,8 @@ async fn maybe_import_snapshot(
             path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
             config.client.import_mode,
-            config.client.rpc_v1_endpoint(),
-            crate::f3::get_f3_root(config),
+            config.client.rpc_v1_endpoint()?,
+            &crate::f3::get_f3_root(config),
             ctx.chain_config(),
             &snapshot_tracker,
         )
@@ -395,21 +395,21 @@ fn maybe_start_rpc_service(
     Ok(())
 }
 
-fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
+fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> anyhow::Result<()> {
     // already running
     if crate::rpc::f3::F3_LEASE_MANAGER.get().is_some() {
-        return;
+        return Ok(());
     }
 
     if !config.client.enable_rpc {
         if crate::f3::is_sidecar_ffi_enabled(ctx.state_manager.chain_config()) {
             tracing::warn!("F3 sidecar is enabled but not run because RPC is disabled. ")
         }
-        return;
+        return Ok(());
     }
 
     if !opts.halt_after_import && !opts.stateless {
-        let rpc_endpoint = config.client.rpc_v1_endpoint();
+        let rpc_endpoint = config.client.rpc_v1_endpoint()?;
         let state_manager = &ctx.state_manager;
         let p2p_peer_id = ctx.p2p_peer_id;
         let admin_jwt = ctx.admin_jwt.clone();
@@ -430,7 +430,7 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
             move || {
                 crate::f3::run_f3_sidecar_if_enabled(
                     &chain_config,
-                    rpc_endpoint,
+                    rpc_endpoint.to_string(),
                     admin_jwt,
                     crate::rpc::f3::get_f3_rpc_endpoint().to_string(),
                     initial_power_table
@@ -438,11 +438,13 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) {
                         .unwrap_or_default(),
                     bootstrap_epoch,
                     chain_finality,
-                    f3_root,
+                    f3_root.display().to_string(),
                 );
             }
         });
     }
+
+    Ok(())
 }
 
 fn maybe_start_indexer_service(
@@ -576,7 +578,7 @@ pub(super) async fn start_services(
     on_app_context_and_db_initialized(&ctx);
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
-    maybe_start_f3_service(opts, &config, &ctx);
+    maybe_start_f3_service(opts, &config, &ctx)?;
     maybe_start_health_check_service(&mut services, &config, &p2p_service, &chain_follower, &ctx)
         .await?;
     maybe_start_indexer_service(&mut services, opts, &config, &ctx);

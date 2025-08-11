@@ -147,13 +147,13 @@ pub enum ArchiveCommands {
     },
     /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
     MergeF3 {
-        /// Path to the Filecoin snapshot
-        #[arg(long)]
-        filecoin: PathBuf,
+        /// Path to the v1 Filecoin snapshot
+        #[arg(long = "v1")]
+        filecoin_v1: PathBuf,
         /// Path to the F3 snapshot
         #[arg(long)]
         f3: PathBuf,
-        /// Snapshot output file path
+        /// Path to the snapshot output file in `.forest.car.zst` format
         #[arg(long)]
         output: PathBuf,
     },
@@ -263,10 +263,10 @@ impl ArchiveCommands {
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
             Self::MergeF3 {
-                filecoin,
+                filecoin_v1,
                 f3,
                 output,
-            } => merge_f3_snapshot(filecoin, f3, output).await,
+            } => merge_f3_snapshot(filecoin_v1, f3, output).await,
             Self::Diff {
                 snapshot_files,
                 epoch,

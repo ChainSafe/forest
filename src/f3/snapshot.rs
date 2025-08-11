@@ -17,6 +17,7 @@ pub fn get_f3_snapshot_cid(f3_data: &mut impl Read) -> anyhow::Result<Cid> {
     ))
 }
 
+/// Defined in <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#f3snapshotheader>
 #[derive(Debug, Clone, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct F3SnapshotHeader {
     pub version: u64,

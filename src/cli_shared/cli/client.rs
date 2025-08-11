@@ -103,7 +103,9 @@ impl Client {
         self.data_dir.join("token")
     }
 
-    pub fn rpc_v1_endpoint(&self) -> String {
+    pub fn rpc_v1_endpoint(&self) -> Result<url::Url, url::ParseError> {
         format!("http://{}/rpc/v1", self.rpc_address)
+            .as_str()
+            .parse()
     }
 }

@@ -33,7 +33,7 @@ function forest_download_and_import_snapshot_with_f3 {
   echo "Downloading F3 snapshot"
   aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_552628.bin -o f3.bin
   echo "Generating v2 snapshot"
-  $FOREST_TOOL_PATH archive merge-f3 --filecoin v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
+  $FOREST_TOOL_PATH archive merge-f3 --v1 v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
   echo "Inspecting archive info"
   $FOREST_TOOL_PATH archive info v2.forest.car.zst
   echo "Inspecting archive metadata"

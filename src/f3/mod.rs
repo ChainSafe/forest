@@ -5,6 +5,8 @@
 
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 mod go_ffi;
+use std::path::{Path, PathBuf};
+
 #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
 use go_ffi::*;
 
@@ -21,15 +23,15 @@ pub struct F3Options {
     pub initial_power_table: Option<Cid>,
 }
 
-pub fn get_f3_root(config: &crate::Config) -> String {
-    std::env::var("FOREST_F3_ROOT").unwrap_or_else(|_| {
-        config
-            .client
-            .data_dir
-            .join(format!("f3/{}", config.chain()))
-            .display()
-            .to_string()
-    })
+pub fn get_f3_root(config: &crate::Config) -> PathBuf {
+    std::env::var("FOREST_F3_ROOT")
+        .map(|p| Path::new(&p).to_path_buf())
+        .unwrap_or_else(|_| {
+            config
+                .client
+                .data_dir
+                .join(format!("f3/{}", config.chain()))
+        })
 }
 
 pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
@@ -86,45 +88,47 @@ pub fn get_f3_sidecar_params(chain_config: &ChainConfig) -> F3Options {
     }
 }
 
+#[allow(unused_variables)]
 pub fn run_f3_sidecar_if_enabled(
     chain_config: &ChainConfig,
-    _rpc_endpoint: String,
-    _jwt: String,
-    _f3_rpc_endpoint: String,
-    _initial_power_table: String,
-    _bootstrap_epoch: i64,
-    _finality: i64,
-    _f3_root: String,
+    rpc_endpoint: String,
+    jwt: String,
+    f3_rpc_endpoint: String,
+    initial_power_table: String,
+    bootstrap_epoch: i64,
+    finality: i64,
+    f3_root: String,
 ) {
     if is_sidecar_ffi_enabled(chain_config) {
         #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
             tracing::info!("Starting F3 sidecar service ...");
             GoF3NodeImpl::run(
-                _rpc_endpoint,
-                _jwt,
-                _f3_rpc_endpoint,
-                _initial_power_table,
-                _bootstrap_epoch,
-                _finality,
-                _f3_root,
+                rpc_endpoint,
+                jwt,
+                f3_rpc_endpoint,
+                initial_power_table,
+                bootstrap_epoch,
+                finality,
+                f3_root,
             );
         }
     }
 }
 
+#[allow(unused_variables)]
 pub fn import_f3_snapshot(
     chain_config: &ChainConfig,
-    _rpc_endpoint: String,
-    _f3_root: String,
-    _snapshot: String,
+    rpc_endpoint: String,
+    f3_root: String,
+    snapshot: String,
 ) -> anyhow::Result<()> {
     if is_sidecar_ffi_enabled(chain_config) {
         #[cfg(all(f3sidecar, not(feature = "no-f3-sidecar")))]
         {
             let sw = std::time::Instant::now();
             tracing::info!("Importing F3 snapshot ...");
-            let err = GoF3NodeImpl::import_snap(_rpc_endpoint, _f3_root, _snapshot);
+            let err = GoF3NodeImpl::import_snap(rpc_endpoint, f3_root, snapshot);
             if !err.is_empty() {
                 anyhow::bail!("{err}");
             }

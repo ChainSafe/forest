@@ -131,8 +131,8 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
-    rpc_endpoint: String,
-    f3_root: String,
+    rpc_endpoint: Url,
+    f3_root: &Path,
     chain_config: &ChainConfig,
     snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
@@ -249,8 +249,8 @@ pub async fn import_chain_as_forest_car(
         }
         if let Err(e) = crate::f3::import_f3_snapshot(
             chain_config,
-            rpc_endpoint,
-            f3_root,
+            rpc_endpoint.to_string(),
+            f3_root.display().to_string(),
             temp_f3_snap.path().display().to_string(),
         ) {
             // Do not make it a hard error if anything is wrong with F3 snapshot
@@ -485,8 +485,8 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
-            "test".into(),
-            "test".into(),
+            "test".parse().unwrap(),
+            Path::new("test"),
             &ChainConfig::devnet(),
             &SnapshotProgressTracker::default(),
         )
