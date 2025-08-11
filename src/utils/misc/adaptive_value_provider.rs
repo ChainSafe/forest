@@ -34,10 +34,10 @@ impl<T: num::PrimInt> ExponentialAdaptiveValueProvider<T> {
             return false;
         }
         let new_value = current.shl(1).min(self.max);
-        if let Some(record) = record {
-            if record < new_value {
-                return false;
-            }
+        if let Some(record) = record
+            && record < new_value
+        {
+            return false;
         }
         *self.value.write() = new_value;
         true
@@ -49,10 +49,10 @@ impl<T: num::PrimInt> ExponentialAdaptiveValueProvider<T> {
             return false;
         }
         let new_value = current.shr(1).max(self.min);
-        if let Some(record) = record {
-            if record > new_value {
-                return false;
-            }
+        if let Some(record) = record
+            && record > new_value
+        {
+            return false;
         }
         *self.value.write() = new_value;
         true

@@ -55,7 +55,7 @@
 //!
 //! # Lotus JSON in Forest
 //! - Have a struct which represents a domain object: e.g [`GossipBlock`](crate::blocks::GossipBlock).
-//! - Implement [`serde::Serialize`] on that object, normally using [`serde_tuple::Serialize_tuple`].
+//! - Implement [`serde::Serialize`] on that object, normally using [`fvm_ipld_encoding::tuple::Serialize_tuple`].
 //!   This corresponds to the CBOR representation.
 //! - Implement [`HasLotusJson`] on the domain object.
 //!   This attaches a separate JSON type, which should implement (`#[derive(...)]`) [`serde::Serialize`] and [`serde::Deserialize`] AND conversions to and from the domain object

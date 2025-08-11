@@ -170,6 +170,15 @@ impl From<CachingBlockHeader> for Tipset {
     }
 }
 
+impl From<NonEmpty<CachingBlockHeader>> for Tipset {
+    fn from(headers: NonEmpty<CachingBlockHeader>) -> Self {
+        Self {
+            headers,
+            key: OnceLock::new(),
+        }
+    }
+}
+
 impl PartialEq for Tipset {
     fn eq(&self, other: &Self) -> bool {
         self.headers.eq(&other.headers)
@@ -418,12 +427,12 @@ impl Tipset {
                 (*calibnet::GENESIS_CID, &headers.calibnet),
                 (*mainnet::GENESIS_CID, &headers.mainnet),
             ] {
-                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
-                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
-                        return store
-                            .get_cbor(&genesis_cid)?
-                            .context("Genesis block missing from database");
-                    }
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
+                    && known_block_cid == &tipset.min_ticket_block().cid().to_string()
+                {
+                    return store
+                        .get_cbor(&genesis_cid)?
+                        .context("Genesis block missing from database");
                 }
             }
 

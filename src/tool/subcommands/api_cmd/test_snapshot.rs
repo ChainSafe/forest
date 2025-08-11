@@ -52,18 +52,18 @@ pub struct RpcTestSnapshot {
 
 fn backfill_eth_mappings(db: &MemoryDB, index: Option<Index>) -> anyhow::Result<()> {
     if let Some(index) = index {
-        if let Some(mut guard) = db.eth_mappings_db.try_write() {
-            if let Some(eth_mappings) = index.eth_mappings {
-                for (k, v) in eth_mappings.iter() {
-                    guard.insert(EthHash::from_str(k)?, v.0.clone());
-                }
+        if let Some(mut guard) = db.eth_mappings_db.try_write()
+            && let Some(eth_mappings) = index.eth_mappings
+        {
+            for (k, v) in eth_mappings.iter() {
+                guard.insert(EthHash::from_str(k)?, v.0.clone());
             }
         }
-        if let Some(mut guard) = db.indices_db.try_write() {
-            if let Some(indices) = index.indices {
-                for (k, v) in indices.iter() {
-                    guard.insert(Cid::from_str(k)?, v.0.clone());
-                }
+        if let Some(mut guard) = db.indices_db.try_write()
+            && let Some(indices) = index.indices
+        {
+            for (k, v) in indices.iter() {
+                guard.insert(Cid::from_str(k)?, v.0.clone());
             }
         }
     }

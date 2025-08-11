@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::{ChainStore, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -100,15 +100,15 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
                 HeadChange::Apply(ts) => {
                     match eth_logs_with_filter(&ctx, &ts, filter.clone(), None).await {
                         Ok(logs) => {
-                            if !logs.is_empty() {
-                                if let Err(e) = sender.send(logs) {
-                                    tracing::error!(
-                                        "Failed to send logs for tipset {}: {}",
-                                        ts.key(),
-                                        e
-                                    );
-                                    break;
-                                }
+                            if !logs.is_empty()
+                                && let Err(e) = sender.send(logs)
+                            {
+                                tracing::error!(
+                                    "Failed to send logs for tipset {}: {}",
+                                    ts.key(),
+                                    e
+                                );
+                                break;
                             }
                         }
                         Err(e) => {
@@ -299,21 +299,22 @@ impl RpcMethod<1> for ChainPruneSnapshot {
     }
 }
 
-pub enum ChainExport {}
-impl RpcMethod<1> for ChainExport {
-    const NAME: &'static str = "Filecoin.ChainExport";
+pub enum ForestChainExport {}
+impl RpcMethod<1> for ForestChainExport {
+    const NAME: &'static str = "Forest.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (ChainExportParams,);
+    type Params = (ForestChainExportParams,);
     type Ok = Option<String>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ChainExportParams {
+        let ForestChainExportParams {
+            version,
             epoch,
             recent_roots,
             output_path,
@@ -342,31 +343,76 @@ impl RpcMethod<1> for ChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
-        match if dry_run {
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
+        let writer = if dry_run {
+            tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
-            let file = tokio::fs::File::create(&output_path).await?;
-            crate::chain::export::<Sha256>(
-                &ctx.store_owned(),
-                &start_ts,
-                recent_roots,
-                file,
-                CidHashSet::default(),
-                skip_checksum,
-            )
-            .await
+            tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
+        };
+        match match version {
+            FilecoinSnapshotVersion::V1 => {
+                crate::chain::export::<Sha256>(
+                    &ctx.store_owned(),
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
+            FilecoinSnapshotVersion::V2 => {
+                crate::chain::export_v2::<Sha256>(
+                    &ctx.store_owned(),
+                    None,
+                    &start_ts,
+                    recent_roots,
+                    writer,
+                    CidHashSet::default(),
+                    skip_checksum,
+                )
+                .await
+            }
         } {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ChainExport {}
+impl RpcMethod<1> for ChainExport {
+    const NAME: &'static str = "Filecoin.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ChainExportParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys,
+            skip_checksum,
+            dry_run,
+        },): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        ForestChainExport::handle(
+            ctx,
+            (ForestChainExportParams {
+                version: FilecoinSnapshotVersion::V1,
+                epoch,
+                recent_roots,
+                output_path,
+                tipset_keys,
+                skip_checksum,
+                dry_run,
+            },),
+        )
+        .await
     }
 }
 
@@ -446,14 +492,13 @@ impl RpcMethod<2> for ChainStatObj {
                         stats.links += 1;
                         stats.size += data.len();
                     }
-                    if matches!(link_cid.codec(), fvm_ipld_encoding::DAG_CBOR) {
-                        if let Ok(ipld) =
+                    if matches!(link_cid.codec(), fvm_ipld_encoding::DAG_CBOR)
+                        && let Ok(ipld) =
                             crate::utils::encoding::from_slice_with_fallback::<Ipld>(&data)
-                        {
-                            for ipld in DfsIter::new(ipld) {
-                                if let Ipld::Link(cid) = ipld {
-                                    queue.push_back(cid);
-                                }
+                    {
+                        for ipld in DfsIter::new(ipld) {
+                            if let Ipld::Link(cid) = ipld {
+                                queue.push_back(cid);
                             }
                         }
                     }
@@ -916,6 +961,20 @@ pub struct ApiMessage {
 }
 
 lotus_json_with_self!(ApiMessage);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportParams {
+    pub version: FilecoinSnapshotVersion,
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+lotus_json_with_self!(ForestChainExportParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

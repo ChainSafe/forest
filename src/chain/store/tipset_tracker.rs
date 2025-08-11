@@ -54,16 +54,16 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     /// height.
     fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &CachingBlockHeader) {
         for cid in cids.iter() {
-            if let Ok(Some(block)) = CachingBlockHeader::load(&self.db, *cid) {
-                if header.miner_address == block.miner_address {
-                    warn!(
-                        "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
-                        header.miner_address,
-                        header.epoch,
-                        header.cid(),
-                        cid
-                    );
-                }
+            if let Ok(Some(block)) = CachingBlockHeader::load(&self.db, *cid)
+                && header.miner_address == block.miner_address
+            {
+                warn!(
+                    "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
+                    header.miner_address,
+                    header.epoch,
+                    header.cid(),
+                    cid
+                );
             }
         }
     }

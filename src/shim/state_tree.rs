@@ -361,10 +361,10 @@ where
 
                 // A workaround to implement `if state.Version() >= types.StateTreeVersion5`
                 // When state tree version is not available in rust APIs
-                if !matches!(self, Self::FvmV2(_) | Self::V0(_)) {
-                    if let Some(address) = actor.delegated_address {
-                        return Ok(address.into());
-                    }
+                if !matches!(self, Self::FvmV2(_) | Self::V0(_))
+                    && let Some(address) = actor.delegated_address
+                {
+                    return Ok(address.into());
                 }
 
                 let account_state = account::State::load(store, actor.code, actor.state)?;

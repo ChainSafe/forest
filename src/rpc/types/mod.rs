@@ -459,16 +459,16 @@ pub struct MessageFilter {
 
 impl MessageFilter {
     pub fn matches(&self, msg: &Message) -> bool {
-        if let Some(from) = &self.from {
-            if from != &msg.from {
-                return false;
-            }
+        if let Some(from) = &self.from
+            && from != &msg.from
+        {
+            return false;
         }
 
-        if let Some(to) = &self.to {
-            if to != &msg.to {
-                return false;
-            }
+        if let Some(to) = &self.to
+            && to != &msg.to
+        {
+            return false;
         }
 
         true
