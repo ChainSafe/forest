@@ -27,10 +27,10 @@ where
         .block_on(async {
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
 
-            if let Ok(name) = StateNetworkName::call(&client, ()).await {
-                if !matches!(NetworkChain::from_str(&name), Ok(NetworkChain::Mainnet)) {
-                    CurrentNetwork::set_global(Network::Testnet);
-                }
+            if let Ok(name) = StateNetworkName::call(&client, ()).await
+                && !matches!(NetworkChain::from_str(&name), Ok(NetworkChain::Mainnet))
+            {
+                CurrentNetwork::set_global(Network::Testnet);
             }
 
             // Run command

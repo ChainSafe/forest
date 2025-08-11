@@ -34,10 +34,10 @@ pub async fn download_file_with_cache(
 ) -> anyhow::Result<DownloadFileResult> {
     let cache_file_path =
         cache_dir.join(url.path().strip_prefix('/').unwrap_or_else(|| url.path()));
-    if let Some(cache_file_dir) = cache_file_path.parent() {
-        if !cache_file_dir.is_dir() {
-            std::fs::create_dir_all(cache_file_dir)?;
-        }
+    if let Some(cache_file_dir) = cache_file_path.parent()
+        && !cache_file_dir.is_dir()
+    {
+        std::fs::create_dir_all(cache_file_dir)?;
     }
 
     let cache_hit = match get_file_md5_hash(&cache_file_path) {

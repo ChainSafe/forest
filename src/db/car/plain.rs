@@ -375,10 +375,10 @@ fn read_block_data_location_and_skip(
     mut reader: (impl Read + Seek),
     limit_position: Option<u64>,
 ) -> io::Result<Option<(Cid, UncompressedBlockDataLocation)>> {
-    if let Some(limit_position) = limit_position {
-        if reader.stream_position()? >= limit_position {
-            return Ok(None);
-        }
+    if let Some(limit_position) = limit_position
+        && reader.stream_position()? >= limit_position
+    {
+        return Ok(None);
     }
     let Some(body_length) = read_varint_body_length_or_eof(&mut reader)? else {
         return Ok(None);

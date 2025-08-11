@@ -427,12 +427,12 @@ impl Tipset {
                 (*calibnet::GENESIS_CID, &headers.calibnet),
                 (*mainnet::GENESIS_CID, &headers.mainnet),
             ] {
-                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
-                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
-                        return store
-                            .get_cbor(&genesis_cid)?
-                            .context("Genesis block missing from database");
-                    }
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
+                    && known_block_cid == &tipset.min_ticket_block().cid().to_string()
+                {
+                    return store
+                        .get_cbor(&genesis_cid)?
+                        .context("Genesis block missing from database");
                 }
             }
 
