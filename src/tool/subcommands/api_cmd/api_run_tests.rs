@@ -183,7 +183,16 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
     url.set_path("rpc/v1");
 
-    let (mut ws_stream, _) = connect_async(url.as_str()).await?;
+    let (mut ws_stream, _) = if let Some(token) = client.token() {
+        let req = http::Request::builder()
+            .method("GET")
+            .uri(url.as_str())
+            .header("Authorization", format!("Bearer {token}"))
+            .body(())?;
+        connect_async(req).await?
+    } else {
+        connect_async(url.as_str()).await?
+    };
 
     let request = json!({
         "jsonrpc": "2.0",
