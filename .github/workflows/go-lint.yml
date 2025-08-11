@@ -1,0 +1,41 @@
+name: Go code linters
+permissions:
+  contents: read
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  workflow_dispatch:
+  merge_group:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/go-lint.yml"
+      - "Makefile"
+      - "go.work"
+      - "f3-sidecar/**"
+      - "interop-tests/src/tests/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/go-lint.yml"
+      - "Makefile"
+      - "go.work"
+      - "f3-sidecar/**"
+      - "interop-tests/src/tests/**"
+
+jobs:
+  lint-go:
+    name: Go lint checks
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.work"
+      - run: make lint-go
