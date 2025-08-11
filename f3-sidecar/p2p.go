@@ -39,13 +39,13 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		return nil, err
 	}
 
-	backupdhtOpts := []dht.Option{
+	backupDHTOpts := []dht.Option{
 		dht.Mode(dht.ModeAutoServer),
 		dht.ProtocolPrefix(protocol.ID(fmt.Sprintf("/fil/kad/f3-sidecar/%s", networkName))),
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	backupHostDHT, err := dht.New(ctx, host, backupdhtOpts...)
+	backupHostDHT, err := dht.New(ctx, host, backupDHTOpts...)
 	if err != nil {
 		return nil, err
 	}
