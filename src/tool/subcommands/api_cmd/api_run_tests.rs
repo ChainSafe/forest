@@ -126,8 +126,13 @@ pub(super) async fn run_tests(
 
         match result {
             Ok(_) => {
-                println!("ok");
-                passed += 1;
+                if let Some(expected_msg) = test.should_fail_with {
+                    println!("FAILED (expected failure containing '{expected_msg}')");
+                    failed += 1;
+                } else {
+                    println!("ok");
+                    passed += 1;
+                }
             }
             Err(e) => {
                 if let Some(expected_msg) = test.should_fail_with {
