@@ -18,8 +18,10 @@ dhat = "0.3"
 flume = "0.11"
 futures = "0.3"
 get-size2 = { version = "0.6", features = ["derive"] }
+hashlink = "0.10"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
+lru = "0.16"
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
 tokio = "1"
@@ -139,7 +141,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.16"
+lru = { workspace = true }
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"

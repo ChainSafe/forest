@@ -22,6 +22,7 @@ forest = { package = "forest-filecoin", path = "../", default-features = false, 
 ] }
 futures = { workspace = true }
 get-size2 = { workspace = true }
+hashlink = { workspace = true }
 libp2p = { workspace = true, features = [
   'kad',
   'identify',
@@ -37,6 +38,7 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libp2p-swarm-test = { workspace = true }
+lru = { workspace = true }
 multihash-codetable = { workspace = true }
 rust2go = { workspace = true }
 tokio = { workspace = true, features = ['full'] }
