@@ -186,7 +186,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     let mut url = client.base_url().clone();
     url.set_scheme("ws")
         .map_err(|_| anyhow::anyhow!("failed to set scheme"))?;
-    url.set_path("rpc/v1");
+    url.set_path("/rpc/v1");
 
     let (mut ws_stream, _) = if let Some(token) = client.token() {
         let req = http::Request::builder()
