@@ -210,7 +210,18 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     // It processes incoming WebSocket messages until it encounters an "apply" or "revert" change type.
     // If an "apply" change is found, it closes the channel and exits. If a "revert" change is found,
     // it closes the channel and raises an error. Any channel protocol or parameter validation issues result in an error.
-    while let Some(msg) = ws_stream.next().await {
+    loop {
+        let msg = match tokio::time::timeout(Duration::from_secs(180), ws_stream.next()).await {
+            Ok(Some(msg)) => msg,
+            Ok(None) => anyhow::bail!("WebSocket stream closed"),
+            Err(_) => {
+                if let Some(id) = channel_id.as_ref() {
+                    let _ = close_channel(&mut ws_stream, id).await;
+                }
+                let _ = ws_stream.close(None).await;
+                anyhow::bail!("timeout waiting for tipset");
+            }
+        };
         if let Ok(WsMessage::Text(text)) = msg {
             let json: serde_json::Value = serde_json::from_str(&text)?;
 
@@ -230,11 +241,17 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                         for change in changes {
                             if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
                                 if type_ == "apply" {
-                                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                                    let id = channel_id.as_ref().ok_or_else(|| {
+                                        anyhow::anyhow!("subscription not opened")
+                                    })?;
+                                    close_channel(&mut ws_stream, id).await?;
                                     ws_stream.close(None).await?;
                                     return Ok(());
                                 } else if type_ == "revert" {
-                                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                                    let id = channel_id.as_ref().ok_or_else(|| {
+                                        anyhow::anyhow!("subscription not opened")
+                                    })?;
+                                    close_channel(&mut ws_stream, id).await?;
                                     ws_stream.close(None).await?;
                                     anyhow::bail!("revert");
                                 }
@@ -242,7 +259,10 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                         }
                     }
                 } else {
-                    close_channel(&mut ws_stream, &channel_id.unwrap()).await?;
+                    let id = channel_id
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
+                    close_channel(&mut ws_stream, id).await?;
                     ws_stream.close(None).await?;
                     anyhow::bail!("expecting params");
                 }
@@ -250,7 +270,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
         }
     }
 
-    anyhow::bail!("WebSocket stream closed")
+    // Unreachable: loop always returns within the branches above.
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
