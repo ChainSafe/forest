@@ -6,15 +6,19 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use crate::cid_collections::SmallCidNonEmptyVec;
-use crate::networks::{calibnet, mainnet};
-use crate::shim::clock::ChainEpoch;
-use crate::utils::cid::CidCborExt;
+use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
+use crate::{
+    cid_collections::SmallCidNonEmptyVec,
+    networks::{calibnet, mainnet},
+    shim::clock::ChainEpoch,
+    utils::cid::CidCborExt,
+};
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use get_size2::GetSize;
 use itertools::Itertools as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
@@ -22,13 +26,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
-use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
-
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, GetSize)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct TipsetKey(SmallCidNonEmptyVec);
 
@@ -99,7 +101,10 @@ impl TipsetKey {
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
-    fn from(value: NonEmpty<Cid>) -> Self {
+    fn from(mut value: NonEmpty<Cid>) -> Self {
+        // When `value.capacity() > value.len()`, it takes more heap memory.
+        // Always shrink it since `TipsetKey` is immutable and used in caches.
+        value.shrink_to_fit();
         Self(value.into())
     }
 }
