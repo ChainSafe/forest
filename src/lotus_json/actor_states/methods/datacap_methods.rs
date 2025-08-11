@@ -8,7 +8,6 @@ use fil_actor_datacap_state as datacap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-// Balance Params
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(transparent)]
 pub struct DatacapBalanceParamsLotusJson {
@@ -46,7 +45,6 @@ macro_rules! impl_datacap_balance_params_lotus_json {
 
 impl_datacap_balance_params_lotus_json!(v11, v12, v13, v14, v15, v16);
 
-// Constructor Params
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(transparent)]
 pub struct DatacapConstructorParamsLotusJson {
@@ -84,7 +82,6 @@ macro_rules! impl_datacap_constructor_params_lotus_json {
 
 impl_datacap_constructor_params_lotus_json!(v11, v12, v13, v14, v15, v16);
 
-// Destroy Params
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct DatacapDestroyParamsLotusJson {
@@ -135,7 +132,6 @@ macro_rules! impl_datacap_destroy_params_lotus_json {
 
 impl_datacap_destroy_params_lotus_json!(v9, v10, v11, v12, v13, v14, v15, v16);
 
-// Mint Params
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct DatacapMintParamsLotusJson {
