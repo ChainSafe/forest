@@ -271,7 +271,7 @@ fn create_eth_new_filter_test() -> RpcTestScenario {
         let last_block = client.call(EthBlockNumber::request(())?).await?;
 
         let filter_spec = EthFilterSpec {
-            from_block: Some(EthUint64(last_block.0 - BLOCK_RANGE).to_hex_string()),
+            from_block: Some(EthUint64(last_block.0.saturating_sub(BLOCK_RANGE)).to_hex_string()),
             to_block: Some(last_block.to_hex_string()),
             ..Default::default()
         };
@@ -299,7 +299,7 @@ fn create_eth_new_filter_limit_test(count: usize) -> RpcTestScenario {
         let last_block = client.call(EthBlockNumber::request(())?).await?;
 
         let filter_spec = EthFilterSpec {
-            from_block: Some(format!("0x{:x}", last_block.0 - BLOCK_RANGE)),
+            from_block: Some(format!("0x{:x}", last_block.0.saturating_sub(BLOCK_RANGE))),
             to_block: Some(last_block.to_hex_string()),
             ..Default::default()
         };
