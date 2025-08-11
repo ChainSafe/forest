@@ -485,7 +485,7 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
-            "test".parse().unwrap(),
+            "http://127.0.0.1:2345/rpc/v1".parse().unwrap(),
             Path::new("test"),
             &ChainConfig::devnet(),
             &SnapshotProgressTracker::default(),
