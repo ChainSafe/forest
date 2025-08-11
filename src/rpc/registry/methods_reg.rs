@@ -261,6 +261,7 @@ mod test {
             BuiltinActor::Account,
             BuiltinActor::Miner,
             BuiltinActor::EVM,
+            BuiltinActor::DataCap,
         ];
 
         for actor_type in supported_actors {
