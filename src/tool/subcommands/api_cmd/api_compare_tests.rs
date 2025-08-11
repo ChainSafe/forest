@@ -2027,8 +2027,32 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::NameExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::SymbolExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::TotalSupplyExported as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
             fil_actor_datacap_state::v16::Method::BalanceExported as u64,
             to_vec(&datacap_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::DATACAP_TOKEN_ACTOR,
+            fil_actor_datacap_state::v16::Method::GranularityExported as u64,
+            vec![],
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((

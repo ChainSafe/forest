@@ -14,6 +14,16 @@ macro_rules! register_datacap_v9 {
             $code_cid,
             [(Method::Mint, MintParams), (Method::Destroy, DestroyParams),]
         );
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::Name, empty),
+                (Method::Symbol, empty),
+                (Method::TotalSupply, empty),
+            ]
+        );
     }};
 }
 
@@ -26,6 +36,17 @@ macro_rules! register_datacap_v10 {
             [
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
+            ]
+        );
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::NameExported, empty),
+                (Method::SymbolExported, empty),
+                (Method::TotalSupplyExported, empty),
+                (Method::GranularityExported, empty)
             ]
         );
     }};
@@ -42,6 +63,17 @@ macro_rules! register_datacap_version {
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
                 (Method::BalanceExported, BalanceParams),
+            ]
+        );
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::NameExported, empty),
+                (Method::SymbolExported, empty),
+                (Method::TotalSupplyExported, empty),
+                (Method::GranularityExported, empty)
             ]
         );
     }};
