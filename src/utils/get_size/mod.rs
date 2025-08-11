@@ -5,6 +5,7 @@ use cid::Cid;
 use derive_more::{From, Into};
 // re-exports the trait
 pub use get_size2::GetSize;
+use num::BigInt;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, From, Into)]
 pub struct CidWrapper(pub Cid);
@@ -48,6 +49,12 @@ pub fn vec_heap_size_with_fn_helper<T>(v: &Vec<T>, get_heap_size: impl Fn(&T) ->
 
 pub fn nunny_vec_heap_size_helper<T: GetSize>(v: &nunny::Vec<T>) -> usize {
     impl_vec_alike_heap_size_helper!(v, T)
+}
+
+// This is a rough estimation. Use `b.allocation_size()`
+// once https://github.com/rust-num/num-bigint/pull/333 is accepted and released.
+pub fn big_int_heap_size_helper(b: &BigInt) -> usize {
+    b.bits().div_ceil(8) as usize
 }
 
 #[cfg(test)]

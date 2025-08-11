@@ -8,23 +8,21 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
-use lru::LruCache;
 use nonzero_ext::nonzero;
-use parking_lot::Mutex;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
-type TipsetCache = Mutex<LruCache<TipsetKey, Arc<Tipset>>>;
+type TipsetCache = SizeTrackingLruCache<TipsetKey, Arc<Tipset>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
-
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
 }
@@ -40,7 +38,10 @@ pub enum ResolveNullTipset {
 
 impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
-        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
+        let ts_cache = SizeTrackingLruCache::new_with_default_metrics_registry(
+            "tipet".into(),
+            DEFAULT_TIPSET_CACHE_SIZE,
+        );
         Self { ts_cache, db }
     }
 
@@ -48,17 +49,17 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
         if !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED")
-            && let Some(ts) = self.ts_cache.lock().get(tsk)
+            && let Some(ts) = self.ts_cache.get_cloned(tsk)
         {
             metrics::LRU_CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
-            return Ok(Some(ts.clone()));
+            return Ok(Some(ts));
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
         if let Some(ts) = &ts_opt {
-            self.ts_cache.lock().put(tsk.clone(), ts.clone());
+            self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
