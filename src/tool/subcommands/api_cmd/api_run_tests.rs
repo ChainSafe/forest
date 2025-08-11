@@ -246,7 +246,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
-    let mut retries = 10;
+    let mut retries = 100;
     loop {
         let pending = client
             .call(MpoolPending::request((ApiTipsetKey(None),))?)
