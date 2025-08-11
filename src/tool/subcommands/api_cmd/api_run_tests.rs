@@ -94,10 +94,6 @@ pub(super) async fn run_tests(
     filter: String,
 ) -> anyhow::Result<()> {
     let client: Arc<rpc::Client> = client.into();
-    if let Some(token) = client.token() {
-        println!("token: {token}");
-    }
-
     let mut passed = 0;
     let mut failed = 0;
     let mut ignored = 0;
