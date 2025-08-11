@@ -2,53 +2,89 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
+use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;
 
-// Macro for versions 8-9 (basic methods only)
-macro_rules! register_miner_versions_8_to_9 {
-    ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{
-            ChangeMultiaddrsParams, ChangePeerIDParams, ChangeWorkerAddressParams,
-            DeclareFaultsParams, DeclareFaultsRecoveredParams, DisputeWindowedPoStParams, Method,
-            MinerConstructorParams, SubmitWindowedPoStParams, TerminateSectorsParams,
-            WithdrawBalanceParams, PreCommitSectorBatchParams,
-        };
+fn register_miner_version_8(registry: &mut MethodRegistry, cid: Cid) {
+    use fil_actor_miner_state::v8::{
+        ApplyRewardParams, ChangeMultiaddrsParams, ChangePeerIDParams, ChangeWorkerAddressParams,
+        CheckSectorProvenParams, CompactPartitionsParams, CompactSectorNumbersParams,
+        ConfirmSectorProofsParams, DeclareFaultsParams, DeclareFaultsRecoveredParams,
+        DeferredCronEventParams, DisputeWindowedPoStParams, ExtendSectorExpirationParams, Method,
+        MinerConstructorParams, PreCommitSectorBatchParams, PreCommitSectorParams,
+        ProveCommitAggregateParams, ProveCommitSectorParams, ProveReplicaUpdatesParams,
+        ReportConsensusFaultParams, SubmitWindowedPoStParams, TerminateSectorsParams,
+        WithdrawBalanceParams,
+    };
 
-        register_actor_methods!(
-            $registry,
-            $code_cid,
-            [
-                (Method::Constructor, MinerConstructorParams),
-                (Method::ChangeWorkerAddress, ChangeWorkerAddressParams),
-                (Method::ChangePeerID, ChangePeerIDParams),
-                (Method::SubmitWindowedPoSt, SubmitWindowedPoStParams),
-                (Method::TerminateSectors, TerminateSectorsParams),
-                (Method::DeclareFaults, DeclareFaultsParams),
-                (Method::DeclareFaultsRecovered, DeclareFaultsRecoveredParams),
-                (Method::WithdrawBalance, WithdrawBalanceParams),
-                (Method::ChangeMultiaddrs, ChangeMultiaddrsParams),
-                (Method::DisputeWindowedPoSt, DisputeWindowedPoStParams),
-                (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
-            ]
-        );
+    register_actor_methods!(
+        registry,
+        cid,
+        [
+            (Method::Constructor, MinerConstructorParams),
+            (Method::ChangeWorkerAddress, ChangeWorkerAddressParams),
+            (Method::ChangePeerID, ChangePeerIDParams),
+            (Method::SubmitWindowedPoSt, SubmitWindowedPoStParams),
+            (Method::PreCommitSector, PreCommitSectorParams),
+            (Method::ProveCommitSector, ProveCommitSectorParams),
+            (Method::ExtendSectorExpiration, ExtendSectorExpirationParams),
+            (Method::TerminateSectors, TerminateSectorsParams),
+            (Method::DeclareFaults, DeclareFaultsParams),
+            (Method::DeclareFaultsRecovered, DeclareFaultsRecoveredParams),
+            (Method::OnDeferredCronEvent, DeferredCronEventParams),
+            (Method::CheckSectorProven, CheckSectorProvenParams),
+            (Method::ApplyRewards, ApplyRewardParams),
+            (Method::ReportConsensusFault, ReportConsensusFaultParams),
+            (Method::WithdrawBalance, WithdrawBalanceParams),
+            (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
+            (Method::ChangeMultiaddrs, ChangeMultiaddrsParams),
+            (Method::CompactPartitions, CompactPartitionsParams),
+            (Method::CompactSectorNumbers, CompactSectorNumbersParams),
+            (Method::ChangeOwnerAddress, Address),
+            (Method::DisputeWindowedPoSt, DisputeWindowedPoStParams),
+            (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
+            (Method::ProveCommitAggregate, ProveCommitAggregateParams),
+            (Method::ProveReplicaUpdates, ProveReplicaUpdatesParams),
+        ]
+    );
 
-        // Register methods without parameters
-        register_actor_methods!(
-            $registry,
-            $code_cid,
-            [
-                (Method::ProveCommitAggregate, empty),
-                (Method::ProveReplicaUpdates, empty),
-                (Method::ControlAddresses, empty),
-                (Method::OnDeferredCronEvent, empty),
-                (Method::CheckSectorProven, empty),
-                (Method::ApplyRewards, empty),
-                (Method::RepayDebt, empty),
-            ]
-        );
-    }};
+    // Register methods without parameters
+    register_actor_methods!(
+        registry,
+        cid,
+        [
+            (Method::ControlAddresses, empty),
+            (Method::ConfirmUpdateWorkerKey, empty),
+            (Method::RepayDebt, empty),
+        ]
+    );
+}
+
+fn register_miner_version_9(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_version_8(registry, cid);
+
+    use fil_actor_miner_state::v9::{
+        ChangeBeneficiaryParams, ExtendSectorExpiration2Params, Method,
+        PreCommitSectorBatchParams2, ProveReplicaUpdatesParams2,
+    };
+
+    register_actor_methods!(
+        registry,
+        cid,
+        [
+            (Method::PreCommitSectorBatch2, PreCommitSectorBatchParams2),
+            (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
+            (Method::ChangeBeneficiary, ChangeBeneficiaryParams),
+            (
+                Method::ExtendSectorExpiration2,
+                ExtendSectorExpiration2Params
+            ),
+        ]
+    );
+
+    register_actor_methods!(registry, cid, [(Method::GetBeneficiary, empty),]);
 }
 
 // Macro for versions 10-11 (add ChangeBeneficiary, ExtendSectorExpiration2, Compact methods)
@@ -308,8 +344,8 @@ macro_rules! register_miner_version_16 {
 
 pub(crate) fn register_miner_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
     match version {
-        8 => register_miner_versions_8_to_9!(registry, cid, fil_actor_miner_state::v8),
-        9 => register_miner_versions_8_to_9!(registry, cid, fil_actor_miner_state::v9),
+        8 => register_miner_version_8(registry, cid),
+        9 => register_miner_version_9(registry, cid),
         10 => register_miner_versions_10_to_11!(registry, cid, fil_actor_miner_state::v10),
         11 => register_miner_versions_10_to_11!(registry, cid, fil_actor_miner_state::v11),
         12 => register_miner_version_12!(registry, cid, fil_actor_miner_state::v12),

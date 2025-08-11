@@ -9,14 +9,15 @@ use crate::shim::{
     sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
 use ::cid::Cid;
-use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use fil_actors_shared::fvm_ipld_bitfield::{BitField, UnvalidatedBitField};
+use fil_actors_shared::v16::reward::FilterEstimate;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
+use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::RegisteredUpdateProof;
 use num::BigInt;
 use paste::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -195,6 +196,40 @@ pub struct DisputeWindowedPoStParamsLotusJson {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+pub struct ExtendSectorExpirationParamsV8LotusJson {
+    pub extensions: Vec<ExpirationExtensionV8LotusJson>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExtendSectorExpirationParamsLotusJson {
+    pub extensions: Vec<ExpirationExtensionLotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExpirationExtensionV8LotusJson {
+    pub deadline: u64,
+    pub partition: u64,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: Vec<u8>,
+    pub new_expiration: ChainEpoch,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExpirationExtensionLotusJson {
+    pub deadline: u64,
+    pub partition: u64,
+    #[schemars(with = "LotusJson<BitField>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: BitField,
+    pub new_expiration: ChainEpoch,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct ExtendSectorExpiration2ParamsLotusJson {
     pub extensions: Vec<ExpirationExtension2LotusJson>,
 }
@@ -312,6 +347,15 @@ pub struct DataActivationNotificationLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+pub struct ProveCommitSectorParamsLotusJson {
+    pub sector_number: SectorNumber,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub proof: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct ProveCommitSectors3ParamsLotusJson {
     pub sector_activations: Vec<SectorActivationManifestLotusJson>,
     #[schemars(with = "LotusJson<Vec<RawBytes>>")]
@@ -425,6 +469,40 @@ pub struct IsControllingAddressParamLotusJson {
     pub address: Address,
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct ConfirmSectorProofsParamsLotusJson {
+    pub sector_numbers: Vec<SectorNumber>,
+
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub reward_smoothed: FilterEstimate,
+
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    pub reward_baseline_power: BigInt,
+
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub quality_adj_power_smoothed: FilterEstimate,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct DeferredCronEventParamsLotusJson {
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub event_payload: Vec<u8>,
+
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub reward_smoothed: FilterEstimate,
+
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub quality_adj_power_smoothed: FilterEstimate,
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MaxTerminationFeeParamsLotusJson {
@@ -434,6 +512,38 @@ pub struct MaxTerminationFeeParamsLotusJson {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub initial_pledge: TokenAmount,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ReplicaUpdate2LotusJson {
+    pub sector_number: SectorNumber,
+    pub deadline: u64,
+    pub partition: u64,
+
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub new_sealed_cid: Cid,
+
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub new_unsealed_cid: Cid,
+
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub deals: Vec<DealID>,
+
+    pub update_proof_type: i64,
+
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub replica_proof: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ProveReplicaUpdatesParams2LotusJson {
+    pub updates: Vec<ReplicaUpdate2LotusJson>,
 }
 
 macro_rules!  impl_lotus_json_for_miner_change_worker_param {
@@ -1375,47 +1485,153 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_batch2_params {
     };
 }
 
+macro_rules! impl_lotus_json_for_miner_pre_commit_sector_params {
+    ($($version:literal),+) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::PreCommitSectorParams {
+                type LotusJson = PreCommitSectorParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    PreCommitSectorParamsLotusJson {
+                        seal_proof: self.seal_proof.into(),
+                        sector_number: self.sector_number,
+                        sealed_cid: self.sealed_cid,
+                        seal_rand_epoch: self.seal_rand_epoch,
+                        deal_ids: self.deal_ids,
+                        expiration: self.expiration,
+                        replace_capacity: self.replace_capacity,
+                        replace_sector_deadline: self.replace_sector_deadline,
+                        replace_sector_partition: self.replace_sector_partition,
+                        replace_sector_number: self.replace_sector_number,
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        seal_proof: lotus_json.seal_proof.into(),
+                        sector_number: lotus_json.sector_number,
+                        sealed_cid: lotus_json.sealed_cid,
+                        seal_rand_epoch: lotus_json.seal_rand_epoch,
+                        deal_ids: lotus_json.deal_ids,
+                        expiration: lotus_json.expiration,
+                        replace_capacity: lotus_json.replace_capacity,
+                        replace_sector_deadline: lotus_json.replace_sector_deadline,
+                        replace_sector_partition: lotus_json.replace_sector_partition,
+                        replace_sector_number: lotus_json.replace_sector_number,
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
 impl HasLotusJson for fil_actor_miner_state::v8::PreCommitSectorBatchParams {
     type LotusJson = PreCommitSectorBatchParamsLotusJson;
 
     #[cfg(test)]
-    fn snapshots() -> Vec<(Value, Self)> {
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
         PreCommitSectorBatchParamsLotusJson {
-            sectors: self.sectors.into_iter().map(|s| PreCommitSectorParamsLotusJson {
-                seal_proof: s.seal_proof.into(),
-                sector_number: s.sector_number,
-                sealed_cid: s.sealed_cid,
-                seal_rand_epoch: s.seal_rand_epoch,
-                deal_ids: s.deal_ids,
-                expiration: s.expiration,
-                replace_capacity: s.replace_capacity,
-                replace_sector_deadline: s.replace_sector_deadline,
-                replace_sector_partition: s.replace_sector_partition,
-                replace_sector_number: s.replace_sector_number,
-            }).collect(),
+            sectors: self
+                .sectors
+                .into_iter()
+                .map(|s| PreCommitSectorParamsLotusJson {
+                    seal_proof: s.seal_proof.into(),
+                    sector_number: s.sector_number,
+                    sealed_cid: s.sealed_cid,
+                    seal_rand_epoch: s.seal_rand_epoch,
+                    deal_ids: s.deal_ids,
+                    expiration: s.expiration,
+                    replace_capacity: s.replace_capacity,
+                    replace_sector_deadline: s.replace_sector_deadline,
+                    replace_sector_partition: s.replace_sector_partition,
+                    replace_sector_number: s.replace_sector_number,
+                })
+                .collect(),
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         Self {
-            sectors: lotus_json.sectors.into_iter().map(|s| fil_actor_miner_state::v8::SectorPreCommitInfo {
-                seal_proof: s.seal_proof.into(),
-                sector_number: s.sector_number,
-                sealed_cid: s.sealed_cid,
-                seal_rand_epoch: s.seal_rand_epoch,
-                deal_ids: s.deal_ids,
-                expiration: s.expiration,
-                replace_capacity: s.replace_capacity,
-                replace_sector_deadline: s.replace_sector_deadline,
-                replace_sector_partition: s.replace_sector_partition,
-                replace_sector_number: s.replace_sector_number,
-            }).collect(),
+            sectors: lotus_json
+                .sectors
+                .into_iter()
+                .map(|s| fil_actor_miner_state::v8::SectorPreCommitInfo {
+                    seal_proof: s.seal_proof.into(),
+                    sector_number: s.sector_number,
+                    sealed_cid: s.sealed_cid,
+                    seal_rand_epoch: s.seal_rand_epoch,
+                    deal_ids: s.deal_ids,
+                    expiration: s.expiration,
+                    replace_capacity: s.replace_capacity,
+                    replace_sector_deadline: s.replace_sector_deadline,
+                    replace_sector_partition: s.replace_sector_partition,
+                    replace_sector_number: s.replace_sector_number,
+                })
+                .collect(),
         }
     }
+}
+
+macro_rules! impl_lotus_json_for_miner_pre_commit_sector_and_batch_params {
+    ($($version:literal),+) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::PreCommitSectorBatchParams {
+                type LotusJson = PreCommitSectorBatchParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    PreCommitSectorBatchParamsLotusJson {
+                        sectors: self.sectors.into_iter().map(|s| PreCommitSectorParamsLotusJson {
+                            seal_proof: s.seal_proof.into(),
+                            sector_number: s.sector_number,
+                            sealed_cid: s.sealed_cid,
+                            seal_rand_epoch: s.seal_rand_epoch,
+                            deal_ids: s.deal_ids,
+                            expiration: s.expiration,
+                            replace_capacity: s.replace_capacity,
+                            replace_sector_deadline: s.replace_sector_deadline,
+                            replace_sector_partition: s.replace_sector_partition,
+                            replace_sector_number: s.replace_sector_number,
+                        }).collect(),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        sectors: lotus_json.sectors.into_iter().map(|s| fil_actor_miner_state::[<v $version>]::PreCommitSectorParams {
+                            seal_proof: s.seal_proof.into(),
+                            sector_number: s.sector_number,
+                            sealed_cid: s.sealed_cid,
+                            seal_rand_epoch: s.seal_rand_epoch,
+                            deal_ids: s.deal_ids,
+                            expiration: s.expiration,
+                            replace_capacity: s.replace_capacity,
+                            replace_sector_deadline: s.replace_sector_deadline,
+                            replace_sector_partition: s.replace_sector_partition,
+                            replace_sector_number: s.replace_sector_number,
+                        }).collect(),
+                    }
+                }
+            }
+        }
+        )+
+    };
 }
 
 macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
@@ -1668,14 +1884,14 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_abo
                 fn into_lotus_json(self) -> Self::LotusJson {
                     ProveCommitAggregateParamsLotusJson {
                         sector_numbers: self.sector_numbers,
-                        aggregate_proof: self.aggregate_proof,
+                        aggregate_proof: self.aggregate_proof.into(),
                     }
                 }
 
                 fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                     Self {
                         sector_numbers: lotus_json.sector_numbers,
-                        aggregate_proof: lotus_json.aggregate_proof,
+                        aggregate_proof: lotus_json.aggregate_proof.into(),
                     }
                 }
             }
@@ -1708,37 +1924,6 @@ impl HasLotusJson for fil_actor_miner_state::v8::ProveCommitAggregateParams {
             aggregate_proof: lotus_json.aggregate_proof.into(),
         }
     }
-}
-
-macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v9_to_v12 {
-    ($($version:literal),+) => {
-        $(
-        paste! {
-            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveCommitAggregateParams {
-                type LotusJson = ProveCommitAggregateParamsLotusJson;
-
-                #[cfg(test)]
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
-                }
-
-                fn into_lotus_json(self) -> Self::LotusJson {
-                    ProveCommitAggregateParamsLotusJson {
-                        sector_numbers: self.sector_numbers,
-                        aggregate_proof: self.aggregate_proof.into(),
-                    }
-                }
-
-                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    Self {
-                        sector_numbers: lotus_json.sector_numbers,
-                        aggregate_proof: lotus_json.aggregate_proof.into(),
-                    }
-                }
-            }
-        }
-        )+
-    };
 }
 
 macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
@@ -2054,9 +2239,341 @@ macro_rules! impl_lotus_json_for_miner_sector_update_manifest {
     };
 }
 
+macro_rules! impl_miner_prove_commit_sector_params {
+    ($($version:literal), +) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveCommitSectorParams {
+                type LotusJson = ProveCommitSectorParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    ProveCommitSectorParamsLotusJson {
+                        sector_number: self.sector_number,
+                        proof: self.proof.into(),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        sector_number: lotus_json.sector_number,
+                        proof: lotus_json.proof.into(),
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
+impl HasLotusJson for fil_actor_miner_state::v8::ExtendSectorExpirationParams {
+    type LotusJson = ExtendSectorExpirationParamsV8LotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ExtendSectorExpirationParamsV8LotusJson {
+            extensions: self
+                .extensions
+                .into_iter()
+                .map(|e| ExpirationExtensionV8LotusJson {
+                    deadline: e.deadline,
+                    partition: e.partition,
+                    sectors: match e.sectors {
+                        UnvalidatedBitField::Validated(bf) => bf.to_bytes(),
+                        UnvalidatedBitField::Unvalidated(bytes) => bytes,
+                    },
+                    new_expiration: e.new_expiration,
+                })
+                .collect(),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self {
+            extensions: lotus_json
+                .extensions
+                .into_iter()
+                .map(|e| fil_actor_miner_state::v8::ExpirationExtension {
+                    deadline: e.deadline,
+                    partition: e.partition,
+                    sectors: UnvalidatedBitField::Unvalidated(e.sectors),
+                    new_expiration: e.new_expiration,
+                })
+                .collect(),
+        }
+    }
+}
+
+macro_rules! impl_miner_extend_sector_expiration_params_v9_onwards {
+    ($($version:literal), +) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ExtendSectorExpirationParams {
+                 type LotusJson = ExtendSectorExpirationParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    ExtendSectorExpirationParamsLotusJson {
+                        extensions: self.extensions.into_iter().map(|e| ExpirationExtensionLotusJson {
+                            deadline: e.deadline,
+                            partition: e.partition,
+                            sectors: e.sectors,
+                            new_expiration: e.new_expiration,
+                        }).collect(),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        extensions: lotus_json.extensions.into_iter().map(|e| fil_actor_miner_state::[<v $version>]::ExpirationExtension {
+                            deadline: e.deadline,
+                            partition: e.partition,
+                            sectors: e.sectors,
+                            new_expiration: e.new_expiration,
+                        }).collect(),
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
+macro_rules! impl_miner_confirm_sector_proofs_param_v8_to_v13 {
+    ($type_suffix:path: $($version:literal), +) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ConfirmSectorProofsParams {
+                type LotusJson = ConfirmSectorProofsParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    ConfirmSectorProofsParamsLotusJson {
+                        sector_numbers: self.sectors,
+                        reward_smoothed: FilterEstimate{
+                            position: self.reward_smoothed.position,
+                            velocity: self.reward_smoothed.velocity,
+                        },
+                        reward_baseline_power: self.reward_baseline_power,
+                        quality_adj_power_smoothed: FilterEstimate{
+                            position: self.quality_adj_power_smoothed.position,
+                            velocity: self.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        sectors: lotus_json.sector_numbers,
+                        reward_smoothed: $type_suffix::smooth::FilterEstimate{
+                            position: lotus_json.reward_smoothed.position,
+                            velocity: lotus_json.reward_smoothed.velocity,
+                        },
+                        reward_baseline_power: lotus_json.reward_baseline_power,
+                        quality_adj_power_smoothed: $type_suffix::smooth::FilterEstimate{
+                            position: lotus_json.quality_adj_power_smoothed.position,
+                            velocity: lotus_json.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
+impl HasLotusJson for fil_actor_miner_state::v14::ConfirmSectorProofsParams {
+    type LotusJson = ConfirmSectorProofsParamsLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ConfirmSectorProofsParamsLotusJson {
+            sector_numbers: self.sectors,
+            reward_smoothed: FilterEstimate {
+                position: self.reward_smoothed.position,
+                velocity: self.reward_smoothed.velocity,
+            },
+            reward_baseline_power: self.reward_baseline_power,
+            quality_adj_power_smoothed: FilterEstimate {
+                position: self.quality_adj_power_smoothed.position,
+                velocity: self.quality_adj_power_smoothed.velocity,
+            },
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self {
+            sectors: lotus_json.sector_numbers,
+            reward_smoothed: fil_actors_shared::v14::builtin::reward::smooth::FilterEstimate {
+                position: lotus_json.reward_smoothed.position,
+                velocity: lotus_json.reward_smoothed.velocity,
+            },
+            reward_baseline_power: Default::default(),
+            quality_adj_power_smoothed: Default::default(),
+        }
+    }
+}
+
+macro_rules! impl_miner_deferred_cron_event_params_v14_onwards {
+     ($($version:literal), +) => {
+         $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::DeferredCronEventParams {
+                type LotusJson = DeferredCronEventParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    DeferredCronEventParamsLotusJson{
+                        event_payload: self.event_payload,
+                        reward_smoothed: FilterEstimate{
+                            position: self.reward_smoothed.position,
+                            velocity: self.reward_smoothed.velocity,
+                        },
+                        quality_adj_power_smoothed: FilterEstimate{
+                            position: self.quality_adj_power_smoothed.position,
+                            velocity: self.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self{
+                        event_payload: lotus_json.event_payload,
+                        reward_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate{
+                            position: lotus_json.reward_smoothed.position,
+                            velocity: lotus_json.reward_smoothed.velocity,
+                        },
+                        quality_adj_power_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate{
+                            position: lotus_json.quality_adj_power_smoothed.position,
+                            velocity: lotus_json.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+            }
+        }
+        )+
+     };
+}
+
+macro_rules! impl_miner_deferred_cron_event_params_v8_to_v13 {
+     ($type_suffix:path: $($version:literal), +) => {
+         $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::DeferredCronEventParams {
+                type LotusJson = DeferredCronEventParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    DeferredCronEventParamsLotusJson{
+                        event_payload: self.event_payload,
+                        reward_smoothed: FilterEstimate{
+                            position: self.reward_smoothed.position,
+                            velocity: self.reward_smoothed.velocity,
+                        },
+                        quality_adj_power_smoothed: FilterEstimate{
+                            position: self.quality_adj_power_smoothed.position,
+                            velocity: self.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self{
+                        event_payload: lotus_json.event_payload,
+                        reward_smoothed: $type_suffix::smooth::FilterEstimate{
+                            position: lotus_json.reward_smoothed.position,
+                            velocity: lotus_json.reward_smoothed.velocity,
+                        },
+                        quality_adj_power_smoothed: $type_suffix::smooth::FilterEstimate{
+                            position: lotus_json.quality_adj_power_smoothed.position,
+                            velocity: lotus_json.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+            }
+        }
+        )+
+     };
+}
+
+macro_rules! impl_miner_prove_replica_update_params2 {
+    ($($version:literal), +) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveReplicaUpdatesParams2 {
+                type LotusJson = ProveReplicaUpdatesParams2LotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    ProveReplicaUpdatesParams2LotusJson {
+                        updates: self.updates.into_iter().map(|u| ReplicaUpdate2LotusJson {
+                            sector_number: u.sector_number,
+                            deals: u.deals,
+                            deadline: u.deadline,
+                            partition: u.partition,
+                            new_sealed_cid: u.new_sealed_cid,
+                            update_proof_type: i64::from(u.update_proof_type),
+                            replica_proof: u.replica_proof,
+                            new_unsealed_cid: u.new_unsealed_cid,
+                        }).collect(),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        updates: lotus_json.updates.into_iter().map(|u| fil_actor_miner_state::[<v $version>]::ReplicaUpdate2{
+                            sector_number: u.sector_number,
+                            deadline: u.deadline,
+                            partition: u.partition,
+                            new_sealed_cid: u.new_sealed_cid,
+                            new_unsealed_cid: u.new_unsealed_cid,
+                            deals: u.deals,
+                            update_proof_type: u.update_proof_type.into(),
+                            replica_proof: u.replica_proof,
+                        }).collect(),
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16); // not available for 8,9,10
+impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_extend_sector_expiration2_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_beneficiary_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_declare_faults_recovered_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
@@ -2074,19 +2591,30 @@ impl_lotus_json_for_miner_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15,
 impl_lotus_json_for_miner_change_multiaddrs_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_compact_partitions_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_compact_sector_numbers_params!(9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_pre_commit_sector_batch2_params!(9, 10, 11, 12, 13, 14, 15, 16); // only available from v11 onwards
-impl_lotus_json_for_miner_prove_commit_sectors3_params!(fvm_shared4: 13, 14, 15, 16); // only available from v13 onwards
-impl_lotus_json_for_miner_prove_replica_updates3_params!(fvm_shared4: 13, 14, 15, 16); // not working // only available from v13 onwards
+impl_lotus_json_for_miner_pre_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_miner_pre_commit_sector_and_batch_params!(9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_miner_pre_commit_sector_batch2_params!(9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_miner_prove_commit_sectors3_params!(fvm_shared4: 13, 14, 15, 16);
+impl_lotus_json_for_miner_prove_replica_updates3_params!(fvm_shared4: 13, 14, 15, 16);
 impl_lotus_json_for_miner_report_consensus_fault_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_check_sector_proven_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_apply_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_above!(13, 14, 15, 16);
-impl_lotus_json_for_miner_prove_commit_aggregate_params_v9_to_v12!(9, 10, 11, 12);
+impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_above!(
+    9, 10, 11, 12, 13, 14, 15, 16
+);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared2: 8, 9);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared3: 10, 11);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared4: 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_is_controlling_address_param!(10, 11, 12, 13, 14, 15, 16); // only available from v10 onwards
-impl_lotus_json_for_miner_max_termination_fee_params!(16); // only available in v16
+impl_lotus_json_for_miner_is_controlling_address_param!(10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_miner_max_termination_fee_params!(16);
 impl_lotus_json_for_miner_change_peer_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_sector_activation_manifest!(fvm_shared4: 13, 14, 15, 16); // not working  // only available from v13 owards
-impl_lotus_json_for_miner_sector_update_manifest!(13, 14, 15, 16); // only available from v13 owards
+impl_lotus_json_for_miner_sector_activation_manifest!(fvm_shared4: 13, 14, 15, 16);
+impl_lotus_json_for_miner_sector_update_manifest!(13, 14, 15, 16);
+impl_miner_prove_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_miner_extend_sector_expiration_params_v9_onwards!(9, 10, 11, 12, 13, 14, 15, 16);
+impl_miner_confirm_sector_proofs_param_v8_to_v13!(fvm_shared2: 8, 9);
+impl_miner_confirm_sector_proofs_param_v8_to_v13!(fvm_shared3: 10, 11,12, 13);
+impl_miner_deferred_cron_event_params_v14_onwards!(14, 15, 16);
+impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared2: 8, 9);
+impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared3: 10, 11, 12, 13);
+impl_miner_prove_replica_update_params2!(9, 10, 11);
