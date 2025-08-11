@@ -5,6 +5,7 @@ use super::trace::ExecutionEvent;
 use crate::shim::{
     econ::TokenAmount, fvm_shared_latest::ActorID, fvm_shared_latest::error::ExitCode,
 };
+use crate::utils::get_size::{GetSize, vec_heap_size_with_fn_helper};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0;
 use fvm_ipld_blockstore::Blockstore;
@@ -133,6 +134,16 @@ pub enum Receipt {
     V4(Receipt_v4),
 }
 
+impl GetSize for Receipt {
+    fn get_heap_size(&self) -> usize {
+        match self {
+            Self::V2(r) => r.return_data.bytes().get_heap_size(),
+            Self::V3(r) => r.return_data.bytes().get_heap_size(),
+            Self::V4(r) => r.return_data.bytes().get_heap_size(),
+        }
+    }
+}
+
 impl PartialEq for Receipt {
     fn eq(&self, other: &Self) -> bool {
         self.exit_code() == other.exit_code()
@@ -180,10 +191,10 @@ impl Receipt {
         i: u64,
     ) -> anyhow::Result<Option<Self>> {
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-        if let Ok(amt) = Amtv0::load(receipts, db) {
-            if let Ok(receipts) = amt.get(i) {
-                return Ok(receipts.cloned().map(Receipt::V4));
-            }
+        if let Ok(amt) = Amtv0::load(receipts, db)
+            && let Ok(receipts) = amt.get(i)
+        {
+            return Ok(receipts.cloned().map(Receipt::V4));
         }
 
         // Fallback to Receipt_v2.
@@ -331,6 +342,19 @@ impl ActorEvent {
 pub enum StampedEvent {
     V3(StampedEvent_v3),
     V4(StampedEvent_v4),
+}
+
+impl GetSize for StampedEvent {
+    fn get_heap_size(&self) -> usize {
+        match self {
+            Self::V3(e) => vec_heap_size_with_fn_helper(&e.event.entries, |e| {
+                e.key.get_heap_size() + e.value.get_heap_size()
+            }),
+            Self::V4(e) => vec_heap_size_with_fn_helper(&e.event.entries, |e| {
+                e.key.get_heap_size() + e.value.get_heap_size()
+            }),
+        }
+    }
 }
 
 impl From<StampedEvent_v3> for StampedEvent {

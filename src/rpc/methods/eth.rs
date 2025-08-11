@@ -1147,19 +1147,18 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     // We try to decode the input as an EVM method invocation and/or a contract creation. If
     // that fails, we encode the "native" parameters as Solidity ABI.
     let input = 'decode: {
-        if msg.method_num() == EVMMethod::InvokeContract as MethodNum
-            || msg.method_num() == EAMMethod::CreateExternal as MethodNum
+        if (msg.method_num() == EVMMethod::InvokeContract as MethodNum
+            || msg.method_num() == EAMMethod::CreateExternal as MethodNum)
+            && let Ok(buffer) = decode_payload(msg.params(), codec)
         {
-            if let Ok(buffer) = decode_payload(msg.params(), codec) {
-                // If this is a valid "create external", unset the "to" address.
-                if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
-                    to = None;
-                }
-                break 'decode buffer;
+            // If this is a valid "create external", unset the "to" address.
+            if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
+                to = None;
             }
-            // Yeah, we're going to ignore errors here because the user can send whatever they
-            // want and may send garbage.
+            break 'decode buffer;
         }
+        // Yeah, we're going to ignore errors here because the user can send whatever they
+        // want and may send garbage.
         encode_filecoin_params_as_abi(msg.method_num(), codec, msg.params())?
     };
 
@@ -1511,15 +1510,14 @@ async fn get_block_receipts<DB: Blockstore + Send + Sync + 'static>(
         block_param,
         ResolveNullTipset::TakeOlder,
     )?;
-    if let Some(limit) = limit {
-        if limit > LOOKBACK_NO_LIMIT
-            && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
-        {
-            bail!(
-                "tipset {} is older than the allowed lookback limit",
-                ts.key().format_lotus()
-            );
-        }
+    if let Some(limit) = limit
+        && limit > LOOKBACK_NO_LIMIT
+        && ts.epoch() < ctx.chain_store().heaviest_tipset().epoch() - limit
+    {
+        bail!(
+            "tipset {} is older than the allowed lookback limit",
+            ts.key().format_lotus()
+        );
     }
     let ts_ref = Arc::new(ts);
     let ts_key = ts_ref.key();
@@ -2244,10 +2242,10 @@ impl RpcMethod<2> for EthGetTransactionCount {
         (sender, block_param): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let addr = sender.to_filecoin_address()?;
-        if let BlockNumberOrHash::PredefinedBlock(ref predefined) = block_param {
-            if *predefined == Predefined::Pending {
-                return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
-            }
+        if let BlockNumberOrHash::PredefinedBlock(ref predefined) = block_param
+            && *predefined == Predefined::Pending
+        {
+            return Ok(EthUint64(ctx.mpool.get_sequence(&addr)?));
         }
         let ts = tipset_by_block_number_or_hash(
             ctx.chain_store(),
@@ -2511,19 +2509,19 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     ) -> Result<Self::Ok, ServerError> {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
             crate::chain::messages_from_cids(ctx.store(), &[cid]);
-        if let Ok(smsgs) = smsgs_result {
-            if let Some(smsg) = smsgs.first() {
-                let hash = if smsg.is_delegated() {
-                    let chain_id = ctx.chain_config().eth_chain_id;
-                    let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-                    tx.eth_hash()?.into()
-                } else if smsg.is_secp256k1() {
-                    smsg.cid().into()
-                } else {
-                    smsg.message().cid().into()
-                };
-                return Ok(Some(hash));
-            }
+        if let Ok(smsgs) = smsgs_result
+            && let Some(smsg) = smsgs.first()
+        {
+            let hash = if smsg.is_delegated() {
+                let chain_id = ctx.chain_config().eth_chain_id;
+                let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+                tx.eth_hash()?.into()
+            } else if smsg.is_secp256k1() {
+                smsg.cid().into()
+            } else {
+                smsg.message().cid().into()
+            };
+            return Ok(Some(hash));
         }
 
         let msg_result = crate::chain::get_chain_message(ctx.store(), &cid);
@@ -3503,10 +3501,10 @@ async fn trace_filter(
                 .match_filter_criteria(&filter.from_address, &filter.to_address)?
             {
                 trace_counter += 1;
-                if let Some(after) = filter.after.clone() {
-                    if trace_counter <= after.0 {
-                        continue;
-                    }
+                if let Some(after) = filter.after.clone()
+                    && trace_counter <= after.0
+                {
+                    continue;
                 }
 
                 results.insert(block_trace);

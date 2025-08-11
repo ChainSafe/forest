@@ -14,8 +14,6 @@ pub trait BlockstoreReadCache {
     fn get(&self, k: &Cid) -> Option<Vec<u8>>;
 
     fn put(&self, k: Cid, block: Vec<u8>);
-
-    fn len(&self) -> usize;
 }
 
 pub type LruBlockstoreReadCache = SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>;
@@ -28,25 +26,6 @@ impl BlockstoreReadCache for SizeTrackingLruCache<get_size::CidWrapper, Vec<u8>>
     fn put(&self, k: Cid, block: Vec<u8>) {
         self.push(k.into(), block);
     }
-
-    fn len(&self) -> usize {
-        self.len()
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct VoidBlockstoreReadCache;
-
-impl BlockstoreReadCache for VoidBlockstoreReadCache {
-    fn get(&self, _: &Cid) -> Option<Vec<u8>> {
-        None
-    }
-
-    fn put(&self, _: Cid, _: Vec<u8>) {}
-
-    fn len(&self) -> usize {
-        0
-    }
 }
 
 impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
@@ -56,10 +35,6 @@ impl<T: BlockstoreReadCache> BlockstoreReadCache for Arc<T> {
 
     fn put(&self, k: Cid, block: Vec<u8>) {
         self.as_ref().put(k, block)
-    }
-
-    fn len(&self) -> usize {
-        self.as_ref().len()
     }
 }
 

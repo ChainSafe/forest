@@ -731,17 +731,19 @@ impl EthTrace {
         };
 
         // Match FromAddress
-        if let Some(from_addresses) = from_decoded_addresses {
-            if !from_addresses.is_empty() && !from_addresses.contains(&trace_from) {
-                return Ok(false);
-            }
+        if let Some(from_addresses) = from_decoded_addresses
+            && !from_addresses.is_empty()
+            && !from_addresses.contains(&trace_from)
+        {
+            return Ok(false);
         }
 
         // Match ToAddress
-        if let Some(to_addresses) = to_decoded_addresses {
-            if !to_addresses.is_empty() && !trace_to.is_some_and(|to| to_addresses.contains(&to)) {
-                return Ok(false);
-            }
+        if let Some(to_addresses) = to_decoded_addresses
+            && !to_addresses.is_empty()
+            && !trace_to.is_some_and(|to| to_addresses.contains(&to))
+        {
+            return Ok(false);
         }
 
         Ok(true)
