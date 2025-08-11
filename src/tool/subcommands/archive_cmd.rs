@@ -153,7 +153,7 @@ pub enum ArchiveCommands {
         /// Path to the F3 snapshot
         #[arg(long)]
         f3: PathBuf,
-        /// Snapshot output filename
+        /// Snapshot output file path
         #[arg(long)]
         output: PathBuf,
     },
