@@ -507,7 +507,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             let lookup = client
                 .call(
                     StateWaitMsg::request((smsg.cid(), 0, tipset.epoch(), false))?
-                        .with_timeout(Duration::MAX),
+                        .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
 
