@@ -150,6 +150,9 @@ pub(super) async fn run_tests(
     println!(
         "test result: {status}. {passed} passed; {failed} failed; {ignored} ignored; {filtered} filtered out"
     );
+    if failed > 0 {
+        anyhow::bail!(format!("{failed} test(s) failed"));
+    }
     Ok(())
 }
 
