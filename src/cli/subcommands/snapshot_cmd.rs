@@ -1,7 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
 use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -11,11 +10,10 @@ use crate::rpc::{self, chain::ForestChainExportParams, prelude::*, types::ApiTip
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
-use human_repr::HumanCount;
-use num::Zero as _;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::io::AsyncWriteExt;
 
@@ -104,40 +102,27 @@ impl SnapshotCommands {
                     dry_run,
                 };
 
+                let pb = ProgressBar::new_spinner().with_style(
+                    ProgressStyle::with_template(
+                        "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
+                    )
+                    .expect("indicatif template must be valid"),
+                ).with_message(format!("Exporting {} ...", output_path.display()));
+                pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
-                    let start = Instant::now();
-                    let tmp_file = temp_path.to_owned();
-                    let output_path = output_path.clone();
+                    let path: PathBuf = (&temp_path).into();
+                    let pb = pb.clone();
+                    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
                     async move {
-                        let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.5));
-                        println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
-                            let snapshot_size = std::fs::metadata(&tmp_file)
-                                .map(|meta| meta.len())
-                                .unwrap_or(0);
-                            print!(
-                                "{}{}",
-                                anes::MoveCursorToPreviousLine(1),
-                                anes::ClearLine::All
-                            );
-                            let elapsed_secs = start.elapsed().as_secs_f64();
-                            println!(
-                                "{}: {} ({}/s)",
-                                &output_path.to_string_lossy(),
-                                snapshot_size.human_count_bytes(),
-                                if elapsed_secs.is_zero() {
-                                    0.
-                                } else {
-                                    (snapshot_size as f64) / elapsed_secs
-                                }
-                                .human_count_bytes(),
-                            );
-                            let _ = std::io::stdout().flush();
+                            if let Ok(meta) = std::fs::metadata(&path) {
+                                pb.set_position(meta.len());
+                            }
                         }
                     }
                 });
+
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
                 let hash_result = client
@@ -145,7 +130,8 @@ impl SnapshotCommands {
                     .await?;
 
                 handle.abort();
-                let _ = handle.await;
+                pb.finish();
+                _ = handle.await;
 
                 if !dry_run {
                     if let Some(hash) = hash_result {
