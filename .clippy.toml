@@ -49,5 +49,13 @@ path = "lru::LruCache::new"
 reason = """Use SizeTrackingLruCache instead."""
 
 [[disallowed-methods]]
+path = "lru::LruCache::with_hasher"
+reason = """Use SizeTrackingLruCache instead."""
+
+[[disallowed-methods]]
 path = "lru::LruCache::unbounded"
+reason = """Avoid unbounded lru cache for potential memory leak, use SizeTrackingLruCache instead."""
+
+[[disallowed-methods]]
+path = "lru::LruCache::unbounded_with_hasher"
 reason = """Avoid unbounded lru cache for potential memory leak, use SizeTrackingLruCache instead."""

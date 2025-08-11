@@ -39,7 +39,7 @@ pub enum ResolveNullTipset {
 impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
         let ts_cache = SizeTrackingLruCache::new_with_default_metrics_registry(
-            "tipet".into(),
+            "tipset".into(),
             DEFAULT_TIPSET_CACHE_SIZE,
         );
         Self { ts_cache, db }

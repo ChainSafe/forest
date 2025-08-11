@@ -5,7 +5,7 @@ use cid::Cid;
 use derive_more::{From, Into};
 // re-exports the trait
 pub use get_size2::GetSize;
-use num::BigInt;
+use num_bigint::BigInt;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, From, Into)]
 pub struct CidWrapper(pub Cid);
