@@ -14,8 +14,10 @@ name = "forest"
 [workspace.dependencies]
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
+dhat = "0.3"
 flume = "0.11"
 futures = "0.3"
+get-size2 = { version = "0.6", features = ["derive"] }
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
@@ -51,6 +53,7 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
+convert_case = "0.8"
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"
@@ -91,7 +94,7 @@ fvm_ipld_encoding = "0.5.3"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.13", features = ["proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.7", features = ["proofs"] }
-get-size2 = { version = "0.6", features = ["derive"] }
+get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
