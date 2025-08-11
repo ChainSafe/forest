@@ -9,10 +9,25 @@ use cid::Cid;
 macro_rules! register_datacap_v9 {
     ($registry:expr, $code_cid:expr) => {{
         use fil_actor_datacap_state::v9::{DestroyParams, Method, MintParams};
+        use fil_actors_shared::frc46_token::token::types::{
+            BurnFromParams, BurnParams, DecreaseAllowanceParams, GetAllowanceParams,
+            IncreaseAllowanceParams, RevokeAllowanceParams, TransferFromParams, TransferParams,
+        };
         register_actor_methods!(
             $registry,
             $code_cid,
-            [(Method::Mint, MintParams), (Method::Destroy, DestroyParams),]
+            [
+                (Method::Mint, MintParams),
+                (Method::Destroy, DestroyParams),
+                (Method::Transfer, TransferParams),
+                (Method::TransferFrom, TransferFromParams),
+                (Method::IncreaseAllowance, IncreaseAllowanceParams),
+                (Method::DecreaseAllowance, DecreaseAllowanceParams),
+                (Method::RevokeAllowance, RevokeAllowanceParams),
+                (Method::Burn, BurnParams),
+                (Method::BurnFrom, BurnFromParams),
+                (Method::Allowance, GetAllowanceParams),
+            ]
         );
 
         register_actor_methods!(
@@ -30,12 +45,24 @@ macro_rules! register_datacap_v9 {
 macro_rules! register_datacap_v10 {
     ($registry:expr, $code_cid:expr) => {{
         use fil_actor_datacap_state::v10::{DestroyParams, Method, MintParams};
+        use fil_actors_shared::frc46_token::token::types::{
+            BurnFromParams, BurnParams, DecreaseAllowanceParams, GetAllowanceParams,
+            IncreaseAllowanceParams, RevokeAllowanceParams, TransferFromParams, TransferParams,
+        };
         register_actor_methods!(
             $registry,
             $code_cid,
             [
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
+                (Method::TransferExported, TransferParams),
+                (Method::TransferFromExported, TransferFromParams),
+                (Method::IncreaseAllowanceExported, IncreaseAllowanceParams),
+                (Method::DecreaseAllowanceExported, DecreaseAllowanceParams),
+                (Method::RevokeAllowanceExported, RevokeAllowanceParams),
+                (Method::BurnExported, BurnParams),
+                (Method::BurnFromExported, BurnFromParams),
+                (Method::AllowanceExported, GetAllowanceParams),
             ]
         );
 
@@ -54,6 +81,10 @@ macro_rules! register_datacap_v10 {
 
 macro_rules! register_datacap_version {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        use fil_actors_shared::frc46_token::token::types::{
+            BurnFromParams, BurnParams, DecreaseAllowanceParams, GetAllowanceParams,
+            IncreaseAllowanceParams, RevokeAllowanceParams, TransferFromParams, TransferParams,
+        };
         use $state_version::{BalanceParams, ConstructorParams, DestroyParams, Method, MintParams};
         register_actor_methods!(
             $registry,
@@ -63,6 +94,14 @@ macro_rules! register_datacap_version {
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
                 (Method::BalanceExported, BalanceParams),
+                (Method::TransferExported, TransferParams),
+                (Method::TransferFromExported, TransferFromParams),
+                (Method::IncreaseAllowanceExported, IncreaseAllowanceParams),
+                (Method::DecreaseAllowanceExported, DecreaseAllowanceParams),
+                (Method::RevokeAllowanceExported, RevokeAllowanceParams),
+                (Method::BurnExported, BurnParams),
+                (Method::BurnFromExported, BurnFromParams),
+                (Method::AllowanceExported, GetAllowanceParams),
             ]
         );
 
