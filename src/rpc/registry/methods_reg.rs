@@ -259,6 +259,7 @@ mod test {
             BuiltinActor::Account,
             BuiltinActor::Miner,
             BuiltinActor::EVM,
+            BuiltinActor::Cron,
         ];
 
         for actor_type in supported_actors {
