@@ -5,15 +5,30 @@ use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;
+use fvm_ipld_encoding::RawBytes;
 
 macro_rules! register_evm_version {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{ConstructorParams, Method};
+        use $state_version::{ConstructorParams, DelegateCallParams, Method};
 
         register_actor_methods!(
             $registry,
             $code_cid,
-            [(Method::Constructor, ConstructorParams)]
+            [
+                (Method::Constructor, ConstructorParams),
+                (Method::Resurrect, ConstructorParams),
+                (Method::InvokeContract, RawBytes),
+                (Method::InvokeContractDelegate, DelegateCallParams),
+            ]
+        );
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::GetBytecode, empty),
+                (Method::GetBytecodeHash, empty)
+            ]
         );
     }};
 }
