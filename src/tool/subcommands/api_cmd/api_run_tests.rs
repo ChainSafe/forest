@@ -219,50 +219,63 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
                 anyhow::bail!("timeout waiting for tipset");
             }
         };
-        if let Ok(WsMessage::Text(text)) = msg {
-            let json: serde_json::Value = serde_json::from_str(&text)?;
+        match msg {
+            Ok(WsMessage::Text(text)) => {
+                let json: serde_json::Value = serde_json::from_str(&text)?;
 
-            if let Some(id) = json.get("result") {
-                channel_id = Some(id.clone());
-            } else {
-                let method = json!("xrpc.ch.val");
-                anyhow::ensure!(json.get("method") == Some(&method));
+                if let Some(id) = json.get("result") {
+                    channel_id = Some(id.clone());
+                } else {
+                    let method = json!("xrpc.ch.val");
+                    anyhow::ensure!(json.get("method") == Some(&method));
 
-                if let Some(params) = json.get("params").and_then(|v| v.as_array()) {
-                    if let Some(id) = params.first() {
-                        anyhow::ensure!(Some(id) == channel_id.as_ref());
-                    } else {
-                        anyhow::bail!("expecting an open channel");
-                    }
-                    if let Some(changes) = params.get(1).and_then(|v| v.as_array()) {
-                        for change in changes {
-                            if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
-                                if type_ == "apply" {
-                                    let id = channel_id.as_ref().ok_or_else(|| {
-                                        anyhow::anyhow!("subscription not opened")
-                                    })?;
-                                    close_channel(&mut ws_stream, id).await?;
-                                    ws_stream.close(None).await?;
-                                    return Ok(());
-                                } else if type_ == "revert" {
-                                    let id = channel_id.as_ref().ok_or_else(|| {
-                                        anyhow::anyhow!("subscription not opened")
-                                    })?;
-                                    close_channel(&mut ws_stream, id).await?;
-                                    ws_stream.close(None).await?;
-                                    anyhow::bail!("revert");
+                    if let Some(params) = json.get("params").and_then(|v| v.as_array()) {
+                        if let Some(id) = params.first() {
+                            anyhow::ensure!(Some(id) == channel_id.as_ref());
+                        } else {
+                            anyhow::bail!("expecting an open channel");
+                        }
+                        if let Some(changes) = params.get(1).and_then(|v| v.as_array()) {
+                            for change in changes {
+                                if let Some(type_) = change.get("Type").and_then(|v| v.as_str()) {
+                                    if type_ == "apply" {
+                                        let id = channel_id.as_ref().ok_or_else(|| {
+                                            anyhow::anyhow!("subscription not opened")
+                                        })?;
+                                        close_channel(&mut ws_stream, id).await?;
+                                        ws_stream.close(None).await?;
+                                        return Ok(());
+                                    } else if type_ == "revert" {
+                                        let id = channel_id.as_ref().ok_or_else(|| {
+                                            anyhow::anyhow!("subscription not opened")
+                                        })?;
+                                        close_channel(&mut ws_stream, id).await?;
+                                        ws_stream.close(None).await?;
+                                        anyhow::bail!("revert");
+                                    }
                                 }
                             }
                         }
+                    } else {
+                        let id = channel_id
+                            .as_ref()
+                            .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
+                        close_channel(&mut ws_stream, id).await?;
+                        ws_stream.close(None).await?;
+                        anyhow::bail!("expecting params");
                     }
-                } else {
-                    let id = channel_id
-                        .as_ref()
-                        .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
-                    close_channel(&mut ws_stream, id).await?;
-                    ws_stream.close(None).await?;
-                    anyhow::bail!("expecting params");
                 }
+            }
+            Err(..) | Ok(WsMessage::Close(..)) => {
+                let id = channel_id
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("subscription not opened"))?;
+                close_channel(&mut ws_stream, id).await?;
+                ws_stream.close(None).await?;
+                anyhow::bail!("unexpected error or close message");
+            }
+            _ => {
+                // Ignore other message types
             }
         }
     }
