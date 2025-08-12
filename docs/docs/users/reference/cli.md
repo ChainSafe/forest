@@ -851,11 +851,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -903,11 +903,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -928,11 +928,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
       --limit <LIMIT>
           The maximum number of instances. A value less than 0 indicates no limit
@@ -1508,12 +1508,12 @@ Options:
       --export-mode <EXPORT_MODE>
           Export mode
 
-          [default: all]
-
           Possible values:
           - all:  Export all types of snapshots
           - lite: Export only lite snapshots
           - diff: Export only diff snapshots
+
+          [default: all]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1720,11 +1720,11 @@ Options:
       --test-criteria-overrides [<TEST_CRITERIA_OVERRIDES>...]
           Additional overrides to modify success criteria for tests
 
-          [default: timeout-and-timeout]
-
           Possible values:
           - valid-and-timeout:   Test pass when first endpoint returns a valid result and the second one timeout
           - timeout-and-timeout: Test pass when both endpoints timeout
+
+          [default: timeout-and-timeout]
 
       --report-dir <REPORT_DIR>
           Specify a directory to dump the test report
@@ -1732,12 +1732,12 @@ Options:
       --report-mode <REPORT_MODE>
           Report detail level: full (default), failure-only, or summary
 
-          [default: full]
-
           Possible values:
           - full:         Show everything
           - failure-only: Show summary and failures only
           - summary:      Show summary only
+
+          [default: full]
 
   -h, --help
           Print help (see a summary with '-h')
