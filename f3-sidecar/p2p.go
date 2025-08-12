@@ -28,24 +28,24 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		return nil, err
 	}
 
-	dthOpts := []dht.Option{
+	dhtOpts := []dht.Option{
 		dht.Mode(dht.ModeAutoServer),
 		dht.ProtocolPrefix(protocol.ID(fmt.Sprintf("/fil/kad/%s", networkName))),
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	hostDHT, err := dht.New(ctx, host, dthOpts...)
+	hostDHT, err := dht.New(ctx, host, dhtOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	backupDthOpts := []dht.Option{
+	backupDHTOpts := []dht.Option{
 		dht.Mode(dht.ModeAutoServer),
 		dht.ProtocolPrefix(protocol.ID(fmt.Sprintf("/fil/kad/f3-sidecar/%s", networkName))),
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	backupHostDHT, err := dht.New(ctx, host, backupDthOpts...)
+	backupHostDHT, err := dht.New(ctx, host, backupDHTOpts...)
 	if err != nil {
 		return nil, err
 	}
