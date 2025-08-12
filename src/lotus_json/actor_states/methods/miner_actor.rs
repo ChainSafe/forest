@@ -546,6 +546,49 @@ pub struct ProveReplicaUpdatesParams2LotusJson {
     pub updates: Vec<ReplicaUpdate2LotusJson>,
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorNIActivationInfoLotusJson {
+    pub sealing_number: SectorNumber,
+    pub sealer_id: u64,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sealed_cid: Cid,
+    pub sector_number: SectorNumber,
+    pub seal_rand_epoch: ChainEpoch,
+    pub expiration: ChainEpoch,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct InternalSectorSetupForPresealParamsLotusJson {
+    pub sectors: Vec<SectorNumber>,
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub reward_smoothed: FilterEstimate,
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    pub reward_baseline_power: BigInt,
+    #[schemars(with = "LotusJson<FilterEstimate>")]
+    #[serde(with = "crate::lotus_json")]
+    pub quality_adj_power_smoothed: FilterEstimate,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ProveCommitSectorsNIParamsLotusJson {
+    pub sectors: Vec<SectorNIActivationInfoLotusJson>,
+    #[schemars(with = "LotusJson<RawBytes>")]
+    #[serde(with = "crate::lotus_json")]
+    pub aggregate_proof: RawBytes,
+    #[schemars(with = "LotusJson<RegisteredSealProof>")]
+    #[serde(with = "crate::lotus_json")]
+    pub seal_proof_type: RegisteredSealProof,
+    pub aggregate_proof_type: i64,
+    pub require_activation_success: bool,
+    pub require_notification_success: bool,
+}
+
 macro_rules!  impl_lotus_json_for_miner_change_worker_param {
     ($($version:literal),+) => {
         $(
@@ -693,7 +736,19 @@ macro_rules! impl_lotus_json_for_recover_declaration_params_v9_and_above {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::new();
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "Partition": 2,
+                            "Sectors": "gCI="
+                        }),
+                        Self {
+                            deadline: 1,
+                            partition: 2,
+                            sectors: sectors,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -722,7 +777,19 @@ impl HasLotusJson for fil_actor_miner_state::v8::RecoveryDeclaration {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let sectors = BitField::new();
+        vec![(
+            json!({
+                "Deadline": 1,
+                "Partition": 2,
+                "Sectors": "gCI="
+            }),
+            Self {
+                deadline: 1,
+                partition: 2,
+                sectors: sectors.into(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -751,7 +818,14 @@ macro_rules! impl_lotus_json_for_miner_change_owner_address_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "NewOwner": "f01234"
+                        }),
+                        Self {
+                            new_owner: Address::new_id(1234).into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -776,7 +850,18 @@ macro_rules! impl_lotus_json_for_miner_change_beneficiary_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "NewBeneficiary": "f01234",
+                            "NewQuota": "1000000000000000000",
+                            "NewExpiration": 1000
+                        }),
+                        Self {
+                            new_beneficiary: Address::new_id(1234).into(),
+                            new_quota: TokenAmount::from_atto(1000000000000000000u64).into(),
+                            new_expiration: 1000,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -809,7 +894,39 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::new();
+                    vec![(
+                        json!({
+                            "Extensions": [
+                                {
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": "gCI=",
+                                    "SectorsWithClaims": [
+                                        {
+                                            "SectorNumber": 1,
+                                            "MaintainClaims": [1, 2],
+                                            "DropClaims": [3, 4]
+                                        }
+                                    ],
+                                    "NewExpiration": 1000
+                                }
+                            ]
+                        }),
+                        Self {
+                            extensions: vec![fil_actor_miner_state::[<v $version>]::ExpirationExtension2 {
+                                deadline: 1,
+                                partition: 2,
+                                sectors: sectors,
+                                sectors_with_claims: vec![fil_actor_miner_state::[<v $version>]::SectorClaim {
+                                    sector_number: 1,
+                                    maintain_claims: vec![1, 2],
+                                    drop_claims: vec![3, 4],
+                                }],
+                                new_expiration: 1000,
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -830,7 +947,33 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::new();
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "Partition": 2,
+                            "Sectors": "gCI=",
+                            "SectorsWithClaims": [
+                                {
+                                    "SectorNumber": 1,
+                                    "MaintainClaims": [1, 2],
+                                    "DropClaims": [3, 4]
+                                }
+                            ],
+                            "NewExpiration": 1000
+                        }),
+                        Self {
+                            deadline: 1,
+                            partition: 2,
+                            sectors: sectors,
+                            sectors_with_claims: vec![fil_actor_miner_state::[<v $version>]::SectorClaim {
+                                sector_number: 1,
+                                maintain_claims: vec![1, 2],
+                                drop_claims: vec![3, 4],
+                            }],
+                            new_expiration: 1000,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -859,7 +1002,18 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "SectorNumber": 1,
+                            "MaintainClaims": [1, 2],
+                            "DropClaims": [3, 4]
+                        }),
+                        Self {
+                            sector_number: 1,
+                            maintain_claims: vec![1, 2],
+                            drop_claims: vec![3, 4],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -893,7 +1047,39 @@ macro_rules! impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above 
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::new();
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "Partitions": [
+                                {
+                                    "Index": 0,
+                                    "Skipped": "gCI="
+                                }
+                            ],
+                            "Proofs": [
+                                {
+                                    "PoStProof": 1,
+                                    "ProofBytes": "AQID"
+                                }
+                            ],
+                            "ChainCommitEpoch": 100,
+                            "ChainCommitRand": "AQID"
+                        }),
+                        Self {
+                            deadline: 1,
+                            partitions: vec![fil_actor_miner_state::[<v $version>]::PoStPartition{
+                                index: 0,
+                                skipped: sectors,
+                            }],
+                            proofs: vec![$type_suffix::sector::PoStProof{
+                                post_proof: crate::shim::sector::RegisteredPoStProof::from(1).into(),
+                                proof_bytes: vec![1, 2, 3],
+                            }],
+                            chain_commit_epoch: 100,
+                            chain_commit_rand: $type_suffix::randomness::Randomness(vec![1, 2, 3]),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -938,7 +1124,39 @@ impl HasLotusJson for fil_actor_miner_state::v8::SubmitWindowedPoStParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let sectors = BitField::new();
+        vec![(
+            json!({
+                "Deadline": 1,
+                "Partitions": [
+                    {
+                        "Index": 0,
+                        "Skipped": "gCI="
+                    }
+                ],
+                "Proofs": [
+                    {
+                        "PoStProof": 1,
+                        "ProofBytes": "AQID"
+                    }
+                ],
+                "ChainCommitEpoch": 100,
+                "ChainCommitRand": "AQID"
+            }),
+            Self {
+                deadline: 1,
+                partitions: vec![fil_actor_miner_state::v8::PoStPartition {
+                    index: 0,
+                    skipped: sectors.into(),
+                }],
+                proofs: vec![fvm_shared2::sector::PoStProof {
+                    post_proof: crate::shim::sector::RegisteredPoStProof::from(1).into(),
+                    proof_bytes: vec![1, 2, 3],
+                }],
+                chain_commit_epoch: 100,
+                chain_commit_rand: fvm_shared2::randomness::Randomness(vec![1, 2, 3]),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -996,7 +1214,17 @@ macro_rules! impl_lotus_json_for_miner_post_partition_v9_and_above {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::new();
+                    vec![(
+                        json!({
+                            "Index": 1,
+                            "Skipped": "gCI="
+                        }),
+                        Self {
+                            index: 1,
+                            skipped: sectors,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1059,7 +1287,25 @@ macro_rules! impl_lotus_json_for_miner_terminate_sectors_params_v9_and_above {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                  let sectors = BitField::new();
+                   vec![(
+                        json!({
+                            "Terminations": [
+                                {
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": "gCI="
+                                }
+                            ]
+                        }),
+                        Self {
+                            terminations: vec![fil_actor_miner_state::[<v $version>]::TerminationDeclaration {
+                                deadline: 1,
+                                partition: 2,
+                                sectors: sectors.into(),
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1088,7 +1334,19 @@ macro_rules! impl_lotus_json_for_miner_termination_declaration_v9_and_above {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::from_bytes(&[1, 5, 8]).unwrap();
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "Partition": 2,
+                            "Sectors": "gCI="
+                        }),
+                        Self {
+                            deadline: 1,
+                            partition: 2,
+                            sectors: sectors,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1117,7 +1375,19 @@ impl HasLotusJson for fil_actor_miner_state::v8::TerminationDeclaration {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let sectors = BitField::from_bytes(&[1, 5, 8]).unwrap();
+        vec![(
+            json!({
+                "Deadline": 1,
+                "Partition": 2,
+                "Sectors": "gCI="
+            }),
+            Self {
+                deadline: 1,
+                partition: 2,
+                sectors: sectors.into(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1146,7 +1416,25 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::from_bytes(&[2]).unwrap();
+                     vec![(
+                        json!({
+                            "Faults": [
+                                {
+                                    "Deadline": 3,
+                                    "Partition": 0,
+                                    "Sectors": "gAIA" // Base64 for BitField with {2}
+                                }
+                            ]
+                        }),
+                        Self {
+                            faults: vec![fil_actor_miner_state::[<v $version>]::FaultDeclaration {
+                                deadline: 3,
+                                partition: 0,
+                                sectors: sectors.into(),
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1175,7 +1463,19 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_params_v9_and_above {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::from_bytes(&[2]).unwrap();
+                    vec![(
+                        json!({
+                            "Deadline": 3,
+                            "Partition": 0,
+                            "Sectors": "gAIA" // Base64 for BitField with {2}
+                        }),
+                        Self {
+                            deadline: 3,
+                            partition: 0,
+                            sectors: sectors.into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1204,7 +1504,19 @@ impl HasLotusJson for fil_actor_miner_state::v8::FaultDeclaration {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let sectors = BitField::from_bytes(&[2]).unwrap();
+        vec![(
+            json!({
+                "Deadline": 3,
+                "Partition": 0,
+                "Sectors": "gAIA" // Base64 for BitField with {2}
+            }),
+            Self {
+                deadline: 3,
+                partition: 0,
+                sectors: sectors.into(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1233,7 +1545,10 @@ macro_rules! impl_lotus_json_for_miner_withdraw_balance_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({"AmountRequested": "5000000000000000000"}),
+                        Self { amount_requested: TokenAmount::from_atto(5_000_000_000_000_000_000_u64).into() },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1262,7 +1577,15 @@ macro_rules! impl_lotus_json_for_miner_change_multiaddrs_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                  vec![(
+                        json!({"NewMultiAddrs": ["/ip4/127.0.0.1/tcp/8080", "/dns/example.com"]}),
+                        Self {
+                            new_multi_addrs: vec![
+                                BytesDe(b"/ip4/127.0.0.1/tcp/8080".to_vec()),
+                                BytesDe(b"/dns/example.com".to_vec()),
+                            ],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1291,7 +1614,17 @@ macro_rules! impl_lotus_json_for_miner_compact_partitions_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let partitions = BitField::from_bytes(&[1]).unwrap();
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "Partitions": "gAIA"
+                        }),
+                        Self {
+                            deadline: 1,
+                            partitions: partitions,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1318,7 +1651,17 @@ impl HasLotusJson for fil_actor_miner_state::v8::CompactPartitionsParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let partitions = BitField::from_bytes(&[1]).unwrap();
+        vec![(
+            json!({
+                "Deadline": 1,
+                "Partitions": "gAIA"
+            }),
+            Self {
+                deadline: 1,
+                partitions: partitions.into(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1348,7 +1691,15 @@ macro_rules! impl_lotus_json_for_miner_compact_sector_numbers_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let mask_sector_numbers = BitField::from_bytes(&[1]).unwrap();
+                    vec![(
+                        json!({
+                            "MaskSectorNumbers": "gAIA"
+                        }),
+                        Self {
+                            mask_sector_numbers: mask_sector_numbers,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1373,7 +1724,15 @@ impl HasLotusJson for fil_actor_miner_state::v8::CompactSectorNumbersParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let mask_sector_numbers = BitField::from_bytes(&[1]).unwrap();
+        vec![(
+            json!({
+                "MaskSectorNumbers": "gAIA"
+            }),
+            Self {
+                mask_sector_numbers: mask_sector_numbers.into(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1401,7 +1760,16 @@ macro_rules! impl_lotus_json_for_miner_dispute_windowed_post_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Deadline": 1,
+                            "PostIndex": 2
+                        }),
+                        Self {
+                            deadline: 1,
+                            post_index: 2,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1432,7 +1800,33 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_batch2_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Sectors": [
+                                {
+                                    "SealProof": 1,
+                                    "SectorNumber": 100,
+                                    "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "SealRandEpoch": 1000,
+                                    "DealIDs": [1, 2, 3],
+                                    "Expiration": 2000,
+                                    "UnsealedCID": null
+                                }
+                            ]
+                        }),
+                        Self {
+                            sectors: vec![fil_actor_miner_state::[<v $version>]::SectorPreCommitInfo {
+                                seal_proof: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                                sector_number: 100,
+                                sealed_cid: test_cid,
+                                seal_rand_epoch: 1000,
+                                deal_ids: vec![1, 2, 3],
+                                expiration: 2000,
+                                unsealed_cid: fil_actor_miner_state::[<v $version>]::CompactCommD(None),
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1453,7 +1847,27 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_batch2_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SealProof": 1,
+                            "SectorNumber": 100,
+                            "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                            "SealRandEpoch": 1000,
+                            "DealIDs": [1, 2, 3],
+                            "Expiration": 2000,
+                            "UnsealedCID": null
+                        }),
+                        Self {
+                            seal_proof: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                            sector_number: 100,
+                            sealed_cid: test_cid,
+                            seal_rand_epoch: 1000,
+                            deal_ids: vec![1, 2, 3],
+                            expiration: 2000,
+                            unsealed_cid: fil_actor_miner_state::[<v $version>]::CompactCommD(None),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1494,7 +1908,33 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SealProof": 1,
+                            "SectorNumber": 100,
+                            "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                            "SealRandEpoch": 1000,
+                            "DealIDs": [1, 2, 3],
+                            "Expiration": 2000,
+                            "ReplaceCapacity": false,
+                            "ReplaceSectorDeadline": 0,
+                            "ReplaceSectorPartition": 0,
+                            "ReplaceSectorNumber": 0
+                        }),
+                        Self {
+                            seal_proof: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                            sector_number: 100,
+                            sealed_cid: test_cid,
+                            seal_rand_epoch: 1000,
+                            deal_ids: vec![1, 2, 3],
+                            expiration: 2000,
+                            replace_capacity: false,
+                            replace_sector_deadline: 0,
+                            replace_sector_partition: 0,
+                            replace_sector_number: 0,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1537,7 +1977,41 @@ impl HasLotusJson for fil_actor_miner_state::v8::PreCommitSectorBatchParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let test_cid =
+            Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri")
+                .unwrap();
+        vec![(
+            json!({
+                "Sectors": [
+                    {
+                        "SealProof": 1,
+                        "SectorNumber": 100,
+                        "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                        "SealRandEpoch": 1000,
+                        "DealIDs": [1, 2, 3],
+                        "Expiration": 2000,
+                        "ReplaceCapacity": false,
+                        "ReplaceSectorDeadline": 0,
+                        "ReplaceSectorPartition": 0,
+                        "ReplaceSectorNumber": 0
+                    }
+                ]
+            }),
+            Self {
+                sectors: vec![fil_actor_miner_state::v8::SectorPreCommitInfo {
+                    seal_proof: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                    sector_number: 100,
+                    sealed_cid: test_cid,
+                    seal_rand_epoch: 1000,
+                    deal_ids: vec![1, 2, 3],
+                    expiration: 2000,
+                    replace_capacity: false,
+                    replace_sector_deadline: 0,
+                    replace_sector_partition: 0,
+                    replace_sector_number: 0,
+                }],
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1592,7 +2066,39 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_and_batch_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Sectors": [
+                                {
+                                    "SealProof": 1,
+                                    "SectorNumber": 100,
+                                    "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "SealRandEpoch": 1000,
+                                    "DealIDs": [1, 2, 3],
+                                    "Expiration": 2000,
+                                    "ReplaceCapacity": false,
+                                    "ReplaceSectorDeadline": 0,
+                                    "ReplaceSectorPartition": 0,
+                                    "ReplaceSectorNumber": 0
+                                }
+                            ]
+                        }),
+                        Self {
+                            sectors: vec![fil_actor_miner_state::[<v $version>]::PreCommitSectorParams {
+                                seal_proof: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                                sector_number: 100,
+                                sealed_cid: test_cid,
+                                seal_rand_epoch: 1000,
+                                deal_ids: vec![1, 2, 3],
+                                expiration: 2000,
+                                replace_capacity: false,
+                                replace_sector_deadline: 0,
+                                replace_sector_partition: 0,
+                                replace_sector_number: 0,
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1635,7 +2141,7 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_and_batch_params {
 }
 
 macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
         paste! {
             impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveCommitSectors3Params {
@@ -1643,7 +2149,45 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SectorActivations": [
+                                {
+                                    "SectorNumber": 100,
+                                    "Pieces": [
+                                        {
+                                            "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                            "Size": 2048,
+                                            "VerifiedAllocationKey": null,
+                                            "Notify": []
+                                        }
+                                    ]
+                                }
+                            ],
+                            "SectorProofs": ["AQID"],
+                            "AggregateProof": "AQID",
+                            "AggregateProofType": 1,
+                            "RequireActivationSuccess": true,
+                            "RequireNotificationSuccess": false
+                        }),
+                        Self {
+                            sector_activations: vec![fil_actor_miner_state::[<v $version>]::SectorActivationManifest {
+                                sector_number: 100,
+                                pieces: vec![fil_actor_miner_state::[<v $version>]::PieceActivationManifest {
+                                    cid: test_cid,
+                                    size: fvm_shared4::piece::PaddedPieceSize(2048),
+                                    verified_allocation_key: None,
+                                    notify: vec![],
+                                }],
+                            }],
+                            sector_proofs: vec![RawBytes::new(vec![1, 2, 3])],
+                            aggregate_proof: RawBytes::new(vec![1, 2, 3]),
+                            aggregate_proof_type: Some(fvm_shared4::sector::RegisteredAggregateProof::from(1)),
+                            require_activation_success: true,
+                            require_notification_success: false,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1702,7 +2246,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
 }
 
 macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
         paste! {
             impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveReplicaUpdates3Params {
@@ -1710,7 +2254,53 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SectorUpdates": [
+                                {
+                                    "Sector": 100,
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "NewSealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "Pieces": [
+                                        {
+                                            "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                            "Size": 2048,
+                                            "VerifiedAllocationKey": null,
+                                            "Notify": []
+                                        }
+                                    ]
+                                }
+                            ],
+                            "SectorProofs": ["AQID"],
+                            "AggregateProof": "AQID",
+                            "UpdateProofsType": 1,
+                            "AggregateProofType": 1,
+                            "RequireActivationSuccess": true,
+                            "RequireNotificationSuccess": false
+                        }),
+                        Self {
+                            sector_updates: vec![fil_actor_miner_state::[<v $version>]::SectorUpdateManifest {
+                                sector: 100,
+                                deadline: 1,
+                                partition: 2,
+                                new_sealed_cid: test_cid,
+                                pieces: vec![fil_actor_miner_state::[<v $version>]::PieceActivationManifest {
+                                    cid: test_cid,
+                                    size: fvm_shared4::piece::PaddedPieceSize(2048),
+                                    verified_allocation_key: None,
+                                    notify: vec![],
+                                }],
+                            }],
+                            sector_proofs: vec![RawBytes::new(vec![1, 2, 3])],
+                            update_proofs_type: RegisteredUpdateProof::from(1),
+                            aggregate_proof: RawBytes::new(vec![1, 2, 3]),
+                            aggregate_proof_type: Some(fvm_shared4::sector::RegisteredAggregateProof::from(1)),
+                            require_activation_success: true,
+                            require_notification_success: false,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1785,7 +2375,18 @@ macro_rules! impl_lotus_json_for_miner_report_consensus_fault_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Header1": "AQID",
+                            "Header2": "BAUG",
+                            "HeaderExtra": "Cg=="
+                        }),
+                        Self {
+                            header1: vec![1, 2, 3],
+                            header2: vec![4, 5, 6],
+                            header_extra: vec![10],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1818,7 +2419,14 @@ macro_rules! impl_lotus_json_for_miner_check_sector_proven_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "SectorNumber": 100
+                        }),
+                        Self {
+                            sector_number: 100,
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1847,7 +2455,16 @@ macro_rules! impl_lotus_json_for_miner_apply_reward_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Reward": "1000000000000000000",
+                            "Penalty": "500000000000000000"
+                        }),
+                        Self {
+                            reward: TokenAmount::from_atto(1000000000000000000u64).into(),
+                            penalty: TokenAmount::from_atto(500000000000000000u64).into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1878,7 +2495,17 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_abo
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sector_numbers = BitField::from_bytes(&[1]).unwrap();
+                    vec![(
+                        json!({
+                            "SectorNumbers": "gAIA",
+                            "AggregateProof": "AQID"
+                        }),
+                        Self {
+                            sector_numbers: sector_numbers,
+                            aggregate_proof: vec![1, 2, 3].into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1905,7 +2532,17 @@ impl HasLotusJson for fil_actor_miner_state::v8::ProveCommitAggregateParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        let sector_numbers = BitField::from_bytes(&[1]).unwrap();
+        vec![(
+            json!({
+                "SectorNumbers": "gAIA",
+                "AggregateProof": "AQID"
+            }),
+            Self {
+                sector_numbers: sector_numbers.into(),
+                aggregate_proof: vec![1, 2, 3],
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -1935,7 +2572,33 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Updates": [
+                                {
+                                    "SectorNumber": 100,
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "NewSealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "Deals": [1, 2, 3],
+                                    "UpdateProofType": 1,
+                                    "ReplicaProof": "AQID"
+                                }
+                            ]
+                        }),
+                        Self {
+                            updates: vec![fil_actor_miner_state::[<v $version>]::ReplicaUpdate {
+                                sector_number: 100,
+                                deadline: 1,
+                                partition: 2,
+                                new_sealed_cid: test_cid,
+                                deals: vec![1, 2, 3],
+                                update_proof_type: $type_suffix::sector::RegisteredUpdateProof::from(1),
+                                replica_proof: vec![1, 2, 3].into(),
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -1972,7 +2635,27 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SectorNumber": 100,
+                            "Deadline": 1,
+                            "Partition": 2,
+                            "NewSealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                            "Deals": [1, 2, 3],
+                            "UpdateProofType": 1,
+                            "ReplicaProof": "AQID"
+                        }),
+                        Self {
+                            sector_number: 100,
+                            deadline: 1,
+                            partition: 2,
+                            new_sealed_cid: test_cid,
+                            deals: vec![1, 2, 3],
+                            update_proof_type: $type_suffix::sector::RegisteredUpdateProof::from(1),
+                            replica_proof: vec![1, 2, 3].into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2013,7 +2696,14 @@ macro_rules! impl_lotus_json_for_miner_is_controlling_address_param {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Address": "f01234"
+                        }),
+                        Self {
+                            address: Address::new_id(1234).into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2042,7 +2732,16 @@ macro_rules! impl_lotus_json_for_miner_max_termination_fee_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Power": "1000000000000000000",
+                            "InitialPledge": "500000000000000000"
+                        }),
+                        Self {
+                            power: BigInt::from(1000000000000000000u64),
+                            initial_pledge: TokenAmount::from_atto(500000000000000000u64).into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2073,7 +2772,10 @@ macro_rules! impl_lotus_json_for_miner_change_peer_id_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                     vec![(
+                        json!({"NewId": "AQID"}), // base64 for [1, 2, 3]
+                        Self { new_id: vec![1, 2, 3] },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2094,7 +2796,7 @@ macro_rules! impl_lotus_json_for_miner_change_peer_id_params {
 }
 
 macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
         paste! {
             impl HasLotusJson for fil_actor_miner_state::[<v $version>]::SectorActivationManifest {
@@ -2102,7 +2804,29 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "SectorNumber": 100,
+                            "Pieces": [
+                                {
+                                    "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "Size": 2048,
+                                    "VerifiedAllocationKey": null,
+                                    "Notify": []
+                                }
+                            ]
+                        }),
+                        Self {
+                            sector_number: 100,
+                            pieces: vec![fil_actor_miner_state::[<v $version>]::PieceActivationManifest {
+                                cid: test_cid,
+                                size: fvm_shared4::piece::PaddedPieceSize(2048),
+                                verified_allocation_key: None,
+                                notify: vec![],
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2128,7 +2852,7 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                         sector_number: lotus_json.sector_number,
                         pieces: lotus_json.pieces.into_iter().map(|p| fil_actor_miner_state::[<v $version>]::PieceActivationManifest{
                             cid: p.cid,
-                            size: $type_suffix::piece::PaddedPieceSize(p.size),
+                            size: fvm_shared4::piece::PaddedPieceSize(p.size),
                             notify: p.notify.into_iter().map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification{
                                 address: n.address.into(),
                                 payload: n.payload,
@@ -2147,7 +2871,21 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                            "Size": 2048,
+                            "VerifiedAllocationKey": null,
+                            "Notify": []
+                        }),
+                        Self {
+                            cid: test_cid,
+                            size: fvm_shared4::piece::PaddedPieceSize(2048),
+                            verified_allocation_key: None,
+                            notify: vec![],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2165,7 +2903,7 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                 fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                     Self {
                         cid: lotus_json.cid,
-                        size: $type_suffix::piece::PaddedPieceSize(lotus_json.size),
+                        size: fvm_shared4::piece::PaddedPieceSize(lotus_json.size),
                         verified_allocation_key: lotus_json.verified_allocation_key.map(|v| fil_actor_miner_state::[<v $version>]::VerifiedAllocationKey {
                             client: v.client.into(),
                             id: v.id.into(),
@@ -2180,7 +2918,16 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "Address": "f01234",
+                            "Payload": "AQID"
+                        }),
+                        Self {
+                            address: Address::new_id(1234).into(),
+                            payload: RawBytes::new(vec![1, 2, 3]),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2211,7 +2958,35 @@ macro_rules! impl_lotus_json_for_miner_sector_update_manifest {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Sector": 100,
+                            "Deadline": 1,
+                            "Partition": 2,
+                            "NewSealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                            "Pieces": [
+                                {
+                                    "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "Size": 2048,
+                                    "VerifiedAllocationKey": null,
+                                    "Notify": []
+                                }
+                            ]
+                        }),
+                        Self {
+                            sector: 100,
+                            deadline: 1,
+                            partition: 2,
+                            new_sealed_cid: test_cid,
+                            pieces: vec![fil_actor_miner_state::[<v $version>]::PieceActivationManifest {
+                                cid: test_cid,
+                                size: fvm_shared4::piece::PaddedPieceSize(2048),
+                                verified_allocation_key: None,
+                                notify: vec![],
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2248,7 +3023,16 @@ macro_rules! impl_miner_prove_commit_sector_params {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "SectorNumber": 100,
+                            "Proof": "AQID"
+                        }),
+                        Self {
+                            sector_number: 100,
+                            proof: vec![1, 2, 3].into(),
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2275,7 +3059,26 @@ impl HasLotusJson for fil_actor_miner_state::v8::ExtendSectorExpirationParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        vec![(
+            json!({
+                "Extensions": [
+                    {
+                        "Deadline": 1,
+                        "Partition": 2,
+                        "Sectors": "AQID",
+                        "NewExpiration": 1000
+                    }
+                ]
+            }),
+            Self {
+                extensions: vec![fil_actor_miner_state::v8::ExpirationExtension {
+                    deadline: 1,
+                    partition: 2,
+                    sectors: UnvalidatedBitField::Unvalidated(vec![1, 2, 3]),
+                    new_expiration: 1000,
+                }],
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -2321,7 +3124,27 @@ macro_rules! impl_miner_extend_sector_expiration_params_v9_onwards {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let sectors = BitField::from_bytes(&[1]).unwrap();
+                    vec![(
+                        json!({
+                            "Extensions": [
+                                {
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": "gAIA",
+                                    "NewExpiration": 1000
+                                }
+                            ]
+                        }),
+                        Self {
+                            extensions: vec![fil_actor_miner_state::[<v $version>]::ExpirationExtension {
+                                deadline: 1,
+                                partition: 2,
+                                sectors: sectors,
+                                new_expiration: 1000,
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2360,7 +3183,32 @@ macro_rules! impl_miner_confirm_sector_proofs_param_v8_to_v13 {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "SectorNumbers": [100, 200, 300],
+                            "RewardSmoothed": {
+                                "Position": "1000000000000000000",
+                                "Velocity": "500000000000000000"
+                            },
+                            "RewardBaselinePower": "1000000000000000000",
+                            "QualityAdjPowerSmoothed": {
+                                "Position": "2000000000000000000",
+                                "Velocity": "1000000000000000000"
+                            }
+                        }),
+                        Self {
+                            sectors: vec![100, 200, 300],
+                            reward_smoothed: $type_suffix::smooth::FilterEstimate {
+                                position: BigInt::from(1000000000000000000u64),
+                                velocity: BigInt::from(500000000000000000u64),
+                            },
+                            reward_baseline_power: BigInt::from(1000000000000000000u64),
+                            quality_adj_power_smoothed: $type_suffix::smooth::FilterEstimate {
+                                position: BigInt::from(2000000000000000000u64),
+                                velocity: BigInt::from(1000000000000000000u64),
+                            },
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2403,7 +3251,29 @@ impl HasLotusJson for fil_actor_miner_state::v14::ConfirmSectorProofsParams {
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        vec![(
+            json!({
+                "SectorNumbers": [100, 200, 300],
+                "RewardSmoothed": {
+                    "Position": "1000000000000000000",
+                    "Velocity": "500000000000000000"
+                },
+                "RewardBaselinePower": "1000000000000000000",
+                "QualityAdjPowerSmoothed": {
+                    "Position": "2000000000000000000",
+                    "Velocity": "1000000000000000000"
+                }
+            }),
+            Self {
+                sectors: vec![100, 200, 300],
+                reward_smoothed: fil_actors_shared::v14::builtin::reward::smooth::FilterEstimate {
+                    position: BigInt::from(1000000000000000000u64),
+                    velocity: BigInt::from(500000000000000000u64),
+                },
+                reward_baseline_power: Default::default(),
+                quality_adj_power_smoothed: Default::default(),
+            },
+        )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -2443,7 +3313,30 @@ macro_rules! impl_miner_deferred_cron_event_params_v14_onwards {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "EventPayload": "AQID",
+                            "RewardSmoothed": {
+                                "Position": "1000000000000000000",
+                                "Velocity": "500000000000000000"
+                            },
+                            "QualityAdjPowerSmoothed": {
+                                "Position": "2000000000000000000",
+                                "Velocity": "1000000000000000000"
+                            }
+                        }),
+                        Self {
+                            event_payload: vec![1, 2, 3],
+                            reward_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate {
+                                position: BigInt::from(1000000000000000000u64),
+                                velocity: BigInt::from(500000000000000000u64),
+                            },
+                            quality_adj_power_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate {
+                                position: BigInt::from(2000000000000000000u64),
+                                velocity: BigInt::from(1000000000000000000u64),
+                            },
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2488,7 +3381,30 @@ macro_rules! impl_miner_deferred_cron_event_params_v8_to_v13 {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    vec![(
+                        json!({
+                            "EventPayload": "AQID",
+                            "RewardSmoothed": {
+                                "Position": "1000000000000000000",
+                                "Velocity": "500000000000000000"
+                            },
+                            "QualityAdjPowerSmoothed": {
+                                "Position": "2000000000000000000",
+                                "Velocity": "1000000000000000000"
+                            }
+                        }),
+                        Self {
+                            event_payload: vec![1, 2, 3],
+                            reward_smoothed: $type_suffix::smooth::FilterEstimate {
+                                position: BigInt::from(1000000000000000000u64),
+                                velocity: BigInt::from(500000000000000000u64),
+                            },
+                            quality_adj_power_smoothed: $type_suffix::smooth::FilterEstimate {
+                                position: BigInt::from(2000000000000000000u64),
+                                velocity: BigInt::from(1000000000000000000u64),
+                            },
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2525,7 +3441,7 @@ macro_rules! impl_miner_deferred_cron_event_params_v8_to_v13 {
 }
 
 macro_rules! impl_miner_prove_replica_update_params2 {
-    ($($version:literal), +) => {
+    ($type_suffix:path: $($version:literal), +) => {
         $(
         paste! {
             impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveReplicaUpdatesParams2 {
@@ -2533,7 +3449,35 @@ macro_rules! impl_miner_prove_replica_update_params2 {
 
                 #[cfg(test)]
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                    vec![]
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Updates": [
+                                {
+                                    "SectorNumber": 100,
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "NewSealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "NewUnsealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "Deals": [1, 2, 3],
+                                    "UpdateProofType": 1,
+                                    "ReplicaProof": "AQID"
+                                }
+                            ]
+                        }),
+                        Self {
+                            updates: vec![fil_actor_miner_state::[<v $version>]::ReplicaUpdate2 {
+                                sector_number: 100,
+                                deadline: 1,
+                                partition: 2,
+                                new_sealed_cid: test_cid,
+                                new_unsealed_cid: test_cid,
+                                deals: vec![1, 2, 3],
+                                update_proof_type: $type_suffix::sector::RegisteredUpdateProof::from(1),
+                                replica_proof: vec![1, 2, 3],
+                            }],
+                        },
+                    )]
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -2571,6 +3515,162 @@ macro_rules! impl_miner_prove_replica_update_params2 {
     };
 }
 
+macro_rules! impl_lotus_json_for_miner_prove_commit_sector_ni_params {
+     ($($version:literal), +) => {
+         $(
+         paste! {
+             impl HasLotusJson for fil_actor_miner_state::[<v $version>]::ProveCommitSectorsNIParams{
+                type LotusJson = ProveCommitSectorsNIParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    let test_cid = Cid::try_from("bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri").unwrap();
+                    vec![(
+                        json!({
+                            "Sectors": [
+                                {
+                                    "SealingNumber": 100,
+                                    "SealerId": 1234,
+                                    "SealedCID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
+                                    "SectorNumber": 200,
+                                    "SealRandEpoch": 1000,
+                                    "Expiration": 2000
+                                }
+                            ],
+                            "AggregateProof": "AQID",
+                            "SealProofType": 1,
+                            "AggregateProofType": 1,
+                            "RequireActivationSuccess": true,
+                            "RequireNotificationSuccess": false
+                        }),
+                        Self {
+                            sectors: vec![fil_actor_miner_state::[<v $version>]::SectorNIActivationInfo {
+                                sealing_number: 100,
+                                sealer_id: 1234,
+                                sealed_cid: test_cid,
+                                sector_number: 200,
+                                seal_rand_epoch: 1000,
+                                expiration: 2000,
+                            }],
+                            aggregate_proof: RawBytes::new(vec![1, 2, 3]),
+                            seal_proof_type: crate::shim::sector::RegisteredSealProof::from(1).into(),
+                            aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::from(1).into(),
+                            proving_deadline: 0,
+                            require_activation_success: true,
+                        },
+                    )]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    ProveCommitSectorsNIParamsLotusJson {
+                        sectors: self.sectors.into_iter().map(|s| SectorNIActivationInfoLotusJson{
+                            sealing_number: s.sealing_number,
+                            sealer_id: s.sealer_id,
+                            sealed_cid: s.sealed_cid,
+                            sector_number: s.sector_number,
+                            seal_rand_epoch: s.seal_rand_epoch,
+                            expiration: s.expiration,
+                        }).collect(),
+                        aggregate_proof: self.aggregate_proof.into(),
+                        seal_proof_type: self.seal_proof_type.into(),
+                        aggregate_proof_type: i64::from(self.aggregate_proof_type),
+                        require_activation_success: self.require_activation_success,
+                        require_notification_success: self.require_activation_success,
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        sectors: lotus_json.sectors.into_iter().map(|s| fil_actor_miner_state::[<v $version>]::SectorNIActivationInfo{
+                            sealing_number: s.sealing_number,
+                            sealer_id: s.sealer_id,
+                            sealed_cid: s.sealed_cid,
+                            sector_number: s.sector_number,
+                            seal_rand_epoch: s.seal_rand_epoch,
+                            expiration: s.expiration,
+                        }).collect(),
+                        aggregate_proof: lotus_json.aggregate_proof.into(),
+                        seal_proof_type: crate::shim::sector::RegisteredSealProof::from(lotus_json.seal_proof_type).into(),
+                        aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::from(lotus_json.aggregate_proof_type).into(),
+                        proving_deadline: 0,
+                        require_activation_success: false,
+                    }
+                }
+            }
+         }
+         )+
+     }
+}
+
+macro_rules! impl_miner_internal_sector_setup_for_preseal_params {
+    ($($version:literal), +) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::InternalSectorSetupForPresealParams {
+                type LotusJson = InternalSectorSetupForPresealParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![(
+                        json!({
+                            "Sectors": [100, 200, 300],
+                            "RewardSmoothed": {
+                                "Position": "1000000000000000000",
+                                "Velocity": "500000000000000000"
+                            },
+                            "RewardBaselinePower": "1000000000000000000",
+                            "QualityAdjPowerSmoothed": {
+                                "Position": "2000000000000000000",
+                                "Velocity": "1000000000000000000"
+                            }
+                        }),
+                        Self {
+                            sectors: vec![100, 200, 300],
+                            reward_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate {
+                                position: BigInt::from(1000000000000000000u64),
+                                velocity: BigInt::from(500000000000000000u64),
+                            },
+                            reward_baseline_power: BigInt::from(1000000000000000000u64),
+                            quality_adj_power_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate {
+                                position: BigInt::from(2000000000000000000u64),
+                                velocity: BigInt::from(1000000000000000000u64),
+                            },
+                        },
+                    )]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    InternalSectorSetupForPresealParamsLotusJson{
+                        sectors: self.sectors,
+                        reward_smoothed: FilterEstimate {
+                            position: self.reward_smoothed.position,
+                            velocity: self.reward_smoothed.velocity,
+                        },
+                        reward_baseline_power: self.reward_baseline_power,
+                        quality_adj_power_smoothed: FilterEstimate{
+                            position: self.quality_adj_power_smoothed.position,
+                            velocity: self.quality_adj_power_smoothed.velocity,
+                        },
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self{
+                        sectors: lotus_json.sectors,
+                        reward_smoothed: fil_actors_shared::[<v $version>]::builtin::reward::smooth::FilterEstimate{
+                            position: lotus_json.reward_smoothed.position,
+                            velocity: lotus_json.reward_smoothed.velocity,
+                        },
+                        reward_baseline_power: Default::default(),
+                        quality_adj_power_smoothed: Default::default(),
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16);
@@ -2594,8 +3694,8 @@ impl_lotus_json_for_miner_compact_sector_numbers_params!(9, 10, 11, 12, 13, 14, 
 impl_lotus_json_for_miner_pre_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_pre_commit_sector_and_batch_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_pre_commit_sector_batch2_params!(9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_prove_commit_sectors3_params!(fvm_shared4: 13, 14, 15, 16);
-impl_lotus_json_for_miner_prove_replica_updates3_params!(fvm_shared4: 13, 14, 15, 16);
+impl_lotus_json_for_miner_prove_commit_sectors3_params!(13, 14, 15, 16);
+impl_lotus_json_for_miner_prove_replica_updates3_params!(13, 14, 15, 16);
 impl_lotus_json_for_miner_report_consensus_fault_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_check_sector_proven_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_apply_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
@@ -2608,7 +3708,7 @@ impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared4: 12, 13, 14,
 impl_lotus_json_for_miner_is_controlling_address_param!(10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_max_termination_fee_params!(16);
 impl_lotus_json_for_miner_change_peer_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_sector_activation_manifest!(fvm_shared4: 13, 14, 15, 16);
+impl_lotus_json_for_miner_sector_activation_manifest!(13, 14, 15, 16);
 impl_lotus_json_for_miner_sector_update_manifest!(13, 14, 15, 16);
 impl_miner_prove_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_miner_extend_sector_expiration_params_v9_onwards!(9, 10, 11, 12, 13, 14, 15, 16);
@@ -2617,4 +3717,8 @@ impl_miner_confirm_sector_proofs_param_v8_to_v13!(fvm_shared3: 10, 11,12, 13);
 impl_miner_deferred_cron_event_params_v14_onwards!(14, 15, 16);
 impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared2: 8, 9);
 impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared3: 10, 11, 12, 13);
-impl_miner_prove_replica_update_params2!(9, 10, 11);
+impl_miner_prove_replica_update_params2!(fvm_shared2: 9);
+impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
+impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
+impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16);
+impl_miner_internal_sector_setup_for_preseal_params!(15, 16);
