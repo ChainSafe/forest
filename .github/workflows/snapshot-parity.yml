@@ -9,7 +9,7 @@ jobs:
     runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Run snapshot parity test
         run: ./scripts/tests/snapshot_parity/setup.sh
         timeout-minutes: 60
