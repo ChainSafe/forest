@@ -59,7 +59,7 @@ pub struct ChangeWorkerAddressParamsLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct ChangePeerIDParamsLotusJson {
     #[schemars(with = "LotusJson<Vec<u8>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "NewID")]
     pub new_id: Vec<u8>,
 }
 
@@ -67,7 +67,7 @@ pub struct ChangePeerIDParamsLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct ChangeMultiaddrsParamsLotusJson {
     #[schemars(with = "LotusJson<Vec<Vec<u8>>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "NewMultiaddrs")]
     pub new_multi_addrs: Vec<Vec<u8>>,
 }
 
@@ -191,6 +191,7 @@ pub struct CompactSectorNumbersParamsLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct DisputeWindowedPoStParamsLotusJson {
     pub deadline: u64,
+    #[serde(rename = "PoStIndex")]
     pub post_index: u64,
 }
 
@@ -242,7 +243,7 @@ pub struct ExpirationExtension2LotusJson {
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     pub sectors: BitField,
-    pub sectors_with_claims: Vec<SectorClaimLotusJson>,
+    pub sectors_with_claims: Option<Vec<SectorClaimLotusJson>>,
     pub new_expiration: ChainEpoch,
 }
 
@@ -268,10 +269,11 @@ pub struct SectorPreCommitInfoLotusJson {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
-    pub deal_ids: Vec<u64>,
+    #[serde(rename = "DealIDs")]
+    pub deal_ids: Option<Vec<u64>>,
     pub expiration: ChainEpoch,
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json")]
@@ -320,11 +322,11 @@ pub struct SectorActivationManifestLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct PieceActivationManifestLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "CID")]
     pub cid: Cid,
     pub size: u64,
     pub verified_allocation_key: Option<VerifiedAllocationKeyLotusJson>,
-    pub notify: Vec<DataActivationNotificationLotusJson>,
+    pub notify: Option<Vec<DataActivationNotificationLotusJson>>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
@@ -376,7 +378,7 @@ pub struct SectorUpdateManifestLotusJson {
     pub deadline: u64,
     pub partition: u64,
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "NewSealedCID")]
     pub new_sealed_cid: Cid,
     pub pieces: Vec<PieceActivationManifestLotusJson>,
 }
@@ -385,12 +387,15 @@ pub struct SectorUpdateManifestLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct ProveReplicaUpdates3ParamsLotusJson {
     pub sector_updates: Vec<SectorUpdateManifestLotusJson>,
+
     #[schemars(with = "LotusJson<Vec<RawBytes>>")]
     #[serde(with = "crate::lotus_json")]
     pub sector_proofs: Vec<RawBytes>,
+
     #[schemars(with = "LotusJson<RawBytes>")]
     #[serde(with = "crate::lotus_json")]
     pub aggregate_proof: RawBytes,
+
     pub update_proofs_type: i64,
     pub aggregate_proof_type: Option<i64>,
     pub require_activation_success: bool,
@@ -401,13 +406,13 @@ pub struct ProveReplicaUpdates3ParamsLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct ReportConsensusFaultParamsLotusJson {
     #[schemars(with = "LotusJson<Vec<u8>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "BlockHeader1")]
     pub header1: Vec<u8>,
     #[schemars(with = "LotusJson<Vec<u8>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "BlockHeader2")]
     pub header2: Vec<u8>,
     #[schemars(with = "LotusJson<Vec<u8>>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "BlockHeaderExtra")]
     pub header_extra: Vec<u8>,
 }
 
@@ -442,13 +447,16 @@ pub struct ProveCommitAggregateParamsLotusJson {
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReplicaUpdateLotusJson {
+    #[serde(rename = "SectorID")]
     pub sector_number: SectorNumber,
     pub deadline: u64,
     pub partition: u64,
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "NewSealedSectorCID")]
     pub new_sealed_cid: Cid,
-    pub deals: Vec<u64>,
+
+    #[serde(rename = "Deals")]
+    pub deals: Option<Vec<u64>>,
     pub update_proof_type: i64,
     #[schemars(with = "LotusJson<RawBytes>")]
     #[serde(with = "crate::lotus_json")]
@@ -463,11 +471,11 @@ pub struct ProveReplicaUpdatesParamsLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct IsControllingAddressParamLotusJson {
+pub struct IsControllingAddressParamLotusJson(
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
-    pub address: Address,
-}
+    Address,
+);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "PascalCase")]
@@ -550,9 +558,10 @@ pub struct ProveReplicaUpdatesParams2LotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct SectorNIActivationInfoLotusJson {
     pub sealing_number: SectorNumber,
+    #[serde(rename = "SealerID")]
     pub sealer_id: u64,
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub sector_number: SectorNumber,
     pub seal_rand_epoch: ChainEpoch,
@@ -585,8 +594,8 @@ pub struct ProveCommitSectorsNIParamsLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub seal_proof_type: RegisteredSealProof,
     pub aggregate_proof_type: i64,
+    pub proving_deadline: u64,
     pub require_activation_success: bool,
-    pub require_notification_success: bool,
 }
 
 macro_rules!  impl_lotus_json_for_miner_change_worker_param {
@@ -746,7 +755,7 @@ macro_rules! impl_lotus_json_for_recover_declaration_params_v9_and_above {
                         Self {
                             deadline: 1,
                             partition: 2,
-                            sectors: sectors,
+                            sectors,
                         },
                     )]
                 }
@@ -917,7 +926,7 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
                             extensions: vec![fil_actor_miner_state::[<v $version>]::ExpirationExtension2 {
                                 deadline: 1,
                                 partition: 2,
-                                sectors: sectors,
+                                sectors,
                                 sectors_with_claims: vec![fil_actor_miner_state::[<v $version>]::SectorClaim {
                                     sector_number: 1,
                                     maintain_claims: vec![1, 2],
@@ -965,7 +974,7 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
                         Self {
                             deadline: 1,
                             partition: 2,
-                            sectors: sectors,
+                            sectors,
                             sectors_with_claims: vec![fil_actor_miner_state::[<v $version>]::SectorClaim {
                                 sector_number: 1,
                                 maintain_claims: vec![1, 2],
@@ -981,7 +990,11 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
                         deadline: self.deadline,
                         partition: self.partition,
                         sectors: self.sectors.clone(),
-                        sectors_with_claims: self.sectors_with_claims.into_iter().map(|s| s.into_lotus_json()).collect(),
+                        sectors_with_claims: if self.sectors_with_claims.is_empty() {
+                            None
+                        } else {
+                            Some(self.sectors_with_claims.into_iter().map(|s| s.into_lotus_json()).collect())
+                        },
                         new_expiration: self.new_expiration,
                     }
                 }
@@ -991,7 +1004,11 @@ macro_rules! impl_lotus_json_for_miner_extend_sector_expiration2_params {
                         deadline: lotus_json.deadline,
                         partition: lotus_json.partition,
                         sectors: lotus_json.sectors.clone(),
-                        sectors_with_claims: lotus_json.sectors_with_claims.into_iter().map(|s| fil_actor_miner_state::[<v $version>]::SectorClaim::from_lotus_json(s)).collect(),
+                        sectors_with_claims: if lotus_json.sectors_with_claims.is_none() {
+                            vec![]
+                        } else {
+                            lotus_json.sectors_with_claims.unwrap().into_iter().map(|s| fil_actor_miner_state::[<v $version>]::SectorClaim::from_lotus_json(s)).collect()
+                        },
                         new_expiration: lotus_json.new_expiration,
                     }
                 }
@@ -1344,7 +1361,7 @@ macro_rules! impl_lotus_json_for_miner_termination_declaration_v9_and_above {
                         Self {
                             deadline: 1,
                             partition: 2,
-                            sectors: sectors,
+                            sectors,
                         },
                     )]
                 }
@@ -1622,7 +1639,7 @@ macro_rules! impl_lotus_json_for_miner_compact_partitions_params {
                         }),
                         Self {
                             deadline: 1,
-                            partitions: partitions,
+                            partitions,
                         },
                     )]
                 }
@@ -1697,7 +1714,7 @@ macro_rules! impl_lotus_json_for_miner_compact_sector_numbers_params {
                             "MaskSectorNumbers": "gAIA"
                         }),
                         Self {
-                            mask_sector_numbers: mask_sector_numbers,
+                            mask_sector_numbers,
                         },
                     )]
                 }
@@ -1876,7 +1893,7 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_batch2_params {
                         sector_number: self.sector_number,
                         sealed_cid: self.sealed_cid,
                         seal_rand_epoch: self.seal_rand_epoch,
-                        deal_ids: self.deal_ids,
+                        deal_ids: if self.deal_ids.is_empty() { None } else { Some(self.deal_ids.clone())},
                         expiration: self.expiration,
                         unsealed_cid: self.unsealed_cid.0,
                     }
@@ -1888,7 +1905,7 @@ macro_rules! impl_lotus_json_for_miner_pre_commit_sector_batch2_params {
                         sector_number: lotus_json.sector_number,
                         sealed_cid: lotus_json.sealed_cid,
                         seal_rand_epoch: lotus_json.seal_rand_epoch,
-                        deal_ids: lotus_json.deal_ids,
+                        deal_ids: if lotus_json.deal_ids.is_none() { vec![] } else { lotus_json.deal_ids.unwrap() },
                         expiration: lotus_json.expiration,
                         unsealed_cid: fil_actor_miner_state::[<v $version>]::CompactCommD(lotus_json.unsealed_cid),
                     }
@@ -2160,7 +2177,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
                                             "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
                                             "Size": 2048,
                                             "VerifiedAllocationKey": null,
-                                            "Notify": []
+                                            "Notify": null
                                         }
                                     ]
                                 }
@@ -2196,15 +2213,17 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
                             sector_number: s.sector_number,
                             pieces: s.pieces.into_iter().map(|p| PieceActivationManifestLotusJson{
                                 cid: p.cid,
-                                notify: p.notify.into_iter().map(|n| DataActivationNotificationLotusJson{
-                                    address: n.address.into(),
-                                    payload: n.payload,
-                                }).collect(),
                                 size: p.size.0,
                                 verified_allocation_key: p.verified_allocation_key.map(|v| VerifiedAllocationKeyLotusJson{
                                     id: v.id,
                                     client: v.client,
                                 }),
+                                notify: (!p.notify.is_empty()).then_some(
+                                    p.notify
+                                        .into_iter()
+                                        .map(|n| n.into_lotus_json())
+                                        .collect::<Vec<_>>()
+                                ),
                             }).collect(),
                         }).collect(),
                         sector_proofs: self.sector_proofs,
@@ -2221,20 +2240,21 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sectors3_params {
                             sector_number: s.sector_number,
                             pieces: s.pieces.into_iter().map(|p| fil_actor_miner_state::[<v $version>]::PieceActivationManifest{
                                 cid: p.cid,
-                                notify: p.notify.into_iter().map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification{
-                                    address: n.address.into(),
-                                    payload: n.payload,
-                                }).collect(),
-                                size: $type_suffix::piece::PaddedPieceSize(p.size),
+                                size: fvm_shared4::piece::PaddedPieceSize(p.size),
                                 verified_allocation_key: p.verified_allocation_key.map(|v| fil_actor_miner_state::[<v $version>]::VerifiedAllocationKey{
                                     id: v.id,
                                     client: v.client,
                                 }),
+                                notify: p.notify
+                                    .unwrap_or_default()
+                                    .into_iter()
+                                    .map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification::from_lotus_json(n))
+                                    .collect(),
                             }).collect(),
                         }).collect(),
                         sector_proofs: lotus_json.sector_proofs,
                         aggregate_proof: lotus_json.aggregate_proof,
-                        aggregate_proof_type: lotus_json.aggregate_proof_type.map(|t| $type_suffix::sector::RegisteredAggregateProof::from(t)),
+                        aggregate_proof_type: lotus_json.aggregate_proof_type.map(|t| fvm_shared4::sector::RegisteredAggregateProof::from(t)),
                         require_activation_success: lotus_json.require_activation_success,
                         require_notification_success: lotus_json.require_notification_success,
                     }
@@ -2268,7 +2288,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
                                             "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
                                             "Size": 2048,
                                             "VerifiedAllocationKey": null,
-                                            "Notify": []
+                                            "Notify": null
                                         }
                                     ]
                                 }
@@ -2309,18 +2329,20 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
                             sector: s.sector,
                             deadline: s.deadline,
                             partition: s.partition,
-                            new_sealed_cid: Default::default(),
-                            pieces: s.pieces.into_iter().map(|p| PieceActivationManifestLotusJson{
+                            new_sealed_cid: s.new_sealed_cid,
+                            pieces: s.pieces.into_iter().map(|p| PieceActivationManifestLotusJson {
                                 cid: p.cid,
-                                notify: p.notify.into_iter().map(|n| DataActivationNotificationLotusJson{
-                                    address: n.address.into(),
-                                    payload: n.payload,
-                                }).collect(),
                                 size: p.size.0,
                                 verified_allocation_key: p.verified_allocation_key.map(|v| VerifiedAllocationKeyLotusJson{
-                                    id: v.id,
-                                    client: v.client,
+                                    id: v.id.into(),
+                                    client: v.client.into(),
                                 }),
+                                notify: (!p.notify.is_empty()).then_some(
+                                    p.notify
+                                        .into_iter()
+                                        .map(|n| n.into_lotus_json())
+                                        .collect::<Vec<_>>()
+                                ),
                             }).collect(),
                         }).collect(),
                         sector_proofs: self.sector_proofs,
@@ -2341,21 +2363,22 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates3_params {
                             new_sealed_cid: s.new_sealed_cid,
                             pieces: s.pieces.into_iter().map(|p| fil_actor_miner_state::[<v $version>]::PieceActivationManifest{
                                 cid: p.cid,
-                                notify: p.notify.into_iter().map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification{
-                                    address: n.address.into(),
-                                    payload: n.payload,
-                                }).collect(),
-                                size: $type_suffix::piece::PaddedPieceSize(p.size),
+                                size: fvm_shared4::piece::PaddedPieceSize(p.size),
                                 verified_allocation_key: p.verified_allocation_key.map(|v| fil_actor_miner_state::[<v $version>]::VerifiedAllocationKey{
                                     id: v.id,
                                     client: v.client,
                                 }),
+                                notify: p.notify
+                                    .unwrap_or_default()
+                                    .into_iter()
+                                    .map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification::from_lotus_json(n))
+                                    .collect(),
                             }).collect(),
                         }).collect(),
                         sector_proofs: lotus_json.sector_proofs,
                         update_proofs_type: RegisteredUpdateProof::from(lotus_json.update_proofs_type),
                         aggregate_proof: lotus_json.aggregate_proof,
-                        aggregate_proof_type: lotus_json.aggregate_proof_type.map(|t| $type_suffix::sector::RegisteredAggregateProof::from(t)),
+                        aggregate_proof_type: lotus_json.aggregate_proof_type.map(|t| fvm_shared4::sector::RegisteredAggregateProof::from(t)),
                         require_activation_success: lotus_json.require_activation_success,
                         require_notification_success: lotus_json.require_notification_success,
                     }
@@ -2502,7 +2525,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_abo
                             "AggregateProof": "AQID"
                         }),
                         Self {
-                            sector_numbers: sector_numbers,
+                            sector_numbers,
                             aggregate_proof: vec![1, 2, 3].into(),
                         },
                     )]
@@ -2608,7 +2631,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
                             deadline: u.deadline,
                             partition: u.partition,
                             new_sealed_cid: u.new_sealed_cid,
-                            deals: u.deals,
+                            deals: if u.deals.is_empty() { None } else { Some(u.deals) },
                             update_proof_type: i64::from(u.update_proof_type),
                             replica_proof: u.replica_proof.into(),
                         }).collect(),
@@ -2622,7 +2645,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
                             deadline: u.deadline,
                             partition: u.partition,
                             new_sealed_cid: u.new_sealed_cid,
-                            deals: u.deals,
+                            deals: u.deals.unwrap_or_default(),
                             update_proof_type: u.update_proof_type.into(),
                             replica_proof: u.replica_proof.into(),
                         }).collect(),
@@ -2664,7 +2687,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
                         deadline: self.deadline,
                         partition: self.partition,
                         new_sealed_cid: self.new_sealed_cid,
-                        deals: self.deals,
+                        deals: if self.deals.is_empty() { None } else { Some(self.deals) },
                         update_proof_type: i64::from(self.update_proof_type),
                         replica_proof: self.replica_proof.into(),
                     }
@@ -2676,7 +2699,7 @@ macro_rules! impl_lotus_json_for_miner_prove_replica_updates_params {
                         deadline: lotus_json.deadline,
                         partition: lotus_json.partition,
                         new_sealed_cid: lotus_json.new_sealed_cid,
-                        deals: lotus_json.deals,
+                        deals: lotus_json.deals.unwrap_or_default(),
                         update_proof_type: $type_suffix::sector::RegisteredUpdateProof::from(lotus_json.update_proof_type),
                         replica_proof: lotus_json.replica_proof.into(),
                     }
@@ -2707,14 +2730,12 @@ macro_rules! impl_lotus_json_for_miner_is_controlling_address_param {
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
-                    IsControllingAddressParamLotusJson {
-                        address: self.address.into(),
-                    }
+                    IsControllingAddressParamLotusJson(self.address.into())
                 }
 
                 fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                     Self {
-                        address: lotus_json.address.into(),
+                        address: lotus_json.0.into(),
                     }
                 }
             }
@@ -2813,7 +2834,7 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                                     "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
                                     "Size": 2048,
                                     "VerifiedAllocationKey": null,
-                                    "Notify": []
+                                    "Notify": null
                                 }
                             ]
                         }),
@@ -2832,36 +2853,20 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                 fn into_lotus_json(self) -> Self::LotusJson {
                     SectorActivationManifestLotusJson {
                         sector_number: self.sector_number,
-                        pieces: self.pieces.into_iter().map(|p| PieceActivationManifestLotusJson {
-                            cid: p.cid,
-                            notify: p.notify.into_iter().map(|n| DataActivationNotificationLotusJson {
-                                address: n.address.into(),
-                                payload: n.payload,
-                            }).collect(),
-                            size: p.size.0,
-                            verified_allocation_key: p.verified_allocation_key.map(|v| VerifiedAllocationKeyLotusJson {
-                                id: v.id,
-                                client: v.client,
-                            }),
-                        }).collect(),
+                        pieces: self.pieces
+                            .into_iter()
+                            .map(|p| p.into_lotus_json()) // delegate
+                            .collect(),
                     }
                 }
 
                 fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                     Self {
                         sector_number: lotus_json.sector_number,
-                        pieces: lotus_json.pieces.into_iter().map(|p| fil_actor_miner_state::[<v $version>]::PieceActivationManifest{
-                            cid: p.cid,
-                            size: fvm_shared4::piece::PaddedPieceSize(p.size),
-                            notify: p.notify.into_iter().map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification{
-                                address: n.address.into(),
-                                payload: n.payload,
-                            }).collect(),
-                            verified_allocation_key: p.verified_allocation_key.map(|v| fil_actor_miner_state::[<v $version>]::VerifiedAllocationKey{
-                                id: v.id,
-                                client: v.client,
-                            }),
-                        }).collect(),
+                        pieces: lotus_json.pieces
+                            .into_iter()
+                            .map(|p| fil_actor_miner_state::[<v $version>]::PieceActivationManifest::from_lotus_json(p)) // delegate
+                            .collect(),
                     }
                 }
             }
@@ -2877,7 +2882,7 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                             "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
                             "Size": 2048,
                             "VerifiedAllocationKey": null,
-                            "Notify": []
+                            "Notify": null
                         }),
                         Self {
                             cid: test_cid,
@@ -2896,7 +2901,12 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                             id: v.id,
                             client: v.client,
                         }),
-                        notify: self.notify.into_iter().map(|n| n.into_lotus_json()).collect(),
+                        notify: (!self.notify.is_empty()).then_some(
+                            self.notify
+                                .into_iter()
+                                .map(|n| n.into_lotus_json())
+                                .collect::<Vec<_>>()
+                        ),
                     }
                 }
 
@@ -2908,7 +2918,12 @@ macro_rules! impl_lotus_json_for_miner_sector_activation_manifest {
                             client: v.client.into(),
                             id: v.id.into(),
                         }),
-                        notify: lotus_json.notify.into_iter().map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification::from_lotus_json(n)).collect(),
+                        notify: lotus_json
+                            .notify
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|n| fil_actor_miner_state::[<v $version>]::DataActivationNotification::from_lotus_json(n))
+                            .collect(),
                     }
                 }
             }
@@ -2970,7 +2985,7 @@ macro_rules! impl_lotus_json_for_miner_sector_update_manifest {
                                     "CID": "bafy2bzacebqjq6znbri3pl7y5c3od3abqjq6znbri3pl7y5c3od3abqjq6znbri",
                                     "Size": 2048,
                                     "VerifiedAllocationKey": null,
-                                    "Notify": []
+                                    "Notify": null
                                 }
                             ]
                         }),
@@ -3140,7 +3155,7 @@ macro_rules! impl_miner_extend_sector_expiration_params_v9_onwards {
                             extensions: vec![fil_actor_miner_state::[<v $version>]::ExpirationExtension {
                                 deadline: 1,
                                 partition: 2,
-                                sectors: sectors,
+                                sectors,
                                 new_expiration: 1000,
                             }],
                         },
@@ -3540,8 +3555,8 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sector_ni_params {
                             "AggregateProof": "AQID",
                             "SealProofType": 1,
                             "AggregateProofType": 1,
+                            "ProvingDeadline": 1,
                             "RequireActivationSuccess": true,
-                            "RequireNotificationSuccess": false
                         }),
                         Self {
                             sectors: vec![fil_actor_miner_state::[<v $version>]::SectorNIActivationInfo {
@@ -3555,7 +3570,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sector_ni_params {
                             aggregate_proof: RawBytes::new(vec![1, 2, 3]),
                             seal_proof_type: crate::shim::sector::RegisteredSealProof::from(1).into(),
                             aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::from(1).into(),
-                            proving_deadline: 0,
+                            proving_deadline: 1,
                             require_activation_success: true,
                         },
                     )]
@@ -3574,8 +3589,8 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sector_ni_params {
                         aggregate_proof: self.aggregate_proof.into(),
                         seal_proof_type: self.seal_proof_type.into(),
                         aggregate_proof_type: i64::from(self.aggregate_proof_type),
+                        proving_deadline: self.proving_deadline,
                         require_activation_success: self.require_activation_success,
-                        require_notification_success: self.require_activation_success,
                     }
                 }
 
@@ -3592,7 +3607,7 @@ macro_rules! impl_lotus_json_for_miner_prove_commit_sector_ni_params {
                         aggregate_proof: lotus_json.aggregate_proof.into(),
                         seal_proof_type: crate::shim::sector::RegisteredSealProof::from(lotus_json.seal_proof_type).into(),
                         aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::from(lotus_json.aggregate_proof_type).into(),
-                        proving_deadline: 0,
+                        proving_deadline: lotus_json.proving_deadline,
                         require_activation_success: false,
                     }
                 }
