@@ -2392,10 +2392,10 @@ fn miner_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<
             },
         };
 
-    let miner_max_termination_fee_params = fil_actor_miner_state::v16::MaxTerminationFeeParams {
-        power: Default::default(),
-        initial_pledge: TokenAmount::from_atto(1000000000000000000u64).into(),
-    };
+    // let miner_max_termination_fee_params = fil_actor_miner_state::v16::MaxTerminationFeeParams {
+    //     power: Default::default(),
+    //     initial_pledge: TokenAmount::from_atto(1000000000000000000u64).into(),
+    // };
 
     use fil_actor_miner_state::v16::Method;
     Ok(vec![

@@ -64,8 +64,8 @@ macro_rules! register_miner_common_methods_v10_onwards {
 
         use $state_version::{
             ChangeBeneficiaryParams, ChangeMultiaddrsParams, ChangePeerIDParams,
-            ExtendSectorExpiration2Params, IsControllingAddressParam, Method,
-            PreCommitSectorBatchParams2, WithdrawBalanceParams, ChangeWorkerAddressParams
+            ChangeWorkerAddressParams, ExtendSectorExpiration2Params, IsControllingAddressParam,
+            Method, PreCommitSectorBatchParams2, WithdrawBalanceParams,
         };
 
         // Register methods with parameters
@@ -88,7 +88,10 @@ macro_rules! register_miner_common_methods_v10_onwards {
                     Method::IsControllingAddressExported,
                     IsControllingAddressParam
                 ),
-                (Method::ChangeWorkerAddressExported, ChangeWorkerAddressParams),
+                (
+                    Method::ChangeWorkerAddressExported,
+                    ChangeWorkerAddressParams
+                ),
             ]
         );
 
