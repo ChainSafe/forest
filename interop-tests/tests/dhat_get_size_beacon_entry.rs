@@ -49,7 +49,7 @@ fn test_get_size_beacon_entry() {
     assert_eq!(v.capacity(), v.len());
     dhat::assert_eq!(
         stats.curr_bytes,
-        size_of::<BeaconEntry>() * v.capacity() + 60
+        size_of::<BeaconEntry>() * v.capacity() + inner_bytes
     );
     dhat::assert_eq!(stats.curr_bytes, v.get_heap_size());
 }
