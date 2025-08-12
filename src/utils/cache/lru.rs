@@ -124,6 +124,14 @@ where
         self.cache.write().push(k, v)
     }
 
+    pub fn contains<Q>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.read().contains(k)
+    }
+
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
@@ -175,7 +183,7 @@ where
                 g.set(self.size_in_bytes() as _);
                 g
             };
-            let size_metric_name = format!("{}_{}_size", self.cache_name, self.cache_id);
+            let size_metric_name = format!("cache_{}_{}_size", self.cache_name, self.cache_id);
             let size_metric_help = format!(
                 "Size of LruCache {}_{} in bytes",
                 self.cache_name, self.cache_id
