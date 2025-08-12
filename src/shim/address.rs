@@ -262,7 +262,7 @@ impl DerefMut for Address {
 
 impl GetSize for Address {
     fn get_heap_size(&self) -> usize {
-        0
+        0 // all variants of the internal payload are stack-allocated
     }
 }
 
