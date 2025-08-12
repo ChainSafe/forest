@@ -130,7 +130,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.cache.read().contains(k)
+        self.cache.read().contains_key(k)
     }
 
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
