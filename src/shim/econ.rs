@@ -8,10 +8,12 @@ use std::{
 };
 
 use super::fvm_shared_latest::econ::TokenAmount as TokenAmount_latest;
+use crate::utils::get_size::big_int_heap_size_helper;
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
 use fvm_shared4::econ::TokenAmount as TokenAmount_v4;
+use get_size2::GetSize;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -31,6 +33,12 @@ pub struct TokenAmount(TokenAmount_latest);
 impl fmt::Debug for TokenAmount {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+impl GetSize for TokenAmount {
+    fn get_heap_size(&self) -> usize {
+        big_int_heap_size_helper(self.0.atto())
     }
 }
 
