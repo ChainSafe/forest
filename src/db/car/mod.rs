@@ -96,6 +96,8 @@ impl ZstdFrameCache {
         key: CacheKey,
         mut index: hashbrown::HashMap<CidWrapper, Vec<u8>>,
     ) {
+        index.shrink_to_fit();
+
         let lru_key = (offset, key);
         let lru_key_size = lru_key.get_size();
         let entry_size = index.get_size();
@@ -104,7 +106,6 @@ impl ZstdFrameCache {
             return;
         }
 
-        index.shrink_to_fit();
         if let Some(prev_entry) = self.lru.push(lru_key, index) {
             // keys are cancelled out
             self.current_size.fetch_add(entry_size, Ordering::Relaxed);
