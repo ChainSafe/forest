@@ -48,9 +48,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
-        if !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED")
-            && let Some(ts) = self.ts_cache.get_cloned(tsk)
-        {
+        let cache_enabled = !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED");
+        if cache_enabled && let Some(ts) = self.ts_cache.get_cloned(tsk) {
             metrics::LRU_CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
@@ -58,7 +57,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
-        if let Some(ts) = &ts_opt {
+        if cache_enabled && let Some(ts) = &ts_opt {
             self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)
