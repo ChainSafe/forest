@@ -25,10 +25,7 @@ impl Default for BadBlockCache {
 impl BadBlockCache {
     pub fn new(cap: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_default_metrics_registry(
-                "bad_block_cache".into(),
-                cap,
-            ),
+            cache: SizeTrackingLruCache::new_with_default_metrics_registry("bad_block".into(), cap),
         }
     }
 

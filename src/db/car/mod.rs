@@ -73,9 +73,7 @@ impl ZstdFrameCache {
         ZstdFrameCache {
             max_size,
             current_size: AtomicUsize::new(0),
-            lru: SizeTrackingLruCache::unbounded_with_default_metrics_registry(
-                "zstd_frame_cache".into(),
-            ),
+            lru: SizeTrackingLruCache::unbounded_with_default_metrics_registry("zstd_frame".into()),
         }
     }
 

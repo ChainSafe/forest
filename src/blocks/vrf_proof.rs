@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::encoding::{blake2b_256, serde_byte_array};
+use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
@@ -23,5 +24,11 @@ impl VRFProof {
     /// Compute the `BLAKE2b256` digest of the proof.
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
+    }
+}
+
+impl GetSize for VRFProof {
+    fn get_heap_size(&self) -> usize {
+        self.0.get_heap_size()
     }
 }

@@ -262,7 +262,7 @@ impl DrandBeacon {
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
             verified_beacons: SizeTrackingLruCache::new_with_default_metrics_registry(
-                "verified_beacons_cache".into(),
+                "verified_beacons".into(),
                 NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
             ),
         }

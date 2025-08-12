@@ -1,17 +1,17 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::Message as MessageTrait;
+use crate::message::signed_message::SignedMessage;
 use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::RawBytes;
+use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
-
-use super::Message as MessageTrait;
-use crate::message::signed_message::SignedMessage;
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, Eq, PartialEq, GetSize)]
 #[serde(untagged)]
 pub enum ChainMessage {
     Unsigned(Message),
