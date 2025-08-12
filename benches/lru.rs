@@ -9,7 +9,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use rand::{SeedableRng as _, seq::SliceRandom as _};
 use std::hint::black_box;
 
-const LRU_CAPACITY: usize = 4096;
+const LRU_CAPACITY: usize = 131072;
 
 fn bench_lru_caches(c: &mut Criterion) {
     let input = gen_input();
