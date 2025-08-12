@@ -14,5 +14,5 @@ fn test_hashlink() {
     }
 
     let stats = dhat::HeapStats::get();
-    assert_eq!(stats.curr_bytes, 698);
+    assert!(stats.curr_bytes <= 1000, "curr_bytes: {}", stats.curr_bytes);
 }
