@@ -191,7 +191,7 @@ mod tests {
     use tokio::sync::Mutex;
     use url::Url;
 
-    // To run a single test: cargo test --lib -- --nocapture --test filecoin_multisig_statedecodeparams_1754230255631789
+    // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
     include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
 
     async fn rpc_regression_test_run(name: &str) {

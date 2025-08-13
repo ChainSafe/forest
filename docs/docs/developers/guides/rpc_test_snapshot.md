@@ -39,7 +39,7 @@ A test snapshot generated in the previous step is in JSON format, for easier ins
   3.  Include the file names in `src/tool/subcommands/api_cmd/test_snapshots.txt`
   4.  Run the test:
       ```
-      cargo test --lib -- --nocapture --test {filename}
+      cargo test --lib {filename} -- --nocapture
       ```
 
 - Using the Script
