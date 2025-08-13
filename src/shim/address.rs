@@ -14,6 +14,7 @@ use fvm_shared3::address::Address as Address_v3;
 use fvm_shared4::address::Address as Address_v4;
 use fvm_shared4::address::Address as Address_latest;
 pub use fvm_shared4::address::{Error, Network, PAYLOAD_HASH_LEN, Payload, Protocol};
+use get_size2::GetSize;
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -256,6 +257,12 @@ impl Deref for Address {
 impl DerefMut for Address {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl GetSize for Address {
+    fn get_heap_size(&self) -> usize {
+        0 // all variants of the internal payload are stack-allocated
     }
 }
 
