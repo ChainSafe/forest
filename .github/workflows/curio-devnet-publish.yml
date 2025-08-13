@@ -16,7 +16,7 @@ jobs:
         run: docker image ls
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
       - name: Login to Github Packages
         uses: docker/login-action@v3
         with:
