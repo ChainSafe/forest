@@ -23,6 +23,14 @@ pub struct WithdrawBalanceParamsLotusJson {
     pub amount: TokenAmount,
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct AddBalanceParamsLotusJson {
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub provider_or_client: Address,
+}
+
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
     ($($version:literal),+) => {
         $(
@@ -56,3 +64,35 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
 }
 
 impl_lotus_json_for_withdraw_balance_params!(9, 10, 11, 12, 13, 14, 15, 16);
+
+macro_rules! impl_lotus_json_for_add_balance_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::AddBalanceParams {
+                    type LotusJson = AddBalanceParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            provider_or_client: self.provider_or_client.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            provider_or_client: json.provider_or_client.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_add_balance_params!(11, 12, 13, 14, 15, 16);
