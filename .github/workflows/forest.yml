@@ -287,7 +287,7 @@ jobs:
   calibnet-export-check-v2:
     needs:
       - build-ubuntu
-    name: Snapshot export checks v2
+    name: Snapshot export checks v2 with F3 data
     runs-on: ubuntu-24.04
     steps:
       - run: lscpu
@@ -304,7 +304,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check v2
-        run: ./scripts/tests/calibnet_export_check.sh v2
+        run: ./scripts/tests/calibnet_export_f3_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-no-discovery-checks:
     needs:
@@ -576,6 +576,7 @@ jobs:
       - state-migrations-check
       - calibnet-wallet-check
       - calibnet-export-check
+      - calibnet-export-check-v2
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check

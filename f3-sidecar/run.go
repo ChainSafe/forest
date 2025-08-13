@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/filecoin-project/go-f3"
@@ -15,10 +14,9 @@ import (
 	"github.com/filecoin-project/go-f3/manifest"
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/ipfs/go-cid"
-	leveldb "github.com/ipfs/go-ds-leveldb"
 )
 
-func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) error {
+func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint string, initialPowerTable string, bootstrapEpoch int64, finality int64, f3Root string) (err error) {
 	api := FilecoinApi{}
 	isJwtProvided := len(jwt) > 0
 	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "Filecoin", &api, nil)
@@ -32,17 +30,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 		return err
 	}
 
-	var rawNetwork string
-	for {
-		rawNetwork, err = ec.f3api.GetRawNetworkName(ctx)
-		if err == nil {
-			logger.Infoln("Forest RPC server is online")
-			break
-		} else {
-			logger.Warnln("waiting for Forest RPC server")
-			time.Sleep(5 * time.Second)
-		}
-	}
+	rawNetwork := waitRawNetworkName(ctx, &ec.f3api)
 	listenAddrs, err := api.NetAddrsListen(ctx)
 	if err != nil {
 		return err
@@ -60,17 +48,17 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	if err != nil {
 		return err
 	}
-	ds, err := leveldb.NewDatastore(filepath.Join(f3Root, "db"), nil)
+	ds, err := getDatastore(f3Root)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if closeErr := ds.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
 	verif := blssig.VerifierWithKeyOnG1()
-	networkName := gpbft.NetworkName(rawNetwork)
-	// Use "filecoin" as the network name on mainnet, otherwise use the network name. Yes,
-	// mainnet is called testnetnet in state.
-	if networkName == "testnetnet" {
-		networkName = "filecoin"
-	}
+	networkName := getNetworkName(rawNetwork)
 	m := Network2PredefinedManifestMappings[networkName]
 	if m == nil {
 		m2 := manifest.LocalDevnetManifest()
