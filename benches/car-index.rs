@@ -1,6 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! ```console
+//! $ cargo bench --bench car-index
+//! ```
+
 use cid::Cid;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use forest::benchmark_private::{

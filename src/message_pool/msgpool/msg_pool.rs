@@ -476,11 +476,11 @@ where
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
         let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
-            "bls_sig_cache".into(),
+            "bls_sig".into(),
             BLS_SIG_CACHE_SIZE,
         ));
         let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
-            "sig_val_cache".into(),
+            "sig_val".into(),
             SIG_VAL_CACHE_SIZE,
         ));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));

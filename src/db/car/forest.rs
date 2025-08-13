@@ -53,8 +53,8 @@ use crate::db::car::RandomAccessFileReader;
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header};
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::get_size::CidWrapper;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use ahash::{HashMap, HashMapExt};
 use byteorder::LittleEndian;
 use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
@@ -264,14 +264,14 @@ where
                     let cursor = Cursor::new_pos(entire_file, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
-                    let mut block_map = HashMap::new();
+                    let mut block_map = hashbrown::HashMap::new();
                     while let Some(block_frame) =
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
                         block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(&(*k).into()).cloned();
+                    let get_result = block_map.get(&CidWrapper::from(*k)).cloned();
                     self.frame_cache.put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision

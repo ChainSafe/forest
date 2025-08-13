@@ -17,7 +17,8 @@ cid = { version = "0.11", default-features = false, features = ["std"] }
 dhat = "0.3"
 flume = "0.11"
 futures = "0.3"
-get-size2 = { version = "0.6", features = ["derive"] }
+get-size2 = { version = "0.6", features = ["derive", "hashbrown"] }
+hashlink = "0.10"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
@@ -98,6 +99,8 @@ get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
+hashbrown = "0.15"
+hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
 http = "1"
@@ -110,7 +113,7 @@ integer-encoding = "4.0"
 ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
-jsonrpsee = { version = "0.25", features = ["server", "ws-client", "http-client", "macros"] }
+jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
 jsonwebtoken = "9"
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.2"
@@ -139,7 +142,6 @@ libp2p = { workspace = true, features = [
   'secp256k1',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.16"
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
 memory-stats = "1"
@@ -252,7 +254,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.297"
+ra_ap_syntax = "0.0.300"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }

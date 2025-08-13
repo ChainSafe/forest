@@ -13,7 +13,7 @@ use std::{
 };
 
 use get_size2::GetSize;
-use lru::LruCache;
+use hashlink::LruCache;
 use parking_lot::RwLock;
 use prometheus_client::{
     collector::Collector,
@@ -68,9 +68,10 @@ where
             #[allow(clippy::disallowed_methods)]
             cache: Arc::new(RwLock::new(
                 capacity
+                    .map(From::from)
                     .map(LruCache::new)
                     // For constructing lru cache that is bounded by memory usage instead of length
-                    .unwrap_or_else(LruCache::unbounded),
+                    .unwrap_or_else(LruCache::new_unbounded),
             )),
         }
     }
@@ -120,8 +121,16 @@ where
         &self.cache
     }
 
-    pub fn push(&self, k: K, v: V) -> Option<(K, V)> {
-        self.cache.write().push(k, v)
+    pub fn push(&self, k: K, v: V) -> Option<V> {
+        self.cache.write().insert(k, v)
+    }
+
+    pub fn contains<Q>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.cache.read().contains_key(k)
     }
 
     pub fn get_cloned<Q>(&self, k: &Q) -> Option<V>
@@ -141,7 +150,7 @@ where
     }
 
     pub fn pop_lru(&self) -> Option<(K, V)> {
-        self.cache.write().pop_lru()
+        self.cache.write().remove_lru()
     }
 
     pub fn len(&self) -> usize {
@@ -149,7 +158,7 @@ where
     }
 
     pub fn cap(&self) -> usize {
-        self.cache.read().cap().get()
+        self.cache.read().capacity()
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
@@ -175,7 +184,7 @@ where
                 g.set(self.size_in_bytes() as _);
                 g
             };
-            let size_metric_name = format!("{}_{}_size", self.cache_name, self.cache_id);
+            let size_metric_name = format!("cache_{}_{}_size", self.cache_name, self.cache_id);
             let size_metric_help = format!(
                 "Size of LruCache {}_{} in bytes",
                 self.cache_name, self.cache_id
@@ -207,7 +216,7 @@ where
             let cap_metric_help =
                 format!("Capacity of LruCache {}_{}", self.cache_name, self.cache_id);
             let cap: Gauge = Default::default();
-            cap.set(self.cache.read().cap().get() as _);
+            cap.set(self.cap() as _);
             let cap_metric_encoder = encoder.encode_descriptor(
                 &cap_metric_name,
                 &cap_metric_help,
