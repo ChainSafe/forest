@@ -14,12 +14,13 @@ use crate::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof, version::NetworkVersion,
     },
-    utils::{encoding::blake2b_256, multihash::MultihashCode},
+    utils::{encoding::blake2b_256, get_size::big_int_heap_size_helper, multihash::MultihashCode},
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use fvm_ipld_encoding::tuple::*;
+use get_size2::GetSize;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
@@ -197,11 +198,46 @@ impl RawBlockHeader {
     }
 }
 
+// The derive macro does not compile for some reason
+impl GetSize for RawBlockHeader {
+    fn get_heap_size(&self) -> usize {
+        let Self {
+            miner_address,
+            ticket,
+            election_proof,
+            beacon_entries,
+            winning_post_proof,
+            parents,
+            weight,
+            epoch: _,
+            state_root: _,
+            message_receipts: _,
+            messages: _,
+            bls_aggregate,
+            timestamp: _,
+            signature,
+            fork_signal: _,
+            parent_base_fee,
+        } = self;
+        miner_address.get_heap_size()
+            + ticket.get_heap_size()
+            + election_proof.get_heap_size()
+            + beacon_entries.get_heap_size()
+            + winning_post_proof.get_heap_size()
+            + parents.get_heap_size()
+            + big_int_heap_size_helper(weight)
+            + bls_aggregate.get_heap_size()
+            + signature.get_heap_size()
+            + parent_base_fee.get_heap_size()
+    }
+}
+
 /// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]
 #[cfg_attr(test, derive(Default))]
-#[derive(Debug)]
+#[derive(Debug, GetSize)]
 pub struct CachingBlockHeader {
     uncached: RawBlockHeader,
+    #[get_size(ignore)]
     cid: OnceLock<Cid>,
     has_ever_been_verified_against_any_signature: AtomicBool,
 }
