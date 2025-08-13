@@ -184,6 +184,7 @@ mod tests {
     use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
+    use anyhow::Context as _;
     use directories::ProjectDirs;
     use std::sync::LazyLock;
     use std::time::Instant;
@@ -210,8 +211,8 @@ mod tests {
         }
         let url: Url =
             format!("https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{name}")
-                .as_str()
                 .parse()
+                .with_context(|| format!("Failed to parse URL for test: {name}"))
                 .unwrap();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
