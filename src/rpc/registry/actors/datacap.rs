@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
+use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;
@@ -17,6 +18,8 @@ macro_rules! register_datacap_v9 {
             $registry,
             $code_cid,
             [
+                (Method::Constructor, Address),
+                (Method::BalanceOf, Address),
                 (Method::Mint, MintParams),
                 (Method::Destroy, DestroyParams),
                 (Method::Transfer, TransferParams),
@@ -53,6 +56,8 @@ macro_rules! register_datacap_v10 {
             $registry,
             $code_cid,
             [
+                (Method::Constructor, Address),
+                (Method::BalanceExported, Address),
                 (Method::MintExported, MintParams),
                 (Method::DestroyExported, DestroyParams),
                 (Method::TransferExported, TransferParams),
