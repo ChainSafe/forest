@@ -32,7 +32,7 @@ impl MigrationCache {
     pub fn new(size: NonZeroUsize) -> Self {
         Self {
             cache: Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
-                "migration_cache".into(),
+                "migration".into(),
                 size,
             )),
         }

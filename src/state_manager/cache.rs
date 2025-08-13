@@ -45,7 +45,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
     fn cache_name() -> String {
         use convert_case::{Case, Casing as _};
         format!(
-            "tipset_state_cache_{}",
+            "tipset_state_{}",
             crate::utils::misc::short_type_name::<V>().to_case(Case::Snake)
         )
     }
