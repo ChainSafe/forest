@@ -8,16 +8,26 @@ use cid::Cid;
 
 macro_rules! register_market_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{self, Method};
+        use $state_version::{Method};
 
         register_actor_methods!(
             $registry,
             $code_cid,
             [
-                (Method::Constructor, empty),
                 // (Method::AddBalance, AddBalanceParams),
                 // (Method::WithdrawBalance, WithdrawBalanceParams),
                 // (Method::PublishStorageDeals, PublishStorageDealsParams),
+            ]
+        );
+
+        // Register methods without parameters
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::Constructor, empty),
+                (Method::AddBalance, empty),
+                (Method::CronTick, empty),
             ]
         );
     }};
@@ -25,16 +35,26 @@ macro_rules! register_market_versions_8_to_9 {
 
 macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{self, Method, PublishStorageDealsParams, WithdrawBalanceParams};
+        use $state_version::{Method, PublishStorageDealsParams, WithdrawBalanceParams};
 
         register_actor_methods!(
             $registry,
             $code_cid,
             [
-                (Method::Constructor, empty),
                 // (Method::AddBalance, AddBalanceParams),
                 // (Method::WithdrawBalance, WithdrawBalanceParams),
                 // (Method::PublishStorageDeals, PublishStorageDealsParams),
+            ]
+        );
+
+        // Register methods without parameters
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::Constructor, empty),
+                (Method::AddBalance, empty),
+                (Method::CronTick, empty),
             ]
         );
     }};
@@ -48,10 +68,20 @@ macro_rules! register_market_versions_12 {
             $registry,
             $code_cid,
             [
-                (Method::Constructor, empty),
                 // (Method::AddBalance, AddBalanceParams),
                 // (Method::WithdrawBalance, WithdrawBalanceParams),
                 // (Method::PublishStorageDeals, PublishStorageDealsParams),
+            ]
+        );
+
+        // Register methods without parameters
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::Constructor, empty),
+                (Method::AddBalance, empty),
+                (Method::CronTick, empty),
             ]
         );
     }};
@@ -65,10 +95,20 @@ macro_rules! register_market_versions_13_to_16 {
             $registry,
             $code_cid,
             [
-                (Method::Constructor, empty),
                 // (Method::AddBalance, AddBalanceParams),
                 // (Method::WithdrawBalance, WithdrawBalanceParams),
                 // (Method::PublishStorageDeals, PublishStorageDealsParams),
+            ]
+        );
+
+        // Register methods without parameters
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::Constructor, empty),
+                (Method::AddBalance, empty),
+                (Method::CronTick, empty),
             ]
         );
     }};
