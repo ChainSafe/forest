@@ -54,6 +54,8 @@ fn rpc_regression_tests_gen() {
     use std::io::BufWriter;
     use std::path::PathBuf;
 
+    println!("cargo:rerun-if-changed=src/tool/subcommands/api_cmd/test_snapshots.txt");
+
     let tests: Vec<_> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
         .trim()
         .split("\n")
