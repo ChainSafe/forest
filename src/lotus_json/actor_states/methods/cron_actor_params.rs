@@ -3,10 +3,9 @@
 
 use super::*;
 use crate::shim::actors::cron::Entry;
-use jsonrpsee::core::Serialize;
 use paste::paste;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(rename_all = "PascalCase")]
