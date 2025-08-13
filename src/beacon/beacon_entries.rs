@@ -32,7 +32,8 @@ pub struct BeaconEntry {
 }
 
 impl BeaconEntry {
-    pub fn new(round: u64, signature: Vec<u8>) -> Self {
+    pub fn new(round: u64, mut signature: Vec<u8>) -> Self {
+        signature.shrink_to_fit();
         Self { round, signature }
     }
 
