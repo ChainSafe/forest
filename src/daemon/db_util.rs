@@ -7,6 +7,7 @@ use crate::db::car::forest::{
 };
 use crate::db::car::{ForestCar, ManyCar};
 use crate::interpreter::VMTrace;
+use crate::networks::ChainConfig;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::{NO_CALLBACK, StateManager};
@@ -16,8 +17,8 @@ use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsStr;
 use std::{
+    ffi::OsStr,
     fs,
     path::{Path, PathBuf},
     sync::Arc,
@@ -130,6 +131,9 @@ pub async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
+    rpc_endpoint: Url,
+    f3_root: &Path,
+    chain_config: &ChainConfig,
     snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
     info!("Importing chain from snapshot at: {}", from_path.display());
@@ -229,7 +233,32 @@ pub async fn import_chain_as_forest_car(
         }
     };
 
-    let ts = ForestCar::try_from(forest_car_db_path.as_path())?.heaviest_tipset()?;
+    let forest_car = ForestCar::try_from(forest_car_db_path.as_path())?;
+
+    if let Some(f3_cid) = forest_car.metadata().as_ref().and_then(|m| m.f3_data) {
+        let mut f3_data = forest_car
+            .get_reader(f3_cid)?
+            .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
+        let mut temp_f3_snap = tempfile::Builder::new()
+            .suffix(".f3snap.bin")
+            .tempfile_in(forest_car_db_dir)?;
+        {
+            let f = temp_f3_snap.as_file_mut();
+            std::io::copy(&mut f3_data, f)?;
+            f.sync_all()?;
+        }
+        if let Err(e) = crate::f3::import_f3_snapshot(
+            chain_config,
+            rpc_endpoint.to_string(),
+            f3_root.display().to_string(),
+            temp_f3_snap.path().display().to_string(),
+        ) {
+            // Do not make it a hard error if anything is wrong with F3 snapshot
+            tracing::error!("Failed to import F3 snapshot: {e}");
+        }
+    }
+
+    let ts = forest_car.heaviest_tipset()?;
     info!(
         "Imported snapshot in: {}s, heaviest tipset epoch: {}, key: {}",
         stopwatch.elapsed().as_secs(),
@@ -456,6 +485,9 @@ mod test {
             file_path,
             temp_db_dir.path(),
             import_mode,
+            "http://127.0.0.1:2345/rpc/v1".parse().unwrap(),
+            Path::new("test"),
+            &ChainConfig::devnet(),
             &SnapshotProgressTracker::default(),
         )
         .await?;
