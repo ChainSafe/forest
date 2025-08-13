@@ -160,12 +160,12 @@ impl NetCommands {
             Self::Reachability => {
                 let nat_status = NetAutoNatStatus::call(&client, ()).await?;
                 println!("AutoNAT status:  {}", nat_status.reachability_as_str());
-                if let Some(public_addrs) = nat_status.public_addrs {
-                    if !public_addrs.is_empty() {
-                        // Format is compatible with Go code:
-                        // `fmt.Println("Public address:", []string{"foo", "bar"})`
-                        println!("Public address: [{}]", public_addrs.join(" "));
-                    }
+                if let Some(public_addrs) = nat_status.public_addrs
+                    && !public_addrs.is_empty()
+                {
+                    // Format is compatible with Go code:
+                    // `fmt.Println("Public address:", []string{"foo", "bar"})`
+                    println!("Public address: [{}]", public_addrs.join(" "));
                 }
                 Ok(())
             }

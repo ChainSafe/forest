@@ -156,11 +156,11 @@ impl NetworkBehaviour for HelloBehaviour {
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm) {
-        if let FromSwarm::ConnectionEstablished(e) = &event {
-            if e.other_established == 0 {
-                self.pending_inbound_hello_peers
-                    .insert(e.peer_id, Instant::now());
-            }
+        if let FromSwarm::ConnectionEstablished(e) = &event
+            && e.other_established == 0
+        {
+            self.pending_inbound_hello_peers
+                .insert(e.peer_id, Instant::now());
         }
 
         self.inner.on_swarm_event(event)

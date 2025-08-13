@@ -29,11 +29,19 @@
 
 ### Added
 
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
+
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in v2 format(FRC-0108).
+
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
+
+- [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a v1 Filecoin snapshot and an F3 snapshot into a v2 Filecoin snapshot.
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
 ### Changed
+
+- [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print F3 snapshot header info when applicable.
 
 - [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
 
@@ -53,7 +61,7 @@ This is a non-mandatory release recommended for all node operators. It includes 
 
 - [#5739](https://github.com/ChainSafe/forest/issues/5739) Add `--export-mode` flag to the `forest-tool archive sync-bucket` subcommand. This allows exporting and uploading only the required files.
 
-- [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`
+- [#5778](https://github.com/ChainSafe/forest/pull/5778) Feat generate a detailed test report in `api compare` command through `--report-dir` and `--report-mode`.
 
 ### Changed
 

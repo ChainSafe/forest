@@ -7,9 +7,9 @@ use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, 
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
+use fvm_ipld_encoding::tuple::*;
 use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;

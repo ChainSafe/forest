@@ -104,10 +104,10 @@ where
         F: Fn(&T) -> bool,
     {
         while let Some(result) = self.tasks.join_next().await {
-            if let Ok(Ok(value)) = result {
-                if validate(&value) {
-                    return Some(value);
-                }
+            if let Ok(Ok(value)) = result
+                && validate(&value)
+            {
+                return Some(value);
             }
         }
         // So far every task have failed
@@ -310,14 +310,14 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
-                if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
-                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
-                        tracing::debug!(
-                            "Decreased chain exchange timeout to {}ms. Current average: {}ms",
-                            CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
-                            mean,
-                        );
-                    }
+                if let Ok(mean) = success_time_cost_millis_stats.lock().mean()
+                    && CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _)
+                {
+                    tracing::debug!(
+                        "Decreased chain exchange timeout to {}ms. Current average: {}ms",
+                        CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
+                        mean,
+                    );
                 }
                 trace!("Succeed: handle_chain_exchange_request");
                 v

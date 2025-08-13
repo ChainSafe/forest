@@ -3,7 +3,7 @@
 use crate::blocks::TipsetKey;
 use crate::shim::executor::Receipt;
 use crate::state_manager::{DEFAULT_TIPSET_CACHE_SIZE, StateEvents};
-use lru::LruCache;
+use crate::utils::cache::{LruValueConstraints, SizeTrackingLruCache};
 use nonzero_ext::nonzero;
 use parking_lot::Mutex as SyncMutex;
 use std::future::Future;
@@ -14,35 +14,49 @@ use tokio::sync::Mutex as TokioMutex;
 
 const DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
 
-struct TipsetStateCacheInner<V> {
-    values: LruCache<TipsetKey, V>,
+struct TipsetStateCacheInner<V: LruValueConstraints> {
+    values: SizeTrackingLruCache<TipsetKey, V>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
-impl<V: Clone> Default for TipsetStateCacheInner<V> {
+impl<V: LruValueConstraints> Default for TipsetStateCacheInner<V> {
     fn default() -> Self {
         Self {
-            values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
+            values: SizeTrackingLruCache::new_with_default_metrics_registry(
+                Self::cache_name().into(),
+                DEFAULT_TIPSET_CACHE_SIZE,
+            ),
             pending: Vec::with_capacity(8),
         }
     }
 }
 
-impl<V: Clone> TipsetStateCacheInner<V> {
+impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
     pub fn with_size(cache_size: NonZeroUsize) -> Self {
         Self {
-            values: LruCache::new(cache_size),
+            values: SizeTrackingLruCache::new_with_default_metrics_registry(
+                Self::cache_name().into(),
+                cache_size,
+            ),
             pending: Vec::with_capacity(8),
         }
+    }
+
+    fn cache_name() -> String {
+        use convert_case::{Case, Casing as _};
+        format!(
+            "tipset_state_{}",
+            crate::utils::misc::short_type_name::<V>().to_case(Case::Snake)
+        )
     }
 }
 
 /// A generic cache that handles concurrent access and computation for tipset-related data.
-pub(crate) struct TipsetStateCache<V> {
+pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
     cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
 }
 
-impl<V: Clone> Default for TipsetStateCache<V> {
+impl<V: LruValueConstraints> Default for TipsetStateCache<V> {
     fn default() -> Self {
         TipsetStateCache::with_size(DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE)
     }
@@ -53,7 +67,7 @@ enum CacheLookupStatus<V> {
     Empty(Arc<TokioMutex<()>>),
 }
 
-impl<V: Clone> TipsetStateCache<V> {
+impl<V: LruValueConstraints> TipsetStateCache<V> {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
@@ -80,8 +94,8 @@ impl<V: Clone> TipsetStateCache<V> {
         Fut: Future<Output = anyhow::Result<V>> + Send,
         V: Send + Sync + 'static,
     {
-        let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => CacheLookupStatus::Exist(v.clone()),
+        let status = self.with_inner(|inner| match inner.values.get_cloned(key) {
+            Some(v) => CacheLookupStatus::Exist(v),
             None => {
                 let option = inner
                     .pending
@@ -134,13 +148,13 @@ impl<V: Clone> TipsetStateCache<V> {
     }
 
     pub fn get(&self, key: &TipsetKey) -> Option<V> {
-        self.with_inner(|inner| inner.values.get(key).cloned())
+        self.with_inner(|inner| inner.values.get_cloned(key))
     }
 
     pub fn insert(&self, key: TipsetKey, value: V) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
-            inner.values.put(key, value);
+            inner.values.push(key, value);
         });
     }
 }

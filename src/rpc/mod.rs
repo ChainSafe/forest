@@ -81,6 +81,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainSetHead);
         $callback!($crate::rpc::chain::ChainStatObj);
         $callback!($crate::rpc::chain::ChainTipSetWeight);
+        $callback!($crate::rpc::chain::ForestChainExport);
 
         // common vertical
         $callback!($crate::rpc::common::Session);
@@ -284,6 +285,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::f3::F3GetLatestCertificate);
         $callback!($crate::rpc::f3::F3GetOrRenewParticipationTicket);
         $callback!($crate::rpc::f3::F3Participate);
+        $callback!($crate::rpc::f3::F3ExportLatestSnapshot);
         $callback!($crate::rpc::f3::GetHead);
         $callback!($crate::rpc::f3::GetParent);
         $callback!($crate::rpc::f3::GetParticipatingMinerIDs);

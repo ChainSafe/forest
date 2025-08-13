@@ -14,8 +14,7 @@ use fil_actor_verifreg_state::{
 use fil_actors_shared::v8::{HAMT_BIT_WIDTH, make_map_with_root_and_bitwidth};
 use fil_actors_shared::v9::Keyer;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::tuple::serde_tuple;
-use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
+use fvm_ipld_encoding::tuple::*;
 use fvm_shared2::address::{Address, Protocol};
 use fvm_shared4::ActorID;
 use fvm_shared4::bigint::bigint_ser::BigIntDe;

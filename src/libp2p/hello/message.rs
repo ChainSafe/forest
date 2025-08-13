@@ -3,21 +3,26 @@
 
 use crate::shim::bigint::BigInt;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::get_size::vec_alike_get_size as vec_alike_get_heap_size;
+use crate::utils::get_size::nunny_vec_heap_size_with_fn_helper;
 use cid::Cid;
+use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
 use nunny::Vec as NonEmpty;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>
-#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple, GetSize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloRequest {
-    #[get_size(size_fn = vec_alike_get_heap_size)]
     pub heaviest_tip_set: NonEmpty<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
     pub heaviest_tipset_weight: BigInt,
-    #[get_size(ignore)]
     pub genesis_cid: Cid,
+}
+
+impl GetSize for HelloRequest {
+    fn get_heap_size(&self) -> usize {
+        nunny_vec_heap_size_with_fn_helper(&self.heaviest_tip_set, |_| 0)
+            + self.heaviest_tipset_weight.get_heap_size()
+    }
 }
 
 /// Response to a Hello message. This just handles latency of the peer.

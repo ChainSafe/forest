@@ -6,15 +6,19 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use crate::cid_collections::SmallCidNonEmptyVec;
-use crate::networks::{calibnet, mainnet};
-use crate::shim::clock::ChainEpoch;
-use crate::utils::cid::CidCborExt;
+use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
+use crate::{
+    cid_collections::SmallCidNonEmptyVec,
+    networks::{calibnet, mainnet},
+    shim::clock::ChainEpoch,
+    utils::{cid::CidCborExt, get_size::nunny_vec_heap_size_helper},
+};
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use get_size2::GetSize;
 use itertools::Itertools as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
@@ -22,13 +26,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
-use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
-
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, GetSize)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct TipsetKey(SmallCidNonEmptyVec);
 
@@ -99,7 +101,10 @@ impl TipsetKey {
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
-    fn from(value: NonEmpty<Cid>) -> Self {
+    fn from(mut value: NonEmpty<Cid>) -> Self {
+        // When `value.capacity() > value.len()`, it takes more heap memory.
+        // Always shrink it since `TipsetKey` is immutable and used in caches.
+        value.shrink_to_fit();
         Self(value.into())
     }
 }
@@ -141,9 +146,10 @@ impl IntoIterator for TipsetKey {
 ///
 /// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages`]
 /// for more.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, GetSize)]
 pub struct Tipset {
     /// Sorted
+    #[get_size(size_fn = nunny_vec_heap_size_helper)]
     headers: NonEmpty<CachingBlockHeader>,
     // key is lazily initialized via `fn key()`.
     key: OnceLock<TipsetKey>,
@@ -165,6 +171,15 @@ impl From<CachingBlockHeader> for Tipset {
     fn from(value: CachingBlockHeader) -> Self {
         Self {
             headers: nonempty![value],
+            key: OnceLock::new(),
+        }
+    }
+}
+
+impl From<NonEmpty<CachingBlockHeader>> for Tipset {
+    fn from(headers: NonEmpty<CachingBlockHeader>) -> Self {
+        Self {
+            headers,
             key: OnceLock::new(),
         }
     }
@@ -418,12 +433,12 @@ impl Tipset {
                 (*calibnet::GENESIS_CID, &headers.calibnet),
                 (*mainnet::GENESIS_CID, &headers.mainnet),
             ] {
-                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
-                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
-                        return store
-                            .get_cbor(&genesis_cid)?
-                            .context("Genesis block missing from database");
-                    }
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
+                    && known_block_cid == &tipset.min_ticket_block().cid().to_string()
+                {
+                    return store
+                        .get_cbor(&genesis_cid)?
+                        .context("Genesis block missing from database");
                 }
             }
 

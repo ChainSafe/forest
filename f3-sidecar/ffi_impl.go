@@ -48,6 +48,13 @@ func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string
 	return err == nil
 }
 
+func (f3 *f3Impl) import_snap(f3_rpc_endpoint *string, f3_root *string, snapshot_path *string) string {
+	if err := importSnap(f3.ctx, *f3_rpc_endpoint, *f3_root, *snapshot_path); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 func checkError(err error) {
 	if err != nil {
 		panic(err)
@@ -57,5 +64,6 @@ func checkError(err error) {
 // To avoid potential panics
 // See <https://github.com/ChainSafe/forest/pull/4636#issuecomment-2306500753>
 func setGoDebugEnv() {
-	os.Setenv("GODEBUG", "invalidptr=0,cgocheck=0")
+	err := os.Setenv("GODEBUG", "invalidptr=0,cgocheck=0")
+	checkError(err)
 }

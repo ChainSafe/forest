@@ -31,9 +31,11 @@ use crate::chain::{
     ChainEpochDelta,
     index::{ChainIndex, ResolveNullTipset},
 };
+use crate::chain::{FilecoinSnapshotMetadata, FilecoinSnapshotVersion};
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::{AnyCar, ManyCar};
+use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
+use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -42,16 +44,22 @@ use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
 use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::GLOBAL_MULTI_ENGINE;
 use crate::state_manager::{NO_CALLBACK, StateOutput, apply_block_messages};
+use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
+use crate::utils::multihash::MultihashCode;
 use anyhow::{Context as _, bail};
 use chrono::DateTime;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use futures::TryStreamExt;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use indicatif::ProgressIterator;
+use fvm_ipld_encoding::DAG_CBOR;
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
+use multihash_derive::MultihashDigest as _;
 use sha2::Sha256;
+use std::fs::File;
+use std::io::{Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -82,7 +90,12 @@ impl ExportMode {
 pub enum ArchiveCommands {
     /// Show basic information about an archive.
     Info {
-        /// Path to an uncompressed archive (CAR)
+        /// Path to an archive (`.car` or `.car.zst`).
+        snapshot: PathBuf,
+    },
+    /// Show FRC-0108 metadata of an Filecoin snapshot archive.
+    Metadata {
+        /// Path to an archive (`.car` or `.car.zst`).
         snapshot: PathBuf,
     },
     /// Trim a snapshot of the chain and write it to `<output_path>`
@@ -132,6 +145,18 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+    MergeF3 {
+        /// Path to the v1 Filecoin snapshot
+        #[arg(long = "v1")]
+        filecoin_v1: PathBuf,
+        /// Path to the F3 snapshot
+        #[arg(long)]
+        f3: PathBuf,
+        /// Path to the snapshot output file in `.forest.car.zst` format
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Show the difference between the canonical and computed state of a
     /// tipset.
     Diff {
@@ -171,10 +196,39 @@ impl ArchiveCommands {
                 let variant = store.variant().to_string();
                 let heaviest = store.heaviest_tipset()?;
                 let index_size_bytes = store.index_size_bytes();
+                let snapshot_version = if let Some(metadata) = store.metadata() {
+                    metadata.version
+                } else {
+                    FilecoinSnapshotVersion::V1
+                };
                 println!(
                     "{}",
-                    ArchiveInfo::from_store(&store, variant, heaviest, index_size_bytes)?
+                    ArchiveInfo::from_store(
+                        &store,
+                        variant,
+                        heaviest,
+                        snapshot_version,
+                        index_size_bytes
+                    )?
                 );
+                Ok(())
+            }
+            Self::Metadata { snapshot } => {
+                let store = AnyCar::try_from(snapshot.as_path())?;
+                if let Some(metadata) = store.metadata() {
+                    println!("{metadata}");
+                    if let Some(f3_cid) = metadata.f3_data {
+                        let mut f3_data = store
+                            .get_reader(f3_cid)?
+                            .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
+                        let f3_snap_header = F3SnapshotHeader::decode_from_snapshot(&mut f3_data)?;
+                        println!("{f3_snap_header}");
+                    }
+                } else {
+                    println!(
+                        "No metadata found (required by v2 snapshot) - this appears to be a v1 snapshot"
+                    );
+                }
                 Ok(())
             }
             Self::Export {
@@ -208,6 +262,11 @@ impl ArchiveCommands {
                 output_path,
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
+            Self::MergeF3 {
+                filecoin_v1,
+                f3,
+                output,
+            } => merge_f3_snapshot(filecoin_v1, f3, output).await,
             Self::Diff {
                 snapshot_files,
                 epoch,
@@ -230,29 +289,31 @@ pub struct ArchiveInfo {
     epoch: ChainEpoch,
     tipsets: ChainEpoch,
     messages: ChainEpoch,
-    root: Tipset,
+    head: Tipset,
+    snapshot_version: FilecoinSnapshotVersion,
     index_size_bytes: Option<u32>,
 }
 
 impl std::fmt::Display for ArchiveInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "CAR format:    {}", self.variant)?;
-        writeln!(f, "Network:       {}", self.network)?;
-        writeln!(f, "Epoch:         {}", self.epoch)?;
-        writeln!(f, "State-roots:   {}", self.epoch - self.tipsets + 1)?;
-        writeln!(f, "Messages sets: {}", self.epoch - self.messages + 1)?;
-        let root_cids_string = self
-            .root
+        writeln!(f, "CAR format:       {}", self.variant)?;
+        writeln!(f, "Snapshot version: {}", self.snapshot_version as u64)?;
+        writeln!(f, "Network:          {}", self.network)?;
+        writeln!(f, "Epoch:            {}", self.epoch)?;
+        writeln!(f, "State-roots:      {}", self.epoch - self.tipsets + 1)?;
+        writeln!(f, "Messages sets:    {}", self.epoch - self.messages + 1)?;
+        let head_tipset_key_string = self
+            .head
             .cids()
             .iter()
             .map(Cid::to_string)
-            .join("\n               ");
-        write!(f, "Root CIDs:     {root_cids_string}")?;
+            .join("\n                  ");
+        write!(f, "Head Tipset:      {head_tipset_key_string}")?;
         if let Some(index_size_bytes) = self.index_size_bytes {
             writeln!(f)?;
             write!(
                 f,
-                "Index size:    {}",
+                "Index size:       {}",
                 human_bytes::human_bytes(index_size_bytes)
             )?;
         }
@@ -267,9 +328,17 @@ impl ArchiveInfo {
         store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
+        snapshot_version: FilecoinSnapshotVersion,
         index_size_bytes: Option<u32>,
     ) -> anyhow::Result<Self> {
-        Self::from_store_with(store, variant, heaviest_tipset, index_size_bytes, true)
+        Self::from_store_with(
+            store,
+            variant,
+            heaviest_tipset,
+            snapshot_version,
+            index_size_bytes,
+            true,
+        )
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
@@ -279,15 +348,16 @@ impl ArchiveInfo {
         store: &impl Blockstore,
         variant: String,
         heaviest_tipset: Tipset,
+        snapshot_version: FilecoinSnapshotVersion,
         index_size_bytes: Option<u32>,
         progress: bool,
     ) -> anyhow::Result<Self> {
-        let root = heaviest_tipset;
-        let root_epoch = root.epoch();
+        let head = heaviest_tipset;
+        let root_epoch = head.epoch();
 
-        let tipsets = root.clone().chain(store);
+        let tipsets = head.clone().chain(store);
 
-        let windowed = (std::iter::once(root.clone()).chain(tipsets)).tuple_windows();
+        let windowed = std::iter::once(head.clone()).chain(tipsets).tuple_windows();
 
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
@@ -353,7 +423,8 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
-            root,
+            head,
+            snapshot_version,
             index_size_bytes,
         })
     }
@@ -501,8 +572,8 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
-    let pb = indicatif::ProgressBar::new_spinner().with_style(
-        indicatif::ProgressStyle::with_template(
+    let pb = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template(
             "{spinner} exported {total_bytes} with {binary_bytes_per_sec} in {elapsed}",
         )
         .expect("indicatif template must be valid"),
@@ -563,6 +634,99 @@ async fn merge_snapshots(
 
     // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
+
+    Ok(())
+}
+
+async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> anyhow::Result<()> {
+    {
+        let store = AnyCar::try_from(filecoin.as_path())?;
+        anyhow::ensure!(
+            store.metadata().is_none(),
+            "The filecoin snapshot is not in v1 format"
+        );
+    }
+
+    let mut f3_data = File::open(f3)?;
+    let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
+
+    let car_stream = CarStream::new(tokio::io::BufReader::new(
+        tokio::fs::File::open(&filecoin).await?,
+    ))
+    .await?;
+
+    let chain_head = car_stream.header_v1.roots.clone();
+
+    println!("f3 snapshot cid: {f3_cid}");
+    println!(
+        "chain head:      [{}]",
+        chain_head.iter().map(|c| c.to_string()).join(", ")
+    );
+
+    let snap_meta = FilecoinSnapshotMetadata::new_v2(chain_head, Some(f3_cid));
+    let snap_meta_cbor_encoded = fvm_ipld_encoding::to_vec(&snap_meta)?;
+    let snap_meta_block = CarBlock {
+        cid: Cid::new_v1(
+            DAG_CBOR,
+            MultihashCode::Blake2b256.digest(&snap_meta_cbor_encoded),
+        ),
+        data: snap_meta_cbor_encoded,
+    };
+
+    let roots = nunny::vec![snap_meta_block.cid];
+    let snap_meta_frame = {
+        let mut encoder =
+            crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
+        snap_meta_block.write(&mut encoder)?;
+        anyhow::Ok((
+            vec![snap_meta_block.cid],
+            crate::db::car::forest::finalize_frame(
+                DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
+                &mut encoder,
+            )?,
+        ))
+    };
+    let f3_frame = {
+        let mut encoder =
+            crate::db::car::forest::new_encoder(DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
+        let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
+        f3_data.seek(SeekFrom::Start(0))?;
+        encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
+        anyhow::Ok((
+            vec![f3_cid],
+            crate::db::car::forest::finalize_frame(
+                DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
+                &mut encoder,
+            )?,
+        ))
+    };
+
+    let block_frames = crate::db::car::forest::Encoder::compress_stream_default(
+        car_stream.map_err(anyhow::Error::from),
+    );
+    let frames = futures::stream::iter([snap_meta_frame, f3_frame]).chain(block_frames);
+
+    let temp_output = {
+        let mut dir = output.clone();
+        if dir.pop() {
+            tempfile::NamedTempFile::new_in(dir)?
+        } else {
+            tempfile::NamedTempFile::new_in(".")?
+        }
+    };
+    let writer = tokio::io::BufWriter::new(tokio::fs::File::create(&temp_output).await?);
+    let pb = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template(
+            "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
+        )
+        .expect("indicatif template must be valid"),
+    ).with_message(format!("Merging into {} ...", output.display()));
+    pb.enable_steady_tick(std::time::Duration::from_secs(1));
+    let mut writer = pb.wrap_async_write(writer);
+    crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
+    writer.shutdown().await?;
+    temp_output.persist(&output)?;
+    pb.finish();
 
     Ok(())
 }
@@ -862,8 +1026,13 @@ async fn sync_bucket(
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
     let heaviest_tipset = store.heaviest_tipset()?;
 
-    let info =
-        ArchiveInfo::from_store(&store, "ManyCAR".to_string(), heaviest_tipset.clone(), None)?;
+    let info = ArchiveInfo::from_store(
+        &store,
+        "ManyCAR".to_string(),
+        heaviest_tipset.clone(),
+        FilecoinSnapshotVersion::V1,
+        None,
+    )?;
 
     let genesis_timestamp = heaviest_tipset.genesis(&store)?.timestamp;
 
@@ -998,7 +1167,14 @@ mod tests {
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
         let index_size_bytes = store.index_size_bytes();
-        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            variant,
+            ts,
+            FilecoinSnapshotVersion::V1,
+            index_size_bytes,
+        )
+        .unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
@@ -1009,7 +1185,14 @@ mod tests {
         let variant = store.variant().to_string();
         let ts = store.heaviest_tipset().unwrap();
         let index_size_bytes = store.index_size_bytes();
-        let info = ArchiveInfo::from_store(&store, variant, ts, index_size_bytes).unwrap();
+        let info = ArchiveInfo::from_store(
+            &store,
+            variant,
+            ts,
+            FilecoinSnapshotVersion::V1,
+            index_size_bytes,
+        )
+        .unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }

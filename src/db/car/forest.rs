@@ -48,23 +48,25 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::RandomAccessFileReader;
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_stream::{CarBlock, CarV1Header};
 use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::get_size::CidWrapper;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use ahash::{HashMap, HashMapExt};
 use byteorder::LittleEndian;
 use bytes::{BufMut as _, Bytes, BytesMut, buf::Writer};
 use cid::Cid;
-use futures::{Stream, TryStream, TryStreamExt as _};
+use futures::{Stream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::to_vec;
+use fvm_ipld_encoding::CborStore as _;
+use integer_encoding::VarIntReader;
 use nunny::Vec as NonEmpty;
 use positioned_io::{Cursor, ReadAt, ReadBytesAtExt, SizeCursor};
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::task::Poll;
 use std::{
     io,
@@ -87,6 +89,9 @@ pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
 const ZSTD_SKIP_FRAME_LEN: u64 = 8;
 
+/// `zstd` frame of Forest CAR
+pub type ForestCarFrame = (Vec<Cid>, Bytes);
+
 pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
@@ -94,7 +99,8 @@ pub struct ForestCar<ReaderT> {
     indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     index_size_bytes: u32,
     frame_cache: Arc<ZstdFrameCache>,
-    roots: NonEmpty<Cid>,
+    header: CarV1Header,
+    metadata: OnceLock<Option<FilecoinSnapshotMetadata>>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
@@ -113,7 +119,22 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             indexed,
             index_size_bytes,
             frame_cache: Arc::new(ZstdFrameCache::default()),
-            roots: header.roots,
+            header,
+            metadata: OnceLock::new(),
+        })
+    }
+
+    pub fn metadata(&self) -> &Option<FilecoinSnapshotMetadata> {
+        self.metadata.get_or_init(|| {
+            if self.header.roots.len() == super::V2_SNAPSHOT_ROOT_COUNT {
+                let maybe_metadata_cid = self.header.roots.first();
+                if let Ok(Some(metadata)) =
+                    self.get_cbor::<FilecoinSnapshotMetadata>(maybe_metadata_cid)
+                {
+                    return Some(metadata);
+                }
+            }
+            None
         })
     }
 
@@ -145,8 +166,14 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Ok((header, footer))
     }
 
-    pub fn roots(&self) -> &NonEmpty<Cid> {
-        &self.roots
+    pub fn head_tipset_key(&self) -> &NonEmpty<Cid> {
+        // head tipset key is stored in v2 snapshot metadata
+        // See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
+        if let Some(metadata) = self.metadata() {
+            &metadata.head_tipset_key
+        } else {
+            &self.header.roots
+        }
     }
 
     pub fn index_size_bytes(&self) -> u32 {
@@ -154,7 +181,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset_key(&self) -> TipsetKey {
-        TipsetKey::from(self.roots().clone())
+        TipsetKey::from(self.head_tipset_key().clone())
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -174,7 +201,8 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             }),
             index_size_bytes: self.index_size_bytes,
             frame_cache: self.frame_cache,
-            roots: self.roots,
+            header: self.header,
+            metadata: self.metadata,
         }
     }
 
@@ -184,6 +212,28 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             frame_cache: cache,
             ..self
         }
+    }
+
+    /// Gets a reader of the block data by its `Cid`
+    pub fn get_reader(&self, k: Cid) -> anyhow::Result<Option<impl Read>> {
+        for position in self.indexed.get(k)? {
+            // escape the positioned_io::Slice
+            let entire_file = self.indexed.reader().get_ref();
+            // `position` is the frame start offset.
+            let cursor = Cursor::new_pos(entire_file, position);
+            let mut decoder = zstd::Decoder::new(cursor)?.single_frame();
+            while let Ok(car_block_len) = decoder.read_varint::<usize>() {
+                let cid = Cid::read_bytes(&mut decoder)?;
+                let data_len = car_block_len.saturating_sub(cid.encoded_len()) as u64;
+                if cid == k {
+                    // return the reader instead of decoding the entire data block into memory
+                    return Ok(Some(decoder.take(data_len)));
+                }
+                // Discard data bytes
+                io::copy(&mut decoder.by_ref().take(data_len), &mut io::sink())?;
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -214,14 +264,14 @@ where
                     let cursor = Cursor::new_pos(entire_file, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
-                    let mut block_map = HashMap::new();
+                    let mut block_map = hashbrown::HashMap::new();
                     while let Some(block_frame) =
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
                         block_map.insert(cid.into(), data);
                     }
-                    let get_result = block_map.get(&(*k).into()).cloned();
+                    let get_result = block_map.get(&CidWrapper::from(*k)).cloned();
                     self.frame_cache.put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision
@@ -254,7 +304,7 @@ impl Encoder {
     pub async fn write(
         mut sink: impl AsyncWrite + Unpin,
         roots: NonEmpty<Cid>,
-        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
+        mut stream: impl Stream<Item = anyhow::Result<ForestCarFrame>> + Unpin,
     ) -> anyhow::Result<()> {
         let mut offset = 0;
 
@@ -263,7 +313,10 @@ impl Encoder {
 
         let header = CarV1Header { roots, version: 1 };
         let mut header_uvi_frame = BytesMut::new();
-        UviBytes::default().encode(Bytes::from(to_vec(&header)?), &mut header_uvi_frame)?;
+        UviBytes::default().encode(
+            Bytes::from(fvm_ipld_encoding::to_vec(&header)?),
+            &mut header_uvi_frame,
+        )?;
         header_encoder.write_all(&header_uvi_frame)?;
         let header_bytes = header_encoder.finish()?.into_inner().freeze();
 
@@ -295,8 +348,8 @@ impl Encoder {
 
     /// `compress_stream` with [`DEFAULT_FOREST_CAR_FRAME_SIZE`] as default frame size and [`DEFAULT_FOREST_CAR_COMPRESSION_LEVEL`] as default compression level.
     pub fn compress_stream_default(
-        stream: impl TryStream<Ok = CarBlock, Error = anyhow::Error>,
-    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
+        stream: impl Stream<Item = anyhow::Result<CarBlock>>,
+    ) -> impl Stream<Item = anyhow::Result<ForestCarFrame>> {
         Self::compress_stream(
             DEFAULT_FOREST_CAR_FRAME_SIZE,
             DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
@@ -309,8 +362,8 @@ impl Encoder {
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        stream: impl TryStream<Ok = CarBlock, Error = anyhow::Error>,
-    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
+        stream: impl Stream<Item = anyhow::Result<CarBlock>>,
+    ) -> impl Stream<Item = anyhow::Result<ForestCarFrame>> {
         let mut encoder_store = new_encoder(zstd_compression_level);
         let mut frame_cids = vec![];
 
@@ -370,7 +423,7 @@ fn compressed_len(encoder: &zstd::Encoder<'static, Writer<BytesMut>>) -> usize {
     encoder.get_ref().get_ref().len()
 }
 
-fn finalize_frame(
+pub fn finalize_frame(
     zstd_compression_level: u16,
     encoder: &mut zstd::Encoder<'static, Writer<BytesMut>>,
 ) -> io::Result<Bytes> {
@@ -378,7 +431,7 @@ fn finalize_frame(
     Ok(prev_encoder.finish()?.into_inner().freeze())
 }
 
-fn new_encoder(
+pub fn new_encoder(
     zstd_compression_level: u16,
 ) -> io::Result<zstd::Encoder<'static, Writer<BytesMut>>> {
     zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
@@ -456,9 +509,17 @@ mod tests {
         let roots = nonempty!(blocks.first().cid);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
-        assert_eq!(forest_car.roots(), &roots);
+        assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
-            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+            assert_eq!(forest_car.get(&block.cid).unwrap().unwrap(), block.data);
+            let mut buf = vec![];
+            forest_car
+                .get_reader(block.cid)
+                .unwrap()
+                .unwrap()
+                .read_to_end(&mut buf)
+                .unwrap();
+            assert_eq!(buf, block.data);
         }
     }
 
@@ -478,7 +539,7 @@ mod tests {
             blocks.clone(),
         ))
         .unwrap();
-        assert_eq!(forest_car.roots(), &roots);
+        assert_eq!(forest_car.head_tipset_key(), &roots);
         for block in blocks {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
         }
