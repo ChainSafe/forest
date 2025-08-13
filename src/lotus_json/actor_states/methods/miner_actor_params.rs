@@ -164,11 +164,11 @@ pub struct ChangeBeneficiaryParamsLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct ChangeOwnerAddressParamsLotusJson {
+pub struct ChangeOwnerAddressParamsLotusJson(
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
-    pub new_owner: Address,
-}
+    Address,
+);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -847,11 +847,11 @@ macro_rules! impl_lotus_json_for_miner_change_owner_address_params {
                 }
 
                 fn into_lotus_json(self) -> Self::LotusJson {
-                    ChangeOwnerAddressParamsLotusJson { new_owner: self.new_owner.into() }
+                    ChangeOwnerAddressParamsLotusJson(self.new_owner.into())
                 }
 
                 fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                    Self { new_owner: lotus_json.new_owner.into() }
+                    Self { new_owner: lotus_json.0.into() }
                 }
             }
         }

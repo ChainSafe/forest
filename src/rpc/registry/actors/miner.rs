@@ -39,7 +39,6 @@ macro_rules! register_miner_basic_methods {
                 (Method::ChangeMultiaddrs, ChangeMultiaddrsParams),
                 (Method::CompactPartitions, CompactPartitionsParams),
                 (Method::CompactSectorNumbers, CompactSectorNumbersParams),
-                (Method::ChangeOwnerAddress, Address),
                 (Method::DisputeWindowedPoSt, DisputeWindowedPoStParams),
                 (Method::ProveCommitAggregate, ProveCommitAggregateParams),
                 (Method::ProveReplicaUpdates, ProveReplicaUpdatesParams),
@@ -82,7 +81,6 @@ macro_rules! register_miner_common_methods_v10_onwards {
                 (Method::ChangePeerIDExported, ChangePeerIDParams),
                 (Method::WithdrawBalanceExported, WithdrawBalanceParams),
                 (Method::ChangeMultiaddrsExported, ChangeMultiaddrsParams),
-                (Method::ChangeOwnerAddressExported, Address),
                 (Method::ChangeBeneficiaryExported, ChangeBeneficiaryParams),
                 (
                     Method::IsControllingAddressExported,
@@ -115,39 +113,11 @@ macro_rules! register_miner_common_methods_v10_onwards {
     }};
 }
 
-macro_rules! register_miner_versions_10_and_11 {
-    ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        register_miner_common_methods_v10_onwards!($registry, $code_cid, $state_version);
-
-        use $state_version::{
-            ConfirmSectorProofsParams, ExtendSectorExpiration2Params, Method,
-            PreCommitSectorBatchParams, PreCommitSectorParams, ProveCommitSectorParams,
-            ProveReplicaUpdatesParams2,
-        };
-
-        register_actor_methods!(
-            $registry,
-            $code_cid,
-            [
-                (Method::PreCommitSector, PreCommitSectorParams),
-                (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
-                (Method::ProveCommitSector, ProveCommitSectorParams),
-                (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
-                (
-                    Method::ExtendSectorExpiration2,
-                    ExtendSectorExpiration2Params
-                ),
-                (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
-            ]
-        );
-    }};
-}
-
 macro_rules! register_miner_common_method_v14_onwards {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            Method, ProveCommitSectors3Params, ProveCommitSectorsNIParams,
-            ProveReplicaUpdates3Params,
+            ChangeOwnerAddressParams, Method, ProveCommitSectors3Params,
+            ProveCommitSectorsNIParams, ProveReplicaUpdates3Params,
         };
         register_actor_methods!(
             $registry,
@@ -156,6 +126,8 @@ macro_rules! register_miner_common_method_v14_onwards {
                 (Method::ProveCommitSectors3, ProveCommitSectors3Params),
                 (Method::ProveReplicaUpdates3, ProveReplicaUpdates3Params),
                 (Method::ProveCommitSectorsNI, ProveCommitSectorsNIParams),
+                (Method::ChangeOwnerAddress, ChangeOwnerAddressParams),
+                (Method::ChangeOwnerAddressExported, ChangeOwnerAddressParams),
             ]
         );
     }};
@@ -173,6 +145,7 @@ fn register_miner_version_8(registry: &mut MethodRegistry, cid: Cid) {
         registry,
         cid,
         [
+            (Method::ChangeOwnerAddress, Address),
             (Method::PreCommitSector, PreCommitSectorParams),
             (Method::ProveCommitSector, ProveCommitSectorParams),
             (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
@@ -200,6 +173,7 @@ fn register_miner_version_9(registry: &mut MethodRegistry, cid: Cid) {
             (Method::ProveCommitSector, ProveCommitSectorParams),
             (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
             (Method::PreCommitSectorBatch2, PreCommitSectorBatchParams2),
+            (Method::ChangeOwnerAddress, Address),
             (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
             (Method::ChangeBeneficiary, ChangeBeneficiaryParams),
             (
@@ -220,12 +194,68 @@ fn register_miner_version_9(registry: &mut MethodRegistry, cid: Cid) {
     );
 }
 
+fn register_miner_version_10(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v10);
+
+    use fil_actor_miner_state::v10::{
+        ConfirmSectorProofsParams, ExtendSectorExpiration2Params, Method,
+        PreCommitSectorBatchParams, PreCommitSectorParams, ProveCommitSectorParams,
+        ProveReplicaUpdatesParams2,
+    };
+
+    register_actor_methods!(
+        registry,
+        cid,
+        [
+            (Method::PreCommitSector, PreCommitSectorParams),
+            (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
+            (Method::ProveCommitSector, ProveCommitSectorParams),
+            (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
+            (
+                Method::ExtendSectorExpiration2,
+                ExtendSectorExpiration2Params
+            ),
+            (Method::ChangeOwnerAddress, Address),
+            (Method::ChangeOwnerAddressExported, Address),
+            (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
+        ]
+    );
+}
+
+fn register_miner_version_11(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v11);
+
+    use fil_actor_miner_state::v11::{
+        ChangeOwnerAddressParams, ConfirmSectorProofsParams, ExtendSectorExpiration2Params, Method,
+        PreCommitSectorBatchParams, PreCommitSectorParams, ProveCommitSectorParams,
+        ProveReplicaUpdatesParams2,
+    };
+
+    register_actor_methods!(
+        registry,
+        cid,
+        [
+            (Method::PreCommitSector, PreCommitSectorParams),
+            (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
+            (Method::ProveCommitSector, ProveCommitSectorParams),
+            (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
+            (
+                Method::ExtendSectorExpiration2,
+                ExtendSectorExpiration2Params
+            ),
+            (Method::ChangeOwnerAddress, ChangeOwnerAddressParams),
+            (Method::ChangeOwnerAddressExported, ChangeOwnerAddressParams),
+            (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
+        ]
+    );
+}
+
 fn register_miner_version_12(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v12);
 
     use fil_actor_miner_state::v12::{
-        ConfirmSectorProofsParams, Method, PreCommitSectorBatchParams, PreCommitSectorParams,
-        ProveCommitSectorParams, ProveReplicaUpdatesParams2,
+        ChangeOwnerAddressParams, ConfirmSectorProofsParams, Method, PreCommitSectorBatchParams,
+        PreCommitSectorParams, ProveCommitSectorParams, ProveReplicaUpdatesParams2,
     };
     register_actor_methods!(
         registry,
@@ -235,6 +265,8 @@ fn register_miner_version_12(registry: &mut MethodRegistry, cid: Cid) {
             (Method::ProveReplicaUpdates2, ProveReplicaUpdatesParams2),
             (Method::ProveCommitSector, ProveCommitSectorParams),
             (Method::PreCommitSectorBatch, PreCommitSectorBatchParams),
+            (Method::ChangeOwnerAddress, ChangeOwnerAddressParams),
+            (Method::ChangeOwnerAddressExported, ChangeOwnerAddressParams),
             (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
         ]
     );
@@ -243,13 +275,18 @@ fn register_miner_version_12(registry: &mut MethodRegistry, cid: Cid) {
 fn register_miner_version_13(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v13);
 
-    use fil_actor_miner_state::v13::{ConfirmSectorProofsParams, Method, ProveCommitSectorParams};
+    use fil_actor_miner_state::v13::{
+        ChangeOwnerAddressParams, ConfirmSectorProofsParams, Method, ProveCommitSectorParams,
+        ProveCommitSectors3Params,
+    };
     register_actor_methods!(
         registry,
         cid,
         [
             (Method::ProveCommitSector, ProveCommitSectorParams),
-            (Method::ProveCommitSectors3, ProveCommitSectorParams),
+            (Method::ProveCommitSectors3, ProveCommitSectors3Params),
+            (Method::ChangeOwnerAddress, ChangeOwnerAddressParams),
+            (Method::ChangeOwnerAddressExported, ChangeOwnerAddressParams),
             (Method::ConfirmSectorProofsValid, ConfirmSectorProofsParams),
         ]
     );
@@ -300,8 +337,8 @@ pub(crate) fn register_miner_actor_methods(registry: &mut MethodRegistry, cid: C
     match version {
         8 => register_miner_version_8(registry, cid),
         9 => register_miner_version_9(registry, cid),
-        10 => register_miner_versions_10_and_11!(registry, cid, fil_actor_miner_state::v10),
-        11 => register_miner_versions_10_and_11!(registry, cid, fil_actor_miner_state::v11),
+        10 => register_miner_version_10(registry, cid),
+        11 => register_miner_version_11(registry, cid),
         12 => register_miner_version_12(registry, cid),
         13 => register_miner_version_13(registry, cid),
         14 => register_miner_versions_14(registry, cid),
