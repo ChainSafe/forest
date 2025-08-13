@@ -6,8 +6,8 @@ use crate::{
     blocks::{Tipset, TipsetKey},
     lotus_json::{HasLotusJson, LotusJson, base64_standard, lotus_json_with_self},
     networks::NetworkChain,
-    shim::executor::Receipt,
-    utils::multihash::prelude::*,
+    shim::{executor::Receipt, fvm_shared_latest::bigint::bigint_ser},
+    utils::{encoding::serde_byte_array, multihash::prelude::*},
 };
 use byteorder::ByteOrder as _;
 use cid::Cid;
@@ -134,9 +134,18 @@ pub struct ECTipSet {
 lotus_json_with_self!(ECTipSet);
 
 /// PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.
+#[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple, Eq, PartialEq)]
+pub struct F3PowerEntry {
+    pub id: ActorID,
+    #[serde(with = "bigint_ser")]
+    pub power: num::BigInt,
+    #[serde(with = "serde_byte_array")]
+    pub pub_key: Vec<u8>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Eq, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3PowerEntry {
+pub struct F3PowerEntryLotusJson {
     #[serde(rename = "ID")]
     pub id: ActorID,
     #[schemars(with = "String")]
@@ -146,7 +155,39 @@ pub struct F3PowerEntry {
     #[serde(with = "base64_standard")]
     pub pub_key: Vec<u8>,
 }
-lotus_json_with_self!(F3PowerEntry);
+
+impl HasLotusJson for F3PowerEntry {
+    type LotusJson = F3PowerEntryLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use base64::Engine;
+        use serde_json::json;
+        vec![(
+            json!({
+              "ID": 143103,
+              "Power": "1233789485318144",
+              "PubKey": "jML8VZM8BBPnY7Y7ELExs+U/V4guDHkjHeCtoyJ+Ae2BfWieMVCHQXCkova1kM2T"
+            }),
+            Self {
+                id: 143103,
+                power: num::BigInt::from_str("1233789485318144").unwrap(),
+                pub_key: base64::prelude::BASE64_STANDARD
+                    .decode("jML8VZM8BBPnY7Y7ELExs+U/V4guDHkjHeCtoyJ+Ae2BfWieMVCHQXCkova1kM2T")
+                    .unwrap(),
+            },
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self { id, power, pub_key } = self;
+        F3PowerEntryLotusJson { id, power, pub_key }
+    }
+
+    fn from_lotus_json(F3PowerEntryLotusJson { id, power, pub_key }: Self::LotusJson) -> Self {
+        Self { id, power, pub_key }
+    }
+}
 
 /// Entries are sorted descending order of their power, where entries with equal power are
 /// sorted by ascending order of their ID.
