@@ -7,7 +7,7 @@ mod evm_constructor_params;
 mod init_constructor_params;
 mod init_exec4_params;
 mod init_exec_params;
-mod miner_actor;
+mod miner_actor_params;
 mod multisig_actor;
 mod power_actor;
 mod reward_methods;

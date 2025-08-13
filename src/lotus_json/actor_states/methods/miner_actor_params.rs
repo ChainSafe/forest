@@ -243,6 +243,7 @@ pub struct ExpirationExtension2LotusJson {
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     pub sectors: BitField,
+    // Lotus returns null (not []) when there are no sector claims; model as Option, so None means empty.
     pub sectors_with_claims: Option<Vec<SectorClaimLotusJson>>,
     pub new_expiration: ChainEpoch,
 }
@@ -267,13 +268,19 @@ pub struct SectorPreCommitInfoLotusJson {
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(with = "crate::lotus_json")]
     pub seal_proof: RegisteredSealProof,
+
     pub sector_number: SectorNumber,
+
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json", rename = "SealedCID")]
     pub sealed_cid: Cid,
+
     pub seal_rand_epoch: ChainEpoch,
+
+    // Lotus returns null (not []) when there are no sector claims; model as Option, so None means empty.
     #[serde(rename = "DealIDs")]
     pub deal_ids: Option<Vec<u64>>,
+
     pub expiration: ChainEpoch,
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json")]
@@ -326,6 +333,7 @@ pub struct PieceActivationManifestLotusJson {
     pub cid: Cid,
     pub size: u64,
     pub verified_allocation_key: Option<VerifiedAllocationKeyLotusJson>,
+    // Lotus returns null (not []) when there are no sector claims; model as Option, so None means empty.
     pub notify: Option<Vec<DataActivationNotificationLotusJson>>,
 }
 
@@ -455,6 +463,7 @@ pub struct ReplicaUpdateLotusJson {
     #[serde(with = "crate::lotus_json", rename = "NewSealedSectorCID")]
     pub new_sealed_cid: Cid,
 
+    // Lotus returns null (not []) when there are no sector claims; model as Option, so None means empty.
     #[serde(rename = "Deals")]
     pub deals: Option<Vec<u64>>,
     pub update_proof_type: i64,
