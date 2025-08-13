@@ -50,30 +50,35 @@ fn is_sidecar_ffi_enabled() -> bool {
 }
 
 fn rpc_regression_tests_gen() {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::path::PathBuf;
+    use std::{fs::File, io::BufWriter, path::PathBuf};
 
     println!("cargo:rerun-if-changed=src/tool/subcommands/api_cmd/test_snapshots.txt");
 
-    let tests: Vec<_> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
-        .trim()
-        .split("\n")
+    let tests: Vec<&str> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .collect();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let out_path = out_dir.join("__rpc_regression_tests_gen.rs");
     let mut w = BufWriter::new(File::create(&out_path).unwrap());
     for test in tests {
+        // Derive a valid Rust identifier from the snapshot filename.
+        let ident = test
+            .strip_suffix(".rpcsnap.json.zst")
+            .unwrap_or(test)
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+            .collect::<String>();
+
         writeln!(
             w,
             r#"
                 #[tokio::test(flavor = "multi_thread")]
-                async fn rpc_test_{}() {{
-                    rpc_regression_test_run("{}").await
+                async fn rpc_test_{ident}() {{
+                    rpc_regression_test_run("{test}").await
                 }}
             "#,
-            test.strip_suffix(".rpcsnap.json.zst").unwrap(),
-            test,
         )
         .unwrap();
     }
