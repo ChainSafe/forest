@@ -170,11 +170,13 @@ pub enum RetryError {
     RetriesExceeded,
 }
 
+#[allow(dead_code)]
 #[cfg(test)]
 pub fn is_debug_build() -> bool {
     cfg!(debug_assertions)
 }
 
+#[allow(dead_code)]
 #[cfg(test)]
 pub fn is_ci() -> bool {
     // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables

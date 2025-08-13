@@ -1,6 +1,8 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::io::Write;
+
 fn main() {
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
@@ -30,6 +32,8 @@ fn main() {
             // })
             .build();
     }
+
+    rpc_regression_tests_gen();
 }
 
 // See <https://docs.rs/about/builds#detecting-docsrs>
@@ -42,5 +46,33 @@ fn is_sidecar_ffi_enabled() -> bool {
     match std::env::var("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
         Ok(value) => !matches!(value.to_lowercase().as_str(), "1" | "true"),
         _ => true,
+    }
+}
+
+fn rpc_regression_tests_gen() {
+    use std::fs::File;
+    use std::io::BufWriter;
+    use std::path::PathBuf;
+
+    let tests: Vec<_> = include_str!("src/tool/subcommands/api_cmd/test_snapshots.txt")
+        .trim()
+        .split("\n")
+        .collect();
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let out_path = out_dir.join("__rpc_regression_tests_gen.rs");
+    let mut w = BufWriter::new(File::create(&out_path).unwrap());
+    for test in tests {
+        writeln!(
+            w,
+            r#"
+                #[tokio::test(flavor = "multi_thread")]
+                async fn rpc_test_{}() {{
+                    rpc_regression_test_run("{}").await
+                }}
+            "#,
+            test.strip_suffix(".rpcsnap.json.zst").unwrap(),
+            test,
+        )
+        .unwrap();
     }
 }
