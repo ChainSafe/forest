@@ -8,6 +8,7 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -32,13 +33,13 @@ func (impl *kadImpl) run() {
 	host, err := libp2p.New(libp2p.ListenAddrStrings(ListenAddr))
 	checkError(err)
 
-	dthOpts := []dht.Option{
+	dhtOpts := []dht.Option{
 		dht.Mode(dht.ModeServer),
-		dht.ProtocolPrefix("/kadtest"),
+		dht.ProtocolPrefix(protocol.ID("/kadtest")),
 		dht.DisableProviders(),
 		dht.DisableValues(),
 	}
-	hostDHT, err := dht.New(impl.ctx, host, dthOpts...)
+	hostDHT, err := dht.New(impl.ctx, host, dhtOpts...)
 	checkError(err)
 
 	impl.node = &kadNode{host, hostDHT}
