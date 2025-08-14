@@ -3,11 +3,12 @@ module f3-sidecar/v2
 go 1.24.5
 
 require (
-	github.com/filecoin-project/go-f3 v0.8.9
+	github.com/filecoin-project/go-f3 v0.8.10-0.20250801124500-9288fba86c47
 	github.com/filecoin-project/go-jsonrpc v0.8.0
 	github.com/filecoin-project/go-state-types v0.16.0
 	github.com/ihciah/rust2go v0.0.0-20250726175549-557d7a3a4e27
 	github.com/ipfs/go-cid v0.5.0
+	github.com/ipfs/go-datastore v0.8.2
 	github.com/ipfs/go-ds-leveldb v0.5.2
 	github.com/ipfs/go-log/v2 v2.8.0
 	github.com/libp2p/go-libp2p v0.42.1
@@ -44,7 +45,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/boxo v0.33.0 // indirect
-	github.com/ipfs/go-datastore v0.8.2 // indirect
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect

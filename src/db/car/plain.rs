@@ -224,6 +224,16 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
             metadata: self.metadata,
         }
     }
+
+    /// Gets a reader of the block data by its `Cid`
+    pub fn get_reader(&self, k: Cid) -> Option<impl Read> {
+        self.index
+            .read()
+            .get(&k)
+            .map(|UncompressedBlockDataLocation { offset, length }| {
+                positioned_io::Cursor::new_pos(&self.reader, *offset).take(*length as u64)
+            })
+    }
 }
 
 impl TryFrom<&'static [u8]> for PlainCar<&'static [u8]> {
@@ -456,7 +466,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::PlainCar;
+    use super::*;
     use crate::utils::db::{
         car_stream::{CarStream, CarV1Header},
         car_util::load_car,
@@ -483,10 +493,17 @@ mod tests {
             let expected = reference_car.get(&cid).unwrap().unwrap();
             let expected2 = reference_car_zst.get(&cid).unwrap().unwrap();
             let expected3 = reference_car_zst_unsafe.get(&cid).unwrap().unwrap();
+            let mut expected4 = vec![];
+            car_backed
+                .get_reader(cid)
+                .unwrap()
+                .read_to_end(&mut expected4)
+                .unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
             assert_eq!(expected2, actual);
             assert_eq!(expected3, actual);
+            assert_eq!(expected4, actual);
         }
     }
 
