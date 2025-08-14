@@ -91,8 +91,7 @@ macro_rules! register_market_versions_13_to_16 {
             $code_cid,
             [
                 (Method::AddBalance, AddBalanceParams),
-                // (Method::WithdrawBalance, WithdrawBalanceParams),
-                // (Method::PublishStorageDeals, PublishStorageDealsParams),
+                (Method::WithdrawBalance, WithdrawBalanceParams),
             ]
         );
 
