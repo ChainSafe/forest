@@ -15,7 +15,7 @@
 
 Forest is a [Filecoin] node written in [Rust]. With Forest, you can:
 
-- Send and receive FIL,
+- Transfer FIL,
 - host a high-performance RPC API,
 - validate the Filecoin blockchain,
 - generate blockchain snapshots.
