@@ -33,6 +33,14 @@ pub struct BeaconEntry {
 
 impl BeaconEntry {
     pub fn new(round: u64, signature: Vec<u8>) -> Self {
+        // Drop any excess capacity to make heap usage deterministic across allocators.
+        // Avoid shrink_to_fit: it's a non-binding hint.
+        let signature = signature.into_boxed_slice().into_vec();
+        debug_assert_eq!(
+            signature.len(),
+            signature.capacity(),
+            "BeaconEntry::signature should be right-sized"
+        );
         Self { round, signature }
     }
 
