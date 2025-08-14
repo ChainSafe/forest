@@ -1897,6 +1897,14 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))),
     };
 
+    // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/396
+    // Enable this test when lotus supports it in go-state-types.
+    // let cron_constructor_params = fil_actor_cron_state::v16::ConstructorParams {
+    //     entries: vec![fil_actor_cron_state::v16::Entry {
+    //         receiver: Address::new_id(1000).into(),
+    //         method_num: fil_actor_cron_state::v16::Method::EpochTick as u64,
+    //     }],
+    // };
     let multisig_constructor_params = fil_actor_multisig_state::v16::ConstructorParams {
         signers: vec![Address::new_id(1000).into(), Address::new_id(1001).into()],
         num_approvals_threshold: Default::default(),
@@ -2017,6 +2025,20 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             Address::POWER_ACTOR,
             fil_actor_power_state::v16::Method::CreateMiner as u64,
             to_vec(&power_create_miner_params)?,
+            tipset.key().into(),
+        ))?),
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/396
+        // Enable this test when lotus supports it in go-state-types.
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::CRON_ACTOR,
+        //     fil_actor_cron_state::v16::Method::Constructor as u64,
+        //     to_vec(&cron_constructor_params)?,
+        //     tipset.key().into(),
+        // ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::CRON_ACTOR,
+            fil_actor_cron_state::v16::Method::EpochTick as u64,
+            vec![],
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
