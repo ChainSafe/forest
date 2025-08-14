@@ -1395,6 +1395,7 @@ Commands:
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
+  merge-f3     Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
   diff         Show the difference between the canonical and computed state of a tipset
   sync-bucket  Export lite and diff snapshots from one or more CAR files, and upload them to an `S3` bucket
   help         Print this message or the help of the given subcommand(s)
@@ -1452,6 +1453,20 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-tool archive metadata`
+
+```
+Show FRC-0108 metadata of an Filecoin snapshot archive
+
+Usage: forest-tool archive metadata <SNAPSHOT>
+
+Arguments:
+  <SNAPSHOT>  Path to an archive (`.car` or `.car.zst`)
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-tool archive merge`
 
 ```
@@ -1467,6 +1482,20 @@ Options:
                                    `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`. [default: .]
       --force                      Overwrite output file without prompting
   -h, --help                       Print help
+```
+
+### `forest-tool archive merge-f3`
+
+```
+Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+
+Usage: forest-tool archive merge-f3 --v1 <FILECOIN_V1> --f3 <F3> --output <OUTPUT>
+
+Options:
+      --v1 <FILECOIN_V1>  Path to the v1 Filecoin snapshot
+      --f3 <F3>           Path to the F3 snapshot
+      --output <OUTPUT>   Path to the snapshot output file in `.forest.car.zst` format
+  -h, --help              Print help
 ```
 
 ### `forest-tool archive diff`

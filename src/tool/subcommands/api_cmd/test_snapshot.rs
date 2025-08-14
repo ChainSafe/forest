@@ -184,68 +184,55 @@ mod tests {
     use crate::utils::net::{DownloadFileOption, download_file_with_cache};
     use crate::utils::proofs_api::ensure_proof_params_downloaded;
     use ahash::HashSet;
+    use anyhow::Context as _;
     use directories::ProjectDirs;
-    use futures::{StreamExt, stream::FuturesUnordered};
-    use itertools::Itertools as _;
+    use std::sync::LazyLock;
     use std::time::Instant;
-    use tokio::sync::Semaphore;
+    use tokio::sync::Mutex;
     use url::Url;
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn rpc_regression_tests() {
+    // To run a single test: cargo test --lib filecoin_multisig_statedecodeparams_1754230255631789 -- --nocapture
+    include!(concat!(env!("OUT_DIR"), "/__rpc_regression_tests_gen.rs"));
+
+    async fn rpc_regression_test_run(name: &str) {
         // Skip for debug build on CI as the downloading is slow and flaky
         if crate::utils::is_ci() && crate::utils::is_debug_build() {
             return;
         }
+
         // Set proof parameter data dir and make sure the proofs are available
-        crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
-            &Config::default().client.data_dir,
-        );
-        ensure_proof_params_downloaded().await.unwrap();
-        let urls = include_str!("test_snapshots.txt")
-            .trim()
-            .split("\n")
-            .filter_map(|n| {
-                Url::parse(
-                    format!(
-                        "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{n}"
-                    )
-                    .as_str(),
-                )
-                .ok()
-                .map(|url| (n, url))
-            })
-            .collect_vec();
+        {
+            static PROOF_PARAMS_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+            let _guard = PROOF_PARAMS_LOCK.lock().await;
+            crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
+                &Config::default().client.data_dir,
+            );
+            ensure_proof_params_downloaded().await.unwrap();
+        }
+        let url: Url =
+            format!("https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/rpc_test/{name}")
+                .parse()
+                .with_context(|| format!("Failed to parse URL for test: {name}"))
+                .unwrap();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
-        let semaphore = Arc::new(Semaphore::new(4));
-        let mut tasks = FuturesUnordered::from_iter(urls.into_iter().map(|(filename, url)| {
-            let cache_dir = cache_dir.clone();
-            let semaphore = semaphore.clone();
-            async move {
-                let _permit = semaphore.acquire().await.unwrap();
-                let result =
-                    download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable)
-                        .await
-                        .unwrap();
-                (filename, result.path)
-            }
-        }));
+        let path = download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable)
+            .await
+            .unwrap()
+            .path;
 
         // We need to set RNG seed so that tests are run with deterministic
         // output. The snapshots should be generated with a node running with the same seed, if
         // they are testing methods that are not deterministic, e.g.,
         // `[`crate::rpc::methods::gas::estimate_gas_premium`]`.
         unsafe { std::env::set_var(crate::utils::rand::FIXED_RNG_SEED_ENV, "4213666") };
-        while let Some((filename, file_path)) = tasks.next().await {
-            print!("Testing {filename} ...");
-            let start = Instant::now();
-            run_test_from_snapshot(&file_path).await.unwrap();
-            println!(
-                "  succeeded, took {}.",
-                humantime::format_duration(start.elapsed())
-            );
-        }
+        print!("Testing {name} ...");
+        let start = Instant::now();
+        run_test_from_snapshot(&path).await.unwrap();
+        println!(
+            "  succeeded, took {}.",
+            humantime::format_duration(start.elapsed())
+        );
     }
 
     #[test]
