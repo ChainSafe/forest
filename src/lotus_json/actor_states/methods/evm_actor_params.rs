@@ -4,10 +4,9 @@ use super::*;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
-use jsonrpsee::core::Serialize;
 use paste::paste;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
