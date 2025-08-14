@@ -227,6 +227,7 @@ mod entry;
 mod filter_estimate;
 mod hash_map;
 mod ipld; // NaN != NaN
+mod label;
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type

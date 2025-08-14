@@ -9,7 +9,7 @@ use crate::shim::piece::PaddedPieceSize;
 
 use ::cid::Cid;
 // use fil_actor_market_state::v16::ClientDealProposal;
-// use fil_actor_market_state::v16::Label;
+use fil_actor_market_state::v16::Label;
 // use fvm_ipld_encoding::RawBytes;
 use jsonrpsee::core::Serialize;
 use paste::paste;
@@ -53,7 +53,9 @@ pub struct DealProposalLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub provider: Address,
-    // pub label: Label,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub label: Label,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
     #[schemars(with = "LotusJson<TokenAmount>")]
