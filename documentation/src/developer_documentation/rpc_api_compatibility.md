@@ -3,10 +3,10 @@
 A running Lotus node can be accessed through an RPC interface. The RPC methods
 are listed here:
 
-- V0 methods (stable):
-  https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md
-- V1 methods (unstable):
-  https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md
+- V0 methods (Deprecated):
+  https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md
+- V1 methods (Stable):
+  https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md
 
 The current status of compatibility can be checked by comparing a running Forest
 node with a running Lotus node:

@@ -178,7 +178,7 @@ impl RpcMethod<1> for StateNetworkVersion {
 }
 
 /// gets the public key address of the given ID address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateAccountKey>
 pub enum StateAccountKey {}
 
 impl RpcMethod<2> for StateAccountKey {
@@ -205,7 +205,7 @@ impl RpcMethod<2> for StateAccountKey {
 }
 
 /// retrieves the ID address of the given address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateLookupID>
 pub enum StateLookupID {}
 
 impl RpcMethod<2> for StateLookupID {
@@ -1161,7 +1161,7 @@ impl RpcMethod<4> for StateWaitMsg {
 }
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#statesearchmsg>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#statesearchmsg>
 pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
@@ -1205,7 +1205,7 @@ impl RpcMethod<4> for StateSearchMsg {
 }
 
 /// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateSearchMsgLimited>
 pub enum StateSearchMsgLimited {}
 
 impl RpcMethod<2> for StateSearchMsgLimited {

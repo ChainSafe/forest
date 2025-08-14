@@ -24,9 +24,9 @@ Need a specific method? Let us know on
 The RPC interface is the primary mechanism for interacting with Forest.
 
 As there is presently no cross-client specification, the Lotus
-[V0](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md)
+[V0 (Deprecated)](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md)
 and
-[V1](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md)
+[V1](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md)
 APIs are the reference for Forest's implementation.
 
 :::info
