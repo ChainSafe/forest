@@ -639,13 +639,12 @@ async fn merge_snapshots(
 }
 
 async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> anyhow::Result<()> {
-    {
-        let store = AnyCar::try_from(filecoin.as_path())?;
-        anyhow::ensure!(
-            store.metadata().is_none(),
-            "The filecoin snapshot is not in v1 format"
-        );
-    }
+    let store = AnyCar::try_from(filecoin.as_path())?;
+    anyhow::ensure!(
+        store.metadata().is_none(),
+        "The filecoin snapshot is not in v1 format"
+    );
+    drop(store);
 
     let mut f3_data = File::open(f3)?;
     let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
