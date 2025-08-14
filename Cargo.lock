@@ -3159,6 +3159,7 @@ dependencies = [
  "fvm 2.11.1",
  "fvm 3.13.1",
  "fvm 4.7.2",
+ "fvm_actor_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.11.1",
