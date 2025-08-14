@@ -1812,7 +1812,14 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
         initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
-
+    // // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/396
+    // // Enable this test when lotus supports it in go-state-types.
+    // let cron_constructor_params = fil_actor_cron_state::v16::ConstructorParams {
+    //     entries: vec![fil_actor_cron_state::v16::Entry {
+    //         receiver: Address::new_id(1000).into(),
+    //         method_num: fil_actor_cron_state::v16::Method::EpochTick as u64,
+    //     }],
+    // };
     let mut tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
@@ -1823,6 +1830,20 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         RpcTest::identity(StateDecodeParams::request((
             Address::SYSTEM_ACTOR,
             fil_actor_system_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        // // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/396
+        // Enable this test when lotus supports it in go-state-types.
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::CRON_ACTOR,
+        //     fil_actor_cron_state::v16::Method::Constructor as u64,
+        //     to_vec(&cron_constructor_params)?,
+        //     tipset.key().into(),
+        // ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::CRON_ACTOR,
+            fil_actor_cron_state::v16::Method::EpochTick as u64,
             vec![],
             tipset.key().into(),
         ))?),

@@ -4,6 +4,7 @@
 use super::*;
 mod account_authenticate_params;
 mod account_constructor_params;
+mod cron_actor_params;
 mod datacap_actor_params;
 mod evm_constructor_params;
 mod init_constructor_params;
