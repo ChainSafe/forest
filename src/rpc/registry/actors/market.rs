@@ -100,11 +100,7 @@ macro_rules! register_market_versions_13_to_16 {
         register_actor_methods!(
             $registry,
             $code_cid,
-            [
-                (Method::Constructor, empty),
-                (Method::AddBalance, empty),
-                (Method::CronTick, empty),
-            ]
+            [(Method::Constructor, empty), (Method::CronTick, empty),]
         );
     }};
 }
