@@ -74,7 +74,7 @@ impl MethodRegistry {
 
     fn register_known_methods(&mut self) {
         use crate::rpc::registry::actors::{
-            account, datacap, evm, init, miner, multisig, power, reward, system, verified_reg
+            account, datacap, evm, init, miner, multisig, power, reward, system, verified_reg,
         };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
