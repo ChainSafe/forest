@@ -583,7 +583,8 @@ impl MsgsInTipsetCache {
         }
     }
 
-    pub fn insert(&self, key: TipsetKey, value: Vec<ChainMessage>) {
+    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) {
+        value.shrink_to_fit();
         self.cache.push(key, value);
     }
 
