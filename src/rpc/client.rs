@@ -37,6 +37,7 @@ pub struct Client {
     v0: tokio::sync::OnceCell<UrlClient>,
     v1: tokio::sync::OnceCell<UrlClient>,
     v2: tokio::sync::OnceCell<UrlClient>,
+    experimental: tokio::sync::OnceCell<UrlClient>,
 }
 
 impl Client {
@@ -84,6 +85,7 @@ impl Client {
             v0: Default::default(),
             v1: Default::default(),
             v2: Default::default(),
+            experimental: Default::default(),
         }
     }
     pub fn base_url(&self) -> &Url {
@@ -162,6 +164,7 @@ impl Client {
             ApiPaths::V0 => &self.v0,
             ApiPaths::V1 => &self.v1,
             ApiPaths::V2 => &self.v2,
+            ApiPaths::Experimental => &self.experimental,
         }
         .get_or_try_init(|| async {
             let url = self
@@ -170,6 +173,7 @@ impl Client {
                     ApiPaths::V0 => "rpc/v0",
                     ApiPaths::V1 => "rpc/v1",
                     ApiPaths::V2 => "rpc/v2",
+                    ApiPaths::Experimental => "rpc/experimental",
                 })
                 .map_err(|it| {
                     ClientError::Custom(format!("creating url for endpoint failed: {it}"))
