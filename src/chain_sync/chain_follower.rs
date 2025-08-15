@@ -449,6 +449,7 @@ pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
 
     for block in tipset.blocks() {
         block.persist(&chain_store.db)?;
+        TipsetValidator::validate_msg_root(&chain_store.db, block)?;
     }
 
     Ok(tipset)
