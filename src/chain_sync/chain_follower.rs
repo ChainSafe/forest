@@ -431,7 +431,7 @@ fn handle_peer_disconnected_event<DB: Blockstore + Sync + Send + 'static>(
     network.peer_manager().unmark_peer_bad(&peer_id);
 }
 
-async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
+pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     peer_id: Option<PeerId>,

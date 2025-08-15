@@ -6,6 +6,7 @@ pub use types::*;
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
+use crate::chain_sync::TipsetValidator;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
@@ -1437,6 +1438,16 @@ impl RpcMethod<1> for ForestStateCompute {
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
+        let fts = crate::chain_sync::get_full_tipset(
+            ctx.sync_network_context.clone(),
+            ctx.chain_store().clone(),
+            None,
+            tipset.key().clone(),
+        )
+        .await?;
+        for block in fts.blocks() {
+            TipsetValidator::validate_msg_root(ctx.store(), block)?;
+        }
         let StateOutput { state_root, .. } = ctx
             .state_manager
             .compute_tipset_state(

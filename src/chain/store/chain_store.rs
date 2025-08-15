@@ -467,7 +467,7 @@ pub fn block_messages<DB>(
 where
     DB: Blockstore,
 {
-    let (bls_cids, secpk_cids) = read_msg_cids(db, &bh.messages)?;
+    let (bls_cids, secpk_cids) = read_msg_cids(db, bh)?;
 
     let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
@@ -491,17 +491,23 @@ where
 }
 
 /// Returns a tuple of CIDs for both unsigned and signed messages
-pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
+pub fn read_msg_cids<DB>(
+    db: &DB,
+    block_header: &CachingBlockHeader,
+) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
     DB: Blockstore,
 {
+    let msg_cid = &block_header.messages;
     if let Some(roots) = db.get_cbor::<TxMeta>(msg_cid)? {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
     } else {
         Err(Error::UndefinedKey(format!(
-            "no msg root with cid {msg_cid}"
+            "no msg root with cid {msg_cid} at epoch {} in block {}",
+            block_header.epoch,
+            block_header.cid(),
         )))
     }
 }
@@ -635,6 +641,7 @@ where
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
         |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
+            tracing::info!("block_messages({}): {}", b.epoch, b.cid());
             let (unsigned, signed) = block_messages(&db, b)?;
             let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
             let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);

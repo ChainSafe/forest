@@ -132,12 +132,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             });
 
         fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
-            let m = epoch.mod_floor(&CHECKPOINT_INTERVAL);
-            if m == 0 {
-                epoch
-            } else {
-                epoch - m + CHECKPOINT_INTERVAL
-            }
+            epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
         }
 
         let checkpoint_from_epoch = next_checkpoint(to);
