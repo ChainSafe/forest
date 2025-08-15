@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -13,6 +14,7 @@ use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
+use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
@@ -120,6 +122,28 @@ impl<DB: Blockstore> ChainIndex<DB> {
         from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
+        const CHECKPOINT_INTERVAL: ChainEpoch = 1000;
+        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, Arc<Tipset>>> =
+            LazyLock::new(|| {
+                SizeTrackingLruCache::new_with_default_metrics_registry(
+                    "tipset_by_height".into(),
+                    4096.try_into().expect("infallible"),
+                )
+            });
+
+        fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+            let m = epoch.mod_floor(&CHECKPOINT_INTERVAL);
+            if m == 0 {
+                epoch
+            } else {
+                epoch - m + CHECKPOINT_INTERVAL
+            }
+        }
+
+        let checkpoint_from_epoch = next_checkpoint(to);
+        let checkpoint_from = CACHE.get_cloned(&checkpoint_from_epoch);
+        let from = checkpoint_from.unwrap_or(from);
+
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
@@ -131,6 +155,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
+            if child.epoch() % CHECKPOINT_INTERVAL == 0 {
+                CACHE.push(child.epoch(), child.clone());
+            }
+
             if to == child.epoch() {
                 return Ok(child);
             }
