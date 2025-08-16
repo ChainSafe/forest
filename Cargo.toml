@@ -275,6 +275,13 @@ inherits = "release"
 opt-level = 1
 lto = "off"
 
+[profile.profiling]
+inherits = "dev"
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+panic = "abort"
+
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
@@ -290,6 +297,7 @@ lto = "fat"
 [features]
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
 slim = ["rustalloc"]
+system-alloc = []
 doctest-private = []                                                      # see lib.rs::doctest_private
 benchmark-private = []                                                    # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
