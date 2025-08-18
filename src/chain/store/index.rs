@@ -119,7 +119,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
-        from: Arc<Tipset>,
+        mut from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
         const CHECKPOINT_INTERVAL: ChainEpoch = 1000;
@@ -135,9 +135,16 @@ impl<DB: Blockstore> ChainIndex<DB> {
             epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
         }
 
-        let checkpoint_from_epoch = next_checkpoint(to);
-        let checkpoint_from = CACHE.get_cloned(&checkpoint_from_epoch);
-        let from = checkpoint_from.unwrap_or(from);
+        let from_epoch = from.epoch();
+
+        let mut checkpoint_from_epoch = to;
+        while checkpoint_from_epoch < from_epoch {
+            if let Some(checkpoint_from) = CACHE.get_cloned(&checkpoint_from_epoch) {
+                from = checkpoint_from;
+                break;
+            }
+            checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
+        }
 
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
@@ -150,7 +157,11 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
-            if child.epoch() % CHECKPOINT_INTERVAL == 0 {
+            // use `child.epoch() + CHECKPOINT_INTERVAL <= from_epoch` where `CHECKPOINT_INTERVAL>=CHAIN_FINALITY && CHECKPOINT_INTERVAL>=F3_CHAIN_FINALITY`
+            // to ensure the cached child is finalized(not on a fork).
+            if child.epoch() % CHECKPOINT_INTERVAL == 0
+                && child.epoch() + CHECKPOINT_INTERVAL <= from_epoch
+            {
                 CACHE.push(child.epoch(), child.clone());
             }
 
