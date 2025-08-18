@@ -8,6 +8,7 @@ use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use clap::Subcommand;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -24,6 +25,9 @@ pub enum StateCommands {
         /// Which epoch to compute the state transition for
         #[arg(long)]
         epoch: ChainEpoch,
+        /// Number of tipset epochs to compute state for, default is 1
+        #[arg(short, long)]
+        n_epochs: Option<NonZeroUsize>,
     },
     /// Read the state of an actor
     ReadState {
@@ -43,11 +47,15 @@ impl StateCommands {
                     .await?;
                 println!("{ret}");
             }
-            StateCommands::Compute { epoch } => {
-                let ret = client
-                    .call(ForestStateCompute::request((epoch,))?.with_timeout(Duration::MAX))
+            StateCommands::Compute { epoch, n_epochs } => {
+                let state_roots = client
+                    .call(
+                        ForestStateCompute::request((epoch, n_epochs))?.with_timeout(Duration::MAX),
+                    )
                     .await?;
-                println!("{ret}");
+                for state_root in state_roots {
+                    println!("{state_root}");
+                }
             }
             Self::ReadState { actor_address } => {
                 let tipset = ChainHead::call(&client, ()).await?;
