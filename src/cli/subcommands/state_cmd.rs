@@ -25,7 +25,7 @@ pub enum StateCommands {
         /// Which epoch to compute the state transition for
         #[arg(long)]
         epoch: ChainEpoch,
-        /// Number of tipset epochs to compute state for, default is 1
+        /// Number of tipset epochs to compute state for. Default is 1
         #[arg(short, long)]
         n_epochs: Option<NonZeroUsize>,
     },

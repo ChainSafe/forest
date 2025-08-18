@@ -1444,7 +1444,7 @@ impl RpcMethod<2> for ForestStateCompute {
         )?;
         let from_ts = ctx.chain_index().tipset_by_height(
             from_epoch,
-            ctx.chain_store().heaviest_tipset(),
+            to_ts.clone(),
             ResolveNullTipset::TakeOlder,
         )?;
 
@@ -1469,7 +1469,7 @@ impl RpcMethod<2> for ForestStateCompute {
         }
 
         let mut results = vec![];
-        while let Ok(ts) = futures.select_next_some().await {
+        while let Some(Ok(ts)) = futures.next().await {
             let StateOutput { state_root, .. } = ctx
                 .state_manager
                 .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
