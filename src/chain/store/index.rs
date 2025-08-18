@@ -122,25 +122,28 @@ impl<DB: Blockstore> ChainIndex<DB> {
         mut from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
-        const CHECKPOINT_INTERVAL: ChainEpoch = 1000;
-        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, Arc<Tipset>>> =
-            LazyLock::new(|| {
-                SizeTrackingLruCache::new_with_default_metrics_registry(
-                    "tipset_by_height".into(),
-                    4096.try_into().expect("infallible"),
-                )
-            });
+        use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
+        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
+            SizeTrackingLruCache::new_with_default_metrics_registry(
+                "tipset_by_height".into(),
+                4096.try_into().expect("infallible"),
+            )
+        });
+
+        // use `CHAIN_FINALITY` as checkpoint interval
         fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
-            epoch - epoch.mod_floor(&CHECKPOINT_INTERVAL) + CHECKPOINT_INTERVAL
+            epoch - epoch.mod_floor(&CHAIN_FINALITY) + CHAIN_FINALITY
         }
 
         let from_epoch = from.epoch();
 
         let mut checkpoint_from_epoch = to;
         while checkpoint_from_epoch < from_epoch {
-            if let Some(checkpoint_from) = CACHE.get_cloned(&checkpoint_from_epoch) {
-                from = checkpoint_from;
+            if let Some(checkpoint_from_key) = CACHE.get_cloned(&checkpoint_from_epoch)
+                && let Ok(Some(checkpoint_from)) = Tipset::load(&self.db, &checkpoint_from_key)
+            {
+                from = checkpoint_from.into();
                 break;
             }
             checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
@@ -157,12 +160,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
-            // use `child.epoch() + CHECKPOINT_INTERVAL <= from_epoch` where `CHECKPOINT_INTERVAL>=CHAIN_FINALITY && CHECKPOINT_INTERVAL>=F3_CHAIN_FINALITY`
+            // use `child.epoch() + CHAIN_FINALITY <= from_epoch`
             // to ensure the cached child is finalized(not on a fork).
-            if child.epoch() % CHECKPOINT_INTERVAL == 0
-                && child.epoch() + CHECKPOINT_INTERVAL <= from_epoch
-            {
-                CACHE.push(child.epoch(), child.clone());
+            if child.epoch() % CHAIN_FINALITY == 0 && child.epoch() + CHAIN_FINALITY <= from_epoch {
+                CACHE.push(child.epoch(), child.key().clone());
             }
 
             if to == child.epoch() {
