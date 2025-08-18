@@ -583,7 +583,7 @@ impl RpcMethod<1> for Finalize {
                 );
                 let fts = ctx
                     .sync_network_context
-                    .chain_exchange_fts(None, &tsk)
+                    .chain_exchange_full_tipset(None, &tsk)
                     .await?;
                 for block in fts.blocks() {
                     block.persist(ctx.store())?;

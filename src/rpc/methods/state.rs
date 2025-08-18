@@ -1432,25 +1432,25 @@ impl RpcMethod<1> for ForestStateCompute {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (epoch,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_index().tipset_by_height(
+        let ts = ctx.chain_index().tipset_by_height(
             epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        crate::chain_sync::get_full_tipset(
-            ctx.sync_network_context.clone(),
-            ctx.chain_store().clone(),
-            None,
-            tipset.key().clone(),
-        )
-        .await?;
+        // Attempt to load full tipset from the store
+        if crate::chain_sync::load_full_tipset(ctx.chain_store(), ts.key()).is_err() {
+            // Load full tipset from the network
+            let fts = ctx
+                .sync_network_context
+                .chain_exchange_messages(None, &ts)
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
+            fts.persist(ctx.store())?;
+        }
+
         let StateOutput { state_root, .. } = ctx
             .state_manager
-            .compute_tipset_state(
-                tipset,
-                crate::state_manager::NO_CALLBACK,
-                VMTrace::NotTraced,
-            )
+            .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
             .await?;
 
         Ok(state_root)

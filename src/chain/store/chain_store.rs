@@ -641,7 +641,6 @@ where
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header =
         |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
-            tracing::info!("block_messages({}): {}", b.epoch, b.cid());
             let (unsigned, signed) = block_messages(&db, b)?;
             let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
             let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);

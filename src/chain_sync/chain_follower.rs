@@ -176,7 +176,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                             network.clone(),
                             state_manager.chain_store().clone(),
                             Some(source),
-                            tipset_keys,
+                            &tipset_keys,
                         )
                         .await
                         .inspect_err(|e| debug!("Querying full tipset failed: {}", e))
@@ -188,7 +188,7 @@ pub async fn chain_follower<DB: Blockstore + Sync + Send + 'static>(
                                 network.clone(),
                                 state_manager.chain_store().clone(),
                                 None,
-                                key,
+                                &key,
                             )
                             .await
                         }
@@ -435,22 +435,18 @@ pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     peer_id: Option<PeerId>,
-    tipset_keys: TipsetKey,
+    tipset_keys: &TipsetKey,
 ) -> anyhow::Result<FullTipset> {
     // Attempt to load from the store
-    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys.clone()) {
+    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys) {
         return Ok(full_tipset);
     }
     // Load from the network
     let tipset = network
-        .chain_exchange_fts(peer_id, &tipset_keys.clone())
+        .chain_exchange_full_tipset(peer_id, tipset_keys)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
-
-    for block in tipset.blocks() {
-        block.persist(&chain_store.db)?;
-        TipsetValidator::validate_msg_root(&chain_store.db, block)?;
-    }
+    tipset.persist(&chain_store.db)?;
 
     Ok(tipset)
 }
@@ -459,15 +455,15 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     peer_id: Option<PeerId>,
-    tipset_keys: TipsetKey,
+    tipset_keys: &TipsetKey,
 ) -> anyhow::Result<Vec<FullTipset>> {
     // Attempt to load from the store
-    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys.clone()) {
+    if let Ok(full_tipset) = load_full_tipset(&chain_store, tipset_keys) {
         return Ok(vec![full_tipset]);
     }
     // Load from the network
     let tipsets = network
-        .chain_exchange_full_tipsets(peer_id, &tipset_keys.clone())
+        .chain_exchange_full_tipsets(peer_id, tipset_keys)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -480,13 +476,12 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
     Ok(tipsets)
 }
 
-fn load_full_tipset<DB: Blockstore>(
+pub fn load_full_tipset<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
-    tipset_keys: TipsetKey,
+    tipset_keys: &TipsetKey,
 ) -> anyhow::Result<FullTipset> {
     // Retrieve tipset from store based on passed in TipsetKey
-    let ts = chain_store.chain_index.load_required_tipset(&tipset_keys)?;
-
+    let ts = chain_store.chain_index.load_required_tipset(tipset_keys)?;
     let blocks: Vec<_> = ts
         .block_headers()
         .iter()
@@ -500,7 +495,6 @@ fn load_full_tipset<DB: Blockstore>(
             })
         })
         .try_collect()?;
-
     // Construct FullTipset
     let fts = FullTipset::new(blocks)?;
     Ok(fts)
@@ -603,7 +597,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         if self.stateless_mode || tipset.key() == self.cs.genesis_tipset().key() {
             // Skip validation in stateless mode and for genesis tipset
             true
-        } else if let Ok(parent_ts) = load_full_tipset(&self.cs, tipset.parents().clone()) {
+        } else if let Ok(parent_ts) = load_full_tipset(&self.cs, tipset.parents()) {
             let head_ts = self.cs.heaviest_tipset();
             // Treat post-head-epoch tipsets as not validated to fix <https://github.com/ChainSafe/forest/issues/5677>
             // basically, the follow task should always start from the current head which could be manually set
@@ -878,7 +872,7 @@ impl SyncTask {
             }
             SyncTask::FetchTipset(key, _epoch) => {
                 if let Ok(parents) =
-                    get_full_tipset_batch(network.clone(), cs.clone(), None, key).await
+                    get_full_tipset_batch(network.clone(), cs.clone(), None, &key).await
                 {
                     Some(SyncEvent::NewFullTipsets(
                         parents.into_iter().map(Arc::new).collect(),
