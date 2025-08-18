@@ -554,8 +554,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
-        let blk_msgs = &blk.messages;
-        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), blk_msgs)?;
+        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), &blk)?;
         let (bls_msg, secp_msg) =
             crate::chain::block_messages_from_cids(ctx.store(), &unsigned_cids, &signed_cids)?;
         let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
