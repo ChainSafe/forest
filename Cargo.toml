@@ -22,19 +22,6 @@ multihash-codetable = { version = "0.1", features = ["blake2b", "blake2s", "blak
 rust2go = "0.4"
 tokio = "1"
 
-# TODO: Remove this once the `fvm_ipld_amt` crate is published to crates.io.
-[patch.crates-io]
-# fvm_ipld_amt = { path = "../ref-fvm/ipld/amt" }
-# fvm_ipld_bitfield = { path = "../ref-fvm/ipld/bitfield" }
-# fvm_ipld_blockstore = { path = "../ref-fvm/ipld/blockstore" }
-# fvm_ipld_encoding = { path = "../ref-fvm/ipld/encoding" }
-# fvm_ipld_hamt = { path = "../ref-fvm/ipld/hamt" }
-fvm_ipld_amt = { git = "https://github.com/filecoin-project/ref-fvm", rev = "a633547ae414a333b2d076beef87d4d30cdb7fb4" }
-fvm_ipld_bitfield = { git = "https://github.com/filecoin-project/ref-fvm", rev = "a633547ae414a333b2d076beef87d4d30cdb7fb4" }
-fvm_ipld_blockstore = { git = "https://github.com/filecoin-project/ref-fvm", rev = "a633547ae414a333b2d076beef87d4d30cdb7fb4" }
-fvm_ipld_encoding = { git = "https://github.com/filecoin-project/ref-fvm", rev = "a633547ae414a333b2d076beef87d4d30cdb7fb4" }
-fvm_ipld_hamt = { git = "https://github.com/filecoin-project/ref-fvm", rev = "a633547ae414a333b2d076beef87d4d30cdb7fb4" }
-
 [dependencies]
 ahash = "0.8"
 anes = "0.2"
