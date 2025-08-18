@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
-use crate::rpc::state::ForestStateCompute;
+use crate::rpc::state::{ForestComputeStateOutput, ForestStateCompute};
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
 use crate::shim::clock::ChainEpoch;
@@ -21,6 +21,7 @@ pub enum StateCommands {
         #[arg(short, long)]
         save_to_file: Option<PathBuf>,
     },
+    /// Compute state trees for epochs
     Compute {
         /// Which epoch to compute the state transition for
         #[arg(long)]
@@ -28,6 +29,9 @@ pub enum StateCommands {
         /// Number of tipset epochs to compute state for. Default is 1
         #[arg(short, long)]
         n_epochs: Option<NonZeroUsize>,
+        /// Print epoch and tipset key along with state root
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// Read the state of an actor
     ReadState {
@@ -47,14 +51,27 @@ impl StateCommands {
                     .await?;
                 println!("{ret}");
             }
-            StateCommands::Compute { epoch, n_epochs } => {
-                let state_roots = client
+            StateCommands::Compute {
+                epoch,
+                n_epochs,
+                verbose,
+            } => {
+                let results = client
                     .call(
                         ForestStateCompute::request((epoch, n_epochs))?.with_timeout(Duration::MAX),
                     )
                     .await?;
-                for state_root in state_roots {
-                    println!("{state_root}");
+                for ForestComputeStateOutput {
+                    state_root,
+                    epoch,
+                    tipset_key,
+                } in results
+                {
+                    if verbose {
+                        println!("{state_root} (epoch: {epoch}, tipset key: {tipset_key})");
+                    } else {
+                        println!("{state_root}");
+                    }
                 }
             }
             Self::ReadState { actor_address } => {

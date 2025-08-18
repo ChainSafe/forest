@@ -37,6 +37,10 @@
 
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
 
+- [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--n-epochs` to `forest-cli state compute` for computating state trees in batch.
+
+- [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--verbose` to `forest-cli state compute` for printing epochs and tipset keys along with state roots.
+
 - [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a v1 Filecoin snapshot and an F3 snapshot into a v2 Filecoin snapshot.
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.

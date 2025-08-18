@@ -1429,7 +1429,7 @@ impl RpcMethod<2> for ForestStateCompute {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch, Option<NonZeroUsize>);
-    type Ok = Vec<Cid>;
+    type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1470,13 +1470,18 @@ impl RpcMethod<2> for ForestStateCompute {
 
         let mut results = vec![];
         while let Some(Ok(ts)) = futures.next().await {
+            let epoch = ts.epoch();
+            let tipset_key = ts.key().clone();
             let StateOutput { state_root, .. } = ctx
                 .state_manager
                 .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
                 .await?;
-            results.push(state_root);
+            results.push(ForestComputeStateOutput {
+                state_root,
+                epoch,
+                tipset_key,
+            });
         }
-
         Ok(results)
     }
 }
