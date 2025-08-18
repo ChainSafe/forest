@@ -174,8 +174,7 @@ where
                 MESSAGES,
                 |_| true,
             )
-            .await
-            .expect("infallible");
+            .await?;
 
         if bundles.len() != 1 {
             return Err(format!(
