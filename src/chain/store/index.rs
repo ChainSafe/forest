@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -13,6 +14,7 @@ use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use nonzero_ext::nonzero;
+use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
@@ -117,9 +119,36 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
-        from: Arc<Tipset>,
+        mut from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
+        use crate::shim::policy::policy_constants::CHAIN_FINALITY;
+
+        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
+            SizeTrackingLruCache::new_with_default_metrics_registry(
+                "tipset_by_height".into(),
+                4096.try_into().expect("infallible"),
+            )
+        });
+
+        // use `CHAIN_FINALITY` as checkpoint interval
+        fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+            epoch - epoch.mod_floor(&CHAIN_FINALITY) + CHAIN_FINALITY
+        }
+
+        let from_epoch = from.epoch();
+
+        let mut checkpoint_from_epoch = to;
+        while checkpoint_from_epoch < from_epoch {
+            if let Some(checkpoint_from_key) = CACHE.get_cloned(&checkpoint_from_epoch)
+                && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
+            {
+                from = checkpoint_from;
+                break;
+            }
+            checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
+        }
+
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
@@ -131,6 +160,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
+            // use `child.epoch() + CHAIN_FINALITY <= from_epoch`
+            // to ensure the cached child is finalized(not on a fork).
+            if child.epoch() % CHAIN_FINALITY == 0 && child.epoch() + CHAIN_FINALITY <= from_epoch {
+                CACHE.push(child.epoch(), child.key().clone());
+            }
+
             if to == child.epoch() {
                 return Ok(child);
             }
