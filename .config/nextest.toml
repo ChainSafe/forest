@@ -33,3 +33,8 @@ slow-timeout = { period = "120s", terminate-after = 3 }
 # lint runs `cargo check` for source file discovery, which can take a while
 filter = 'binary(lint)'
 slow-timeout = { period = "120s", terminate-after = 3 }
+
+# These tests download test snapshots from the network, which can take a while.
+[[profile.default.overrides]]
+filter = 'test(rpc_test_)'
+slow-timeout = { period = "120s", terminate-after = 3 }
