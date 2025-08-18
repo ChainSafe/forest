@@ -141,9 +141,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         let mut checkpoint_from_epoch = to;
         while checkpoint_from_epoch < from_epoch {
             if let Some(checkpoint_from_key) = CACHE.get_cloned(&checkpoint_from_epoch)
-                && let Ok(Some(checkpoint_from)) = Tipset::load(&self.db, &checkpoint_from_key)
+                && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
             {
-                from = checkpoint_from.into();
+                from = checkpoint_from;
                 break;
             }
             checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
