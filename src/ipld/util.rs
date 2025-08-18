@@ -10,12 +10,13 @@ use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
 use anyhow::Context as _;
 use cid::Cid;
-use flume::TryRecvError;
-use futures::Stream;
+use futures::stream::Fuse;
+use futures::{Stream, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
+use std::fmt::Display;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -278,26 +279,31 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 }
 
 pin_project! {
-    pub struct UnorderedChainStream<DB, T> {
+    pub struct UnorderedChainStream<'a, DB, T> {
         tipset_iter: T,
         db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        block_receiver: flume::Receiver<anyhow::Result<CarBlock>>,
-        extract_sender: flume::Sender<Cid>,
+        block_recv_stream: Fuse<flume::r#async::RecvStream<'a, anyhow::Result<CarBlock>>>,
+        extract_sender: Option<flume::Sender<Cid>>,
         stateroot_limit: ChainEpoch,
         queue: Vec<(Cid, Option<Vec<u8>>)>,
         fail_on_dead_links: bool,
     }
 
-    impl<DB, T> PinnedDrop for UnorderedChainStream<DB, T> {
+    impl<'a, DB, T> PinnedDrop for UnorderedChainStream<'a, DB, T> {
         fn drop(this: Pin<&mut Self>) {
            this.worker_handle.abort()
         }
     }
 }
 
-impl<DB, T> UnorderedChainStream<DB, T> {
+impl<'a, DB, T> UnorderedChainStream<'a, DB, T> {
+    pub fn with_seen(self, seen: CidHashSet) -> Self {
+        *self.seen.lock() = seen;
+        self
+    }
+
     pub fn into_seen(self) -> CidHashSet {
         let mut set = CidHashSet::new();
         let mut guard = self.seen.lock();
@@ -308,6 +314,7 @@ impl<DB, T> UnorderedChainStream<DB, T> {
 }
 
 fn unordered_stream_chain_inner<
+    'a,
     DB: Blockstore + Sync + Send + 'static,
     T: Borrow<Tipset>,
     ITER: Iterator<Item = T> + Unpin + Send + 'static,
@@ -316,13 +323,13 @@ fn unordered_stream_chain_inner<
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
     fail_on_dead_links: bool,
-) -> UnorderedChainStream<DB, ITER> {
+) -> UnorderedChainStream<'a, DB, ITER> {
     let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
     let (extract_sender, extract_receiver) = flume::unbounded();
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::<DB, ITER>::start_workers(
+    let worker_handle = UnorderedChainStream::<DB, ITER>::start_workers(
         db.clone(),
-        sender.clone(),
+        sender,
         extract_receiver,
         seen.clone(),
         fail_on_dead_links,
@@ -331,10 +338,10 @@ fn unordered_stream_chain_inner<
     UnorderedChainStream {
         seen,
         db,
-        worker_handle: handle,
-        block_receiver: receiver,
+        worker_handle,
+        block_recv_stream: receiver.into_stream().fuse(),
         queue: Vec::new(),
-        extract_sender,
+        extract_sender: Some(extract_sender),
         tipset_iter,
         stateroot_limit,
         fail_on_dead_links,
@@ -351,8 +358,8 @@ fn unordered_stream_chain_inner<
 /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets, in-depth.
 ///   This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth` is the
 ///   number of `[`Tipset`]` that needs inspection.
-#[allow(dead_code)]
 pub fn unordered_stream_chain<
+    'a,
     DB: Blockstore + Sync + Send + 'static,
     T: Borrow<Tipset>,
     ITER: Iterator<Item = T> + Unpin + Send + 'static,
@@ -360,13 +367,14 @@ pub fn unordered_stream_chain<
     db: Arc<DB>,
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> UnorderedChainStream<DB, ITER> {
+) -> UnorderedChainStream<'a, DB, ITER> {
     unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, true)
 }
 
 // Stream available graph in unordered search. All reachable nodes are touched and dead-links
 // are ignored.
 pub fn unordered_stream_graph<
+    'a,
     DB: Blockstore + Sync + Send + 'static,
     T: Borrow<Tipset>,
     ITER: Iterator<Item = T> + Unpin + Send + 'static,
@@ -374,12 +382,16 @@ pub fn unordered_stream_graph<
     db: Arc<DB>,
     tipset_iter: ITER,
     stateroot_limit: ChainEpoch,
-) -> UnorderedChainStream<DB, ITER> {
+) -> UnorderedChainStream<'a, DB, ITER> {
     unordered_stream_chain_inner(db, tipset_iter, stateroot_limit, false)
 }
 
-impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>
-    UnorderedChainStream<DB, ITER>
+impl<
+    'a,
+    DB: Blockstore + Send + Sync + 'static,
+    T: Borrow<Tipset>,
+    ITER: Iterator<Item = T> + Unpin,
+> UnorderedChainStream<'a, DB, ITER>
 {
     fn start_workers(
         db: Arc<DB>,
@@ -390,8 +402,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<I
     ) -> JoinHandle<anyhow::Result<()>> {
         task::spawn(async move {
             let mut handles = JoinSet::new();
-
-            for _ in 0..num_cpus::get() {
+            for _ in 0..num_cpus::get().clamp(1, 8) {
                 let seen = seen.clone();
                 let extract_receiver = extract_receiver.clone();
                 let db = db.clone();
@@ -407,14 +418,19 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<I
                                         cid_vec.append(&mut new_values);
                                     }
                                     // Break out of the loop if the receiving end quit.
-                                    if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
+                                    if block_sender
+                                        .send_async(Ok(CarBlock { cid, data }))
+                                        .await
+                                        .is_err()
+                                    {
                                         break 'main;
                                     }
                                 } else if fail_on_dead_links {
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {cid}")));
+                                        .send_async(Err(anyhow::anyhow!("missing key: {cid}")))
+                                        .await;
                                     break 'main;
                                 }
                             }
@@ -437,106 +453,111 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Borrow<Tipset>, ITER: Iterator<I
     }
 }
 
-impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
-    for UnorderedChainStream<DB, T>
+impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
+    for UnorderedChainStream<'a, DB, T>
 {
     type Item = anyhow::Result<CarBlock>;
 
-    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        fn send<T: Display>(sender: &Option<flume::Sender<T>>, v: T) -> anyhow::Result<()> {
+            if let Some(sender) = sender {
+                sender
+                    .send(v)
+                    .map_err(|e| anyhow::anyhow!("failed to send {}", e.into_inner()))
+            } else {
+                anyhow::bail!("attempted to enqueue after shutdown (extract_sender dropped): {v}");
+            }
+        }
+
+        fn process_cid<DB: Blockstore>(
+            cid: Cid,
+            db: &DB,
+            extract_sender: &Option<flume::Sender<Cid>>,
+            queue: &mut Vec<(Cid, Option<Vec<u8>>)>,
+            seen: &Arc<Mutex<CidHashSet>>,
+            fail_on_dead_links: bool,
+        ) -> anyhow::Result<()> {
+            if should_save_block_to_snapshot(cid) {
+                if db.has(&cid)? {
+                    send(extract_sender, cid)?;
+                } else if fail_on_dead_links {
+                    queue.push((cid, None));
+                } else {
+                    seen.lock().insert(cid);
+                }
+            }
+            Ok(())
+        }
+
         let stateroot_limit = self.stateroot_limit;
         let fail_on_dead_links = self.fail_on_dead_links;
-        let this = self.project();
-        let receive_block = || {
-            if let Ok(item) = this.block_receiver.try_recv() {
-                return Some(item);
-            }
-            None
-        };
+
         loop {
-            while let Some((cid, data)) = this.queue.pop() {
+            while let Some((cid, data)) = self.queue.pop() {
                 if let Some(data) = data {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
-                } else if let Some(data) = this.db.get(&cid)? {
+                } else if let Some(data) = self.db.get(&cid)? {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if fail_on_dead_links {
                     return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
                 }
             }
 
-            if let Some(block) = receive_block() {
-                return Poll::Ready(Some(block));
-            }
+            match Pin::new(&mut self.block_recv_stream).poll_next(cx) {
+                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Ready(Some(block)) => return Poll::Ready(Some(block)),
+                _ => {
+                    let self_mut = self.as_mut();
+                    let this = self_mut.project();
+                    // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
+                    // the extract queue. The emit queue is processed in the loop above. Once the desired depth
+                    // has been reached yield a block without walking the graph it represents.
+                    if let Some(tipset) = this.tipset_iter.next() {
+                        for block in tipset.into_block_headers().into_iter() {
+                            let (cid, data) = block.car_block()?;
+                            if this.seen.lock().insert(cid) {
+                                // Make sure we always yield a block, directly to the stream to avoid extra
+                                // work.
+                                this.queue.push((cid, Some(data)));
 
-            // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
-            // the extract queue. The emit queue is processed in the loop above. Once the desired depth
-            // has been reached yield a block without walking the graph it represents.
-            if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_block_headers().into_iter() {
-                    let (cid, data) = block.car_block()?;
-                    if this.seen.lock().insert(cid) {
-                        // Make sure we always yield a block, directly to the stream to avoid extra
-                        // work.
-                        this.queue.push((cid, Some(data)));
+                                if block.epoch == 0 {
+                                    // The genesis block has some kind of dummy parent that needs to be emitted.
+                                    for p in &block.parents {
+                                        this.queue.push((p, None));
+                                    }
+                                }
 
-                        if block.epoch == 0 {
-                            // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in &block.parents {
-                                this.queue.push((p, None));
+                                // Process block messages.
+                                if block.epoch > stateroot_limit {
+                                    process_cid(
+                                        block.messages,
+                                        this.db,
+                                        this.extract_sender,
+                                        this.queue,
+                                        this.seen,
+                                        fail_on_dead_links,
+                                    )?;
+                                }
+
+                                // Visit the block if it's within required depth. And a special case for `0`
+                                // epoch to match Lotus' implementation.
+                                if block.epoch == 0 || block.epoch > stateroot_limit {
+                                    process_cid(
+                                        block.state_root,
+                                        this.db,
+                                        this.extract_sender,
+                                        this.queue,
+                                        this.seen,
+                                        fail_on_dead_links,
+                                    )?;
+                                }
                             }
                         }
-
-                        // Process block messages.
-                        if block.epoch > stateroot_limit
-                            && should_save_block_to_snapshot(block.messages)
-                        {
-                            if this.db.has(&block.messages)? {
-                                this.extract_sender.send(block.messages)?;
-                                // This will simply return an error once we reach that item in
-                                // the queue.
-                            } else if fail_on_dead_links {
-                                this.queue.push((block.messages, None));
-                            } else {
-                                // Make sure we update seen here as we don't send the block for
-                                // inspection.
-                                this.seen.lock().insert(block.messages);
-                            }
-                        }
-
-                        // Visit the block if it's within required depth. And a special case for `0`
-                        // epoch to match Lotus' implementation.
-                        if (block.epoch == 0 || block.epoch > stateroot_limit)
-                            && should_save_block_to_snapshot(block.state_root)
-                        {
-                            if this.db.has(&block.state_root)? {
-                                this.extract_sender.send(block.state_root)?;
-                                // This will simply return an error once we reach that item in
-                                // the queue.
-                            } else if fail_on_dead_links {
-                                this.queue.push((block.state_root, None));
-                            } else {
-                                // Make sure we update seen here as we don't send the block for
-                                // inspection.
-                                this.seen.lock().insert(block.state_root);
-                            }
-                        }
-                    }
-                }
-            } else {
-                match this.block_receiver.try_recv() {
-                    Ok(item) => return Poll::Ready(Some(item)),
-                    Err(err) => {
-                        if this.extract_sender.is_empty() {
-                            this.worker_handle.abort();
-                            return Poll::Ready(None);
-                            // This should never happen, because both `extract_sender` and
-                            // `block_receiver` are held by worker_handle and their counterparts -
-                            // by the main process. So those are either both functional or both
-                            // closed.
-                        } else if err == TryRecvError::Disconnected {
-                            panic!(
-                                "block_receiver can only be closed after extract_sender is empty"
-                            )
-                        }
+                    } else if let Some(extract_sender) = this.extract_sender
+                        && extract_sender.is_empty()
+                    {
+                        // drop the sender to abort the worker task
+                        *this.extract_sender = None;
                     }
                 }
             }

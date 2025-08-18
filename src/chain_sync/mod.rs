@@ -13,7 +13,7 @@ mod validation;
 
 pub use self::{
     bad_block_cache::BadBlockCache,
-    chain_follower::ChainFollower,
+    chain_follower::{ChainFollower, load_full_tipset},
     chain_muxer::SyncConfig,
     consensus::collect_errs,
     sync_status::{ForkSyncInfo, ForkSyncStage, NodeSyncStatus, SyncStatusReport},

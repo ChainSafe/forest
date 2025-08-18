@@ -8,6 +8,7 @@ use std::{
 
 use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 use crate::{
+    chain_sync::TipsetValidator,
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
@@ -545,6 +546,15 @@ impl FullTipset {
     /// Returns the tipset's calculated weight.
     pub fn weight(&self) -> &BigInt {
         &self.first_block().header().weight
+    }
+    /// Persists the tipset into the blockstore.
+    pub fn persist(&self, db: &impl Blockstore) -> anyhow::Result<()> {
+        for block in self.blocks() {
+            // To persist `TxMeta` that is required for loading tipset messages
+            TipsetValidator::validate_msg_root(db, block)?;
+            block.persist(db)?;
+        }
+        Ok(())
     }
 }
 

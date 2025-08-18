@@ -165,7 +165,7 @@ impl GetPowerTable {
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
             LruBlockstoreReadCache::new_with_default_metrics_registry(
-                "get_powertable_cache".into(),
+                "get_powertable".into(),
                 BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
             )
         });
@@ -583,7 +583,7 @@ impl RpcMethod<1> for Finalize {
                 );
                 let fts = ctx
                     .sync_network_context
-                    .chain_exchange_fts(None, &tsk)
+                    .chain_exchange_full_tipset(None, &tsk)
                     .await?;
                 for block in fts.blocks() {
                     block.persist(ctx.store())?;
