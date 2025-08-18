@@ -242,7 +242,7 @@ impl Tipset {
     pub fn new<H: Into<CachingBlockHeader>>(
         headers: impl IntoIterator<Item = H>,
     ) -> Result<Self, CreateTipsetError> {
-        let headers = NonEmpty::new(
+        let mut headers = NonEmpty::new(
             headers
                 .into_iter()
                 .map(Into::<CachingBlockHeader>::into)
@@ -250,7 +250,7 @@ impl Tipset {
                 .collect(),
         )
         .map_err(|_| CreateTipsetError::Empty)?;
-
+        headers.shrink_to_fit();
         verify_block_headers(&headers)?;
 
         Ok(Self {
