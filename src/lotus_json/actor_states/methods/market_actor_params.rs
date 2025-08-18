@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::lotus_json::signature::SignatureLotusJson;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
@@ -252,17 +253,13 @@ macro_rules! impl_lotus_json_for_deal_proposal {
     };
 }
 
-impl_lotus_json_for_deal_proposal!(15, 16);
+impl_lotus_json_for_deal_proposal!(13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ClientDealProposalLotusJson {
-    #[schemars(with = "LotusJson<DealProposal>")]
-    #[serde(with = "crate::lotus_json")]
-    pub proposal: DealProposal,
-    // #[schemars(with = "LotusJson<Signature>")]
-    // #[serde(with = "crate::lotus_json")]
-    // pub client_signature: Signature,
+    pub proposal: DealProposalLotusJson,
+    // pub client_signature: SignatureLotusJson,
 }
 
 macro_rules! impl_lotus_json_for_client_deal_proposal {
@@ -280,15 +277,17 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
-                            proposal: todo!(), //self.proposal.into(),
-                            // TODO
-                            // client_signature: self.client_signature.into(),
+                            proposal: self.proposal.into_lotus_json(),
+                            // client_signature: {
+                            //     // TODO: shim signature
+                            //     self.client_signature.into().into_lotus_json()
+                            // }
                         }
                     }
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            proposal: todo!(), //json.proposal.into(),
+                            proposal: fil_actor_market_state::[<v $version>]::DealProposal::from_lotus_json(json.proposal),
                             // TODO
                             client_signature: Signature::new_bls(vec![]),
                         }
@@ -299,14 +298,12 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
     };
 }
 
-impl_lotus_json_for_client_deal_proposal!(15, 16);
+impl_lotus_json_for_client_deal_proposal!(13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct PublishStorageDealsParamsLotusJson {
-    #[schemars(with = "LotusJson<ClientDealProposal>")]
-    #[serde(with = "crate::lotus_json")]
-    pub deals: Vec<ClientDealProposal>,
+    pub deals: Vec<ClientDealProposalLotusJson>,
 }
 
 macro_rules! impl_lotus_json_for_publish_storage_deals_params {
@@ -324,13 +321,15 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
-                            deals: self.deals.into_iter().map(|deal| deal.into()).collect(),
+                            deals: self.deals.into_iter().map(|d| d.into_lotus_json()).collect(),
                         }
                     }
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            deals: json.deals.into_iter().map(|deal| deal.into()).collect(),
+                            deals: json.deals.into_iter()
+                            .map(|d| fil_actor_market_state::[<v $version>]::ClientDealProposal::from_lotus_json(d)) // delegate
+                            .collect(),
                         }
                     }
                 }
@@ -340,4 +339,4 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
 }
 
 //impl_lotus_json_for_publish_storage_deals_params!(9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_publish_storage_deals_params!(15, 16);
+impl_lotus_json_for_publish_storage_deals_params!(13, 14, 15, 16);
