@@ -223,6 +223,8 @@ mod allocation;
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod bytecode_hash;
+mod client_deal_proposal;
+mod deal_proposal;
 mod entry;
 mod filter_estimate;
 mod hash_map;
