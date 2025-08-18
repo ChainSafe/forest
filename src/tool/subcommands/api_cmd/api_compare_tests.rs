@@ -2391,7 +2391,7 @@ fn miner_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<
             extensions: vec![fil_actor_miner_state::v16::ExpirationExtension {
                 deadline: 12,
                 partition: 123,
-                sectors: BitField::from_bytes(&[])?,
+                sectors: Default::default(),
                 new_expiration: 1000,
             }],
         };
