@@ -790,7 +790,7 @@ impl RpcMethod<0> for F3IsRunning {
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#F3GetProgress>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetProgress>
 pub enum F3GetProgress {}
 
 impl F3GetProgress {
@@ -816,7 +816,7 @@ impl RpcMethod<0> for F3GetProgress {
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#f3getmanifest>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetManifest>
 pub enum F3GetManifest {}
 
 impl F3GetManifest {
