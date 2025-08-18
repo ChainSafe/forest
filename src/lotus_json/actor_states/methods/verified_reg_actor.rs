@@ -4,7 +4,6 @@
 use super::*;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::crypto::Signature;
 use crate::shim::sector::SectorNumber;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
@@ -39,27 +38,74 @@ pub struct RemoveVerifierParamsLotusJson(
     Address,
 );
 
+// Version-specific structs for different FVM versions to avoid conversion issues
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct RemoveDataCapParamsLotusJson {
+pub struct RemoveDataCapParamsV2LotusJson {
     #[serde(with = "crate::lotus_json")]
     pub verified_client_to_remove: Address,
     #[serde(with = "crate::lotus_json")]
     pub data_cap_amount_to_remove: BigInt,
-    pub verifier_request_1: RemoveDataCapRequestLotusJson,
-    pub verifier_request_2: RemoveDataCapRequestLotusJson,
+    pub verifier_request_1: RemoveDataCapRequestV2LotusJson,
+    pub verifier_request_2: RemoveDataCapRequestV2LotusJson,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct RemoveDataCapRequestLotusJson {
+pub struct RemoveDataCapRequestV2LotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub verifier: Address,
-    #[schemars(with = "LotusJson<Signature>")]
+    #[schemars(with = "LotusJson<fvm_shared2::crypto::signature::Signature>")]
     #[serde(with = "crate::lotus_json")]
     #[serde(rename = "VerifierSignature")]
-    pub signature: Signature,
+    pub signature: fvm_shared2::crypto::signature::Signature,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct RemoveDataCapParamsV3LotusJson {
+    #[serde(with = "crate::lotus_json")]
+    pub verified_client_to_remove: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub data_cap_amount_to_remove: BigInt,
+    pub verifier_request_1: RemoveDataCapRequestV3LotusJson,
+    pub verifier_request_2: RemoveDataCapRequestV3LotusJson,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct RemoveDataCapRequestV3LotusJson {
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub verifier: Address,
+    #[schemars(with = "LotusJson<fvm_shared3::crypto::signature::Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "VerifierSignature")]
+    pub signature: fvm_shared3::crypto::signature::Signature,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct RemoveDataCapParamsV4LotusJson {
+    #[serde(with = "crate::lotus_json")]
+    pub verified_client_to_remove: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub data_cap_amount_to_remove: BigInt,
+    pub verifier_request_1: RemoveDataCapRequestV4LotusJson,
+    pub verifier_request_2: RemoveDataCapRequestV4LotusJson,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct RemoveDataCapRequestV4LotusJson {
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub verifier: Address,
+    #[schemars(with = "LotusJson<fvm_shared4::crypto::signature::Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "VerifierSignature")]
+    pub signature: fvm_shared4::crypto::signature::Signature,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
@@ -548,13 +594,13 @@ macro_rules! impl_extend_claim_terms_params {
     };
 }
 
-// Implementation for RemoveDataCapParams (unified for all versions)
-macro_rules! impl_remove_data_cap_params {
-    ($type_suffix:path: $($version:literal),+) => {
+// Implementation for RemoveDataCapParams with version-specific types
+macro_rules! impl_remove_data_cap_params_v2 {
+    ($($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
-                    type LotusJson = RemoveDataCapParamsLotusJson;
+                    type LotusJson = RemoveDataCapParamsV2LotusJson;
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -582,27 +628,33 @@ macro_rules! impl_remove_data_cap_params {
                                 data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
                                 verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                     verifier: Address::new_id(1235).into(),
-                                    signature: $type_suffix::signature::Signature::new_bls(b"test".to_vec()),
+                                    signature: fvm_shared2::crypto::signature::Signature {
+                                        sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
                                 },
                                 verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                     verifier: Address::new_id(1236).into(),
-                                    signature: $type_suffix::signature::Signature::new_bls(b"test".to_vec()),
+                                    signature: fvm_shared2::crypto::signature::Signature {
+                                        sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
                                 },
                             },
                         )]
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
-                        RemoveDataCapParamsLotusJson {
+                        RemoveDataCapParamsV2LotusJson {
                             verified_client_to_remove: self.verified_client_to_remove.into(),
                             data_cap_amount_to_remove: self.data_cap_amount_to_remove,
-                            verifier_request_1: RemoveDataCapRequestLotusJson {
+                            verifier_request_1: RemoveDataCapRequestV2LotusJson {
                                 verifier: self.verifier_request_1.verifier.into(),
-                                signature: self.verifier_request_1.signature.into(),
+                                signature: self.verifier_request_1.signature,
                             },
-                            verifier_request_2: RemoveDataCapRequestLotusJson {
+                            verifier_request_2: RemoveDataCapRequestV2LotusJson {
                                 verifier: self.verifier_request_2.verifier.into(),
-                                signature: self.verifier_request_2.signature.into()
+                                signature: self.verifier_request_2.signature,
                             },
                         }
                     }
@@ -613,11 +665,179 @@ macro_rules! impl_remove_data_cap_params {
                             data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
                             verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                 verifier: lotus_json.verifier_request_1.verifier.into(),
-                                signature: lotus_json.verifier_request_1.signature.try_into().unwrap(),
+                                signature: lotus_json.verifier_request_1.signature,
                             },
                             verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
                                 verifier: lotus_json.verifier_request_2.verifier.into(),
-                                signature: lotus_json.verifier_request_2.signature.try_into().unwrap()
+                                signature: lotus_json.verifier_request_2.signature,
+                            },
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_remove_data_cap_params_v3 {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
+                    type LotusJson = RemoveDataCapParamsV3LotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![(
+                            json!({
+                                "VerifiedClientToRemove": "f01234",
+                                "DataCapAmountToRemove": "1000000000000000000",
+                                "VerifierRequest1": {
+                                    "Verifier": "f01235",
+                                    "VerifierSignature": {
+                                        "Type": 1,
+                                        "Data": "dGVzdA==",
+                                    }
+                                },
+                                "VerifierRequest2": {
+                                    "Verifier": "f01236",
+                                    "VerifierSignature": {
+                                        "Type": 1,
+                                        "Data": "dGVzdA==",
+                                    }
+                                },
+                            }),
+                            Self {
+                                verified_client_to_remove: Address::new_id(1234).into(),
+                                data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
+                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: Address::new_id(1235).into(),
+                                    signature: fvm_shared3::crypto::signature::Signature {
+                                        sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
+                                },
+                                verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: Address::new_id(1236).into(),
+                                    signature: fvm_shared3::crypto::signature::Signature {
+                                        sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
+                                },
+                            },
+                        )]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        RemoveDataCapParamsV3LotusJson {
+                            verified_client_to_remove: self.verified_client_to_remove.into(),
+                            data_cap_amount_to_remove: self.data_cap_amount_to_remove,
+                            verifier_request_1: RemoveDataCapRequestV3LotusJson {
+                                verifier: self.verifier_request_1.verifier.into(),
+                                signature: self.verifier_request_1.signature,
+                            },
+                            verifier_request_2: RemoveDataCapRequestV3LotusJson {
+                                verifier: self.verifier_request_2.verifier.into(),
+                                signature: self.verifier_request_2.signature,
+                            },
+                        }
+                    }
+
+                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                        Self {
+                            verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
+                            data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
+                            verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                verifier: lotus_json.verifier_request_1.verifier.into(),
+                                signature: lotus_json.verifier_request_1.signature,
+                            },
+                            verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                verifier: lotus_json.verifier_request_2.verifier.into(),
+                                signature: lotus_json.verifier_request_2.signature,
+                            },
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_remove_data_cap_params_v4 {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_verifreg_state::[<v $version>]::RemoveDataCapParams {
+                    type LotusJson = RemoveDataCapParamsV4LotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![(
+                            json!({
+                                "VerifiedClientToRemove": "f01234",
+                                "DataCapAmountToRemove": "1000000000000000000",
+                                "VerifierRequest1": {
+                                    "Verifier": "f01235",
+                                    "VerifierSignature": {
+                                        "Type": 1,
+                                        "Data": "dGVzdA==",
+                                    }
+                                },
+                                "VerifierRequest2": {
+                                    "Verifier": "f01236",
+                                    "VerifierSignature": {
+                                        "Type": 1,
+                                        "Data": "dGVzdA==",
+                                    }
+                                },
+                            }),
+                            Self {
+                                verified_client_to_remove: Address::new_id(1234).into(),
+                                data_cap_amount_to_remove: BigInt::from(1000000000000000000u64),
+                                verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: Address::new_id(1235).into(),
+                                    signature: fvm_shared4::crypto::signature::Signature {
+                                        sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
+                                },
+                                verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                    verifier: Address::new_id(1236).into(),
+                                    signature: fvm_shared4::crypto::signature::Signature {
+                                        sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+                                        bytes: b"test".to_vec(),
+                                    },
+                                },
+                            },
+                        )]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        RemoveDataCapParamsV4LotusJson {
+                            verified_client_to_remove: self.verified_client_to_remove.into(),
+                            data_cap_amount_to_remove: self.data_cap_amount_to_remove,
+                            verifier_request_1: RemoveDataCapRequestV4LotusJson {
+                                verifier: self.verifier_request_1.verifier.into(),
+                                signature: self.verifier_request_1.signature,
+                            },
+                            verifier_request_2: RemoveDataCapRequestV4LotusJson {
+                                verifier: self.verifier_request_2.verifier.into(),
+                                signature: self.verifier_request_2.signature,
+                            },
+                        }
+                    }
+
+                    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                        Self {
+                            verified_client_to_remove: lotus_json.verified_client_to_remove.into(),
+                            data_cap_amount_to_remove: lotus_json.data_cap_amount_to_remove,
+                            verifier_request_1: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                verifier: lotus_json.verifier_request_1.verifier.into(),
+                                signature: lotus_json.verifier_request_1.signature,
+                            },
+                            verifier_request_2: fil_actor_verifreg_state::[<v $version>]::RemoveDataCapRequest {
+                                verifier: lotus_json.verifier_request_2.verifier.into(),
+                                signature: lotus_json.verifier_request_2.signature,
                             },
                         }
                     }
@@ -1024,9 +1244,9 @@ impl_get_claims_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_remove_expired_claims_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_extend_claim_terms_params!(9, 10, 11, 12, 13, 14, 15, 16);
 
-impl_remove_data_cap_params!(fvm_shared2::crypto: 8, 9);
-impl_remove_data_cap_params!(fvm_shared3::crypto: 10, 11);
-impl_remove_data_cap_params!(fvm_shared4::crypto: 12, 13, 14, 15, 16);
+impl_remove_data_cap_params_v2!(8, 9);
+impl_remove_data_cap_params_v3!(10, 11);
+impl_remove_data_cap_params_v4!(12, 13, 14, 15, 16);
 
 impl_claim_allocations_params_v11!(fvm_shared2: 9);
 impl_claim_allocations_params_v11!(fvm_shared3: 10, 11);
