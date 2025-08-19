@@ -142,7 +142,7 @@ macro_rules! impl_lotus_json_for_label {
     };
 }
 
-impl_lotus_json_for_label!(15, 16);
+impl_lotus_json_for_label!(13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -161,9 +161,7 @@ pub struct DealProposalLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub provider: Address,
-    // #[schemars(with = "LotusJson<Label>")]
-    // #[serde(with = "crate::lotus_json")]
-    // pub label: Label,
+    pub label: LabelLotusJson,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
     #[schemars(with = "LotusJson<TokenAmount>")]
@@ -210,7 +208,7 @@ macro_rules! impl_lotus_json_for_deal_proposal {
                             verified_deal: verified_deal.into(),
                             client: client.into(),
                             provider: provider.into(),
-                            // label: label.into(),
+                            label: label.into_lotus_json(),
                             start_epoch: start_epoch.into(),
                             end_epoch: end_epoch.into(),
                             storage_price_per_epoch: storage_price_per_epoch.into(),
@@ -226,7 +224,7 @@ macro_rules! impl_lotus_json_for_deal_proposal {
                             verified_deal,
                             client,
                             provider,
-                            // label,
+                            label,
                             start_epoch,
                             end_epoch,
                             storage_price_per_epoch,
@@ -239,7 +237,7 @@ macro_rules! impl_lotus_json_for_deal_proposal {
                             verified_deal,
                             client: client.into(),
                             provider: provider.into(),
-                            label: todo!(),
+                            label: fil_actor_market_state::[<v $version>]::Label::from_lotus_json(label), // delegate
                             start_epoch,
                             end_epoch,
                             storage_price_per_epoch: storage_price_per_epoch.into(),
@@ -338,5 +336,4 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-//impl_lotus_json_for_publish_storage_deals_params!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_publish_storage_deals_params!(13, 14, 15, 16);
