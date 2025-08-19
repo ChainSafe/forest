@@ -4,8 +4,11 @@
 use super::*;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;
+use crate::shim::sector::RegisteredSealProof;
+use crate::shim::sector::SectorNumber;
 
 use ::cid::Cid;
 // use fvm_ipld_encoding::RawBytes;
@@ -336,3 +339,130 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
 }
 
 impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorDealsLotusJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sector_number: Option<SectorNumber>,
+    #[schemars(with = "LotusJson<RegisteredSealProof>")]
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(with = "crate::lotus_json")]
+    pub sector_type: RegisteredSealProof,
+    pub sector_expiry: ChainEpoch,
+    #[schemars(with = "LotusJson<DealID>")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+}
+
+macro_rules! impl_lotus_json_for_sector_deals {
+    // Handling versions where `sector_number` should be None (v8, v9, v11, v12)
+    (no_sector_number: $type_suffix:path: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
+                    type LotusJson = SectorDealsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sector_number: None,
+                            sector_type: self.sector_type.into(),
+                            sector_expiry: self.sector_expiry.into_lotus_json(),
+                            deal_ids: self.deal_ids.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sector_expiry: json.sector_expiry.into(),
+                            sector_type: json.sector_type.into(),
+                            deal_ids: json.deal_ids.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+    ($type_suffix:path: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
+                    type LotusJson = SectorDealsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sector_number: Some(self.sector_number.into_lotus_json()),
+                            sector_type: self.sector_type.into(),
+                            sector_expiry: self.sector_expiry.into_lotus_json(),
+                            deal_ids: self.deal_ids.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sector_number: json.sector_number.unwrap_or_default(),
+                            sector_type: json.sector_type.into(),
+                            sector_expiry: json.sector_expiry.into(),
+                            deal_ids: json.deal_ids.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_sector_deals!(no_sector_number: fvm_shared3::sector: 11, 12);
+impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16);
+
+// #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+// #[serde(rename_all = "PascalCase")]
+// pub struct VerifyDealsForActivationParamsLotusJson {
+//     pub sectors: Vec<SectorDealsLotusJson>,
+// }
+
+// macro_rules! impl_lotus_json_for_publish_storage_deals_params {
+//     ($($version:literal),+) => {
+//         $(
+//             paste! {
+//                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams {
+//                     type LotusJson = VerifyDealsForActivationParamsLotusJson;
+
+//                     #[cfg(test)]
+//                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+//                         vec![
+//                         ]
+//                     }
+
+//                     fn into_lotus_json(self) -> Self::LotusJson {
+//                         Self::LotusJson {
+//                             sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+//                         }
+//                     }
+
+//                     fn from_lotus_json(json: Self::LotusJson) -> Self {
+//                         Self {
+//                             sectors: json.sectors.into_iter()
+//                             .map(|s| fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams::from_lotus_json(s)) // delegate
+//                             .collect(),
+//                         }
+//                     }
+//                 }
+//             }
+//         )+
+//     };
+// }
+
+// impl_lotus_json_for_publish_storage_deals_params!(16);
