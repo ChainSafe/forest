@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#5946](https://github.com/ChainSafe/forest/pull/5946) Updated parameters and response of `Forest.StateCompute` RPC method to support new `forest-cli state compute` options.
+
 ### Added
 
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
