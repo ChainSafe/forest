@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::*;
+use crate::rpc::eth::types::GetStorageAtParams;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
@@ -124,3 +125,34 @@ macro_rules! impl_evm_delegate_call_params_lotus_json {
 }
 
 impl_evm_delegate_call_params_lotus_json!(10, 11, 12, 13, 14, 15, 16);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct GetStorageAtParamsLotusJson {
+    #[schemars(with = "Vec<u8>")]
+    pub storage_key: Vec<u8>,
+}
+
+impl HasLotusJson for GetStorageAtParams {
+    type LotusJson = GetStorageAtParamsLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "StorageKey": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10]
+            }),
+            GetStorageAtParams::new(vec![0xa]).unwrap(),
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        GetStorageAtParamsLotusJson {
+            storage_key: self.0.to_vec(),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        GetStorageAtParams::new(lotus_json.storage_key).unwrap()
+    }
+}

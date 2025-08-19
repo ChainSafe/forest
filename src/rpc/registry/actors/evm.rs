@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::eth::types::GetStorageAtParams;
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use anyhow::Result;
@@ -20,6 +21,12 @@ macro_rules! register_evm_version {
                 (Method::InvokeContract, RawBytes),
                 (Method::InvokeContractDelegate, DelegateCallParams),
             ]
+        );
+
+        $registry.register_method(
+            $code_cid,
+            Method::GetStorageAt as MethodNum,
+            GetStorageAtParams::deserialize_params,
         );
 
         register_actor_methods!(

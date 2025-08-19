@@ -62,8 +62,9 @@ impl FromStr for EthBytes {
 pub struct GetBytecodeReturn(pub Option<Cid>);
 
 const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = 32;
+const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetStorageAtParams(pub [u8; GET_STORAGE_AT_PARAMS_ARRAY_LENGTH]);
 
 impl GetStorageAtParams {
@@ -80,10 +81,17 @@ impl GetStorageAtParams {
     }
 
     pub fn serialize_params(&self) -> anyhow::Result<Vec<u8>> {
-        const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
         let mut encoded = fvm_ipld_encoding::to_vec(&RawBytes::new(self.0.to_vec()))?;
         encoded.insert(0, LENGTH_BUF_GET_STORAGE_AT_PARAMS);
         Ok(encoded)
+    }
+
+    pub fn deserialize_params(bytes: &[u8]) -> anyhow::Result<Self> {
+        if bytes.is_empty() || bytes[0] != LENGTH_BUF_GET_STORAGE_AT_PARAMS {
+            anyhow::bail!("Invalid bytes");
+        }
+        let raw_bytes: RawBytes = fvm_ipld_encoding::from_slice(&bytes[1..])?;
+        GetStorageAtParams::new(raw_bytes.into())
     }
 }
 

@@ -2201,6 +2201,8 @@ fn evm_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<Rp
         value: TokenAmount::default().into(),
     };
 
+    let evm_get_storage_at_params = GetStorageAtParams::new(vec![0xa])?;
+
     let tests = vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::from_str(EVM_ADDRESS).unwrap(),
@@ -2236,6 +2238,12 @@ fn evm_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<Rp
             Address::from_str(EVM_ADDRESS).unwrap(),
             fil_actor_evm_state::v16::Method::InvokeContractDelegate as u64,
             to_vec(&evm_delegate_call_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::GetStorageAt as u64,
+            evm_get_storage_at_params.serialize_params()?,
             tipset.key().into(),
         ))?),
     ];
