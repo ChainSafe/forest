@@ -126,6 +126,9 @@ pub enum ApiPaths {
     /// Only expose this method on `/rpc/v2`
     #[strum(ascii_case_insensitive)]
     V2 = 0b00000100,
+    /// Experimental methods, subject to change
+    #[strum(ascii_case_insensitive)]
+    Experimental = 0b10000000,
 }
 
 impl ApiPaths {
@@ -438,6 +441,9 @@ mod tests {
         assert_eq!(v1, ApiPaths::V1);
         let v2 = ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v2".parse().unwrap()).unwrap();
         assert_eq!(v2, ApiPaths::V2);
+        let experimental =
+            ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/experimental".parse().unwrap()).unwrap();
+        assert_eq!(experimental, ApiPaths::Experimental);
 
         ApiPaths::from_uri(&"http://127.0.0.1:2345/rpc/v3".parse().unwrap()).unwrap_err();
     }
