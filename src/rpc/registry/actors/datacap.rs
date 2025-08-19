@@ -4,7 +4,6 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
-use anyhow::Result;
 use cid::Cid;
 
 macro_rules! register_datacap_v9 {
