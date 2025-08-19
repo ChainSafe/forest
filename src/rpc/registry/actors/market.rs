@@ -92,6 +92,7 @@ macro_rules! register_market_versions_13_to_16 {
             [
                 (Method::AddBalance, AddBalanceParams),
                 (Method::WithdrawBalance, WithdrawBalanceParams),
+                (Method::PublishStorageDeals, PublishStorageDealsParams)
             ]
         );
 
