@@ -529,8 +529,6 @@ lotus_json_with_self!(
     std::num::NonZeroUsize,
 );
 
-// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
-//               remove these impls
 mod fixme {
     use super::*;
 
