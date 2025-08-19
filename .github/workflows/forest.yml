@@ -122,7 +122,7 @@ jobs:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -144,11 +144,11 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -174,11 +174,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -200,11 +200,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -225,7 +225,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -247,7 +247,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -274,7 +274,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -296,7 +296,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -318,7 +318,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -340,7 +340,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -361,7 +361,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -383,11 +383,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -406,7 +406,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -440,7 +440,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -487,7 +487,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -524,7 +524,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -543,7 +543,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -569,7 +569,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run api compare tests
