@@ -134,6 +134,12 @@ registered_seal_proof_conversion!(
     RegisteredSealProofV4
 );
 
+impl RegisteredSealProof {
+    pub fn invalid() -> Self {
+        RegisteredSealProof(RegisteredSealProofV4::Invalid(0))
+    }
+}
+
 #[cfg(test)]
 impl quickcheck::Arbitrary for RegisteredSealProof {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
