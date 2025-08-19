@@ -1468,7 +1468,7 @@ impl RpcMethod<2> for ForestStateCompute {
             });
         }
 
-        let mut results = vec![];
+        let mut results = Vec::with_capacity(n_epochs);
         while let Some(Ok(ts)) = futures.next().await {
             let epoch = ts.epoch();
             let tipset_key = ts.key().clone();
