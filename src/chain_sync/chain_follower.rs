@@ -446,7 +446,7 @@ pub async fn get_full_tipset<DB: Blockstore + Sync + Send + 'static>(
         .chain_exchange_full_tipset(peer_id, tipset_keys)
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
-    tipset.persist(&chain_store.db)?;
+    tipset.persist(chain_store.blockstore())?;
 
     Ok(tipset)
 }
@@ -469,7 +469,7 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
 
     for tipset in tipsets.iter() {
         for block in tipset.blocks() {
-            block.persist(&chain_store.db)?;
+            block.persist(chain_store.blockstore())?;
         }
     }
 

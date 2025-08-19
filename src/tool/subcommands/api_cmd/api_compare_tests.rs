@@ -556,15 +556,6 @@ fn node_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn state_tests() -> Vec<RpcTest> {
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4718
-    // Blocked by Lotus.
-    //vec![RpcTest::identity(
-    //    BeaconGetEntry::request((10101,)).unwrap(),
-    //)]
-    vec![]
-}
-
 fn event_tests_with_tipset<DB: Blockstore>(_store: &Arc<DB>, tipset: &Tipset) -> Vec<RpcTest> {
     let epoch = tipset.epoch();
     vec![
@@ -2853,7 +2844,6 @@ pub(super) async fn create_tests(
     tests.extend(node_tests());
     tests.extend(wallet_tests(worker_address));
     tests.extend(eth_tests());
-    tests.extend(state_tests());
     tests.extend(f3_tests()?);
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files.clone())?);
