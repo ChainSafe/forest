@@ -142,7 +142,7 @@ macro_rules! impl_lotus_json_for_label {
     };
 }
 
-impl_lotus_json_for_label!(13, 14, 15, 16);
+impl_lotus_json_for_label!(12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -251,7 +251,7 @@ macro_rules! impl_lotus_json_for_deal_proposal {
     };
 }
 
-impl_lotus_json_for_deal_proposal!(13, 14, 15, 16);
+impl_lotus_json_for_deal_proposal!(12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -296,7 +296,7 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
     };
 }
 
-impl_lotus_json_for_client_deal_proposal!(13, 14, 15, 16);
+impl_lotus_json_for_client_deal_proposal!(12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -336,4 +336,4 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-impl_lotus_json_for_publish_storage_deals_params!(13, 14, 15, 16);
+impl_lotus_json_for_publish_storage_deals_params!(12, 13, 14, 15, 16);
