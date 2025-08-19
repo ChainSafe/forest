@@ -73,11 +73,11 @@ impl TipsetValidator<'_> {
         // matches the mst root in the block header 2. Ensuring it has not
         // previously been seen in the bad blocks cache
         for block in self.0.blocks() {
-            self.validate_msg_root(&chainstore.db, block)?;
-            if let Some(bad_block_cache) = bad_block_cache {
-                if bad_block_cache.peek(block.cid()).is_some() {
-                    return Err(TipsetValidationError::InvalidBlock(*block.cid()));
-                }
+            Self::validate_msg_root(&chainstore.db, block)?;
+            if let Some(bad_block_cache) = bad_block_cache
+                && bad_block_cache.peek(block.cid()).is_some()
+            {
+                return Err(TipsetValidationError::InvalidBlock(*block.cid()));
             }
         }
 
@@ -104,7 +104,6 @@ impl TipsetValidator<'_> {
     }
 
     pub fn validate_msg_root<DB: Blockstore>(
-        &self,
         blockstore: &DB,
         block: &Block,
     ) -> Result<(), TipsetValidationError> {

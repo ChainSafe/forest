@@ -3,7 +3,6 @@
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
-use anyhow::Result;
 use cid::Cid;
 
 // Macro for versions 8-10 that only have Exec method

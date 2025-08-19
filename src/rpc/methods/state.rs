@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use crate::blocks::{Tipset, TipsetKey};
@@ -68,6 +69,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -87,8 +89,6 @@ impl StateCall {
         let tipset = state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        // Handle expensive fork error?
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
         Ok(state_manager.call(message, Some(tipset))?)
     }
 }
@@ -178,7 +178,7 @@ impl RpcMethod<1> for StateNetworkVersion {
 }
 
 /// gets the public key address of the given ID address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateAccountKey>
 pub enum StateAccountKey {}
 
 impl RpcMethod<2> for StateAccountKey {
@@ -205,7 +205,7 @@ impl RpcMethod<2> for StateAccountKey {
 }
 
 /// retrieves the ID address of the given address
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateLookupID>
 pub enum StateLookupID {}
 
 impl RpcMethod<2> for StateLookupID {
@@ -1086,8 +1086,6 @@ impl RpcMethod<2> for StateGetReceipt {
 pub enum StateWaitMsgV0 {}
 
 impl RpcMethod<2> for StateWaitMsgV0 {
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
-    // point v0 implementation back to this one
     const NAME: &'static str = "Filecoin.StateWaitMsgV0";
     const PARAM_NAMES: [&'static str; 2] = ["messageCid", "confidence"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
@@ -1161,7 +1159,7 @@ impl RpcMethod<4> for StateWaitMsg {
 }
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#statesearchmsg>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#StateSearchMsg>
 pub enum StateSearchMsg {}
 
 impl RpcMethod<4> for StateSearchMsg {
@@ -1205,7 +1203,7 @@ impl RpcMethod<4> for StateSearchMsg {
 }
 
 /// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md#StateSearchMsgLimited>
 pub enum StateSearchMsgLimited {}
 
 impl RpcMethod<2> for StateSearchMsgLimited {
@@ -1357,10 +1355,10 @@ impl RpcMethod<2> for StateFetchRoot {
                 }
 
                 while let Some(cid) = to_be_fetched.pop() {
-                    if task_set.len() == MAX_CONCURRENT_REQUESTS {
-                        if let Some(ret) = task_set.join_next().await {
-                            handle_worker(&mut fetched, &mut failures, ret?)
-                        }
+                    if task_set.len() == MAX_CONCURRENT_REQUESTS
+                        && let Some(ret) = task_set.join_next().await
+                    {
+                        handle_worker(&mut fetched, &mut failures, ret?)
                     }
                     task_set.spawn_blocking({
                         let network_send = network_send.clone();
@@ -1419,34 +1417,68 @@ impl RpcMethod<2> for StateFetchRoot {
 
 pub enum ForestStateCompute {}
 
-impl RpcMethod<1> for ForestStateCompute {
+impl RpcMethod<2> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
-    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (ChainEpoch,);
-    type Ok = Cid;
+    type Params = (ChainEpoch, Option<NonZeroUsize>);
+    type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (epoch,): Self::Params,
+        (from_epoch, n_epochs): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_index().tipset_by_height(
-            epoch,
+        let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
+        let to_epoch = from_epoch + n_epochs - 1;
+        let to_ts = ctx.chain_index().tipset_by_height(
+            to_epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let StateOutput { state_root, .. } = ctx
-            .state_manager
-            .compute_tipset_state(
-                tipset,
-                crate::state_manager::NO_CALLBACK,
-                VMTrace::NotTraced,
-            )
-            .await?;
+        let from_ts = ctx.chain_index().tipset_by_height(
+            from_epoch,
+            to_ts.clone(),
+            ResolveNullTipset::TakeOlder,
+        )?;
 
-        Ok(state_root)
+        let mut futures = FuturesOrdered::new();
+        for ts in to_ts
+            .chain_arc(ctx.store())
+            .take_while(|ts| ts.epoch() >= from_ts.epoch())
+        {
+            let chain_store = ctx.chain_store().clone();
+            let network_context = ctx.sync_network_context.clone();
+            futures.push_front(async move {
+                if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
+                    // Backfill full tipset from the network
+                    let fts = network_context
+                        .chain_exchange_messages(None, &ts)
+                        .await
+                        .map_err(|e| anyhow::anyhow!(e))?;
+                    fts.persist(chain_store.blockstore())?;
+                }
+                anyhow::Ok(ts)
+            });
+        }
+
+        let mut results = Vec::with_capacity(n_epochs as _);
+        while let Some(Ok(ts)) = futures.next().await {
+            let epoch = ts.epoch();
+            let tipset_key = ts.key().clone();
+            let StateOutput { state_root, .. } = ctx
+                .state_manager
+                .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+                .await?;
+            results.push(ForestComputeStateOutput {
+                state_root,
+                epoch,
+                tipset_key,
+            });
+        }
+        Ok(results)
     }
 }
 
@@ -1976,8 +2008,6 @@ impl RpcMethod<1> for StateGetBeaconEntry {
 pub enum StateSectorPreCommitInfoV0 {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
-    // point v0 implementation back to this one
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorNumber", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V0); // Changed in V1
@@ -2449,10 +2479,10 @@ impl RpcMethod<3> for StateListMessages {
             if ctx.state_manager.lookup_id(&to, ts.as_ref())?.is_none() {
                 return Ok(vec![]);
             }
-        } else if let Some(from) = from_to.from {
-            if ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none() {
-                return Ok(vec![]);
-            }
+        } else if let Some(from) = from_to.from
+            && ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none()
+        {
+            return Ok(vec![]);
         }
 
         let mut out = Vec::new();

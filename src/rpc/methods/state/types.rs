@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::Message as _;
 use crate::shim::executor::ApplyRet;
@@ -31,6 +32,20 @@ pub struct ComputeStateOutput {
 }
 
 lotus_json_with_self!(ComputeStateOutput);
+
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ForestComputeStateOutput {
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub state_root: Cid,
+    pub epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<TipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_key: TipsetKey,
+}
+
+lotus_json_with_self!(ForestComputeStateOutput);
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

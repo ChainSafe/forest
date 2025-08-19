@@ -10,12 +10,13 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
+use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_encoding::{RawBytes, to_vec};
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
+use get_size2::GetSize;
 
 /// Represents a wrapped message with signature bytes.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
+#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq, GetSize)]
 pub struct SignedMessage {
     pub message: Message,
     pub signature: Signature,

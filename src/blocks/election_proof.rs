@@ -4,11 +4,12 @@
 use crate::blocks::VRFProof;
 use crate::shim::clock::BLOCKS_PER_EPOCH;
 use crate::utils::encoding::blake2b_256;
+use fvm_ipld_encoding::tuple::*;
+use get_size2::GetSize;
 use num::{
     BigInt, Integer,
     bigint::{ParseBigIntError, Sign},
 };
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::sync::LazyLock;
 
 const PRECISION: u64 = 256;
@@ -134,7 +135,17 @@ impl Poiss {
 /// This is generated from hashing a partial ticket and using the hash to
 /// generate a value.
 #[derive(
-    Clone, Debug, PartialEq, PartialOrd, Eq, Default, Ord, Serialize_tuple, Deserialize_tuple, Hash,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Default,
+    Ord,
+    Serialize_tuple,
+    Deserialize_tuple,
+    Hash,
+    GetSize,
 )]
 pub struct ElectionProof {
     pub win_count: i64,

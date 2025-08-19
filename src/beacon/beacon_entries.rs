@@ -4,8 +4,8 @@
 use crate::utils::encoding::serde_byte_array;
 use byteorder::{BigEndian, ByteOrder as _};
 use digest::Digest as _;
+use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that
@@ -33,6 +33,14 @@ pub struct BeaconEntry {
 
 impl BeaconEntry {
     pub fn new(round: u64, signature: Vec<u8>) -> Self {
+        // Drop any excess capacity to make heap usage deterministic across allocators.
+        // Avoid shrink_to_fit: it's a non-binding hint.
+        let signature = signature.into_boxed_slice().into_vec();
+        debug_assert_eq!(
+            signature.len(),
+            signature.capacity(),
+            "BeaconEntry::signature should be right-sized"
+        );
         Self { round, signature }
     }
 

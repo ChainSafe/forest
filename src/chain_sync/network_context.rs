@@ -103,10 +103,10 @@ where
         F: Fn(&T) -> bool,
     {
         while let Some(result) = self.tasks.join_next().await {
-            if let Ok(Ok(value)) = result {
-                if validate(&value) {
-                    return Some(value);
-                }
+            if let Ok(Ok(value)) = result
+                && validate(&value)
+            {
+                return Some(value);
             }
         }
         // So far every task have failed
@@ -159,10 +159,38 @@ where
         .await
     }
 
+    /// Send a `chain_exchange` request for messages to assemble a full tipset with a local tipset,
+    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
+    pub async fn chain_exchange_messages(
+        &self,
+        peer_id: Option<PeerId>,
+        ts: &Tipset,
+    ) -> Result<FullTipset, String> {
+        let mut bundles: Vec<TipsetBundle> = self
+            .handle_chain_exchange_request(
+                peer_id,
+                ts.key(),
+                NonZeroU64::new(1).expect("Infallible"),
+                MESSAGES,
+                |_| true,
+            )
+            .await?;
+
+        if bundles.len() != 1 {
+            return Err(format!(
+                "chain exchange request returned {} tipsets, 1 expected.",
+                bundles.len()
+            ));
+        }
+        let mut bundle = bundles.remove(0);
+        bundle.blocks = ts.block_headers().to_vec();
+        bundle.try_into()
+    }
+
     /// Send a `chain_exchange` request for a single full tipset (includes
     /// messages) If `peer_id` is `None`, requests will be sent to a set of
     /// shuffled peers.
-    pub async fn chain_exchange_fts(
+    pub async fn chain_exchange_full_tipset(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
@@ -179,7 +207,7 @@ where
 
         if fts.len() != 1 {
             return Err(format!(
-                "Full tipset request returned {} tipsets",
+                "Full tipset request returned {} tipsets, 1 expected.",
                 fts.len()
             ));
         }
@@ -212,7 +240,8 @@ where
         validate: F,
     ) -> Result<Vec<T>, String>
     where
-        T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
+        T: TryFrom<TipsetBundle> + Send + Sync + 'static,
+        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
         F: Fn(&Vec<T>) -> bool,
     {
         let request = ChainExchangeRequest {
@@ -309,14 +338,14 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
-                if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
-                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
-                        tracing::debug!(
-                            "Decreased chain exchange timeout to {}ms. Current average: {}ms",
-                            CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
-                            mean,
-                        );
-                    }
+                if let Ok(mean) = success_time_cost_millis_stats.lock().mean()
+                    && CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _)
+                {
+                    tracing::debug!(
+                        "Decreased chain exchange timeout to {}ms. Current average: {}ms",
+                        CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
+                        mean,
+                    );
                 }
                 trace!("Succeed: handle_chain_exchange_request");
                 v

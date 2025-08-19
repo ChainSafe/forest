@@ -1,21 +1,19 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
+use crate::chain::FilecoinSnapshotVersion;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{self, chain::ChainExportParams, prelude::*};
+use crate::rpc::{self, chain::ForestChainExportParams, prelude::*, types::ApiTipsetKey};
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
-use human_repr::HumanCount;
-use num::Zero as _;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::io::AsyncWriteExt;
 
@@ -38,6 +36,12 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
+        /// Traverse chain in non-deterministic order for better performance with more parallelization.
+        #[arg(long)]
+        unordered: bool,
+        /// Export snapshot in the experimental v2 format(FRC-0108).
+        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
+        format: FilecoinSnapshotVersion,
     },
 }
 
@@ -50,6 +54,8 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                unordered,
+                format,
             } => {
                 let chain_head = ChainHead::call(&client, ()).await?;
 
@@ -85,62 +91,54 @@ impl SnapshotCommands {
                 let output_dir = output_path.parent().context("invalid output path")?;
                 let temp_path = new_forest_car_temp_path_in(output_dir)?;
 
-                let params = ChainExportParams {
+                let params = ForestChainExportParams {
+                    version: format,
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    unordered,
                     skip_checksum,
                     dry_run,
                 };
 
+                let pb = ProgressBar::new_spinner().with_style(
+                    ProgressStyle::with_template(
+                        "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
+                    )
+                    .expect("indicatif template must be valid"),
+                ).with_message(format!("Exporting {} ...", output_path.display()));
+                pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
-                    let start = Instant::now();
-                    let tmp_file = temp_path.to_owned();
-                    let output_path = output_path.clone();
+                    let path: PathBuf = (&temp_path).into();
+                    let pb = pb.clone();
+                    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
                     async move {
-                        let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.5));
-                        println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
-                            let snapshot_size = std::fs::metadata(&tmp_file)
-                                .map(|meta| meta.len())
-                                .unwrap_or(0);
-                            print!(
-                                "{}{}",
-                                anes::MoveCursorToPreviousLine(1),
-                                anes::ClearLine::All
-                            );
-                            let elapsed_secs = start.elapsed().as_secs_f64();
-                            println!(
-                                "{}: {} ({}/s)",
-                                &output_path.to_string_lossy(),
-                                snapshot_size.human_count_bytes(),
-                                if elapsed_secs.is_zero() {
-                                    0.
-                                } else {
-                                    (snapshot_size as f64) / elapsed_secs
-                                }
-                                .human_count_bytes(),
-                            );
-                            let _ = std::io::stdout().flush();
+                            if let Ok(meta) = std::fs::metadata(&path) {
+                                pb.set_position(meta.len());
+                            }
                         }
                     }
                 });
+
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
                 let hash_result = client
-                    .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
                 handle.abort();
-                let _ = handle.await;
+                pb.finish();
+                _ = handle.await;
 
-                if let Some(hash) = hash_result {
-                    save_checksum(&output_path, hash).await?;
+                if !dry_run {
+                    if let Some(hash) = hash_result {
+                        save_checksum(&output_path, hash).await?;
+                    }
+                    temp_path.persist(output_path)?;
                 }
-                temp_path.persist(output_path)?;
 
                 println!("Export completed.");
                 Ok(())

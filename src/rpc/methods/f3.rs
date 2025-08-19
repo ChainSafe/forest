@@ -32,7 +32,7 @@ use crate::{
         LruBlockstoreReadCache,
     },
     libp2p::{NetRPCMethods, NetworkMessage},
-    lotus_json::HasLotusJson as _,
+    lotus_json::{HasLotusJson as _, LotusJson},
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::ApiTipsetKey},
     shim::{
         address::{Address, Protocol},
@@ -43,6 +43,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
+use cid::Cid;
 use enumflags2::BitFlags;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::core::{client::ClientT as _, params::ArrayParams};
@@ -164,7 +165,7 @@ impl GetPowerTable {
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
             LruBlockstoreReadCache::new_with_default_metrics_registry(
-                "get_powertable_cache".into(),
+                "get_powertable".into(),
                 BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
             )
         });
@@ -582,7 +583,7 @@ impl RpcMethod<1> for Finalize {
                 );
                 let fts = ctx
                     .sync_network_context
-                    .chain_exchange_fts(None, &tsk)
+                    .chain_exchange_full_tipset(None, &tsk)
                     .await?;
                 for block in fts.blocks() {
                     block.persist(ctx.store())?;
@@ -623,6 +624,39 @@ impl RpcMethod<2> for SignMessage {
     }
 }
 
+pub enum F3ExportLatestSnapshot {}
+
+impl F3ExportLatestSnapshot {
+    pub async fn run(path: String) -> anyhow::Result<Cid> {
+        let client = get_rpc_http_client()?;
+        let mut params = ArrayParams::new();
+        params.insert(path)?;
+        let LotusJson(cid): LotusJson<Cid> = client
+            .request("Filecoin.F3ExportLatestSnapshot", params)
+            .await?;
+        Ok(cid)
+    }
+}
+
+impl RpcMethod<1> for F3ExportLatestSnapshot {
+    const NAME: &'static str = "F3.ExportLatestSnapshot";
+    const PARAM_NAMES: [&'static str; 1] = ["path"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Exports the latest F3 snapshot to the specified path and returns its CID");
+
+    type Params = (String,);
+    type Ok = Cid;
+
+    async fn handle(
+        _ctx: Ctx<impl Blockstore>,
+        (path,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(Self::run(path).await?)
+    }
+}
+
 /// returns a finality certificate at given instance number
 pub enum F3GetCertificate {}
 impl RpcMethod<1> for F3GetCertificate {
@@ -641,8 +675,8 @@ impl RpcMethod<1> for F3GetCertificate {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(instance)?;
-        let response = client.request(Self::NAME, params).await?;
-        Ok(response)
+        let response: LotusJson<Self::Ok> = client.request(Self::NAME, params).await?;
+        Ok(response.into_inner())
     }
 }
 
@@ -659,8 +693,8 @@ impl RpcMethod<0> for F3GetLatestCertificate {
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
-        let response = client.request(Self::NAME, ArrayParams::new()).await?;
-        Ok(response)
+        let response: LotusJson<Self::Ok> = client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response.into_inner())
     }
 }
 
@@ -703,8 +737,8 @@ impl RpcMethod<1> for F3GetF3PowerTable {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(tsk.into_lotus_json())?;
-        let response = client.request(Self::NAME, params).await?;
-        Ok(response)
+        let response: LotusJson<Self::Ok> = client.request(Self::NAME, params).await?;
+        Ok(response.into_inner())
     }
 }
 
@@ -727,8 +761,8 @@ impl RpcMethod<1> for F3GetF3PowerTableByInstance {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(instance)?;
-        let response = client.request(Self::NAME, params).await?;
-        Ok(response)
+        let response: LotusJson<Self::Ok> = client.request(Self::NAME, params).await?;
+        Ok(response.into_inner())
     }
 }
 
@@ -756,14 +790,15 @@ impl RpcMethod<0> for F3IsRunning {
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#F3GetProgress>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetProgress>
 pub enum F3GetProgress {}
 
 impl F3GetProgress {
     async fn run() -> anyhow::Result<F3InstanceProgress> {
         let client = get_rpc_http_client()?;
-        let response = client.request(Self::NAME, ArrayParams::new()).await?;
-        Ok(response)
+        let response: LotusJson<F3InstanceProgress> =
+            client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response.into_inner())
     }
 }
 
@@ -781,14 +816,15 @@ impl RpcMethod<0> for F3GetProgress {
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v1-unstable-methods.md#f3getmanifest>
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetManifest>
 pub enum F3GetManifest {}
 
 impl F3GetManifest {
     async fn run() -> anyhow::Result<F3Manifest> {
         let client = get_rpc_http_client()?;
-        let response = client.request(Self::NAME, ArrayParams::new()).await?;
-        Ok(response)
+        let response: LotusJson<F3Manifest> =
+            client.request(Self::NAME, ArrayParams::new()).await?;
+        Ok(response.into_inner())
     }
 }
 

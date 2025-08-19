@@ -49,6 +49,7 @@ pub trait SettingsStore {
     fn exists(&self, key: &str) -> anyhow::Result<bool>;
 
     /// Returns all setting keys.
+    #[allow(dead_code)]
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
 }
 
@@ -113,6 +114,7 @@ pub trait EthMappingsStore {
     fn write_bin(&self, key: &EthHash, value: &[u8]) -> anyhow::Result<()>;
 
     /// Returns `Ok(true)` if key exists in store.
+    #[allow(dead_code)]
     fn exists(&self, key: &EthHash) -> anyhow::Result<bool>;
 
     /// Returns all message CIDs with their timestamp.
@@ -194,6 +196,7 @@ pub trait IndicesStore {
 
     fn write_bin(&self, key: &Cid, value: &[u8]) -> anyhow::Result<()>;
 
+    #[allow(dead_code)]
     fn exists(&self, key: &Cid) -> anyhow::Result<bool>;
 }
 

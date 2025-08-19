@@ -20,7 +20,6 @@ mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
 mod wait_api_cmd;
-use std::io::Write;
 
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;

@@ -103,9 +103,7 @@ impl BeaconSchedule {
             // return no beacon entries for this epoch.
             return Ok(vec![]);
         }
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/3572
-        //               this is a sketchy way to handle the genesis block not
-        //               having a entry
+
         let prev_round = if prev.round() == 0 {
             max_round - 1
         } else {
@@ -262,7 +260,7 @@ impl DrandBeacon {
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
             verified_beacons: SizeTrackingLruCache::new_with_default_metrics_registry(
-                "verified_beacons_cache".into(),
+                "verified_beacons".into(),
                 NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
             ),
         }

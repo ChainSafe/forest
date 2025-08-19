@@ -7,9 +7,9 @@ use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, CachingBlockHeader, FullTipset, 
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
+use fvm_ipld_encoding::tuple::*;
 use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;
@@ -125,7 +125,8 @@ impl ChainExchangeResponse {
     /// implementation.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
-        T: TryFrom<TipsetBundle, Error = String>,
+        T: TryFrom<TipsetBundle>,
+        <T as TryFrom<TipsetBundle>>::Error: std::fmt::Display,
     {
         if self.status != ChainExchangeResponseStatus::Success
             && self.status != ChainExchangeResponseStatus::PartialResponse
@@ -133,7 +134,10 @@ impl ChainExchangeResponse {
             return Err(format!("Status {:?}: {}", self.status, self.message));
         }
 
-        self.chain.into_iter().map(T::try_from).collect()
+        self.chain
+            .into_iter()
+            .map(|i| T::try_from(i).map_err(|e| e.to_string()))
+            .collect()
     }
 }
 /// Contains all BLS and SECP messages and their indexes per block

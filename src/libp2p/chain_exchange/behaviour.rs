@@ -73,14 +73,14 @@ impl ChainExchangeBehaviour {
 
     pub fn on_outbound_error(&mut self, request_id: &OutboundRequestId, error: OutboundFailure) {
         self.track_metrics();
-        if let Some(tx) = self.response_channels.remove(request_id) {
-            if let Err(err) = tx.send(Err(error.into())) {
-                // Demoting log level here because the same request might be sent to multiple
-                // remote peers simultaneously, it's expected that outbound failures that happen
-                // after receiving the first successful response could be sent to a closed
-                // channel.
-                debug!("{err}");
-            }
+        if let Some(tx) = self.response_channels.remove(request_id)
+            && let Err(err) = tx.send(Err(error.into()))
+        {
+            // Demoting log level here because the same request might be sent to multiple
+            // remote peers simultaneously, it's expected that outbound failures that happen
+            // after receiving the first successful response could be sent to a closed
+            // channel.
+            debug!("{err}");
         }
     }
 
