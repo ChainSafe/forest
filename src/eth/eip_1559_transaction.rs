@@ -206,12 +206,6 @@ mod tests {
             .unwrap()
     }
 
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4478
-    // Grab better test vectors, e.g., from Lotus:
-    // <https://github.com/filecoin-project/lotus/blob/85abc61c17bfbddd92b1e568dee83da1c3127bc9/chain/types/ethtypes/eth_1559_transactions_test.go>
-    // This will require implementing more methods for parsing different Ethereum transaction
-    // types.
-
     #[test]
     fn test_valid_eip1559_tx_args_with_signature() {
         let args = create_eip1559_tx_args();
