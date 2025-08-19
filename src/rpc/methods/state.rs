@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use futures::stream::FuturesOrdered;
 pub use types::*;
 
 use crate::blocks::{Tipset, TipsetKey};
@@ -68,6 +69,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -1419,41 +1421,68 @@ impl RpcMethod<2> for StateFetchRoot {
 
 pub enum ForestStateCompute {}
 
-impl RpcMethod<1> for ForestStateCompute {
+impl RpcMethod<2> for ForestStateCompute {
     const NAME: &'static str = "Forest.StateCompute";
-    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const N_REQUIRED_PARAMS: usize = 1;
+    const PARAM_NAMES: [&'static str; 2] = ["epoch", "n_epochs"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (ChainEpoch,);
-    type Ok = Cid;
+    type Params = (ChainEpoch, Option<NonZeroUsize>);
+    type Ok = Vec<ForestComputeStateOutput>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (epoch,): Self::Params,
+        (from_epoch, n_epochs): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_index().tipset_by_height(
-            epoch,
+        let n_epochs = n_epochs.map(|n| n.get()).unwrap_or(1) as ChainEpoch;
+        let to_epoch = from_epoch + n_epochs - 1;
+        let to_ts = ctx.chain_index().tipset_by_height(
+            to_epoch,
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        // Attempt to load full tipset from the store
-        if crate::chain_sync::load_full_tipset(ctx.chain_store(), ts.key()).is_err() {
-            // Load full tipset from the network
-            let fts = ctx
-                .sync_network_context
-                .chain_exchange_messages(None, &ts)
-                .await
-                .map_err(|e| anyhow::anyhow!(e))?;
-            fts.persist(ctx.store())?;
+        let from_ts = ctx.chain_index().tipset_by_height(
+            from_epoch,
+            to_ts.clone(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        let mut futures = FuturesOrdered::new();
+        for ts in to_ts
+            .chain_arc(ctx.store())
+            .take_while(|ts| ts.epoch() >= from_ts.epoch())
+        {
+            let chain_store = ctx.chain_store().clone();
+            let network_context = ctx.sync_network_context.clone();
+            futures.push_front(async move {
+                if crate::chain_sync::load_full_tipset(&chain_store, ts.key()).is_err() {
+                    // Backfill full tipset from the network
+                    let fts = network_context
+                        .chain_exchange_messages(None, &ts)
+                        .await
+                        .map_err(|e| anyhow::anyhow!(e))?;
+                    fts.persist(chain_store.blockstore())?;
+                }
+                anyhow::Ok(ts)
+            });
         }
 
-        let StateOutput { state_root, .. } = ctx
-            .state_manager
-            .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
-            .await?;
-
-        Ok(state_root)
+        let mut results = Vec::with_capacity(n_epochs as _);
+        while let Some(Ok(ts)) = futures.next().await {
+            let epoch = ts.epoch();
+            let tipset_key = ts.key().clone();
+            let StateOutput { state_root, .. } = ctx
+                .state_manager
+                .compute_tipset_state(ts, crate::state_manager::NO_CALLBACK, VMTrace::NotTraced)
+                .await?;
+            results.push(ForestComputeStateOutput {
+                state_root,
+                epoch,
+                tipset_key,
+            });
+        }
+        Ok(results)
     }
 }
 
