@@ -2,13 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::lotus_json::signature::SignatureLotusJson;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::shim::fvm_shared_latest::crypto::signature::Signature;
 use crate::shim::piece::PaddedPieceSize;
-use fil_actor_market_state::v16::{ClientDealProposal, DealProposal, Label};
 
 use ::cid::Cid;
 // use fvm_ipld_encoding::RawBytes;
@@ -67,7 +64,7 @@ macro_rules! impl_lotus_json_for_add_balance_params {
     };
 }
 
-impl_lotus_json_for_add_balance_params!(11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_add_balance_params!(10, 11, 12, 13, 14, 15, 16);
 
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
     ($($version:literal),+) => {
@@ -142,7 +139,7 @@ macro_rules! impl_lotus_json_for_label {
     };
 }
 
-impl_lotus_json_for_label!(12, 13, 14, 15, 16);
+impl_lotus_json_for_label!(10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -251,7 +248,7 @@ macro_rules! impl_lotus_json_for_deal_proposal {
     };
 }
 
-impl_lotus_json_for_deal_proposal!(12, 13, 14, 15, 16);
+impl_lotus_json_for_deal_proposal!(10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -261,7 +258,7 @@ pub struct ClientDealProposalLotusJson {
 }
 
 macro_rules! impl_lotus_json_for_client_deal_proposal {
-    ($($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::ClientDealProposal {
@@ -286,8 +283,8 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
                             proposal: fil_actor_market_state::[<v $version>]::DealProposal::from_lotus_json(json.proposal),
-                            // TODO
-                            client_signature: Signature::new_bls(vec![]),
+                            // TODO: shim signature
+                            client_signature: $type_suffix::Signature::new_bls(vec![]),
                         }
                     }
                 }
@@ -296,7 +293,8 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
     };
 }
 
-impl_lotus_json_for_client_deal_proposal!(12, 13, 14, 15, 16);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared3::crypto::signature: 10, 11);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared4::crypto::signature: 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -336,4 +334,4 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-impl_lotus_json_for_publish_storage_deals_params!(12, 13, 14, 15, 16);
+impl_lotus_json_for_publish_storage_deals_params!(10, 11, 12, 13, 14, 15, 16);
