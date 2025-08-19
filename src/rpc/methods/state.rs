@@ -1462,7 +1462,7 @@ impl RpcMethod<2> for ForestStateCompute {
                         .chain_exchange_messages(None, &ts)
                         .await
                         .map_err(|e| anyhow::anyhow!(e))?;
-                    fts.persist(&chain_store.db)?;
+                    fts.persist(chain_store.blockstore())?;
                 }
                 anyhow::Ok(ts)
             });
