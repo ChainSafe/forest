@@ -8,15 +8,17 @@ use cid::Cid;
 
 macro_rules! register_market_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{Method};
+        use $state_version::{
+            AddBalanceParams, Method, PublishStorageDealsParams, WithdrawBalanceParams,
+        };
 
         register_actor_methods!(
             $registry,
             $code_cid,
             [
-                // (Method::AddBalance, AddBalanceParams),
-                // (Method::WithdrawBalance, WithdrawBalanceParams),
-                // (Method::PublishStorageDeals, PublishStorageDealsParams),
+                (Method::AddBalance, AddBalanceParams),
+                (Method::WithdrawBalance, WithdrawBalanceParams),
+                (Method::PublishStorageDeals, PublishStorageDealsParams),
             ]
         );
 
