@@ -122,7 +122,7 @@ jobs:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -144,11 +144,11 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -174,11 +174,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -200,11 +200,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -225,7 +225,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -247,7 +247,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -274,7 +274,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -296,7 +296,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -305,6 +305,28 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check v2
         run: ./scripts/tests/calibnet_export_f3_check.sh
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-unordered-export-check:
+    needs:
+      - build-ubuntu
+    name: Snapshot unordered export checks
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v5
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Snapshot unordered export check
+        run: ./scripts/tests/calibnet_export_unordered_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-no-discovery-checks:
     needs:
@@ -318,7 +340,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -339,7 +361,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -361,11 +383,11 @@ jobs:
           key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -384,7 +406,7 @@ jobs:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -418,7 +440,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -465,7 +487,7 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -502,7 +524,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -521,7 +543,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -547,7 +569,7 @@ jobs:
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: "forest-${{ runner.os }}"
       - name: Run api compare tests
@@ -577,6 +599,7 @@ jobs:
       - calibnet-wallet-check
       - calibnet-export-check
       - calibnet-export-check-v2
+      - calibnet-unordered-export-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check

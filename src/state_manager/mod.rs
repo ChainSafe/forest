@@ -540,7 +540,6 @@ where
             .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         // Handle state forks
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
@@ -579,9 +578,6 @@ where
             .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
         msg.set_sequence(from_actor.sequence);
 
-        // If the fee cap is set to zero, make gas free
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
-
         // Implicit messages need to set a special gas limit
         let mut msg = msg.clone();
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
@@ -617,9 +613,6 @@ where
         msg: Message,
     ) -> anyhow::Result<ApiInvocResult> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
-
-        // Handle state forks
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let from_a = self.resolve_to_key_addr(&msg.from, &ts).await?;
 

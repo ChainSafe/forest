@@ -4,7 +4,6 @@
 use crate::rpc::eth::types::GetStorageAtParams;
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
-use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 
