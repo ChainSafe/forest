@@ -103,9 +103,7 @@ impl BeaconSchedule {
             // return no beacon entries for this epoch.
             return Ok(vec![]);
         }
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/3572
-        //               this is a sketchy way to handle the genesis block not
-        //               having a entry
+
         let prev_round = if prev.round() == 0 {
             max_round - 1
         } else {
