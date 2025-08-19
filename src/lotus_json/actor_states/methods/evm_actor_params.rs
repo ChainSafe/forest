@@ -153,6 +153,6 @@ impl HasLotusJson for GetStorageAtParams {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        GetStorageAtParams::new(lotus_json.storage_key).unwrap()
+        GetStorageAtParams::new(lotus_json.storage_key).expect("expected array to have 32 elements")
     }
 }
