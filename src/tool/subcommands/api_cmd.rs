@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_compare_tests;
-mod api_run_tests;
 mod generate_test_snapshot;
 mod report;
+mod stateful_tests;
 mod test_snapshot;
 
 use crate::cli_shared::{chain_path, read_config};
@@ -18,7 +18,7 @@ use crate::rpc::eth::types::*;
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
-use crate::tool::subcommands::api_cmd::api_run_tests::TestTransaction;
+use crate::tool::subcommands::api_cmd::stateful_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{Context as _, bail, ensure};
@@ -410,8 +410,8 @@ impl ApiCommands {
                     topic,
                 };
 
-                let tests = api_run_tests::create_tests(tx).await;
-                api_run_tests::run_tests(tests, client.clone(), filter).await?;
+                let tests = stateful_tests::create_tests(tx).await;
+                stateful_tests::run_tests(tests, client.clone(), filter).await?;
             }
             Self::DumpTests {
                 create_tests_args,
