@@ -668,7 +668,7 @@ Usage: forest-cli state <COMMAND>
 
 Commands:
   fetch
-  compute
+  compute     Compute state trees for epochs
   read-state  Read the state of an actor
   help        Print this message or the help of the given subcommand(s)
 
@@ -692,11 +692,15 @@ Options:
 ### `forest-cli state compute`
 
 ```
-Usage: forest-cli state compute --epoch <EPOCH>
+Compute state trees for epochs
+
+Usage: forest-cli state compute [OPTIONS] --epoch <EPOCH>
 
 Options:
-      --epoch <EPOCH>  Which epoch to compute the state transition for
-  -h, --help           Print help
+      --epoch <EPOCH>        Which epoch to compute the state transition for
+  -n, --n-epochs <N_EPOCHS>  Number of tipset epochs to compute state for. Default is 1
+  -v, --verbose              Print epoch and tipset key along with state root
+  -h, --help                 Print help
 ```
 
 ### `forest-cli config`
