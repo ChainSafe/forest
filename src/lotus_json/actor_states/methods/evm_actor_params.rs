@@ -129,7 +129,6 @@ impl_evm_delegate_call_params_lotus_json!(10, 11, 12, 13, 14, 15, 16);
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GetStorageAtParamsLotusJson {
-    #[schemars(with = "Vec<u8>")]
     pub storage_key: Vec<u8>,
 }
 

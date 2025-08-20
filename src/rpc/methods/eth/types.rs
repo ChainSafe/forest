@@ -81,8 +81,8 @@ impl GetStorageAtParams {
     }
 
     pub fn serialize_params(&self) -> anyhow::Result<Vec<u8>> {
-        let mut encoded = fvm_ipld_encoding::to_vec(&RawBytes::new(self.0.to_vec()))?;
-        encoded.insert(0, LENGTH_BUF_GET_STORAGE_AT_PARAMS);
+        let mut encoded = vec![LENGTH_BUF_GET_STORAGE_AT_PARAMS];
+        fvm_ipld_encoding::to_writer(&mut encoded, &RawBytes::new(self.0.to_vec()))?;
         Ok(encoded)
     }
 
