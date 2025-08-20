@@ -19,6 +19,7 @@ pub use fvm_shared4::sector::{
     RegisteredSealProof as RegisteredSealProofV4, SectorInfo as SectorInfoV4,
     SectorSize as SectorSizeV4,
 };
+use get_size2::GetSize;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -380,6 +381,12 @@ impl From<PoStProofV2> for PoStProof {
             post_proof: *RegisteredPoStProof::from(value.post_proof),
             proof_bytes: value.proof_bytes,
         })
+    }
+}
+
+impl GetSize for PoStProof {
+    fn get_heap_size(&self) -> usize {
+        self.0.proof_bytes.get_heap_size()
     }
 }
 

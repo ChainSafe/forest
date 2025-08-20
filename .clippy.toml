@@ -45,5 +45,13 @@ path = "tempfile::NamedTempFile::new"
 reason = """The temporary files created by this method are not persistable if the temporary directory lives on a different filesystem than the target directory. While it is valid in other contexts (if not persisting files), it was misused many times and so we are banning it. Consider using `tempfile::NamedTempFile::new_in` or `tempfile::NamedTempFile::Builder"""
 
 [[disallowed-methods]]
-path = "lru::LruCache::unbounded"
-reason = """Avoid unbounded lru cache for potential memory leak"""
+path = "hashlink::LruCache::new"
+reason = """Use SizeTrackingLruCache instead."""
+
+[[disallowed-methods]]
+path = "hashlink::LruCache::with_hasher"
+reason = """Use SizeTrackingLruCache instead."""
+
+[[disallowed-methods]]
+path = "hashlink::LruCache::new_unbounded"
+reason = """Avoid unbounded lru cache for potential memory leak, use SizeTrackingLruCache instead."""

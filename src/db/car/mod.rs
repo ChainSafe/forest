@@ -11,7 +11,6 @@ use get_size2::GetSize as _;
 pub use many::ManyCar;
 pub use plain::PlainCar;
 
-use ahash::HashMap;
 use cid::Cid;
 use positioned_io::{ReadAt, Size};
 use std::{
@@ -58,7 +57,9 @@ pub struct ZstdFrameCache {
     /// cache exceeds this amount.
     pub max_size: usize,
     current_size: AtomicUsize,
-    lru: SizeTrackingLruCache<(FrameOffset, CacheKey), HashMap<CidWrapper, Vec<u8>>>,
+    // use `hashbrown::HashMap` here because its `GetSize` implementation is accurate
+    // (thanks to `hashbrown::HashMap::allocation_size`).
+    lru: SizeTrackingLruCache<(FrameOffset, CacheKey), hashbrown::HashMap<CidWrapper, Vec<u8>>>,
 }
 
 impl Default for ZstdFrameCache {
@@ -72,9 +73,7 @@ impl ZstdFrameCache {
         ZstdFrameCache {
             max_size,
             current_size: AtomicUsize::new(0),
-            lru: SizeTrackingLruCache::unbounded_with_default_metrics_registry(
-                "zstd_frame_cache".into(),
-            ),
+            lru: SizeTrackingLruCache::unbounded_with_default_metrics_registry("zstd_frame".into()),
         }
     }
 
@@ -85,11 +84,18 @@ impl ZstdFrameCache {
             .cache()
             .write()
             .get(&(offset, key))
-            .map(|index| index.get(&cid.into()).cloned())
+            .map(|index| index.get(&CidWrapper::from(cid)).cloned())
     }
 
     /// Insert entry into lru-cache and evict pages if `max_size` has been exceeded.
-    pub fn put(&self, offset: FrameOffset, key: CacheKey, index: HashMap<CidWrapper, Vec<u8>>) {
+    pub fn put(
+        &self,
+        offset: FrameOffset,
+        key: CacheKey,
+        mut index: hashbrown::HashMap<CidWrapper, Vec<u8>>,
+    ) {
+        index.shrink_to_fit();
+
         let lru_key = (offset, key);
         let lru_key_size = lru_key.get_size();
         let entry_size = index.get_size();
@@ -98,7 +104,7 @@ impl ZstdFrameCache {
             return;
         }
 
-        if let Some((_, prev_entry)) = self.lru.push(lru_key, index) {
+        if let Some(prev_entry) = self.lru.push(lru_key, index) {
             // keys are cancelled out
             self.current_size.fetch_add(entry_size, Ordering::Relaxed);
             self.current_size
@@ -124,7 +130,6 @@ impl ZstdFrameCache {
 mod tests {
     use super::*;
     use crate::utils::{multihash::MultihashCode, rand::forest_rng};
-    use ahash::HashMap;
     use fvm_ipld_encoding::IPLD_RAW;
     use multihash_derive::MultihashDigest;
     use rand::Rng;
@@ -149,8 +154,8 @@ mod tests {
         }
     }
 
-    fn gen_index(rng: &mut impl Rng) -> HashMap<CidWrapper, Vec<u8>> {
-        let mut map = HashMap::default();
+    fn gen_index(rng: &mut impl Rng) -> hashbrown::HashMap<CidWrapper, Vec<u8>> {
+        let mut map = hashbrown::HashMap::default();
         for _ in 0..10 {
             let vec_len = rng.gen_range(64..1024);
             let mut data = vec![0; vec_len];

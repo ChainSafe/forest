@@ -742,6 +742,7 @@ Options:
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
+      --unordered                  Traverse chain in non-deterministic order for better performance with more parallelization
       --format <FORMAT>            Export snapshot in the experimental v2 format(FRC-0108) [default: v1] [possible values: v1, v2]
   -h, --help                       Print help
 ```
@@ -851,11 +852,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -903,11 +904,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -928,11 +929,11 @@ Options:
       --output <OUTPUT>
           The output format
 
-          [default: text]
-
           Possible values:
           - text: Text
           - json: JSON
+
+          [default: text]
 
       --limit <LIMIT>
           The maximum number of instances. A value less than 0 indicates no limit
@@ -1395,6 +1396,7 @@ Commands:
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
+  merge-f3     Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
   diff         Show the difference between the canonical and computed state of a tipset
   sync-bucket  Export lite and diff snapshots from one or more CAR files, and upload them to an `S3` bucket
   help         Print this message or the help of the given subcommand(s)
@@ -1452,6 +1454,20 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-tool archive metadata`
+
+```
+Show FRC-0108 metadata of an Filecoin snapshot archive
+
+Usage: forest-tool archive metadata <SNAPSHOT>
+
+Arguments:
+  <SNAPSHOT>  Path to an archive (`.car` or `.car.zst`)
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-tool archive merge`
 
 ```
@@ -1467,6 +1483,20 @@ Options:
                                    `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`. [default: .]
       --force                      Overwrite output file without prompting
   -h, --help                       Print help
+```
+
+### `forest-tool archive merge-f3`
+
+```
+Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+
+Usage: forest-tool archive merge-f3 --v1 <FILECOIN_V1> --f3 <F3> --output <OUTPUT>
+
+Options:
+      --v1 <FILECOIN_V1>  Path to the v1 Filecoin snapshot
+      --f3 <F3>           Path to the F3 snapshot
+      --output <OUTPUT>   Path to the snapshot output file in `.forest.car.zst` format
+  -h, --help              Print help
 ```
 
 ### `forest-tool archive diff`
@@ -1508,12 +1538,12 @@ Options:
       --export-mode <EXPORT_MODE>
           Export mode
 
-          [default: all]
-
           Possible values:
           - all:  Export all types of snapshots
           - lite: Export only lite snapshots
           - diff: Export only diff snapshots
+
+          [default: all]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1617,11 +1647,11 @@ API tooling
 Usage: forest-tool api <COMMAND>
 
 Commands:
-  serve
+  serve                   Starts an offline RPC server using provided snapshot files
   compare                 Compare two RPC providers
-  generate-test-snapshot
-  dump-tests
-  test
+  generate-test-snapshot  Generates RPC test snapshots from test dump files and a Forest database
+  dump-tests              Dumps RPC test cases for a specified API path
+  test                    Runs RPC tests using provided test snapshot files
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1631,19 +1661,41 @@ Options:
 ### `forest-tool api serve`
 
 ```
+Starts an offline RPC server using provided snapshot files.
+
+This command launches a local RPC server for development and testing purposes. Additionally, it can be used to serve data from archival snapshots.
+
 Usage: forest-tool api serve [OPTIONS] [SNAPSHOT_FILES]...
 
 Arguments:
-  [SNAPSHOT_FILES]...  Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
+  [SNAPSHOT_FILES]...
+          Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`
 
 Options:
-      --chain <CHAIN>            Filecoin network chain [default: mainnet]
-      --port <PORT>              [default: 2345]
+      --chain <CHAIN>
+          Filecoin network chain
+
+          [default: mainnet]
+
+      --port <PORT>
+          [default: 2345]
+
       --auto-download-snapshot
-      --height <HEIGHT>          Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s) starting at HEAD [default: -50]
-      --genesis <GENESIS>        Genesis file path, only applicable for devnet
-      --save-token <SAVE_TOKEN>  If provided, indicates the file to which to save the admin token
-  -h, --help                     Print help
+
+
+      --height <HEIGHT>
+          Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s) starting at HEAD
+
+          [default: -50]
+
+      --genesis <GENESIS>
+          Genesis file path, only applicable for devnet
+
+      --save-token <SAVE_TOKEN>
+          If provided, indicates the file to which to save the admin token
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool api compare`
@@ -1720,11 +1772,11 @@ Options:
       --test-criteria-overrides [<TEST_CRITERIA_OVERRIDES>...]
           Additional overrides to modify success criteria for tests
 
-          [default: timeout-and-timeout]
-
           Possible values:
           - valid-and-timeout:   Test pass when first endpoint returns a valid result and the second one timeout
           - timeout-and-timeout: Test pass when both endpoints timeout
+
+          [default: timeout-and-timeout]
 
       --report-dir <REPORT_DIR>
           Specify a directory to dump the test report
@@ -1732,12 +1784,12 @@ Options:
       --report-mode <REPORT_MODE>
           Report detail level: full (default), failure-only, or summary
 
-          [default: full]
-
           Possible values:
           - full:         Show everything
           - failure-only: Show summary and failures only
           - summary:      Show summary only
+
+          [default: full]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1746,27 +1798,46 @@ Options:
 ### `forest-tool api generate-test-snapshot`
 
 ```
+Generates RPC test snapshots from test dump files and a Forest database.
+
+This command processes test dump files and creates RPC snapshots for use in automated testing. You can specify the database folder, network chain, and output directory. Optionally, you can allow generating snapshots even if Lotus and Forest responses differ, which is useful for non-deterministic tests.
+
+See additional documentation in the <https://docs.forest.chainsafe.io/developers/guides/rpc_test_snapshot/>.
+
 Usage: forest-tool api generate-test-snapshot [OPTIONS] --chain <CHAIN> --out-dir <OUT_DIR> <TEST_DUMP_FILES>...
 
 Arguments:
-  <TEST_DUMP_FILES>...  Path to test dumps that are generated by `forest-tool api dump-tests` command
+  <TEST_DUMP_FILES>...
+          Path to test dumps that are generated by `forest-tool api dump-tests` command
 
 Options:
       --db <DB>
           Path to the database folder that powers a Forest node
+
       --chain <CHAIN>
           Filecoin network chain
+
       --out-dir <OUT_DIR>
           Folder into which test snapshots are dumped
+
       --use-response-from <USE_RESPONSE_FROM>
-          Allow generating snapshot even if Lotus generated a different response. This is useful when the response is not deterministic or a failing test is expected. If generating a failing test, use `Lotus` as the argument to ensure the test passes only when the response from Forest is fixed and matches the response from Lotus [possible values: forest, lotus]
+          Allow generating snapshot even if Lotus generated a different response. This is useful when the response is not deterministic or a failing test is expected. If generating a failing test, use `Lotus` as the argument to ensure the test passes only when the response from Forest is fixed and matches the response from Lotus
+
+          [possible values: forest, lotus]
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool api dump-tests`
 
 ```
+Dumps RPC test cases for a specified API path.
+
+This command generates and outputs RPC test cases for a given API path, optionally including ignored tests. Useful for inspecting or exporting test cases for further analysis or manual review.
+
+See additional documentation in the <https://docs.forest.chainsafe.io/developers/guides/rpc_test_snapshot/>.
+
 Usage: forest-tool api dump-tests [OPTIONS] --path <PATH> [SNAPSHOT_FILES]...
 
 Arguments:
@@ -1808,13 +1879,21 @@ Options:
 ### `forest-tool api test`
 
 ```
+Runs RPC tests using provided test snapshot files.
+
+This command executes RPC tests based on previously generated test snapshots, reporting success or failure for each test. Useful for validating node behavior against expected responses.
+
+See additional documentation in the <https://docs.forest.chainsafe.io/developers/guides/rpc_test_snapshot/>.
+
 Usage: forest-tool api test <FILES>...
 
 Arguments:
-  <FILES>...  Path to test snapshots that are generated by `forest-tool api generate-test-snapshot` command
+  <FILES>...
+          Path to test snapshots that are generated by `forest-tool api generate-test-snapshot` command
 
 Options:
-  -h, --help  Print help
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### `forest-tool net ping`

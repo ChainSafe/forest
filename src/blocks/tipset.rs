@@ -8,10 +8,11 @@ use std::{
 
 use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 use crate::{
+    chain_sync::TipsetValidator,
     cid_collections::SmallCidNonEmptyVec,
     networks::{calibnet, mainnet},
     shim::clock::ChainEpoch,
-    utils::cid::CidCborExt,
+    utils::{cid::CidCborExt, get_size::nunny_vec_heap_size_helper},
 };
 use ahash::HashMap;
 use anyhow::Context as _;
@@ -146,9 +147,10 @@ impl IntoIterator for TipsetKey {
 ///
 /// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages`]
 /// for more.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, GetSize)]
 pub struct Tipset {
     /// Sorted
+    #[get_size(size_fn = nunny_vec_heap_size_helper)]
     headers: NonEmpty<CachingBlockHeader>,
     // key is lazily initialized via `fn key()`.
     key: OnceLock<TipsetKey>,
@@ -240,7 +242,7 @@ impl Tipset {
     pub fn new<H: Into<CachingBlockHeader>>(
         headers: impl IntoIterator<Item = H>,
     ) -> Result<Self, CreateTipsetError> {
-        let headers = NonEmpty::new(
+        let mut headers = NonEmpty::new(
             headers
                 .into_iter()
                 .map(Into::<CachingBlockHeader>::into)
@@ -248,7 +250,7 @@ impl Tipset {
                 .collect(),
         )
         .map_err(|_| CreateTipsetError::Empty)?;
-
+        headers.shrink_to_fit();
         verify_block_headers(&headers)?;
 
         Ok(Self {
@@ -544,6 +546,15 @@ impl FullTipset {
     /// Returns the tipset's calculated weight.
     pub fn weight(&self) -> &BigInt {
         &self.first_block().header().weight
+    }
+    /// Persists the tipset into the blockstore.
+    pub fn persist(&self, db: &impl Blockstore) -> anyhow::Result<()> {
+        for block in self.blocks() {
+            // To persist `TxMeta` that is required for loading tipset messages
+            TipsetValidator::validate_msg_root(db, block)?;
+            block.persist(db)?;
+        }
+        Ok(())
     }
 }
 

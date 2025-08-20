@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::LazyLock;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -8,23 +9,22 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::Error;
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cache::SizeTrackingLruCache;
 use crate::utils::misc::env::is_env_truthy;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
-use lru::LruCache;
 use nonzero_ext::nonzero;
-use parking_lot::Mutex;
+use num::Integer;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
-type TipsetCache = Mutex<LruCache<TipsetKey, Arc<Tipset>>>;
+type TipsetCache = SizeTrackingLruCache<TipsetKey, Arc<Tipset>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
-
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     pub db: DB,
 }
@@ -40,25 +40,27 @@ pub enum ResolveNullTipset {
 
 impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
-        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
+        let ts_cache = SizeTrackingLruCache::new_with_default_metrics_registry(
+            "tipset".into(),
+            DEFAULT_TIPSET_CACHE_SIZE,
+        );
         Self { ts_cache, db }
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
-        if !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED")
-            && let Some(ts) = self.ts_cache.lock().get(tsk)
-        {
+        let cache_enabled = !is_env_truthy("FOREST_TIPSET_CACHE_DISABLED");
+        if cache_enabled && let Some(ts) = self.ts_cache.get_cloned(tsk) {
             metrics::LRU_CACHE_HIT
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
-            return Ok(Some(ts.clone()));
+            return Ok(Some(ts));
         }
 
         let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
-        if let Some(ts) = &ts_opt {
-            self.ts_cache.lock().put(tsk.clone(), ts.clone());
+        if cache_enabled && let Some(ts) = &ts_opt {
+            self.ts_cache.push(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
                 .get_or_create(&metrics::values::TIPSET)
                 .inc();
@@ -117,9 +119,36 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn tipset_by_height(
         &self,
         to: ChainEpoch,
-        from: Arc<Tipset>,
+        mut from: Arc<Tipset>,
         resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
+        use crate::shim::policy::policy_constants::CHAIN_FINALITY;
+
+        static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
+            SizeTrackingLruCache::new_with_default_metrics_registry(
+                "tipset_by_height".into(),
+                4096.try_into().expect("infallible"),
+            )
+        });
+
+        // use `CHAIN_FINALITY` as checkpoint interval
+        fn next_checkpoint(epoch: ChainEpoch) -> ChainEpoch {
+            epoch - epoch.mod_floor(&CHAIN_FINALITY) + CHAIN_FINALITY
+        }
+
+        let from_epoch = from.epoch();
+
+        let mut checkpoint_from_epoch = to;
+        while checkpoint_from_epoch < from_epoch {
+            if let Some(checkpoint_from_key) = CACHE.get_cloned(&checkpoint_from_epoch)
+                && let Ok(Some(checkpoint_from)) = self.load_tipset(&checkpoint_from_key)
+            {
+                from = checkpoint_from;
+                break;
+            }
+            checkpoint_from_epoch = next_checkpoint(checkpoint_from_epoch);
+        }
+
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
@@ -131,6 +160,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
+            // use `child.epoch() + CHAIN_FINALITY <= from_epoch`
+            // to ensure the cached child is finalized(not on a fork).
+            if child.epoch() % CHAIN_FINALITY == 0 && child.epoch() + CHAIN_FINALITY <= from_epoch {
+                CACHE.push(child.epoch(), child.key().clone());
+            }
+
             if to == child.epoch() {
                 return Ok(child);
             }

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(crate) mod account;
+pub(crate) mod cron;
+pub(crate) mod datacap;
 pub(crate) mod evm;
 pub(crate) mod init;
 pub(crate) mod market;
@@ -10,3 +12,4 @@ pub(crate) mod multisig;
 pub(crate) mod power;
 pub(crate) mod reward;
 pub(crate) mod system;
+pub(crate) mod verified_reg;

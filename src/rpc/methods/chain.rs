@@ -9,7 +9,7 @@ use types::*;
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainStore, FilecoinSnapshotVersion, HeadChange};
+use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
@@ -17,6 +17,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
+use crate::rpc::f3::F3ExportLatestSnapshot;
 use crate::rpc::types::{ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
@@ -37,6 +38,7 @@ use num::BigInt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::fs::File;
 use std::{
     collections::VecDeque,
     path::PathBuf,
@@ -319,6 +321,7 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
+            unordered,
             skip_checksum,
             dry_run,
         } = params;
@@ -343,6 +346,11 @@ impl RpcMethod<1> for ForestChainExport {
             ctx.chain_index()
                 .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
+        let options = Some(ExportOptions {
+            skip_checksum,
+            unordered,
+            seen: Default::default(),
+        });
         let writer = if dry_run {
             tokio_util::either::Either::Left(VoidAsyncWriter)
         } else {
@@ -355,20 +363,39 @@ impl RpcMethod<1> for ForestChainExport {
                     &start_ts,
                     recent_roots,
                     writer,
-                    CidHashSet::default(),
-                    skip_checksum,
+                    options,
                 )
                 .await
             }
             FilecoinSnapshotVersion::V2 => {
+                let f3_snap_tmp_path = {
+                    let mut f3_snap_dir = output_path.clone();
+                    let mut builder = tempfile::Builder::new();
+                    let with_suffix = builder.suffix(".f3snap.bin");
+                    if f3_snap_dir.pop() {
+                        with_suffix.tempfile_in(&f3_snap_dir)
+                    } else {
+                        with_suffix.tempfile_in(".")
+                    }?
+                    .into_temp_path()
+                };
+                let f3_snap = {
+                    match F3ExportLatestSnapshot::run(f3_snap_tmp_path.display().to_string()).await
+                    {
+                        Ok(cid) => Some((cid, File::open(&f3_snap_tmp_path)?)),
+                        Err(e) => {
+                            tracing::error!("Failed to export F3 snapshot: {e}");
+                            None
+                        }
+                    }
+                };
                 crate::chain::export_v2::<Sha256>(
                     &ctx.store_owned(),
-                    None,
+                    f3_snap,
                     &start_ts,
                     recent_roots,
                     writer,
-                    CidHashSet::default(),
-                    skip_checksum,
+                    options,
                 )
                 .await
             }
@@ -409,6 +436,7 @@ impl RpcMethod<1> for ChainExport {
                 output_path,
                 tipset_keys,
                 skip_checksum,
+                unordered: false,
                 dry_run,
             },),
         )
@@ -531,8 +559,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx.store().get_cbor_required(&block_cid)?;
-        let blk_msgs = &blk.messages;
-        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), blk_msgs)?;
+        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), &blk)?;
         let (bls_msg, secp_msg) =
             crate::chain::block_messages_from_cids(ctx.store(), &unsigned_cids, &signed_cids)?;
         let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
@@ -971,6 +998,7 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
+    pub unordered: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }

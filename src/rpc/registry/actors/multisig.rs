@@ -3,7 +3,6 @@
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
-use anyhow::Result;
 use cid::Cid;
 
 // Macro for version 8 that doesn't have UniversalReceiverHook

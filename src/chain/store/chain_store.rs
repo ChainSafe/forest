@@ -6,7 +6,6 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
-use crate::fil_cns;
 use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -27,6 +26,7 @@ use crate::{
     chain_sync::metrics,
     db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt},
 };
+use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -34,8 +34,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
-use lru::LruCache;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -468,7 +467,7 @@ pub fn block_messages<DB>(
 where
     DB: Blockstore,
 {
-    let (bls_cids, secpk_cids) = read_msg_cids(db, &bh.messages)?;
+    let (bls_cids, secpk_cids) = read_msg_cids(db, bh)?;
 
     let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
@@ -492,17 +491,23 @@ where
 }
 
 /// Returns a tuple of CIDs for both unsigned and signed messages
-pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
+pub fn read_msg_cids<DB>(
+    db: &DB,
+    block_header: &CachingBlockHeader,
+) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
     DB: Blockstore,
 {
+    let msg_cid = &block_header.messages;
     if let Some(roots) = db.get_cbor::<TxMeta>(msg_cid)? {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
     } else {
         Err(Error::UndefinedKey(format!(
-            "no msg root with cid {msg_cid}"
+            "no msg root with cid {msg_cid} at epoch {} in block {}",
+            block_header.epoch,
+            block_header.cid(),
         )))
     }
 }
@@ -554,27 +559,28 @@ where
 /// use-cases. This cache is intended to be used with a complementary function;
 /// [`messages_for_tipset_with_cache`].
 pub struct MsgsInTipsetCache {
-    cache: RwLock<LruCache<TipsetKey, Vec<ChainMessage>>>,
+    cache: SizeTrackingLruCache<TipsetKey, Vec<ChainMessage>>,
 }
 
 impl MsgsInTipsetCache {
-    pub fn new(cap: usize) -> anyhow::Result<Self> {
-        Ok(Self {
-            cache: RwLock::new(LruCache::new(
-                NonZeroUsize::new(cap).context("cache capacity must be greater than 0")?,
-            )),
-        })
+    pub fn new(capacity: NonZeroUsize) -> Self {
+        Self {
+            cache: SizeTrackingLruCache::new_with_default_metrics_registry(
+                "msg_in_tipset".into(),
+                capacity,
+            ),
+        }
     }
 
     pub fn get(&self, key: &TipsetKey) -> Option<Vec<ChainMessage>> {
-        self.cache.write().get(key).cloned()
+        self.cache.get_cloned(key)
     }
 
     pub fn get_or_insert_with<F>(&self, key: &TipsetKey, f: F) -> anyhow::Result<Vec<ChainMessage>>
     where
         F: FnOnce() -> anyhow::Result<Vec<ChainMessage>>,
     {
-        if self.cache.read().contains(key) {
+        if self.cache.contains(key) {
             Ok(self.get(key).expect("cache entry disappeared!"))
         } else {
             let v = f()?;
@@ -583,22 +589,25 @@ impl MsgsInTipsetCache {
         }
     }
 
-    pub fn insert(&self, key: TipsetKey, value: Vec<ChainMessage>) {
-        self.cache.write().put(key, value);
+    pub fn insert(&self, key: TipsetKey, mut value: Vec<ChainMessage>) {
+        value.shrink_to_fit();
+        self.cache.push(key, value);
     }
 
     /// Reads the intended cache size for this process from the environment or uses the default.
-    fn read_cache_size() -> usize {
+    fn read_cache_size() -> NonZeroUsize {
+        // Arbitrary number, can be adjusted
+        const DEFAULT: NonZeroUsize = NonZeroUsize::new(100).expect("infallible");
         std::env::var("FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(100) // Arbitrary number, can be adjusted
+            .unwrap_or(DEFAULT)
     }
 }
 
 impl Default for MsgsInTipsetCache {
     fn default() -> Self {
-        Self::new(Self::read_cache_size()).expect("failed to create default cache")
+        Self::new(Self::read_cache_size())
     }
 }
 
@@ -796,7 +805,7 @@ mod tests {
 
     #[test]
     fn test_messages_in_tipset_cache() {
-        let cache = MsgsInTipsetCache::new(2).unwrap();
+        let cache = MsgsInTipsetCache::new(2.try_into().unwrap());
         let key1 = TipsetKey::from(nunny::vec![Cid::new_v1(
             DAG_CBOR,
             MultihashCode::Blake2b256.digest(&[1])

@@ -13,7 +13,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
-use crate::ipld::stream_chain;
+use crate::ipld::{stream_chain, unordered_stream_chain};
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -23,7 +23,7 @@ use cid::Cid;
 use digest::Digest;
 use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
@@ -31,17 +31,23 @@ use std::io::{Seek as _, SeekFrom};
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
+#[derive(Debug, Clone, Default)]
+pub struct ExportOptions {
+    pub skip_checksum: bool,
+    pub unordered: bool,
+    pub seen: CidHashSet,
+}
+
 pub async fn export_from_head<D: Digest>(
     db: &Arc<impl Blockstore + SettingsStore + Send + Sync + 'static>,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    options: Option<ExportOptions>,
 ) -> anyhow::Result<(Tipset, Option<digest::Output<D>>)> {
     let head_key = SettingsStoreExt::read_obj::<TipsetKey>(db, crate::db::setting_keys::HEAD_KEY)?
         .context("chain head key not found")?;
     let head_ts = Tipset::load_required(&db, &head_key)?;
-    let digest = export::<D>(db, &head_ts, lookup_depth, writer, seen, skip_checksum).await?;
+    let digest = export::<D>(db, &head_ts, lookup_depth, writer, options).await?;
     Ok((head_ts, digest))
 }
 
@@ -52,21 +58,10 @@ pub async fn export<D: Digest>(
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    options: Option<ExportOptions>,
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     let roots = tipset.key().to_cids();
-    export_to_forest_car::<D>(
-        roots,
-        None,
-        db,
-        tipset,
-        lookup_depth,
-        writer,
-        seen,
-        skip_checksum,
-    )
-    .await
+    export_to_forest_car::<D>(roots, None, db, tipset, lookup_depth, writer, options).await
 }
 
 /// Exports a Filecoin snapshot in v2 format
@@ -77,16 +72,12 @@ pub async fn export_v2<D: Digest>(
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    options: Option<ExportOptions>,
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     // validate f3 data
     if let Some((f3_cid, f3_data)) = &mut f3 {
         f3_data.seek(SeekFrom::Start(0))?;
-        let expected_cid = Cid::new_v1(
-            IPLD_RAW,
-            MultihashCode::Blake2b256.digest_byte_stream(f3_data)?,
-        );
+        let expected_cid = crate::f3::snapshot::get_f3_snapshot_cid(f3_data)?;
         anyhow::ensure!(
             f3_cid == &expected_cid,
             "f3 snapshot integrity check failed, actual cid: {f3_cid}, expected cid: {expected_cid}"
@@ -115,10 +106,11 @@ pub async fn export_v2<D: Digest>(
     }];
 
     if let Some((f3_cid, mut f3_data)) = f3 {
+        let f3_data_len = f3_data.seek(SeekFrom::End(0))?;
         f3_data.seek(SeekFrom::Start(0))?;
         prefix_data_frames.push({
             let mut encoder = forest::new_encoder(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL)?;
-            encoder.write_car_block(f3_cid, f3_data.metadata()?.len() as _, &mut f3_data)?;
+            encoder.write_car_block(f3_cid, f3_data_len as _, &mut f3_data)?;
             anyhow::Ok((
                 vec![f3_cid],
                 finalize_frame(forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL, &mut encoder)?,
@@ -133,8 +125,7 @@ pub async fn export_v2<D: Digest>(
         tipset,
         lookup_depth,
         writer,
-        seen,
-        skip_checksum,
+        options,
     )
     .await
 }
@@ -147,9 +138,14 @@ async fn export_to_forest_car<D: Digest>(
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
-    seen: CidHashSet,
-    skip_checksum: bool,
+    options: Option<ExportOptions>,
 ) -> anyhow::Result<Option<digest::Output<D>>> {
+    let ExportOptions {
+        skip_checksum,
+        unordered,
+        seen,
+    } = options.unwrap_or_default();
+
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
 
     // Wrap writer in optional checksum calculator
@@ -162,12 +158,25 @@ async fn export_to_forest_car<D: Digest>(
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.
         1024,
-        stream_chain(
-            Arc::clone(db),
-            tipset.clone().chain_owned(Arc::clone(db)),
-            stateroot_lookup_limit,
-        )
-        .with_seen(seen),
+        if unordered {
+            futures::future::Either::Left(
+                unordered_stream_chain(
+                    Arc::clone(db),
+                    tipset.clone().chain_owned(Arc::clone(db)),
+                    stateroot_lookup_limit,
+                )
+                .with_seen(seen),
+            )
+        } else {
+            futures::future::Either::Right(
+                stream_chain(
+                    Arc::clone(db),
+                    tipset.clone().chain_owned(Arc::clone(db)),
+                    stateroot_lookup_limit,
+                )
+                .with_seen(seen),
+            )
+        },
     );
 
     // Encode Ipld key-value pairs in zstd frames

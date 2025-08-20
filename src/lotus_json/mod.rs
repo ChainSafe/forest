@@ -527,10 +527,9 @@ lotus_json_with_self!(
     DeadlineInfo,
     PaddedPieceSize,
     Uuid,
+    std::num::NonZeroUsize,
 );
 
-// TODO(forest): https://github.com/ChainSafe/forest/issues/4032
-//               remove these impls
 mod fixme {
     use super::*;
 

@@ -45,7 +45,7 @@ impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
     fn cache_name() -> String {
         use convert_case::{Case, Casing as _};
         format!(
-            "tipset_state_cache_{}",
+            "tipset_state_{}",
             crate::utils::misc::short_type_name::<V>().to_case(Case::Snake)
         )
     }
@@ -203,14 +203,17 @@ impl EnabledTipsetDataCache {
 }
 
 impl TipsetReceiptEventCacheHandler for EnabledTipsetDataCache {
-    fn insert_receipt(&self, key: &TipsetKey, receipts: Vec<Receipt>) {
+    fn insert_receipt(&self, key: &TipsetKey, mut receipts: Vec<Receipt>) {
         if !receipts.is_empty() {
+            receipts.shrink_to_fit();
             self.receipt_cache.insert(key.clone(), receipts);
         }
     }
 
-    fn insert_events(&self, key: &TipsetKey, events_data: StateEvents) {
+    fn insert_events(&self, key: &TipsetKey, mut events_data: StateEvents) {
         if !events_data.events.is_empty() {
+            events_data.events.shrink_to_fit();
+            events_data.roots.shrink_to_fit();
             self.events_cache.insert(key.clone(), events_data);
         }
     }

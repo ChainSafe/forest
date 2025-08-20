@@ -74,7 +74,8 @@ impl MethodRegistry {
 
     fn register_known_methods(&mut self) {
         use crate::rpc::registry::actors::{
-            account, evm, init, market, miner, multisig, power, reward, system,
+            account, cron, datacap, evm, init, market, miner, multisig, power, reward, system,
+            verified_reg,
         };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
@@ -86,10 +87,17 @@ impl MethodRegistry {
                 BuiltinActor::EVM => evm::register_evm_actor_methods(self, cid, version),
                 BuiltinActor::Init => init::register_actor_methods(self, cid, version),
                 BuiltinActor::System => system::register_actor_methods(self, cid, version),
+                BuiltinActor::DataCap => {
+                    datacap::register_datacap_actor_methods(self, cid, version)
+                }
                 BuiltinActor::Power => power::register_actor_methods(self, cid, version),
                 BuiltinActor::Reward => reward::register_actor_methods(self, cid, version),
+                BuiltinActor::Cron => cron::register_actor_methods(self, cid, version),
                 BuiltinActor::Multisig => multisig::register_actor_methods(self, cid, version),
                 BuiltinActor::Market => market::register_actor_methods(self, cid, version),
+                BuiltinActor::VerifiedRegistry => {
+                    verified_reg::register_actor_methods(self, cid, version)
+                }
                 _ => {}
             }
         }
@@ -133,7 +141,7 @@ macro_rules! register_actor_methods {
             $registry.register_method(
                 $code_cid,
                 $method as MethodNum,
-                |bytes| -> Result<$param_type> { Ok(fvm_ipld_encoding::from_slice(bytes)?) },
+                |bytes| -> anyhow::Result<$param_type> { Ok(fvm_ipld_encoding::from_slice(bytes)?) },
             );
         )*
     };
@@ -259,6 +267,8 @@ mod test {
             BuiltinActor::Account,
             BuiltinActor::Miner,
             BuiltinActor::EVM,
+            BuiltinActor::Cron,
+            BuiltinActor::DataCap,
         ];
 
         for actor_type in supported_actors {

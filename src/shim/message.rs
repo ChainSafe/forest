@@ -1,14 +1,13 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use anyhow::anyhow;
 
-use fvm_ipld_encoding::RawBytes;
-use fvm_ipld_encoding::de::Deserializer;
-use fvm_ipld_encoding::ser::Serializer;
+use anyhow::anyhow;
+use fvm_ipld_encoding::{RawBytes, de::Deserializer, ser::Serializer};
 use fvm_shared2::message::Message as Message_v2;
 pub use fvm_shared3::METHOD_SEND;
 pub use fvm_shared3::message::Message as Message_v3;
 use fvm_shared4::message::Message as Message_v4;
+use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -16,7 +15,7 @@ use crate::shim::{address::Address, econ::TokenAmount};
 /// Method number indicator for calling actor methods.
 pub type MethodNum = u64;
 
-#[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Hash, GetSize)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Message {
     pub version: u64,
@@ -28,11 +27,25 @@ pub struct Message {
     #[cfg_attr(test, arbitrary(gen(
         |g| RawBytes::new(Vec::arbitrary(g))
     )))]
+    #[get_size(size_fn = raw_bytes_heap_size)]
     pub params: RawBytes,
     pub gas_limit: u64,
     pub gas_fee_cap: TokenAmount,
     pub gas_premium: TokenAmount,
 }
+
+fn raw_bytes_heap_size(b: &RawBytes) -> usize {
+    // Note: this is a cheap but inaccurate estimation,
+    // the correct implementation should be `Vec<u8>.from(b.clone()).get_heap_size()`,
+    // or `b.bytes.get_heap_size()` if `bytes` is made public.
+    b.bytes().get_heap_size()
+}
+
+// impl GetSize for Message{
+//     fn get_heap_size(&self) -> usize {
+
+//     }
+// }
 
 impl From<Message_v4> for Message {
     fn from(other: Message_v4) -> Self {
