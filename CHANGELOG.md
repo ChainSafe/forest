@@ -33,6 +33,8 @@
 
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
 
+- [#5956](https://github.com/ChainSafe/forest/issues/5956) Add `forest-tool archive f3-header` subcommand for inspecting the header of a standalone F3 snapshot(FRC-0108).
+
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in v2 format(FRC-0108).
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
