@@ -7,7 +7,7 @@ use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, RpcMethod, prelude::*};
 use crate::shim::{address::Address, message::Message};
 
-use anyhow::Context;
+use anyhow::{Context, ensure};
 use cbor4ii::core::Value;
 use cid::Cid;
 use futures::{SinkExt, StreamExt};
@@ -155,9 +155,7 @@ pub(super) async fn run_tests(
     println!(
         "test result: {status}. {passed} passed; {failed} failed; {ignored} ignored; {filtered} filtered out"
     );
-    if failed > 0 {
-        anyhow::bail!(format!("{failed} test(s) failed"));
-    }
+    ensure!(failed > 0, "{failed} test(s) failed");
     Ok(())
 }
 
@@ -293,9 +291,7 @@ async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow:
         if pending.0.iter().any(|msg| msg.cid() == message_cid) {
             break Ok(());
         }
-        if retries == 0 {
-            anyhow::bail!("Message not found in mpool");
-        }
+        ensure!(retries == 0, "Message not found in mpool");
         retries -= 1;
 
         tokio::time::sleep(Duration::from_millis(10)).await;
