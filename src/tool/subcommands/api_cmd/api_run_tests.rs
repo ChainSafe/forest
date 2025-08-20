@@ -108,6 +108,14 @@ pub(super) async fn run_tests(
         }
         if test.ignore.is_some() {
             ignored += 1;
+            println!(
+                "test {} ... ignored",
+                if let Some(name) = test.name {
+                    name.to_string()
+                } else {
+                    format!("#{i}")
+                },
+            );
             continue;
         }
 
