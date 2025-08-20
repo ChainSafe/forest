@@ -84,7 +84,8 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, Method, PublishStorageDealsParams, WithdrawBalanceParams,
+            AddBalanceParams, Method, PublishStorageDealsParams, VerifyDealsForActivationParams,
+            WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -93,7 +94,11 @@ macro_rules! register_market_versions_13_to_16 {
             [
                 (Method::AddBalance, AddBalanceParams),
                 (Method::WithdrawBalance, WithdrawBalanceParams),
-                (Method::PublishStorageDeals, PublishStorageDealsParams)
+                (Method::PublishStorageDeals, PublishStorageDealsParams),
+                (
+                    Method::VerifyDealsForActivation,
+                    VerifyDealsForActivationParams
+                ),
             ]
         );
 

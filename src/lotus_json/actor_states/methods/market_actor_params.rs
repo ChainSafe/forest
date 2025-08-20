@@ -460,42 +460,44 @@ impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_number: no_sect
 impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
 impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16);
 
-// #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
-// #[serde(rename_all = "PascalCase")]
-// pub struct VerifyDealsForActivationParamsLotusJson {
-//     pub sectors: Vec<SectorDealsLotusJson>,
-// }
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct VerifyDealsForActivationParamsLotusJson {
+    pub sectors: Vec<SectorDealsLotusJson>,
+}
 
-// macro_rules! impl_lotus_json_for_publish_storage_deals_params {
-//     ($($version:literal),+) => {
-//         $(
-//             paste! {
-//                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams {
-//                     type LotusJson = VerifyDealsForActivationParamsLotusJson;
+macro_rules! impl_lotus_json_for_publish_storage_deals_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams {
+                    type LotusJson = VerifyDealsForActivationParamsLotusJson;
 
-//                     #[cfg(test)]
-//                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-//                         vec![
-//                         ]
-//                     }
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
 
-//                     fn into_lotus_json(self) -> Self::LotusJson {
-//                         Self::LotusJson {
-//                             sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
-//                         }
-//                     }
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+                        }
+                    }
 
-//                     fn from_lotus_json(json: Self::LotusJson) -> Self {
-//                         Self {
-//                             sectors: json.sectors.into_iter()
-//                             .map(|s| fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams::from_lotus_json(s)) // delegate
-//                             .collect(),
-//                         }
-//                     }
-//                 }
-//             }
-//         )+
-//     };
-// }
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sectors: json
+                                .sectors
+                                .into_iter()
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s)) // delegate
+                                .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
 
-// impl_lotus_json_for_publish_storage_deals_params!(16);
+impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
