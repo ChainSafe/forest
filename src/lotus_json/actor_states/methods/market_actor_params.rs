@@ -4,6 +4,7 @@
 use super::*;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;
@@ -255,17 +256,37 @@ impl_lotus_json_for_deal_proposal!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct ClientDealProposalLotusJson {
+pub struct ClientDealProposalV2LotusJson {
     pub proposal: DealProposalLotusJson,
-    // pub client_signature: SignatureLotusJson,
+    #[schemars(with = "LotusJson<fvm_shared2::crypto::signature::Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    pub client_signature: fvm_shared2::crypto::signature::Signature,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ClientDealProposalV3LotusJson {
+    pub proposal: DealProposalLotusJson,
+    #[schemars(with = "LotusJson<fvm_shared3::crypto::signature::Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    pub client_signature: fvm_shared3::crypto::signature::Signature,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ClientDealProposalV4LotusJson {
+    pub proposal: DealProposalLotusJson,
+    #[schemars(with = "LotusJson<fvm_shared4::crypto::signature::Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    pub client_signature: fvm_shared4::crypto::signature::Signature,
 }
 
 macro_rules! impl_lotus_json_for_client_deal_proposal {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($type_suffix:path: $lotus_json_type:ty: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::ClientDealProposal {
-                    type LotusJson = ClientDealProposalLotusJson;
+                    type LotusJson = $lotus_json_type;
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -276,18 +297,14 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
                             proposal: self.proposal.into_lotus_json(),
-                            // client_signature: {
-                            //     // TODO: shim signature
-                            //     self.client_signature.into().into_lotus_json()
-                            // }
+                            client_signature: self.client_signature.into(),
                         }
                     }
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
                             proposal: fil_actor_market_state::[<v $version>]::DealProposal::from_lotus_json(json.proposal),
-                            // TODO: shim signature
-                            client_signature: $type_suffix::Signature::new_bls(vec![]),
+                            client_signature: json.client_signature.into(),
                         }
                     }
                 }
@@ -296,22 +313,34 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
     };
 }
 
-impl_lotus_json_for_client_deal_proposal!(fvm_shared2::crypto::signature: 8, 9);
-impl_lotus_json_for_client_deal_proposal!(fvm_shared3::crypto::signature: 10, 11);
-impl_lotus_json_for_client_deal_proposal!(fvm_shared4::crypto::signature: 12, 13, 14, 15, 16);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared2::crypto::signature: ClientDealProposalV2LotusJson: 8, 9);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared3::crypto::signature: ClientDealProposalV3LotusJson: 10, 11);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared4::crypto::signature: ClientDealProposalV4LotusJson: 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct PublishStorageDealsParamsLotusJson {
-    pub deals: Vec<ClientDealProposalLotusJson>,
+pub struct PublishStorageDealsParamsV2LotusJson {
+    pub deals: Vec<ClientDealProposalV2LotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct PublishStorageDealsParamsV3LotusJson {
+    pub deals: Vec<ClientDealProposalV3LotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct PublishStorageDealsParamsV4LotusJson {
+    pub deals: Vec<ClientDealProposalV4LotusJson>,
 }
 
 macro_rules! impl_lotus_json_for_publish_storage_deals_params {
-    ($($version:literal),+) => {
+    ($lotus_json_type:ty: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::PublishStorageDealsParams {
-                    type LotusJson = PublishStorageDealsParamsLotusJson;
+                    type LotusJson = $lotus_json_type;
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -338,7 +367,9 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV2LotusJson: 8, 9);
+impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV3LotusJson: 10, 11);
+impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV4LotusJson: 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
