@@ -25,8 +25,11 @@ devnet
 Devops
 Devs
 DHT
+Diátaxis
 DigitalOcean
+Docusaurus
 Drand
+e.g.
 enums
 Ethereum
 F3
@@ -73,6 +76,7 @@ M2
 macOS
 Mainnet
 mainnet
+MDX
 multiaddress
 namespace
 NetworkEvents
@@ -81,6 +85,7 @@ NV23
 NV24
 NVMe
 onwards
+OpenRPC
 orchestrator
 Organisation
 P2P

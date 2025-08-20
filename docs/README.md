@@ -32,7 +32,7 @@ $ yarn build
 
 ### CI Checks
 
-These commands are recommended to run before commiting code. They are run as checks in CI.
+These commands are recommended to run before committing code. They are run as checks in CI.
 
 ```
 yarn spellcheck # Checks spelling
@@ -68,7 +68,7 @@ We use the OpenRPC document from Forest to populate the documentation for each m
 
 Available at `/developers`, source code is located in `docs/developers`. Comprised of a collection of documents aimed at contributors. May be relevant to power users.
 
-> Note: As a general rule of thumb, if it involes reading or writing Rust, it should live under the Developer documentation.
+> Note: As a general rule of thumb, if it involves reading or writing Rust, it should live under the Developer documentation.
 
 ## Contributing
 

@@ -13,7 +13,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "spellcheck": "spellchecker -f \"./docs/**/*.md\" -l en-US -q  -d ./dictionary.txt",
+    "spellcheck": "spellchecker -f \"../**/*.{md,mdx}\" -l en-US -q  -d ./dictionary.txt",
     "format-check": "prettier --check .",
     "format": "prettier --write ."
   },
