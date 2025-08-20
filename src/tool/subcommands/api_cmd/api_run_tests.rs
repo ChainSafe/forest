@@ -159,6 +159,7 @@ pub(super) async fn run_tests(
     Ok(())
 }
 
+#[allow(unreachable_code)]
 async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
     async fn close_channel(
         stream: &mut tokio_tungstenite::WebSocketStream<
@@ -278,7 +279,7 @@ async fn next_tipset(client: &rpc::Client) -> anyhow::Result<()> {
         }
     }
 
-    // Unreachable: loop always returns within the branches above.
+    unreachable!("loop always returns within the branches above")
 }
 
 async fn wait_pending_message(client: &rpc::Client, message_cid: Cid) -> anyhow::Result<()> {
