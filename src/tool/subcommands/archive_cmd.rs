@@ -236,8 +236,16 @@ impl ArchiveCommands {
                 Ok(())
             }
             Self::F3Header { snapshot } => {
-                let mut r = BufReader::new(File::open(&snapshot)?);
-                let f3_snap_header = F3SnapshotHeader::decode_from_snapshot(&mut r)?;
+                let mut r = BufReader::new(File::open(&snapshot).with_context(|| {
+                    format!("failed to open F3 snapshot '{}'", snapshot.display())
+                })?);
+                let f3_snap_header =
+                    F3SnapshotHeader::decode_from_snapshot(&mut r).with_context(|| {
+                        format!(
+                            "failed to decode F3 snapshot header from '{}'",
+                            snapshot.display()
+                        )
+                    })?;
                 println!("{f3_snap_header}");
                 Ok(())
             }
