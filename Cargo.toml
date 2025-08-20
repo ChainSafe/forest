@@ -225,6 +225,7 @@ zstd = "0.13"
 
 # optional dependencies
 console-subscriber = { version = "0.4", features = ["parking_lot"], optional = true }
+fvm_actor_utils = "14.0.0"
 paste = "1"
 tikv-jemallocator = { version = "0.6", optional = true }
 tracing-chrome = { version = "0.7", optional = true }

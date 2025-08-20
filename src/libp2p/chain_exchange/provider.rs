@@ -96,7 +96,7 @@ where
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
     for block_header in tipset.block_headers().iter() {
-        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, &block_header.messages)?;
+        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, block_header)?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
