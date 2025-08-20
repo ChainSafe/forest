@@ -58,7 +58,7 @@ use itertools::Itertools;
 use multihash_derive::MultihashDigest as _;
 use sha2::Sha256;
 use std::fs::File;
-use std::io::{Seek as _, SeekFrom};
+use std::io::{BufReader, Seek as _, SeekFrom};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -95,6 +95,11 @@ pub enum ArchiveCommands {
     /// Show FRC-0108 metadata of an Filecoin snapshot archive.
     Metadata {
         /// Path to an archive (`.car` or `.car.zst`).
+        snapshot: PathBuf,
+    },
+    /// Show FRC-0108 header of a standalone F3 snapshot.
+    F3Header {
+        /// Path to a standalone F3 snapshot.
         snapshot: PathBuf,
     },
     /// Trim a snapshot of the chain and write it to `<output_path>`
@@ -228,6 +233,12 @@ impl ArchiveCommands {
                         "No metadata found (required by v2 snapshot) - this appears to be a v1 snapshot"
                     );
                 }
+                Ok(())
+            }
+            Self::F3Header { snapshot } => {
+                let mut r = BufReader::new(File::open(&snapshot)?);
+                let f3_snap_header = F3SnapshotHeader::decode_from_snapshot(&mut r)?;
+                println!("{f3_snap_header}");
                 Ok(())
             }
             Self::Export {
