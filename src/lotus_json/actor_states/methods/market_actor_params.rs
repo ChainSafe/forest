@@ -575,3 +575,48 @@ macro_rules! impl_lotus_json_for_activate_deals_params {
 }
 
 impl_lotus_json_for_activate_deals_params!(8, 9, 10, 11);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct BatchActivateDealsParamsLotusJson {
+    pub sectors: Vec<SectorDealsLotusJson>,
+    pub compute_cid: bool,
+}
+
+macro_rules! impl_lotus_json_for_batch_activate_deals_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::BatchActivateDealsParams {
+                    type LotusJson = BatchActivateDealsParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+                            compute_cid: self.compute_cid.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sectors: json
+                                .sectors
+                                .into_iter()
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s)) // delegate
+                                .collect(),
+                            compute_cid: json.compute_cid.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_batch_activate_deals_params!(12, 13, 14, 15, 16);

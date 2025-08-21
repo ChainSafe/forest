@@ -71,8 +71,8 @@ macro_rules! register_market_versions_10_to_11 {
 macro_rules! register_market_versions_12 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, Method, PublishStorageDealsParams, VerifyDealsForActivationParams,
-            WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, Method, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -86,6 +86,7 @@ macro_rules! register_market_versions_12 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
+                (Method::BatchActivateDeals, BatchActivateDealsParams)
             ]
         );
 
@@ -101,8 +102,8 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, Method, PublishStorageDealsParams, VerifyDealsForActivationParams,
-            WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, Method, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -116,6 +117,7 @@ macro_rules! register_market_versions_13_to_16 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
+                (Method::BatchActivateDeals, BatchActivateDealsParams)
             ]
         );
 
