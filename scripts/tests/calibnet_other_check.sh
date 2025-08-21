@@ -64,5 +64,10 @@ gem install http --user-install
 $FOREST_CLI_PATH chain head --format json -n 1000 | scripts/mpool_select_killer.rb
 
 echo "Test subcommand: state compute (batch)"
-head=$($FOREST_CLI_PATH chain head | head -n 1 | jq ".[0]")
-$FOREST_CLI_PATH state compute --epoch $((head - 900)) -n 10 -v
+head_epoch=$($FOREST_CLI_PATH chain head --format json | jq ".[0].epoch")
+if ! [[ "$head_epoch" =~ ^[0-9]+$ ]]; then
+  echo "Failed to parse numeric head epoch from 'chain head --format json': $head_epoch"
+  exit 1
+fi
+start_epoch=$(( head_epoch > 900 ? head_epoch - 900 : 0 ))
+$FOREST_CLI_PATH state compute --epoch "$start_epoch" -n 10 -v
