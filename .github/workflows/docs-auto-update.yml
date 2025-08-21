@@ -17,7 +17,7 @@ jobs:
           ./generate_cli_md.sh docker > cli.md
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: 20
       - run: corepack enable
       - run: yarn --immutable
       - run: yarn md-fmt
