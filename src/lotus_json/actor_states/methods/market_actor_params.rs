@@ -532,3 +532,46 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
 }
 
 impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActivateDealsParamsLotusJson {
+    #[schemars(with = "LotusJson<DealID>")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+    pub sector_expiry: ChainEpoch,
+}
+
+macro_rules! impl_lotus_json_for_activate_deals_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::ActivateDealsParams {
+                    type LotusJson = ActivateDealsParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            deal_ids: self.deal_ids.into(),
+                            sector_expiry: self.sector_expiry.into_lotus_json(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            deal_ids: json.deal_ids.into(),
+                            sector_expiry: json.sector_expiry.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_activate_deals_params!(8, 9, 10, 11);

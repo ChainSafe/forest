@@ -9,8 +9,8 @@ use cid::Cid;
 macro_rules! register_market_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, Method, PublishStorageDealsParams, VerifyDealsForActivationParams,
-            WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, Method, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -24,6 +24,7 @@ macro_rules! register_market_versions_8_to_9 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
+                (Method::ActivateDeals, ActivateDealsParams)
             ]
         );
 
@@ -39,8 +40,8 @@ macro_rules! register_market_versions_8_to_9 {
 macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, Method, PublishStorageDealsParams, VerifyDealsForActivationParams,
-            WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, Method, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -54,6 +55,7 @@ macro_rules! register_market_versions_10_to_11 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
+                (Method::ActivateDeals, ActivateDealsParams)
             ]
         );
 
