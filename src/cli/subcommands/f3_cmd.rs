@@ -4,10 +4,10 @@
 #[cfg(test)]
 mod tests;
 
-use std::{borrow::Cow, sync::LazyLock, time::Duration};
+use std::{borrow::Cow, io::Write as _, sync::LazyLock, time::Duration};
 
 use crate::{
-    blocks::TipsetKey,
+    blocks::{Tipset, TipsetKey},
     lotus_json::HasLotusJson as _,
     rpc::{
         self,
@@ -27,6 +27,7 @@ use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use tera::Tera;
+use ticker::Ticker;
 
 const MANIFEST_TEMPLATE_NAME: &str = "manifest.tpl";
 const CERTIFICATE_TEMPLATE_NAME: &str = "certificate.tpl";
@@ -91,6 +92,15 @@ pub enum F3Commands {
     /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
     #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
+    /// Checks if F3 is in sync.
+    Ready {
+        /// Wait until F3 is in sync.
+        #[arg(long)]
+        wait: bool,
+        /// The threshold of the gap between chain head and F3 head within which F3 is considered in sync.
+        #[arg(long, default_value_t = 20)]
+        threshold: usize,
+    },
 }
 
 impl F3Commands {
@@ -119,6 +129,57 @@ impl F3Commands {
             }
             Self::Certs(cmd) => cmd.run(client).await,
             Self::PowerTable(cmd) => cmd.run(client).await,
+            Self::Ready { wait, threshold } => {
+                let is_running = client.call(F3IsRunning::request(())?).await?;
+                if !is_running {
+                    anyhow::bail!("F3 is not running");
+                }
+
+                async fn get_heads(
+                    client: &rpc::Client,
+                ) -> anyhow::Result<(Tipset, FinalityCertificate)> {
+                    let cert_head = client.call(F3GetLatestCertificate::request(())?).await?;
+                    let chain_head = client.call(ChainHead::request(())?).await?;
+                    Ok((chain_head, cert_head))
+                }
+
+                let ticker = Ticker::new(0.., Duration::from_secs(1));
+                let mut stdout = std::io::stdout();
+                let mut text = String::new();
+                for _ in ticker {
+                    if let Ok((chain_head, cert_head)) = get_heads(&client).await {
+                        if !text.is_empty() {
+                            write!(
+                                stdout,
+                                "\r{}{}",
+                                anes::MoveCursorUp(1),
+                                anes::ClearLine::All,
+                            )?;
+                        }
+                        if cert_head.chain_head().epoch + threshold as i64 >= chain_head.epoch() {
+                            text = format!(
+                                "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                chain_head.epoch(),
+                                cert_head.chain_head().epoch
+                            );
+                            println!("{text}");
+                            break;
+                        } else {
+                            text = format!(
+                                "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                chain_head.epoch(),
+                                cert_head.chain_head().epoch
+                            );
+                            if !wait {
+                                anyhow::bail!("{text}");
+                            } else {
+                                println!("{text}");
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
