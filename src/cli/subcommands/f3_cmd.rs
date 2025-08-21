@@ -179,10 +179,13 @@ impl F3Commands {
                                 }
                             }
                         }
-                        Err(e) if !wait => {
-                            anyhow::bail!("{e}");
+                        Err(e) => {
+                            if !wait {
+                                anyhow::bail!("Failed to check F3 sync status: {e}");
+                            }
+                            // When waiting, log the error but continue
+                            eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
                         }
-                        _ => {}
                     }
                 }
                 Ok(())
