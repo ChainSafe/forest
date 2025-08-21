@@ -147,35 +147,42 @@ impl F3Commands {
                 let mut stdout = std::io::stdout();
                 let mut text = String::new();
                 for _ in ticker {
-                    if let Ok((chain_head, cert_head)) = get_heads(&client).await {
-                        if !text.is_empty() {
-                            write!(
-                                stdout,
-                                "\r{}{}",
-                                anes::MoveCursorUp(1),
-                                anes::ClearLine::All,
-                            )?;
-                        }
-                        if cert_head.chain_head().epoch + threshold as i64 >= chain_head.epoch() {
-                            text = format!(
-                                "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
-                                chain_head.epoch(),
-                                cert_head.chain_head().epoch
-                            );
-                            println!("{text}");
-                            break;
-                        } else {
-                            text = format!(
-                                "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
-                                chain_head.epoch(),
-                                cert_head.chain_head().epoch
-                            );
-                            if !wait {
-                                anyhow::bail!("{text}");
-                            } else {
+                    match get_heads(&client).await {
+                        Ok((chain_head, cert_head)) => {
+                            if !text.is_empty() {
+                                write!(
+                                    stdout,
+                                    "\r{}{}",
+                                    anes::MoveCursorUp(1),
+                                    anes::ClearLine::All,
+                                )?;
+                            }
+                            if cert_head.chain_head().epoch + threshold as i64 >= chain_head.epoch()
+                            {
+                                text = format!(
+                                    "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    chain_head.epoch(),
+                                    cert_head.chain_head().epoch
+                                );
                                 println!("{text}");
+                                break;
+                            } else {
+                                text = format!(
+                                    "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    chain_head.epoch(),
+                                    cert_head.chain_head().epoch
+                                );
+                                if !wait {
+                                    anyhow::bail!("{text}");
+                                } else {
+                                    println!("{text}");
+                                }
                             }
                         }
+                        Err(e) if !wait => {
+                            anyhow::bail!("{e}");
+                        }
+                        _ => {}
                     }
                 }
                 Ok(())
