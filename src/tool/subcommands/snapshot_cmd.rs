@@ -409,7 +409,7 @@ where
         ),
     );
 
-    let last_epoch = ts.epoch() - epochs as i64;
+    let last_epoch = ts.epoch() - epochs as i64 + 1;
 
     // Bundles are required when doing state migrations.
     load_actor_bundles(&db, &network).await?;
@@ -445,7 +445,6 @@ where
     )?;
 
     pb.finish_with_message("✅ verified!");
-    drop(pb);
     Ok(())
 }
 
