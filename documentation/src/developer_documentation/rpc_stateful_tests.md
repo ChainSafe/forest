@@ -11,16 +11,16 @@ This includes:
 
 Before running the tests, perform the following setup steps:
 
-1. Run a Lotus or Forest node.
+1. Run a Lotus or Forest node (calibnet recommended).
 2. Create an f4 address, fund it, and deploy a test smart contract (the deployed contract must emit an event with a known topic when invoked).
 3. The f4 address must hold enough FIL to invoke the contract.
    
    Run the test suite with:
-  `forest-tool api test-stateful <MULTI_ADDR> --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
+  `forest-tool api test-stateful <FULLNODE_API_INFO> --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
 
    where:
 
-    - `MULTI_ADDR`: Multiaddress of the running Filecoin node
+    - `FULLNODE_API_INFO`: Fullnode API info of the running Filecoin node
     - `CONTRACT_ADDR`: f4 address of the deployed smart contract
     - `FROM_ADDR`: f4 address invoking the contract
     - `INVOKE_PAYLOAD`: Calldata that will trigger the contract's event
