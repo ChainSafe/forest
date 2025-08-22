@@ -77,5 +77,5 @@ impl_actor_cids!(
     EthAccount
 );
 
-// A special snowflake which has a slightly different type and and package name.
+// A special snowflake which has a slightly different type and package name.
 impl_actor_cids_type_actor!(VerifiedRegistry, Verifreg);
