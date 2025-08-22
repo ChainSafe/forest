@@ -277,6 +277,13 @@ inherits = "release"
 opt-level = 1
 lto = "off"
 
+[profile.profiling]
+inherits = "dev"
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+panic = "abort"
+
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
@@ -296,9 +303,10 @@ doctest-private = []                                                      # see 
 benchmark-private = []                                                    # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
-# Allocator
+# Allocator. Use at most one of these.
 rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
+system-alloc = []                    # Use the platform allocator (for memory profiling).
 
 tokio-console = ["dep:console-subscriber"]
 tracing-loki = ["dep:tracing-loki"]
