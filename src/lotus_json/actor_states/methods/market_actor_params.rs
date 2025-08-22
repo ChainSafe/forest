@@ -10,6 +10,7 @@ use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::RegisteredSealProof;
 use crate::shim::sector::SectorNumber;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;
 // use fvm_ipld_encoding::RawBytes;
@@ -620,3 +621,85 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
 }
 
 impl_lotus_json_for_batch_activate_deals_params!(12, 13, 14, 15, 16);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct OnMinerSectorsTerminateParamsLotusJsonV8 {
+    pub epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<DealID>")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct OnMinerSectorsTerminateParamsLotusJsonV13 {
+    pub epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<BitField>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: BitField,
+}
+
+macro_rules! impl_lotus_json_for_on_miner_sectors_terminate_params {
+    (OnMinerSectorsTerminateParamsLotusJsonV8: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::OnMinerSectorsTerminateParams {
+                    type LotusJson = OnMinerSectorsTerminateParamsLotusJsonV8;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            epoch: self.epoch.into(),
+                            deal_ids: self.deal_ids.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            epoch: json.epoch.into(),
+                            deal_ids: json.deal_ids.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+    (OnMinerSectorsTerminateParamsLotusJsonV13: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::OnMinerSectorsTerminateParams {
+                    type LotusJson = OnMinerSectorsTerminateParamsLotusJsonV13;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            epoch: self.epoch.into(),
+                            sectors: self.sectors.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            epoch: json.epoch.into(),
+                            sectors: json.sectors.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV8: 8, 9, 10, 11, 12);
+impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16);

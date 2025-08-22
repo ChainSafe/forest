@@ -9,8 +9,8 @@ use cid::Cid;
 macro_rules! register_market_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ActivateDealsParams, AddBalanceParams, Method, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, Method, OnMinerSectorsTerminateParams,
+            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -24,7 +24,11 @@ macro_rules! register_market_versions_8_to_9 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
-                (Method::ActivateDeals, ActivateDealsParams)
+                (Method::ActivateDeals, ActivateDealsParams),
+                (
+                    Method::OnMinerSectorsTerminate,
+                    OnMinerSectorsTerminateParams
+                )
             ]
         );
 
@@ -40,8 +44,8 @@ macro_rules! register_market_versions_8_to_9 {
 macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ActivateDealsParams, AddBalanceParams, Method, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, Method, OnMinerSectorsTerminateParams,
+            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -55,7 +59,11 @@ macro_rules! register_market_versions_10_to_11 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
-                (Method::ActivateDeals, ActivateDealsParams)
+                (Method::ActivateDeals, ActivateDealsParams),
+                (
+                    Method::OnMinerSectorsTerminate,
+                    OnMinerSectorsTerminateParams
+                )
             ]
         );
 
@@ -71,8 +79,8 @@ macro_rules! register_market_versions_10_to_11 {
 macro_rules! register_market_versions_12 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, Method, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, Method, OnMinerSectorsTerminateParams,
+            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -86,7 +94,11 @@ macro_rules! register_market_versions_12 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
-                (Method::BatchActivateDeals, BatchActivateDealsParams)
+                (Method::BatchActivateDeals, BatchActivateDealsParams),
+                (
+                    Method::OnMinerSectorsTerminate,
+                    OnMinerSectorsTerminateParams
+                )
             ]
         );
 
@@ -102,8 +114,8 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, Method, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, Method, OnMinerSectorsTerminateParams,
+            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -117,7 +129,11 @@ macro_rules! register_market_versions_13_to_16 {
                     Method::VerifyDealsForActivation,
                     VerifyDealsForActivationParams
                 ),
-                (Method::BatchActivateDeals, BatchActivateDealsParams)
+                (Method::BatchActivateDeals, BatchActivateDealsParams),
+                (
+                    Method::OnMinerSectorsTerminate,
+                    OnMinerSectorsTerminateParams
+                )
             ]
         );
 
