@@ -560,7 +560,7 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
             let topics = EthTopicSpec(vec![EthHashList::Single(Some(tx.topic))]);
 
             let filter_spec = EthFilterSpec {
-                from_block: Some(format!("0x{:x}", block_num.0 - BLOCK_RANGE)),
+                from_block: Some(format!("0x{:x}", block_num.0.saturating_sub(BLOCK_RANGE))),
                 to_block: Some(block_num.to_hex_string()),
                 topics: Some(topics),
                 ..Default::default()
