@@ -55,7 +55,7 @@ To extend test coverage for another RPC method or cover more semantics:
    Ensure the test behaves consistently on both Lotus and Forest nodes.
 
 ## Example test function
-```
+```rust
 pub async fn test_eth_method(client: Arc<Client>) -> anyhow::Result<()> {
     // Setup call to the method
     // Assert intermediate states
