@@ -101,11 +101,16 @@ impl Iterator for DfsIter {
     }
 }
 
+enum IterateType {
+    Message(Cid),
+    StateRoot(Cid),
+}
+
 enum Task {
     // Yield the block, don't visit it.
     Emit(Cid, Option<Vec<u8>>),
     // Visit all the elements, recursively.
-    Iterate(VecDeque<Cid>),
+    Iterate(ChainEpoch, Cid, IterateType, VecDeque<Cid>),
 }
 
 pin_project! {
@@ -195,12 +200,12 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                 return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                             } else if fail_on_dead_links {
                                 return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                    "missing key: {cid}"
+                                    "[Emit] missing key: {cid}"
                                 ))));
                             };
                         }
                     }
-                    Iterate(cid_vec) => {
+                    Iterate(epoch, block_cid, ty, cid_vec) => {
                         while let Some(cid) = cid_vec.pop_front() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
@@ -220,8 +225,16 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                     }
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if fail_on_dead_links {
+                                    let ty = match ty {
+                                        IterateType::Message(c) => {
+                                            format!("message {c}")
+                                        }
+                                        IterateType::StateRoot(c) => {
+                                            format!("state root {c}")
+                                        }
+                                    };
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                        "missing key: {cid}"
+                                        "[Iterate] missing key: {cid} from {ty} in block {block_cid} at epoch {epoch}"
                                     ))));
                                 }
                             }
@@ -251,6 +264,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         // Process block messages.
                         if block.epoch > stateroot_limit {
                             this.dfs.push_back(Iterate(
+                                block.epoch,
+                                *block.cid(),
+                                IterateType::Message(block.messages),
                                 DfsIter::from(block.messages)
                                     .filter_map(ipld_to_cid)
                                     .collect(),
@@ -263,6 +279,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
                             this.dfs.push_back(Iterate(
+                                block.epoch,
+                                *block.cid(),
+                                IterateType::StateRoot(block.state_root),
                                 DfsIter::from(block.state_root)
                                     .filter_map(ipld_to_cid)
                                     .collect(),
