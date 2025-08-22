@@ -30,13 +30,17 @@ function forest_download_and_import_snapshot {
 function forest_download_and_import_snapshot_with_f3 {
   echo "Downloading v1 snapshot"
   aria2c -x5 https://forest-archive.chainsafe.dev/latest/calibnet/ -o v1.forest.car.zst
+  echo "Inspecting v1 snapshot"
+  $FOREST_TOOL_PATH archive info v1.forest.car.zst
   echo "Downloading F3 snapshot"
   aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_552628.bin -o f3.bin
+  echo "Inspecting F3 snapshot"
+  $FOREST_TOOL_PATH archive f3-header f3.bin
   echo "Generating v2 snapshot"
   $FOREST_TOOL_PATH archive merge-f3 --v1 v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
-  echo "Inspecting archive info"
+  echo "Inspecting v2 snapshot info"
   $FOREST_TOOL_PATH archive info v2.forest.car.zst
-  echo "Inspecting archive metadata"
+  echo "Inspecting v2 snapshot metadata"
   $FOREST_TOOL_PATH archive metadata v2.forest.car.zst
   echo "Importing the v2 snapshot"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot v2.forest.car.zst
