@@ -80,6 +80,10 @@ impl ServerError {
             Some("This method is not supported by the current version of the Forest node".into()),
         )
     }
+
+    pub fn inner(&self) -> &ErrorObjectOwned {
+        &self.inner
+    }
 }
 
 impl<E: std::error::Error + RpcErrorData + 'static> From<E> for ServerError {
