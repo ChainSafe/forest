@@ -896,7 +896,7 @@ mod test_selection {
         MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()
     }
 
-    /// Creates a a tipset with a mocked block and performs a head change to setup the
+    /// Creates a tipset with a mocked block and performs a head change to setup the
     /// [`MessagePool`] for testing.
     async fn mock_tipset(mpool: &mut MessagePool<TestApi>) -> Tipset {
         let b1 = mock_block(1, 1);
