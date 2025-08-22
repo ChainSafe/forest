@@ -9,8 +9,9 @@ use cid::Cid;
 macro_rules! register_market_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ActivateDealsParams, AddBalanceParams, Method, OnMinerSectorsTerminateParams,
-            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams, Method,
+            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -28,7 +29,8 @@ macro_rules! register_market_versions_8_to_9 {
                 (
                     Method::OnMinerSectorsTerminate,
                     OnMinerSectorsTerminateParams
-                )
+                ),
+                (Method::ComputeDataCommitment, ComputeDataCommitmentParams)
             ]
         );
 
@@ -44,8 +46,9 @@ macro_rules! register_market_versions_8_to_9 {
 macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ActivateDealsParams, AddBalanceParams, Method, OnMinerSectorsTerminateParams,
-            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams, Method,
+            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -63,7 +66,8 @@ macro_rules! register_market_versions_10_to_11 {
                 (
                     Method::OnMinerSectorsTerminate,
                     OnMinerSectorsTerminateParams
-                )
+                ),
+                (Method::ComputeDataCommitment, ComputeDataCommitmentParams)
             ]
         );
 

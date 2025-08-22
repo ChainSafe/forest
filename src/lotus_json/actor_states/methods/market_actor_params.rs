@@ -703,3 +703,89 @@ macro_rules! impl_lotus_json_for_on_miner_sectors_terminate_params {
 
 impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV8: 8, 9, 10, 11, 12);
 impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+pub struct SectorDataSpecLotusJson {
+    #[schemars(with = "LotusJson<DealID>")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+    #[schemars(with = "LotusJson<RegisteredSealProof>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sector_type: RegisteredSealProof,
+}
+
+macro_rules! impl_lotus_json_for_sector_data_spec {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDataSpec {
+                    type LotusJson = SectorDataSpecLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            deal_ids: self.deal_ids.into(),
+                            sector_type: self.sector_type.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            deal_ids: json.deal_ids.into(),
+                            sector_type: json.sector_type.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_sector_data_spec!(8, 9, 10, 11);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ComputeDataCommitmentParamsLotusJson {
+    pub inputs: Vec<SectorDataSpecLotusJson>,
+}
+
+macro_rules! impl_lotus_json_for_compute_data_commitment_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::ComputeDataCommitmentParams {
+                    type LotusJson = ComputeDataCommitmentParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                           inputs: self.inputs.into_iter().map(|s| s.into_lotus_json()).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            inputs: json
+                                .inputs
+                                .into_iter()
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDataSpec::from_lotus_json(s)) // delegate
+                                .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_compute_data_commitment_params!(8, 9, 10, 11);
