@@ -1844,6 +1844,9 @@ Options:
 
           [possible values: forest, lotus]
 
+      --allow-failure
+          Allow generating snapshot even if the test fails
+
   -h, --help
           Print help (see a summary with '-h')
 ```
