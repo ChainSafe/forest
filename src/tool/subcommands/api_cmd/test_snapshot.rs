@@ -106,7 +106,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await
                     .map(|r| r.into_lotus_json())
-                    .map_err(|e| e.to_string());
+                    .map_err(|e| e.inner().to_string());
                 let expected = match expected_response.clone() {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
                     Err(e) => Err(e),

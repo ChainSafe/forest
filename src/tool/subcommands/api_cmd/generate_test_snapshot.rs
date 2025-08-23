@@ -33,6 +33,7 @@ pub async fn run_test_with_dump(
     db: Arc<ReadOpsTrackingStore<ManyCar<ParityDb>>>,
     chain: &NetworkChain,
     allow_response_mismatch: bool,
+    allow_failure: bool,
 ) -> anyhow::Result<()> {
     if chain.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
@@ -45,12 +46,21 @@ pub async fn run_test_with_dump(
         ($ty:ty) => {
             if test_dump.request.method_name.as_ref() == <$ty>::NAME {
                 let params = <$ty>::parse_params(params_raw.clone(), ParamStructure::Either)?;
-                let result = <$ty>::handle(ctx.clone(), params).await?;
-                anyhow::ensure!(
-                    allow_response_mismatch
-                        || test_dump.forest_response == Ok(result.into_lotus_json_value()?),
-                    "Response mismatch between Forest and Lotus"
-                );
+                match <$ty>::handle(ctx.clone(), params).await {
+                    Ok(result) => {
+                        anyhow::ensure!(
+                            allow_response_mismatch
+                                || test_dump.forest_response == Ok(result.into_lotus_json_value()?),
+                            "Response mismatch between Forest and Lotus"
+                        );
+                    }
+                    Err(_) if allow_failure => {
+                        // If we allow failure, we do not check the error
+                    }
+                    Err(e) => {
+                        bail!("Error running test {}: {}", <$ty>::NAME, e);
+                    }
+                }
                 run = true;
             }
         };
