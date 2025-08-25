@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    # if: github.event.pull_request.draft == false
     steps:
       # find the nearest S3 space for storing cache files
       - name: Show IP
@@ -83,14 +83,14 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-      - id: get-hash
+      - id: get-cache-hash
         run: |
           ls -lhR ~/.cache/forest/test/rpc-snapshots/rpc_test/*
           echo "hash=$(openssl md5 ~/.cache/forest/test/rpc-snapshots/rpc_test/* | sort | openssl md5 | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
         shell: bash
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/save@v4
         with:
           path: |
             /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
-          key: rpcsnap-${{ steps.get-hash.outputs.hash }}
+          key: rpcsnap-${{ steps.get-cache-hash.outputs.hash }}
           enableCrossOsArchive: true

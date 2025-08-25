@@ -40,4 +40,4 @@ slow-timeout = { period = "120s", terminate-after = 3 }
 [[profile.default.overrides]]
 filter = 'test(rpc_snapshot_test_)'
 slow-timeout = { period = "120s", terminate-after = 3 }
-retries = { backoff = "exponential", count = 4, delay = "5s", jitter = true }
+retries = { backoff = "exponential", count = 3, delay = "5s", jitter = true }
