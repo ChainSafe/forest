@@ -42,11 +42,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/forest/test/rpc-snapshots
-          key: rpcsnap-${{ hashFiles('~/.cache/forest/test/rpc-snapshots/**') }}
-          enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -71,8 +66,8 @@ jobs:
         uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/forest/test/rpc-snapshots
-          key: rpcsnap-${{ hashFiles('~/.cache/forest/test/rpc-snapshots/**') }}
+          path: /home/runner/.cache/forest/test/rpc-snapshots
+          key: rpcsnap-${{ hashFiles('/home/runner/.cache/forest/test/rpc-snapshots/**') }}
           enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -87,3 +82,4 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+      - run: ls -lhR /home/runner/.cache/forest/test/rpc-snapshots
