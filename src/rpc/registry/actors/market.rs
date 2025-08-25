@@ -48,7 +48,8 @@ macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
             ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams,
-            GetDealDataCommitmentParams, Method, OnMinerSectorsTerminateParams,
+            GetDealClientParams, GetDealDataCommitmentParams, GetDealLabelParams,
+            GetDealProviderParams, GetDealTermParams, Method, OnMinerSectorsTerminateParams,
             PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -95,6 +96,10 @@ macro_rules! register_market_versions_10_to_11 {
                     Method::GetDealDataCommitmentExported,
                     GetDealDataCommitmentParams
                 ),
+                (Method::GetDealClientExported, GetDealClientParams),
+                (Method::GetDealProviderExported, GetDealProviderParams),
+                (Method::GetDealLabelExported, GetDealLabelParams),
+                (Method::GetDealTermExported, GetDealTermParams)
             ]
         );
     }};
@@ -103,8 +108,9 @@ macro_rules! register_market_versions_10_to_11 {
 macro_rules! register_market_versions_12 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, GetDealDataCommitmentParams, Method,
-            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealClientParams,
+            GetDealDataCommitmentParams, GetDealLabelParams, GetDealProviderParams,
+            GetDealTermParams, Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -150,6 +156,10 @@ macro_rules! register_market_versions_12 {
                     Method::GetDealDataCommitmentExported,
                     GetDealDataCommitmentParams
                 ),
+                (Method::GetDealClientExported, GetDealClientParams),
+                (Method::GetDealProviderExported, GetDealProviderParams),
+                (Method::GetDealLabelExported, GetDealLabelParams),
+                (Method::GetDealTermExported, GetDealTermParams)
             ]
         );
     }};
@@ -158,8 +168,9 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, GetDealDataCommitmentParams, Method,
-            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealClientParams,
+            GetDealDataCommitmentParams, GetDealLabelParams, GetDealProviderParams,
+            GetDealTermParams, Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -205,6 +216,10 @@ macro_rules! register_market_versions_13_to_16 {
                     Method::GetDealDataCommitmentExported,
                     GetDealDataCommitmentParams
                 ),
+                (Method::GetDealClientExported, GetDealClientParams),
+                (Method::GetDealProviderExported, GetDealProviderParams),
+                (Method::GetDealLabelExported, GetDealLabelParams),
+                (Method::GetDealTermExported, GetDealTermParams)
             ]
         );
     }};
