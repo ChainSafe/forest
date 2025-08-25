@@ -1892,9 +1892,8 @@ fn eam_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<Rp
         salt: [0; 32],
     };
 
-    let create_external_params = fil_actor_eam_state::v16::CreateExternalParams {
-        0: vec![0x11, 0x22, 0x33, 0x44, 0x55],
-    };
+    let create_external_params =
+        fil_actor_eam_state::v16::CreateExternalParams(vec![0x11, 0x22, 0x33, 0x44, 0x55]);
 
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
