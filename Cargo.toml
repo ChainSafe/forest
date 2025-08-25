@@ -206,7 +206,6 @@ tar = "0.4"
 tempfile = "3"
 tera = { version = "1", default-features = false }
 thiserror = "2"
-ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-tungstenite = "0.27.0"
