@@ -7,22 +7,7 @@ set -euxo pipefail
 source "$(dirname "$0")/harness.sh"
 
 
-usage() {
-  echo "Usage: $0 <PRELOADED_WALLET_STRING>"
-  exit 1
-}
-
-if [ -z "$1" ]
-  then
-    usage
-fi
-
-echo "$1" > preloaded_wallet.key
-
-forest_init "$@"
-
-$FOREST_WALLET_PATH import preloaded_wallet.key
-$FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
+forest_init
 
 # This is the address of a Calibnet pre-deployed simple ERC20 contract.
 # You can find the hex and source code in 'src/tool/subcommands/api_cmd/contracts/erc20'.
