@@ -205,7 +205,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                             };
                         }
                     }
-                    Iterate(epoch, block_cid, ty, cid_vec) => {
+                    Iterate(epoch, block_cid, _type, cid_vec) => {
                         while let Some(cid) = cid_vec.pop_front() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
@@ -225,7 +225,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                     }
                                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if fail_on_dead_links {
-                                    let ty = match ty {
+                                    let type_display = match _type {
                                         IterateType::Message(c) => {
                                             format!("message {c}")
                                         }
@@ -234,7 +234,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                                         }
                                     };
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                        "[Iterate] missing key: {cid} from {ty} in block {block_cid} at epoch {epoch}"
+                                        "[Iterate] missing key: {cid} from {type_display} in block {block_cid} at epoch {epoch}"
                                     ))));
                                 }
                             }
