@@ -7,7 +7,7 @@ set -Eeuxo pipefail
 source "$(dirname "$0")/harness.sh"
 
 
-forest_init
+forest_init "$@"
 
 # This is the address of a Calibnet pre-deployed simple ERC20 contract.
 # You can find the hex and source code in 'src/tool/subcommands/api_cmd/contracts/erc20'.
