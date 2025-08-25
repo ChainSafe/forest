@@ -1,6 +1,5 @@
 [profile.default]
 slow-timeout = { period = "10s", terminate-after = 3 }
-run-extra-args = ["--skip", "rpc_test_"]
 
 # This test downloads bundles from the network, which can take a while.
 # It is only run on CI, so we can afford to be more patient.
