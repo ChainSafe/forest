@@ -64,10 +64,11 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
-          path: /home/runner/.cache/forest/test/rpc-snapshots
-          key: rpcsnap-${{ hashFiles('/home/runner/.cache/forest/test/rpc-snapshots/**/*') }}
+          path: |
+            /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
+          key: rpcsnap-
           enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -82,4 +83,14 @@ jobs:
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
-      - run: ls -lhR /home/runner/.cache/forest/test/rpc-snapshots
+      - id: get-hash
+        run: |
+          ls -lhR ~/.cache/forest/test/rpc-snapshots/rpc_test/*
+          echo "hash=$(openssl md5 ~/.cache/forest/test/rpc-snapshots/rpc_test/* | sort | openssl md5 | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
+        shell: bash
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
+          key: rpcsnap-${{ steps.get-hash.outputs.hash }}
+          enableCrossOsArchive: true
