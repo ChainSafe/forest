@@ -207,13 +207,19 @@ pub enum ApiCommands {
     },
     /// Run multiple stateful JSON-RPC API tests against a Filecoin node.
     ///
+    /// Connection: uses `FULLNODE_API_INFO` from the environment.
+    ///
     /// Some tests require sending a transaction to trigger events; the provided
     /// `from`, `to`, `payload`, and `topic` inputs are used for those cases.
     ///
     /// Useful for verifying methods like `eth_newFilter`, `eth_getFilterLogs`, and others
     /// that rely on internal state.
     ///
-    /// Use `--filter` to run only tests that interact with a specific RPC method.
+    /// Inputs:
+    /// - `--to`, `--from`: delegated Filecoin (f4) addresses
+    /// - `--payload`: calldata in hex
+    /// - `--topic`: 32‑byte event topic in hex
+    /// - `--filter`: run only tests that interact with a specific RPC method
     ///
     /// Example output:
     /// ```text
