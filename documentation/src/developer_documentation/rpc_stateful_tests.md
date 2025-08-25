@@ -27,8 +27,13 @@ Before running the tests, perform the following setup steps:
 
 ## Example output
 
-```
-./forest-tool api test-stateful <TOKEN>:/ip4/127.0.0.1/tcp/1234/http --to t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi --from t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy --payload 40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000 --topic 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+```console
+export FULLNODE_API_INFO="<TOKEN>:/ip4/127.0.0.1/tcp/1234/http"
+forest-tool api test-stateful \
+  --to t410f2jhqlciub25ad3immo5kug2fluj625xiex6lbyi \
+  --from t410f5uudc3yoiodsva73rxyx5sxeiaadpaplsu6mofy \
+  --payload 40c10f19000000000000000000000000ed28316f0e43872a83fb8df17ecae440003781eb00000000000000000000000000000000000000000000000006f05b59d3b20000 \
+  --topic 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
 running 7 tests
 test eth_newFilter install/uninstall ... ok
 test eth_newFilter under limit ... ok
