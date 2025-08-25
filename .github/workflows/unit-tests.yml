@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    # if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     steps:
       # find the nearest S3 space for storing cache files
       - name: Show IP
