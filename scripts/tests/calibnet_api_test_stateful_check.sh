@@ -2,7 +2,7 @@
 # This script tests RPC API stateful tests on a live forest node.
 # It requires both `forest`, `forest-wallet` and `forest-tool` to be in the PATH.
 
-set -Eeuxo pipefail
+set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
