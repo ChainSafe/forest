@@ -228,8 +228,6 @@ pub enum ApiCommands {
     /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
     /// ```
     TestStateful {
-        /// Client address
-        addr: UrlFromMultiAddr,
         /// Test Transaction `to` address
         #[arg(long)]
         to: String,
@@ -395,14 +393,13 @@ impl ApiCommands {
                 }
             }
             Self::TestStateful {
-                addr: UrlFromMultiAddr(url),
                 to,
                 from,
                 payload,
                 topic,
                 filter,
             } => {
-                let client = Arc::new(rpc::Client::from_url(url));
+                let client = Arc::new(rpc::Client::default_or_from_env(None)?);
 
                 let to = Address::from_str(&to)?;
                 let from = Address::from_str(&from)?;
