@@ -216,7 +216,7 @@ pub enum ApiCommands {
     /// Use `--filter` to run only tests that interact with a specific RPC method.
     ///
     /// Example output:
-    /// ```markdown
+    /// ```text
     /// running 7 tests
     /// test eth_newFilter install/uninstall ... ok
     /// test eth_newFilter under limit ... ok
