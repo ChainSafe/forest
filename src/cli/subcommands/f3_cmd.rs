@@ -143,12 +143,14 @@ impl F3Commands {
                     Ok((chain_head, cert_head))
                 }
 
+                let mut num_consecutive_fetch_failtures = 0;
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = std::io::stdout();
                 let mut text = String::new();
                 for _ in ticker {
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
+                            num_consecutive_fetch_failtures = 0;
                             if !text.is_empty() {
                                 write!(
                                     stdout,
@@ -172,10 +174,9 @@ impl F3Commands {
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
+                                println!("{text}");
                                 if !wait {
-                                    anyhow::bail!("{text}");
-                                } else {
-                                    println!("{text}");
+                                    std::process::exit(1);
                                 }
                             }
                         }
@@ -183,8 +184,14 @@ impl F3Commands {
                             if !wait {
                                 anyhow::bail!("Failed to check F3 sync status: {e}");
                             }
-                            // When waiting, log the error but continue
-                            eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
+
+                            num_consecutive_fetch_failtures += 1;
+                            if num_consecutive_fetch_failtures >= 3 {
+                                eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
+                                std::process::exit(2);
+                            } else {
+                                eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
+                            }
                         }
                     }
                 }
