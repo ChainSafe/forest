@@ -67,7 +67,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: /home/runner/.cache/forest/test/rpc-snapshots
-          key: rpcsnap-${{ hashFiles('/home/runner/.cache/forest/test/rpc-snapshots/**') }}
+          key: rpcsnap-${{ hashFiles('/home/runner/.cache/forest/test/rpc-snapshots/**/*') }}
           enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
