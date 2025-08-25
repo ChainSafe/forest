@@ -154,7 +154,10 @@ impl F3Commands {
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
                             num_consecutive_fetch_failtures = 0;
-                            if cert_head.chain_head().epoch.saturating_add(threshold as _)
+                            if cert_head
+                                .chain_head()
+                                .epoch
+                                .saturating_add(threshold.try_into()?)
                                 >= chain_head.epoch()
                             {
                                 let text = format!(
