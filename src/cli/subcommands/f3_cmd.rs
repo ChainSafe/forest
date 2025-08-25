@@ -20,7 +20,6 @@ use crate::{
     shim::fvm_shared_latest::ActorID,
 };
 use ahash::HashSet;
-use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -97,7 +96,7 @@ pub enum F3Commands {
         /// Wait until F3 is in sync.
         #[arg(long)]
         wait: bool,
-        /// The threshold of the gap between chain head and F3 head within which F3 is considered in sync.
+        /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
         #[arg(long, default_value_t = 20)]
         threshold: usize,
     },
@@ -155,7 +154,8 @@ impl F3Commands {
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
                             num_consecutive_fetch_failtures = 0;
-                            if cert_head.chain_head().epoch + threshold as i64 >= chain_head.epoch()
+                            if cert_head.chain_head().epoch.saturating_add(threshold as _)
+                                >= chain_head.epoch()
                             {
                                 let text = format!(
                                     "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
@@ -444,12 +444,7 @@ impl F3PowerTableCommands {
             (instance.saturating_sub(manifest.committee_lookback),),
         )
         .await?;
-        let tsk = lookback
-            .ec_chain
-            .last()
-            .context("lookback EC chain is empty")?
-            .key
-            .clone();
+        let tsk = lookback.ec_chain.last().key.clone();
         Ok((tsk, previous.supplemental_data.power_table))
     }
 }
