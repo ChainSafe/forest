@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::{borrow::Cow, io::Write as _, sync::LazyLock, time::Duration};
+use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 use crate::{
     blocks::{Tipset, TipsetKey},
@@ -23,6 +23,7 @@ use ahash::HashSet;
 use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -143,39 +144,36 @@ impl F3Commands {
                     Ok((chain_head, cert_head))
                 }
 
+                let pb = ProgressBar::new_spinner().with_style(
+                    ProgressStyle::with_template("{spinner} {msg}")
+                        .expect("indicatif template must be valid"),
+                );
+                pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 let mut num_consecutive_fetch_failtures = 0;
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
-                let mut stdout = std::io::stdout();
-                let mut text = String::new();
                 for _ in ticker {
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
                             num_consecutive_fetch_failtures = 0;
-                            if !text.is_empty() {
-                                write!(
-                                    stdout,
-                                    "\r{}{}",
-                                    anes::MoveCursorUp(1),
-                                    anes::ClearLine::All,
-                                )?;
-                            }
                             if cert_head.chain_head().epoch + threshold as i64 >= chain_head.epoch()
                             {
-                                text = format!(
+                                let text = format!(
                                     "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
-                                println!("{text}");
+                                pb.set_message(text);
+                                pb.finish();
                                 break;
                             } else {
-                                text = format!(
+                                let text = format!(
                                     "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
-                                println!("{text}");
+                                pb.set_message(text);
                                 if !wait {
+                                    pb.finish();
                                     std::process::exit(1);
                                 }
                             }
