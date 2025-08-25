@@ -35,6 +35,9 @@ filter = 'binary(lint)'
 slow-timeout = { period = "120s", terminate-after = 3 }
 
 # These tests download test snapshots from the network, which can take a while.
+# There might be some network issues, so we allow some retries with backoff.
+# Jitter is enabled to avoid [thundering herd issues](https://en.wikipedia.org/wiki/Thundering_herd_problem).
 [[profile.default.overrides]]
 filter = 'test(rpc_test_)'
 slow-timeout = { period = "120s", terminate-after = 3 }
+retries = { backoff = "exponential", count = 4, delay = "5s", jitter = true }

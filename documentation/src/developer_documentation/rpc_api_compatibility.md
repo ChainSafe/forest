@@ -100,7 +100,7 @@ SENDER=$(lotus wallet new bls)
 
 # print the owner address and order the user to send FIL from faucet to it. Wait for the confirmation from the user.
 echo "Owner: $OWNER"
-echo "Please send some FIL to the owner address and press enter to continue. Ensure that that the transaction is confirmed."
+echo "Please send some FIL to the owner address and press enter to continue. Ensure that the transaction is confirmed."
 read
 
 # Send some FIL to the worker and sender from the owner address

@@ -668,7 +668,7 @@ Usage: forest-cli state <COMMAND>
 
 Commands:
   fetch
-  compute
+  compute     Compute state trees for epochs
   read-state  Read the state of an actor
   help        Print this message or the help of the given subcommand(s)
 
@@ -692,11 +692,15 @@ Options:
 ### `forest-cli state compute`
 
 ```
-Usage: forest-cli state compute --epoch <EPOCH>
+Compute state trees for epochs
+
+Usage: forest-cli state compute [OPTIONS] --epoch <EPOCH>
 
 Options:
-      --epoch <EPOCH>  Which epoch to compute the state transition for
-  -h, --help           Print help
+      --epoch <EPOCH>        Which epoch to compute the state transition for
+  -n, --n-epochs <N_EPOCHS>  Number of tipset epochs to compute state for. Default is 1
+  -v, --verbose              Print epoch and tipset key along with state root
+  -h, --help                 Print help
 ```
 
 ### `forest-cli config`
@@ -1393,6 +1397,7 @@ Usage: forest-tool archive <COMMAND>
 Commands:
   info         Show basic information about an archive
   metadata     Show FRC-0108 metadata of an Filecoin snapshot archive
+  f3-header    Show FRC-0108 header of a standalone F3 snapshot
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
@@ -1449,6 +1454,20 @@ Usage: forest-tool archive checkpoints <SNAPSHOT_FILES>...
 
 Arguments:
   <SNAPSHOT_FILES>...  Path to snapshot file
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool archive f3-header`
+
+```
+Show FRC-0108 header of a standalone F3 snapshot
+
+Usage: forest-tool archive f3-header <SNAPSHOT>
+
+Arguments:
+  <SNAPSHOT>  Path to a standalone F3 snapshot
 
 Options:
   -h, --help  Print help

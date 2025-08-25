@@ -106,7 +106,7 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
                 let result = <$ty>::handle(ctx.clone(), params)
                     .await
                     .map(|r| r.into_lotus_json())
-                    .map_err(|e| e.to_string());
+                    .map_err(|e| e.inner().to_string());
                 let expected = match expected_response.clone() {
                     Ok(v) => serde_json::from_value(v).map_err(|e| e.to_string()),
                     Err(e) => Err(e),
@@ -187,7 +187,7 @@ mod tests {
     use anyhow::Context as _;
     use directories::ProjectDirs;
     use std::sync::LazyLock;
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
     use tokio::sync::Mutex;
     use url::Url;
 
@@ -216,10 +216,23 @@ mod tests {
                 .unwrap();
         let project_dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let cache_dir = project_dir.cache_dir().join("test").join("rpc-snapshots");
-        let path = download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable)
-            .await
-            .unwrap()
-            .path;
+        let path = crate::utils::retry(
+            crate::utils::RetryArgs {
+                timeout: Some(Duration::from_secs(if crate::utils::is_ci() {
+                    20
+                } else {
+                    120
+                })),
+                max_retries: Some(5),
+                ..Default::default()
+            },
+            || async {
+                download_file_with_cache(&url, &cache_dir, DownloadFileOption::NonResumable).await
+            },
+        )
+        .await
+        .unwrap()
+        .path;
 
         // We need to set RNG seed so that tests are run with deterministic
         // output. The snapshots should be generated with a node running with the same seed, if
