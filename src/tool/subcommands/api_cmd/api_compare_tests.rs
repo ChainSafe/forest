@@ -3084,7 +3084,7 @@ fn evaluate_test_success(
                 PolicyOnRejected::Pass => true,
                 PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
                 PolicyOnRejected::PassWithIdenticalErrorCaseInsensitive => {
-                    reason_forest.to_lowercase() == reason_lotus.to_lowercase()
+                    reason_forest.eq_ignore_ascii_case(reason_lotus)
                 }
                 PolicyOnRejected::PassWithQuasiIdenticalError => {
                     reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
