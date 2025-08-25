@@ -24,7 +24,7 @@ function forest_import_non_calibnet_snapshot {
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot --save-token ./admin_token
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
 }
 
 function forest_download_and_import_snapshot_with_f3 {
