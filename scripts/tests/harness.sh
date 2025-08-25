@@ -139,12 +139,6 @@ function forest_init {
   forest_wait_api
   forest_wait_for_sync
   forest_check_db_stats
-
-  ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-  export ADMIN_TOKEN
-  export FULLNODE_API_INFO
 }
 
 function forest_init_with_f3 {
