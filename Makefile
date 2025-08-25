@@ -100,13 +100,14 @@ docker-run:
 
 test:
 	cargo nextest run --workspace --no-fail-fast
-
+	cargo test --lib rpc_test
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
 test-release:
 	cargo nextest run --cargo-profile quick --workspace --no-fail-fast
+	cargo test --profile quick --lib rpc_test
 
 test-all: test test-release
 
