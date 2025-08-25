@@ -413,7 +413,7 @@ impl ApiCommands {
                 };
 
                 let tests = stateful_tests::create_tests(tx).await;
-                stateful_tests::run_tests(tests, client.clone(), filter).await?;
+                stateful_tests::run_tests(tests, client, filter).await?;
             }
             Self::DumpTests {
                 create_tests_args,
