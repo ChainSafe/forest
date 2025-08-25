@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
+use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use anyhow::Result;
 use cid::Cid;
@@ -46,9 +47,9 @@ macro_rules! register_market_versions_8_to_9 {
 macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams, Method,
-            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams,
+            GetDealDataCommitmentParams, Method, OnMinerSectorsTerminateParams,
+            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -77,14 +78,34 @@ macro_rules! register_market_versions_10_to_11 {
             $code_cid,
             [(Method::Constructor, empty), (Method::CronTick, empty),]
         );
+
+        // Register exported methods
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::AddBalanceExported, AddBalanceParams),
+                (Method::WithdrawBalanceExported, WithdrawBalanceParams),
+                (
+                    Method::PublishStorageDealsExported,
+                    PublishStorageDealsParams
+                ),
+                (Method::GetBalanceExported, Address),
+                (
+                    Method::GetDealDataCommitmentExported,
+                    GetDealDataCommitmentParams
+                ),
+            ]
+        );
     }};
 }
 
 macro_rules! register_market_versions_12 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, Method, OnMinerSectorsTerminateParams,
-            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealDataCommitmentParams, Method,
+            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -111,6 +132,25 @@ macro_rules! register_market_versions_12 {
             $registry,
             $code_cid,
             [(Method::Constructor, empty), (Method::CronTick, empty),]
+        );
+
+        // Register exported methods
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::AddBalanceExported, AddBalanceParams),
+                (Method::WithdrawBalanceExported, WithdrawBalanceParams),
+                (
+                    Method::PublishStorageDealsExported,
+                    PublishStorageDealsParams
+                ),
+                (Method::GetBalanceExported, Address),
+                (
+                    Method::GetDealDataCommitmentExported,
+                    GetDealDataCommitmentParams
+                ),
+            ]
         );
     }};
 }
@@ -118,8 +158,9 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, Method, OnMinerSectorsTerminateParams,
-            PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealDataCommitmentParams, Method,
+            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -146,6 +187,25 @@ macro_rules! register_market_versions_13_to_16 {
             $registry,
             $code_cid,
             [(Method::Constructor, empty), (Method::CronTick, empty),]
+        );
+
+        // Register exported methods
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::AddBalanceExported, AddBalanceParams),
+                (Method::WithdrawBalanceExported, WithdrawBalanceParams),
+                (
+                    Method::PublishStorageDealsExported,
+                    PublishStorageDealsParams
+                ),
+                (Method::GetBalanceExported, Address),
+                (
+                    Method::GetDealDataCommitmentExported,
+                    GetDealDataCommitmentParams
+                ),
+            ]
         );
     }};
 }

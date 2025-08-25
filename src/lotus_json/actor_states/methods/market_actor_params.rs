@@ -789,3 +789,43 @@ macro_rules! impl_lotus_json_for_compute_data_commitment_params {
 }
 
 impl_lotus_json_for_compute_data_commitment_params!(8, 9, 10, 11);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct DealQueryParamsLotusJson {
+    #[schemars(with = "LotusJson<DealID>")]
+    #[serde(with = "crate::lotus_json")]
+    pub id: DealID,
+}
+
+macro_rules! impl_lotus_json_for_deal_query_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::DealQueryParams {
+                    type LotusJson = DealQueryParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            id: self.id.into(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            id: json.id.into(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_deal_query_params!(10, 11, 12, 13, 14, 15, 16);
