@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+// Implements an ERC20 token. Supports transfers, balance checks,
+// and minting by the owner. Primarily used for testing events/logs.
+
 pragma solidity ^0.8.0;
 
 interface IERC20 {
