@@ -1,6 +1,7 @@
-# Docker compose file to run Forest and Lotus API tests.
-version: "3.8"
-
+# This docker-compose file sets up a testing environment to compare snapshot exports
+# between Forest and Lotus Filecoin implementations.
+#
+# This ensures that both implementations produce identical snapshots from the same starting point.
 services:
   init:
     image: ${FOREST_IMAGE:-ghcr.io/chainsafe/forest:edge}
@@ -54,8 +55,8 @@ services:
       init:
         condition: service_completed_successfully
       # To force the daemons run sequentially on CI to get rid of OOM
-      # forest:
-      #   condition: service_completed_successfully
+      forest:
+        condition: service_completed_successfully
     image: ${LOTUS_IMAGE}
     volumes:
       - node-data:/data
@@ -66,9 +67,6 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
-      - LOTUS_EVENTS_ENABLEACTOREVENTSAPI=1
-      - LOTUS_FEVM_ENABLEETHRPC=1
-      - LOTUS_CHAININDEXER_ENABLEINDEXER=1
       - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
       - LOTUS_SYNC_BOOTSTRAP_PEERS=1
       - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http

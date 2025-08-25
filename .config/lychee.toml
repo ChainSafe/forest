@@ -19,6 +19,8 @@ exclude = [
   "crates.io",
   # Bot protection / 403 Forbidden errors
   "linuxhint.com",
+  # Bot protection / 403 Forbidden errors
+  "wikipedia.org",
 ]
 timeout = 30
 max_retries = 6
