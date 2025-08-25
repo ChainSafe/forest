@@ -448,7 +448,9 @@ impl<
                                     // If the receiving end has already quit - just ignore it and
                                     // break out of the loop.
                                     let _ = block_sender
-                                        .send_async(Err(anyhow::anyhow!("missing key: {cid}")))
+                                        .send_async(Err(anyhow::anyhow!(
+                                            "[Send] missing key: {cid}"
+                                        )))
                                         .await;
                                     break 'main;
                                 }
@@ -518,7 +520,7 @@ impl<'a, DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Un
                 } else if let Some(data) = self.db.get(&cid)? {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if fail_on_dead_links {
-                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("[Poll] missing key: {cid}"))));
                 }
             }
 
