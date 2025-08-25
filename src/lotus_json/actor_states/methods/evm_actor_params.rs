@@ -129,7 +129,7 @@ impl_evm_delegate_call_params_lotus_json!(10, 11, 12, 13, 14, 15, 16);
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GetStorageAtParamsLotusJson {
-    pub storage_key: Vec<u8>,
+    pub storage_key: [u8; 32],
 }
 
 impl HasLotusJson for GetStorageAtParams {
@@ -147,11 +147,12 @@ impl HasLotusJson for GetStorageAtParams {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         GetStorageAtParamsLotusJson {
-            storage_key: self.0.to_vec(),
+            storage_key: self.0,
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        GetStorageAtParams::new(lotus_json.storage_key).expect("expected array to have 32 elements")
+        GetStorageAtParams::new(lotus_json.storage_key.to_vec())
+            .expect("expected array to have 32 elements")
     }
 }
