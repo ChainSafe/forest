@@ -409,6 +409,9 @@ where
         ),
     );
 
+    // Fix off-by-1 bug: prevent validating more epochs than available in the snapshot.
+    // Without +1, specifying --check-stateroots=900 would validate 901 epochs,
+    // causing out-of-bounds errors when the snapshot contains only 900 recent state roots.
     let last_epoch = ts.epoch() - epochs as i64 + 1;
 
     // Bundles are required when doing state migrations.
