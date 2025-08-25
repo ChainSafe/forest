@@ -42,6 +42,11 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/forest/test/rpc-snapshots
+          key: rpcsnap-${{ hashFiles('~/.cache/forest/test/rpc-snapshots/**') }}
+          enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -64,6 +69,11 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/forest/test/rpc-snapshots
+          key: rpcsnap-${{ hashFiles('~/.cache/forest/test/rpc-snapshots/**') }}
+          enableCrossOsArchive: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
