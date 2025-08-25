@@ -96,7 +96,7 @@ impl SyncCommands {
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
-                    println!("response");
+                    println!("{response}");
                 }
                 Ok(())
             }
