@@ -100,14 +100,14 @@ docker-run:
 
 test:
 	cargo nextest run --workspace --no-fail-fast -- --skip rpc_snapshot_test_
-	cargo test --lib rpc_snapshot_test_
+	cargo test --package forest-filecoin --lib rpc_snapshot_test_
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
 test-release:
 	cargo nextest run --cargo-profile quick --workspace --no-fail-fast -- --skip rpc_snapshot_test_
-	cargo test --profile quick --lib rpc_snapshot_test_
+	cargo test --package forest-filecoin --profile quick --lib rpc_snapshot_test_
 
 test-all: test test-release
 
