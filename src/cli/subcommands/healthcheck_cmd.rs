@@ -10,7 +10,6 @@ use crate::health::DEFAULT_HEALTHCHECK_PORT;
 use crate::rpc;
 use clap::Subcommand;
 use http::StatusCode;
-use ticker::Ticker;
 
 #[derive(Debug, Subcommand)]
 pub enum HealthcheckCommand {
@@ -67,7 +66,6 @@ impl HealthcheckCommand {
         healthcheck_port: u16,
         wait: bool,
     ) -> anyhow::Result<()> {
-        let ticker = Ticker::new(0.., Duration::from_secs(1));
         let mut stdout = stdout();
 
         let url = format!(
@@ -75,7 +73,9 @@ impl HealthcheckCommand {
             client.base_url().host_str().unwrap_or("localhost"),
         );
 
-        for _ in ticker {
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        loop {
+            interval.tick().await;
             let (status, text) = {
                 match reqwest::get(&url).await {
                     Ok(response) => {
