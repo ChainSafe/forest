@@ -4,7 +4,6 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
-use anyhow::Result;
 use cid::Cid;
 
 macro_rules! register_market_versions_8_to_9 {
@@ -48,8 +47,10 @@ macro_rules! register_market_versions_10_to_11 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
             ActivateDealsParams, AddBalanceParams, ComputeDataCommitmentParams,
-            GetDealClientParams, GetDealDataCommitmentParams, GetDealLabelParams,
-            GetDealProviderParams, GetDealTermParams, Method, OnMinerSectorsTerminateParams,
+            GetDealActivationParams, GetDealClientCollateralParams, GetDealClientParams,
+            GetDealDataCommitmentParams, GetDealLabelParams, GetDealProviderCollateralParams,
+            GetDealProviderParams, GetDealTermParams, GetDealTotalPriceParams,
+            GetDealVerifiedParams, Method, OnMinerSectorsTerminateParams,
             PublishStorageDealsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -99,7 +100,18 @@ macro_rules! register_market_versions_10_to_11 {
                 (Method::GetDealClientExported, GetDealClientParams),
                 (Method::GetDealProviderExported, GetDealProviderParams),
                 (Method::GetDealLabelExported, GetDealLabelParams),
-                (Method::GetDealTermExported, GetDealTermParams)
+                (Method::GetDealTermExported, GetDealTermParams),
+                (Method::GetDealTotalPriceExported, GetDealTotalPriceParams),
+                (
+                    Method::GetDealClientCollateralExported,
+                    GetDealClientCollateralParams
+                ),
+                (
+                    Method::GetDealProviderCollateralExported,
+                    GetDealProviderCollateralParams
+                ),
+                (Method::GetDealVerifiedExported, GetDealVerifiedParams),
+                (Method::GetDealActivationExported, GetDealActivationParams),
             ]
         );
     }};
@@ -108,9 +120,11 @@ macro_rules! register_market_versions_10_to_11 {
 macro_rules! register_market_versions_12 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, GetDealClientParams,
-            GetDealDataCommitmentParams, GetDealLabelParams, GetDealProviderParams,
-            GetDealTermParams, Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealActivationParams,
+            GetDealClientCollateralParams, GetDealClientParams, GetDealDataCommitmentParams,
+            GetDealLabelParams, GetDealProviderCollateralParams, GetDealProviderParams,
+            GetDealTermParams, GetDealTotalPriceParams, GetDealVerifiedParams, Method,
+            OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -159,7 +173,18 @@ macro_rules! register_market_versions_12 {
                 (Method::GetDealClientExported, GetDealClientParams),
                 (Method::GetDealProviderExported, GetDealProviderParams),
                 (Method::GetDealLabelExported, GetDealLabelParams),
-                (Method::GetDealTermExported, GetDealTermParams)
+                (Method::GetDealTermExported, GetDealTermParams),
+                (Method::GetDealTotalPriceExported, GetDealTotalPriceParams),
+                (
+                    Method::GetDealClientCollateralExported,
+                    GetDealClientCollateralParams
+                ),
+                (
+                    Method::GetDealProviderCollateralExported,
+                    GetDealProviderCollateralParams
+                ),
+                (Method::GetDealVerifiedExported, GetDealVerifiedParams),
+                (Method::GetDealActivationExported, GetDealActivationParams),
             ]
         );
     }};
@@ -168,9 +193,11 @@ macro_rules! register_market_versions_12 {
 macro_rules! register_market_versions_13_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            AddBalanceParams, BatchActivateDealsParams, GetDealClientParams,
-            GetDealDataCommitmentParams, GetDealLabelParams, GetDealProviderParams,
-            GetDealTermParams, Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
+            AddBalanceParams, BatchActivateDealsParams, GetDealActivationParams,
+            GetDealClientCollateralParams, GetDealClientParams, GetDealDataCommitmentParams,
+            GetDealLabelParams, GetDealProviderCollateralParams, GetDealProviderParams,
+            GetDealSectorParams, GetDealTermParams, GetDealTotalPriceParams, GetDealVerifiedParams,
+            Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
@@ -219,7 +246,19 @@ macro_rules! register_market_versions_13_to_16 {
                 (Method::GetDealClientExported, GetDealClientParams),
                 (Method::GetDealProviderExported, GetDealProviderParams),
                 (Method::GetDealLabelExported, GetDealLabelParams),
-                (Method::GetDealTermExported, GetDealTermParams)
+                (Method::GetDealTermExported, GetDealTermParams),
+                (Method::GetDealTotalPriceExported, GetDealTotalPriceParams),
+                (
+                    Method::GetDealClientCollateralExported,
+                    GetDealClientCollateralParams
+                ),
+                (
+                    Method::GetDealProviderCollateralExported,
+                    GetDealProviderCollateralParams
+                ),
+                (Method::GetDealVerifiedExported, GetDealVerifiedParams),
+                (Method::GetDealActivationExported, GetDealActivationParams),
+                (Method::GetDealSectorExported, GetDealSectorParams)
             ]
         );
     }};
