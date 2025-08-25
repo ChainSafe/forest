@@ -28,7 +28,6 @@ use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
 use tera::Tera;
-use ticker::Ticker;
 
 const MANIFEST_TEMPLATE_NAME: &str = "manifest.tpl";
 const CERTIFICATE_TEMPLATE_NAME: &str = "certificate.tpl";
@@ -150,8 +149,9 @@ impl F3Commands {
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 let mut num_consecutive_fetch_failtures = 0;
-                let ticker = Ticker::new(0.., Duration::from_secs(1));
-                for _ in ticker {
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
                             num_consecutive_fetch_failtures = 0;
