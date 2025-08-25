@@ -30,6 +30,10 @@ cfg_if::cfg_if! {
         use crate::cli_shared::tikv_jemallocator::Jemalloc;
         #[global_allocator]
         static GLOBAL: Jemalloc = Jemalloc;
+    } else if #[cfg(feature = "system-alloc")] {
+        use std::alloc::System;
+        #[global_allocator]
+        static GLOBAL: System = System;
     }
 }
 
