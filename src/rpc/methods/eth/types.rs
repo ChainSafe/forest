@@ -88,9 +88,10 @@ impl GetStorageAtParams {
 
     pub fn deserialize_params(bz: &[u8]) -> anyhow::Result<Self> {
         let (&prefix, bytes) = bz.split_first().context("unexpected EOF")?;
-        if prefix != LENGTH_BUF_GET_STORAGE_AT_PARAMS {
-            anyhow::bail!("expected CBOR array of length 1");
-        }
+        ensure!(
+            prefix == LENGTH_BUF_GET_STORAGE_AT_PARAMS,
+            "expected CBOR array of length 1"
+        );
         let decoded: RawBytes = fvm_ipld_encoding::from_slice(bytes)?;
         GetStorageAtParams::new(decoded.into())
     }
