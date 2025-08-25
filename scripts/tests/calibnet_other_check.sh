@@ -16,7 +16,7 @@ go test -v ./f3-sidecar
 echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
 $FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
-echo "Test subcommand: state compute"
+echo "Test subcommand: state compute at epoch 0"
 cid=$($FOREST_CLI_PATH state compute --epoch 0)
 # Expected state root CID, same reported as in Lotus. This should break only if the network is reset.
 if [ "$cid" != "bafy2bzacecgqgzh3gxpariy3mzqb37y2vvxoaw5nwbrlzkhso6owus3zqckwe" ]; then
@@ -63,3 +63,11 @@ echo "Regression testing mempool select"
 gem install http --user-install
 $FOREST_CLI_PATH chain head --format json -n 1000 | scripts/mpool_select_killer.rb
 
+echo "Test subcommand: state compute (batch)"
+head_epoch=$($FOREST_CLI_PATH chain head --format json | jq ".[0].epoch")
+if ! [[ "$head_epoch" =~ ^[0-9]+$ ]]; then
+  echo "Failed to parse numeric head epoch from 'chain head --format json': $head_epoch"
+  exit 1
+fi
+start_epoch=$(( head_epoch > 900 ? head_epoch - 900 : 0 ))
+$FOREST_CLI_PATH state compute --epoch "$start_epoch" -n 10 -v

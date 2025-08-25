@@ -172,6 +172,9 @@ pub enum ApiCommands {
         /// only when the response from Forest is fixed and matches the response from Lotus.
         #[arg(long)]
         use_response_from: Option<NodeType>,
+        /// Allow generating snapshot even if the test fails.
+        #[arg(long, default_value_t = false)]
+        allow_failure: bool,
     },
     /// Dumps RPC test cases for a specified API path.
     ///
@@ -272,6 +275,7 @@ impl ApiCommands {
                 chain,
                 out_dir,
                 use_response_from,
+                allow_failure,
             } => {
                 unsafe { std::env::set_var("FOREST_TIPSET_CACHE_DISABLED", "1") };
                 if !out_dir.is_dir() {
@@ -296,6 +300,7 @@ impl ApiCommands {
                         tracking_db.clone(),
                         &chain,
                         allow_response_mismatch,
+                        allow_failure,
                     )
                     .await
                     {

@@ -201,6 +201,7 @@ pub(super) enum PolicyOnRejected {
     Fail,
     Pass,
     PassWithIdenticalError,
+    PassWithIdenticalErrorCaseInsensitive,
     /// If Forest reason is a subset of Lotus reason, the test passes.
     /// We don't always bubble up errors and format the error chain like Lotus.
     PassWithQuasiIdenticalError,
@@ -1138,6 +1139,27 @@ fn state_tests_with_tipset<DB: Blockstore>(
 }
 
 fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
+    let prefunded_wallets = [
+        // the following addresses should have 666 attoFIL each
+        Address::from_str("t0168923").unwrap(), // this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
+        Address::from_str("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly").unwrap(),
+        Address::from_str("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q").unwrap(),
+        Address::from_str("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq").unwrap(),
+        Address::from_str("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki").unwrap(),
+        // This address should have 0 FIL
+        Address::from_str("t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y").unwrap(),
+    ];
+
+    let mut tests = vec![];
+    for wallet in prefunded_wallets {
+        tests.push(RpcTest::identity(
+            WalletBalance::request((wallet,)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            WalletValidateAddress::request((wallet.to_string(),)).unwrap(),
+        ));
+    }
+
     let known_wallet = *KNOWN_CALIBNET_ADDRESS;
     // "Hello world!" signed with the above address:
     let signature = "44364ca78d85e53dda5ac6f719a4f2de3261c17f58558ab7730f80c478e6d43775244e7d6855afad82e4a1fd6449490acfa88e3fcfe7c1fe96ed549c100900b400";
@@ -1149,11 +1171,26 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
         _ => panic!("Invalid signature (must be bls or secp256k1)"),
     };
 
-    let mut tests = vec![
-        RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
-        RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
-        RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
-    ];
+    tests.push(RpcTest::identity(
+        WalletBalance::request((known_wallet,)).unwrap(),
+    ));
+    tests.push(RpcTest::identity(
+        WalletValidateAddress::request((known_wallet.to_string(),)).unwrap(),
+    ));
+    tests.push(
+        RpcTest::identity(
+            // Both Forest and Lotus should fail miserably at invocking Cthulhu's name
+            WalletValidateAddress::request((
+                "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".to_string(),
+            ))
+            .unwrap(),
+        )
+        // Forest returns `Unknown address network`, Lotus `unknown address network`.
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalErrorCaseInsensitive),
+    );
+    tests.push(RpcTest::identity(
+        WalletVerify::request((known_wallet, text, signature)).unwrap(),
+    ));
 
     // If a worker address is provided, we can test wallet methods requiring
     // a shared key.
@@ -3104,6 +3141,9 @@ fn evaluate_test_success(
             match test.policy_on_rejected {
                 PolicyOnRejected::Pass => true,
                 PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
+                PolicyOnRejected::PassWithIdenticalErrorCaseInsensitive => {
+                    reason_forest.to_lowercase() == reason_lotus.to_lowercase()
+                }
                 PolicyOnRejected::PassWithQuasiIdenticalError => {
                     reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
                 }

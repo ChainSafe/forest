@@ -11,7 +11,6 @@
 - [Developer documentation](./developer_documentation/introduction.md)
   - [Database migrations](./developer_documentation/database_migrations.md)
   - [Local GH Actions](./developer_documentation/local_actions.md)
-  - [Memory analysis](./developer_documentation/memory-analysis.md)
   - [Release checklist](./developer_documentation/release_checklist.md)
   - [State migration guide](./developer_documentation/state_migration_guide.md)
   - [Devnet Notes](./developer_documentation/devnet_notes.md)
