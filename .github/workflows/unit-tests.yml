@@ -68,6 +68,7 @@ jobs:
         with:
           path: |
             /home/runner/.cache/forest/test/rpc-snapshots/rpc_test
+          # Broad key + prefix-based restore so the latest rpcsnap-<hash> is picked up.
           key: rpcsnap-
           enableCrossOsArchive: true
       - name: Setup sccache
