@@ -7,11 +7,11 @@ use cid::Cid;
 
 macro_rules! register_eth_account_reg_version {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-    use $state_version::{Method};
+        use $state_version::*;
 
-    // Constructor has no parameters
-    register_actor_methods!($registry, $code_cid, [(Method::Constructor, empty),]);
-   }};
+        // Constructor has no parameters
+        register_actor_methods!($registry, $code_cid, [(Method::Constructor, empty),]);
+    }};
 }
 
 pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
