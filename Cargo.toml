@@ -72,6 +72,7 @@ fil_actor_account_state = { version = "22.4" }
 fil_actor_cron_state = { version = "22.4" }
 fil_actor_datacap_state = { version = "22.4" }
 fil_actor_eam_state = { version = "22.4" }
+fil_actor_ethaccount_state = { version = "22.4" }
 fil_actor_evm_state = { version = "22.4" }
 fil_actor_init_state = { version = "22.4" }
 fil_actor_market_state = { version = "22.4" }
