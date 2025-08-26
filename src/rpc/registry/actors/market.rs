@@ -198,7 +198,7 @@ macro_rules! register_market_versions_13_to_16 {
             GetDealLabelParams, GetDealProviderCollateralParams, GetDealProviderParams,
             GetDealSectorParams, GetDealTermParams, GetDealTotalPriceParams, GetDealVerifiedParams,
             Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            SettleDealPaymentsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -258,7 +258,8 @@ macro_rules! register_market_versions_13_to_16 {
                 ),
                 (Method::GetDealVerifiedExported, GetDealVerifiedParams),
                 (Method::GetDealActivationExported, GetDealActivationParams),
-                (Method::GetDealSectorExported, GetDealSectorParams)
+                (Method::GetDealSectorExported, GetDealSectorParams),
+                (Method::SettleDealPaymentsExported, SettleDealPaymentsParams)
             ]
         );
     }};
