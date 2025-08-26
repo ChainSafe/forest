@@ -49,6 +49,8 @@
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
+- [#6000](https://github.com/ChainSafe/forest/pull/6000) Add support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
+
 ### Changed
 
 - [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print F3 snapshot header info when applicable.
