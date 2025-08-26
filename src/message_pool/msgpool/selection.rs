@@ -877,6 +877,7 @@ mod test_selection {
     use crate::message::Message;
     use crate::shim::crypto::SignatureType;
     use crate::shim::econ::BLOCK_GAS_LIMIT;
+    use crate::utils::flume::bounded_with_default_metrics_registry;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -892,7 +893,7 @@ mod test_selection {
 
     fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
-        let (tx, _rx) = flume::bounded(50);
+        let (tx, _rx) = bounded_with_default_metrics_registry(50, "network_messages".into());
         MessagePool::new(tma, tx, Default::default(), Arc::default(), joinset).unwrap()
     }
 
