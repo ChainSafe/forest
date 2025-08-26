@@ -20,14 +20,14 @@ FROM_ADDRESS="t410f2avianksmit2cl2bqk53qant7nm7rdmk63twa5y"
 # cast calldata "mint(address,uint256)" 0x7f89f1c48bb829f697fe989be3541ad4fa901485 1000000000000000000
 #
 # Note that 0x7f89f1c48bb829f697fe989be3541ad4fa901485 is the Ethereum address corresponding to the contract f4 address.
-PAYLOAD="40c10f190000000000000000000000007f89f1c48bb829f697fe989be3541ad4fa9014850000000000000000000000000000000000000000000000000de0b6b3a7640000"
+PAYLOAD="0x40c10f190000000000000000000000007f89f1c48bb829f697fe989be3541ad4fa9014850000000000000000000000000000000000000000000000000de0b6b3a7640000"
 
 # This topic is derived using the keccak256 hash of the event signature 'Mint(address,uint256)'
 # To compute the topic, you can use the 'cast keccak256' subcommand with the following argument:
 # cast keccak256 "Mint(address,uint256)"
 TOPIC="0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885"
 
-$FOREST_TOOL_PATH api test-stateful "$FULLNODE_API_INFO" \
+$FOREST_TOOL_PATH api test-stateful \
   --to "$TO_ADDRESS" \
   --from "$FROM_ADDRESS" \
   --payload "$PAYLOAD" \
