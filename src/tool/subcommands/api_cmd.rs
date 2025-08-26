@@ -27,7 +27,6 @@ use clap::{Subcommand, ValueEnum};
 use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::str::FromStr;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -234,18 +233,18 @@ pub enum ApiCommands {
     /// test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out
     /// ```
     TestStateful {
-        /// Test Transaction `to` address
+        /// Test Transaction `to` address (delegated f4)
         #[arg(long)]
-        to: String,
-        /// Test Transaction `from` address
+        to: Address,
+        /// Test Transaction `from` address (delegated f4)
         #[arg(long)]
-        from: String,
+        from: Address,
         /// Test Transaction hex `payload`
         #[arg(long)]
         payload: String,
         /// Log `topic` to search for
         #[arg(long)]
-        topic: String,
+        topic: EthHash,
         /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
@@ -407,10 +406,11 @@ impl ApiCommands {
             } => {
                 let client = Arc::new(rpc::Client::default_or_from_env(None)?);
 
-                let to = Address::from_str(&to)?;
-                let from = Address::from_str(&from)?;
-                let payload = hex::decode(payload)?;
-                let topic = EthHash::from_str(&topic)?;
+                let payload = {
+                    let clean = payload.strip_prefix("0x").unwrap_or(&payload);
+                    hex::decode(clean)
+                        .with_context(|| format!("invalid --payload hex: {payload}"))?
+                };
                 let tx = TestTransaction {
                     to,
                     from,
