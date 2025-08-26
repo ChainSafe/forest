@@ -18,6 +18,7 @@ use fvm_shared4::ActorID;
 use itertools::Itertools as _;
 use libp2p::PeerId;
 use num::Zero as _;
+use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -494,9 +495,9 @@ lotus_json_with_self!(PowerTableDelta);
 pub struct FinalityCertificate {
     #[serde(rename = "GPBFTInstance")]
     pub instance: u64,
-    #[schemars(with = "LotusJson<Vec<ECTipSet>>")]
+    #[schemars(with = "LotusJson<NonEmpty<ECTipSet>>")]
     #[serde(rename = "ECChain", with = "crate::lotus_json")]
-    pub ec_chain: Vec<ECTipSet>,
+    pub ec_chain: NonEmpty<ECTipSet>,
     #[schemars(with = "LotusJson<SupplementalData>")]
     #[serde(with = "crate::lotus_json")]
     pub supplemental_data: SupplementalData,
@@ -534,13 +535,11 @@ impl FinalityCertificate {
     }
 
     pub fn chain_base(&self) -> &ECTipSet {
-        // Switch to NonEmpty and drop `.expect`
-        self.ec_chain.first().expect("ec_chain is empty")
+        self.ec_chain.first()
     }
 
     pub fn chain_head(&self) -> &ECTipSet {
-        // Switch to NonEmpty and drop `.expect`
-        self.ec_chain.last().expect("ec_chain is empty")
+        self.ec_chain.last()
     }
 }
 

@@ -39,6 +39,8 @@
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
 
+- [#5963](https://github.com/ChainSafe/forest/pull/5963) Added `forest-cli f3 ready` command for checking whether F3 is in sync.
+
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
 
 - [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--n-epochs` to `forest-cli state compute` for computating state trees in batch.
