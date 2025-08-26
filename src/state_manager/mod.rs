@@ -1727,7 +1727,7 @@ where
                 NO_CALLBACK,
                 VMTrace::NotTraced,
             )
-            .context("couldn't compute tipset state")?;
+            .map_err(|e| anyhow::anyhow!("couldn't compute tipset state: {e}"))?;
             let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
             match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
