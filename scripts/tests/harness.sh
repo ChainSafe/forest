@@ -140,7 +140,7 @@ function forest_init {
   forest_wait_for_sync
   forest_check_db_stats
 
-  DATA_DIR="${TMP_DIR}/data_dir"
+  DATA_DIR=$( $FOREST_CLI_PATH config dump | grep "data_dir" | cut -d' ' -f3- )
   ADMIN_TOKEN=$(cat "${DATA_DIR}/token")
   FULLNODE_API_INFO="${ADMIN_TOKEN}:/ip4/127.0.0.1/tcp/2345/http"
 
