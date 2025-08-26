@@ -218,7 +218,7 @@ pub enum ApiCommands {
     /// Inputs:
     /// - `--to`, `--from`: delegated Filecoin (f4) addresses
     /// - `--payload`: calldata in hex
-    /// - `--topic`: 32‑byte event topic in hex
+    /// - `--topic`: `32‑byte` event topic in hex
     /// - `--filter`: run only tests that interact with a specific RPC method
     ///
     /// Example output:
