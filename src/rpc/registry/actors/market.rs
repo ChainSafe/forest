@@ -191,8 +191,8 @@ macro_rules! register_market_versions_12 {
 }
 
 macro_rules! register_market_versions_13_to_16 {
-    ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{
+    ($registry:expr, $code_cid:expr, $market_state_version:path, $miner_state_version:path) => {{
+        use $market_state_version::{
             AddBalanceParams, BatchActivateDealsParams, GetDealActivationParams,
             GetDealClientCollateralParams, GetDealClientParams, GetDealDataCommitmentParams,
             GetDealLabelParams, GetDealProviderCollateralParams, GetDealProviderParams,
@@ -200,6 +200,7 @@ macro_rules! register_market_versions_13_to_16 {
             Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             SettleDealPaymentsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
+        use $miner_state_version::{self, SectorContentChangedParams};
 
         register_actor_methods!(
             $registry,
@@ -259,7 +260,11 @@ macro_rules! register_market_versions_13_to_16 {
                 (Method::GetDealVerifiedExported, GetDealVerifiedParams),
                 (Method::GetDealActivationExported, GetDealActivationParams),
                 (Method::GetDealSectorExported, GetDealSectorParams),
-                (Method::SettleDealPaymentsExported, SettleDealPaymentsParams)
+                (Method::SettleDealPaymentsExported, SettleDealPaymentsParams),
+                (
+                    Method::SectorContentChangedExported,
+                    SectorContentChangedParams
+                )
             ]
         );
     }};
@@ -272,10 +277,30 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
         10 => register_market_versions_10_to_11!(registry, cid, fil_actor_market_state::v10),
         11 => register_market_versions_10_to_11!(registry, cid, fil_actor_market_state::v11),
         12 => register_market_versions_12!(registry, cid, fil_actor_market_state::v12),
-        13 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v13),
-        14 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v14),
-        15 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v15),
-        16 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v16),
+        13 => register_market_versions_13_to_16!(
+            registry,
+            cid,
+            fil_actor_market_state::v13,
+            fil_actor_miner_state::v13
+        ),
+        14 => register_market_versions_13_to_16!(
+            registry,
+            cid,
+            fil_actor_market_state::v14,
+            fil_actor_miner_state::v14
+        ),
+        15 => register_market_versions_13_to_16!(
+            registry,
+            cid,
+            fil_actor_market_state::v15,
+            fil_actor_miner_state::v15
+        ),
+        16 => register_market_versions_13_to_16!(
+            registry,
+            cid,
+            fil_actor_market_state::v16,
+            fil_actor_miner_state::v16
+        ),
         _ => {}
     }
 }
