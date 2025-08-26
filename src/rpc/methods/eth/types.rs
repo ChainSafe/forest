@@ -62,8 +62,9 @@ impl FromStr for EthBytes {
 pub struct GetBytecodeReturn(pub Option<Cid>);
 
 const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = 32;
+const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GetStorageAtParams(pub [u8; GET_STORAGE_AT_PARAMS_ARRAY_LENGTH]);
 
 impl GetStorageAtParams {
@@ -80,10 +81,19 @@ impl GetStorageAtParams {
     }
 
     pub fn serialize_params(&self) -> anyhow::Result<Vec<u8>> {
-        const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
-        let mut encoded = fvm_ipld_encoding::to_vec(&RawBytes::new(self.0.to_vec()))?;
-        encoded.insert(0, LENGTH_BUF_GET_STORAGE_AT_PARAMS);
+        let mut encoded = vec![LENGTH_BUF_GET_STORAGE_AT_PARAMS];
+        fvm_ipld_encoding::to_writer(&mut encoded, &RawBytes::new(self.0.to_vec()))?;
         Ok(encoded)
+    }
+
+    pub fn deserialize_params(bz: &[u8]) -> anyhow::Result<Self> {
+        let (&prefix, bytes) = bz.split_first().context("unexpected EOF")?;
+        ensure!(
+            prefix == LENGTH_BUF_GET_STORAGE_AT_PARAMS,
+            "expected CBOR array of length 1"
+        );
+        let decoded: RawBytes = fvm_ipld_encoding::from_slice(bytes)?;
+        GetStorageAtParams::new(decoded.into())
     }
 }
 

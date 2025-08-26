@@ -12,7 +12,6 @@ use std::{
     io::{Write, stdout},
     time::Duration,
 };
-use ticker::Ticker;
 use tokio::time;
 use tokio::time::sleep;
 
@@ -44,13 +43,14 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
                 let mut lines_printed_last_iteration = 0;
 
                 handle_initial_snapshot_check(&client).await?;
 
-                for _ in ticker {
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
                     let report = SyncStatus::call(&client, ())
                         .await
                         .context("Failed to get sync status")?;
@@ -96,7 +96,7 @@ impl SyncCommands {
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
-                    println!("response");
+                    println!("{response}");
                 }
                 Ok(())
             }
