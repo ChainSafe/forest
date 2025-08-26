@@ -55,6 +55,8 @@
 
 - [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
 
+- [#5969](https://github.com/ChainSafe/forest/pull/5969) Updated `forest-tool snapshot validate` to print better error message for troubleshooting.
+
 ### Removed
 
 ### Fixed
