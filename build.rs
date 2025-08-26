@@ -79,7 +79,7 @@ fn rpc_regression_tests_gen() {
             w,
             r#"
                 #[tokio::test(flavor = "multi_thread")]
-                async fn rpc_test_{ident}() {{
+                async fn rpc_snapshot_test_{ident}() {{
                     rpc_regression_test_run("{test}").await
                 }}
             "#,
