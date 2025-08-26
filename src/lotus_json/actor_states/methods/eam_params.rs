@@ -80,7 +80,7 @@ macro_rules! impl_eam_create2_params {
                             (
                                 json!({
                                     "Initcode": "ESIzRFU=",
-                                    "Salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+                                    "Salt": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
                                 }),
                                 Self {
                                     initcode: hex::decode("1122334455").unwrap(),
@@ -99,8 +99,8 @@ macro_rules! impl_eam_create2_params {
 
                     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                         Self {
-                            initcode: lotus_json.initcode.into(),
-                            salt: lotus_json.salt.try_into().unwrap_or_else(|_| [0; 32]),
+                            initcode: lotus_json.initcode,
+                            salt: lotus_json.salt,
                         }
                     }
                 }
