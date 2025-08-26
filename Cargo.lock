@@ -263,7 +263,7 @@ dependencies = [
  "nom 7.1.3",
  "num-traits",
  "rusticata-macros",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "time",
 ]
 
@@ -326,11 +326,13 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.27"
+version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddb939d66e4ae03cee6091612804ba446b12878410cfa17f785f4dd67d4014e8"
+checksum = "6448dfb3960f0b038e88c781ead1e7eb7929dfc3a71a1336ec9086c00f6d1e75"
 dependencies = [
  "brotli",
+ "compression-codecs",
+ "compression-core",
  "flate2",
  "futures-core",
  "memchr",
@@ -958,7 +960,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234113d19d0d7d613b40e86fb654acf958910802bcceab913a4f9e7cda03b1a4"
 dependencies = [
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.10",
  "serde",
 ]
 
@@ -1032,7 +1034,7 @@ dependencies = [
  "serde",
  "serde-untagged",
  "serde-value",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "toml 0.8.23",
  "unicode-xid",
  "url",
@@ -1050,7 +1052,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -1123,9 +1125,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-if"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 
 [[package]]
 name = "cfg-vis"
@@ -1303,7 +1305,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
 dependencies = [
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -1346,6 +1348,28 @@ dependencies = [
  "bytes",
  "memchr",
 ]
+
+[[package]]
+name = "compression-codecs"
+version = "0.4.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46cc6539bf1c592cff488b9f253b30bc0ec50d15407c2cf45e27bd8f308d5905"
+dependencies = [
+ "brotli",
+ "compression-core",
+ "flate2",
+ "futures-core",
+ "memchr",
+ "pin-project-lite",
+ "zstd",
+ "zstd-safe",
+]
+
+[[package]]
+name = "compression-core"
+version = "0.4.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2957e823c15bde7ecf1e8b64e537aa03a6be5fda0e2334e99887669e75b12e01"
 
 [[package]]
 name = "concurrent-queue"
@@ -2923,7 +2947,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_repr",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
 ]
 
@@ -3195,7 +3219,7 @@ dependencies = [
  "libp2p-swarm-test",
  "libsecp256k1",
  "md-5",
- "memmap2 0.9.7",
+ "memmap2 0.9.8",
  "memory-stats",
  "multiaddr",
  "multihash-codetable",
@@ -3232,7 +3256,7 @@ dependencies = [
  "rand_distr",
  "rayon",
  "regex",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.10",
  "reqwest",
  "rlimit",
  "rlp",
@@ -3264,7 +3288,7 @@ dependencies = [
  "tempfile",
  "tera",
  "termios",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tikv-jemallocator",
  "tokio",
  "tokio-stream",
@@ -3347,7 +3371,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_sdk",
  "fvm_shared 4.7.2",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3358,7 +3382,7 @@ checksum = "af72029ed0fafb01fda2d7f631b55f6916ad06e310a7b4241b933796b34d510c"
 dependencies = [
  "fvm_sdk",
  "fvm_shared 4.7.2",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3392,7 +3416,7 @@ dependencies = [
  "multihash-codetable",
  "num-traits",
  "serde",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3580,7 +3604,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "serde_tuple",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "wasmtime",
  "yastl",
 ]
@@ -3616,7 +3640,7 @@ dependencies = [
  "replace_with",
  "serde",
  "serde_tuple",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "wasmtime",
  "wasmtime-environ",
  "yastl",
@@ -3650,7 +3674,7 @@ dependencies = [
  "replace_with",
  "serde",
  "static_assertions",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "wasmtime",
  "wasmtime-environ",
  "yastl",
@@ -3693,7 +3717,7 @@ dependencies = [
  "multihash-codetable",
  "num-traits",
  "serde",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3710,7 +3734,7 @@ dependencies = [
  "multihash-codetable",
  "once_cell",
  "serde",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3721,7 +3745,7 @@ checksum = "de140b940443d5d783824563f15b5fe6d1559e7b103a7b55082da93655585350"
 dependencies = [
  "fvm_ipld_encoding",
  "serde",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
 ]
 
@@ -3750,7 +3774,7 @@ dependencies = [
  "serde_ipld_dagcbor",
  "serde_repr",
  "serde_tuple",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3770,7 +3794,7 @@ dependencies = [
  "once_cell",
  "serde",
  "sha2 0.10.9",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3785,7 +3809,7 @@ dependencies = [
  "lazy_static",
  "log",
  "num-traits",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -3816,7 +3840,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "serde_tuple",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
 ]
 
@@ -3846,7 +3870,7 @@ dependencies = [
  "quickcheck",
  "serde",
  "serde_tuple",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
 ]
 
@@ -3873,7 +3897,7 @@ dependencies = [
  "num-traits",
  "quickcheck",
  "serde",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
 ]
 
@@ -4025,7 +4049,7 @@ dependencies = [
  "aho-corasick",
  "bstr",
  "log",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.10",
  "regex-syntax 0.8.5",
 ]
 
@@ -4210,7 +4234,7 @@ dependencies = [
  "rand 0.9.2",
  "ring",
  "socket2 0.5.10",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tinyvec",
  "tokio",
  "tracing",
@@ -4233,7 +4257,7 @@ dependencies = [
  "rand 0.9.2",
  "resolv-conf",
  "smallvec",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tracing",
 ]
@@ -4626,7 +4650,7 @@ dependencies = [
  "globset",
  "log",
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.10",
  "same-file",
  "walkdir",
  "winapi-util",
@@ -4956,7 +4980,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tokio-rustls",
  "tokio-util",
@@ -4984,7 +5008,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "serde",
  "serde_json",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tokio-stream",
  "tower 0.5.2",
@@ -5008,7 +5032,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tower 0.5.2",
  "url",
@@ -5046,7 +5070,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -5063,7 +5087,7 @@ dependencies = [
  "http",
  "serde",
  "serde_json",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -5239,7 +5263,7 @@ dependencies = [
  "multiaddr",
  "pin-project",
  "rw-stream-sink",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -5273,7 +5297,7 @@ dependencies = [
  "quick-protobuf-codec",
  "rand 0.8.5",
  "rand_core 0.6.4",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "web-time",
 ]
@@ -5308,7 +5332,7 @@ dependencies = [
  "quick-protobuf",
  "rand 0.8.5",
  "rw-stream-sink",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "unsigned-varint 0.8.0",
  "web-time",
@@ -5378,7 +5402,7 @@ dependencies = [
  "quick-protobuf",
  "quick-protobuf-codec",
  "smallvec",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
 ]
 
@@ -5401,7 +5425,7 @@ dependencies = [
  "sec1",
  "serde",
  "sha2 0.10.9",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "zeroize",
 ]
@@ -5428,7 +5452,7 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "smallvec",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "uint",
  "web-time",
@@ -5489,7 +5513,7 @@ dependencies = [
  "rand 0.8.5",
  "snow",
  "static_assertions",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "x25519-dalek",
  "zeroize",
@@ -5544,7 +5568,7 @@ dependencies = [
  "ring",
  "rustls",
  "socket2 0.5.10",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tracing",
 ]
@@ -5647,7 +5671,7 @@ dependencies = [
  "ring",
  "rustls",
  "rustls-webpki",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "x509-parser",
  "yasna",
 ]
@@ -5676,7 +5700,7 @@ dependencies = [
  "either",
  "futures",
  "libp2p-core",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tracing",
  "yamux 0.12.1",
  "yamux 0.13.6",
@@ -5931,9 +5955,9 @@ dependencies = [
 
 [[package]]
 name = "memmap2"
-version = "0.9.7"
+version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "483758ad303d734cec05e5c12b41d7e93e6a6390c5e9dae6bdeb7c1259012d28"
+checksum = "843a98750cd611cc2965a8213b53b43e715f13c37a9e096c6408e69990961db7"
 dependencies = [
  "libc",
 ]
@@ -6254,7 +6278,7 @@ dependencies = [
  "log",
  "netlink-packet-core",
  "netlink-sys",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -6576,7 +6600,7 @@ dependencies = [
  "libc",
  "log",
  "lz4",
- "memmap2 0.9.7",
+ "memmap2 0.9.8",
  "parking_lot",
  "rand 0.9.2",
  "siphasher",
@@ -6701,7 +6725,7 @@ dependencies = [
  "integer-sqrt",
  "num-traits",
  "rustc-hash 2.1.1",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -6736,7 +6760,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1db05f56d34358a8b1066f67cbb203ee3e7ed2ba674a6263a1d5ec6db2204323"
 dependencies = [
  "memchr",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "ucd-trie",
 ]
 
@@ -7239,7 +7263,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "rustls",
  "socket2 0.5.10",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tokio",
  "tracing",
  "web-time",
@@ -7260,7 +7284,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "tinyvec",
  "tracing",
  "web-time",
@@ -7521,7 +7545,7 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.16",
  "libredox",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -7560,13 +7584,13 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
+checksum = "23d7fd106d8c02486a8d64e778353d1cffe08ce79ac2e82f540c86d0facf6912"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata 0.4.10",
  "regex-syntax 0.8.5",
 ]
 
@@ -7581,9 +7605,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
+checksum = "6b9458fa0bfeeac22b5ca447c63aaf45f28439a709ccd244698632f9aa6394d6"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -8497,7 +8521,7 @@ checksum = "297f631f50729c8c99b84667867963997ec0b50f32b2a7dbcab828ef0541e8bb"
 dependencies = [
  "num-bigint",
  "num-traits",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "time",
 ]
 
@@ -9044,11 +9068,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.15"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d76d3f064b981389ecb4b6b7f45a0bf9fdac1d5b9204c7bd6714fecc302850"
+checksum = "3467d614147380f2e4e374161426ff399c91084acd2363eaf549172b3d5e60c0"
 dependencies = [
- "thiserror-impl 2.0.15",
+ "thiserror-impl 2.0.16",
 ]
 
 [[package]]
@@ -9064,9 +9088,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.15"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44d29feb33e986b6ea906bd9c3559a856983f92371b3eaa5e83782a351623de0"
+checksum = "6c5e1be1c48b9172ee610da68fd9cd2770e7a4056cb3fc98710ee6906f0c7960"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10749,7 +10773,7 @@ dependencies = [
  "nom 7.1.3",
  "oid-registry",
  "rusticata-macros",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "time",
 ]
 
