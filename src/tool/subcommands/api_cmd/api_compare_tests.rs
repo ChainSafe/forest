@@ -2678,17 +2678,37 @@ fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Resu
 }
 
 fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let market_actor_add_balance_params = fil_actor_market_state::v16::AddBalanceParams {
+        provider_or_client: fvm_shared4::address::Address::new_id(1000),
+    };
     let market_actor_withdraw_balance_params = fil_actor_market_state::v16::WithdrawBalanceParams {
         provider_or_client: Address::new_id(1000).into(),
         amount: TokenAmount::default().into(),
     };
 
-    Ok(vec![RpcTest::identity(StateDecodeParams::request((
-        Address::MARKET_ACTOR,
-        fil_actor_market_state::v16::Method::WithdrawBalance as u64,
-        to_vec(&market_actor_withdraw_balance_params)?,
-        tipset.key().into(),
-    ))?)])
+    // let market_actor_publish_storage_deals_params =
+    //     fil_actor_market_state::v16::PublishStorageDealsParams { deals: vec![] };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::AddBalance as u64,
+            to_vec(&market_actor_add_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::WithdrawBalance as u64,
+            to_vec(&market_actor_withdraw_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::MARKET_ACTOR,
+        //     fil_actor_market_state::v16::Method::PublishStorageDeals as u64,
+        //     to_vec(&market_actor_publish_storage_deals_params)?,
+        //     tipset.key().into(),
+        // ))?),
+    ])
 }
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {

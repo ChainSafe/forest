@@ -33,11 +33,11 @@ pub struct WithdrawBalanceParamsLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct AddBalanceParamsLotusJson {
+pub struct AddBalanceParamsLotusJson(
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
-    pub provider_or_client: Address,
-}
+    Address,
+);
 
 macro_rules! impl_lotus_json_for_add_balance_params {
     ($($version:literal),+) => {
@@ -53,14 +53,12 @@ macro_rules! impl_lotus_json_for_add_balance_params {
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            provider_or_client: self.provider_or_client.into(),
-                        }
+                        AddBalanceParamsLotusJson(self.provider_or_client.into())
                     }
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            provider_or_client: json.provider_or_client.into(),
+                            provider_or_client: json.0.into(),
                         }
                     }
                 }
