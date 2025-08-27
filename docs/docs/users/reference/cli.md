@@ -839,6 +839,7 @@ Commands:
   status      Checks the F3 status
   certs       Manages interactions with F3 finality certificates [aliases: c]
   powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  ready       Checks if F3 is in sync
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -996,6 +997,19 @@ Options:
       --instance <INSTANCE>  instance ID. (default: latest)
       --ec                   Whether to get the power table from EC. (default: false)
   -h, --help                 Print help
+```
+
+### `forest-cli f3 ready`
+
+```
+Checks if F3 is in sync
+
+Usage: forest-cli f3 ready [OPTIONS]
+
+Options:
+      --wait                   Wait until F3 is in sync
+      --threshold <THRESHOLD>  The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
+  -h, --help                   Print help
 ```
 
 ## `forest-tool`
@@ -1671,6 +1685,7 @@ Commands:
   generate-test-snapshot  Generates RPC test snapshots from test dump files and a Forest database
   dump-tests              Dumps RPC test cases for a specified API path
   test                    Runs RPC tests using provided test snapshot files
+  test-stateful           Run multiple stateful JSON-RPC API tests against a Filecoin node
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
