@@ -35,7 +35,7 @@ pub enum MpoolCommands {
     /// Get the current nonce for an address
     Nonce {
         /// Address to check nonce for
-        address: String,
+        address: Address,
     },
     /// Print mempool stats
     Stat {
@@ -281,7 +281,6 @@ impl MpoolCommands {
                 Ok(())
             }
             Self::Nonce { address } => {
-                let address = Address::from_str(&address)?;
                 let nonce = MpoolGetNonce::call(&client, (address,)).await?;
                 println!("{nonce}");
 
