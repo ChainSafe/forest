@@ -200,7 +200,13 @@ macro_rules! register_market_versions_13_to_16 {
             Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
             SettleDealPaymentsParams, VerifyDealsForActivationParams, WithdrawBalanceParams,
         };
-        use $miner_state_version::{self, SectorContentChangedParams};
+        // When using a macro variable for a module path in a `use` statement,
+        // Rust can get confused if we write `use $miner_state_version::SectorContentChangedParams;` directly.
+        // Wrapping the imported item in `{ ... }` disambiguates the path for the compiler and ensures
+        // the import works correctly even when `$miner_state_version` expands to a module path.
+        // Also, to avoid rustfmt automatically reformatting this line, we use #[rustfmt::skip].
+        #[rustfmt::skip]
+        use $miner_state_version::{SectorContentChangedParams};
 
         register_actor_methods!(
             $registry,
