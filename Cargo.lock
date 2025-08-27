@@ -9637,7 +9637,7 @@ dependencies = [
  "log",
  "rand 0.9.2",
  "sha1",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
  "utf-8",
 ]
 
