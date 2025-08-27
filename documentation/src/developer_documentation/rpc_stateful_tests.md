@@ -14,16 +14,15 @@ Before running the tests, perform the following setup steps:
 1. Run a Lotus or Forest node (calibnet recommended). Make sure `FULLNODE_API_INFO` is defined.
 2. Create an f4 address, fund it, and deploy a test smart contract (the deployed contract must emit an event with a known topic when invoked).
 3. The f4 address must hold enough FIL to invoke the contract.
-   
+
    Run the test suite with:
-  `forest-tool api test-stateful --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
+   `forest-tool api test-stateful --to <CONTRACT_ADDR> --from <FROM_ADDR> --payload <INVOKE_PAYLOAD> --topic <TOPIC>`
 
    where:
-
-    - `CONTRACT_ADDR`: f4 address of the deployed smart contract
-    - `FROM_ADDR`: f4 address invoking the contract
-    - `INVOKE_PAYLOAD`: Calldata that will trigger the contract's event
-    - `TOPIC`: The event topic expected to be emitted during invocation
+   - `CONTRACT_ADDR`: f4 address of the deployed smart contract
+   - `FROM_ADDR`: f4 address invoking the contract
+   - `INVOKE_PAYLOAD`: Calldata that will trigger the contract's event
+   - `TOPIC`: The event topic expected to be emitted during invocation
 
 ## Example output
 
@@ -53,12 +52,13 @@ To extend test coverage for another RPC method or cover more semantics:
 
 1. Add the RPC method to Forest if not yet implemented, following the guidance in [RPC compatibility guide](./rpc_api_compatibility.md).
 2. Create a new test scenario in:
-[`stateful_tests.rs`](../../../src/tool/subcommands/api_cmd/stateful_tests.rs)
+   [`stateful_tests.rs`](../../../src/tool/subcommands/api_cmd/stateful_tests.rs)
 3. Your internal test function should return `Ok(())` on success. Use `anyhow::Result` for error handling.
 
    Ensure the test behaves consistently on both Lotus and Forest nodes.
 
 ## Example test function
+
 ```rust
 pub async fn test_eth_method(client: Arc<Client>) -> anyhow::Result<()> {
     // Setup call to the method
