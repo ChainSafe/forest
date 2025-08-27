@@ -65,6 +65,8 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
+- [#5999](https://github.com/ChainSafe/forest/pull/5999) Add `forest-cli mpool nonce` command to get the current nonce for an address.
+
 ### Changed
 
 - [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print F3 snapshot header info when applicable.
