@@ -163,6 +163,10 @@ fn default_env_filter() -> EnvFilter {
 fn default_tool_filter() -> EnvFilter {
     let default_directives = [
         "info",
+        "bellperson::groth16::aggregate::verify=warn",
+        "storage_proofs_core=warn",
+        "axum=warn",
+        "filecoin_proofs=warn",
         "forest::snapshot=info",
         "forest::progress=info",
         "libp2p_bitswap=off",

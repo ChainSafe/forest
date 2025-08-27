@@ -246,7 +246,7 @@ fn create_notif_message(
 ) -> anyhow::Result<Box<RawValue>> {
     let method = sink.method_name();
     let channel_id = sink.channel_id();
-    let result = serde_json::to_string(result)?;
+    let result = serde_json::to_value(result)?;
     let msg = serde_json::json!({
         "jsonrpc": "2.0",
         "method": method,
