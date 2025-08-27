@@ -1876,6 +1876,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
     tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
     tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
     tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+    tests.extend(market_actor_state_decode_params_tests(tipset)?);
 
     Ok(tests)
 }
@@ -2674,6 +2675,20 @@ fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Resu
             tipset.key().into(),
         ))?),
     ])
+}
+
+fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let market_actor_withdraw_balance_params = fil_actor_market_state::v16::WithdrawBalanceParams {
+        provider_or_client: Address::new_id(1000).into(),
+        amount: TokenAmount::default().into(),
+    };
+
+    Ok(vec![RpcTest::identity(StateDecodeParams::request((
+        Address::MARKET_ACTOR,
+        fil_actor_market_state::v16::Method::WithdrawBalance as u64,
+        to_vec(&market_actor_withdraw_balance_params)?,
+        tipset.key().into(),
+    ))?)])
 }
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {

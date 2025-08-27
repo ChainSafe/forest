@@ -24,7 +24,7 @@ use std::fmt::Debug;
 #[serde(rename_all = "PascalCase")]
 pub struct WithdrawBalanceParamsLotusJson {
     #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "ProviderOrClientAddress")]
     pub provider_or_client: Address,
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
