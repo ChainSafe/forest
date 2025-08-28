@@ -2971,8 +2971,8 @@ fn create_deferred_tests(snapshot_files: Vec<PathBuf>) -> anyhow::Result<Vec<Rpc
     Ok(tests)
 }
 
-async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::Result<()> {
-    if n_ts_to_validate == 0 {
+async fn revalidate_chain(db: Arc<ManyCar>, epochs_to_validate: usize) -> anyhow::Result<()> {
+    if epochs_to_validate == 0 {
         return Ok(());
     }
     let chain_config = Arc::new(handle_chain_config(&NetworkChain::Calibnet)?);
@@ -2998,11 +2998,7 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
     // validation might fail due to missing proof parameters.
     proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
     ensure_proof_params_downloaded().await?;
-    state_manager.validate_tipsets(
-        head_ts
-            .chain_arc(&db)
-            .take(SAFE_EPOCH_DELAY as usize + n_ts_to_validate),
-    )?;
+    state_manager.validate_tipsets(head_ts, SAFE_EPOCH_DELAY as usize + epochs_to_validate)?;
 
     Ok(())
 }

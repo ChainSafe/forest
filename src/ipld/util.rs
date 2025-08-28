@@ -109,6 +109,67 @@ enum Task {
 }
 
 pin_project! {
+    pub struct IpldStream<DB> {
+        db: DB,
+        cid_vec: VecDeque<Cid>,
+        seen: CidHashSet,
+        fail_on_dead_links: bool,
+    }
+}
+
+impl<DB> IpldStream<DB> {
+    pub fn new(db: DB, root: Cid) -> Self {
+        Self {
+            db,
+            cid_vec: DfsIter::from(root).filter_map(ipld_to_cid).collect(),
+            seen: Default::default(),
+            fail_on_dead_links: true,
+        }
+    }
+
+    pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
+        self.fail_on_dead_links = fail_on_dead_links;
+        self
+    }
+}
+
+impl<DB: Blockstore> Stream for IpldStream<DB> {
+    type Item = anyhow::Result<CarBlock>;
+
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let fail_on_dead_links = self.fail_on_dead_links;
+        let this = self.project();
+
+        while let Some(cid) = this.cid_vec.pop_front() {
+            // The link traversal implementation assumes there are three types of encoding:
+            // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+            // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+            // 3. _: ignore all other links
+            // Don't revisit what's already been visited.
+            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                if let Some(data) = this.db.get(&cid)? {
+                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                        let new_values = extract_cids(&data)?;
+                        if !new_values.is_empty() {
+                            this.cid_vec.reserve(new_values.len());
+                            for v in new_values.into_iter().rev() {
+                                this.cid_vec.push_front(v)
+                            }
+                        }
+                    }
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                } else if fail_on_dead_links {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {cid}"))));
+                }
+            }
+        }
+
+        // That's it, nothing else to do. End of stream.
+        Poll::Ready(None)
+    }
+}
+
+pin_project! {
     pub struct ChainStream<DB, T> {
         tipset_iter: T,
         db: DB,
@@ -134,6 +195,10 @@ impl<DB, T> ChainStream<DB, T> {
     pub fn into_seen(self) -> CidHashSet {
         self.seen
     }
+}
+
+pub fn stream_ipld<DB: Blockstore>(db: DB, root: Cid) -> IpldStream<DB> {
+    IpldStream::new(db, root)
 }
 
 /// Stream all blocks that are reachable before the `stateroot_limit` epoch in a depth-first

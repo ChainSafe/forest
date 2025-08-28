@@ -3,6 +3,7 @@
 
 mod types;
 use enumflags2::BitFlags;
+use futures::StreamExt;
 use types::*;
 
 #[cfg(test)]
@@ -11,7 +12,7 @@ use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
-use crate::ipld::DfsIter;
+use crate::ipld::{DfsIter, stream_ipld};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -39,6 +40,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::fs::File;
+use std::io::BufWriter;
 use std::{
     collections::VecDeque,
     path::PathBuf,
@@ -298,6 +300,53 @@ impl RpcMethod<1> for ChainPruneSnapshot {
         } else {
             Err(anyhow::anyhow!("snapshot gc is not enabled").into())
         }
+    }
+}
+
+pub enum ForestChainExportIpld {}
+impl RpcMethod<3> for ForestChainExportIpld {
+    const N_REQUIRED_PARAMS: usize = 2;
+    const NAME: &'static str = "Forest.ChainExportIpld";
+    const PARAM_NAMES: [&'static str; 3] = ["rootCid", "checkDeadLinks", "saveTo"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid, bool, Option<PathBuf>);
+    type Ok = usize;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (root, check_dead_links, save_to): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        use fvm_ipld_car::{Block, CarHeader, CarWriter};
+
+        let mut stream = stream_ipld(ctx.store_owned(), root).fail_on_dead_links(check_dead_links);
+        let mut count = 0;
+        let mut writer = save_to
+            .map(|p| File::create(&p))
+            .transpose()?
+            .map(BufWriter::new)
+            .map(|w| CarWriter::new(CarHeader::from(vec![Cid::default()]), w))
+            .transpose()
+            .map_err(|e| anyhow::anyhow!("failed to create CarWriter: {e}"))?;
+        while let Some(block) = stream.next().await {
+            let block = block?;
+            if let Some(writer) = &mut writer {
+                writer
+                    .write(Block {
+                        cid: block.cid,
+                        data: block.data,
+                    })
+                    .map_err(|e| anyhow::anyhow!("failed to write to CarWriter: {e}"))?;
+            }
+            count += 1;
+        }
+        if let Some(writer) = &mut writer {
+            writer
+                .flush()
+                .map_err(|e| anyhow::anyhow!("failed to flush CarWriter: {e}"))?;
+        }
+        Ok(count)
     }
 }
 

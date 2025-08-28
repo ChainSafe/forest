@@ -69,6 +69,9 @@ pub enum ApiCommands {
         // Allow downloading snapshot automatically
         #[arg(long)]
         auto_download_snapshot: bool,
+        // Do not backfill database
+        #[arg(long)]
+        no_db_backfill: bool,
         /// Validate snapshot at given EPOCH, use a negative value -N to validate
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
@@ -212,6 +215,7 @@ impl ApiCommands {
                 chain,
                 port,
                 auto_download_snapshot,
+                no_db_backfill,
                 height,
                 genesis,
                 save_token,
@@ -229,6 +233,7 @@ impl ApiCommands {
                     chain,
                     port,
                     auto_download_snapshot,
+                    !no_db_backfill,
                     height,
                     genesis,
                     save_token,

@@ -333,7 +333,7 @@ async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Re
 where
     DB: Blockstore + Send + Sync,
 {
-    let epoch_limit = ts.epoch() - epochs as i64;
+    let epoch_limit_exclusive = ts.epoch() - epochs as i64;
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
@@ -341,13 +341,16 @@ where
 
     let tipsets = ts.chain(db).inspect(|tipset| {
         let height = tipset.epoch();
-        if height - epoch_limit >= 0 {
-            pb.set_message(format!("{} remaining epochs (state)", height - epoch_limit));
+        if height - epoch_limit_exclusive >= 0 {
+            pb.set_message(format!(
+                "{} remaining epochs (state)",
+                height - epoch_limit_exclusive
+            ));
         } else {
             pb.set_message(format!("{height} remaining epochs (spine)"));
         }
     });
-    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    let mut stream = stream_chain(&db, tipsets, epoch_limit_exclusive);
     while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");

@@ -1493,29 +1493,53 @@ where
         )
             })?;
 
-        // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = self
-            .cs
-            .chain_index
-            .chain(end)
-            .take_while(|tipset| tipset.epoch() >= *epochs.start());
-
-        self.validate_tipsets(tipsets)
+        self.validate_tipsets(end, epochs.count())
     }
 
-    pub fn validate_tipsets<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
-    where
-        T: Iterator<Item = Arc<Tipset>> + Send,
-    {
-        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
-        validate_tipsets(
-            genesis_timestamp,
-            self.chain_store().chain_index.clone(),
-            self.chain_config().clone(),
-            self.beacon_schedule().clone(),
-            &self.engine,
-            tipsets,
-        )
+    pub fn validate_tipsets(
+        self: &Arc<Self>,
+        from: Arc<Tipset>,
+        epochs_to_validate: usize,
+    ) -> anyhow::Result<()> {
+        if epochs_to_validate > 0 {
+            let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
+            let to_epoch = from.epoch() + 1 - epochs_to_validate as i64;
+
+            // recompute state for `from` tipset as we have no `child.parent_state` to compare to
+            let StateOutput {
+                state_root,
+                receipt_root,
+                ..
+            } = apply_block_messages(
+                genesis_timestamp,
+                self.chain_store().chain_index.clone(),
+                self.chain_config().clone(),
+                self.beacon_schedule().clone(),
+                &self.engine,
+                from.clone(),
+                NO_CALLBACK,
+                VMTrace::NotTraced,
+            )
+            .map_err(|e| anyhow::anyhow!("couldn't compute tipset state: {e}"))?;
+            info!(height = from.epoch(), state=%state_root, receipt=%receipt_root, "computed tipset state");
+
+            let tipsets = from
+                .chain_arc(self.chain_store().blockstore())
+                .take_while(|ts| ts.epoch() >= to_epoch)
+                .take(epochs_to_validate);
+
+            // recompute states for each tipset and compare their state roots to `child.parent_state`
+            validate_tipsets(
+                genesis_timestamp,
+                self.chain_store().chain_index.clone(),
+                self.chain_config().clone(),
+                self.beacon_schedule().clone(),
+                &self.engine,
+                tipsets,
+            )
+        } else {
+            Ok(())
+        }
     }
 
     pub fn get_verified_registry_actor_state(
@@ -1712,7 +1736,8 @@ where
         .tuple_windows()
         .par_bridge()
         .try_for_each(|(child, parent)| {
-            info!(height = parent.epoch(), "compute parent state");
+            let height = parent.epoch();
+            info!(%height, "computing tipset state");
             let StateOutput {
                 state_root: actual_state,
                 receipt_root: actual_receipt,
@@ -1727,18 +1752,24 @@ where
                 NO_CALLBACK,
                 VMTrace::NotTraced,
             )
-            .context("couldn't compute tipset state")?;
+            .map_err(|e| anyhow::anyhow!("couldn't compute tipset state: {e}"))?;
             let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
+            info!(
+                %height,
+                state=%actual_state,
+                receipt=%actual_receipt,
+                "computed tipset state",
+            );
             match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
                 true => Ok(()),
                 false => {
                     error!(
-                        height = child.epoch(),
-                        ?expected_state,
-                        ?expected_receipt,
-                        ?actual_state,
-                        ?actual_receipt,
+                        %height,
+                        %actual_state,
+                        %expected_state,
+                        %actual_receipt,
+                        %expected_receipt,
                         "state mismatch"
                     );
                     bail!("state mismatch");

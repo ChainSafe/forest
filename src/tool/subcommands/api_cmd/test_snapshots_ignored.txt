@@ -79,6 +79,7 @@ Filecoin.WalletSign
 Filecoin.WalletSignMessage
 Filecoin.Web3ClientVersion
 Forest.ChainExport
+Forest.ChainExportIpld
 Forest.ChainGetMinBaseFee
 Forest.NetInfo
 Forest.SnapshotGC

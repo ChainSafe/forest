@@ -44,6 +44,7 @@ pub async fn start_offline_server(
     chain: NetworkChain,
     rpc_port: u16,
     auto_download_snapshot: bool,
+    should_backfill_db: bool,
     height: i64,
     genesis: Option<PathBuf>,
     save_jwt_token: Option<PathBuf>,
@@ -85,7 +86,9 @@ pub async fn start_offline_server(
     proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
     ensure_proof_params_downloaded().await?;
 
-    backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
+    if should_backfill_db {
+        backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
+    }
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
@@ -99,13 +102,13 @@ pub async fn start_offline_server(
 
     // Validate tipsets since the {height} EPOCH when `height >= 0`,
     // or valiadte the last {-height} EPOCH(s) when `height < 0`
-    let n_ts_to_validate = if height > 0 {
-        (head_ts.epoch() - height).max(0)
+    let epochs_to_validate = if height > 0 {
+        (head_ts.epoch() + 1 - height).max(0)
     } else {
         -height
     } as usize;
-    if n_ts_to_validate > 0 {
-        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
+    if epochs_to_validate > 0 {
+        state_manager.validate_tipsets(head_ts, epochs_to_validate)?;
     }
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);

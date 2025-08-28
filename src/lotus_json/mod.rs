@@ -515,6 +515,7 @@ pub(crate) use lotus_json_with_self;
 lotus_json_with_self!(
     u32,
     u64,
+    usize,
     i64,
     f64,
     String,

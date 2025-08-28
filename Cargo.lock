@@ -3161,6 +3161,7 @@ dependencies = [
  "fvm 4.7.2",
  "fvm_actor_utils",
  "fvm_ipld_blockstore",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared 2.11.1",
  "fvm_shared 3.13.1",
@@ -3734,6 +3735,22 @@ dependencies = [
  "anyhow",
  "cid",
  "multihash-codetable",
+]
+
+[[package]]
+name = "fvm_ipld_car"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3f49d53950e37e2b310a6527135f4b9b09c2fb8c25f1846622131f9db965be0"
+dependencies = [
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "multihash-codetable",
+ "multihash-derive",
+ "serde",
+ "thiserror 2.0.15",
+ "unsigned-varint 0.8.0",
 ]
 
 [[package]]
