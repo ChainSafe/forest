@@ -2827,6 +2827,60 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             to_vec(&market_actor_get_deal_data_commitment_params)?,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealClientExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealProviderExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealLabelExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealTermExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealTotalPriceExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealClientCollateralExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealProviderCollateralExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealVerifiedExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealActivationExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
     ])
 }
 
