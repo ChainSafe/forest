@@ -2735,6 +2735,16 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             deals: vec![create_client_deal_proposal()],
         };
 
+    let market_actor_verify_deals_for_activation_params =
+        fil_actor_market_state::v16::PublishStorageDealsParams {
+            deals: vec![create_client_deal_proposal()],
+        };
+
+    let market_actor_batch_activate_deals_params =
+        fil_actor_market_state::v16::PublishStorageDealsParams {
+            deals: vec![create_client_deal_proposal()],
+        };
+
     let market_actor_get_balance_exported_params = Address::new_id(1000);
 
     let market_actor_on_miner_sectors_terminate_params =
@@ -2757,6 +2767,18 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             Address::MARKET_ACTOR,
             fil_actor_market_state::v16::Method::WithdrawBalance as u64,
             to_vec(&market_actor_withdraw_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::VerifyDealsForActivation as u64,
+            to_vec(&market_actor_verify_deals_for_activation_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::BatchActivateDeals as u64,
+            to_vec(&market_actor_batch_activate_deals_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
