@@ -33,6 +33,20 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
     where
         D: Deserializer<'de>,
     {
+        struct IgnoredSeed;
+
+        impl<'de> DeserializeSeed<'de> for IgnoredSeed {
+            type Value = ();
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_ignored_any(de::IgnoredAny)?;
+                Ok(())
+            }
+        }
+
         struct FilterCidsVisitor<'a>(&'a mut SmallCidVec);
 
         impl<'de> Visitor<'de> for FilterCidsVisitor<'_> {
@@ -53,7 +67,7 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
                 while visitor
-                    .next_entry_seed(FilterCids(&mut SmallCidVec::new()), FilterCids(self.0))?
+                    .next_entry_seed(IgnoredSeed, FilterCids(self.0))?
                     .is_some()
                 {
                     // Nothing to do; inner map values have been into `vec`.
