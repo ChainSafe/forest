@@ -23,6 +23,7 @@ use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
+// use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::{SectorSize, StoragePower};
 use crate::shim::{
@@ -1894,6 +1895,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
     tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
     tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
     tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+    tests.extend(market_actor_state_decode_params_tests(tipset)?);
 
     Ok(tests)
 }
@@ -2689,6 +2691,212 @@ fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Resu
             Address::VERIFIED_REGISTRY_ACTOR,
             fil_actor_verifreg_state::v16::Method::UniversalReceiverHook as u64,
             to_vec(&verified_reg_universal_receiver_params)?,
+            tipset.key().into(),
+        ))?),
+    ])
+}
+
+fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    fn create_deal_proposal(
+        client: fvm_shared4::address::Address,
+        provider: fvm_shared4::address::Address,
+        client_collateral: fvm_shared4::econ::TokenAmount,
+        provider_collateral: fvm_shared4::econ::TokenAmount,
+        start_epoch: fvm_shared4::clock::ChainEpoch,
+        end_epoch: fvm_shared4::clock::ChainEpoch,
+    ) -> fil_actor_market_state::v16::DealProposal {
+        let piece_cid = Cid::default();
+        let piece_size = fvm_shared4::piece::PaddedPieceSize(2048);
+        let storage_price_per_epoch = fvm_shared4::econ::TokenAmount::from_atto(10u8);
+
+        fil_actor_market_state::v16::DealProposal {
+            piece_cid,
+            piece_size,
+            verified_deal: false,
+            client,
+            provider,
+            label: fil_actor_market_state::v16::Label::String("label".to_string()),
+            start_epoch,
+            end_epoch,
+            storage_price_per_epoch,
+            provider_collateral,
+            client_collateral,
+        }
+    }
+    fn create_client_deal_proposal() -> fil_actor_market_state::v16::ClientDealProposal {
+        let proposal = create_deal_proposal(
+            fvm_shared4::address::Address::new_id(1000).into(),
+            fvm_shared4::address::Address::new_id(1000).into(),
+            fvm_shared4::econ::TokenAmount::from_atto(10u8),
+            fvm_shared4::econ::TokenAmount::from_atto(10u8),
+            0,
+            10,
+        );
+        fil_actor_market_state::v16::ClientDealProposal {
+            proposal,
+            client_signature: fvm_shared4::crypto::signature::Signature::new_bls(
+                b"test_signature".to_vec(),
+            ),
+        }
+    }
+
+    let market_actor_add_balance_params = fil_actor_market_state::v16::AddBalanceParams {
+        provider_or_client: fvm_shared4::address::Address::new_id(1000),
+    };
+    let market_actor_withdraw_balance_params = fil_actor_market_state::v16::WithdrawBalanceParams {
+        provider_or_client: Address::new_id(1000).into(),
+        amount: TokenAmount::default().into(),
+    };
+
+    let market_actor_publish_storage_deals_params =
+        fil_actor_market_state::v16::PublishStorageDealsParams {
+            deals: vec![create_client_deal_proposal()],
+        };
+
+    let market_actor_verify_deals_for_activation_params =
+        fil_actor_market_state::v16::PublishStorageDealsParams {
+            deals: vec![create_client_deal_proposal()],
+        };
+
+    let market_actor_batch_activate_deals_params =
+        fil_actor_market_state::v16::PublishStorageDealsParams {
+            deals: vec![create_client_deal_proposal()],
+        };
+
+    let market_actor_on_miner_sectors_terminate_params =
+        fil_actor_market_state::v16::OnMinerSectorsTerminateParams {
+            epoch: 123,
+            sectors: {
+                let mut bf = BitField::new();
+                bf.set(3);
+                bf
+            },
+        };
+
+    let market_actor_get_balance_exported_params = Address::new_id(1000);
+
+    let market_actor_get_deal_data_commitment_params =
+        fil_actor_market_state::v16::DealQueryParams { id: 0 };
+
+    Ok(vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::AddBalance as u64,
+            to_vec(&market_actor_add_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::WithdrawBalance as u64,
+            to_vec(&market_actor_withdraw_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::VerifyDealsForActivation as u64,
+            to_vec(&market_actor_verify_deals_for_activation_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::BatchActivateDeals as u64,
+            to_vec(&market_actor_batch_activate_deals_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::PublishStorageDeals as u64,
+            to_vec(&market_actor_publish_storage_deals_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::OnMinerSectorsTerminate as u64,
+            to_vec(&market_actor_on_miner_sectors_terminate_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::AddBalanceExported as u64,
+            to_vec(&market_actor_get_balance_exported_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::WithdrawBalanceExported as u64,
+            to_vec(&market_actor_withdraw_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::PublishStorageDealsExported as u64,
+            to_vec(&market_actor_publish_storage_deals_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetBalanceExported as u64,
+            to_vec(&market_actor_get_balance_exported_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealDataCommitmentExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealClientExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealProviderExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealLabelExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealTermExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealTotalPriceExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealClientCollateralExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealProviderCollateralExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealVerifiedExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealActivationExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
             tipset.key().into(),
         ))?),
     ])

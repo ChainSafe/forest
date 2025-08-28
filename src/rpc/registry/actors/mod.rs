@@ -6,6 +6,7 @@ pub(crate) mod cron;
 pub(crate) mod datacap;
 pub(crate) mod evm;
 pub(crate) mod init;
+pub(crate) mod market;
 pub(crate) mod miner;
 pub(crate) mod multisig;
 pub(crate) mod power;

@@ -10,6 +10,7 @@ mod evm_actor_params;
 mod init_constructor_params;
 mod init_exec4_params;
 mod init_exec_params;
+mod market_actor_params;
 mod miner_change_worker_params;
 mod miner_constructor_params;
 mod multisig_actor;

@@ -231,6 +231,7 @@ mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
+mod padded_piece_size;
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
