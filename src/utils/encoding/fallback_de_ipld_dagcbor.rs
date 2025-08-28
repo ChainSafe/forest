@@ -5,7 +5,6 @@
 // - strings are de-serialized as `BadStr`. This is a workaround for the historical
 // bug in Lotus where malformed UTF-8 strings were serialized as CBOR strings.
 // Allow everything so we don't stray from the original code too much.
-#![allow(clippy::all, warnings)]
 
 use self::cbor4ii_nonpub::*;
 use cbor4ii::core::dec::{self, Decode};
@@ -115,6 +114,7 @@ where
 /// let value: &str = de::from_reader(&v[..]).unwrap();
 /// assert_eq!(value, "foobar");
 /// ```
+#[allow(dead_code)]
 pub fn from_reader<T, R>(reader: R) -> Result<T, DecodeError<std::io::Error>>
 where
     T: de::DeserializeOwned,
@@ -159,8 +159,8 @@ impl<'de, R: dec::Read<'de>> Deserializer<R> {
     where
         V: Visitor<'de>,
     {
+        const CBOR_TAGS_CID: u64 = 42; // serde_ipld_dagcbor::CBOR_TAGS_CID
         let tag = dec::TagStart::decode(&mut self.reader)?;
-
         match tag.0 {
             CBOR_TAGS_CID => visitor.visit_newtype_struct(&mut CidDeserializer(self)),
             _ => Err(DecodeError::TypeMismatch {
@@ -198,7 +198,7 @@ macro_rules! deserialize_type {
     };
 }
 
-impl<'de, 'a, R: dec::Read<'de>> serde::Deserializer<'de> for &'a mut Deserializer<R> {
+impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
     type Error = DecodeError<R::Error>;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
