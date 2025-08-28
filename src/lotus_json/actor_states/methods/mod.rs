@@ -13,6 +13,7 @@ mod init_exec_params;
 mod miner_change_worker_params;
 mod miner_constructor_params;
 mod multisig_actor;
+mod paych_params;
 mod power_actor;
 mod reward_methods;
 pub mod verified_reg_actor;
