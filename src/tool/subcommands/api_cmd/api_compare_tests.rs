@@ -81,6 +81,14 @@ static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .into()
 });
 
+/// This address is known to be empty on calibnet. It should always have a zero balance.
+static KNOWN_EMPTY_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y")
+        .unwrap()
+        .into()
+});
+
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -506,6 +514,16 @@ fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(MpoolGetNonce::request((*KNOWN_CALIBNET_ADDRESS,)).unwrap()),
+        // This should cause an error with `actor not found` in both Lotus and Forest. The messages
+        // are quite different, so we don't do strict equality check.
+        //  "forest_response": {
+        //    "Err": "ErrorObject { code: InternalError, message: \"Actor not found: addr=t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y\", data: None }"
+        //  },
+        //  "lotus_response": {
+        //    "Err": "ErrorObject { code: ServerError(1), message: \"resolution lookup failed (t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y): resolve address t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y: actor not found\", data: None }"
+        //  }
+        RpcTest::identity(MpoolGetNonce::request((*KNOWN_EMPTY_CALIBNET_ADDRESS,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
@@ -1147,7 +1165,7 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
         Address::from_str("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq").unwrap(),
         Address::from_str("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki").unwrap(),
         // This address should have 0 FIL
-        Address::from_str("t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y").unwrap(),
+        *KNOWN_EMPTY_CALIBNET_ADDRESS,
     ];
 
     let mut tests = vec![];

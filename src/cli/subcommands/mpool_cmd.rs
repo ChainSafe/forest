@@ -32,6 +32,11 @@ pub enum MpoolCommands {
         #[arg(long)]
         from: Option<String>,
     },
+    /// Get the current nonce for an address
+    Nonce {
+        /// Address to check nonce for
+        address: Address,
+    },
     /// Print mempool stats
     Stat {
         /// Number of blocks to look back for minimum `basefee`
@@ -272,6 +277,12 @@ impl MpoolCommands {
                 let stats = compute_stats(&messages, actor_sequences, curr_base_fee, min_base_fee);
 
                 print_stats(&stats, basefee_lookback);
+
+                Ok(())
+            }
+            Self::Nonce { address } => {
+                let nonce = MpoolGetNonce::call(&client, (address,)).await?;
+                println!("{nonce}");
 
                 Ok(())
             }

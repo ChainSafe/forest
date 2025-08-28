@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.29.0 "Fëanor"
+
+Non-mandatory release. It introduces a couple of features around snapshot generation and inspection. It fully supports the new FRC-0108 Filecoin snapshot format. There is also a notable fix in `Filecoin.ChainNotify` RPC method that would cause issues with some clients.
+
+### Breaking
+
 - [#5946](https://github.com/ChainSafe/forest/pull/5946) Updated parameters and response of `Forest.StateCompute` RPC method to support new `forest-cli state compute` options.
 
 ### Added
@@ -39,6 +53,8 @@
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
 
+- [#5963](https://github.com/ChainSafe/forest/pull/5963) Added `forest-cli f3 ready` command for checking whether F3 is in sync.
+
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
 
 - [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--n-epochs` to `forest-cli state compute` for computating state trees in batch.
@@ -49,19 +65,23 @@
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
+- [#5999](https://github.com/ChainSafe/forest/pull/5999) Add `forest-cli mpool nonce` command to get the current nonce for an address.
+
 ### Changed
 
 - [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print F3 snapshot header info when applicable.
 
 - [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
 
-### Removed
+- [#5969](https://github.com/ChainSafe/forest/pull/5969) Updated `forest-tool snapshot validate` to print better error message for troubleshooting.
 
 ### Fixed
 
 - [#5863](https://github.com/ChainSafe/forest/pull/5863) Fixed needless GC runs on a stateless node.
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Fixed size calculation for zstd frame cache.
+
+- [#5975](https://github.com/ChainSafe/forest/issues/5975) Fixed JSON escaping in the `Filecoin.ChainNotify` RPC method.
 
 ## Forest v0.28.0 "Denethor's Folly"
 
