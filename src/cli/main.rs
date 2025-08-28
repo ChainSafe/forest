@@ -29,7 +29,7 @@ where
 
     let client = rpc::Client::default_or_from_env(token.as_deref())?;
 
-    logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
+    let (_bg_tasks, _guards) = logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
 
     // Run command
     match cmd {
