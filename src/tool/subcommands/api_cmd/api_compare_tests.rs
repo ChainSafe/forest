@@ -2745,8 +2745,6 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             deals: vec![create_client_deal_proposal()],
         };
 
-    let market_actor_get_balance_exported_params = Address::new_id(1000);
-
     let market_actor_on_miner_sectors_terminate_params =
         fil_actor_market_state::v16::OnMinerSectorsTerminateParams {
             epoch: 123,
@@ -2756,6 +2754,12 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
                 bf
             },
         };
+
+    let market_actor_get_balance_exported_params = Address::new_id(1000);
+
+    let market_actor_get_deal_data_commitment_params =
+        fil_actor_market_state::v16::DealQueryParams { id: 0 };
+
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::MARKET_ACTOR,
@@ -2795,8 +2799,32 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::AddBalanceExported as u64,
+            to_vec(&market_actor_get_balance_exported_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::WithdrawBalanceExported as u64,
+            to_vec(&market_actor_withdraw_balance_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::PublishStorageDealsExported as u64,
+            to_vec(&market_actor_publish_storage_deals_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
             fil_actor_market_state::v16::Method::GetBalanceExported as u64,
             to_vec(&market_actor_get_balance_exported_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealDataCommitmentExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
             tipset.key().into(),
         ))?),
     ])
