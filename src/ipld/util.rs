@@ -428,7 +428,7 @@ impl<
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
                     'main: while let Ok(cid) = extract_receiver.recv_async().await {
-                        let mut cid_vec = vec![cid];
+                        let mut cid_vec: smallvec::SmallVec<[_; 8]> = smallvec::smallvec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
                                 if let Some(data) = db.get(&cid)? {

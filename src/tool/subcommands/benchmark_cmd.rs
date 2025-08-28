@@ -13,7 +13,6 @@ use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
-use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
@@ -148,7 +147,7 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> anyhow::Result<
     while let Some(block) = s.try_next().await? {
         let block: CarBlock = block;
         if block.cid.codec() == DAG_CBOR {
-            let cid_vec: Vec<Cid> = extract_cids(&block.data)?;
+            let cid_vec = extract_cids(&block.data)?;
             let _ = cid_vec.iter().unique().count();
         }
         sink.write_all(&block.data).await?
