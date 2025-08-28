@@ -101,7 +101,6 @@ generate_markdown_section "forest-tool" "backup restore"
 generate_markdown_section "forest-tool" "benchmark"
 generate_markdown_section "forest-tool" "benchmark car-streaming"
 generate_markdown_section "forest-tool" "benchmark graph-traversal"
-generate_markdown_section "forest-tool" "benchmark unordered-graph-traversal"
 generate_markdown_section "forest-tool" "benchmark forest-encoding"
 generate_markdown_section "forest-tool" "benchmark export"
 

@@ -7,7 +7,7 @@ use crate::chain::{
 };
 use crate::db::car::ManyCar;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
-use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
+use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -40,12 +40,6 @@ pub enum BenchmarkCommands {
     },
     /// Depth-first traversal of the Filecoin graph
     GraphTraversal {
-        /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
-        #[arg(required = true)]
-        snapshot_files: Vec<PathBuf>,
-    },
-    // Unordered traversal of the Filecoin graph, yields blocks in an undefined order.
-    UnorderedGraphTraversal {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
@@ -92,9 +86,6 @@ impl BenchmarkCommands {
             },
             Self::GraphTraversal { snapshot_files } => {
                 benchmark_graph_traversal(snapshot_files).await
-            }
-            Self::UnorderedGraphTraversal { snapshot_files } => {
-                benchmark_unordered_graph_traversal(snapshot_files).await
             }
             Self::ForestEncoding {
                 snapshot_file,
@@ -165,22 +156,6 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
     let mut sink = indicatif_sink("traversed");
 
     let mut s = stream_graph(&store, heaviest.chain(&store), 0);
-    while let Some(block) = s.try_next().await? {
-        sink.write_all(&block.data).await?
-    }
-
-    Ok(())
-}
-
-// Open a set of CAR files as a block store and do an unordered traversal of all
-// reachable nodes.
-async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
-    let store = Arc::new(open_store(input)?);
-    let heaviest = store.heaviest_tipset()?;
-
-    let mut sink = indicatif_sink("traversed");
-
-    let mut s = unordered_stream_graph(store.clone(), heaviest.chain_owned(store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
