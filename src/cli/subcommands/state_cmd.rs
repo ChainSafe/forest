@@ -4,13 +4,12 @@
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::state::{ForestComputeStateOutput, ForestStateCompute};
 use crate::rpc::{self, prelude::*};
-use crate::shim::address::{CurrentNetwork, Error, Network, StrictAddress};
+use crate::shim::address::StrictAddress;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use clap::Subcommand;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Subcommand)]
@@ -36,7 +35,7 @@ pub enum StateCommands {
     /// Read the state of an actor
     ReadState {
         /// Actor address to read the state of
-        actor_address: String,
+        actor_address: StrictAddress,
     },
 }
 
@@ -76,21 +75,9 @@ impl StateCommands {
             }
             Self::ReadState { actor_address } => {
                 let tipset = ChainHead::call(&client, ()).await?;
-                let address = match StrictAddress::from_str(&actor_address) {
-                    Ok(address) => address.into(),
-                    Err(Error::UnknownNetwork) => {
-                        let expected = match CurrentNetwork::get() {
-                            Network::Mainnet => 'f',
-                            Network::Testnet => 't',
-                        };
-                        anyhow::bail!("Invalid network prefix, expected '{}'", expected);
-                    }
-                    Err(e) => anyhow::bail!("Error parsing address: {e}"),
-                };
-
                 let ret = client
                     .call(
-                        StateReadState::request((address, tipset.key().into()))?
+                        StateReadState::request((actor_address.into(), tipset.key().into()))?
                             .with_timeout(Duration::MAX),
                     )
                     .await?;

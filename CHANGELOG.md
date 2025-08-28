@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
+
 ### Changed
 
 ### Removed

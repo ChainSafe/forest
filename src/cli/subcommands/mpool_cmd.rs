@@ -1,8 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr as _;
-
 use crate::blocks::Tipset;
 use crate::lotus_json::{HasLotusJson as _, NotNullVec};
 use crate::message::SignedMessage;
@@ -27,15 +25,15 @@ pub enum MpoolCommands {
         cids: bool,
         /// Return messages to a given address
         #[arg(long)]
-        to: Option<String>,
+        to: Option<StrictAddress>,
         /// Return messages from a given address
         #[arg(long)]
-        from: Option<String>,
+        from: Option<StrictAddress>,
     },
     /// Get the current nonce for an address
     Nonce {
         /// Address to check nonce for
-        address: Address,
+        address: StrictAddress,
     },
     /// Print mempool stats
     Stat {
@@ -48,23 +46,13 @@ pub enum MpoolCommands {
     },
 }
 
-fn to_addr(value: &Option<String>) -> anyhow::Result<Option<StrictAddress>> {
-    Ok(value
-        .as_ref()
-        .map(|s| StrictAddress::from_str(s))
-        .transpose()?)
-}
-
 fn filter_messages(
     messages: Vec<SignedMessage>,
     local_addrs: Option<HashSet<Address>>,
-    to: &Option<String>,
-    from: &Option<String>,
+    to: &Option<StrictAddress>,
+    from: &Option<StrictAddress>,
 ) -> anyhow::Result<Vec<SignedMessage>> {
     use crate::message::Message;
-
-    let to = to_addr(to)?;
-    let from = to_addr(from)?;
 
     let filtered = messages
         .into_iter()
@@ -281,7 +269,7 @@ impl MpoolCommands {
                 Ok(())
             }
             Self::Nonce { address } => {
-                let nonce = MpoolGetNonce::call(&client, (address,)).await?;
+                let nonce = MpoolGetNonce::call(&client, (address.into(),)).await?;
                 println!("{nonce}");
 
                 Ok(())
@@ -390,7 +378,7 @@ mod tests {
 
         // Filtering messages from sender2
         let smsg_filtered: Vec<SignedMessage> =
-            filter_messages(smsg_json_vec, None, &None, &Some(sender2.to_string()))
+            filter_messages(smsg_json_vec, None, &None, &Some(sender2.into()))
                 .unwrap()
                 .into_iter()
                 .collect();
@@ -423,7 +411,7 @@ mod tests {
 
         // Filtering messages to target2
         let smsg_filtered: Vec<SignedMessage> =
-            filter_messages(smsg_json_vec, None, &Some(target2.to_string()), &None)
+            filter_messages(smsg_json_vec, None, &Some(target2.into()), &None)
                 .unwrap()
                 .into_iter()
                 .collect();
@@ -437,6 +425,7 @@ mod tests {
     fn compute_statistics() {
         use crate::shim::message::Message;
         use fvm_ipld_encoding::RawBytes;
+        use std::str::FromStr;
 
         let addr0 = Address::from_str("t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa").unwrap();
         let addr1 = Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap();
