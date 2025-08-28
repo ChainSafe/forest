@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -323,7 +323,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -621,6 +621,7 @@ Usage: forest-cli mpool <COMMAND>
 
 Commands:
   pending  Get pending messages
+  nonce    Get the current nonce for an address
   stat     Print mempool stats
   help     Print this message or the help of the given subcommand(s)
 
@@ -657,6 +658,20 @@ Options:
           Print stats for addresses in local wallet only
   -h, --help
           Print help
+```
+
+### `forest-cli mpool nonce`
+
+```
+Get the current nonce for an address
+
+Usage: forest-cli mpool nonce <ADDRESS>
+
+Arguments:
+  <ADDRESS>  Address to check nonce for
+
+Options:
+  -h, --help  Print help
 ```
 
 ### `forest-cli state`
@@ -1015,7 +1030,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
