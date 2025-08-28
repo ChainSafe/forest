@@ -13,7 +13,6 @@ use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
-use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
@@ -43,12 +42,18 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+        /// Number of state roots and messages to include.
+        #[arg(long, default_value_t = 900)]
+        depth: usize,
     },
     // Unordered traversal of the Filecoin graph, yields blocks in an undefined order.
     UnorderedGraphTraversal {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+        /// Number of state roots and messages to include.
+        #[arg(long, default_value_t = 900)]
+        depth: usize,
     },
     /// Encoding of a `.forest.car.zst` file
     ForestEncoding {
@@ -90,12 +95,14 @@ impl BenchmarkCommands {
                 true => benchmark_car_streaming_inspect(snapshot_files).await,
                 false => benchmark_car_streaming(snapshot_files).await,
             },
-            Self::GraphTraversal { snapshot_files } => {
-                benchmark_graph_traversal(snapshot_files).await
-            }
-            Self::UnorderedGraphTraversal { snapshot_files } => {
-                benchmark_unordered_graph_traversal(snapshot_files).await
-            }
+            Self::GraphTraversal {
+                snapshot_files,
+                depth,
+            } => benchmark_graph_traversal(snapshot_files, depth).await,
+            Self::UnorderedGraphTraversal {
+                snapshot_files,
+                depth,
+            } => benchmark_unordered_graph_traversal(snapshot_files, depth).await,
             Self::ForestEncoding {
                 snapshot_file,
                 compression_level,
@@ -148,7 +155,7 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> anyhow::Result<
     while let Some(block) = s.try_next().await? {
         let block: CarBlock = block;
         if block.cid.codec() == DAG_CBOR {
-            let cid_vec: Vec<Cid> = extract_cids(&block.data)?;
+            let cid_vec = extract_cids(&block.data)?;
             let _ = cid_vec.iter().unique().count();
         }
         sink.write_all(&block.data).await?
@@ -158,13 +165,13 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> anyhow::Result<
 
 // Open a set of CAR files as a block store and do a DFS traversal of all
 // reachable nodes.
-async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
+async fn benchmark_graph_traversal(input: Vec<PathBuf>, depth: usize) -> anyhow::Result<()> {
     let store = open_store(input)?;
     let heaviest = store.heaviest_tipset()?;
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = stream_graph(&store, heaviest.chain(&store), 0);
+    let mut s = stream_graph(&store, heaviest.chain(&store), depth as _);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
@@ -174,13 +181,16 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
 
 // Open a set of CAR files as a block store and do an unordered traversal of all
 // reachable nodes.
-async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
+async fn benchmark_unordered_graph_traversal(
+    input: Vec<PathBuf>,
+    depth: usize,
+) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = unordered_stream_graph(store.clone(), heaviest.chain_owned(store), 0);
+    let mut s = unordered_stream_graph(store.clone(), heaviest.chain_owned(store), depth as _);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
