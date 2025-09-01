@@ -2725,8 +2725,8 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
     }
     fn create_client_deal_proposal() -> fil_actor_market_state::v16::ClientDealProposal {
         let proposal = create_deal_proposal(
-            fvm_shared4::address::Address::new_id(1000).into(),
-            fvm_shared4::address::Address::new_id(1000).into(),
+            fvm_shared4::address::Address::new_id(1000),
+            fvm_shared4::address::Address::new_id(1000),
             fvm_shared4::econ::TokenAmount::from_atto(10u8),
             fvm_shared4::econ::TokenAmount::from_atto(10u8),
             0,

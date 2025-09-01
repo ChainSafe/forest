@@ -4,7 +4,6 @@
 use super::*;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;

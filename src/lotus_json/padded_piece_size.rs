@@ -21,6 +21,6 @@ impl HasLotusJson for PaddedPieceSize {
     }
 
     fn from_lotus_json(PaddedPieceSizeLotusJson(inner): Self::LotusJson) -> Self {
-        inner.into()
+        inner
     }
 }
