@@ -81,6 +81,14 @@ static KNOWN_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .into()
 });
 
+/// This address is known to be empty on calibnet. It should always have a zero balance.
+static KNOWN_EMPTY_CALIBNET_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
+    crate::shim::address::Network::Testnet
+        .parse_address("t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y")
+        .unwrap()
+        .into()
+});
+
 const TICKET_QUALITY_GREEDY: f64 = 0.9;
 const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
 const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
@@ -201,6 +209,7 @@ pub(super) enum PolicyOnRejected {
     Fail,
     Pass,
     PassWithIdenticalError,
+    PassWithIdenticalErrorCaseInsensitive,
     /// If Forest reason is a subset of Lotus reason, the test passes.
     /// We don't always bubble up errors and format the error chain like Lotus.
     PassWithQuasiIdenticalError,
@@ -505,6 +514,16 @@ fn auth_tests() -> anyhow::Result<Vec<RpcTest>> {
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(MpoolGetNonce::request((*KNOWN_CALIBNET_ADDRESS,)).unwrap()),
+        // This should cause an error with `actor not found` in both Lotus and Forest. The messages
+        // are quite different, so we don't do strict equality check.
+        //  "forest_response": {
+        //    "Err": "ErrorObject { code: InternalError, message: \"Actor not found: addr=t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y\", data: None }"
+        //  },
+        //  "lotus_response": {
+        //    "Err": "ErrorObject { code: ServerError(1), message: \"resolution lookup failed (t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y): resolve address t1qb2x5qctp34rxd7ucl327h5ru6aazj2heno7x5y: actor not found\", data: None }"
+        //  }
+        RpcTest::identity(MpoolGetNonce::request((*KNOWN_EMPTY_CALIBNET_ADDRESS,)).unwrap())
+            .policy_on_rejected(PolicyOnRejected::Pass),
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
         RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
@@ -1138,6 +1157,27 @@ fn state_tests_with_tipset<DB: Blockstore>(
 }
 
 fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
+    let prefunded_wallets = [
+        // the following addresses should have 666 attoFIL each
+        Address::from_str("t0168923").unwrap(), // this is the ID address of the `t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly` address
+        Address::from_str("t1w2zb5a723izlm4q3khclsjcnapfzxcfhvqyfoly").unwrap(),
+        Address::from_str("t2nfplhzpyeck5dcc4fokj5ar6nbs3mhbdmq6xu3q").unwrap(),
+        Address::from_str("t3wmbvnabsj6x2uki33phgtqqemmunnttowpx3chklrchy76pv52g5ajnaqdypxoomq5ubfk65twl5ofvkhshq").unwrap(),
+        Address::from_str("t410fx2cumi6pgaz64varl77xbuub54bgs3k5xsvn3ki").unwrap(),
+        // This address should have 0 FIL
+        *KNOWN_EMPTY_CALIBNET_ADDRESS,
+    ];
+
+    let mut tests = vec![];
+    for wallet in prefunded_wallets {
+        tests.push(RpcTest::identity(
+            WalletBalance::request((wallet,)).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            WalletValidateAddress::request((wallet.to_string(),)).unwrap(),
+        ));
+    }
+
     let known_wallet = *KNOWN_CALIBNET_ADDRESS;
     // "Hello world!" signed with the above address:
     let signature = "44364ca78d85e53dda5ac6f719a4f2de3261c17f58558ab7730f80c478e6d43775244e7d6855afad82e4a1fd6449490acfa88e3fcfe7c1fe96ed549c100900b400";
@@ -1149,11 +1189,26 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
         _ => panic!("Invalid signature (must be bls or secp256k1)"),
     };
 
-    let mut tests = vec![
-        RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
-        RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
-        RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
-    ];
+    tests.push(RpcTest::identity(
+        WalletBalance::request((known_wallet,)).unwrap(),
+    ));
+    tests.push(RpcTest::identity(
+        WalletValidateAddress::request((known_wallet.to_string(),)).unwrap(),
+    ));
+    tests.push(
+        RpcTest::identity(
+            // Both Forest and Lotus should fail miserably at invocking Cthulhu's name
+            WalletValidateAddress::request((
+                "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".to_string(),
+            ))
+            .unwrap(),
+        )
+        // Forest returns `Unknown address network`, Lotus `unknown address network`.
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalErrorCaseInsensitive),
+    );
+    tests.push(RpcTest::identity(
+        WalletVerify::request((known_wallet, text, signature)).unwrap(),
+    ));
 
     // If a worker address is provided, we can test wallet methods requiring
     // a shared key.
@@ -1799,10 +1854,6 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
 }
 
 fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
-    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
-        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
-        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
-    };
     // // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/396
     // // Enable this test when lotus supports it in go-state-types.
     // let cron_constructor_params = fil_actor_cron_state::v16::ConstructorParams {
@@ -1812,12 +1863,6 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
     //     }],
     // };
     let mut tests = vec![
-        RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(), // evm actor
-            1,
-            to_vec(&evm_constructor_params)?,
-            tipset.key().into(),
-        ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::SYSTEM_ACTOR,
             fil_actor_system_state::v16::Method::Constructor as u64,
@@ -1843,11 +1888,79 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
     tests.extend(miner_actor_state_decode_params_tests(tipset)?);
     tests.extend(account_actor_state_decode_params_tests(tipset)?);
     tests.extend(init_actor_state_decode_params_tests(tipset)?);
+    tests.extend(evm_actor_state_decode_params_tests(tipset)?);
     tests.extend(reward_actor_state_decode_params_tests(tipset)?);
     tests.extend(power_actor_state_decode_params_tests(tipset)?);
     tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
     tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
     tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+
+    Ok(tests)
+}
+
+fn evm_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let evm_constructor_params = fil_actor_evm_state::v16::ConstructorParams {
+        creator: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
+        initcode: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
+    };
+
+    let evm_invoke_contract_params = fil_actor_evm_state::v16::InvokeContractParams {
+        input_data: vec![0x11, 0x22, 0x33, 0x44, 0x55], // dummy input data
+    };
+
+    let evm_delegate_call_params = fil_actor_evm_state::v16::DelegateCallParams {
+        code: Cid::default(),
+        input: vec![0x11, 0x22, 0x33, 0x44, 0x55], // dummy input data
+        caller: fil_actor_evm_state::evm_shared::v16::address::EthAddress([0; 20]),
+        value: TokenAmount::default().into(),
+    };
+
+    let evm_get_storage_at_params = GetStorageAtParams::new(vec![0xa])?;
+
+    let tests = vec![
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::Constructor as u64,
+            to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::Resurrect as u64,
+            to_vec(&evm_constructor_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::GetBytecode as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::GetBytecodeHash as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::InvokeContract as u64,
+            to_vec(&evm_invoke_contract_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::InvokeContractDelegate as u64,
+            to_vec(&evm_delegate_call_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::from_str(EVM_ADDRESS).unwrap(),
+            fil_actor_evm_state::v16::Method::GetStorageAt as u64,
+            evm_get_storage_at_params.serialize_params()?,
+            tipset.key().into(),
+        ))?),
+    ];
 
     Ok(tests)
 }
@@ -3046,6 +3159,9 @@ fn evaluate_test_success(
             match test.policy_on_rejected {
                 PolicyOnRejected::Pass => true,
                 PolicyOnRejected::PassWithIdenticalError => reason_forest == reason_lotus,
+                PolicyOnRejected::PassWithIdenticalErrorCaseInsensitive => {
+                    reason_forest.eq_ignore_ascii_case(reason_lotus)
+                }
                 PolicyOnRejected::PassWithQuasiIdenticalError => {
                     reason_lotus.contains(reason_forest) || reason_forest.contains(reason_lotus)
                 }

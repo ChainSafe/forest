@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.28.0"
+version = "0.29.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -206,9 +206,9 @@ tar = "0.4"
 tempfile = "3"
 tera = { version = "1", default-features = false }
 thiserror = "2"
-ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
+tokio-tungstenite = "0.27.0"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.5", features = ["util"] }
@@ -276,6 +276,13 @@ inherits = "release"
 opt-level = 1
 lto = "off"
 
+[profile.profiling]
+inherits = "dev"
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+panic = "abort"
+
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
@@ -295,9 +302,10 @@ doctest-private = []                                                      # see 
 benchmark-private = []                                                    # see lib.rs::benchmark_private
 interop-tests-private = []                                                # see lib.rs::interop_tests_private
 
-# Allocator
+# Allocator. Use at most one of these.
 rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
+system-alloc = []                    # Use the platform allocator (for memory profiling).
 
 tokio-console = ["dep:console-subscriber"]
 tracing-loki = ["dep:tracing-loki"]

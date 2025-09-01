@@ -4,12 +4,17 @@
 use std::io::Write;
 
 fn main() {
+    // Only needed when profiling Forest with `gperftools`. This might not work on all platforms.
+    if is_env_truthy("FOREST_PROFILING_GPERFTOOLS_BUILD") {
+        println!("cargo:rustc-link-lib=tcmalloc");
+    }
+
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
 
     // Do not build f3-sidecar on docs.rs publishing
     // No proper version of Go compiler is available.
-    if !is_docs_rs() && is_sidecar_ffi_enabled() {
+    if !is_docs_rs() && !is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
         println!("cargo:rustc-cfg=f3sidecar");
         println!("cargo::rerun-if-changed=f3-sidecar");
         unsafe {
@@ -41,12 +46,11 @@ fn is_docs_rs() -> bool {
     std::env::var("DOCS_RS").is_ok()
 }
 
-fn is_sidecar_ffi_enabled() -> bool {
-    // Opt-out building the F3 sidecar staticlib
-    match std::env::var("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
-        Ok(value) => !matches!(value.to_lowercase().as_str(), "1" | "true"),
-        _ => true,
-    }
+fn is_env_truthy(env: &str) -> bool {
+    std::env::var(env)
+        .ok()
+        .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true" | "yes" | "_yes_"))
+        .unwrap_or_default()
 }
 
 fn rpc_regression_tests_gen() {
@@ -75,7 +79,7 @@ fn rpc_regression_tests_gen() {
             w,
             r#"
                 #[tokio::test(flavor = "multi_thread")]
-                async fn rpc_test_{ident}() {{
+                async fn rpc_snapshot_test_{ident}() {{
                     rpc_regression_test_run("{test}").await
                 }}
             "#,
