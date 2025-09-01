@@ -2740,6 +2740,15 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         }
     }
 
+    fn create_sector_deals() -> fil_actor_market_state::v16::SectorDeals {
+        fil_actor_market_state::v16::SectorDeals {
+            sector_number: 1,
+            sector_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1,
+            sector_expiry: 100,
+            deal_ids: vec![0, 1],
+        }
+    }
+
     let market_actor_add_balance_params = fil_actor_market_state::v16::AddBalanceParams {
         provider_or_client: fvm_shared4::address::Address::new_id(1000),
     };
@@ -2754,8 +2763,8 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         };
 
     let market_actor_verify_deals_for_activation_params =
-        fil_actor_market_state::v16::PublishStorageDealsParams {
-            deals: vec![create_client_deal_proposal()],
+        fil_actor_market_state::v16::VerifyDealsForActivationParams {
+            sectors: vec![create_sector_deals()],
         };
 
     let market_actor_batch_activate_deals_params =
