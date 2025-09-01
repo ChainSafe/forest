@@ -62,6 +62,7 @@ generate_markdown_section "forest-cli" "sync mark-bad"
 generate_markdown_section "forest-cli" "mpool"
 generate_markdown_section "forest-cli" "mpool pending"
 generate_markdown_section "forest-cli" "mpool stat"
+generate_markdown_section "forest-cli" "mpool nonce"
 
 generate_markdown_section "forest-cli" "state"
 generate_markdown_section "forest-cli" "state fetch"
