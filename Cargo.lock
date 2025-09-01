@@ -1033,9 +1033,9 @@ dependencies = [
  "semver",
  "serde",
  "serde-untagged",
- "serde-value"
+ "serde-value",
  "thiserror 2.0.16",
- "toml 0.8.23",
+ "toml",
  "unicode-xid",
  "url",
 ]
@@ -3356,7 +3356,7 @@ dependencies = [
  "byte-slice-cast",
  "byteorder",
  "ff",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -8733,7 +8733,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "thiserror 2.0.15",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
