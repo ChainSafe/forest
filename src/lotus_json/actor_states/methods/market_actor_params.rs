@@ -373,21 +373,19 @@ impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV4Lot
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDealsLotusJson {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sector_number: Option<SectorNumber>,
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::lotus_json")]
     pub sector_type: Option<RegisteredSealProof>,
     pub sector_expiry: ChainEpoch,
     #[schemars(with = "LotusJson<DealID>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
 }
 
 macro_rules! impl_lotus_json_for_sector_deals {
     // Handling version where both `sector_number` and `sector_type` should be None (v8)
-    ($type_suffix:path: no_sector_number: no_sector_type: $($version:literal),+) => {
+    ($type_suffix:path: no_sector_type: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
@@ -401,7 +399,6 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
-                            sector_number: None,
                             sector_type: None,
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -419,7 +416,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
         )+
     };
     // Handling versions where `sector_number` should be None (v9, v10, v11, v12)
-    ($type_suffix:path: no_sector_number: $($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
@@ -433,7 +430,6 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
-                            sector_number: None,
                             sector_type: Some(self.sector_type.into()),
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -465,7 +461,6 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
-                            sector_number: Some(self.sector_number.into_lotus_json()),
                             sector_type: Some(self.sector_type.into()),
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -474,7 +469,6 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            sector_number: json.sector_number.unwrap_or_default(),
                             sector_type: json.sector_type.unwrap_or(RegisteredSealProof::invalid()).into(),
                             sector_expiry: json.sector_expiry.into(),
                             deal_ids: json.deal_ids.into(),
@@ -486,8 +480,8 @@ macro_rules! impl_lotus_json_for_sector_deals {
     };
 }
 
-impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_number: no_sector_type: 8);
-impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
+impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: 8);
+impl_lotus_json_for_sector_deals!(fvm_shared3::sector: 9, 10, 11, 12);
 impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]

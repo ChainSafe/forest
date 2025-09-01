@@ -2742,7 +2742,6 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
 
     fn create_sector_deals() -> fil_actor_market_state::v16::SectorDeals {
         fil_actor_market_state::v16::SectorDeals {
-            sector_number: 1,
             sector_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1,
             sector_expiry: 100,
             deal_ids: vec![0, 1],
