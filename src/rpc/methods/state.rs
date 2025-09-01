@@ -1438,11 +1438,17 @@ impl RpcMethod<2> for ForestStateCompute {
             ctx.chain_store().heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let from_ts = ctx.chain_index().tipset_by_height(
-            from_epoch,
-            to_ts.clone(),
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let from_ts = if from_epoch >= to_ts.epoch() {
+            // When `from_epoch` is a null epoch or `n_epochs` is 1,
+            // `to_ts.epoch()` could be less than or equal to `from_epoch`
+            to_ts.clone()
+        } else {
+            ctx.chain_index().tipset_by_height(
+                from_epoch,
+                to_ts.clone(),
+                ResolveNullTipset::TakeOlder,
+            )?
+        };
 
         let mut futures = FuturesOrdered::new();
         for ts in to_ts
