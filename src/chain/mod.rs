@@ -13,7 +13,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::cid_collections::CidHashSet;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::db::{SettingsStore, SettingsStoreExt};
-use crate::ipld::{stream_chain, unordered_stream_chain};
+use crate::ipld::stream_chain;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -34,7 +34,6 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {
     pub skip_checksum: bool,
-    pub unordered: bool,
     pub seen: CidHashSet,
 }
 
@@ -142,7 +141,6 @@ async fn export_to_forest_car<D: Digest>(
 ) -> anyhow::Result<Option<digest::Output<D>>> {
     let ExportOptions {
         skip_checksum,
-        unordered,
         seen,
     } = options.unwrap_or_default();
 
@@ -158,25 +156,12 @@ async fn export_to_forest_car<D: Digest>(
         // are small enough that keeping 1k in memory isn't a problem. Average
         // block size is between 1kb and 2kb.
         1024,
-        if unordered {
-            futures::future::Either::Left(
-                unordered_stream_chain(
-                    Arc::clone(db),
-                    tipset.clone().chain_owned(Arc::clone(db)),
-                    stateroot_lookup_limit,
-                )
-                .with_seen(seen),
-            )
-        } else {
-            futures::future::Either::Right(
-                stream_chain(
-                    Arc::clone(db),
-                    tipset.clone().chain_owned(Arc::clone(db)),
-                    stateroot_lookup_limit,
-                )
-                .with_seen(seen),
-            )
-        },
+        stream_chain(
+            Arc::clone(db),
+            tipset.clone().chain_owned(Arc::clone(db)),
+            stateroot_lookup_limit,
+        )
+        .with_seen(seen),
     );
 
     // Encode Ipld key-value pairs in zstd frames
