@@ -2802,6 +2802,12 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::PublishStorageDeals as u64,
+            to_vec(&market_actor_publish_storage_deals_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
             fil_actor_market_state::v16::Method::VerifyDealsForActivation as u64,
             to_vec(&market_actor_verify_deals_for_activation_params)?,
             tipset.key().into(),
@@ -2813,12 +2819,6 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         //     to_vec(&market_actor_batch_activate_deals_params)?,
         //     tipset.key().into(),
         // ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            Address::MARKET_ACTOR,
-            fil_actor_market_state::v16::Method::PublishStorageDeals as u64,
-            to_vec(&market_actor_publish_storage_deals_params)?,
-            tipset.key().into(),
-        ))?),
         // TODO: understand why Lotus uses wrong version
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::MARKET_ACTOR,
