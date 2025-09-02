@@ -6,8 +6,10 @@ use crate::shim::message::MethodNum;
 use cid::Cid;
 
 macro_rules! register_payment_channel_reg_versions {
-    ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        use $state_version::{ConstructorParams, Method, UpdateChannelStateParams};
+    ($registry:expr, $code_cid:expr, $version:literal) => {{
+        paste::paste!{
+            use fil_actor_paych_state::[<v $version>]::{ConstructorParams, Method, UpdateChannelStateParams};
+        }
 
         // Register methods with parameters
         register_actor_methods!(
@@ -29,16 +31,15 @@ macro_rules! register_payment_channel_reg_versions {
 }
 
 pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
-    match version {
-        8 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v8),
-        9 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v9),
-        10 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v10),
-        11 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v11),
-        12 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v12),
-        13 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v13),
-        14 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v14),
-        15 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v15),
-        16 => register_payment_channel_reg_versions!(registry, cid, fil_actor_paych_state::v16),
-        _ => {}
+    macro_rules! register_versions {
+        ($($version:literal),+) => {{
+            match version {
+                $(
+                    $version => register_payment_channel_reg_versions!(registry, cid, $version),
+                )+
+                _ => {}
+            }
+        }};
     }
+    register_versions!(8, 9, 10, 11, 12, 13, 14, 15, 16)
 }
