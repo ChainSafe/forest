@@ -213,6 +213,10 @@ impl EthUint64 {
                 .try_into()?,
         )))
     }
+
+    pub fn to_hex_string(&self) -> String {
+        format!("0x{}", hex::encode(self.0.to_be_bytes()))
+    }
 }
 
 #[derive(
@@ -3038,14 +3042,16 @@ fn eth_filter_result_from_events<DB: Blockstore>(
 }
 
 fn eth_filter_result_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<EthFilterResult> {
-    Ok(EthFilterResult::Txs(eth_filter_logs_from_tipsets(events)?))
+    Ok(EthFilterResult::Hashes(eth_filter_logs_from_tipsets(
+        events,
+    )?))
 }
 
 fn eth_filter_result_from_messages<DB: Blockstore>(
     ctx: &Ctx<DB>,
     events: &[CollectedEvent],
 ) -> anyhow::Result<EthFilterResult> {
-    Ok(EthFilterResult::Txs(eth_filter_logs_from_messages(
+    Ok(EthFilterResult::Hashes(eth_filter_logs_from_messages(
         ctx, events,
     )?))
 }

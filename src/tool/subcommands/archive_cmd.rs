@@ -36,7 +36,7 @@ use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
-use crate::ipld::{stream_graph, unordered_stream_graph};
+use crate::ipld::stream_graph;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
@@ -548,7 +548,7 @@ async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = unordered_stream_graph(
+        let mut stream = stream_graph(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
@@ -607,7 +607,6 @@ async fn do_export(
         Some(ExportOptions {
             skip_checksum: true,
             seen,
-            ..Default::default()
         }),
     )
     .await?;
