@@ -39,7 +39,6 @@ Filecoin.MarketAddBalance
 Filecoin.MinerCreateBlock
 Filecoin.MpoolBatchPush
 Filecoin.MpoolBatchPushUntrusted
-Filecoin.MpoolGetNonce
 Filecoin.MpoolPending
 Filecoin.MpoolPush
 Filecoin.MpoolPushMessage
@@ -67,7 +66,6 @@ Filecoin.SyncCheckBad
 Filecoin.SyncMarkBad
 Filecoin.SyncSubmitBlock
 Filecoin.Version
-Filecoin.WalletBalance
 Filecoin.WalletDefaultAddress
 Filecoin.WalletDelete
 Filecoin.WalletExport
@@ -78,8 +76,6 @@ Filecoin.WalletNew
 Filecoin.WalletSetDefault
 Filecoin.WalletSign
 Filecoin.WalletSignMessage
-Filecoin.WalletValidateAddress
-Filecoin.WalletVerify
 Filecoin.Web3ClientVersion
 Forest.ChainExport
 Forest.ChainGetMinBaseFee

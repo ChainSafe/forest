@@ -7,7 +7,7 @@ mod tests;
 use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 use crate::{
-    blocks::TipsetKey,
+    blocks::{Tipset, TipsetKey},
     lotus_json::HasLotusJson as _,
     rpc::{
         self,
@@ -20,9 +20,9 @@ use crate::{
     shim::fvm_shared_latest::ActorID,
 };
 use ahash::HashSet;
-use anyhow::Context as _;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
@@ -91,6 +91,15 @@ pub enum F3Commands {
     /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
     #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
+    /// Checks if F3 is in sync.
+    Ready {
+        /// Wait until F3 is in sync.
+        #[arg(long)]
+        wait: bool,
+        /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
+        #[arg(long, default_value_t = 20)]
+        threshold: usize,
+    },
 }
 
 impl F3Commands {
@@ -119,6 +128,76 @@ impl F3Commands {
             }
             Self::Certs(cmd) => cmd.run(client).await,
             Self::PowerTable(cmd) => cmd.run(client).await,
+            Self::Ready { wait, threshold } => {
+                let is_running = client.call(F3IsRunning::request(())?).await?;
+                if !is_running {
+                    anyhow::bail!("F3 is not running");
+                }
+
+                async fn get_heads(
+                    client: &rpc::Client,
+                ) -> anyhow::Result<(Tipset, FinalityCertificate)> {
+                    let cert_head = client.call(F3GetLatestCertificate::request(())?).await?;
+                    let chain_head = client.call(ChainHead::request(())?).await?;
+                    Ok((chain_head, cert_head))
+                }
+
+                let pb = ProgressBar::new_spinner().with_style(
+                    ProgressStyle::with_template("{spinner} {msg}")
+                        .expect("indicatif template must be valid"),
+                );
+                pb.enable_steady_tick(std::time::Duration::from_millis(100));
+                let mut num_consecutive_fetch_failtures = 0;
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
+                    match get_heads(&client).await {
+                        Ok((chain_head, cert_head)) => {
+                            num_consecutive_fetch_failtures = 0;
+                            if cert_head
+                                .chain_head()
+                                .epoch
+                                .saturating_add(threshold.try_into()?)
+                                >= chain_head.epoch()
+                            {
+                                let text = format!(
+                                    "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    chain_head.epoch(),
+                                    cert_head.chain_head().epoch
+                                );
+                                pb.set_message(text);
+                                pb.finish();
+                                break;
+                            } else {
+                                let text = format!(
+                                    "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    chain_head.epoch(),
+                                    cert_head.chain_head().epoch
+                                );
+                                pb.set_message(text);
+                                if !wait {
+                                    pb.finish();
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            if !wait {
+                                anyhow::bail!("Failed to check F3 sync status: {e}");
+                            }
+
+                            num_consecutive_fetch_failtures += 1;
+                            if num_consecutive_fetch_failtures >= 3 {
+                                eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
+                                std::process::exit(2);
+                            } else {
+                                eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -368,12 +447,7 @@ impl F3PowerTableCommands {
             (instance.saturating_sub(manifest.committee_lookback),),
         )
         .await?;
-        let tsk = lookback
-            .ec_chain
-            .last()
-            .context("lookback EC chain is empty")?
-            .key
-            .clone();
+        let tsk = lookback.ec_chain.last().key.clone();
         Ok((tsk, previous.supplemental_data.power_table))
     }
 }

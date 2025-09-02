@@ -62,6 +62,7 @@ generate_markdown_section "forest-cli" "sync mark-bad"
 generate_markdown_section "forest-cli" "mpool"
 generate_markdown_section "forest-cli" "mpool pending"
 generate_markdown_section "forest-cli" "mpool stat"
+generate_markdown_section "forest-cli" "mpool nonce"
 
 generate_markdown_section "forest-cli" "state"
 generate_markdown_section "forest-cli" "state fetch"
@@ -88,6 +89,7 @@ generate_markdown_section "forest-cli" "f3 certs list"
 generate_markdown_section "forest-cli" "f3 powertable"
 generate_markdown_section "forest-cli" "f3 powertable get"
 generate_markdown_section "forest-cli" "f3 powertable get-proportion"
+generate_markdown_section "forest-cli" "f3 ready"
 
 generate_markdown_section "forest-tool" ""
 
@@ -99,7 +101,6 @@ generate_markdown_section "forest-tool" "backup restore"
 generate_markdown_section "forest-tool" "benchmark"
 generate_markdown_section "forest-tool" "benchmark car-streaming"
 generate_markdown_section "forest-tool" "benchmark graph-traversal"
-generate_markdown_section "forest-tool" "benchmark unordered-graph-traversal"
 generate_markdown_section "forest-tool" "benchmark forest-encoding"
 generate_markdown_section "forest-tool" "benchmark export"
 

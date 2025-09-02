@@ -1,7 +1,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: "Filecoin Slack (#fil-forest-help or #fil-forest-dev)"
-    url: https://join.slack.com/t/filecoinproject/shared_invite/enQtNTUwNTI1Mzk5MDYwLTY4YmFjMzRlZjFiNDc0NmI2N2JjMjk5YTAyMDUyODljODg3MGI0ZGRhZTI5ZDNkZTAyNjkyMzI1ODM1YjA1MWI
+    url: https://filecoin.io/slack
     about: Please ask questions here.
   - name: General Filecoin Discussion Forum
     url: https://github.com/filecoin-project/community/discussions

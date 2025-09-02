@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -323,7 +323,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -621,6 +621,7 @@ Usage: forest-cli mpool <COMMAND>
 
 Commands:
   pending  Get pending messages
+  nonce    Get the current nonce for an address
   stat     Print mempool stats
   help     Print this message or the help of the given subcommand(s)
 
@@ -657,6 +658,20 @@ Options:
           Print stats for addresses in local wallet only
   -h, --help
           Print help
+```
+
+### `forest-cli mpool nonce`
+
+```
+Get the current nonce for an address
+
+Usage: forest-cli mpool nonce <ADDRESS>
+
+Arguments:
+  <ADDRESS>  Address to check nonce for
+
+Options:
+  -h, --help  Print help
 ```
 
 ### `forest-cli state`
@@ -839,6 +854,7 @@ Commands:
   status      Checks the F3 status
   certs       Manages interactions with F3 finality certificates [aliases: c]
   powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  ready       Checks if F3 is in sync
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -998,10 +1014,23 @@ Options:
   -h, --help                 Print help
 ```
 
+### `forest-cli f3 ready`
+
+```
+Checks if F3 is in sync
+
+Usage: forest-cli f3 ready [OPTIONS]
+
+Options:
+      --wait                   Wait until F3 is in sync
+      --threshold <THRESHOLD>  The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
+  -h, --help                   Print help
+```
+
 ## `forest-tool`
 
 ```
-forest-filecoin 0.28.0
+forest-filecoin 0.29.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1397,6 +1426,7 @@ Usage: forest-tool archive <COMMAND>
 Commands:
   info         Show basic information about an archive
   metadata     Show FRC-0108 metadata of an Filecoin snapshot archive
+  f3-header    Show FRC-0108 header of a standalone F3 snapshot
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
@@ -1453,6 +1483,20 @@ Usage: forest-tool archive checkpoints <SNAPSHOT_FILES>...
 
 Arguments:
   <SNAPSHOT_FILES>...  Path to snapshot file
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool archive f3-header`
+
+```
+Show FRC-0108 header of a standalone F3 snapshot
+
+Usage: forest-tool archive f3-header <SNAPSHOT>
+
+Arguments:
+  <SNAPSHOT>  Path to a standalone F3 snapshot
 
 Options:
   -h, --help  Print help
@@ -1656,6 +1700,7 @@ Commands:
   generate-test-snapshot  Generates RPC test snapshots from test dump files and a Forest database
   dump-tests              Dumps RPC test cases for a specified API path
   test                    Runs RPC tests using provided test snapshot files
+  test-stateful           Run multiple stateful JSON-RPC API tests against a Filecoin node
   help                    Print this message or the help of the given subcommand(s)
 
 Options:
@@ -1828,6 +1873,9 @@ Options:
           Allow generating snapshot even if Lotus generated a different response. This is useful when the response is not deterministic or a failing test is expected. If generating a failing test, use `Lotus` as the argument to ensure the test passes only when the response from Forest is fixed and matches the response from Lotus
 
           [possible values: forest, lotus]
+
+      --allow-failure
+          Allow generating snapshot even if the test fails
 
   -h, --help
           Print help (see a summary with '-h')

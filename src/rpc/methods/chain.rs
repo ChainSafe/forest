@@ -321,7 +321,6 @@ impl RpcMethod<1> for ForestChainExport {
             recent_roots,
             output_path,
             tipset_keys: ApiTipsetKey(tsk),
-            unordered,
             skip_checksum,
             dry_run,
         } = params;
@@ -348,7 +347,6 @@ impl RpcMethod<1> for ForestChainExport {
 
         let options = Some(ExportOptions {
             skip_checksum,
-            unordered,
             seen: Default::default(),
         });
         let writer = if dry_run {
@@ -436,7 +434,6 @@ impl RpcMethod<1> for ChainExport {
                 output_path,
                 tipset_keys,
                 skip_checksum,
-                unordered: false,
                 dry_run,
             },),
         )
@@ -998,7 +995,6 @@ pub struct ForestChainExportParams {
     #[schemars(with = "LotusJson<ApiTipsetKey>")]
     #[serde(with = "crate::lotus_json")]
     pub tipset_keys: ApiTipsetKey,
-    pub unordered: bool,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
