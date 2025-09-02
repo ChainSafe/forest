@@ -6,22 +6,25 @@ use cid::Cid;
 use cid::serde::BytesToCidVisitor;
 use serde::Deserializer;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
+use smallvec::SmallVec;
 use std::fmt;
+
+pub type SmallCidVec = SmallVec<[Cid; 8]>;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
-pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
+pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<SmallCidVec> {
     let CidVec(v) = from_slice_with_fallback(cbor_blob)?;
     Ok(v)
 }
 
 /// [`CidVec`] allows for efficient zero-copy de-serialization of `DAG_CBOR`-encoded nodes into a
 /// vector of [`Cid`].
-struct CidVec(Vec<Cid>);
+struct CidVec(SmallCidVec);
 
 /// [`FilterCids`] traverses an [`ipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
 /// This is much faster than constructing an [`ipld_core::ipld::Ipld`] tree and then performing the filtering.
-struct FilterCids<'a>(&'a mut Vec<Cid>);
+struct FilterCids<'a>(&'a mut SmallCidVec);
 
 impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
     type Value = ();
@@ -30,7 +33,21 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
     where
         D: Deserializer<'de>,
     {
-        struct FilterCidsVisitor<'a>(&'a mut Vec<Cid>);
+        struct IgnoredSeed;
+
+        impl<'de> DeserializeSeed<'de> for IgnoredSeed {
+            type Value = ();
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_ignored_any(de::IgnoredAny)?;
+                Ok(())
+            }
+        }
+
+        struct FilterCidsVisitor<'a>(&'a mut SmallCidVec);
 
         impl<'de> Visitor<'de> for FilterCidsVisitor<'_> {
             type Value = ();
@@ -50,7 +67,7 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
                 while visitor
-                    .next_entry_seed(FilterCids(&mut Vec::new()), FilterCids(self.0))?
+                    .next_entry_seed(IgnoredSeed, FilterCids(self.0))?
                     .is_some()
                 {
                     // Nothing to do; inner map values have been into `vec`.
@@ -171,7 +188,7 @@ impl<'de> de::Deserialize<'de> for CidVec {
     where
         D: de::Deserializer<'de>,
     {
-        let mut vec = CidVec(Vec::new());
+        let mut vec = CidVec(SmallCidVec::new());
         FilterCids(&mut vec.0).deserialize(deserializer)?;
         Ok(vec)
     }
