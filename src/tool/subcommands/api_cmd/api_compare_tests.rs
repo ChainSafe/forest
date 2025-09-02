@@ -1884,6 +1884,13 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
             vec![],
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])
+                .unwrap(),
+            fil_actor_ethaccount_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
     ];
 
     tests.extend(miner_actor_state_decode_params_tests(tipset)?);
