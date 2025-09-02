@@ -115,8 +115,8 @@ macro_rules! register_miner_common_methods_v10_onwards {
 macro_rules! register_miner_common_method_v14_onwards {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
-            ChangeOwnerAddressParams, Method, ProveCommitSectors3Params,
-            ProveCommitSectorsNIParams, ProveReplicaUpdates3Params,
+            ChangeOwnerAddressParams, InternalSectorSetupForPresealParams, Method,
+            ProveCommitSectors3Params, ProveCommitSectorsNIParams, ProveReplicaUpdates3Params,
         };
         register_actor_methods!(
             $registry,
@@ -127,6 +127,10 @@ macro_rules! register_miner_common_method_v14_onwards {
                 (Method::ProveCommitSectorsNI, ProveCommitSectorsNIParams),
                 (Method::ChangeOwnerAddress, ChangeOwnerAddressParams),
                 (Method::ChangeOwnerAddressExported, ChangeOwnerAddressParams),
+                (
+                    Method::InternalSectorSetupForPreseal,
+                    InternalSectorSetupForPresealParams
+                ),
             ]
         );
     }};
@@ -299,34 +303,17 @@ fn register_miner_versions_14(registry: &mut MethodRegistry, cid: Cid) {
 fn register_miner_version_15(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v15);
     register_miner_common_method_v14_onwards!(registry, cid, fil_actor_miner_state::v15);
-    use fil_actor_miner_state::v15::{InternalSectorSetupForPresealParams, Method};
-    register_actor_methods!(
-        registry,
-        cid,
-        [(
-            Method::InternalSectorSetupForPreseal,
-            InternalSectorSetupForPresealParams
-        )]
-    );
 }
 
 fn register_miner_version_16(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v16);
     register_miner_common_method_v14_onwards!(registry, cid, fil_actor_miner_state::v16);
 
-    use fil_actor_miner_state::v16::{
-        InternalSectorSetupForPresealParams, MaxTerminationFeeParams, Method,
-    };
+    use fil_actor_miner_state::v16::{MaxTerminationFeeParams, Method};
     register_actor_methods!(
         registry,
         cid,
-        [
-            (
-                Method::InternalSectorSetupForPreseal,
-                InternalSectorSetupForPresealParams
-            ),
-            (Method::MaxTerminationFeeExported, MaxTerminationFeeParams),
-        ]
+        [(Method::MaxTerminationFeeExported, MaxTerminationFeeParams),]
     );
 
     register_actor_methods!(registry, cid, [(Method::InitialPledgeExported, empty)]);

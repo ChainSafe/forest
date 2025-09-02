@@ -3745,4 +3745,4 @@ impl_miner_prove_replica_update_params2!(fvm_shared2: 9);
 impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
 impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
 impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16);
-impl_miner_internal_sector_setup_for_preseal_params!(15, 16);
+impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16);
