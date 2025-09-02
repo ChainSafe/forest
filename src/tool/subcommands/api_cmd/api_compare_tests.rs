@@ -2952,7 +2952,7 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             to_vec(&market_actor_settle_deal_payments_params)?,
             tipset.key().into(),
         ))?),
-        // TODO: understant why lotus returns Request rejected `500`
+        // TODO: Create issue, Lotus *[]miner.SectorChanges is not typegen
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::MARKET_ACTOR,
         //     fil_actor_market_state::v16::Method::SectorContentChangedExported as u64,
