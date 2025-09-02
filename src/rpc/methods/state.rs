@@ -2958,6 +2958,7 @@ pub struct ForkUpgradeParams {
     upgrade_waffle_height: ChainEpoch,
     upgrade_tuktuk_height: ChainEpoch,
     //upgrade_teep_height: ChainEpoch,
+    //upgrade_golden_week_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3004,6 +3005,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_waffle_height: get_height(Waffle)?,
             upgrade_tuktuk_height: get_height(TukTuk)?,
             //upgrade_teep_height: get_height(Teep)?,
+            //upgrade_golden_week_height: get_height(GoldenWeek)?,
         })
     }
 }

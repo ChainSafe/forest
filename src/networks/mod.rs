@@ -171,6 +171,7 @@ pub enum Height {
     Teep,
     Tock,
     TockFix,
+    GoldenWeek,
 }
 
 impl Default for Height {
@@ -216,6 +217,7 @@ impl From<Height> for NetworkVersion {
             Height::Teep => NetworkVersion::V25,
             Height::Tock => NetworkVersion::V26,
             Height::TockFix => NetworkVersion::V26,
+            Height::GoldenWeek => NetworkVersion::V27,
         }
     }
 }
@@ -581,7 +583,7 @@ mod tests {
     fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 29] = [
+        const REQUIRED_HEIGHTS: [Height; 30] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -611,6 +613,7 @@ mod tests {
             Height::Waffle,
             Height::TukTuk,
             Height::Teep,
+            Height::GoldenWeek,
         ];
 
         for height in &REQUIRED_HEIGHTS {
