@@ -821,11 +821,11 @@ impl_lotus_json_for_deal_query_params!(10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct SettleDealPaymentsParamsLotusJson {
+pub struct SettleDealPaymentsParamsLotusJson(
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
-    pub deal_ids: BitField,
-}
+    BitField,
+);
 
 macro_rules! impl_lotus_json_for_settle_deal_payments_params {
     ($($version:literal),+) => {
@@ -841,14 +841,12 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            deal_ids: self.deal_ids.into(),
-                        }
+                        SettleDealPaymentsParamsLotusJson(self.deal_ids.into())
                     }
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            deal_ids: json.deal_ids.into(),
+                            deal_ids: json.0.into(),
                         }
                     }
                 }

@@ -2784,6 +2784,15 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
 
     let market_actor_get_balance_exported_params = Address::new_id(1000);
 
+    let market_actor_settle_deal_payments_params =
+        fil_actor_market_state::v16::SettleDealPaymentsParams {
+            deal_ids: {
+                let mut bf = BitField::new();
+                bf.set(42);
+                bf
+            }
+        };
+
     let market_actor_get_deal_data_commitment_params =
         fil_actor_market_state::v16::DealQueryParams { id: 0 };
 
@@ -2908,6 +2917,18 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             Address::MARKET_ACTOR,
             fil_actor_market_state::v16::Method::GetDealActivationExported as u64,
             to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::GetDealSectorExported as u64,
+            to_vec(&market_actor_get_deal_data_commitment_params)?,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::SettleDealPaymentsExported as u64,
+            to_vec(&market_actor_settle_deal_payments_params)?,
             tipset.key().into(),
         ))?),
     ])
