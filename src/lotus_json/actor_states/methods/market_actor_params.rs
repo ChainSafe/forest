@@ -148,7 +148,7 @@ impl_lotus_json_for_label!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 pub struct DealProposalLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "CodeCID")]
+    #[serde(rename = "PieceCID")]
     pub piece_cid: Cid,
     #[schemars(with = "LotusJson<PaddedPieceSize>")]
     #[serde(with = "crate::lotus_json")]
@@ -591,7 +591,7 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
                             sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
-                            compute_cid: self.compute_cid.into(),
+                            compute_cid: self.compute_cid,
                         }
                     }
 
@@ -602,7 +602,7 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
                                 .into_iter()
                                 .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s)) // delegate
                                 .collect(),
-                            compute_cid: json.compute_cid.into(),
+                            compute_cid: json.compute_cid,
                         }
                     }
                 }
