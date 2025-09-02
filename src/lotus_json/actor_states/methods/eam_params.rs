@@ -147,6 +147,6 @@ macro_rules! impl_eam_create_external_params {
     };
 }
 
-impl_eam_create_params!(16, 15, 14, 13, 12, 11, 10);
-impl_eam_create2_params!(16, 15, 14, 13, 12, 11, 10);
-impl_eam_create_external_params!(16, 15, 14, 13, 12, 11, 10);
+impl_eam_create_params!(10, 11, 12, 13, 14, 15, 16);
+impl_eam_create2_params!(10, 11, 12, 13, 14, 15, 16);
+impl_eam_create_external_params!(10, 11, 12, 13, 14, 15, 16);

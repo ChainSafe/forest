@@ -41,7 +41,6 @@
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
 
-
 ### Fixed
 
 ## Forest v0.29.0 "Fëanor"
