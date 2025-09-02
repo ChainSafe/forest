@@ -21,6 +21,8 @@ exclude = [
   "linuxhint.com",
   # Bot protection / 403 Forbidden errors
   "wikipedia.org",
+  # Probably bot protection / 404 but works in browser
+  "ubuntu.com",
 ]
 timeout = 30
 max_retries = 6
