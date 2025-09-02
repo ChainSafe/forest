@@ -326,20 +326,15 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.28"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6448dfb3960f0b038e88c781ead1e7eb7929dfc3a71a1336ec9086c00f6d1e75"
+checksum = "977eb15ea9efd848bb8a4a1a2500347ed7f0bf794edf0dc3ddcf439f43d36b23"
 dependencies = [
- "brotli",
  "compression-codecs",
  "compression-core",
- "flate2",
  "futures-core",
- "memchr",
  "pin-project-lite",
  "tokio",
- "zstd",
- "zstd-safe",
 ]
 
 [[package]]
@@ -1252,9 +1247,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.45"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc0e74a703892159f5ae7d3aac52c8e6c392f5ae5f359c70b5881d60aaac318"
+checksum = "2c5e4fcf9c21d2e544ca1ee9d8552de13019a42aa7dbf32747fa7aaf1df76e57"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1262,9 +1257,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.44"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3e7f4214277f3c7aa526a59dd3fbe306a370daee1f8b7b8c987069cd8e888a8"
+checksum = "fecb53a0e6fcfb055f686001bc2e2592fa527efaf38dbe81a6a9563562e57d41"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1351,25 +1346,23 @@ dependencies = [
 
 [[package]]
 name = "compression-codecs"
-version = "0.4.28"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46cc6539bf1c592cff488b9f253b30bc0ec50d15407c2cf45e27bd8f308d5905"
+checksum = "485abf41ac0c8047c07c87c72c8fb3eb5197f6e9d7ded615dfd1a00ae00a0f64"
 dependencies = [
  "brotli",
  "compression-core",
  "flate2",
- "futures-core",
  "memchr",
- "pin-project-lite",
  "zstd",
  "zstd-safe",
 ]
 
 [[package]]
 name = "compression-core"
-version = "0.4.28"
+version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2957e823c15bde7ecf1e8b64e537aa03a6be5fda0e2334e99887669e75b12e01"
+checksum = "e47641d3deaf41fb1538ac1f54735925e275eaf3bf4d55c81b137fba797e5cbb"
 
 [[package]]
 name = "concurrent-queue"
@@ -7352,15 +7345,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_edition"
-version = "0.0.300"
+version = "0.0.301"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "637b74c692dc9d9b44394f8c0f91c063e1b6223c6e54f4ee89c943db2f2ee26e"
+checksum = "1bdc6cbe42c63ca78611bae82bfc8db24864f33dccc813697c5fde43a0907285"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.300"
+version = "0.0.301"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d3fb8a5891c1c1d6fba5e58caa86b88f831990c878e361c54c1c1ff44ca8401"
+checksum = "3a3b92b8b147c0826b83e70ad44e3c98e94201fc93e1f09396c43b4d7958c22a"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7371,9 +7364,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.300"
+version = "0.0.301"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26ade567b0d692c7efd4ceb921cdbe182beca0b5af9a5cf05c07cf0e14db512a"
+checksum = "aa770adb32896fcba934b464ac3bd179163ba2b0766e275eed5b4e262e08492b"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
@@ -7387,9 +7380,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.300"
+version = "0.0.301"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dba62d25b0296eb095d9db77e56d096417a89db4f4de1956add0d472ebcaf922"
+checksum = "6e9e1393281ad5c635239d353ed3cfbf28c8d0af03d0c61a3b24b31d1143b17f"
 dependencies = [
  "either",
  "itertools 0.14.0",
@@ -9805,9 +9798,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.18.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
+checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 dependencies = [
  "getrandom 0.3.3",
  "js-sys",
