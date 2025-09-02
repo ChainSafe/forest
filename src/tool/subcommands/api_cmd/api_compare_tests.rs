@@ -2723,6 +2723,7 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             client_collateral,
         }
     }
+
     fn create_client_deal_proposal() -> fil_actor_market_state::v16::ClientDealProposal {
         let proposal = create_deal_proposal(
             fvm_shared4::address::Address::new_id(1000),
@@ -2745,6 +2746,20 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             sector_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1,
             sector_expiry: 100,
             deal_ids: vec![0, 1],
+        }
+    }
+
+    fn create_sector_changes() -> fil_actor_miner_state::v16::SectorChanges {
+        let piece_change = fil_actor_miner_state::v16::PieceChange {
+            data: Cid::default(),
+            size: fvm_shared4::piece::PaddedPieceSize(2048),
+            payload: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56, 0x78]),
+        };
+
+        fil_actor_miner_state::v16::SectorChanges {
+            sector: 2,
+            minimum_commitment_epoch: 0,
+            added: vec![piece_change],
         }
     }
 
@@ -2795,6 +2810,12 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
 
     let market_actor_get_deal_data_commitment_params =
         fil_actor_market_state::v16::DealQueryParams { id: 0 };
+
+    let market_actor_sector_content_changed_params = {
+        fil_actor_miner_state::v16::SectorContentChangedParams {
+            sectors: vec![create_sector_changes()],
+        }
+    };
 
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
@@ -2931,6 +2952,13 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             to_vec(&market_actor_settle_deal_payments_params)?,
             tipset.key().into(),
         ))?),
+        // TODO: understant why lotus returns Request rejected `500`
+        // RpcTest::identity(StateDecodeParams::request((
+        //     Address::MARKET_ACTOR,
+        //     fil_actor_market_state::v16::Method::SectorContentChangedExported as u64,
+        //     to_vec(&market_actor_sector_content_changed_params)?,
+        //     tipset.key().into(),
+        // ))?),
     ])
 }
 
