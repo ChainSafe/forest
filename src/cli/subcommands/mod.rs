@@ -14,7 +14,6 @@ mod healthcheck_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
-pub(crate) mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
@@ -31,9 +30,8 @@ use tracing::error;
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
     f3_cmd::F3Commands, healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands,
-    net_cmd::NetCommands, send_cmd::SendCommand, shutdown_cmd::ShutdownCommand,
-    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
-    wait_api_cmd::WaitApiCommand,
+    net_cmd::NetCommands, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands, wait_api_cmd::WaitApiCommand,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -84,9 +82,6 @@ pub enum Subcommand {
     /// Manage snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
-
-    /// Send funds between accounts
-    Send(SendCommand),
 
     /// Print node info
     #[command(subcommand)]

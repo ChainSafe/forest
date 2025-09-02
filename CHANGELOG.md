@@ -35,9 +35,12 @@
 
 ### Removed
 
+- [#6010](https://github.com/ChainSafe/forest/pull/6010) Removed the deprecated `forest-cli send` subcommand. Use `forest-wallet send` instead.
+
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `--unordered` from `forest-cli snapshot export`.
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
+
 
 ### Fixed
 
