@@ -39,7 +39,6 @@ Filecoin.MarketAddBalance
 Filecoin.MinerCreateBlock
 Filecoin.MpoolBatchPush
 Filecoin.MpoolBatchPushUntrusted
-Filecoin.MpoolGetNonce
 Filecoin.MpoolPending
 Filecoin.MpoolPush
 Filecoin.MpoolPushMessage

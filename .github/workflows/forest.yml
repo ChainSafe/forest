@@ -306,28 +306,6 @@ jobs:
       - name: Snapshot export check v2
         run: ./scripts/tests/calibnet_export_f3_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-  calibnet-unordered-export-check:
-    needs:
-      - build-ubuntu
-    name: Snapshot unordered export checks
-    runs-on: ubuntu-24.04
-    steps:
-      - run: lscpu
-      - uses: actions/cache@v4
-        with:
-          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
-          key: proof-params-keys
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v5
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: Snapshot unordered export check
-        run: ./scripts/tests/calibnet_export_unordered_check.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-no-discovery-checks:
     needs:
       - build-ubuntu
@@ -395,6 +373,38 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-api-test-stateful:
+    needs:
+      - build-ubuntu
+    name: Calibnet api test-stateful check
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v5
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Api test stateful check
+        env:
+          CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_WALLET"
+          fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
@@ -599,10 +609,10 @@ jobs:
       - calibnet-wallet-check
       - calibnet-export-check
       - calibnet-export-check-v2
-      - calibnet-unordered-export-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
+      - calibnet-api-test-stateful
       - db-migration-checks
       - local-devnet-check
       # - local-devnet-curio-check
