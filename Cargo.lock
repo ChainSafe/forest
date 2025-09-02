@@ -2693,13 +2693,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_ethaccount_state"
-version = "22.4.0"
+version = "23.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "469515bccbc78aefafa91fad2cb6ab35351c2eaabd8409d5ad3ecf8f3a516bc9"
+checksum = "3b86efe58d250676a39c6a62f95ac77e1366eb5f00647217660d34b86e2551cf"
 dependencies = [
  "fvm_ipld_encoding",
- "fvm_shared 3.13.1",
- "fvm_shared 4.7.2",
+ "fvm_shared 3.13.2",
+ "fvm_shared 4.7.3",
  "num-derive",
  "num-traits",
  "serde",
