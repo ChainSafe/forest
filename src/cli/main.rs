@@ -40,7 +40,6 @@ where
         Subcommand::Mpool(cmd) => cmd.run(client).await,
         Subcommand::State(cmd) => cmd.run(client).await,
         Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
-        Subcommand::Send(cmd) => cmd.run(client).await,
         Subcommand::Info(cmd) => cmd.run(client).await,
         Subcommand::Snapshot(cmd) => cmd.run(client).await,
         Subcommand::Shutdown(cmd) => cmd.run(client).await,
