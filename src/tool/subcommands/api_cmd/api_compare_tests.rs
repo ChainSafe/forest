@@ -1966,37 +1966,6 @@ fn evm_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<Rp
     Ok(tests)
 }
 
-fn miner_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
-    let miner_constructor_params = fil_actor_miner_state::v16::MinerConstructorParams {
-        owner: Address::new_id(1000).into(),
-        worker: Address::new_id(1001).into(),
-        control_addresses: vec![Address::new_id(1002).into(), Address::new_id(1003).into()],
-        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow32GiBV1P1,
-        peer_id: b"miner".to_vec(),
-        multi_addresses: Default::default(),
-    };
-
-    let miner_change_worker_params = fil_actor_miner_state::v16::ChangeWorkerAddressParams {
-        new_worker: Address::new_id(2000).into(),
-        new_control_addresses: vec![Address::new_id(2001).into()],
-    };
-
-    Ok(vec![
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            1,
-            to_vec(&miner_constructor_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            3,
-            to_vec(&miner_change_worker_params)?,
-            tipset.key().into(),
-        ))?),
-    ])
-}
-
 fn account_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let account_constructor_params = fil_actor_account_state::v16::types::ConstructorParams {
         address: Address::new_id(1234).into(),
