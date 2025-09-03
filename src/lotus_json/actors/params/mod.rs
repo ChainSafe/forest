@@ -2,18 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-mod account_authenticate_params;
-mod account_constructor_params;
-mod cron_actor_params;
-mod datacap_actor_params;
-mod eam_params;
-mod evm_actor_params;
-mod init_constructor_params;
-mod init_exec4_params;
-mod init_exec_params;
-mod miner_actor_params;
-mod multisig_actor;
+mod account_params;
+mod cron_params;
+mod datacap_params;
+mod evm_params;
+mod init_params;
+mod miner_params;
+mod multisig_params;
 mod paych_params;
-mod power_actor;
-mod reward_methods;
-pub mod verified_reg_actor;
+mod power_params;
+mod reward_params;
+pub mod verified_reg_params;
