@@ -41,8 +41,9 @@
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
 
-
 ### Fixed
+
+- [#6028](https://github.com/ChainSafe/forest/pull/6028) Fixed missing `Teep` and `Tock` network upgrade entries in `Filecoin.StateGetNetworkParams` RPC method.
 
 ## Forest v0.29.0 "Fëanor"
 
