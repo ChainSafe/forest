@@ -30,6 +30,7 @@
 ### Added
 
 - [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
+- [#6000](https://github.com/ChainSafe/forest/pull/6000) Add support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
 
 ### Changed
 
