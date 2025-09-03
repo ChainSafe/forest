@@ -4,6 +4,7 @@
 pub(crate) mod account;
 pub(crate) mod cron;
 pub(crate) mod datacap;
+pub(crate) mod eam;
 pub(crate) mod eth_account;
 pub(crate) mod evm;
 pub(crate) mod init;
