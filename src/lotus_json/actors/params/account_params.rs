@@ -101,11 +101,7 @@ macro_rules!  impl_account_constructor_params {
     };
 }
 
-// not added other versions because `fil_actor_account_state<version>::types`
-// is private for all of them
 impl_account_constructor_params!(types::ConstructorParams: 15, 16);
 impl_account_constructor_params!(ConstructorParams: 11, 12, 13, 14);
-
-// not added other versions because AuthenticateMessageParams is private for the rest of them
 impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16);
-impl_account_authenticate_params!(AuthenticateMessageParams: 11, 12, 13, 14);
+impl_account_authenticate_params!(AuthenticateMessageParams: 9, 10, 11, 12, 13, 14);
