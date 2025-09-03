@@ -74,8 +74,8 @@ impl MethodRegistry {
 
     fn register_known_methods(&mut self) {
         use crate::rpc::registry::actors::{
-            account, cron, datacap, evm, init, market, miner, multisig, power, reward, system,
-            verified_reg,
+            account, cron, datacap, eam, eth_account, evm, init, market, miner, multisig,
+            payment_channel, power, reward, system, verified_reg,
         };
 
         for (&cid, &(actor_type, version)) in ACTOR_REGISTRY.iter() {
@@ -98,6 +98,11 @@ impl MethodRegistry {
                 BuiltinActor::VerifiedRegistry => {
                     verified_reg::register_actor_methods(self, cid, version)
                 }
+                BuiltinActor::EthAccount => eth_account::register_actor_methods(self, cid, version),
+                BuiltinActor::PaymentChannel => {
+                    payment_channel::register_actor_methods(self, cid, version)
+                }
+                BuiltinActor::EAM => eam::register_actor_methods(self, cid, version),
                 _ => {}
             }
         }

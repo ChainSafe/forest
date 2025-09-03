@@ -4,11 +4,14 @@
 pub(crate) mod account;
 pub(crate) mod cron;
 pub(crate) mod datacap;
+pub(crate) mod eam;
+pub(crate) mod eth_account;
 pub(crate) mod evm;
 pub(crate) mod init;
 pub(crate) mod market;
 pub(crate) mod miner;
 pub(crate) mod multisig;
+pub(crate) mod payment_channel;
 pub(crate) mod power;
 pub(crate) mod reward;
 pub(crate) mod system;

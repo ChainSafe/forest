@@ -60,7 +60,7 @@ data-encoding = "2"
 data-encoding-macro = "0.1"
 derive_builder = "0.20"
 derive_more = { version = "2", features = ["from", "into"] }
-dialoguer = "0.11"
+dialoguer = "0.12"
 digest = "0.10"
 directories = "6"
 displaydoc = "0.2"
@@ -72,6 +72,7 @@ fil_actor_account_state = { path = "../fil-actor-states/actors/account" }
 fil_actor_cron_state = { path = "../fil-actor-states/actors/cron" }
 fil_actor_datacap_state = { path = "../fil-actor-states/actors/datacap" }
 fil_actor_eam_state = { path = "../fil-actor-states/actors/eam" }
+fil_actor_ethaccount_state = { path = "../fil-actor-states/actors/ethaccount" }
 fil_actor_evm_state = { path = "../fil-actor-states/actors/evm" }
 fil_actor_init_state = { path = "../fil-actor-states/actors/init" }
 fil_actor_market_state = { path = "../fil-actor-states/actors/market" }
@@ -237,7 +238,7 @@ termios = "0.3"
 ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.21"
+cargo_metadata = "0.22"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.7", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
@@ -255,7 +256,7 @@ predicates = "3"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.300"
+ra_ap_syntax = "0.0.301"
 regex-automata = "0.4"
 serial_test = "3"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
