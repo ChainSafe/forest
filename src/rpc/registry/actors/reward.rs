@@ -4,6 +4,7 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
 macro_rules! register_reward_version_11_to_16 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
@@ -46,15 +47,19 @@ macro_rules! register_reward_version_8_to_10 {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
-        8 => {
+        ActorVersion::V8 => {
             register_reward_version_8_to_10!(registry, cid, fil_actor_reward_state::v8, fvm_shared2)
         }
-        9 => {
+        ActorVersion::V9 => {
             register_reward_version_8_to_10!(registry, cid, fil_actor_reward_state::v9, fvm_shared2)
         }
-        10 => {
+        ActorVersion::V10 => {
             register_reward_version_8_to_10!(
                 registry,
                 cid,
@@ -62,12 +67,23 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
                 fvm_shared3
             )
         }
-        11 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v11),
-        12 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v12),
-        13 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v13),
-        14 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v14),
-        15 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v15),
-        16 => register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v16),
-        _ => {}
+        ActorVersion::V11 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v11)
+        }
+        ActorVersion::V12 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v12)
+        }
+        ActorVersion::V13 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v13)
+        }
+        ActorVersion::V14 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v14)
+        }
+        ActorVersion::V15 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v15)
+        }
+        ActorVersion::V16 => {
+            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v16)
+        }
     }
 }
