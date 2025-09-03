@@ -13,29 +13,32 @@ use crate::shim::machine::BuiltinActor;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, anyhow};
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 use fvm_ipld_blockstore::Blockstore;
 use serde_json::Value;
 use std::sync::LazyLock;
 
 #[derive(Debug)]
 pub struct ActorRegistry {
-    map: HashMap<Cid, (BuiltinActor, u64)>,
+    map: HashMap<Cid, (BuiltinActor, ActorVersion)>,
 }
 
 impl ActorRegistry {
     fn new() -> Self {
         let mut map = HashMap::new();
         for ((_, _), metadata) in ACTOR_BUNDLES_METADATA.iter() {
-            if let Ok(version) = metadata.actor_major_version() {
-                for (actor_type, cid) in metadata.manifest.builtin_actors() {
-                    map.insert(cid, (actor_type, version));
+            if let Ok(version_u64) = metadata.actor_major_version() {
+                if let Some(version) = ActorVersion::from_repr(version_u64 as u8) {
+                    for (actor_type, cid) in metadata.manifest.builtin_actors() {
+                        map.insert(cid, (actor_type, version));
+                    }
                 }
             }
         }
         Self { map }
     }
 
-    pub fn get_actor_details_from_code(code_cid: &Cid) -> Result<(BuiltinActor, u64)> {
+    pub fn get_actor_details_from_code(code_cid: &Cid) -> Result<(BuiltinActor, ActorVersion)> {
         ACTOR_REGISTRY
             .map
             .get(code_cid)
@@ -43,7 +46,7 @@ impl ActorRegistry {
             .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&Cid, &(BuiltinActor, u64))> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Cid, &(BuiltinActor, ActorVersion))> {
         self.map.iter()
     }
 }

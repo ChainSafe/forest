@@ -4,6 +4,7 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
 // Macro for versions 8-9 that have limited methods
 macro_rules! register_power_versions_8_to_9 {
@@ -113,17 +114,36 @@ macro_rules! register_power_version_16 {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
-        8 => register_power_versions_8_to_9!(registry, cid, fil_actor_power_state::v8),
-        9 => register_power_versions_8_to_9!(registry, cid, fil_actor_power_state::v9),
-        10 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v10),
-        11 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v11),
-        12 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v12),
-        13 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v13),
-        14 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v14),
-        15 => register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v15),
-        16 => register_power_version_16!(registry, cid, fil_actor_power_state::v16),
-        _ => {}
+        ActorVersion::V8 => {
+            register_power_versions_8_to_9!(registry, cid, fil_actor_power_state::v8)
+        }
+        ActorVersion::V9 => {
+            register_power_versions_8_to_9!(registry, cid, fil_actor_power_state::v9)
+        }
+        ActorVersion::V10 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v10)
+        }
+        ActorVersion::V11 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v11)
+        }
+        ActorVersion::V12 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v12)
+        }
+        ActorVersion::V13 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v13)
+        }
+        ActorVersion::V14 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v14)
+        }
+        ActorVersion::V15 => {
+            register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v15)
+        }
+        ActorVersion::V16 => register_power_version_16!(registry, cid, fil_actor_power_state::v16),
     }
 }

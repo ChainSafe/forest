@@ -5,6 +5,7 @@ use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
 macro_rules! register_miner_basic_methods {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
@@ -319,17 +320,20 @@ fn register_miner_version_16(registry: &mut MethodRegistry, cid: Cid) {
     register_actor_methods!(registry, cid, [(Method::InitialPledgeExported, empty)]);
 }
 
-pub(crate) fn register_miner_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_miner_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
-        8 => register_miner_version_8(registry, cid),
-        9 => register_miner_version_9(registry, cid),
-        10 => register_miner_version_10(registry, cid),
-        11 => register_miner_version_11(registry, cid),
-        12 => register_miner_version_12(registry, cid),
-        13 => register_miner_version_13(registry, cid),
-        14 => register_miner_versions_14(registry, cid),
-        15 => register_miner_version_15(registry, cid),
-        16 => register_miner_version_16(registry, cid),
-        _ => {}
+        ActorVersion::V8 => register_miner_version_8(registry, cid),
+        ActorVersion::V9 => register_miner_version_9(registry, cid),
+        ActorVersion::V10 => register_miner_version_10(registry, cid),
+        ActorVersion::V11 => register_miner_version_11(registry, cid),
+        ActorVersion::V12 => register_miner_version_12(registry, cid),
+        ActorVersion::V13 => register_miner_version_13(registry, cid),
+        ActorVersion::V14 => register_miner_versions_14(registry, cid),
+        ActorVersion::V15 => register_miner_version_15(registry, cid),
+        ActorVersion::V16 => register_miner_version_16(registry, cid),
     }
 }
