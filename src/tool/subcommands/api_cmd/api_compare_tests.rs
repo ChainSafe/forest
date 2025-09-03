@@ -2858,6 +2858,18 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
         // ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::Constructor as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
+            fil_actor_market_state::v16::Method::CronTick as u64,
+            vec![],
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateDecodeParams::request((
+            Address::MARKET_ACTOR,
             fil_actor_market_state::v16::Method::AddBalanceExported as u64,
             to_vec(&market_actor_get_balance_exported_params)?,
             tipset.key().into(),
