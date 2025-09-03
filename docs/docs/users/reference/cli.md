@@ -339,7 +339,6 @@ SUBCOMMANDS:
   state        Interact with and query Filecoin chain state
   config       Manage node configuration
   snapshot     Manage snapshots
-  send         Send funds between accounts
   info         Print node info
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
@@ -761,7 +760,6 @@ Options:
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
-      --unordered                  Traverse chain in non-deterministic order for better performance with more parallelization
       --format <FORMAT>            Export snapshot in the experimental v2 format(FRC-0108) [default: v1] [possible values: v1, v2]
   -h, --help                       Print help
 ```
@@ -769,20 +767,7 @@ Options:
 ### `forest-cli send`
 
 ```
-Send funds between accounts
 
-Usage: forest-cli send [OPTIONS] <TARGET_ADDRESS> <AMOUNT>
-
-Arguments:
-  <TARGET_ADDRESS>
-  <AMOUNT>
-
-Options:
-      --from <FROM>                optionally specify the account to send funds from (otherwise the default one will be used)
-      --gas-feecap <GAS_FEECAP>    [default: 0.0]
-      --gas-limit <GAS_LIMIT>      In milliGas [default: 0]
-      --gas-premium <GAS_PREMIUM>  [default: 0.0]
-  -h, --help                       Print help
 ```
 
 ### `forest-cli info`
@@ -1131,12 +1116,11 @@ Benchmark various Forest subsystems
 Usage: forest-tool benchmark <COMMAND>
 
 Commands:
-  car-streaming              Benchmark streaming data from a CAR archive
-  graph-traversal            Depth-first traversal of the Filecoin graph
-  unordered-graph-traversal
-  forest-encoding            Encoding of a `.forest.car.zst` file
-  export                     Exporting a `.forest.car.zst` file from HEAD
-  help                       Print this message or the help of the given subcommand(s)
+  car-streaming    Benchmark streaming data from a CAR archive
+  graph-traversal  Depth-first traversal of the Filecoin graph
+  forest-encoding  Encoding of a `.forest.car.zst` file
+  export           Exporting a `.forest.car.zst` file from HEAD
+  help             Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -1163,18 +1147,6 @@ Options:
 Depth-first traversal of the Filecoin graph
 
 Usage: forest-tool benchmark graph-traversal <SNAPSHOT_FILES>...
-
-Arguments:
-  <SNAPSHOT_FILES>...  Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
-
-Options:
-  -h, --help  Print help
-```
-
-### `forest-tool benchmark unordered-graph-traversal`
-
-```
-Usage: forest-tool benchmark unordered-graph-traversal <SNAPSHOT_FILES>...
 
 Arguments:
   <SNAPSHOT_FILES>...  Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
