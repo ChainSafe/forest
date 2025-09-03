@@ -4,6 +4,7 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
 /// Macro to generate account method registration for different versions
 macro_rules! register_account_version {
@@ -46,15 +47,19 @@ macro_rules! register_account_version {
 pub(crate) fn register_account_actor_methods(
     registry: &mut MethodRegistry,
     cid: Cid,
-    version: u64,
+    version: ActorVersion,
 ) {
     match version {
-        11 => register_account_version!(registry, cid, fil_actor_account_state::v11),
-        12 => register_account_version!(registry, cid, fil_actor_account_state::v12),
-        13 => register_account_version!(registry, cid, fil_actor_account_state::v13),
-        14 => register_account_version!(registry, cid, fil_actor_account_state::v14),
-        15 => register_account_version!(registry, cid, fil_actor_account_state::v15, with_types),
-        16 => register_account_version!(registry, cid, fil_actor_account_state::v16, with_types),
+        ActorVersion::V11 => register_account_version!(registry, cid, fil_actor_account_state::v11),
+        ActorVersion::V12 => register_account_version!(registry, cid, fil_actor_account_state::v12),
+        ActorVersion::V13 => register_account_version!(registry, cid, fil_actor_account_state::v13),
+        ActorVersion::V14 => register_account_version!(registry, cid, fil_actor_account_state::v14),
+        ActorVersion::V15 => {
+            register_account_version!(registry, cid, fil_actor_account_state::v15, with_types)
+        }
+        ActorVersion::V16 => {
+            register_account_version!(registry, cid, fil_actor_account_state::v16, with_types)
+        }
         _ => {}
     }
 }
