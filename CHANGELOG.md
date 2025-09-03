@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#6028](https://github.com/ChainSafe/forest/pull/6028) Fixed missing `Teep` and `Tock` network upgrade entries in `Filecoin.StateGetNetworkParams` RPC method.
+
 ## Forest v0.29.0 "Fëanor"
 
 Non-mandatory release. It introduces a couple of features around snapshot generation and inspection. It fully supports the new FRC-0108 Filecoin snapshot format. There is also a notable fix in `Filecoin.ChainNotify` RPC method that would cause issues with some clients.
