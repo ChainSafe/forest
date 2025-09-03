@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::utils::multihash::prelude::*;
 use cid::Cid;
-use fil_actors_shared::v11::runtime::builtins::Type;
+use fil_actors_shared::v16::runtime::builtins::Type;
 use paste::paste;
 use std::sync::LazyLock;
 

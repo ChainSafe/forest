@@ -14,7 +14,7 @@ use num::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// This should be the latest enumeration of all builtin actors
-pub use fil_actors_shared::v11::runtime::builtins::Type as BuiltinActor;
+pub use fil_actors_shared::v16::runtime::builtins::Type as BuiltinActor;
 
 /// A list of [`BuiltinActor`]s to their CIDs
 // Theoretically, this struct could just have fields for all the actors,
