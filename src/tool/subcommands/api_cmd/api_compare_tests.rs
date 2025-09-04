@@ -1903,7 +1903,7 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
     tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
     tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
     tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
-    //     tests.extend(market_actor_state_decode_params_tests(tipset)?);
+    tests.extend(market_actor_state_decode_params_tests(tipset)?);
     tests.extend(paych_actor_state_decode_params_tests(tipset)?);
     tests.extend(eam_actor_state_decode_params_tests(tipset)?);
 
@@ -3328,7 +3328,7 @@ fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Resu
     ])
 }
 
-/*fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     fn create_deal_proposal(
         client: fvm_shared4::address::Address,
         provider: fvm_shared4::address::Address,
@@ -3605,7 +3605,6 @@ fn verified_reg_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Resu
         // ))?),
     ])
 }
-*/
 
 fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     let tests = vec![

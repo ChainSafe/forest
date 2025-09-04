@@ -267,10 +267,10 @@ macro_rules! register_market_versions_13_to_16 {
                 (Method::GetDealActivationExported, GetDealActivationParams),
                 (Method::GetDealSectorExported, GetDealSectorParams),
                 (Method::SettleDealPaymentsExported, SettleDealPaymentsParams),
-                // (
-                //     Method::SectorContentChangedExported,
-                //     SectorContentChangedParams
-                // )
+                (
+                    Method::SectorContentChangedExported,
+                    SectorContentChangedParams
+                )
             ]
         );
     }};
