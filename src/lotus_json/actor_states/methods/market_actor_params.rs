@@ -8,7 +8,6 @@ use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::RegisteredSealProof;
-use crate::shim::sector::SectorNumber;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;

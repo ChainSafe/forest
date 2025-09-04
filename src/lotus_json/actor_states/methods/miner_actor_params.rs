@@ -6,6 +6,7 @@ use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     econ::TokenAmount,
+    piece::PaddedPieceSize,
     sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
 use ::cid::Cid;
@@ -3695,27 +3696,6 @@ macro_rules! impl_miner_internal_sector_setup_for_preseal_params {
     };
 }
 
-/*#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
-#[schemars(rename = "PaddedPieceSize")]
-pub struct PaddedPieceSizeLotusJson(#[schemars(with = "u64")] PaddedPieceSize);
-
-impl HasLotusJson for PaddedPieceSize {
-    type LotusJson = PaddedPieceSizeLotusJson;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-
-    fn into_lotus_json(self) -> Self::LotusJson {
-        PaddedPieceSizeLotusJson(self)
-    }
-
-    fn from_lotus_json(PaddedPieceSizeLotusJson(inner): Self::LotusJson) -> Self {
-        inner
-    }
-}
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct PieceChangeLotusJson {
@@ -3778,6 +3758,46 @@ pub struct SectorChangesLotusJson {
     pub added: Vec<PieceChangeLotusJson>,
 }
 
+macro_rules! impl_lotus_json_sector_changes {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::SectorChanges {
+                    type LotusJson = SectorChangesLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sector: self.sector.into(),
+                            minimum_commitment_epoch: self.minimum_commitment_epoch.into(),
+                            added: self.added.into_iter()
+                                .map(|pc| pc.into_lotus_json())
+                                .collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sector: json.sector.into(),
+                            minimum_commitment_epoch: json.minimum_commitment_epoch.into(),
+                            added: json.added.into_iter()
+                                .map(|pc| fil_actor_miner_state::[<v $version>]::PieceChange::from_lotus_json(pc),)
+                                .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_sector_changes!(13, 14, 15, 16);
+
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorContentChangedParamsLotusJson {
@@ -3818,7 +3838,7 @@ macro_rules! impl_lotus_json_sector_content_changed_params {
     };
 }
 
-impl_lotus_json_sector_content_changed_params!(13, 14, 15, 16);*/
+impl_lotus_json_sector_content_changed_params!(13, 14, 15, 16);
 
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16);
