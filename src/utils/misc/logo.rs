@@ -31,6 +31,7 @@ pub fn reveal_upgrade_logo(network_version: NetworkVersion) {
         NetworkVersion::V23 => reveal_waffle_upgrade(),
         NetworkVersion::V24 => reveal_tuktuk_upgrade(),
         NetworkVersion::V25 => reveal_teep_upgrade(),
+        NetworkVersion::V27 => reveal_golden_week_upgrade(),
         _ => reveal_three_trees(),
     }
 }
@@ -228,4 +229,9 @@ fn reveal_butterfly_logo() {
                          """=='?"
     "###
     );
+}
+
+/// Reveals the `Golden Week` upgrade logo. Placeholder for now.
+fn reveal_golden_week_upgrade() {
+    unimplemented!()
 }

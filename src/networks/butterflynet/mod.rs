@@ -108,6 +108,8 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(TukTuk, -27, get_bundle_cid("v15.0.0-rc1")),
         make_height!(Teep, 100, get_bundle_cid("v16.0.1")),
         make_height!(Tock, 100 + 2 * EPOCHS_IN_DAY),
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/6022
+        make_height!(GoldenWeek, i64::MAX, get_bundle_cid("v16.0.1")),
     ])
 });
 
