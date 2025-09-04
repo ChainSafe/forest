@@ -66,6 +66,7 @@ impl NetworkVersion {
     pub const V24: Self = Self(NetworkVersion_latest::new(24));
     pub const V25: Self = Self(NetworkVersion_latest::new(25));
     pub const V26: Self = Self(NetworkVersion_latest::new(26));
+    pub const V27: Self = Self(NetworkVersion_latest::new(27));
 }
 
 impl Deref for NetworkVersion {
