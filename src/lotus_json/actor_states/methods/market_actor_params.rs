@@ -11,7 +11,6 @@ use crate::shim::sector::RegisteredSealProof;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;
-// use fvm_ipld_encoding::RawBytes;
 use jsonrpsee::core::Serialize;
 use paste::paste;
 use schemars::JsonSchema;

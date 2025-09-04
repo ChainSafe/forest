@@ -3744,8 +3744,6 @@ macro_rules! impl_lotus_json_piece_change {
     };
 }
 
-impl_lotus_json_piece_change!(13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorChangesLotusJson {
@@ -3796,8 +3794,6 @@ macro_rules! impl_lotus_json_sector_changes {
     };
 }
 
-impl_lotus_json_sector_changes!(13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorContentChangedParamsLotusJson {
@@ -3837,8 +3833,6 @@ macro_rules! impl_lotus_json_sector_content_changed_params {
         )+
     };
 }
-
-impl_lotus_json_sector_content_changed_params!(13, 14, 15, 16);
 
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16);
@@ -3891,3 +3885,6 @@ impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
 impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
 impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16);
 impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16);
+impl_lotus_json_piece_change!(13, 14, 15, 16);
+impl_lotus_json_sector_changes!(13, 14, 15, 16);
+impl_lotus_json_sector_content_changed_params!(13, 14, 15, 16);
