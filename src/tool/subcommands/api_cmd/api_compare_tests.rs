@@ -3412,13 +3412,13 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             sectors: vec![create_sector_deals()],
         };
 
-    let market_actor_batch_activate_deals_params =
+    let _market_actor_batch_activate_deals_params =
         fil_actor_market_state::v16::BatchActivateDealsParams {
             sectors: vec![create_sector_deals()],
             compute_cid: true,
         };
 
-    let market_actor_on_miner_sectors_terminate_params =
+    let _market_actor_on_miner_sectors_terminate_params =
         fil_actor_market_state::v16::OnMinerSectorsTerminateParams {
             epoch: 123,
             sectors: {
@@ -3442,7 +3442,7 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
     let market_actor_get_deal_data_commitment_params =
         fil_actor_market_state::v16::DealQueryParams { id: 0 };
 
-    let market_actor_sector_content_changed_params = {
+    let _market_actor_sector_content_changed_params = {
         fil_actor_miner_state::v16::SectorContentChangedParams {
             sectors: vec![create_sector_changes()],
         }
