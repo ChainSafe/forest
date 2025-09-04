@@ -8,6 +8,7 @@ use crate::shim::deal::DealID;
 use crate::shim::econ::TokenAmount;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::RegisteredSealProof;
+use crate::test_snapshots;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;
@@ -37,7 +38,7 @@ pub struct AddBalanceParamsLotusJson(
 );
 
 macro_rules! impl_lotus_json_for_add_balance_params {
-    ($($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::AddBalanceParams {
@@ -46,6 +47,10 @@ macro_rules! impl_lotus_json_for_add_balance_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!("f0100"),
+                                Self { provider_or_client: $type_suffix::Address::new_id(100) }
+                            ),
                         ]
                     }
 
@@ -64,7 +69,9 @@ macro_rules! impl_lotus_json_for_add_balance_params {
     };
 }
 
-impl_lotus_json_for_add_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_add_balance_params!(fvm_shared2::address: 8, 9);
+impl_lotus_json_for_add_balance_params!(fvm_shared3::address: 10, 11);
+impl_lotus_json_for_add_balance_params!(fvm_shared4::address: 12, 13, 14, 15, 16);
 
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
     ($($version:literal),+) => {
@@ -854,3 +861,5 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
 }
 
 impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16);
+
+test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);

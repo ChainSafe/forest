@@ -244,6 +244,21 @@ mod verifreg_claim;
 
 pub use vec::*;
 
+#[macro_export]
+macro_rules! test_snapshots {
+    ($module:path: $ty:ident: $($version:literal),+ $(,)?) => {
+        $(
+            paste::paste! {
+                #[test]
+                fn [<snapshots_ $module _v $version _ $ty:lower>]() {
+                    use super::*;
+                    assert_all_snapshots::<$module::[<v $version>]::$ty>();
+                }
+            }
+        )+
+    };
+}
+
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
 where
