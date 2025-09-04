@@ -117,6 +117,18 @@ license:
 docs:
 	cargo doc --no-deps
 
+# Lexicographical sort of lists in various config files
+LIST_FILES = \
+	./src/tool/subcommands/api_cmd/test_snapshots_ignored.txt \
+	./src/tool/subcommands/api_cmd/test_snapshots.txt
+
+sort-lists: $(LIST_FILES)
+
+$(LIST_FILES):
+	sort --unique $@ -o $@
+
+.PHONY: sort-lists $(LIST_FILES)
+
 ##
 ## Memory Profiling
 ##
