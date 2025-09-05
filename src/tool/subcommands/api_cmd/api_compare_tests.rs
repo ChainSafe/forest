@@ -3374,6 +3374,7 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
 
     fn create_sector_deals() -> fil_actor_market_state::v16::SectorDeals {
         fil_actor_market_state::v16::SectorDeals {
+            sector_number: 42,
             sector_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1,
             sector_expiry: 100,
             deal_ids: vec![0, 1],
@@ -3473,14 +3474,16 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             to_vec(&market_actor_verify_deals_for_activation_params)?,
             tipset.key().into(),
         ))?),
-        // TODO: understand why Lotus uses ActivateDeals
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/409
+        // Enable this test when lotus supports this method
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::MARKET_ACTOR,
         //     fil_actor_market_state::v16::Method::BatchActivateDeals as u64,
         //     to_vec(&market_actor_batch_activate_deals_params)?,
         //     tipset.key().into(),
         // ))?),
-        // TODO: understand why Lotus uses wrong version
+        // TODO(go-state-types): https://github.com/filecoin-project/go-state-types/issues/408
+        // Enable this test when lotus supports correct types in go-state-types.
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::MARKET_ACTOR,
         //     fil_actor_market_state::v16::Method::OnMinerSectorsTerminate as u64,
