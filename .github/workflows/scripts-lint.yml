@@ -85,6 +85,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - run: |
-        make sort-lists
-        git diff --exit-code
+      - name: Sort and verify lists
+        env:
+          LC_ALL: C
+        run: |
+          make sort-lists
+          git diff --exit-code
