@@ -74,7 +74,7 @@ impl_lotus_json_for_add_balance_params!(fvm_shared3::address: 10, 11);
 impl_lotus_json_for_add_balance_params!(fvm_shared4::address: 12, 13, 14, 15, 16);
 
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
-    ($($version:literal),+) => {
+    ($type_suffix:path: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::WithdrawBalanceParams {
@@ -83,6 +83,16 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "ProviderOrClientAddress": "f0100",
+                                    "Amount": "1000"
+                                }),
+                                Self {
+                                    provider_or_client: $type_suffix::address::Address::new_id(100),
+                                    amount: $type_suffix::econ::TokenAmount::from_atto(1000),
+                                }
+                            ),
                         ]
                     }
 
@@ -105,7 +115,9 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
     };
 }
 
-impl_lotus_json_for_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_withdraw_balance_params!(fvm_shared2: 8, 9);
+impl_lotus_json_for_withdraw_balance_params!(fvm_shared3: 10, 11);
+impl_lotus_json_for_withdraw_balance_params!(fvm_shared4: 12, 13, 14, 15, 16);
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
@@ -863,3 +875,4 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
 impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16);
 
 test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
