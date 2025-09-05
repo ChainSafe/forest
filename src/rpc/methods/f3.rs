@@ -19,7 +19,7 @@ use crate::shim::actors::{
     convert::{
         from_policy_v13_to_v9, from_policy_v13_to_v10, from_policy_v13_to_v11,
         from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15,
-        from_policy_v13_to_v16,
+        from_policy_v13_to_v16, from_policy_v13_to_v17,
     },
     miner, power,
 };
@@ -432,6 +432,15 @@ impl GetPowerTable {
                     &ts,
                     s,
                     &from_policy_v13_to_v16(&ctx.chain_config().policy)
+                );
+            }
+            power::State::V17(s) => {
+                handle_miner_state_v12_on!(
+                    v17,
+                    id_power_worker_mappings,
+                    &ts,
+                    s,
+                    &from_policy_v13_to_v17(&ctx.chain_config().policy)
                 );
             }
         }

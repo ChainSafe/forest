@@ -21,6 +21,7 @@ pub enum State {
     V14(fil_actor_account_state::v14::State),
     V15(fil_actor_account_state::v15::State),
     V16(fil_actor_account_state::v16::State),
+    V17(fil_actor_account_state::v17::State),
 }
 
 impl State {
@@ -35,6 +36,7 @@ impl State {
             State::V14(st) => from_address_v4_to_v2(st.address),
             State::V15(st) => from_address_v4_to_v2(st.address),
             State::V16(st) => from_address_v4_to_v2(st.address),
+            State::V17(st) => from_address_v4_to_v2(st.address),
         }
     }
 }
