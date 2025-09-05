@@ -33,7 +33,7 @@ function forest_download_and_import_snapshot_with_f3 {
   echo "Inspecting v1 snapshot"
   $FOREST_TOOL_PATH archive info v1.forest.car.zst
   echo "Downloading F3 snapshot"
-  aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_552628.bin -o f3.bin
+  aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_622579.bin -o f3.bin
   echo "Inspecting F3 snapshot"
   $FOREST_TOOL_PATH archive f3-header f3.bin
   echo "Generating v2 snapshot"
@@ -162,8 +162,8 @@ function forest_init_with_f3 {
   
   echo "Print the latest F3 certificate"
   $FOREST_CLI_PATH f3 c get
-  echo "ensure F3 certificate at instance 550000 has been imported"
-  $FOREST_CLI_PATH f3 c get 550000
+  echo "ensure F3 certificate at instance 622000 has been imported"
+  $FOREST_CLI_PATH f3 c get 622000
 }
 
 function forest_init_stateless {
