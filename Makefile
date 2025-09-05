@@ -125,7 +125,7 @@ LIST_FILES = \
 sort-lists: $(LIST_FILES)
 
 $(LIST_FILES):
-	sort --unique $@ -o $@
+	LC_ALL=C sort --unique $@ -o $@
 
 .PHONY: sort-lists $(LIST_FILES)
 

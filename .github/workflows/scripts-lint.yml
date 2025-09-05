@@ -86,8 +86,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Sort and verify lists
-        env:
-          LC_ALL: C
         run: |
           make sort-lists
           git diff --exit-code
