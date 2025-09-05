@@ -70,6 +70,10 @@ impl HasLotusJson for Entry {
                 receiver: e.receiver.into(),
                 method_num: e.method_num,
             },
+            Entry::V17(e) => EntryLotusJson {
+                receiver: e.receiver.into(),
+                method_num: e.method_num,
+            },
         }
     }
 

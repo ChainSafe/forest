@@ -109,6 +109,18 @@ impl MarketStateExt for market::State {
                     Ok(())
                 })?;
             }
+            Self::V17(s) => {
+                let map = fil_actors_shared::v17::Map::<_, AllocationID>::load_with_bit_width(
+                    &s.pending_deal_allocation_ids,
+                    store,
+                    fil_actors_shared::v17::HAMT_BIT_WIDTH,
+                )?;
+                map.for_each(|k, &v| {
+                    let deal_id = fil_actors_shared::v17::parse_uint_key(k)?;
+                    result.insert(deal_id, v);
+                    Ok(())
+                })?;
+            }
         }
         Ok(result)
     }

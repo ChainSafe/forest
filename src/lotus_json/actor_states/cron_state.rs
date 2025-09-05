@@ -76,6 +76,9 @@ impl HasLotusJson for State {
             State::V16(s) => CronStateLotusJson {
                 entries: s.entries.into_iter().map(Entry::V16).collect(),
             },
+            State::V17(s) => CronStateLotusJson {
+                entries: s.entries.into_iter().map(Entry::V17).collect(),
+            },
         }
     }
 

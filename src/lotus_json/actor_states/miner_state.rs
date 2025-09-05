@@ -4,7 +4,8 @@ use super::*;
 use crate::shim::actors::miner::State;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
-use fil_actor_miner_state::v16::VestingFunds;
+use fil_actor_miner_state::v16::VestingFunds as VestingFundsV16;
+use fil_actor_miner_state::v17::VestingFunds as VestingFundsV17;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_shared4::clock::ChainEpoch;
 
@@ -66,13 +67,16 @@ pub struct MinerStateLotusJson {
     pub deadline_cron_active: bool,
 }
 
-// VestingFunds can be either a VestingFunds for V16 or a Cid for older versions.
+// VestingFunds can be either a VestingFunds for V17, V16 or a Cid for older versions.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum VestingFundsValue {
-    #[schemars(with = "LotusJson<VestingFunds>")]
+    #[schemars(with = "LotusJson<VestingFundsV17>")]
     #[serde(with = "crate::lotus_json")]
-    V16(Option<VestingFunds>),
+    V17(Option<VestingFundsV17>),
+    #[schemars(with = "LotusJson<VestingFundsV16>")]
+    #[serde(with = "crate::lotus_json")]
+    V16(Option<VestingFundsV16>),
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     Legacy(Cid),
@@ -154,6 +158,12 @@ macro_rules! impl_miner_lotus_json {
 
             fn into_lotus_json(self) -> Self::LotusJson {
                 match &self {
+                    State::V17(state) => {
+                        let mut result = common_miner_state_fields!(state);
+                        result.vesting_funds = state.vesting_funds.0.as_ref().map(|_|
+                            VestingFundsValue::V17(Some(state.vesting_funds.clone())));
+                        result
+                    }
                     State::V16(state) => {
                         let mut result = common_miner_state_fields!(state);
                         result.vesting_funds = state.vesting_funds.0.as_ref().map(|_|

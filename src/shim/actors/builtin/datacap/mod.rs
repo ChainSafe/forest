@@ -28,6 +28,7 @@ pub enum State {
     V14(fil_actor_datacap_state::v14::State),
     V15(fil_actor_datacap_state::v15::State),
     V16(fil_actor_datacap_state::v16::State),
+    V17(fil_actor_datacap_state::v17::State),
 }
 
 impl State {
@@ -53,6 +54,7 @@ impl State {
             State::V14(state) => state.token.get_balance_opt(store, id),
             State::V15(state) => state.token.get_balance_opt(store, id),
             State::V16(state) => state.token.get_balance_opt(store, id),
+            State::V17(state) => state.token.get_balance_opt(store, id),
             _ => return Err(anyhow!("not supported in actors > v8")),
         }?;
         Ok(int
