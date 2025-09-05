@@ -88,7 +88,7 @@ function forest_query_format {
 
 function forest_run_node_detached {
   echo "Running forest"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --track-peak-rss &
+  /usr/bin/time -v $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" &
 }
 
 function forest_run_node_stateless_detached {
