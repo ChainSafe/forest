@@ -136,6 +136,8 @@ macro_rules! impl_lotus_json_for_label {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (serde_json::json!("label-string"), Self::String("label-string".to_owned())),
+                            (serde_json::json!([1,2,3]), Self::Bytes(vec![1,2,3])),
                         ]
                     }
 
@@ -876,3 +878,4 @@ impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16);
 
 test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: Label: 8, 9, 10, 11, 12, 13, 14, 15, 16);
