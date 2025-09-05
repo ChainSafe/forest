@@ -81,3 +81,11 @@ jobs:
       - run: corepack enable
       - run: yarn --immutable
       - run: yarn yaml-check
+  lists-lint:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sort and verify lists
+        run: |
+          make sort-lists
+          git diff --exit-code
