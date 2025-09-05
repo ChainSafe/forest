@@ -147,7 +147,6 @@ libp2p = { workspace = true, features = [
 libsecp256k1 = "0.7"
 md5 = { package = "md-5", version = "0.10" }
 memmap2 = "0.9"
-memory-stats = "1"
 multiaddr = "0.18"
 multihash-codetable = { workspace = true }
 multihash-derive = "0.9"
