@@ -34,6 +34,9 @@ use fil_actor_market_state::v15::balance_table::BalanceTable as V15BalanceTable;
 use fil_actor_market_state::v16::DealArray as V16DealArray;
 use fil_actor_market_state::v16::DealMetaArray as V16DealMetaArray;
 use fil_actor_market_state::v16::balance_table::BalanceTable as V16BalanceTable;
+use fil_actor_market_state::v17::DealArray as V17DealArray;
+use fil_actor_market_state::v17::DealMetaArray as V17DealMetaArray;
+use fil_actor_market_state::v17::balance_table::BalanceTable as V17BalanceTable;
 use fil_actors_shared::v9::AsActorError as V9AsActorError;
 use fil_actors_shared::v10::{AsActorError as V10AsActorError, DealWeight};
 use fil_actors_shared::v11::AsActorError as V11AsActorError;
@@ -42,6 +45,7 @@ use fil_actors_shared::v13::AsActorError as V13AsActorError;
 use fil_actors_shared::v14::AsActorError as V14AsActorError;
 use fil_actors_shared::v15::AsActorError as V15AsActorError;
 use fil_actors_shared::v16::AsActorError as V16AsActorError;
+use fil_actors_shared::v17::AsActorError as V17AsActorError;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared2::error::ExitCode as FVMExitCode;
 use fvm_shared2::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
@@ -70,6 +74,7 @@ pub enum State {
     V14(fil_actor_market_state::v14::State),
     V15(fil_actor_market_state::v15::State),
     V16(fil_actor_market_state::v16::State),
+    V17(fil_actor_market_state::v17::State),
 }
 
 impl State {
@@ -96,6 +101,9 @@ impl State {
                 V15BalanceTable::from_root(store, &s.escrow_table, "escrow table")?.into()
             }
             Self::V16(s) => {
+                V16BalanceTable::from_root(store, &s.escrow_table, "escrow table")?.into()
+            }
+            Self::V17(s) => {
                 V16BalanceTable::from_root(store, &s.escrow_table, "escrow table")?.into()
             }
         })
@@ -126,6 +134,9 @@ impl State {
             Self::V16(s) => {
                 V16BalanceTable::from_root(store, &s.locked_table, "locked table")?.into()
             }
+            Self::V17(s) => {
+                V17BalanceTable::from_root(store, &s.locked_table, "locked table")?.into()
+            }
         })
     }
 
@@ -146,6 +157,7 @@ impl State {
             State::V14(st) => Ok(DealProposals::V14(st.load_proposals(store)?)),
             State::V15(st) => Ok(DealProposals::V15(st.load_proposals(store)?)),
             State::V16(st) => Ok(DealProposals::V16(st.load_proposals(store)?)),
+            State::V17(st) => Ok(DealProposals::V17(st.load_proposals(store)?)),
         }
     }
 
@@ -197,6 +209,11 @@ impl State {
                 FVM4ExitCode::USR_ILLEGAL_STATE,
                 "failed to load deal state array",
             )?)),
+            State::V17(st) => Ok(DealStates::V17(V16AsActorError::context_code(
+                V17DealMetaArray::load(&st.states, store),
+                FVM4ExitCode::USR_ILLEGAL_STATE,
+                "failed to load deal state array",
+            )?)),
         }
     }
 
@@ -212,6 +229,7 @@ impl State {
             State::V14(st) => from_token_v4_to_v2(&st.get_total_locked()),
             State::V15(st) => from_token_v4_to_v2(&st.get_total_locked()),
             State::V16(st) => from_token_v4_to_v2(&st.get_total_locked()),
+            State::V17(st) => from_token_v4_to_v2(&st.get_total_locked()),
         }
     }
 
@@ -278,6 +296,13 @@ impl State {
                 curr_epoch,
                 sector_exp,
             )?),
+            State::V17(st) => Ok(st.verify_deals_for_activation(
+                store,
+                &from_address_v2_to_v4(addr),
+                deal_ids,
+                curr_epoch,
+                sector_exp,
+            )?),
         }
     }
 }
@@ -292,6 +317,7 @@ pub enum BalanceTable<'bs, BS: Blockstore> {
     V14(V14BalanceTable<&'bs BS>),
     V15(V15BalanceTable<&'bs BS>),
     V16(V16BalanceTable<&'bs BS>),
+    V17(V17BalanceTable<&'bs BS>),
 }
 
 impl<'bs, BS: Blockstore> From<V8BalanceTable<'bs, BS>> for BalanceTable<'bs, BS> {
@@ -347,6 +373,11 @@ impl<'bs, BS: Blockstore> From<V16BalanceTable<&'bs BS>> for BalanceTable<'bs, B
         Self::V16(value)
     }
 }
+impl<'bs, BS: Blockstore> From<V17BalanceTable<&'bs BS>> for BalanceTable<'bs, BS> {
+    fn from(value: V17BalanceTable<&'bs BS>) -> Self {
+        Self::V17(value)
+    }
+}
 
 pub enum DealProposals<'bs, BS> {
     V9(V9DealArray<'bs, BS>),
@@ -357,6 +388,7 @@ pub enum DealProposals<'bs, BS> {
     V14(V14DealArray<'bs, BS>),
     V15(V15DealArray<'bs, BS>),
     V16(V16DealArray<'bs, BS>),
+    V17(V17DealArray<'bs, BS>),
 }
 
 impl<BS> DealProposals<'_, BS>
@@ -384,6 +416,8 @@ where
                 .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
             DealProposals::V16(deal_array) => Ok(deal_array
                 .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
+            DealProposals::V17(deal_array) => Ok(deal_array
+                .for_each(|key, deal_proposal| f(key, DealProposal::try_from(deal_proposal)))?),
         }
     }
 
@@ -397,6 +431,7 @@ where
             DealProposals::V14(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
             DealProposals::V15(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
             DealProposals::V16(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
+            DealProposals::V17(deal_array) => deal_array.get(key)?.map(TryFrom::try_from),
         }
         .transpose()
     }
@@ -644,6 +679,34 @@ impl TryFrom<&fil_actor_market_state::v16::DealProposal> for DealProposal {
     }
 }
 
+impl TryFrom<&fil_actor_market_state::v17::DealProposal> for DealProposal {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        deal_proposal: &fil_actor_market_state::v17::DealProposal,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            piece_cid: deal_proposal.piece_cid,
+            piece_size: from_padded_piece_size_v4_to_v2(deal_proposal.piece_size),
+            verified_deal: deal_proposal.verified_deal,
+            client: from_address_v4_to_v2(deal_proposal.client),
+            provider: from_address_v4_to_v2(deal_proposal.provider),
+            label: match &deal_proposal.label {
+                fil_actor_market_state::v17::Label::String(s) => s.clone(),
+                fil_actor_market_state::v17::Label::Bytes(b) if b.is_empty() => Default::default(),
+                fil_actor_market_state::v17::Label::Bytes(b) => {
+                    String::from_utf8(b.clone()).unwrap_or_default()
+                }
+            },
+            start_epoch: deal_proposal.start_epoch,
+            end_epoch: deal_proposal.end_epoch,
+            storage_price_per_epoch: from_token_v4_to_v2(&deal_proposal.storage_price_per_epoch),
+            provider_collateral: from_token_v4_to_v2(&deal_proposal.provider_collateral),
+            client_collateral: from_token_v4_to_v2(&deal_proposal.client_collateral),
+        })
+    }
+}
+
 pub enum DealStates<'bs, BS> {
     V8(V9DealMetaArray<'bs, BS>),
     V9(V9DealMetaArray<'bs, BS>),
@@ -654,6 +717,7 @@ pub enum DealStates<'bs, BS> {
     V14(V14DealMetaArray<'bs, BS>),
     V15(V15DealMetaArray<'bs, BS>),
     V16(V16DealMetaArray<'bs, BS>),
+    V17(V17DealMetaArray<'bs, BS>),
 }
 
 impl<BS> DealStates<'_, BS>
@@ -725,6 +789,13 @@ where
                 verified_claim: 0,
                 sector_number: deal_state.sector_number,
             })),
+            DealStates::V17(deal_array) => Ok(deal_array.get(key)?.map(|deal_state| DealState {
+                sector_start_epoch: deal_state.sector_start_epoch,
+                last_updated_epoch: deal_state.last_updated_epoch,
+                slash_epoch: deal_state.slash_epoch,
+                verified_claim: 0,
+                sector_number: deal_state.sector_number,
+            })),
         }
     }
 }
@@ -767,6 +838,7 @@ where
             Self::V14(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
             Self::V15(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
             Self::V16(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
+            Self::V17(t) => from_token_v4_to_v2(&t.get(&from_address_v2_to_v4(*key))?),
         })
     }
 }

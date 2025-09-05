@@ -14,6 +14,8 @@ use fil_actors_shared::v15::runtime::Policy as PolicyV15;
 use fil_actors_shared::v15::runtime::ProofSet as ProofSetV15;
 use fil_actors_shared::v16::runtime::Policy as PolicyV16;
 use fil_actors_shared::v16::runtime::ProofSet as ProofSetV16;
+use fil_actors_shared::v17::runtime::Policy as PolicyV17;
+use fil_actors_shared::v17::runtime::ProofSet as ProofSetV17;
 use fvm_shared2::address::Address as AddressV2;
 use fvm_shared2::econ::TokenAmount as TokenAmountV2;
 use fvm_shared2::piece::PaddedPieceSize as PaddedPieceSizeV2;
@@ -628,6 +630,86 @@ pub fn from_policy_v13_to_v16(policy: &PolicyV13) -> PolicyV16 {
         )
         .unwrap(),
         daily_fee_block_reward_cap_denom: fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
+        valid_post_proof_type,
+        valid_pre_commit_proof_type,
+        minimum_verified_allocation_size: policy.minimum_verified_allocation_size.clone(),
+        minimum_verified_allocation_term: policy.minimum_verified_allocation_term,
+        maximum_verified_allocation_term: policy.maximum_verified_allocation_term,
+        maximum_verified_allocation_expiration: policy.maximum_verified_allocation_expiration,
+        end_of_life_claim_drop_period: policy.end_of_life_claim_drop_period,
+        deal_updates_interval: policy.deal_updates_interval,
+        prov_collateral_percent_supply_num: policy.prov_collateral_percent_supply_num,
+        prov_collateral_percent_supply_denom: policy.prov_collateral_percent_supply_denom,
+        market_default_allocation_term_buffer: policy.market_default_allocation_term_buffer,
+        minimum_consensus_power: policy.minimum_consensus_power.clone(),
+        posted_partitions_max: policy.posted_partitions_max,
+    }
+}
+
+pub fn from_policy_v13_to_v17(policy: &PolicyV13) -> PolicyV17 {
+    let mut valid_post_proof_type = ProofSetV17::default();
+    policy
+        .valid_post_proof_type
+        .clone()
+        .into_inner()
+        .iter()
+        .for_each(|proof| valid_post_proof_type.insert(*proof));
+
+    let mut valid_pre_commit_proof_type = ProofSetV17::default();
+    policy
+        .valid_pre_commit_proof_type
+        .clone()
+        .into_inner()
+        .iter()
+        .for_each(|proof| valid_pre_commit_proof_type.insert(*proof));
+
+    PolicyV17 {
+        max_aggregated_sectors: policy.max_aggregated_sectors,
+        min_aggregated_sectors: policy.min_aggregated_sectors,
+        max_aggregated_proof_size: policy.max_aggregated_proof_size,
+        max_replica_update_proof_size: policy.max_replica_update_proof_size,
+        expired_pre_commit_clean_up_delay: policy.expired_pre_commit_clean_up_delay,
+        wpost_proving_period: policy.wpost_proving_period,
+        wpost_challenge_window: policy.wpost_challenge_window,
+        wpost_period_deadlines: policy.wpost_period_deadlines,
+        wpost_max_chain_commit_age: policy.wpost_max_chain_commit_age,
+        wpost_dispute_window: policy.wpost_dispute_window,
+        sectors_max: policy.sectors_max,
+        max_partitions_per_deadline: policy.max_partitions_per_deadline,
+        max_control_addresses: policy.max_control_addresses,
+        max_peer_id_length: policy.max_peer_id_length,
+        max_multiaddr_data: policy.max_multiaddr_data,
+        addressed_partitions_max: policy.addressed_partitions_max,
+        addressed_sectors_max: policy.addressed_sectors_max,
+        max_pre_commit_randomness_lookback: policy.max_pre_commit_randomness_lookback,
+        valid_prove_commit_ni_proof_type:
+            fil_actors_shared::v17::runtime::ProofSet::default_seal_ni_proofs(),
+        max_aggregated_sectors_ni:
+            fil_actors_shared::v17::runtime::policy_constants::MAX_AGGREGATED_SECTORS_NI,
+        min_aggregated_sectors_ni:
+            fil_actors_shared::v17::runtime::policy_constants::MIN_AGGREGATED_SECTORS_NI,
+        max_prove_commit_ni_randomness_lookback:
+            fil_actors_shared::v17::runtime::policy_constants::MAX_PROVE_COMMIT_NI_LOOKBACK,
+        pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
+        wpost_challenge_lookback: policy.wpost_challenge_lookback,
+        fault_declaration_cutoff: policy.fault_declaration_cutoff,
+        fault_max_age: policy.fault_max_age,
+        worker_key_change_delay: policy.worker_key_change_delay,
+        min_sector_expiration: policy.min_sector_expiration,
+        max_sector_expiration_extension: policy.max_sector_expiration_extension,
+        deal_limit_denominator: policy.deal_limit_denominator,
+        consensus_fault_ineligibility_duration: policy.consensus_fault_ineligibility_duration,
+        new_sectors_per_period_max: policy.new_sectors_per_period_max,
+        chain_finality: policy.chain_finality,
+        daily_fee_circulating_supply_qap_multiplier_num: BigInt::from_u64(
+            fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_NUM,
+        )
+        .unwrap(),
+        daily_fee_circulating_supply_qap_multiplier_denom: BigInt::from_u128(
+            fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_DENOM,
+        )
+        .unwrap(),
+        daily_fee_block_reward_cap_denom: fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
         valid_post_proof_type,
         valid_pre_commit_proof_type,
         minimum_verified_allocation_size: policy.minimum_verified_allocation_size.clone(),

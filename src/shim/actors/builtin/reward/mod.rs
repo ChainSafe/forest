@@ -4,7 +4,8 @@
 use crate::shim::actors::convert::{
     from_padded_piece_size_v2_to_v3, from_padded_piece_size_v2_to_v4, from_policy_v13_to_v11,
     from_policy_v13_to_v12, from_policy_v13_to_v14, from_policy_v13_to_v15, from_policy_v13_to_v16,
-    from_token_v2_to_v3, from_token_v2_to_v4, from_token_v3_to_v2, from_token_v4_to_v2,
+    from_policy_v13_to_v17, from_token_v2_to_v3, from_token_v2_to_v4, from_token_v3_to_v2,
+    from_token_v4_to_v2,
 };
 use fil_actor_market_state::v11::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v11;
 use fil_actor_market_state::v12::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v12;
@@ -12,12 +13,14 @@ use fil_actor_market_state::v13::policy::deal_provider_collateral_bounds as deal
 use fil_actor_market_state::v14::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v14;
 use fil_actor_market_state::v15::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v15;
 use fil_actor_market_state::v16::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v16;
+use fil_actor_market_state::v17::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v17;
 use fil_actor_miner_state::v11::initial_pledge_for_power as initial_pledge_for_power_v11;
 use fil_actor_miner_state::v12::initial_pledge_for_power as initial_pledge_for_power_v12;
 use fil_actor_miner_state::v13::initial_pledge_for_power as initial_pledge_for_power_v13;
 use fil_actor_miner_state::v14::initial_pledge_for_power as initial_pledge_for_power_v14;
 use fil_actor_miner_state::v15::initial_pledge_for_power as initial_pledge_for_power_v15;
 use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_power_v16;
+use fil_actor_miner_state::v17::initial_pledge_for_power as initial_pledge_for_power_v17;
 use fvm_shared2::address::Address;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::sector::StoragePower;
@@ -48,6 +51,7 @@ pub enum State {
     V14(fil_actor_reward_state::v14::State),
     V15(fil_actor_reward_state::v15::State),
     V16(fil_actor_reward_state::v16::State),
+    V17(fil_actor_reward_state::v17::State),
 }
 
 impl State {
@@ -63,6 +67,7 @@ impl State {
             State::V14(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
             State::V15(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
             State::V16(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
+            State::V17(st) => from_token_v4_to_v2(&st.into_total_storage_power_reward()),
         }
     }
 
@@ -78,6 +83,7 @@ impl State {
             State::V14(st) => &st.this_epoch_baseline_power,
             State::V15(st) => &st.this_epoch_baseline_power,
             State::V16(st) => &st.this_epoch_baseline_power,
+            State::V17(st) => &st.this_epoch_baseline_power,
         }
     }
 
@@ -144,6 +150,16 @@ impl State {
                 &fil_actor_miner_state::v16::pre_commit_deposit_for_power(
                     &st.this_epoch_reward_smoothed,
                     &fil_actors_shared::v16::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &sector_weight,
+                ),
+            )),
+            State::V17(st) => Ok(from_token_v4_to_v2(
+                &fil_actor_miner_state::v17::pre_commit_deposit_for_power(
+                    &st.this_epoch_reward_smoothed,
+                    &fil_actors_shared::v17::reward::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },
@@ -272,6 +288,16 @@ impl State {
                 );
                 (from_token_v4_to_v2(&min), from_token_v4_to_v2(&max))
             }
+            State::V17(_) => {
+                let (min, max) = deal_provider_collateral_bounds_v17(
+                    &from_policy_v13_to_v17(policy),
+                    from_padded_piece_size_v2_to_v4(size),
+                    raw_byte_power,
+                    baseline_power,
+                    &from_token_v2_to_v4(network_circulating_supply),
+                );
+                (from_token_v4_to_v2(&min), from_token_v4_to_v2(&max))
+            }
         }
     }
 
@@ -370,6 +396,24 @@ impl State {
                         velocity: st.this_epoch_reward_smoothed.velocity.clone(),
                     },
                     &fil_actors_shared::v16::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &from_token_v2_to_v4(circ_supply),
+                    epochs_since_ramp_start,
+                    ramp_duration_epochs,
+                );
+                Ok(from_token_v4_to_v2(&pledge))
+            }
+            State::V17(st) => {
+                let pledge = initial_pledge_for_power_v17(
+                    qa_power,
+                    &st.this_epoch_baseline_power,
+                    &fil_actors_shared::v17::reward::FilterEstimate {
+                        position: st.this_epoch_reward_smoothed.position.clone(),
+                        velocity: st.this_epoch_reward_smoothed.velocity.clone(),
+                    },
+                    &fil_actors_shared::v17::reward::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },

@@ -24,6 +24,7 @@ pub enum State {
     V14(fil_actor_init_state::v14::State),
     V15(fil_actor_init_state::v15::State),
     V16(fil_actor_init_state::v16::State),
+    V17(fil_actor_init_state::v17::State),
 }
 
 impl State {
@@ -39,6 +40,7 @@ impl State {
             State::V14(st) => st.network_name,
             State::V15(st) => st.network_name,
             State::V16(st) => st.network_name,
+            State::V17(st) => st.network_name,
         }
     }
 }

@@ -107,5 +107,5 @@ macro_rules! impl_verified_reg_state_lotus_json {
 
 impl_verified_reg_state_lotus_json! {
     v8_verified_reg_state_fields for [V8];
-    v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16];
+    v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16, V17];
 }

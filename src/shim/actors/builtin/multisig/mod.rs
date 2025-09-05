@@ -27,6 +27,7 @@ pub enum State {
     V14(fil_actor_multisig_state::v14::State),
     V15(fil_actor_multisig_state::v15::State),
     V16(fil_actor_multisig_state::v16::State),
+    V17(fil_actor_multisig_state::v17::State),
 }
 
 /// Transaction type used in multisig actor
@@ -53,6 +54,7 @@ impl State {
             State::V14(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
             State::V15(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
             State::V16(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
+            State::V17(st) => from_token_v4_to_v2(&st.amount_locked(height - st.start_epoch)),
         })
     }
 
@@ -141,6 +143,17 @@ impl State {
                     store,
                     &st.pending_txs,
                     fil_actor_multisig_state::v16::PENDING_TXN_CONFIG,
+                    "pending txns",
+                )
+                .expect("Could not load pending transactions");
+                crate::parse_pending_transactions_v4!(res, txns);
+                Ok(res)
+            }
+            State::V17(st) => {
+                let txns = fil_actor_multisig_state::v17::PendingTxnMap::load(
+                    store,
+                    &st.pending_txs,
+                    fil_actor_multisig_state::v17::PENDING_TXN_CONFIG,
                     "pending txns",
                 )
                 .expect("Could not load pending transactions");

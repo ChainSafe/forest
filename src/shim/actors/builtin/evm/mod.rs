@@ -17,6 +17,7 @@ pub enum State {
     V14(fil_actor_evm_state::v14::State),
     V15(fil_actor_evm_state::v15::State),
     V16(fil_actor_evm_state::v16::State),
+    V17(fil_actor_evm_state::v17::State),
 }
 
 impl State {
@@ -29,6 +30,7 @@ impl State {
             State::V14(st) => st.nonce,
             State::V15(st) => st.nonce,
             State::V16(st) => st.nonce,
+            State::V17(st) => st.nonce,
         }
     }
 
@@ -41,6 +43,7 @@ impl State {
             State::V14(st) => st.tombstone.is_none(),
             State::V15(st) => st.tombstone.is_none(),
             State::V16(st) => st.tombstone.is_none(),
+            State::V17(st) => st.tombstone.is_none(),
         }
     }
 }
@@ -55,4 +58,5 @@ pub enum TombstoneState {
     V14(fil_actor_evm_state::v14::Tombstone),
     V15(fil_actor_evm_state::v15::Tombstone),
     V16(fil_actor_evm_state::v16::Tombstone),
+    V17(fil_actor_evm_state::v17::Tombstone),
 }

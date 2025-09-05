@@ -189,7 +189,6 @@ impl BuiltinActorManifest {
     }
 }
 
-// https://github.com/ChainSafe/fil-actor-states/issues/171
 macro_rules! exhaustive {
     ($vis:vis const $ident:ident: &[$ty:ty] = &[$($variant:path),* $(,)?];) => {
         $vis const $ident: &[$ty] = &[$($variant,)*];
