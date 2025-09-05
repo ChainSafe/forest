@@ -9,7 +9,6 @@ pub mod flume;
 pub mod get_size;
 pub mod io;
 pub mod misc;
-pub mod monitoring;
 pub mod multihash;
 pub mod net;
 pub mod p2p;
