@@ -38,7 +38,7 @@ pub struct AddBalanceParamsLotusJson(
 );
 
 macro_rules! impl_lotus_json_for_add_balance_params {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::AddBalanceParams {
@@ -49,7 +49,7 @@ macro_rules! impl_lotus_json_for_add_balance_params {
                         vec![
                             (
                                 serde_json::json!("f0100"),
-                                Self { provider_or_client: $type_suffix::Address::new_id(100) }
+                                Self { provider_or_client: Address::new_id(100).into() }
                             ),
                         ]
                     }
@@ -69,12 +69,10 @@ macro_rules! impl_lotus_json_for_add_balance_params {
     };
 }
 
-impl_lotus_json_for_add_balance_params!(fvm_shared2::address: 8, 9);
-impl_lotus_json_for_add_balance_params!(fvm_shared3::address: 10, 11);
-impl_lotus_json_for_add_balance_params!(fvm_shared4::address: 12, 13, 14, 15, 16);
+impl_lotus_json_for_add_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
-    ($type_suffix:path: $($version:literal),+) => {
+    ($($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::WithdrawBalanceParams {
@@ -82,18 +80,16 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                            (
-                                serde_json::json!({
-                                    "ProviderOrClientAddress": "f0100",
-                                    "Amount": "1000"
+                        vec![(
+                             json!({
+                                    "ProviderOrClient": "f01234",
+                                    "Amount": "1000000000000000000",
                                 }),
-                                Self {
-                                    provider_or_client: $type_suffix::address::Address::new_id(100),
-                                    amount: $type_suffix::econ::TokenAmount::from_atto(1000),
-                                }
-                            ),
-                        ]
+                            Self{
+                                 provider_or_client: Address::new_id(1234).into(),
+                                 amount: TokenAmount::from_atto(1000000000000000000u64).into(),
+                             },
+                        )]
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
@@ -115,9 +111,7 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
     };
 }
 
-impl_lotus_json_for_withdraw_balance_params!(fvm_shared2: 8, 9);
-impl_lotus_json_for_withdraw_balance_params!(fvm_shared3: 10, 11);
-impl_lotus_json_for_withdraw_balance_params!(fvm_shared4: 12, 13, 14, 15, 16);
+impl_lotus_json_for_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
@@ -391,6 +385,8 @@ impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV4Lot
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDealsLotusJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sector_number: Option<u64>,
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::lotus_json")]
@@ -403,7 +399,7 @@ pub struct SectorDealsLotusJson {
 
 macro_rules! impl_lotus_json_for_sector_deals {
     // Handling version where both `sector_number` and `sector_type` should be None (v8)
-    ($type_suffix:path: no_sector_type: $($version:literal),+) => {
+    ($type_suffix:path: no_sector_type: no_sector_number: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
@@ -417,6 +413,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
+                            sector_number: None,
                             sector_type: None,
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -434,7 +431,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
         )+
     };
     // Handling versions where `sector_number` should be None (v9, v10, v11, v12)
-    ($type_suffix:path: $($version:literal),+) => {
+    ($type_suffix:path: no_sector_number: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::SectorDeals {
@@ -448,6 +445,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
+                            sector_number: None,
                             sector_type: Some(self.sector_type.into()),
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -479,6 +477,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn into_lotus_json(self) -> Self::LotusJson {
                         Self::LotusJson {
+                            sector_number: Some(self.sector_number),
                             sector_type: Some(self.sector_type.into()),
                             sector_expiry: self.sector_expiry.into_lotus_json(),
                             deal_ids: self.deal_ids.into(),
@@ -487,6 +486,7 @@ macro_rules! impl_lotus_json_for_sector_deals {
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
+                            sector_number: json.sector_number.unwrap_or(0),
                             sector_type: json.sector_type.unwrap_or(RegisteredSealProof::invalid()).into(),
                             sector_expiry: json.sector_expiry.into(),
                             deal_ids: json.deal_ids.into(),
@@ -498,8 +498,8 @@ macro_rules! impl_lotus_json_for_sector_deals {
     };
 }
 
-impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: 8);
-impl_lotus_json_for_sector_deals!(fvm_shared3::sector: 9, 10, 11, 12);
+impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: no_sector_number: 8);
+impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
 impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
@@ -847,7 +847,7 @@ macro_rules! impl_lotus_json_for_deal_query_params {
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            id: json.0.into(),
+                            id: json.0,
                         }
                     }
                 }
@@ -885,7 +885,7 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
 
                     fn from_lotus_json(json: Self::LotusJson) -> Self {
                         Self {
-                            deal_ids: json.0.into(),
+                            deal_ids: json.0,
                         }
                     }
                 }
@@ -895,6 +895,90 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
 }
 
 impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16);
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct PieceChangeLotusJson {
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub data: Cid,
+    #[schemars(with = "LotusJson<PaddedPieceSize>")]
+    #[serde(with = "crate::lotus_json")]
+    pub size: PaddedPieceSize,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub payload: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorChangesLotusJson {
+    pub sector: u64,
+    pub minimum_commitment_epoch: ChainEpoch,
+    pub added: Vec<PieceChangeLotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorContentChangedParamsLotusJson {
+    pub sectors: Vec<SectorChangesLotusJson>,
+}
+
+macro_rules! impl_lotus_json_for_sector_content_changed_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::ext::miner::SectorContentChangedParams {
+                    type LotusJson = SectorContentChangedParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sectors: self.sectors.into_iter().map(|sector_changes| {
+                                SectorChangesLotusJson {
+                                    sector: sector_changes.sector.into(),
+                                    minimum_commitment_epoch: sector_changes.minimum_commitment_epoch,
+                                    added: sector_changes.added.into_iter().map(|piece_change| {
+                                        PieceChangeLotusJson {
+                                            data: piece_change.data.into(),
+                                            size: piece_change.size.into(),
+                                            payload: piece_change.payload.into(),
+                                        }
+                                    }).collect(),
+                                }
+                            }).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sectors: json.sectors.into_iter().map(|sector_changes_json| {
+                                fil_actor_market_state::[<v $version>]::ext::miner::SectorChanges {
+                                    sector: sector_changes_json.sector.into(),
+                                    minimum_commitment_epoch: sector_changes_json.minimum_commitment_epoch,
+                                    added: sector_changes_json.added.into_iter().map(|piece_change_json| {
+                                        fil_actor_market_state::[<v $version>]::ext::miner::PieceChange {
+                                            data: piece_change_json.data.into(),
+                                            size: piece_change_json.size.into(),
+                                            payload: piece_change_json.payload.into(),
+                                        }
+                                    }).collect(),
+                                }
+                            }).collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_sector_content_changed_params!(13, 14, 15, 16);
 
 test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
