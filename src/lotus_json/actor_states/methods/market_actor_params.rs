@@ -130,6 +130,8 @@ macro_rules! impl_lotus_json_for_label {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (serde_json::json!("label-string"), Self::String("label-string".to_owned())),
+                            (serde_json::json!([1,2,3]), Self::Bytes(vec![1,2,3])),
                         ]
                     }
 
@@ -546,7 +548,7 @@ impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 
 #[serde(rename_all = "PascalCase")]
 pub struct ActivateDealsParamsLotusJson {
     #[schemars(with = "LotusJson<DealID>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     pub sector_expiry: ChainEpoch,
 }
@@ -561,6 +563,16 @@ macro_rules! impl_lotus_json_for_activate_deals_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "DealIDs": [1,2,3],
+                                    "SectorExpiry": 1000
+                                }),
+                                Self {
+                                    deal_ids: vec![1,2,3],
+                                    sector_expiry: 1000,
+                                }
+                            ),
                         ]
                     }
 
@@ -635,7 +647,7 @@ impl_lotus_json_for_batch_activate_deals_params!(12, 13, 14, 15, 16);
 pub struct OnMinerSectorsTerminateParamsLotusJsonV8 {
     pub epoch: ChainEpoch,
     #[schemars(with = "LotusJson<DealID>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
 }
 
@@ -658,6 +670,16 @@ macro_rules! impl_lotus_json_for_on_miner_sectors_terminate_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Epoch": 1000,
+                                    "DealIDs": [1,2,3]
+                                }),
+                                Self {
+                                    epoch: 1000,
+                                    deal_ids: vec![1,2,3],
+                                }
+                            ),
                         ]
                     }
 
@@ -959,3 +981,7 @@ macro_rules! impl_lotus_json_for_sector_content_changed_params {
 impl_lotus_json_for_sector_content_changed_params!(13, 14, 15, 16);
 
 test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: Label: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: ActivateDealsParams: 8, 9, 10, 11);
+test_snapshots!(fil_actor_market_state: OnMinerSectorsTerminateParams: 8, 9, 10, 11, 12);
