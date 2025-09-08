@@ -2617,7 +2617,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_account_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "frc42_dispatch",
  "frc42_macros",
@@ -2632,7 +2632,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.11.2",
@@ -2645,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_eam_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
@@ -2677,7 +2677,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_ethaccount_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 3.13.2",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2708,7 +2708,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2726,7 +2726,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2752,7 +2752,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "bitflags 2.9.4",
@@ -2781,7 +2781,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2803,7 +2803,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_paych_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2820,7 +2820,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2842,7 +2842,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -2857,7 +2857,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2873,7 +2873,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2893,7 +2893,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "23.0.1"
+version = "24.1.1"
 dependencies = [
  "anyhow",
  "cid",

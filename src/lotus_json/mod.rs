@@ -257,6 +257,18 @@ macro_rules! test_snapshots {
             }
         )+
     };
+
+    ($module:path: $nested_path:path: $ty:ident: $($version:literal),+ $(,)?) => {
+        $(
+            paste::paste! {
+                #[test]
+                fn [<snapshots_ $module _v $version _ $ty:lower>]() {
+                    use super::*;
+                    assert_all_snapshots::<$module::[<v $version>]::$nested_path::$ty>();
+                }
+            }
+        )+
+    };
 }
 
 #[cfg(any(test, doc))]

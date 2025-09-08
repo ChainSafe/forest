@@ -82,7 +82,7 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![(
                              json!({
-                                    "ProviderOrClient": "f01234",
+                                    "ProviderOrClientAddress": "f01234",
                                     "Amount": "1000000000000000000",
                                 }),
                             Self{
@@ -196,8 +196,41 @@ macro_rules! impl_lotus_json_for_deal_proposal {
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                        ]
+                        // Create minimal test data using Default where possible
+
+                        // Note: We need to create version-specific test data due to different fvm_shared versions
+                        // For now, we'll use a minimal example that should work across versions
+                        let test_cid = ::cid::Cid::try_from("baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq").unwrap();
+
+                        vec![(
+                            serde_json::json!({
+                                "PieceCID": { "/": test_cid.to_string() },
+                                "PieceSize": 1024,
+                                "VerifiedDeal": false,
+                                "Client": "f01234",
+                                "Provider": "f05678",
+                                "Label": "test",
+                                "StartEpoch": 100,
+                                "EndEpoch": 200,
+                                "StoragePricePerEpoch": "1000",
+                                "ProviderCollateral": "2000",
+                                "ClientCollateral": "3000"
+                            }),
+                            // Create the corresponding object using from_lotus_json to ensure compatibility
+                            Self::from_lotus_json(crate::lotus_json::actor_states::methods::market_actor_params::DealProposalLotusJson {
+                                piece_cid: test_cid,
+                                piece_size: 1024u64.into(),
+                                verified_deal: false,
+                                client: crate::shim::address::Address::new_id(1234).into(),
+                                provider: crate::shim::address::Address::new_id(5678).into(),
+                                label: crate::lotus_json::actor_states::methods::market_actor_params::LabelLotusJson::String("test".to_string()),
+                                start_epoch: 100,
+                                end_epoch: 200,
+                                storage_price_per_epoch: crate::shim::econ::TokenAmount::from_atto(1000u64).into(),
+                                provider_collateral: crate::shim::econ::TokenAmount::from_atto(2000u64).into(),
+                                client_collateral: crate::shim::econ::TokenAmount::from_atto(3000u64).into(),
+                            })
+                        )]
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
@@ -301,8 +334,50 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                        ]
+                        // Use the same test data as DealProposal, but add a client signature
+                        let test_cid = ::cid::Cid::try_from("baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq").unwrap();
+
+                        vec![(
+                            serde_json::json!({
+                                "Proposal": {
+                                    "PieceCID": { "/": test_cid.to_string() },
+                                    "PieceSize": 1024,
+                                    "VerifiedDeal": false,
+                                    "Client": "f01234",
+                                    "Provider": "f05678",
+                                    "Label": "test",
+                                    "StartEpoch": 100,
+                                    "EndEpoch": 200,
+                                    "StoragePricePerEpoch": "1000",
+                                    "ProviderCollateral": "2000",
+                                    "ClientCollateral": "3000"
+                                },
+                                "ClientSignature": {
+                                    "Type": 1,
+                                    "Data": "dGVzdA=="  // base64 for "test"
+                                }
+                            }),
+                            // Create object using from_lotus_json to ensure compatibility
+                            Self::from_lotus_json($lotus_json_type {
+                                proposal: crate::lotus_json::actor_states::methods::market_actor_params::DealProposalLotusJson {
+                                    piece_cid: test_cid,
+                                    piece_size: 1024u64.into(),
+                                    verified_deal: false,
+                                    client: crate::shim::address::Address::new_id(1234).into(),
+                                    provider: crate::shim::address::Address::new_id(5678).into(),
+                                    label: crate::lotus_json::actor_states::methods::market_actor_params::LabelLotusJson::String("test".to_string()),
+                                    start_epoch: 100,
+                                    end_epoch: 200,
+                                    storage_price_per_epoch: crate::shim::econ::TokenAmount::from_atto(1000u64).into(),
+                                    provider_collateral: crate::shim::econ::TokenAmount::from_atto(2000u64).into(),
+                                    client_collateral: crate::shim::econ::TokenAmount::from_atto(3000u64).into(),
+                                },
+                                client_signature: $type_suffix::Signature {
+                                    sig_type: $type_suffix::SignatureType::Secp256k1,
+                                    bytes: b"test".to_vec(),
+                                },
+                            })
+                        )]
                     }
 
                     fn into_lotus_json(self) -> Self::LotusJson {
@@ -346,16 +421,66 @@ pub struct PublishStorageDealsParamsV4LotusJson {
     pub deals: Vec<ClientDealProposalV4LotusJson>,
 }
 
-macro_rules! impl_lotus_json_for_publish_storage_deals_params {
-    ($lotus_json_type:ty: $($version:literal),+) => {
+macro_rules! impl_publish_storage_deals_params_snapshots_v2 {
+    ($($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::PublishStorageDealsParams {
-                    type LotusJson = $lotus_json_type;
+                    type LotusJson = PublishStorageDealsParamsV2LotusJson;
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                json!({
+                                    "Deals": [
+                                        {
+                                            "Proposal": {
+                                                "PieceCID": {
+                                                    "/": "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq"
+                                                },
+                                                "PieceSize": 1024,
+                                                "VerifiedDeal": false,
+                                                "Client": "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+                                                "Provider": "f01000",
+                                                "Label": "test-deal",
+                                                "StartEpoch": 100,
+                                                "EndEpoch": 200,
+                                                "StoragePricePerEpoch": "1000",
+                                                "ProviderCollateral": "2000",
+                                                "ClientCollateral": "1500"
+                                            },
+                                            "ClientSignature": {
+                                                "Type": 1,
+                                                "Data": "VGVzdCBzaWduYXR1cmU="
+                                            }
+                                        }
+                                    ]
+                                }),
+                                fil_actor_market_state::[<v $version>]::PublishStorageDealsParams::from_lotus_json(PublishStorageDealsParamsV2LotusJson {
+                                    deals: vec![
+                                        ClientDealProposalV2LotusJson {
+                                            proposal: DealProposalLotusJson {
+                                                piece_cid: "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq".parse().unwrap(),
+                                                piece_size: 1024u64.into(),
+                                                verified_deal: false,
+                                                client: "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy".parse().unwrap(),
+                                                provider: "f01000".parse().unwrap(),
+                                                label: LabelLotusJson::String("test-deal".to_string()),
+                                                start_epoch: ChainEpoch::from(100),
+                                                end_epoch: ChainEpoch::from(200),
+                                                storage_price_per_epoch: TokenAmount::from_atto(1000u64),
+                                                provider_collateral: TokenAmount::from_atto(2000u64),
+                                                client_collateral: TokenAmount::from_atto(1500u64),
+                                            },
+                                            client_signature: fvm_shared2::crypto::signature::Signature {
+                                                sig_type: fvm_shared2::crypto::signature::SignatureType::Secp256k1,
+                                                bytes: b"Test signature".to_vec(),
+                                            },
+                                        }
+                                    ]
+                                })
+                            )
                         ]
                     }
 
@@ -378,18 +503,184 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV2LotusJson: 8, 9);
-impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV3LotusJson: 10, 11);
-impl_lotus_json_for_publish_storage_deals_params!(PublishStorageDealsParamsV4LotusJson: 12, 13, 14, 15, 16);
+macro_rules! impl_publish_storage_deals_params_snapshots_v3 {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::PublishStorageDealsParams {
+                    type LotusJson = PublishStorageDealsParamsV3LotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                            (
+                                json!({
+                                    "Deals": [
+                                        {
+                                            "Proposal": {
+                                                "PieceCID": {
+                                                    "/": "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq"
+                                                },
+                                                "PieceSize": 1024,
+                                                "VerifiedDeal": false,
+                                                "Client": "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+                                                "Provider": "f01000",
+                                                "Label": "test-deal",
+                                                "StartEpoch": 100,
+                                                "EndEpoch": 200,
+                                                "StoragePricePerEpoch": "1000",
+                                                "ProviderCollateral": "2000",
+                                                "ClientCollateral": "1500"
+                                            },
+                                            "ClientSignature": {
+                                                "Type": 1,
+                                                "Data": "VGVzdCBzaWduYXR1cmU="
+                                            }
+                                        }
+                                    ]
+                                }),
+                                fil_actor_market_state::[<v $version>]::PublishStorageDealsParams::from_lotus_json(PublishStorageDealsParamsV3LotusJson {
+                                    deals: vec![
+                                        ClientDealProposalV3LotusJson {
+                                            proposal: DealProposalLotusJson {
+                                                piece_cid: "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq".parse().unwrap(),
+                                                piece_size: 1024u64.into(),
+                                                verified_deal: false,
+                                                client: "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy".parse().unwrap(),
+                                                provider: "f01000".parse().unwrap(),
+                                                label: LabelLotusJson::String("test-deal".to_string()),
+                                                start_epoch: ChainEpoch::from(100),
+                                                end_epoch: ChainEpoch::from(200),
+                                                storage_price_per_epoch: TokenAmount::from_atto(1000u64),
+                                                provider_collateral: TokenAmount::from_atto(2000u64),
+                                                client_collateral: TokenAmount::from_atto(1500u64),
+                                            },
+                                            client_signature: fvm_shared3::crypto::signature::Signature {
+                                                sig_type: fvm_shared3::crypto::signature::SignatureType::Secp256k1,
+                                                bytes: b"Test signature".to_vec(),
+                                            },
+                                        }
+                                    ]
+                                })
+                            )
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            deals: self.deals.into_iter().map(|d| d.into_lotus_json()).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            deals: json.deals.into_iter()
+                            .map(|d| fil_actor_market_state::[<v $version>]::ClientDealProposal::from_lotus_json(d)) // delegate
+                            .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! impl_publish_storage_deals_params_snapshots_v4 {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::PublishStorageDealsParams {
+                    type LotusJson = PublishStorageDealsParamsV4LotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                            (
+                                json!({
+                                    "Deals": [
+                                        {
+                                            "Proposal": {
+                                                "PieceCID": {
+                                                    "/": "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq"
+                                                },
+                                                "PieceSize": 1024,
+                                                "VerifiedDeal": false,
+                                                "Client": "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+                                                "Provider": "f01000",
+                                                "Label": "test-deal",
+                                                "StartEpoch": 100,
+                                                "EndEpoch": 200,
+                                                "StoragePricePerEpoch": "1000",
+                                                "ProviderCollateral": "2000",
+                                                "ClientCollateral": "1500"
+                                            },
+                                            "ClientSignature": {
+                                                "Type": 1,
+                                                "Data": "VGVzdCBzaWduYXR1cmU="
+                                            }
+                                        }
+                                    ]
+                                }),
+                                fil_actor_market_state::[<v $version>]::PublishStorageDealsParams::from_lotus_json(PublishStorageDealsParamsV4LotusJson {
+                                    deals: vec![
+                                        ClientDealProposalV4LotusJson {
+                                            proposal: DealProposalLotusJson {
+                                                piece_cid: "baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq".parse().unwrap(),
+                                                piece_size: 1024u64.into(),
+                                                verified_deal: false,
+                                                client: "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy".parse().unwrap(),
+                                                provider: "f01000".parse().unwrap(),
+                                                label: LabelLotusJson::String("test-deal".to_string()),
+                                                start_epoch: ChainEpoch::from(100),
+                                                end_epoch: ChainEpoch::from(200),
+                                                storage_price_per_epoch: TokenAmount::from_atto(1000u64),
+                                                provider_collateral: TokenAmount::from_atto(2000u64),
+                                                client_collateral: TokenAmount::from_atto(1500u64),
+                                            },
+                                            client_signature: fvm_shared4::crypto::signature::Signature {
+                                                sig_type: fvm_shared4::crypto::signature::SignatureType::Secp256k1,
+                                                bytes: b"Test signature".to_vec(),
+                                            },
+                                        }
+                                    ]
+                                })
+                            )
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            deals: self.deals.into_iter().map(|d| d.into_lotus_json()).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            deals: json.deals.into_iter()
+                            .map(|d| fil_actor_market_state::[<v $version>]::ClientDealProposal::from_lotus_json(d)) // delegate
+                            .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_publish_storage_deals_params_snapshots_v2!(8, 9);
+impl_publish_storage_deals_params_snapshots_v3!(10, 11);
+impl_publish_storage_deals_params_snapshots_v4!(12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDealsLotusJson {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub sector_number: Option<u64>,
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(with = "crate::lotus_json")]
+    #[serde(default)]
     pub sector_type: Option<RegisteredSealProof>,
     pub sector_expiry: ChainEpoch,
     #[schemars(with = "LotusJson<DealID>")]
@@ -408,6 +699,16 @@ macro_rules! impl_lotus_json_for_sector_deals {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "SectorExpiry": 1000,
+                                    "DealIDs": [1,2,3]
+                                }),
+                                Self {
+                                    sector_expiry: 1000,
+                                    deal_ids: vec![1,2,3],
+                                }
+                            ),
                         ]
                     }
 
@@ -440,6 +741,18 @@ macro_rules! impl_lotus_json_for_sector_deals {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "SectorType": 1,
+                                    "SectorExpiry": 1000,
+                                    "DealIDs": [1,2,3]
+                                }),
+                                Self {
+                                    sector_type: RegisteredSealProof::from(1).into(),
+                                    sector_expiry: 1000,
+                                    deal_ids: vec![1,2,3],
+                                }
+                            ),
                         ]
                     }
 
@@ -472,6 +785,20 @@ macro_rules! impl_lotus_json_for_sector_deals {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "SectorNumber": 42,
+                                    "SectorType": 1,
+                                    "SectorExpiry": 1000,
+                                    "DealIDs": [1,2,3]
+                                }),
+                                Self {
+                                    sector_number: 42,
+                                    sector_type: RegisteredSealProof::from(1).into(),
+                                    sector_expiry: 1000,
+                                    deal_ids: vec![1,2,3],
+                                }
+                            ),
                         ]
                     }
 
@@ -508,8 +835,57 @@ pub struct VerifyDealsForActivationParamsLotusJson {
     pub sectors: Vec<SectorDealsLotusJson>,
 }
 
-macro_rules! impl_lotus_json_for_publish_storage_deals_params {
-    ($($version:literal),+) => {
+macro_rules! impl_lotus_json_for_verify_deals_for_activation_params {
+    // Version 8: SectorDeals has only sector_expiry and deal_ids
+    (v8) => {
+        paste! {
+            impl HasLotusJson for fil_actor_market_state::v8::VerifyDealsForActivationParams {
+                type LotusJson = VerifyDealsForActivationParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![
+                        (
+                            serde_json::json!({
+                                "Sectors": [
+                                    {
+                                        "SectorExpiry": 1000,
+                                        "DealIDs": [1,2,3]
+                                    }
+                                ]
+                            }),
+                            Self {
+                                sectors: vec![
+                                    fil_actor_market_state::v8::SectorDeals {
+                                        sector_expiry: 1000,
+                                        deal_ids: vec![1,2,3],
+                                    }
+                                ],
+                            }
+                        ),
+                    ]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    Self::LotusJson {
+                        sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+                    }
+                }
+
+                fn from_lotus_json(json: Self::LotusJson) -> Self {
+                    Self {
+                        sectors: json
+                            .sectors
+                            .into_iter()
+                            .map(|s| fil_actor_market_state::v8::SectorDeals::from_lotus_json(s))
+                            .collect(),
+                    }
+                }
+            }
+        }
+    };
+    // Versions 9-12: SectorDeals has sector_type (which gets default value invalid() = 0)
+    (v9_to_v12: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams {
@@ -518,6 +894,26 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Sectors": [
+                                        {
+                                            "SectorExpiry": 1000,
+                                            "DealIDs": [1,2,3],
+                                            "SectorType": 0
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    sectors: vec![
+                                        fil_actor_market_state::[<v $version>]::SectorDeals {
+                                            sector_expiry: 1000,
+                                            deal_ids: vec![1,2,3],
+                                            sector_type: RegisteredSealProof::invalid().into(),
+                                        }
+                                    ],
+                                }
+                            ),
                         ]
                     }
 
@@ -532,7 +928,61 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
                             sectors: json
                                 .sectors
                                 .into_iter()
-                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s)) // delegate
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s))
+                                .collect(),
+                        }
+                    }
+                }
+            }
+        )+
+    };
+    // Versions 13+: SectorDeals has both sector_type and sector_number (both get default values)
+    (v13_plus: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::VerifyDealsForActivationParams {
+                    type LotusJson = VerifyDealsForActivationParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                            (
+                                serde_json::json!({
+                                    "Sectors": [
+                                        {
+                                            "SectorExpiry": 1000,
+                                            "DealIDs": [1,2,3],
+                                            "SectorType": 0,
+                                            "SectorNumber": 0
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    sectors: vec![
+                                        fil_actor_market_state::[<v $version>]::SectorDeals {
+                                            sector_expiry: 1000,
+                                            deal_ids: vec![1,2,3],
+                                            sector_type: RegisteredSealProof::invalid().into(),
+                                            sector_number: 0u64.into(),
+                                        }
+                                    ],
+                                }
+                            ),
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sectors: json
+                                .sectors
+                                .into_iter()
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s))
                                 .collect(),
                         }
                     }
@@ -542,7 +992,9 @@ macro_rules! impl_lotus_json_for_publish_storage_deals_params {
     };
 }
 
-impl_lotus_json_for_publish_storage_deals_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_verify_deals_for_activation_params!(v8);
+impl_lotus_json_for_verify_deals_for_activation_params!(v9_to_v12: 9, 10, 11, 12);
+impl_lotus_json_for_verify_deals_for_activation_params!(v13_plus: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -605,7 +1057,8 @@ pub struct BatchActivateDealsParamsLotusJson {
 }
 
 macro_rules! impl_lotus_json_for_batch_activate_deals_params {
-    ($($version:literal),+) => {
+    // Version 12: SectorDeals has sector_type but no sector_number
+    (v12: $($version:literal),+) => {
         $(
             paste! {
                 impl HasLotusJson for fil_actor_market_state::[<v $version>]::BatchActivateDealsParams {
@@ -614,6 +1067,31 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Sectors": [
+                                        {
+                                            "SectorType": 1,
+                                            "SectorExpiry": 1000,
+                                            "DealIDs": [1,2,3]
+                                        }
+                                    ],
+                                    "ComputeCid": true
+                                }),
+                                Self {
+                                    sectors: vec![
+                                        fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(
+                                            SectorDealsLotusJson {
+                                                sector_number: None, // No sector_number in v12
+                                                sector_type: Some(RegisteredSealProof::from(1).into()),
+                                                sector_expiry: 1000,
+                                                deal_ids: vec![1,2,3],
+                                            }
+                                        )
+                                    ],
+                                    compute_cid: true,
+                                }
+                            ),
                         ]
                     }
 
@@ -629,7 +1107,67 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
                             sectors: json
                                 .sectors
                                 .into_iter()
-                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s)) // delegate
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s))
+                                .collect(),
+                            compute_cid: json.compute_cid,
+                        }
+                    }
+                }
+            }
+        )+
+    };
+    // Versions 13-16: SectorDeals has both sector_type and sector_number
+    (v13_onwards: $($version:literal),+) => {
+        $(
+            paste! {
+                impl HasLotusJson for fil_actor_market_state::[<v $version>]::BatchActivateDealsParams {
+                    type LotusJson = BatchActivateDealsParamsLotusJson;
+
+                    #[cfg(test)]
+                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        vec![
+                            (
+                                serde_json::json!({
+                                    "Sectors": [
+                                        {
+                                            "SectorNumber": 42,
+                                            "SectorType": 1,
+                                            "SectorExpiry": 1000,
+                                            "DealIDs": [1,2,3]
+                                        }
+                                    ],
+                                    "ComputeCid": true
+                                }),
+                                Self {
+                                    sectors: vec![
+                                        fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(
+                                            SectorDealsLotusJson {
+                                                sector_number: Some(42), // Has sector_number in v13+
+                                                sector_type: Some(RegisteredSealProof::from(1).into()),
+                                                sector_expiry: 1000,
+                                                deal_ids: vec![1,2,3],
+                                            }
+                                        )
+                                    ],
+                                    compute_cid: true,
+                                }
+                            ),
+                        ]
+                    }
+
+                    fn into_lotus_json(self) -> Self::LotusJson {
+                        Self::LotusJson {
+                            sectors: self.sectors.into_iter().map(|s| s.into_lotus_json()).collect(),
+                            compute_cid: self.compute_cid,
+                        }
+                    }
+
+                    fn from_lotus_json(json: Self::LotusJson) -> Self {
+                        Self {
+                            sectors: json
+                                .sectors
+                                .into_iter()
+                                .map(|s| fil_actor_market_state::[<v $version>]::SectorDeals::from_lotus_json(s))
                                 .collect(),
                             compute_cid: json.compute_cid,
                         }
@@ -640,7 +1178,8 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
     };
 }
 
-impl_lotus_json_for_batch_activate_deals_params!(12, 13, 14, 15, 16);
+impl_lotus_json_for_batch_activate_deals_params!(v12: 12);
+impl_lotus_json_for_batch_activate_deals_params!(v13_onwards: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -708,7 +1247,20 @@ macro_rules! impl_lotus_json_for_on_miner_sectors_terminate_params {
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                        let mut sectors = BitField::new();
+                        sectors.set(1);
+
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Epoch": 1000,
+                                    "Sectors": [1, 1]
+                                }),
+                                Self {
+                                    epoch: 1000,
+                                    sectors,
+                                }
+                            ),
                         ]
                     }
 
@@ -735,6 +1287,7 @@ impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminatePa
 impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct SectorDataSpecLotusJson {
     #[schemars(with = "LotusJson<DealID>")]
     #[serde(with = "crate::lotus_json")]
@@ -754,6 +1307,16 @@ macro_rules! impl_lotus_json_for_sector_data_spec {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "DealIds": [1,2,3],
+                                    "SectorType": 1
+                                }),
+                                Self {
+                                    deal_ids: vec![1,2,3],
+                                    sector_type: RegisteredSealProof::from(1).into(),
+                                }
+                            ),
                         ]
                     }
 
@@ -794,6 +1357,26 @@ macro_rules! impl_lotus_json_for_compute_data_commitment_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Inputs": [
+                                        {
+                                            "DealIds": [1,2,3],
+                                            "SectorType": 1
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    inputs: vec![
+                                        fil_actor_market_state::[<v $version>]::SectorDataSpec::from_lotus_json(
+                                            SectorDataSpecLotusJson {
+                                                deal_ids: vec![1,2,3],
+                                                sector_type: RegisteredSealProof::from(1).into(),
+                                            }
+                                        )
+                                    ],
+                                }
+                            ),
                         ]
                     }
 
@@ -838,6 +1421,10 @@ macro_rules! impl_lotus_json_for_deal_query_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!(42),
+                                Self { id: 42 }
+                            ),
                         ]
                     }
 
@@ -876,6 +1463,10 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!([0]),
+                                Self { deal_ids: BitField::new() }
+                            ),
                         ]
                     }
 
@@ -934,6 +1525,14 @@ macro_rules! impl_lotus_json_for_sector_content_changed_params {
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
                         vec![
+                            (
+                                serde_json::json!({
+                                    "Sectors": []
+                                }),
+                                Self {
+                                    sectors: vec![],
+                                }
+                            ),
                         ]
                     }
 
@@ -983,5 +1582,27 @@ impl_lotus_json_for_sector_content_changed_params!(13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: Label: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: DealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: ClientDealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: PublishStorageDealsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: SectorDeals: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: VerifyDealsForActivationParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 test_snapshots!(fil_actor_market_state: ActivateDealsParams: 8, 9, 10, 11);
-test_snapshots!(fil_actor_market_state: OnMinerSectorsTerminateParams: 8, 9, 10, 11, 12);
+test_snapshots!(fil_actor_market_state: BatchActivateDealsParams: 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: OnMinerSectorsTerminateParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: SectorDataSpec: 8, 9, 10, 11);
+test_snapshots!(fil_actor_market_state: ComputeDataCommitmentParams: 8, 9, 10, 11);
+test_snapshots!(fil_actor_market_state: DealQueryParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: SettleDealPaymentsParams: 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealActivationParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealClientCollateralParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealClientParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealDataCommitmentParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealLabelParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealProviderCollateralParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealProviderParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealTermParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealTotalPriceParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealVerifiedParams: 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: GetDealSectorParams: 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: ext::miner: SectorContentChangedParams: 13, 14, 15, 16);

@@ -88,8 +88,10 @@ macro_rules! register_market_exported_methods_v10_onwards {
 
 macro_rules! register_market_exported_methods_v13_onwards {
     ($registry:expr, $code_cid:expr, $market_state_version:path) => {{
-        use fil_actor_miner_state::v16::SectorContentChangedParams;
-        use $market_state_version::{GetDealSectorParams, Method, SettleDealPaymentsParams};
+        use $market_state_version::{
+            GetDealSectorParams, Method, SettleDealPaymentsParams,
+            ext::miner::SectorContentChangedParams,
+        };
 
         register_actor_methods!(
             $registry,

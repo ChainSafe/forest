@@ -1893,18 +1893,18 @@ fn state_decode_params_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>
         ))?),
     ];
 
-    // tests.extend(miner_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(account_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(init_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(evm_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(reward_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(power_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
+    tests.extend(miner_actor_state_decode_params_tests(tipset)?);
+    tests.extend(account_actor_state_decode_params_tests(tipset)?);
+    tests.extend(init_actor_state_decode_params_tests(tipset)?);
+    tests.extend(evm_actor_state_decode_params_tests(tipset)?);
+    tests.extend(reward_actor_state_decode_params_tests(tipset)?);
+    tests.extend(power_actor_state_decode_params_tests(tipset)?);
+    tests.extend(datacap_actor_state_decode_params_tests(tipset)?);
+    tests.extend(multisig_actor_state_decode_params_tests(tipset)?);
+    tests.extend(verified_reg_actor_state_decode_params_tests(tipset)?);
     tests.extend(market_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(paych_actor_state_decode_params_tests(tipset)?);
-    // tests.extend(eam_actor_state_decode_params_tests(tipset)?);
+    tests.extend(paych_actor_state_decode_params_tests(tipset)?);
+    tests.extend(eam_actor_state_decode_params_tests(tipset)?);
 
     Ok(tests)
 }
