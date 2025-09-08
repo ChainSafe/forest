@@ -54,4 +54,4 @@ macro_rules! impl_system_state_lotus_json {
 }
 
 // implement HasLotusJson for system::State for all versions
-impl_system_state_lotus_json!(V16, V15, V14, V13, V12, V11, V10, V9, V8);
+impl_system_state_lotus_json!(V17, V16, V15, V14, V13, V12, V11, V10, V9, V8);
