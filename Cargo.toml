@@ -99,7 +99,9 @@ fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states",
 fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "fix-v17-integration" }
 fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "fix-v17-integration" }
 fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "fix-v17-integration" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "fix-v17-integration", features = ["json"] }
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "fix-v17-integration", features = [
+  "json",
+] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
