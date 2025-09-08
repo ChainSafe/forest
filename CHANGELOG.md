@@ -31,6 +31,8 @@
 
 - [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
 
+- [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for devnets.
+
 ### Changed
 
 ### Removed
