@@ -23,7 +23,7 @@ use crate::{
         state_tree::{ActorState, StateTree},
     },
 };
-use ahash::HashMap;
+use ahash::HashSet;
 use cid::Cid;
 use colored::*;
 use fvm_ipld_blockstore::Blockstore;
@@ -57,20 +57,6 @@ fn actor_to_resolved(
     }
 }
 
-fn root_to_state_map<BS: Blockstore>(
-    bs: &Arc<BS>,
-    root: &Cid,
-) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
-    let mut actors = HashMap::default();
-    let state_tree = StateTree::new_from_root(bs.clone(), root)?;
-    state_tree.for_each(|addr: Address, actor: &ActorState| {
-        actors.insert(addr, actor.clone());
-        Ok(())
-    })?;
-
-    Ok(actors)
-}
-
 /// Tries to resolve state tree actors, if all data exists in store.
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
 /// This function will only print the actors that are added, removed, or changed
@@ -83,16 +69,46 @@ fn try_print_actor_states<BS: Blockstore>(
 ) -> Result<(), anyhow::Error> {
     // For now, resolving to a map, because we need to use go implementation's
     // inefficient caching this would probably be faster in most cases.
-    let mut e_state = root_to_state_map(bs, expected_root)?;
+    // let mut e_state = root_to_state_map(bs, expected_root)?;
+
+    let mut expected_state_addresses = HashSet::default();
+    let mut expected_state_tree = StateTree::new_from_root(bs.clone(), expected_root)?;
+    expected_state_tree.for_each(|addr: Address, _actor: &ActorState| {
+        expected_state_addresses.insert(addr);
+        Ok(())
+    })?;
+    println!(
+        "loaded {} addresses from state root {expected_root}",
+        expected_state_addresses.len()
+    );
+
+    // let mut state_addresses = HashSet::default();
+    // let mut state_tree = StateTree::new_from_root(bs.clone(), root)?;
+    // state_tree.for_each(|addr: Address, _actor: &ActorState| {
+    //     state_addresses.insert(addr);
+    //     Ok(())
+    // })?;
+    // println!(
+    //     "loaded {} addresses from state root {root}",
+    //     state_addresses.len()
+    // );
 
     // Compare state with expected
     let state_tree = StateTree::new_from_root(bs.clone(), root)?;
-
+    let mut n = 0;
     state_tree.for_each(|addr: Address, actor| {
-        let calc_pp = pp_actor_state(bs, actor, depth)?;
+        n += 1;
+        if n >= 10000 {
+            // Clear the cache
+            expected_state_tree = StateTree::new_from_root(bs.clone(), expected_root)?;
+            n = 0;
+        }
 
-        if let Some(other) = e_state.remove(&addr) {
+        if expected_state_addresses.remove(&addr)
+            && let Ok(Some(other)) = expected_state_tree.get_actor(&addr)
+        {
             if &other != actor {
+                let calc_pp = pp_actor_state(bs, actor, depth)?;
                 let comma = ",";
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
                 let expected = expected_pp
@@ -110,6 +126,7 @@ fn try_print_actor_states<BS: Blockstore>(
                 print_diffs(&mut handle, diffs)?;
             }
         } else {
+            let calc_pp = pp_actor_state(bs, actor, depth)?;
             // Added actor, print out the json format actor state.
             println!("{}", format!("+ Address {addr}:\n{calc_pp}").green());
         }
@@ -118,9 +135,12 @@ fn try_print_actor_states<BS: Blockstore>(
     })?;
 
     // Print all addresses that no longer have actor state
-    for (addr, state) in e_state.into_iter() {
-        let expected_json = serde_json::to_string_pretty(&actor_to_resolved(bs, &state, depth))?;
-        println!("{}", format!("- Address {addr}:\n{expected_json}").red())
+    for addr in expected_state_addresses.into_iter() {
+        if let Ok(Some(state)) = expected_state_tree.get_actor(&addr) {
+            let expected_json =
+                serde_json::to_string_pretty(&actor_to_resolved(bs, &state, depth))?;
+            println!("{}", format!("- Address {addr}:\n{expected_json}").red())
+        }
     }
 
     Ok(())
