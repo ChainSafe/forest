@@ -33,6 +33,8 @@
 
 - [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for devnets.
 
+- [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for calibration network. The upgrade epoch is set to `3_007_294` (Wed 10 Sep 23:00:00 UTC 2025).
+
 ### Changed
 
 ### Removed

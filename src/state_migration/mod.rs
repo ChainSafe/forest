@@ -65,8 +65,7 @@ where
                 (Height::TukTuk, nv24::run_migration::<DB>),
                 (Height::Teep, nv25::run_migration::<DB>),
                 (Height::TockFix, nv26fix::run_migration::<DB>),
-                // TODO(forest): https://github.com/ChainSafe/forest/issues/5988
-                // (Height::GoldenWeek, nv27::run_migration::<DB>),
+                (Height::GoldenWeek, nv27::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
