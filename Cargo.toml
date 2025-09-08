@@ -11,6 +11,9 @@ exclude = [".config", ".github", ".maintain", "documentation", "scripts", "inter
 [lib]
 name = "forest"
 
+[patch.crates-io]
+fvm_ipld_hamt = { git = "https://github.com/hanabi1224/ref-fvm.git", branch = "hm/hamt-cacheless-iter-patch" }
+
 [workspace.dependencies]
 anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
