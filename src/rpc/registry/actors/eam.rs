@@ -4,6 +4,7 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
 macro_rules! register_eam_reg_version {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
@@ -24,15 +25,15 @@ macro_rules! register_eam_reg_version {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: ActorVersion) {
     match version {
-        10 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v10),
-        11 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v11),
-        12 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v12),
-        13 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v13),
-        14 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v14),
-        15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v15),
-        16 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v16),
+        ActorVersion::V10 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v10),
+        ActorVersion::V11 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v11),
+        ActorVersion::V12 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v12),
+        ActorVersion::V13 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v13),
+        ActorVersion::V14 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v14),
+        ActorVersion::V15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v15),
+        ActorVersion::V15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v16),
         _ => {}
     }
 }

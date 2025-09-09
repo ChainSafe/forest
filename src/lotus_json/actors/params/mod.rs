@@ -5,6 +5,7 @@ use super::*;
 mod account_params;
 mod cron_params;
 mod datacap_params;
+mod eam_params;
 mod evm_params;
 mod init_params;
 mod miner_params;
