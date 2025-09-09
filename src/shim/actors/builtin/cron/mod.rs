@@ -23,6 +23,7 @@ pub enum State {
     V14(fil_actor_cron_state::v14::State),
     V15(fil_actor_cron_state::v15::State),
     V16(fil_actor_cron_state::v16::State),
+    V17(fil_actor_cron_state::v17::State),
 }
 
 #[derive(Clone, Serialize, Debug)]
@@ -37,4 +38,5 @@ pub enum Entry {
     V14(fil_actor_cron_state::v14::Entry),
     V15(fil_actor_cron_state::v15::Entry),
     V16(fil_actor_cron_state::v16::Entry),
+    V17(fil_actor_cron_state::v17::Entry),
 }

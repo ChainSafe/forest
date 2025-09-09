@@ -52,7 +52,6 @@ impl<BS: Blockstore> StateMigration<BS> {
 }
 
 /// Runs the migration for `NV27`. Returns the new state root.
-#[allow(dead_code)]
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
     blockstore: &Arc<DB>,

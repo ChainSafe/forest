@@ -114,4 +114,4 @@ macro_rules! impl_evm_state_lotus_json {
     };
 }
 
-impl_evm_state_lotus_json!(V15, V14, V13, V12, V11, V10);
+impl_evm_state_lotus_json!(V17, V15, V14, V13, V12, V11, V10);

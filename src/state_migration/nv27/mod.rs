@@ -6,7 +6,6 @@ mod migration;
 
 /// Run migration for `NV27`. This should be the only exported method in this
 /// module.
-#[allow(unused_imports)]
 pub use migration::run_migration;
 
 use crate::{define_system_states, impl_system, impl_verifier};

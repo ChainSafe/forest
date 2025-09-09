@@ -77,4 +77,4 @@ macro_rules! impl_paych_state_lotus_json {
     };
 }
 
-impl_paych_state_lotus_json!(V9, V10, V11, V12, V13, V14, V15, V16);
+impl_paych_state_lotus_json!(V9, V10, V11, V12, V13, V14, V15, V16, V17);

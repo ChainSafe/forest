@@ -29,9 +29,25 @@
 
 ### Added
 
-- [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
+- [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
 
 ### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.30.0 "Eärendil"
+
+Mandatory release for calibration network node operators. It includes the NV27 _Golden Week_ network upgrade at epoch `3_007_294` which corresponds to `Wed 10 Sep 23:00:00 UTC 2025`. This release also includes a few breaking changes (removal of unused commands) and minor fixes.
+
+### Added
+
+- [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
+
+- [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for devnets.
+
+- [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for calibration network. The upgrade epoch is set to `3_007_294` (Wed 10 Sep 23:00:00 UTC 2025).
 
 ### Removed
 
@@ -40,6 +56,8 @@
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `--unordered` from `forest-cli snapshot export`.
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
+
+- [#6037](https://github.com/ChainSafe/forest/pull/6037) Removed `--track-peak-rss` from `forest` in favor of external tools like `/usr/bin/time -v`.
 
 ### Fixed
 

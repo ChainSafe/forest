@@ -28,10 +28,7 @@ use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils;
-use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::ensure_proof_params_downloaded,
-    version::FOREST_VERSION_STRING,
-};
+use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt, select};
@@ -187,16 +184,6 @@ async fn maybe_import_snapshot(
     }
 
     Ok(())
-}
-
-fn maybe_start_track_peak_rss_service(services: &mut JoinSet<anyhow::Result<()>>, opts: &CliOpts) {
-    if opts.track_peak_rss {
-        let mem_stats_tracker = MemStatsTracker::default();
-        services.spawn(async move {
-            mem_stats_tracker.run_loop().await;
-            Ok(())
-        });
-    }
 }
 
 async fn maybe_start_metrics_service(
@@ -547,7 +534,6 @@ pub(super) async fn start_services(
     on_app_context_and_db_initialized: impl Fn(&AppContext),
 ) -> anyhow::Result<()> {
     let mut services = JoinSet::new();
-    maybe_start_track_peak_rss_service(&mut services, opts);
     let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;
     info!("Using network :: {network}");
