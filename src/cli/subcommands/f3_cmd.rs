@@ -96,6 +96,7 @@ pub enum F3Commands {
     #[command(subcommand, name = "powertable", visible_alias = "pt")]
     PowerTable(F3PowerTableCommands),
     /// Checks if F3 is in sync.
+    #[group(args = ["no_progress_timeout"], requires = "wait")]
     Ready {
         /// Wait until F3 is in sync.
         #[arg(long)]
@@ -103,7 +104,7 @@ pub enum F3Commands {
         /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
         #[arg(long, default_value_t = 20)]
         threshold: usize,
-        /// Exit after F3 making no progress for this duration. It has no effect when `--wait` is not used.
+        /// Exit after F3 making no progress for this duration.
         #[arg(long, default_value = "10m")]
         no_progress_timeout: humantime::Duration,
     },
