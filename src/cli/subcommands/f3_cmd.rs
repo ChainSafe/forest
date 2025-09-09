@@ -141,6 +141,10 @@ impl F3Commands {
                 threshold,
                 no_progress_timeout,
             } => {
+                const EXIT_CODE_F3_NOT_IN_SYNC: i32 = 1;
+                const EXIT_CODE_F3_FAIL_TO_FETCH_HEAD: i32 = 2;
+                const EXIT_CODE_F3_NO_PROGRESS_TIMEOUT: i32 = 3;
+
                 let is_running = client.call(F3IsRunning::request(())?).await?;
                 if !is_running {
                     anyhow::bail!("F3 is not running");
@@ -194,7 +198,7 @@ impl F3Commands {
                                 pb.set_message(text);
                                 if !wait {
                                     pb.finish();
-                                    std::process::exit(1);
+                                    std::process::exit(EXIT_CODE_F3_NOT_IN_SYNC);
                                 }
                             }
                         }
@@ -206,7 +210,7 @@ impl F3Commands {
                             num_consecutive_fetch_failtures += 1;
                             if num_consecutive_fetch_failtures >= 3 {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
-                                std::process::exit(2);
+                                std::process::exit(EXIT_CODE_F3_FAIL_TO_FETCH_HEAD);
                             } else {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
                             }
@@ -217,7 +221,7 @@ impl F3Commands {
                         eprintln!(
                             "Warning: F3 made no progress in the past {no_progress_timeout}. Exiting..."
                         );
-                        std::process::exit(3);
+                        std::process::exit(EXIT_CODE_F3_NO_PROGRESS_TIMEOUT);
                     }
                 }
                 Ok(())
