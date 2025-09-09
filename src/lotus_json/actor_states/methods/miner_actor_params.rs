@@ -6,7 +6,6 @@ use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     econ::TokenAmount,
-    piece::PaddedPieceSize,
     sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
 use ::cid::Cid;
@@ -3696,144 +3695,6 @@ macro_rules! impl_miner_internal_sector_setup_for_preseal_params {
     };
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct PieceChangeLotusJson {
-    #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json")]
-    pub data: Cid,
-    #[schemars(with = "LotusJson<PaddedPieceSize>")]
-    #[serde(with = "crate::lotus_json")]
-    pub size: PaddedPieceSize,
-    #[schemars(with = "LotusJson<RawBytes>")]
-    #[serde(with = "crate::lotus_json")]
-    pub payload: RawBytes,
-}
-
-macro_rules! impl_lotus_json_piece_change {
-    ($($version:literal),+) => {
-        $(
-            paste! {
-                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::PieceChange {
-                    type LotusJson = PieceChangeLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            data: self.data.into(),
-                            size: self.size.into(),
-                            payload: self.payload.into(),
-                        }
-                    }
-
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            data: json.data.into(),
-                            size: json.size.into(),
-                            payload: json.payload.into(),
-                        }
-                    }
-                }
-            }
-        )+
-    };
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct SectorChangesLotusJson {
-    #[schemars(with = "LotusJson<Vec<Address>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub sector: SectorNumber,
-    #[schemars(with = "LotusJson<ChainEpoch>")]
-    #[serde(with = "crate::lotus_json")]
-    pub minimum_commitment_epoch: ChainEpoch,
-    pub added: Vec<PieceChangeLotusJson>,
-}
-
-macro_rules! impl_lotus_json_sector_changes {
-    ($($version:literal),+) => {
-        $(
-            paste! {
-                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::SectorChanges {
-                    type LotusJson = SectorChangesLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            sector: self.sector.into(),
-                            minimum_commitment_epoch: self.minimum_commitment_epoch.into(),
-                            added: self.added.into_iter()
-                                .map(|pc| pc.into_lotus_json())
-                                .collect(),
-                        }
-                    }
-
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            sector: json.sector.into(),
-                            minimum_commitment_epoch: json.minimum_commitment_epoch.into(),
-                            added: json.added.into_iter()
-                                .map(|pc| fil_actor_miner_state::[<v $version>]::PieceChange::from_lotus_json(pc),)
-                                .collect(),
-                        }
-                    }
-                }
-            }
-        )+
-    };
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct SectorContentChangedParamsLotusJson {
-    pub sectors: Vec<SectorChangesLotusJson>,
-}
-
-macro_rules! impl_lotus_json_sector_content_changed_params {
-    ($($version:literal),+) => {
-        $(
-            paste! {
-                impl HasLotusJson for fil_actor_miner_state::[<v $version>]::SectorContentChangedParams {
-                    type LotusJson = SectorContentChangedParamsLotusJson;
-
-                    #[cfg(test)]
-                    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        vec![
-                        ]
-                    }
-
-                    fn into_lotus_json(self) -> Self::LotusJson {
-                        Self::LotusJson {
-                            sectors: self.sectors.into_iter()
-                                .map(|sc| sc.into_lotus_json())
-                                .collect(),
-                        }
-                    }
-
-                    fn from_lotus_json(json: Self::LotusJson) -> Self {
-                        Self {
-                            sectors: json.sectors.into_iter()
-                                .map(|sc| fil_actor_miner_state::[<v $version>]::SectorChanges::from_lotus_json(sc),)
-                                .collect(),
-                        }
-                    }
-                }
-            }
-        )+
-    };
-}
-
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16);
@@ -3885,6 +3746,3 @@ impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
 impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
 impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16);
 impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16);
-impl_lotus_json_piece_change!(13, 14, 15, 16);
-impl_lotus_json_sector_changes!(13, 14, 15, 16);
-impl_lotus_json_sector_content_changed_params!(13, 14, 15, 16);

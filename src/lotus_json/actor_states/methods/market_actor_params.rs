@@ -12,10 +12,9 @@ use crate::test_snapshots;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 use ::cid::Cid;
-use jsonrpsee::core::Serialize;
 use paste::paste;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
