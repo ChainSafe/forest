@@ -86,8 +86,6 @@ OPTIONS:
           Exit after basic daemon initialization
       --save-token <SAVE_TOKEN>
           If provided, indicates the file to which to save the admin token
-      --track-peak-rss
-          Track peak physical memory usage and print on exit
       --no-gc
           Disable the automatic database garbage collection
       --stateless

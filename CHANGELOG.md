@@ -55,6 +55,8 @@ Mandatory release for calibration network node operators. It includes the NV27 _
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
 
+- [#6037](https://github.com/ChainSafe/forest/pull/6037) Removed `--track-peak-rss` from `forest` in favor of external tools like `/usr/bin/time -v`.
+
 ### Fixed
 
 - [#6028](https://github.com/ChainSafe/forest/pull/6028) Fixed missing `Teep` and `Tock` network upgrade entries in `Filecoin.StateGetNetworkParams` RPC method.
