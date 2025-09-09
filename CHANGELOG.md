@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
+
 ### Changed
 
 ### Removed
