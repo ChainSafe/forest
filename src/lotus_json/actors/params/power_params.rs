@@ -289,7 +289,7 @@ macro_rules! impl_lotus_json_for_power_miner_raw_power_params {
     };
 }
 
-// Implementations for MinerPowerParams (only present in the power actor v16)
+// Implementations for MinerPowerParams (only present in the power actor v16 and v17)
 impl HasLotusJson for fil_actor_power_state::v16::MinerPowerParams {
     type LotusJson = MinerPowerParamsLotusJson;
 
@@ -314,8 +314,32 @@ impl HasLotusJson for fil_actor_power_state::v16::MinerPowerParams {
     }
 }
 
-impl_lotus_json_for_power_create_miner_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_power_update_claimed_power_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_power_enroll_cron_event_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_power_update_pledge_total_params!(10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_power_miner_raw_power_params!(10, 11, 12, 13, 14, 15, 16);
+impl HasLotusJson for fil_actor_power_state::v17::MinerPowerParams {
+    type LotusJson = MinerPowerParamsLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "Miner": 1002,
+            }),
+            Self { miner: 1002 },
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        MinerPowerParamsLotusJson { miner: self.miner }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self {
+            miner: lotus_json.miner,
+        }
+    }
+}
+
+impl_lotus_json_for_power_create_miner_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_power_update_claimed_power_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_power_enroll_cron_event_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_power_update_pledge_total_params!(10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_power_miner_raw_power_params!(10, 11, 12, 13, 14, 15, 16, 17);

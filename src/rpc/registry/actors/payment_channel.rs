@@ -63,5 +63,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V16 => {
             register_payment_channel_methods!(registry, cid, fil_actor_paych_state::v16)
         }
+        ActorVersion::V17 => {
+            register_payment_channel_methods!(registry, cid, fil_actor_paych_state::v17)
+        }
     }
 }

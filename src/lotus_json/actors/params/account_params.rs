@@ -101,7 +101,7 @@ macro_rules!  impl_account_constructor_params {
     };
 }
 
-impl_account_constructor_params!(types::ConstructorParams: 15, 16);
+impl_account_constructor_params!(types::ConstructorParams: 15, 16, 17);
 impl_account_constructor_params!(ConstructorParams: 11, 12, 13, 14);
-impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16);
+impl_account_authenticate_params!(types::AuthenticateMessageParams: 15, 16, 17);
 impl_account_authenticate_params!(AuthenticateMessageParams: 9, 10, 11, 12, 13, 14);

@@ -79,4 +79,4 @@ macro_rules! impl_lotus_json_for_cron_constructor_params {
     };
 }
 
-impl_lotus_json_for_cron_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_cron_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);

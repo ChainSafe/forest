@@ -176,6 +176,6 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
     };
 }
 
-impl_lotus_json_for_init_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_init_exec_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_lotus_json_for_init_exec4_params!(10, 11, 12, 13, 14, 15, 16);
+impl_lotus_json_for_init_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_init_exec_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_init_exec4_params!(10, 11, 12, 13, 14, 15, 16, 17);

@@ -98,18 +98,42 @@ macro_rules! register_power_version_16 {
             ]
         );
 
-        // Register methods without parameters
+        // Register methods with empty params
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [(Method::NetworkRawPowerExported, empty),]
+        );
+    }};
+}
+
+macro_rules! register_power_version_17 {
+    ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        use $state_version::{
+            CreateMinerParams, EnrollCronEventParams, Method, MinerPowerParams,
+            MinerRawPowerParams, UpdateClaimedPowerParams, UpdatePledgeTotalParams,
+        };
+
+        // Register methods with parameters
         register_actor_methods!(
             $registry,
             $code_cid,
             [
-                (Method::Constructor, empty),
-                (Method::OnEpochTickEnd, empty),
-                (Method::CurrentTotalPower, empty),
-                (Method::NetworkRawPowerExported, empty),
-                (Method::MinerCountExported, empty),
-                (Method::MinerConsensusCountExported, empty),
+                (Method::CreateMiner, CreateMinerParams),
+                (Method::UpdateClaimedPower, UpdateClaimedPowerParams),
+                (Method::EnrollCronEvent, EnrollCronEventParams),
+                (Method::UpdatePledgeTotal, UpdatePledgeTotalParams),
+                (Method::CreateMinerExported, CreateMinerParams),
+                (Method::MinerRawPowerExported, MinerRawPowerParams),
+                (Method::MinerPowerExported, MinerPowerParams),
             ]
+        );
+
+        // Register methods with empty params
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [(Method::NetworkRawPowerExported, empty),]
         );
     }};
 }
@@ -145,5 +169,6 @@ pub(crate) fn register_actor_methods(
             register_power_versions_10_to_15!(registry, cid, fil_actor_power_state::v15)
         }
         ActorVersion::V16 => register_power_version_16!(registry, cid, fil_actor_power_state::v16),
+        ActorVersion::V17 => register_power_version_17!(registry, cid, fil_actor_power_state::v17),
     }
 }

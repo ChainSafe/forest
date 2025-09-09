@@ -102,5 +102,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V16 => {
             register_multisig_v9_plus!(registry, cid, fil_actor_multisig_state::v16)
         }
+        ActorVersion::V17 => {
+            register_multisig_v9_plus!(registry, cid, fil_actor_multisig_state::v17)
+        }
     }
 }

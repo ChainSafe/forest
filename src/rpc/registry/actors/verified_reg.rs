@@ -261,5 +261,8 @@ pub(crate) fn register_actor_methods(
         ActorVersion::V16 => {
             register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v16, v16)
         }
+        ActorVersion::V17 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v17, v17)
+        }
     }
 }

@@ -25,15 +25,22 @@ macro_rules! register_eam_reg_version {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: ActorVersion) {
+pub(crate) fn register_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
+        ActorVersion::V8 | ActorVersion::V9 => {
+            // EAM actor was introduced in V10, so V8 and V9 don't have EAM actors
+        }
         ActorVersion::V10 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v10),
         ActorVersion::V11 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v11),
         ActorVersion::V12 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v12),
         ActorVersion::V13 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v13),
         ActorVersion::V14 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v14),
         ActorVersion::V15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v15),
-        ActorVersion::V15 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v16),
-        _ => {}
+        ActorVersion::V16 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v16),
+        ActorVersion::V17 => register_eam_reg_version!(registry, cid, fil_actor_eam_state::v17),
     }
 }
