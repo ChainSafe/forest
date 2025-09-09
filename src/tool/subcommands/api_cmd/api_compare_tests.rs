@@ -3600,7 +3600,8 @@ fn market_actor_state_decode_params_tests(tipset: &Tipset) -> anyhow::Result<Vec
             to_vec(&market_actor_settle_deal_payments_params)?,
             tipset.key().into(),
         ))?),
-        // TODO: Create issue, Lotus *[]miner.SectorChanges is not typegen
+        // TODO(lotus): https://github.com/filecoin-project/lotus/issues/13329
+        // Lotus panics while decoding this method.
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::MARKET_ACTOR,
         //     fil_actor_market_state::v16::Method::SectorContentChangedExported as u64,
