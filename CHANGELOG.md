@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
+
 ### Changed
 
 ### Removed
@@ -54,6 +56,8 @@ Mandatory release for calibration network node operators. It includes the NV27 _
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `--unordered` from `forest-cli snapshot export`.
 
 - [#6014](https://github.com/ChainSafe/forest/pull/6014) Removed `unordered-graph-traversal` from `forest-tool benchmark`.
+
+- [#6037](https://github.com/ChainSafe/forest/pull/6037) Removed `--track-peak-rss` from `forest` in favor of external tools like `/usr/bin/time -v`.
 
 ### Fixed
 

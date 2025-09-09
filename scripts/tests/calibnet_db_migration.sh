@@ -42,10 +42,10 @@ echo "data_dir = \"${TMP_DIR}/data_dir\"" >> "${CONFIG_FILE}"
 echo 'encrypt_keystore = false' >> "${CONFIG_FILE}"
 
 # Run the current Forest with the old database. This should trigger a migration (or several ones).
-forest --chain calibnet --log-dir "$LOG_DIRECTORY" --halt-after-import --track-peak-rss --config "${CONFIG_FILE}"
+/usr/bin/time -v forest --chain calibnet --log-dir "$LOG_DIRECTORY" --halt-after-import --config "${CONFIG_FILE}"
 
 # Sync to HEAD. This might reveal migrations errors not caught above.
-forest --chain calibnet --log-dir "$LOG_DIRECTORY" --save-token ./admin_token --track-peak-rss --config "${CONFIG_FILE}" &
+/usr/bin/time -v forest --chain calibnet --log-dir "$LOG_DIRECTORY" --save-token ./admin_token --config "${CONFIG_FILE}" &
 
 forest_wait_api
 
