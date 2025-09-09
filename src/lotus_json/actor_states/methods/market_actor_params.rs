@@ -1289,7 +1289,7 @@ impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminatePa
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDataSpecLotusJson {
     #[schemars(with = "LotusJson<DealID>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(with = "crate::lotus_json")]
@@ -1308,7 +1308,7 @@ macro_rules! impl_lotus_json_for_sector_data_spec {
                         vec![
                             (
                                 serde_json::json!({
-                                    "DealIds": [1,2,3],
+                                    "DealIDs": [1,2,3],
                                     "SectorType": 1
                                 }),
                                 Self {
@@ -1360,7 +1360,7 @@ macro_rules! impl_lotus_json_for_compute_data_commitment_params {
                                 serde_json::json!({
                                     "Inputs": [
                                         {
-                                            "DealIds": [1,2,3],
+                                            "DealIDs": [1,2,3],
                                             "SectorType": 1
                                         }
                                     ]
