@@ -9,10 +9,7 @@ use std::sync::LazyLock;
 use url::Url;
 
 use crate::{
-    db::SettingsStore,
-    eth::EthChainId,
-    make_height,
-    shim::{clock::EPOCHS_IN_DAY, version::NetworkVersion},
+    db::SettingsStore, eth::EthChainId, make_height, shim::version::NetworkVersion,
     utils::net::http_get,
 };
 
@@ -46,12 +43,12 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2").unwrap()
+    Cid::from_str("bafy2bzacedmrdladdvj6ghy2ty4gqgu35vcta3brag3h7qo63sgybg4iwu6ou").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacec4thmmboc5ye5lionzlyuvd4rfncggwdzrbbvqcepdrexny5qrx2.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacedmrdladdvj6ghy2ty4gqgu35vcta3brag3h7qo63sgybg4iwu6ou.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
@@ -59,7 +56,7 @@ static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
 /// `<https://github.com/filecoin-project/lotus/commit/c6068b60c526d44270bfc5d612045f0b27322dfb>`
 static GENESIS_URL_ALT: LazyLock<Url> = LazyLock::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/c6068b60c526d44270bfc5d612045f0b27322dfb/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/8d769c51dcaa165d90c3a0b2d36b93c644db8a13/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -106,10 +103,9 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(Phoenix, i64::MIN),
         make_height!(Waffle, -26),
         make_height!(TukTuk, -27, get_bundle_cid("v15.0.0-rc1")),
-        make_height!(Teep, 100, get_bundle_cid("v16.0.1")),
-        make_height!(Tock, 100 + 2 * EPOCHS_IN_DAY),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/6022
-        make_height!(GoldenWeek, i64::MAX, get_bundle_cid("v16.0.1")),
+        make_height!(Teep, 50, get_bundle_cid("v16.0.1")),
+        make_height!(Tock, 100),
+        make_height!(GoldenWeek, 200, get_bundle_cid("v17.0.0-rc1")),
     ])
 });
 

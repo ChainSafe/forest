@@ -68,40 +68,41 @@ macro_rules! actor_state_load_impl {
 }
 
 actor_state_load_impl!(
-    Account, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Account, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Cron, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Cron, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    DataCap, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    DataCap, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    EVM, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    EVM, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Init, 0, V0, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Init, 0, V0, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17,
+    V17
 );
 actor_state_load_impl!(
-    Market, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Market, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Miner, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Miner, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Multisig, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Multisig, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Power, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Power, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    System, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    System, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Verifreg, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Verifreg, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
-    Reward, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16
+    Reward, 8, V8, 9, V9, 10, V10, 11, V11, 12, V12, 13, V13, 14, V14, 15, V15, 16, V16, 17, V17
 );
 actor_state_load_impl!(
     Paymentchannel,
@@ -120,5 +121,7 @@ actor_state_load_impl!(
     15,
     V15,
     16,
-    V16
+    V16,
+    17,
+    V17
 );

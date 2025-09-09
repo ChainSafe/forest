@@ -153,22 +153,16 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(
             Teep,
             get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(9999999999),
-            get_bundle_cid("v16.0.0-rc3")
+            get_bundle_cid("v16.0.1")
         ),
         make_height!(
             Tock,
             get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(9999999999)
         ),
         make_height!(
-            TockFix,
-            get_upgrade_height_from_env("FOREST_TOCK_FIX_HEIGHT").unwrap_or(9999999999),
-            get_bundle_cid("v16.0.1")
-        ),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/5987
-        make_height!(
             GoldenWeek,
             get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(9999999999),
-            get_bundle_cid("v16.0.1")
+            get_bundle_cid("v17.0.0-rc1")
         ),
     ])
 });
