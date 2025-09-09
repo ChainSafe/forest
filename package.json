@@ -3,14 +3,19 @@
   "private": true,
   "devDependencies": {
     "@docusaurus/tsconfig": "^3.8.1",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "spellchecker-cli": "^7.0.0"
   },
   "scripts": {
     "prettier-version": "prettier --version",
     "md-fmt": "prettier --write '**/*.md'",
     "md-check": "prettier --check '**/*.md'",
     "yaml-fmt": "prettier --write '**/*.{yml,yaml}'",
-    "yaml-check": "prettier --check '**/*.{yml,yaml}'"
+    "yaml-check": "prettier --check '**/*.{yml,yaml}'",
+    "spellcheck": "spellchecker -f '**/*.md' -l en-US -q -d ./dictionary.txt -i '^[0-9]+$' -i '^[A-Z]+$'",
+    "spellcheck:github": "spellchecker -f '.github/**/*.md' -l en-US -q -d ./dictionary.txt -i '^[0-9]+$' -i '^[A-Z]+$'",
+    "spellcheck:docs": "spellchecker -f './docs/**/*.md' -l en-US -q -d ./dictionary.txt -i '^[0-9]+$' -i '^[A-Z]+$'",
+    "spellcheck:fix": "spellchecker -f '**/*.md' -l en-US -d ./dictionary.txt -i '^[0-9]+$' -i '^[A-Z]+$'"
   },
   "packageManager": "yarn@4.9.2"
 }
