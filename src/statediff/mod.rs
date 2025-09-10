@@ -89,18 +89,17 @@ fn try_print_actor_states<BS: Blockstore>(
     let state_tree = StateTree::new_from_root(bs.clone(), root)?;
 
     state_tree.for_each(|addr: Address, actor| {
-        let calc_pp = pp_actor_state(bs, actor, depth)?;
-
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
-                let comma = ",";
+                const COMMA: &str = ",";
+                let calc_pp = pp_actor_state(bs, actor, depth)?;
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
                 let expected = expected_pp
-                    .split(comma)
+                    .split(COMMA)
                     .map(|s| s.trim_start_matches('\n'))
                     .collect::<Vec<&str>>();
                 let calculated = calc_pp
-                    .split(comma)
+                    .split(COMMA)
                     .map(|s| s.trim_start_matches('\n'))
                     .collect::<Vec<&str>>();
                 let diffs = TextDiff::from_slices(&expected, &calculated);
@@ -110,6 +109,7 @@ fn try_print_actor_states<BS: Blockstore>(
                 print_diffs(&mut handle, diffs)?;
             }
         } else {
+            let calc_pp = pp_actor_state(bs, actor, depth)?;
             // Added actor, print out the json format actor state.
             println!("{}", format!("+ Address {addr}:\n{calc_pp}").green());
         }

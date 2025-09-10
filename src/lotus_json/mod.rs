@@ -231,6 +231,7 @@ mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
+mod padded_piece_size;
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
@@ -242,6 +243,33 @@ mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
 
 pub use vec::*;
+
+#[macro_export]
+macro_rules! test_snapshots {
+    ($module:path: $ty:ident: $($version:literal),+ $(,)?) => {
+        $(
+            paste::paste! {
+                #[test]
+                fn [<snapshots_ $module _v $version _ $ty:lower>]() {
+                    use super::*;
+                    assert_all_snapshots::<$module::[<v $version>]::$ty>();
+                }
+            }
+        )+
+    };
+
+    ($module:path: $nested_path:path: $ty:ident: $($version:literal),+ $(,)?) => {
+        $(
+            paste::paste! {
+                #[test]
+                fn [<snapshots_ $module _v $version _ $ty:lower>]() {
+                    use super::*;
+                    assert_all_snapshots::<$module::[<v $version>]::$nested_path::$ty>();
+                }
+            }
+        )+
+    };
+}
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
