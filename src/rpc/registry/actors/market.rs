@@ -158,7 +158,7 @@ macro_rules! register_market_versions_12 {
     }};
 }
 
-macro_rules! register_market_versions_13_to_16 {
+macro_rules! register_market_versions_onwards {
     ($registry:expr, $code_cid:expr, $market_state_version:path) => {{
         register_market_basic_methods!($registry, $code_cid, $market_state_version);
         register_market_exported_methods_v10_onwards!($registry, $code_cid, $market_state_version);
@@ -181,10 +181,11 @@ pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, ve
         10 => register_market_versions_10_to_11!(registry, cid, fil_actor_market_state::v10),
         11 => register_market_versions_10_to_11!(registry, cid, fil_actor_market_state::v11),
         12 => register_market_versions_12!(registry, cid, fil_actor_market_state::v12),
-        13 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v13),
-        14 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v14),
-        15 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v15),
-        16 => register_market_versions_13_to_16!(registry, cid, fil_actor_market_state::v16),
+        13 => register_market_versions_onwards!(registry, cid, fil_actor_market_state::v13),
+        14 => register_market_versions_onwards!(registry, cid, fil_actor_market_state::v14),
+        15 => register_market_versions_onwards!(registry, cid, fil_actor_market_state::v15),
+        16 => register_market_versions_onwards!(registry, cid, fil_actor_market_state::v16),
+        17 => register_market_versions_onwards!(registry, cid, fil_actor_market_state::v17),
         _ => {}
     }
 }

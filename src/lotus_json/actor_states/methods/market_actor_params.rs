@@ -68,8 +68,6 @@ macro_rules! impl_lotus_json_for_add_balance_params {
     };
 }
 
-impl_lotus_json_for_add_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-
 macro_rules! impl_lotus_json_for_withdraw_balance_params {
     ($($version:literal),+) => {
         $(
@@ -109,8 +107,6 @@ macro_rules! impl_lotus_json_for_withdraw_balance_params {
         )+
     };
 }
-
-impl_lotus_json_for_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
@@ -152,8 +148,6 @@ macro_rules! impl_lotus_json_for_label {
         )+
     };
 }
-
-impl_lotus_json_for_label!(8, 9, 10, 11, 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -295,8 +289,6 @@ macro_rules! impl_lotus_json_for_deal_proposal {
     };
 }
 
-impl_lotus_json_for_deal_proposal!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ClientDealProposalV2LotusJson {
@@ -397,10 +389,6 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
         )+
     };
 }
-
-impl_lotus_json_for_client_deal_proposal!(fvm_shared2::crypto::signature: ClientDealProposalV2LotusJson: 8, 9);
-impl_lotus_json_for_client_deal_proposal!(fvm_shared3::crypto::signature: ClientDealProposalV3LotusJson: 10, 11);
-impl_lotus_json_for_client_deal_proposal!(fvm_shared4::crypto::signature: ClientDealProposalV4LotusJson: 12, 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -666,10 +654,6 @@ macro_rules! impl_publish_storage_deals_params_snapshots_v4 {
     };
 }
 
-impl_publish_storage_deals_params_snapshots_v2!(8, 9);
-impl_publish_storage_deals_params_snapshots_v3!(10, 11);
-impl_publish_storage_deals_params_snapshots_v4!(12, 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDealsLotusJson {
@@ -823,10 +807,6 @@ macro_rules! impl_lotus_json_for_sector_deals {
         )+
     };
 }
-
-impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: no_sector_number: 8);
-impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
-impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -991,10 +971,6 @@ macro_rules! impl_lotus_json_for_verify_deals_for_activation_params {
     };
 }
 
-impl_lotus_json_for_verify_deals_for_activation_params!(v8);
-impl_lotus_json_for_verify_deals_for_activation_params!(v9_to_v12: 9, 10, 11, 12);
-impl_lotus_json_for_verify_deals_for_activation_params!(v13_plus: 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActivateDealsParamsLotusJson {
@@ -1045,8 +1021,6 @@ macro_rules! impl_lotus_json_for_activate_deals_params {
         )+
     };
 }
-
-impl_lotus_json_for_activate_deals_params!(8, 9, 10, 11);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -1177,9 +1151,6 @@ macro_rules! impl_lotus_json_for_batch_activate_deals_params {
     };
 }
 
-impl_lotus_json_for_batch_activate_deals_params!(v12: 12);
-impl_lotus_json_for_batch_activate_deals_params!(v13_onwards: 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct OnMinerSectorsTerminateParamsLotusJsonV8 {
@@ -1282,9 +1253,6 @@ macro_rules! impl_lotus_json_for_on_miner_sectors_terminate_params {
     };
 }
 
-impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV8: 8, 9, 10, 11, 12);
-impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorDataSpecLotusJson {
@@ -1337,8 +1305,6 @@ macro_rules! impl_lotus_json_for_sector_data_spec {
         )+
     };
 }
-
-impl_lotus_json_for_sector_data_spec!(8, 9, 10, 11);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -1400,8 +1366,6 @@ macro_rules! impl_lotus_json_for_compute_data_commitment_params {
     };
 }
 
-impl_lotus_json_for_compute_data_commitment_params!(8, 9, 10, 11);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealQueryParamsLotusJson(
@@ -1442,8 +1406,6 @@ macro_rules! impl_lotus_json_for_deal_query_params {
     };
 }
 
-impl_lotus_json_for_deal_query_params!(10, 11, 12, 13, 14, 15, 16);
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SettleDealPaymentsParamsLotusJson(
@@ -1483,8 +1445,6 @@ macro_rules! impl_lotus_json_for_settle_deal_payments_params {
         )+
     };
 }
-
-impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16);
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -1576,32 +1536,57 @@ macro_rules! impl_lotus_json_for_sector_content_changed_params {
     };
 }
 
-impl_lotus_json_for_sector_content_changed_params!(13, 14, 15, 16);
+impl_lotus_json_for_add_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_label!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_deal_proposal!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared2::crypto::signature: ClientDealProposalV2LotusJson: 8, 9);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared3::crypto::signature: ClientDealProposalV3LotusJson: 10, 11);
+impl_lotus_json_for_client_deal_proposal!(fvm_shared4::crypto::signature: ClientDealProposalV4LotusJson: 12, 13, 14, 15, 16, 17);
+impl_publish_storage_deals_params_snapshots_v2!(8, 9);
+impl_publish_storage_deals_params_snapshots_v3!(10, 11);
+impl_publish_storage_deals_params_snapshots_v4!(12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: no_sector_number: 8);
+impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
+impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16, 17);
+impl_lotus_json_for_verify_deals_for_activation_params!(v8);
+impl_lotus_json_for_verify_deals_for_activation_params!(v9_to_v12: 9, 10, 11, 12);
+impl_lotus_json_for_verify_deals_for_activation_params!(v13_plus: 13, 14, 15, 16, 17);
+impl_lotus_json_for_activate_deals_params!(8, 9, 10, 11);
+impl_lotus_json_for_batch_activate_deals_params!(v12: 12);
+impl_lotus_json_for_batch_activate_deals_params!(v13_onwards: 13, 14, 15, 16, 17);
+impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV8: 8, 9, 10, 11, 12);
+impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16, 17);
+impl_lotus_json_for_sector_data_spec!(8, 9, 10, 11);
+impl_lotus_json_for_compute_data_commitment_params!(8, 9, 10, 11);
+impl_lotus_json_for_deal_query_params!(10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_settle_deal_payments_params!(13, 14, 15, 16, 17);
+impl_lotus_json_for_sector_content_changed_params!(13, 14, 15, 16, 17);
 
-test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: Label: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: DealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: ClientDealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: PublishStorageDealsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: SectorDeals: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: VerifyDealsForActivationParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: AddBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: Label: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: DealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: ClientDealProposal: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: PublishStorageDealsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: SectorDeals: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: VerifyDealsForActivationParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_market_state: ActivateDealsParams: 8, 9, 10, 11);
-test_snapshots!(fil_actor_market_state: BatchActivateDealsParams: 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: OnMinerSectorsTerminateParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: BatchActivateDealsParams: 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: OnMinerSectorsTerminateParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_market_state: SectorDataSpec: 8, 9, 10, 11);
 test_snapshots!(fil_actor_market_state: ComputeDataCommitmentParams: 8, 9, 10, 11);
-test_snapshots!(fil_actor_market_state: DealQueryParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: SettleDealPaymentsParams: 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealActivationParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealClientCollateralParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealClientParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealDataCommitmentParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealLabelParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealProviderCollateralParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealProviderParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealTermParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealTotalPriceParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealVerifiedParams: 10, 11, 12, 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: GetDealSectorParams: 13, 14, 15, 16);
-test_snapshots!(fil_actor_market_state: ext::miner: SectorContentChangedParams: 13, 14, 15, 16);
+test_snapshots!(fil_actor_market_state: DealQueryParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: SettleDealPaymentsParams: 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealActivationParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealClientCollateralParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealClientParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealDataCommitmentParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealLabelParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealProviderCollateralParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealProviderParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealTermParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealTotalPriceParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealVerifiedParams: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: GetDealSectorParams: 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_market_state: ext::miner: SectorContentChangedParams: 13, 14, 15, 16, 17);
