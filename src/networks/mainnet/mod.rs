@@ -91,7 +91,7 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         // the new daily fee to pre-Teep sectors being extended.
         make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
         // TODO(forest): https://github.com/ChainSafe/forest/issues/5989
-        make_height!(GoldenWeek, i64::MAX, get_bundle_cid("v16.0.1")),
+        make_height!(GoldenWeek, 5283321, get_bundle_cid("v16.0.1")),
     ])
 });
 

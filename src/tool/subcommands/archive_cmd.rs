@@ -33,6 +33,7 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
+use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
@@ -770,7 +771,6 @@ async fn show_tipset_diff(
     use colored::*;
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-
     let heaviest_tipset = Arc::new(store.heaviest_tipset()?);
     if heaviest_tipset.epoch() <= epoch {
         anyhow::bail!(
@@ -783,6 +783,8 @@ async fn show_tipset_diff(
 
     let genesis = heaviest_tipset.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+
+    load_actor_bundles(&store, &network).await?;
 
     let timestamp = genesis.timestamp;
     let chain_index = ChainIndex::new(Arc::clone(&store));
