@@ -53,9 +53,8 @@ fn register_account_version_10(registry: &mut MethodRegistry, cid: Cid) {
     register_actor_methods!(registry, cid, [(Method::PubkeyAddress, empty)]);
 }
 
-/// Macro to generate account method registration for different versions
 macro_rules! register_account_version_11_onwards {
-    // For versions that use types module (v15, v16)
+    // For versions that use types module (v15 onwards)
     ($registry:expr, $code_cid:expr, $state_version:path, with_types) => {{
         use $state_version::{Method, types};
 
