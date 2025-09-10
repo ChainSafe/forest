@@ -9,6 +9,10 @@ use_builtin = true
 tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…<>="
 extra_dictionaries = ["forest.dic", "en_US.dic"]
 
+[hunspell.paths]
+include = ["**/*.md"]
+exclude = []
+
 [hunspell.quirks]
 transform_regex = [
   # 10.7%

@@ -45,6 +45,8 @@ Mandatory release for calibration network node operators. It includes the NV27 _
 
 - [#6006](https://github.com/ChainSafe/forest/issues/6006) More strict checks for the address arguments in the `forest-cli` subcommands.
 
+- [#5958](https://github.com/ChainSafe/forest/issues/5958): Extended cargo-spellcheck coverage to include .github directory for repository-wide markdown spellchecking.
+
 - [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for devnets.
 
 - [#5897](https://github.com/ChainSafe/forest/issues/5987) Added support for the NV27 _Golden Week_ network upgrade for calibration network. The upgrade epoch is set to `3_007_294` (Wed 10 Sep 23:00:00 UTC 2025).
