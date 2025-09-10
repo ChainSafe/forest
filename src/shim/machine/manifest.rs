@@ -24,7 +24,7 @@ pub use fil_actors_shared::v11::runtime::builtins::Type as BuiltinActor;
 pub struct BuiltinActorManifest {
     builtin2cid: BTreeMap<BuiltinActor, Cid>,
     /// The CID that this manifest was built from
-    actor_list_cid: Cid,
+    pub actor_list_cid: Cid,
 }
 
 // We need to implement Serialize and Deserialize manually because `BuiltinActor` is not `Serialize` or `Deserialize`,

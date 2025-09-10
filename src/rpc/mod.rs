@@ -231,6 +231,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateMinerSectors);
         $callback!($crate::rpc::state::StateNetworkName);
         $callback!($crate::rpc::state::StateNetworkVersion);
+        $callback!($crate::rpc::state::StateActorInfo);
         $callback!($crate::rpc::state::StateReadState);
         $callback!($crate::rpc::state::StateDecodeParams);
         $callback!($crate::rpc::state::StateReplay);
