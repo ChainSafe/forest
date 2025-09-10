@@ -627,7 +627,7 @@ improvements. Be sure to check the breaking changes before upgrading.
   copying them if not applicable.
 
 - [#4768](https://github.com/ChainSafe/forest/pull/4768) Moved all RPC methods
-  to V1 when applicabile
+  to V1 when applicable
 
 ### Added
 
@@ -704,7 +704,7 @@ improvements. Be sure to check the breaking changes before upgrading.
 ### Fixed
 
 - [#4603](https://github.com/ChainSafe/forest/pull/4603) Fixed incorrect
-  deserialisation in `Filecoin.EthGetBlockByNumber` and
+  deserialization in `Filecoin.EthGetBlockByNumber` and
   `Filecoin.EthGetBlockByHash` RPC methods.
 
 - [#4610](https://github.com/ChainSafe/forest/issues/4610) Fixed incorrect
@@ -980,7 +980,7 @@ details.
 
 - [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
   `forest-tool shed private-key-from-key-pair` and
-  `forest-tool shed key-pair-from-private-key` commands. These facilate moving
+  `forest-tool shed key-pair-from-private-key` commands. These facilitate moving
   between Forest and Lotus without losing the peer-to-peer identity.
 
 - [#4052](https://github.com/ChainSafe/forest/pull/4052) Add
@@ -1768,7 +1768,7 @@ Notable updates:
   [#2404](https://github.com/ChainSafe/forest/issues/2404)
 - bitswap queries cancellation that do not respond after a period.
   [#2398](https://github.com/ChainSafe/forest/issues/2398)
-- Forest daeamon crashing on sending bitswap requests.
+- Forest daemon crashing on sending bitswap requests.
   [#2405](https://github.com/ChainSafe/forest/issues/2405)
 - Corrected counts displayed when using `forest-cli --chain <chain> sync wait`.
   [#2429](https://github.com/ChainSafe/forest/issues/2429)
@@ -1860,7 +1860,7 @@ Notable updates:
 - Fat snapshots (snapshots that contain all transaction receipts since genesis)
   have been deprecated in favor of slim snapshots where receipts are downloaded
   on demand.
-- All security advistory exceptions. Forest's dependencies are now free of known
+- All security advisory exceptions. Forest's dependencies are now free of known
   vulnerabilities.
 
 ## Forest v0.4.1 (2022-10-04)
@@ -1911,7 +1911,7 @@ Notable updates:
 - Resolve two security concerns by removing legacy code (RUSTSEC-2020-0071 and
   RUSTSEC-2021-0130).
 - Fixed Docker image and released it to GH container registry.
-- Network selection (ie mainnet vs testnet) moved to a CLI flag rather than a
+- Network selection (i.e. mainnet vs testnet) moved to a CLI flag rather than a
   compile-time flag.
 
 ## Forest v0.2.2 _alpha_ (2022-04-06)
@@ -2321,7 +2321,7 @@ All initial change sets:
   (Eric Tu)
 - `4047ff5e` 3 -> 4 ([#1153](https://github.com/ChainSafe/forest/pull/1153))
   (Eric Tu)
-- `446bea40` Swap to asyncronous_codec and bump futures_cbor_codec
+- `446bea40` Swap to asynchronous_codec and bump futures_cbor_codec
   ([#1163](https://github.com/ChainSafe/forest/pull/1163)) (Eric Tu)
 - `e4e6711b` Encrypted keystore now defaults to enabled. Warn the user if using
   an unencrypted keystore.
@@ -2756,7 +2756,7 @@ All initial change sets:
   ([#783](https://github.com/ChainSafe/forest/pull/783)) (Austin Abell)
 - `7743da7e` Fix projection period for faults
   ([#784](https://github.com/ChainSafe/forest/pull/784)) (Austin Abell)
-- `fb2ca2be` Build and Api Versoining
+- `fb2ca2be` Build and Api Versioning
   ([#752](https://github.com/ChainSafe/forest/pull/752)) (Purple Hair Rust Bard)
 - `aa397491` Fix get_sectors_for_winning_post and cleanup
   ([#781](https://github.com/ChainSafe/forest/pull/781)) (Austin Abell)
@@ -3451,7 +3451,7 @@ All initial change sets:
   ([#134](https://github.com/ChainSafe/forest/pull/134)) (Austin Abell)
 - `eace8d81` Storage Power Actor framework
   ([#129](https://github.com/ChainSafe/forest/pull/129)) (Austin Abell)
-- `ede60e7b` Naive DB + Rocksdb implemenation
+- `ede60e7b` Naive DB + Rocksdb implementation
   ([#125](https://github.com/ChainSafe/forest/pull/125)) (Gregory Markou)
 - `957d0529` Implement BlockHeader builder pattern
   ([#124](https://github.com/ChainSafe/forest/pull/124)) (Austin Abell)

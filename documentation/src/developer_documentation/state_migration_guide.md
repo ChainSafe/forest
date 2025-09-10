@@ -52,7 +52,7 @@ HeightInfo {
 The next step is to implement the migration itself. In this guide, we will take
 the `translate Go code into Rust` approach. It's not the cleanest way to do it,
 but it's the easiest. Note that the Forest state migration design is not the
-same as the Lotus one (we tend to avoid code duplications), so we must be
+same as the Lotus one (we tend to avoid code duplication), so we must be
 careful when translating the code.
 
 #### Create the migration module

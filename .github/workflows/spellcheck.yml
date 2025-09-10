@@ -2,13 +2,20 @@ name: Spellcheck
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '**/*.md'
+      - "**/*.md"
+      - "dictionary.txt"
+      - "package.json"
+      - ".github/workflows/spellcheck.yml"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '**/*.md'
+      - "**/*.md"
+      - "dictionary.txt"
+      - "package.json"
+      - ".github/workflows/spellcheck.yml"
+  workflow_dispatch:
 
 jobs:
   spellcheck:
@@ -20,8 +27,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'yarn'
+          node-version: "18"
+          cache: "yarn"
 
       - name: Install dependencies
         run: yarn install
