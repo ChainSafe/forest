@@ -15,16 +15,17 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
     };
 
     const ACCOUNT_ADDRESS: Address = Address::new_id(1234);
+    use fil_actor_account_state::v16::Method;
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
             ACCOUNT_ADDRESS,
-            1,
+            Method::Constructor as u64,
             to_vec(&account_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             ACCOUNT_ADDRESS,
-            2643134072, // frc42_dispatch::method_hash!("AuthenticateMessage"),
+            Method::AuthenticateMessageExported as u64,
             to_vec(&account_auth_params)?,
             tipset.key().into(),
         ))?),

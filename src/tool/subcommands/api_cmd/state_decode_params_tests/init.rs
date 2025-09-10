@@ -20,22 +20,23 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
         constructor_params: fvm_ipld_encoding::RawBytes::new(vec![0x12, 0x34, 0x56]), // dummy bytecode
     };
 
+    use fil_actor_init_state::v16::Method;
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
             Address::INIT_ACTOR,
-            1,
+            Method::Constructor as u64,
             to_vec(&init_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::INIT_ACTOR,
-            2,
+            Method::Exec as u64,
             to_vec(&init_exec_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::INIT_ACTOR,
-            3,
+            Method::Exec4 as u64,
             to_vec(&init_exec4_params)?,
             tipset.key().into(),
         ))?),

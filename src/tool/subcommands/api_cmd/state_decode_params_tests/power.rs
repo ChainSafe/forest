@@ -9,7 +9,7 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
     let power_create_miner_params = fil_actor_power_state::v16::CreateMinerParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
-        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
+        window_post_proof_type: fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow32GiBV1P1,
         peer: b"miner".to_vec(),
         multiaddrs: Default::default(),
     };

@@ -39,13 +39,13 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
         RpcTest::identity(StateDecodeParams::request((
             paych_address,
             fil_actor_paych_state::v16::Method::Constructor as u64,
-            to_vec(&constructor_params).unwrap(),
+            to_vec(&constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
             paych_address,
             fil_actor_paych_state::v16::Method::UpdateChannelState as u64,
-            to_vec(&update_channel_state).unwrap(),
+            to_vec(&update_channel_state)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
