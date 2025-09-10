@@ -1,11 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! State decode params tests for various actors.
-//!
-//! This module contains test functions for verifying StateDecodeParams API functionality
-//! across different actor types in the Filecoin network.
-
 use crate::blocks::Tipset;
 use crate::rpc::RpcMethodExt;
 use crate::rpc::prelude::StateDecodeParams;
@@ -16,7 +11,6 @@ use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
 
-// Module declarations for each actor
 mod account;
 mod cron;
 mod datacap;
