@@ -8,11 +8,10 @@ use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, bail};
 use cid::Cid;
-use fil_actors_shared::actor_versions::ActorVersion;
+use fil_actors_shared::v11::runtime::builtins::Type;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::LazyLock;
-use fil_actors_shared::v11::runtime::builtins::Type;
 
 // Global registry for method parameter deserialization
 static METHOD_REGISTRY: LazyLock<MethodRegistry> =
@@ -157,6 +156,7 @@ mod test {
     use super::*;
     use crate::lotus_json::HasLotusJson;
     use crate::utils::multihash::MultihashCode;
+    use fil_actors_shared::actor_versions::ActorVersion;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
     use multihash_derive::MultihashDigest;
     use serde::{Deserialize, Serialize};
