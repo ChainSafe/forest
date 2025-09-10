@@ -29,8 +29,7 @@
 
 ### Added
 
-- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
-
+- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` to display built-in actor code CIDs for the heaviest tipset (current head), including the manifest and bundle CIDs. Supports `--format text|json`.
 - [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
 
 
