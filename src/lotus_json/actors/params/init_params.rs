@@ -140,11 +140,11 @@ macro_rules! impl_lotus_json_for_init_exec4_params {
                         vec![
                             (
                                 json!({
-                                    "CodeCid": {
+                                    "CodeCID": {
                                         "/": "baeaaaaa"
                                     },
                                     "ConstructorParams": "ESIzRFU=",
-                                    "Subaddress": "ESIzRFU=",
+                                    "SubAddress": "ESIzRFU=",
                                 }),
                                 Self {
                                     code_cid: Cid::default(),

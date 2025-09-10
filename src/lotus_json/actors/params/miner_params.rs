@@ -2518,7 +2518,7 @@ macro_rules! impl_lotus_json_for_miner_apply_reward_params {
     };
 }
 
-macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_above {
+macro_rules! impl_lotus_json_for_miner_prove_commit_aggregate_params_v9_to_v16 {
     ($($version:literal),+) => {
         $(
         paste! {
@@ -3725,9 +3725,7 @@ impl_lotus_json_for_miner_prove_replica_updates3_params!(13, 14, 15, 16, 17);
 impl_lotus_json_for_miner_report_consensus_fault_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 impl_lotus_json_for_miner_check_sector_proven_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 impl_lotus_json_for_miner_apply_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-impl_lotus_json_for_miner_prove_commit_aggregate_params_v13_and_above!(
-    9, 10, 11, 12, 13, 14, 15, 16
-);
+impl_lotus_json_for_miner_prove_commit_aggregate_params_v9_to_v16!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared2: 8, 9);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared3: 10, 11);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared4: 12, 13, 14, 15, 16);

@@ -27,11 +27,11 @@ impl ActorRegistry {
     fn new() -> Self {
         let mut map = HashMap::new();
         for ((_, _), metadata) in ACTOR_BUNDLES_METADATA.iter() {
-            if let Ok(version_u64) = metadata.actor_major_version() {
-                if let Some(version) = ActorVersion::from_repr(version_u64 as u8) {
-                    for (actor_type, cid) in metadata.manifest.builtin_actors() {
-                        map.insert(cid, (actor_type, version));
-                    }
+            if let Ok(version_u64) = metadata.actor_major_version()
+                && let Some(version) = ActorVersion::from_repr(version_u64 as u8)
+            {
+                for (actor_type, cid) in metadata.manifest.builtin_actors() {
+                    map.insert(cid, (actor_type, version));
                 }
             }
         }
