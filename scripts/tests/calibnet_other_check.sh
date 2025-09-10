@@ -59,6 +59,14 @@ $FOREST_CLI_PATH healthcheck healthy --wait
 echo "Test subcommand: healthcheck ready"
 $FOREST_CLI_PATH healthcheck ready --wait
 
+echo "Test subcommand: state actor-cids"
+bundle_cid=$($FOREST_CLI_PATH state actor-cids --format json | jq -r '.Bundle["/"]')
+manifest_path="./build/manifest.json"
+if ! grep -q "$bundle_cid" "$manifest_path"; then
+  echo "Bundle CID $bundle_cid not found in $manifest_path"
+  exit 1
+fi
+
 echo "Regression testing mempool select"
 gem install http --user-install
 $FOREST_CLI_PATH chain head --format json -n 1000 | scripts/mpool_select_killer.rb
