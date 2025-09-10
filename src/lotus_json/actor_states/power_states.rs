@@ -100,7 +100,7 @@ macro_rules! common_power_state_fields {
     }};
 }
 
-macro_rules! v15_to_v16_power_state_fields {
+macro_rules! v15_to_v17_power_state_fields {
     ($state:expr) => {{
         PowerStateLotusJson {
             ramp_start_epoch: Some($state.ramp_start_epoch),
@@ -169,5 +169,5 @@ macro_rules! implement_state_versions {
 
 implement_state_versions! {
     v8_to_v14_power_state_fields for [V8, V9, V10, V11, V12, V13, V14];
-    v15_to_v16_power_state_fields for [V15, V16];
+    v15_to_v17_power_state_fields for [V15, V16, V17];
 }

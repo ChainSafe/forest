@@ -4,7 +4,11 @@
 #[cfg(test)]
 mod tests;
 
-use std::{borrow::Cow, sync::LazyLock, time::Duration};
+use std::{
+    borrow::Cow,
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
 
 use crate::{
     blocks::{Tipset, TipsetKey},
@@ -99,6 +103,9 @@ pub enum F3Commands {
         /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
         #[arg(long, default_value_t = 20)]
         threshold: usize,
+        /// Exit after F3 making no progress for this duration.
+        #[arg(long, default_value = "10m", requires = "wait")]
+        no_progress_timeout: humantime::Duration,
     },
 }
 
@@ -128,7 +135,15 @@ impl F3Commands {
             }
             Self::Certs(cmd) => cmd.run(client).await,
             Self::PowerTable(cmd) => cmd.run(client).await,
-            Self::Ready { wait, threshold } => {
+            Self::Ready {
+                wait,
+                threshold,
+                no_progress_timeout,
+            } => {
+                const EXIT_CODE_F3_NOT_IN_SYNC: i32 = 1;
+                const EXIT_CODE_F3_FAIL_TO_FETCH_HEAD: i32 = 2;
+                const EXIT_CODE_F3_NO_PROGRESS_TIMEOUT: i32 = 3;
+
                 let is_running = client.call(F3IsRunning::request(())?).await?;
                 if !is_running {
                     anyhow::bail!("F3 is not running");
@@ -148,16 +163,21 @@ impl F3Commands {
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 let mut num_consecutive_fetch_failtures = 0;
+                let no_progress_timeout_duration: Duration = no_progress_timeout.into();
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
+                let mut last_f3_head_epoch = 0;
+                let mut last_progress = Instant::now();
                 loop {
                     interval.tick().await;
                     match get_heads(&client).await {
                         Ok((chain_head, cert_head)) => {
                             num_consecutive_fetch_failtures = 0;
-                            if cert_head
-                                .chain_head()
-                                .epoch
-                                .saturating_add(threshold.try_into()?)
+                            let f3_head_epoch = cert_head.chain_head().epoch;
+                            if f3_head_epoch != last_f3_head_epoch {
+                                last_f3_head_epoch = f3_head_epoch;
+                                last_progress = Instant::now();
+                            }
+                            if f3_head_epoch.saturating_add(threshold.try_into()?)
                                 >= chain_head.epoch()
                             {
                                 let text = format!(
@@ -177,7 +197,7 @@ impl F3Commands {
                                 pb.set_message(text);
                                 if !wait {
                                     pb.finish();
-                                    std::process::exit(1);
+                                    std::process::exit(EXIT_CODE_F3_NOT_IN_SYNC);
                                 }
                             }
                         }
@@ -189,11 +209,18 @@ impl F3Commands {
                             num_consecutive_fetch_failtures += 1;
                             if num_consecutive_fetch_failtures >= 3 {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
-                                std::process::exit(2);
+                                std::process::exit(EXIT_CODE_F3_FAIL_TO_FETCH_HEAD);
                             } else {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
                             }
                         }
+                    }
+
+                    if last_progress + no_progress_timeout_duration < Instant::now() {
+                        eprintln!(
+                            "Warning: F3 made no progress in the past {no_progress_timeout}. Exiting..."
+                        );
+                        std::process::exit(EXIT_CODE_F3_NO_PROGRESS_TIMEOUT);
                     }
                 }
                 Ok(())

@@ -231,7 +231,11 @@ fn reveal_butterfly_logo() {
     );
 }
 
-/// Reveals the `Golden Week` upgrade logo. Placeholder for now.
+/// Reveals the `Golden Week` upgrade logo.
 fn reveal_golden_week_upgrade() {
-    unimplemented!()
+    info!(
+        r###"
+    黄金周!
+        "###
+    );
 }

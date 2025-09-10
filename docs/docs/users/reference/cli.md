@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.29.0
+forest-filecoin 0.30.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.29.0
+forest-filecoin 0.30.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.29.0
+forest-filecoin 0.30.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1005,15 +1005,20 @@ Checks if F3 is in sync
 Usage: forest-cli f3 ready [OPTIONS]
 
 Options:
-      --wait                   Wait until F3 is in sync
-      --threshold <THRESHOLD>  The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
-  -h, --help                   Print help
+      --wait
+          Wait until F3 is in sync
+      --threshold <THRESHOLD>
+          The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
+      --no-progress-timeout <NO_PROGRESS_TIMEOUT>
+          Exit after F3 making no progress for this duration [default: 10m]
+  -h, --help
+          Print help
 ```
 
 ## `forest-tool`
 
 ```
-forest-filecoin 0.29.0
+forest-filecoin 0.30.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

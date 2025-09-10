@@ -97,21 +97,15 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "ambassador"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b27ba24e4d8a188489d5a03c7fabc167a60809a383cdb4d15feb37479cd2a48"
+checksum = "e68de4cdc6006162265d0957edb4a860fe4e711b1dc17a5746fd95f952f08285"
 dependencies = [
  "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
 ]
-
-[[package]]
-name = "android-tzdata"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e999941b234f3131b00bc13c22d06e8c5ff726d1b6318ac7eb276997bbb4fef0"
 
 [[package]]
 name = "android_system_properties"
@@ -361,7 +355,7 @@ dependencies = [
  "futures-lite",
  "parking",
  "polling",
- "rustix 1.0.8",
+ "rustix 1.1.1",
  "slab",
  "windows-sys 0.60.2",
 ]
@@ -1072,7 +1066,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eadd868a2ce9ca38de7eeafdcec9c7065ef89b42b32f0839278d55f35c54d1ff"
 dependencies = [
  "heck 0.4.1",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "log",
  "proc-macro2",
  "quote",
@@ -1094,9 +1088,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.35"
+version = "1.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590f9024a68a8c40351881787f1934dc11afd69090f5edb6831464694d836ea3"
+checksum = "5252b3d2648e5eedbc1a6f501e3c795e07025c1e93bbf8bbdd6eef7f447a6d54"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1169,15 +1163,14 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.41"
+version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
+checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
 dependencies = [
- "android-tzdata",
  "iana-time-zone",
  "num-traits",
  "serde",
- "windows-link 0.1.3",
+ "windows-link 0.2.0",
 ]
 
 [[package]]
@@ -1400,15 +1393,15 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e09ced7ebbccb63b4c65413d821f2e00ce54c5ca4514ddc6b3c892fdbcbc69d"
+checksum = "b430743a6eb14e9764d4260d4c0d8123087d504eeb9c48f2b2a5e810dd369df4"
 dependencies = [
  "encode_unicode",
  "libc",
  "once_cell",
  "unicode-width 0.2.1",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -2147,7 +2140,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25f104b501bf2364e78d0d3974cbc774f738f5865306ed128e1e0d7499c0ad96"
 dependencies = [
- "console 0.16.0",
+ "console 0.16.1",
  "shell-words",
  "tempfile",
  "zeroize",
@@ -2444,12 +2437,12 @@ dependencies = [
 
 [[package]]
 name = "errno"
-version = "0.3.13"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
+checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -2617,8 +2610,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_account_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "frc42_dispatch",
  "frc42_macros",
@@ -2633,8 +2626,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.11.2",
@@ -2647,8 +2640,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2667,8 +2660,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_eam_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
@@ -2681,8 +2674,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_ethaccount_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 3.13.2",
@@ -2694,8 +2687,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2714,8 +2707,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2733,8 +2726,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2760,8 +2753,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "bitflags 2.9.4",
@@ -2790,8 +2783,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2804,7 +2797,7 @@ dependencies = [
  "fvm_shared 2.11.2",
  "fvm_shared 3.13.2",
  "fvm_shared 4.7.3",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "integer-encoding",
  "num-derive",
  "num-traits",
@@ -2813,8 +2806,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_paych_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2831,8 +2824,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2854,8 +2847,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -2870,8 +2863,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2887,8 +2880,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2908,8 +2901,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "23.0.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#39f39825d70d533f8a51d96ec00899816dbf12ce"
+version = "24.1.2"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=hm%2Fcacheless-hamt#e583f09b77d7431567c5c6ff87395c7b86f45d19"
 dependencies = [
  "anyhow",
  "cid",
@@ -2938,6 +2931,7 @@ dependencies = [
  "strum",
  "thiserror 2.0.16",
  "unsigned-varint 0.8.0",
+ "walkdir",
 ]
 
 [[package]]
@@ -3024,9 +3018,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e178e4fba8a2726903f6ba98a6d221e76f9c12c650d5dc0e6afdc50677b49650"
+checksum = "7fd99930f64d146689264c637b5af2f0233a933bef0d8570e2526bf9e083192d"
 
 [[package]]
 name = "fixed-hash"
@@ -3106,7 +3100,7 @@ checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.29.0"
+version = "0.30.0"
 dependencies = [
  "ahash",
  "anes 0.2.1",
@@ -3199,7 +3193,7 @@ dependencies = [
  "human-repr",
  "human_bytes",
  "humantime",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "indicatif",
  "insta",
  "integer-encoding",
@@ -3957,7 +3951,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc257fdb4038301ce4b9cd1b3b51704509692bb3ff716a410cbd07925d9dae55"
 dependencies = [
- "rustix 1.0.8",
+ "rustix 1.1.1",
  "windows-targets 0.52.6",
 ]
 
@@ -3984,7 +3978,7 @@ dependencies = [
  "js-sys",
  "libc",
  "r-efi",
- "wasi 0.14.3+wasi-0.2.4",
+ "wasi 0.14.4+wasi-0.2.4",
  "wasm-bindgen",
 ]
 
@@ -4005,7 +3999,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 dependencies = [
  "fallible-iterator",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "stable_deref_trait",
 ]
 
@@ -4096,7 +4090,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "slab",
  "tokio",
  "tokio-util",
@@ -4702,9 +4696,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.11.0"
+version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2481980430f9f78649238835720ddccc57e52df14ffce1c6f37391d61b563e9"
+checksum = "206a8042aec68fa4a62e8d3f7aa4ceb508177d9324faf261e1959e495b7a1921"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.5",
@@ -4717,7 +4711,7 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70a646d946d06bedbbc4cac4c218acf4bbf2d87757a784857025f4d447e4e1cd"
 dependencies = [
- "console 0.16.0",
+ "console 0.16.1",
  "portable-atomic",
  "tokio",
  "unicode-width 0.2.1",
@@ -5773,6 +5767,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
+name = "linux-raw-sys"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
+
+[[package]]
 name = "litemap"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5936,7 +5936,7 @@ version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad38eb12aea514a0466ea40a80fd8cc83637065948eb4a426e4aa46261175227"
 dependencies = [
- "rustix 1.0.8",
+ "rustix 1.1.1",
 ]
 
 [[package]]
@@ -6458,7 +6458,7 @@ checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "crc32fast",
  "hashbrown 0.15.5",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "memchr",
 ]
 
@@ -6705,7 +6705,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59ac35caa284c08f3721fb33c2741b5f763decaf42d080c8a6a722154347017e"
 dependencies = [
  "deprecate-until",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "integer-sqrt",
  "num-traits",
  "rustc-hash 2.1.1",
@@ -6788,7 +6788,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset 0.4.2",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
 ]
 
 [[package]]
@@ -6799,7 +6799,7 @@ checksum = "54acf3a685220b533e437e264e4d932cfbdc4cc7ec0cd232ed73c08d03b8a7ca"
 dependencies = [
  "fixedbitset 0.5.7",
  "hashbrown 0.15.5",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "serde",
 ]
 
@@ -6900,7 +6900,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi",
  "pin-project-lite",
- "rustix 1.0.8",
+ "rustix 1.1.1",
  "windows-sys 0.60.2",
 ]
 
@@ -7878,15 +7878,16 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.8"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
+checksum = "9621e389a110cae094269936383d69b869492f03e5c1ed2d575a53c029d4441d"
 dependencies = [
  "bitflags 2.9.4",
  "errno",
  "libc",
+ "linux-raw-sys 0.11.0",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -8025,11 +8026,11 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
+checksum = "891d81b926048e76efe18581bf793546b4c0eaf8448d72be8de2bbee5fd166e1"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -8105,9 +8106,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80fb1d92c5028aa318b4b8bd7302a5bfcf48be96a37fc6fc790f806b0004ee0c"
+checksum = "60b369d18893388b345804dc0007963c99b7d665ae71d275812d828c6f089640"
 dependencies = [
  "bitflags 2.9.4",
  "core-foundation 0.10.1",
@@ -8118,9 +8119,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.14.0"
+version = "2.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49db231d56a190491cb4aeda9527f1ad45345af50b0851622a7adb8c03b01c32"
+checksum = "cc1f0cbffaac4852523ce30d8bd3c5cdc873501d96ff467ca09b6767bb8cd5c0"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -8293,7 +8294,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "schemars 0.9.0",
  "schemars 1.0.4",
  "serde",
@@ -8321,7 +8322,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "itoa",
  "ryu",
  "serde",
@@ -8464,9 +8465,9 @@ dependencies = [
 
 [[package]]
 name = "simba"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3a386a501cd104797982c15ae17aafe8b9261315b5d07e3ec803f2ea26be0fa"
+checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
 dependencies = [
  "approx",
  "num-complex",
@@ -8966,7 +8967,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.3",
  "once_cell",
- "rustix 1.0.8",
+ "rustix 1.1.1",
  "windows-sys 0.60.2",
 ]
 
@@ -9313,7 +9314,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -9324,7 +9325,7 @@ version = "0.22.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -9848,9 +9849,9 @@ checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasi"
-version = "0.14.3+wasi-0.2.4"
+version = "0.14.4+wasi-0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a51ae83037bdd272a9e28ce236db8c07016dd0d50c27038b3f407533c030c95"
+checksum = "88a5f4a424faf49c3c2c344f166f0662341d470ea185e939657aaff130f0ec4a"
 dependencies = [
  "wit-bindgen",
 ]
@@ -9976,7 +9977,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dbe55c8f9d0dbd25d9447a5a889ff90c0cc3feaa7395310d3d826b2c703eaab"
 dependencies = [
  "bitflags 2.9.4",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "semver",
 ]
 
@@ -9988,7 +9989,7 @@ checksum = "bc28600dcb2ba68d7e5f1c3ba4195c2bddc918c0243fd702d0b6dbd05689b681"
 dependencies = [
  "bitflags 2.9.4",
  "hashbrown 0.15.5",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "semver",
  "serde",
 ]
@@ -10027,7 +10028,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "hashbrown 0.15.5",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "libc",
  "log",
  "mach2",
@@ -10102,7 +10103,7 @@ dependencies = [
  "cranelift-bitset",
  "cranelift-entity",
  "gimli",
- "indexmap 2.11.0",
+ "indexmap 2.11.1",
  "log",
  "object",
  "postcard",
@@ -10249,11 +10250,11 @@ checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 
 [[package]]
 name = "winapi-util"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0978bf7171b3d90bac376700cb56d606feb40f251a475a5d6634613564460b22"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
@@ -10735,9 +10736,9 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen"
-version = "0.45.0"
+version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "052283831dbae3d879dc7f51f3d92703a316ca49f91540417d38591826127814"
+checksum = "5c573471f125075647d03df72e026074b7203790d41351cd6edc96f46bcccd36"
 
 [[package]]
 name = "writeable"
@@ -10790,7 +10791,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af3a19837351dc82ba89f8a125e22a3c475f05aba604acc023d62b2739ae2909"
 dependencies = [
  "libc",
- "rustix 1.0.8",
+ "rustix 1.1.1",
 ]
 
 [[package]]
@@ -10890,18 +10891,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1039dd0d3c310cf05de012d8a39ff557cb0d23087fd44cad61df08fc31907a2f"
+checksum = "0894878a5fa3edfd6da3f88c4805f4c8558e2b996227a3d864f47fe11e38282c"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ecf5b4cc5364572d7f4c329661bcc82724222973f2cab6f050a4e5c22f75181"
+checksum = "88d2b8d9c68ad2b9e4340d7832716a4d21a22a1154777ad56ea55c51a9cf3831"
 dependencies = [
  "proc-macro2",
  "quote",
