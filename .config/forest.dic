@@ -33,7 +33,6 @@ async
 Async
 async-std
 async_std
-Asyncronous_codec
 asyncverification
 asynchronous_codec
 attoFIL
@@ -132,7 +131,7 @@ codecov
 CodeID
 codeowners
 commcid
-computating
+computing
 Config
 config
 configs
@@ -149,7 +148,6 @@ ctrl
 ctrl-c
 daemon
 daemonize
-daeamon
 DAGJson
 DagCBOR
 Dagny

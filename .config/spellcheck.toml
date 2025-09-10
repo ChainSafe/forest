@@ -10,7 +10,7 @@ tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…<>="
 extra_dictionaries = ["forest.dic", "en_US.dic"]
 
 [hunspell.paths]
-include = ["**/*.md"]
+include = ["**/*.md", ".github/**/*.md"]
 exclude = []
 
 [hunspell.quirks]
