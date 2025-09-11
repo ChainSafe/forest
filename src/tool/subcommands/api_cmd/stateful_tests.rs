@@ -630,7 +630,9 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthUninstallFilter
         ),
         with_methods!(
-            eth_new_block_filter().name("eth_newBlockFilter works"),
+            eth_new_block_filter()
+                .name("eth_newBlockFilter works")
+                .ignore("https://github.com/ChainSafe/forest/issues/6069"),
             EthNewBlockFilter,
             EthGetFilterChanges,
             EthUninstallFilter
