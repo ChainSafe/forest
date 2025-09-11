@@ -199,6 +199,7 @@ enums
 EOF
 Etaoin
 Etaoin/M
+eth
 Eth
 EthCallMessage
 Ethereum
@@ -674,3 +675,8 @@ yml
 YugabyteDB
 Ziegelmayer
 zstd
+CurrentEpoch
+RLP
+Grafana
+UI
+MDX
