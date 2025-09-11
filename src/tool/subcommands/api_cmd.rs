@@ -75,6 +75,9 @@ pub enum ApiCommands {
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
         height: i64,
+        /// Backfill index for the given EPOCH(s)
+        #[arg(long, default_value_t = 0)]
+        index_backfill_epochs: usize,
         /// Genesis file path, only applicable for devnet
         #[arg(long)]
         genesis: Option<PathBuf>,
@@ -260,6 +263,7 @@ impl ApiCommands {
                 port,
                 auto_download_snapshot,
                 height,
+                index_backfill_epochs,
                 genesis,
                 save_token,
             } => {
@@ -277,6 +281,7 @@ impl ApiCommands {
                     port,
                     auto_download_snapshot,
                     height,
+                    index_backfill_epochs,
                     genesis,
                     save_token,
                 )
