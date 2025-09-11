@@ -12,8 +12,7 @@ use crate::{define_system_states, impl_system, impl_verifier};
 
 define_system_states!(
     fil_actor_system_state::v16::State,
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/5985
-    fil_actor_system_state::v16::State
+    fil_actor_system_state::v17::State
 );
 
 impl_system!();

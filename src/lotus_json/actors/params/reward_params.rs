@@ -173,8 +173,8 @@ macro_rules! impl_update_network_kpi_params {
     };
 }
 
-impl_reward_constructor_params!(fvm_shared4::bigint: 16, 15, 14, 13, 12);
+impl_reward_constructor_params!(fvm_shared4::bigint: 17, 16, 15, 14, 13, 12);
 impl_reward_constructor_params!(fvm_shared3::bigint: 11);
-impl_award_block_reward_params!(16, 15, 14, 13, 12, 11, 10, 9, 8);
-impl_update_network_kpi_params!(fvm_shared4::bigint: 16, 15, 14, 13, 12);
+impl_award_block_reward_params!(17, 16, 15, 14, 13, 12, 11, 10, 9, 8);
+impl_update_network_kpi_params!(fvm_shared4::bigint: 17, 16, 15, 14, 13, 12);
 impl_update_network_kpi_params!(fvm_shared3::bigint: 11);

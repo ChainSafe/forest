@@ -4,9 +4,10 @@
 use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 
-// Macro for versions 8-10 that only have Exec method
-macro_rules! register_init_versions_8_to_10 {
+// Macro for versions 8-9 that only have Exec method
+macro_rules! register_init_versions_8_to_9 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{ConstructorParams, ExecParams, Method};
 
@@ -21,8 +22,8 @@ macro_rules! register_init_versions_8_to_10 {
     }};
 }
 
-// Macro for versions 11-16 that have Exec4
-macro_rules! register_init_versions_11_to_16 {
+// Macro for versions 10 onwards that have Exec4
+macro_rules! register_init_versions_10_onwards {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{ConstructorParams, Exec4Params, ExecParams, Method};
 
@@ -38,17 +39,41 @@ macro_rules! register_init_versions_11_to_16 {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
-        8 => register_init_versions_8_to_10!(registry, cid, fil_actor_init_state::v8),
-        9 => register_init_versions_8_to_10!(registry, cid, fil_actor_init_state::v9),
-        10 => register_init_versions_8_to_10!(registry, cid, fil_actor_init_state::v10),
-        11 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v11),
-        12 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v12),
-        13 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v13),
-        14 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v14),
-        15 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v15),
-        16 => register_init_versions_11_to_16!(registry, cid, fil_actor_init_state::v16),
-        _ => {}
+        ActorVersion::V8 => {
+            register_init_versions_8_to_9!(registry, cid, fil_actor_init_state::v8)
+        }
+        ActorVersion::V9 => {
+            register_init_versions_8_to_9!(registry, cid, fil_actor_init_state::v9)
+        }
+        ActorVersion::V10 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v10)
+        }
+        ActorVersion::V11 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v11)
+        }
+        ActorVersion::V12 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v12)
+        }
+        ActorVersion::V13 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v13)
+        }
+        ActorVersion::V14 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v14)
+        }
+        ActorVersion::V15 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v15)
+        }
+        ActorVersion::V16 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v16)
+        }
+        ActorVersion::V17 => {
+            register_init_versions_10_onwards!(registry, cid, fil_actor_init_state::v17)
+        }
     }
 }

@@ -5,6 +5,7 @@ use crate::rpc::registry::methods_reg::{MethodRegistry, register_actor_methods};
 use crate::shim::address::Address;
 use crate::shim::message::MethodNum;
 use cid::Cid;
+use fil_actors_shared::actor_versions::ActorVersion;
 use paste::paste;
 
 // Core methods present in all versions
@@ -235,17 +236,33 @@ macro_rules! register_verified_reg_v12_plus {
     }};
 }
 
-pub(crate) fn register_actor_methods(registry: &mut MethodRegistry, cid: Cid, version: u64) {
+pub(crate) fn register_actor_methods(
+    registry: &mut MethodRegistry,
+    cid: Cid,
+    version: ActorVersion,
+) {
     match version {
-        8 => register_verified_reg_v8(registry, cid),
-        9 => register_verified_reg_v9(registry, cid),
-        10 => register_verified_reg_v10(registry, cid),
-        11 => register_verified_reg_v11(registry, cid),
-        12 => register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v12, v12),
-        13 => register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v13, v13),
-        14 => register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v14, v14),
-        15 => register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v15, v15),
-        16 => register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v16, v16),
-        _ => {}
+        ActorVersion::V8 => register_verified_reg_v8(registry, cid),
+        ActorVersion::V9 => register_verified_reg_v9(registry, cid),
+        ActorVersion::V10 => register_verified_reg_v10(registry, cid),
+        ActorVersion::V11 => register_verified_reg_v11(registry, cid),
+        ActorVersion::V12 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v12, v12)
+        }
+        ActorVersion::V13 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v13, v13)
+        }
+        ActorVersion::V14 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v14, v14)
+        }
+        ActorVersion::V15 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v15, v15)
+        }
+        ActorVersion::V16 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v16, v16)
+        }
+        ActorVersion::V17 => {
+            register_verified_reg_v12_plus!(registry, cid, fil_actor_verifreg_state::v17, v17)
+        }
     }
 }
