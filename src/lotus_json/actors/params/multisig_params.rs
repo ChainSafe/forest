@@ -457,11 +457,11 @@ macro_rules! impl_multisig_lock_balance_params {
     };
 }
 
-impl_multisig_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_propose_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_txn_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_add_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_remove_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_swap_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_change_num_approvals_threshold_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
-impl_multisig_lock_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_multisig_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_propose_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_txn_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_add_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_remove_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_swap_signer_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_change_num_approvals_threshold_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_multisig_lock_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);

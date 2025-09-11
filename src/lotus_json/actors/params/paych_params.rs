@@ -540,7 +540,7 @@ macro_rules! impl_paych_update_channel_state_params_v4 {
 }
 
 // Apply implementations with correct fvm_shared versions
-impl_paych_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_paych_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 impl_paych_update_channel_state_params_v2!(8, 9);
 impl_paych_update_channel_state_params_v3!(10, 11);
-impl_paych_update_channel_state_params_v4!(12, 13, 14, 15, 16);
+impl_paych_update_channel_state_params_v4!(12, 13, 14, 15, 16, 17);
