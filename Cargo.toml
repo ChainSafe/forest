@@ -54,7 +54,6 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
-convert_case = "0.8"
 crypto_secretbox = "0.1"
 data-encoding = "2"
 data-encoding-macro = "0.1"

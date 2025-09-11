@@ -12,42 +12,24 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
-const DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
-
 struct TipsetStateCacheInner<V: LruValueConstraints> {
     values: SizeTrackingLruCache<TipsetKey, V>,
     pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
-impl<V: LruValueConstraints> Default for TipsetStateCacheInner<V> {
-    fn default() -> Self {
-        Self {
-            values: SizeTrackingLruCache::new_with_default_metrics_registry(
-                Self::cache_name().into(),
-                DEFAULT_TIPSET_CACHE_SIZE,
-            ),
-            pending: Vec::with_capacity(8),
-        }
-    }
-}
-
 impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
-    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+    pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
         Self {
             values: SizeTrackingLruCache::new_with_default_metrics_registry(
-                Self::cache_name().into(),
+                Self::cache_name(cache_identifier).into(),
                 cache_size,
             ),
             pending: Vec::with_capacity(8),
         }
     }
 
-    fn cache_name() -> String {
-        use convert_case::{Case, Casing as _};
-        format!(
-            "tipset_state_{}",
-            crate::utils::misc::short_type_name::<V>().to_case(Case::Snake)
-        )
+    fn cache_name(cache_identifier: &str) -> String {
+        format!("tipset_state_{cache_identifier}")
     }
 }
 
@@ -56,27 +38,22 @@ pub(crate) struct TipsetStateCache<V: LruValueConstraints> {
     cache: Arc<SyncMutex<TipsetStateCacheInner<V>>>,
 }
 
-impl<V: LruValueConstraints> Default for TipsetStateCache<V> {
-    fn default() -> Self {
-        TipsetStateCache::with_size(DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE)
-    }
-}
-
 enum CacheLookupStatus<V> {
     Exist(V),
     Empty(Arc<TokioMutex<()>>),
 }
 
 impl<V: LruValueConstraints> TipsetStateCache<V> {
-    pub fn new() -> Self {
-        Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
-        }
+    pub fn new(cache_identifier: &str) -> Self {
+        Self::with_size(cache_identifier, DEFAULT_TIPSET_CACHE_SIZE)
     }
 
-    pub fn with_size(cache_size: NonZeroUsize) -> Self {
+    pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
         Self {
-            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(cache_size))),
+            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::with_size(
+                cache_identifier,
+                cache_size,
+            ))),
         }
     }
 
@@ -195,9 +172,17 @@ pub struct EnabledTipsetDataCache {
 
 impl EnabledTipsetDataCache {
     pub fn new() -> Self {
+        const DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE: NonZeroUsize = nonzero!(4096usize);
+
         Self {
-            events_cache: TipsetStateCache::default(),
-            receipt_cache: TipsetStateCache::default(),
+            events_cache: TipsetStateCache::with_size(
+                "events",
+                DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE,
+            ),
+            receipt_cache: TipsetStateCache::with_size(
+                "receipts",
+                DEFAULT_RECEIPT_AND_EVENT_CACHE_SIZE,
+            ),
         }
     }
 }
@@ -337,7 +322,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tipset_cache_basic_functionality() {
-        let cache: TipsetStateCache<String> = TipsetStateCache::new();
+        let cache: TipsetStateCache<String> = TipsetStateCache::new("test");
         let key = create_test_tipset_key(1);
 
         // Test cache miss and computation
@@ -357,7 +342,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_same_key_computation() {
-        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new());
+        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new("test"));
         let key = create_test_tipset_key(1);
         let computation_count = Arc::new(AtomicU8::new(0));
 
@@ -404,7 +389,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_different_keys() {
-        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new());
+        let cache: Arc<TipsetStateCache<String>> = Arc::new(TipsetStateCache::new("test"));
         let computation_count = Arc::new(AtomicU8::new(0));
 
         // Start tasks that try to compute the different keys
