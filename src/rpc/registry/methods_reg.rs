@@ -8,6 +8,7 @@ use crate::shim::message::MethodNum;
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, Result, bail};
 use cid::Cid;
+use fil_actors_shared::v11::runtime::builtins::Type;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::LazyLock;
@@ -65,10 +66,7 @@ impl MethodRegistry {
         let (actor_type, version) = ActorRegistry::get_actor_details_from_code(code_cid)?;
 
         bail!(
-            "No deserializer registered for actor type {:?} (v{}), method {}",
-            actor_type,
-            version,
-            method_num
+            "No deserializer registered for actor type {actor_type:?} ({version}), method {method_num}"
         );
     }
 
@@ -103,7 +101,7 @@ impl MethodRegistry {
                     payment_channel::register_actor_methods(self, cid, version)
                 }
                 BuiltinActor::EAM => eam::register_actor_methods(self, cid, version),
-                _ => {}
+                Type::Placeholder => {}
             }
         }
     }
@@ -158,12 +156,12 @@ mod test {
     use super::*;
     use crate::lotus_json::HasLotusJson;
     use crate::utils::multihash::MultihashCode;
+    use fil_actors_shared::actor_versions::ActorVersion;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
     use multihash_derive::MultihashDigest;
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
-    const V16: u64 = 16;
     // Test parameter type for testing
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct TestParams {
@@ -192,7 +190,7 @@ mod test {
         Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(data))
     }
 
-    fn get_real_actor_cid(target_actor: BuiltinActor, target_version: u64) -> Option<Cid> {
+    fn get_real_actor_cid(target_actor: BuiltinActor, target_version: ActorVersion) -> Option<Cid> {
         ACTOR_REGISTRY
             .iter()
             .find_map(|(&cid, &(actor_type, version))| {
@@ -252,7 +250,7 @@ mod test {
 
     #[test]
     fn test_deserialize_params_registered_actor_unregistered_method() {
-        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account, V16) {
+        if let Some(account_cid) = get_real_actor_cid(BuiltinActor::Account, ActorVersion::V16) {
             let unregistered_method = 999;
 
             let result = deserialize_params(&account_cid, unregistered_method, &[]);
@@ -277,7 +275,7 @@ mod test {
         ];
 
         for actor_type in supported_actors {
-            let actor_cid = get_real_actor_cid(actor_type, V16).unwrap();
+            let actor_cid = get_real_actor_cid(actor_type, ActorVersion::V16).unwrap();
             // Test that the Constructor method (typically method 1) is registered
             let constructor_method = 1;
 
@@ -325,7 +323,7 @@ mod test {
 
     #[test]
     fn test_system_actor_deserialize_params_cbor_null() {
-        let system_cid = get_real_actor_cid(BuiltinActor::System, V16)
+        let system_cid = get_real_actor_cid(BuiltinActor::System, ActorVersion::V16)
             .expect("Should have System actor CID in registry");
 
         // Test with null data

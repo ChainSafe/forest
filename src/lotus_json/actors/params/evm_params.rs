@@ -61,7 +61,7 @@ macro_rules! impl_evm_constructor_params {
     };
 }
 
-impl_evm_constructor_params!(10, 11, 12, 13, 14, 15, 16);
+impl_evm_constructor_params!(10, 11, 12, 13, 14, 15, 16, 17);
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -124,7 +124,7 @@ macro_rules! impl_evm_delegate_call_params_lotus_json {
     };
 }
 
-impl_evm_delegate_call_params_lotus_json!(10, 11, 12, 13, 14, 15, 16);
+impl_evm_delegate_call_params_lotus_json!(10, 11, 12, 13, 14, 15, 16, 17);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

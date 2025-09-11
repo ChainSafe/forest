@@ -202,7 +202,7 @@ where
 
         Ok(Self {
             cs,
-            cache: TipsetStateCache::new(), // For StateOutputValue
+            cache: TipsetStateCache::new("state_output"), // For StateOutputValue
             beacon,
             chain_config,
             engine,

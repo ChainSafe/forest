@@ -4,6 +4,7 @@
 mod api_compare_tests;
 mod generate_test_snapshot;
 mod report;
+mod state_decode_params_tests;
 mod stateful_tests;
 mod test_snapshot;
 

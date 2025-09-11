@@ -210,18 +210,18 @@ macro_rules! impl_lotus_json_for_deal_proposal {
                                 "ClientCollateral": "3000"
                             }),
                             // Create the corresponding object using from_lotus_json to ensure compatibility
-                            Self::from_lotus_json(crate::lotus_json::actor_states::methods::market_actor_params::DealProposalLotusJson {
+                            Self::from_lotus_json(DealProposalLotusJson {
                                 piece_cid: test_cid,
                                 piece_size: 1024u64.into(),
                                 verified_deal: false,
-                                client: crate::shim::address::Address::new_id(1234).into(),
-                                provider: crate::shim::address::Address::new_id(5678).into(),
-                                label: crate::lotus_json::actor_states::methods::market_actor_params::LabelLotusJson::String("test".to_string()),
+                                client: Address::new_id(1234).into(),
+                                provider: Address::new_id(5678).into(),
+                                label: LabelLotusJson::String("test".to_string()),
                                 start_epoch: 100,
                                 end_epoch: 200,
-                                storage_price_per_epoch: crate::shim::econ::TokenAmount::from_atto(1000u64).into(),
-                                provider_collateral: crate::shim::econ::TokenAmount::from_atto(2000u64).into(),
-                                client_collateral: crate::shim::econ::TokenAmount::from_atto(3000u64).into(),
+                                storage_price_per_epoch: TokenAmount::from_atto(1000u64).into(),
+                                provider_collateral: TokenAmount::from_atto(2000u64).into(),
+                                client_collateral: TokenAmount::from_atto(3000u64).into(),
                             })
                         )]
                     }
@@ -350,13 +350,13 @@ macro_rules! impl_lotus_json_for_client_deal_proposal {
                             }),
                             // Create object using from_lotus_json to ensure compatibility
                             Self::from_lotus_json($lotus_json_type {
-                                proposal: crate::lotus_json::actor_states::methods::market_actor_params::DealProposalLotusJson {
+                                proposal: DealProposalLotusJson {
                                     piece_cid: test_cid,
                                     piece_size: 1024u64.into(),
                                     verified_deal: false,
                                     client: crate::shim::address::Address::new_id(1234).into(),
                                     provider: crate::shim::address::Address::new_id(5678).into(),
-                                    label: crate::lotus_json::actor_states::methods::market_actor_params::LabelLotusJson::String("test".to_string()),
+                                    label: LabelLotusJson::String("test".to_string()),
                                     start_epoch: 100,
                                     end_epoch: 200,
                                     storage_price_per_epoch: crate::shim::econ::TokenAmount::from_atto(1000u64).into(),
