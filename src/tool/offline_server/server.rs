@@ -24,6 +24,7 @@ use crate::{Config, JWT_IDENTIFIER};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
+use std::mem::discriminant;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
@@ -42,7 +43,7 @@ use tracing::{info, warn};
 #[allow(clippy::too_many_arguments)]
 pub async fn start_offline_server(
     snapshot_files: Vec<PathBuf>,
-    chain: NetworkChain,
+    chain: Option<NetworkChain>,
     rpc_port: u16,
     auto_download_snapshot: bool,
     height: i64,
@@ -56,13 +57,29 @@ pub async fn start_offline_server(
 
     let snapshot_files = handle_snapshots(
         snapshot_files,
-        &chain,
+        chain.as_ref(),
         auto_download_snapshot,
         genesis.clone(),
     )
     .await?;
 
     db.read_only_files(snapshot_files.iter().cloned())?;
+
+    let inferred_chain = {
+        let head = db.heaviest_tipset()?;
+        let genesis = head.genesis(&db)?;
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid())
+    };
+    let chain = if let Some(chain) = chain {
+        anyhow::ensure!(
+            discriminant(&inferred_chain) == discriminant(&chain),
+            "chain mismatch, specified: {chain}, actual: {inferred_chain}",
+        );
+        chain
+    } else {
+        inferred_chain
+    };
+
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
@@ -196,16 +213,22 @@ where
 
 async fn handle_snapshots(
     snapshot_files: Vec<PathBuf>,
-    chain: &NetworkChain,
+    chain: Option<&NetworkChain>,
     auto_download_snapshot: bool,
     genesis: Option<PathBuf>,
 ) -> anyhow::Result<Vec<PathBuf>> {
     if !snapshot_files.is_empty() {
         return Ok(snapshot_files);
     }
-
-    if snapshot_files.is_empty() && chain.is_devnet() {
-        return Ok(vec![genesis.context("missing genesis file")?]);
+    let chain = chain.context("`--chain` is required when no snapshots are supplied")?;
+    if chain.is_devnet() {
+        anyhow::ensure!(
+            !auto_download_snapshot,
+            "auto_download_snapshot is not supported for devnet"
+        );
+        return Ok(vec![
+            genesis.context("genesis must be provided for devnet")?,
+        ]);
     }
 
     let (snapshot_url, num_bytes, path) =

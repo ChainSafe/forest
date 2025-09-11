@@ -135,7 +135,7 @@ services:
       - |
         set -euxo pipefail
         forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
-          --chain calibnet --height=-50 --index-backfill-epochs 50 --port ${FOREST_OFFLINE_RPC_PORT} --save-token /data/forest-token-offline
+          --height=-50 --index-backfill-epochs 50 --port ${FOREST_OFFLINE_RPC_PORT} --save-token /data/forest-token-offline
     healthcheck:
       test: ["CMD", "forest-cli", "chain", "head"]
       interval: 10s
