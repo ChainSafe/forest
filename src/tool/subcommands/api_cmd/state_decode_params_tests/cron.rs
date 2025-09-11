@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use fil_actor_cron_state::v17::*;
 
 /// Creates state decode params tests for the Cron actor.
 pub fn create_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
-    // let cron_constructor_params = fil_actor_cron_state::v16::ConstructorParams {
-    //     entries: vec![fil_actor_cron_state::v16::Entry {
+    // let cron_constructor_params = ConstructorParams {
+    //     entries: vec![Entry {
     //         receiver: Address::new_id(1000).into(),
-    //         method_num: fil_actor_cron_state::v16::Method::EpochTick as u64,
+    //         method_num: EpochTick as u64,
     //     }],
     // };
 
@@ -17,13 +18,13 @@ pub fn create_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
         // Enable this test when lotus supports it in go-state-types.
         // RpcTest::identity(StateDecodeParams::request((
         //     Address::CRON_ACTOR,
-        //     fil_actor_cron_state::v16::Method::Constructor as u64,
+        //     Constructor as u64,
         //     to_vec(&cron_constructor_params)?,
         //     tipset.key().into(),
         // ))?),
         RpcTest::identity(StateDecodeParams::request((
             Address::CRON_ACTOR,
-            fil_actor_cron_state::v16::Method::EpochTick as u64,
+            Method::EpochTick as u64,
             vec![],
             tipset.key().into(),
         ))?),

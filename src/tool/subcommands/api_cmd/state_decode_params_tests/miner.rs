@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use fil_actor_miner_state::v17::*;
+use fil_actors_shared::v17::reward::FilterEstimate;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use fvm_shared4::randomness::Randomness;
 
 /// Creates state decode params tests for the Miner actor.
 pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
-    let miner_constructor_params = fil_actor_miner_state::v16::MinerConstructorParams {
+    let miner_constructor_params = MinerConstructorParams {
         owner: Address::new_id(1000).into(),
         worker: Address::new_id(1001).into(),
         control_addresses: vec![Address::new_id(1002).into(), Address::new_id(1003).into()],
@@ -16,36 +18,36 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
         multi_addresses: Default::default(),
     };
 
-    let miner_change_worker_params = fil_actor_miner_state::v16::ChangeWorkerAddressParams {
+    let miner_change_worker_params = ChangeWorkerAddressParams {
         new_worker: Address::new_id(2000).into(),
         new_control_addresses: vec![Address::new_id(2001).into()],
     };
 
-    let miner_change_peer_id_params = fil_actor_miner_state::v16::ChangePeerIDParams {
+    let miner_change_peer_id_params = ChangePeerIDParams {
         new_id: b"new_peer".to_vec(),
     };
 
-    let miner_change_multiaddrs_params = fil_actor_miner_state::v16::ChangeMultiaddrsParams {
+    let miner_change_multiaddrs_params = ChangeMultiaddrsParams {
         new_multi_addrs: vec![BytesDe(vec![1, 2, 3])],
     };
 
-    let miner_change_owner_params = fil_actor_miner_state::v16::ChangeOwnerAddressParams {
+    let miner_change_owner_params = ChangeOwnerAddressParams {
         new_owner: Address::new_id(3000).into(),
     };
 
-    let miner_change_beneficiary_params = fil_actor_miner_state::v16::ChangeBeneficiaryParams {
+    let miner_change_beneficiary_params = ChangeBeneficiaryParams {
         new_beneficiary: Address::new_id(4000).into(),
         new_quota: TokenAmount::from_atto(1000000000000000000u64).into(),
         new_expiration: 1000,
     };
 
-    let miner_withdraw_balance_params = fil_actor_miner_state::v16::WithdrawBalanceParams {
+    let miner_withdraw_balance_params = WithdrawBalanceParams {
         amount_requested: TokenAmount::from_atto(500000000000000000u64).into(),
     };
 
-    let miner_submit_windowed_post_params = fil_actor_miner_state::v16::SubmitWindowedPoStParams {
+    let miner_submit_windowed_post_params = SubmitWindowedPoStParams {
         deadline: 0,
-        partitions: vec![fil_actor_miner_state::v16::PoStPartition {
+        partitions: vec![PoStPartition {
             index: 0,
             skipped: Default::default(),
         }],
@@ -54,209 +56,167 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
         chain_commit_rand: Randomness(vec![1, 22, 43]),
     };
 
-    let miner_extend_sector_expiration_params =
-        fil_actor_miner_state::v16::ExtendSectorExpirationParams {
-            extensions: vec![fil_actor_miner_state::v16::ExpirationExtension {
-                deadline: 12,
-                partition: 123,
-                sectors: Default::default(),
-                new_expiration: 1000,
-            }],
-        };
-
-    let miner_terminate_sectors_params = fil_actor_miner_state::v16::TerminateSectorsParams {
-        terminations: vec![fil_actor_miner_state::v16::TerminationDeclaration {
+    let miner_terminate_sectors_params = TerminateSectorsParams {
+        terminations: vec![TerminationDeclaration {
             deadline: 0,
             partition: 0,
             sectors: Default::default(),
         }],
     };
 
-    let miner_declare_faults_params = fil_actor_miner_state::v16::DeclareFaultsParams {
-        faults: vec![fil_actor_miner_state::v16::FaultDeclaration {
+    let miner_declare_faults_params = DeclareFaultsParams {
+        faults: vec![FaultDeclaration {
             deadline: 0,
             partition: 0,
             sectors: Default::default(),
         }],
     };
 
-    let miner_declare_faults_recovered_params =
-        fil_actor_miner_state::v16::DeclareFaultsRecoveredParams {
-            recoveries: vec![fil_actor_miner_state::v16::RecoveryDeclaration {
-                deadline: 0,
-                partition: 0,
-                sectors: Default::default(),
-            }],
-        };
+    let miner_declare_faults_recovered_params = DeclareFaultsRecoveredParams {
+        recoveries: vec![RecoveryDeclaration {
+            deadline: 0,
+            partition: 0,
+            sectors: Default::default(),
+        }],
+    };
 
-    let miner_deferred_cron_event_params = fil_actor_miner_state::v16::DeferredCronEventParams {
+    let miner_deferred_cron_event_params = DeferredCronEventParams {
         event_payload: vec![],
-        reward_smoothed: fil_actors_shared::v16::reward::FilterEstimate {
+        reward_smoothed: FilterEstimate {
             position: Default::default(),
             velocity: Default::default(),
         },
-        quality_adj_power_smoothed: fil_actors_shared::v16::reward::FilterEstimate {
+        quality_adj_power_smoothed: FilterEstimate {
             position: Default::default(),
             velocity: Default::default(),
         },
     };
 
-    let miner_check_sector_proven_params =
-        fil_actor_miner_state::v16::CheckSectorProvenParams { sector_number: 0 };
+    let miner_check_sector_proven_params = CheckSectorProvenParams { sector_number: 0 };
 
-    let miner_apply_reward_params = fil_actor_miner_state::v16::ApplyRewardParams {
+    let miner_apply_reward_params = ApplyRewardParams {
         reward: TokenAmount::from_atto(1000000000000000000u64).into(),
         penalty: TokenAmount::from_atto(0u64).into(),
     };
 
-    let miner_report_consensus_fault_params =
-        fil_actor_miner_state::v16::ReportConsensusFaultParams {
-            header1: vec![],
-            header2: vec![],
-            header_extra: vec![],
-        };
+    let miner_report_consensus_fault_params = ReportConsensusFaultParams {
+        header1: vec![],
+        header2: vec![],
+        header_extra: vec![],
+    };
 
-    let miner_compact_partitions_params = fil_actor_miner_state::v16::CompactPartitionsParams {
+    let miner_compact_partitions_params = CompactPartitionsParams {
         deadline: 0,
         partitions: Default::default(),
     };
 
-    let miner_compact_sector_numbers_params =
-        fil_actor_miner_state::v16::CompactSectorNumbersParams {
-            mask_sector_numbers: Default::default(),
-        };
+    let miner_compact_sector_numbers_params = CompactSectorNumbersParams {
+        mask_sector_numbers: Default::default(),
+    };
 
-    let miner_dispute_windowed_post_params =
-        fil_actor_miner_state::v16::DisputeWindowedPoStParams {
+    let miner_dispute_windowed_post_params = DisputeWindowedPoStParams {
+        deadline: 0,
+        post_index: 0,
+    };
+
+    let miner_pre_commit_sector_batch2_params = PreCommitSectorBatchParams2 {
+        sectors: vec![SectorPreCommitInfo {
+            seal_proof: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1P1,
+            sector_number: 0,
+            sealed_cid: Cid::default(),
+            seal_rand_epoch: 0,
+            deal_ids: vec![],
+            expiration: 1000,
+            unsealed_cid: CompactCommD(None),
+        }],
+    };
+
+    let miner_extend_sector_expiration2_params = ExtendSectorExpiration2Params {
+        extensions: vec![ExpirationExtension2 {
             deadline: 0,
-            post_index: 0,
-        };
+            partition: 0,
+            sectors: Default::default(),
+            sectors_with_claims: vec![],
+            new_expiration: 1000,
+        }],
+    };
 
-    let miner_prove_commit_aggregate_params =
-        fil_actor_miner_state::v16::ProveCommitAggregateParams {
-            sector_numbers: Default::default(),
-            aggregate_proof: RawBytes::new(vec![]),
-        };
+    let miner_is_controlling_address_param = IsControllingAddressParam {
+        address: Address::new_id(5000).into(),
+    };
 
-    let miner_prove_replica_updates_params =
-        fil_actor_miner_state::v16::ProveReplicaUpdatesParams {
-            updates: vec![fil_actor_miner_state::v16::ReplicaUpdate {
-                sector_number: 0,
-                deadline: 0,
-                partition: 0,
-                new_sealed_cid: Cid::default(),
-                deals: vec![],
-                update_proof_type: fvm_shared4::sector::RegisteredUpdateProof::StackedDRG2KiBV1,
-                replica_proof: RawBytes::new(vec![]),
+    let miner_prove_commit_sectors3_params = ProveCommitSectors3Params {
+        sector_activations: vec![SectorActivationManifest {
+            sector_number: 0,
+            pieces: vec![PieceActivationManifest {
+                cid: Cid::default(),
+                size: fvm_shared4::piece::PaddedPieceSize(23),
+                verified_allocation_key: None,
+                notify: vec![],
             }],
-        };
+        }],
+        sector_proofs: vec![RawBytes::new(vec![])],
+        aggregate_proof: RawBytes::new(vec![]),
+        aggregate_proof_type: None,
+        require_activation_success: true,
+        require_notification_success: true,
+    };
 
-    let miner_pre_commit_sector_batch2_params =
-        fil_actor_miner_state::v16::PreCommitSectorBatchParams2 {
-            sectors: vec![fil_actor_miner_state::v16::SectorPreCommitInfo {
-                seal_proof: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1P1,
-                sector_number: 0,
-                sealed_cid: Cid::default(),
-                seal_rand_epoch: 0,
-                deal_ids: vec![],
-                expiration: 1000,
-                unsealed_cid: fil_actor_miner_state::v16::CompactCommD(None),
+    let miner_prove_replica_updates3_params = ProveReplicaUpdates3Params {
+        sector_updates: vec![SectorUpdateManifest {
+            sector: 0,
+            deadline: 0,
+            partition: 0,
+            new_sealed_cid: Cid::default(),
+            pieces: vec![PieceActivationManifest {
+                cid: Cid::default(),
+                size: fvm_shared4::piece::PaddedPieceSize(12),
+                verified_allocation_key: None,
+                notify: vec![],
             }],
-        };
+        }],
+        sector_proofs: vec![RawBytes::new(vec![])],
+        aggregate_proof: RawBytes::new(vec![]),
+        update_proofs_type: fvm_shared4::sector::RegisteredUpdateProof::StackedDRG2KiBV1,
+        aggregate_proof_type: None,
+        require_activation_success: true,
+        require_notification_success: true,
+    };
 
-    let miner_extend_sector_expiration2_params =
-        fil_actor_miner_state::v16::ExtendSectorExpiration2Params {
-            extensions: vec![fil_actor_miner_state::v16::ExpirationExtension2 {
-                deadline: 0,
-                partition: 0,
-                sectors: Default::default(),
-                sectors_with_claims: vec![],
-                new_expiration: 1000,
-            }],
-        };
+    let miner_prove_commit_sectors_ni_params = ProveCommitSectorsNIParams {
+        sectors: vec![SectorNIActivationInfo {
+            sealing_number: 12,
+            sealer_id: 23343,
+            sealed_cid: Cid::default(),
+            sector_number: 2343,
+            seal_rand_epoch: 2343,
+            expiration: 1000,
+        }],
+        aggregate_proof: RawBytes::new(vec![23, 2, 23]),
+        seal_proof_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1P1,
+        aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::SnarkPackV1,
+        proving_deadline: 234,
+        require_activation_success: true,
+    };
 
-    let miner_is_controlling_address_param =
-        fil_actor_miner_state::v16::IsControllingAddressParam {
-            address: Address::new_id(5000).into(),
-        };
+    let miner_internal_sector_setup_for_preseal_params = InternalSectorSetupForPresealParams {
+        sectors: vec![0],
+        reward_smoothed: FilterEstimate {
+            position: Default::default(),
+            velocity: Default::default(),
+        },
+        reward_baseline_power: Default::default(),
+        quality_adj_power_smoothed: FilterEstimate {
+            position: Default::default(),
+            velocity: Default::default(),
+        },
+    };
 
-    let miner_prove_commit_sectors3_params =
-        fil_actor_miner_state::v16::ProveCommitSectors3Params {
-            sector_activations: vec![fil_actor_miner_state::v16::SectorActivationManifest {
-                sector_number: 0,
-                pieces: vec![fil_actor_miner_state::v16::PieceActivationManifest {
-                    cid: Cid::default(),
-                    size: fvm_shared4::piece::PaddedPieceSize(23),
-                    verified_allocation_key: None,
-                    notify: vec![],
-                }],
-            }],
-            sector_proofs: vec![RawBytes::new(vec![])],
-            aggregate_proof: RawBytes::new(vec![]),
-            aggregate_proof_type: None,
-            require_activation_success: true,
-            require_notification_success: true,
-        };
-
-    let miner_prove_replica_updates3_params =
-        fil_actor_miner_state::v16::ProveReplicaUpdates3Params {
-            sector_updates: vec![fil_actor_miner_state::v16::SectorUpdateManifest {
-                sector: 0,
-                deadline: 0,
-                partition: 0,
-                new_sealed_cid: Cid::default(),
-                pieces: vec![fil_actor_miner_state::v16::PieceActivationManifest {
-                    cid: Cid::default(),
-                    size: fvm_shared4::piece::PaddedPieceSize(12),
-                    verified_allocation_key: None,
-                    notify: vec![],
-                }],
-            }],
-            sector_proofs: vec![RawBytes::new(vec![])],
-            aggregate_proof: RawBytes::new(vec![]),
-            update_proofs_type: fvm_shared4::sector::RegisteredUpdateProof::StackedDRG2KiBV1,
-            aggregate_proof_type: None,
-            require_activation_success: true,
-            require_notification_success: true,
-        };
-
-    let miner_prove_commit_sectors_ni_params =
-        fil_actor_miner_state::v16::ProveCommitSectorsNIParams {
-            sectors: vec![fil_actor_miner_state::v16::SectorNIActivationInfo {
-                sealing_number: 12,
-                sealer_id: 23343,
-                sealed_cid: Cid::default(),
-                sector_number: 2343,
-                seal_rand_epoch: 2343,
-                expiration: 1000,
-            }],
-            aggregate_proof: RawBytes::new(vec![23, 2, 23]),
-            seal_proof_type: fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1P1,
-            aggregate_proof_type: fvm_shared4::sector::RegisteredAggregateProof::SnarkPackV1,
-            proving_deadline: 234,
-            require_activation_success: true,
-        };
-
-    let miner_internal_sector_setup_for_preseal_params =
-        fil_actor_miner_state::v16::InternalSectorSetupForPresealParams {
-            sectors: vec![0],
-            reward_smoothed: fil_actors_shared::v16::reward::FilterEstimate {
-                position: Default::default(),
-                velocity: Default::default(),
-            },
-            reward_baseline_power: Default::default(),
-            quality_adj_power_smoothed: fil_actors_shared::v16::reward::FilterEstimate {
-                position: Default::default(),
-                velocity: Default::default(),
-            },
-        };
-
-    // let miner_max_termination_fee_params = fil_actor_miner_state::v16::MaxTerminationFeeParams {
+    // let miner_max_termination_fee_params = MaxTerminationFeeParams {
     //     power: Default::default(),
     //     initial_pledge: TokenAmount::from_atto(1000000000000000000u64).into(),
     // };
 
-    use fil_actor_miner_state::v16::Method;
     const MINER_ADDRESS: Address = Address::new_id(78216);
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
@@ -288,12 +248,6 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
             MINER_ADDRESS,
             Method::SubmitWindowedPoSt as u64,
             to_vec(&miner_submit_windowed_post_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            Method::ExtendSectorExpiration as u64,
-            to_vec(&miner_extend_sector_expiration_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
@@ -390,18 +344,6 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
             MINER_ADDRESS,
             Method::DisputeWindowedPoSt as u64,
             to_vec(&miner_dispute_windowed_post_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            Method::ProveCommitAggregate as u64,
-            to_vec(&miner_prove_commit_aggregate_params)?,
-            tipset.key().into(),
-        ))?),
-        RpcTest::identity(StateDecodeParams::request((
-            MINER_ADDRESS,
-            Method::ProveReplicaUpdates as u64,
-            to_vec(&miner_prove_replica_updates_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
