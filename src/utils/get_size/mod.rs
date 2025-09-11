@@ -51,6 +51,13 @@ pub fn nunny_vec_heap_size_helper<T: GetSize>(v: &nunny::Vec<T>) -> usize {
     impl_vec_alike_heap_size_helper!(v, T)
 }
 
+pub fn nunny_vec_heap_size_with_fn_helper<T>(
+    v: &nunny::Vec<T>,
+    get_heap_size: impl Fn(&T) -> usize,
+) -> usize {
+    impl_vec_alike_heap_size_with_fn_helper!(v, T, std::mem::size_of::<T>, get_heap_size)
+}
+
 // This is a rough estimation. Use `b.allocation_size()`
 // once https://github.com/rust-num/num-bigint/pull/333 is accepted and released.
 pub fn big_int_heap_size_helper(b: &BigInt) -> usize {
