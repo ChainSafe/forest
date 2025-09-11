@@ -31,43 +31,43 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
 
     Ok(vec![
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::Constructor as u64,
             to_vec(&evm_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::Resurrect as u64,
             to_vec(&evm_constructor_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::GetBytecode as u64,
             vec![],
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::GetBytecodeHash as u64,
             vec![],
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::InvokeContract as u64,
             to_vec(&evm_invoke_contract_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::InvokeContractDelegate as u64,
             to_vec(&evm_delegate_call_params)?,
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateDecodeParams::request((
-            Address::from_str(EVM_ADDRESS).unwrap(),
+            Address::from_str(EVM_ADDRESS)?,
             Method::GetStorageAt as u64,
             evm_get_storage_at_params.serialize_params()?,
             tipset.key().into(),

@@ -113,7 +113,7 @@ pub fn create_tests(tipset: &Tipset) -> Result<Vec<RpcTest>> {
         RpcTest::identity(StateDecodeParams::request((
             Address::new_id(18101), // https://calibration.filscan.io/en/address/t018101/,
             Method::UniversalReceiverHook as u64,
-            BASE64_STANDARD.decode("ghgqRBI0Vng=").unwrap(),
+            BASE64_STANDARD.decode("ghgqRBI0Vng=")?,
             tipset.key().into(),
         ))?),
     ])

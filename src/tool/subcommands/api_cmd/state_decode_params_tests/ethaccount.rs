@@ -7,7 +7,7 @@ use fil_actor_ethaccount_state::v17::*;
 /// Creates state decode params tests for the EthAccount actor.
 pub fn create_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![RpcTest::identity(StateDecodeParams::request((
-        Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20]).unwrap(),
+        Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?,
         Method::Constructor as u64,
         vec![],
         tipset.key().into(),
