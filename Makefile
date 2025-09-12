@@ -57,6 +57,7 @@ deny:
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
+	cargo spellcheck --code 1 --cfg .config/spellcheck.toml ./**/*.md || (echo "See .config/spellcheck.md for tips"; false)
 
 lint: license clean lint-clippy
 	cargo fmt --all --check
