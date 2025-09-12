@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod api_cmd;
-mod archive_cmd;
+pub(crate) mod archive_cmd;
 mod backup_cmd;
 mod benchmark_cmd;
 mod car_cmd;
