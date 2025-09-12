@@ -45,7 +45,7 @@ default port and act as a calibnet node _stuck_ at the snapshot's
 height: 1859736.
 
 ```bash
-forest-tool api serve --chain calibnet ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
+forest-tool api serve ~/Downloads/forest_snapshot_calibnet_2024-08-08_height_1859736.forest.car.zst
 ```
 
 Sample output:

@@ -24,6 +24,7 @@ use crate::{Config, JWT_IDENTIFIER};
 use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
+use std::mem::discriminant;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
@@ -39,12 +40,14 @@ use tokio::{
 };
 use tracing::{info, warn};
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start_offline_server(
     snapshot_files: Vec<PathBuf>,
-    chain: NetworkChain,
+    chain: Option<NetworkChain>,
     rpc_port: u16,
     auto_download_snapshot: bool,
     height: i64,
+    index_backfill_epochs: usize,
     genesis: Option<PathBuf>,
     save_jwt_token: Option<PathBuf>,
 ) -> anyhow::Result<()> {
@@ -54,13 +57,29 @@ pub async fn start_offline_server(
 
     let snapshot_files = handle_snapshots(
         snapshot_files,
-        &chain,
+        chain.as_ref(),
         auto_download_snapshot,
         genesis.clone(),
     )
     .await?;
 
     db.read_only_files(snapshot_files.iter().cloned())?;
+
+    let inferred_chain = {
+        let head = db.heaviest_tipset()?;
+        let genesis = head.genesis(&db)?;
+        NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid())
+    };
+    let chain = if let Some(chain) = chain {
+        anyhow::ensure!(
+            discriminant(&inferred_chain) == discriminant(&chain),
+            "chain mismatch, specified: {chain}, actual: {inferred_chain}",
+        );
+        chain
+    } else {
+        inferred_chain
+    };
+
     let chain_config = Arc::new(handle_chain_config(&chain)?);
     let events_config = Arc::new(EventsConfig::default());
     let genesis_header = read_genesis_header(
@@ -85,7 +104,14 @@ pub async fn start_offline_server(
     proofs_api::maybe_set_proofs_parameter_cache_dir_env(&Config::default().client.data_dir);
     ensure_proof_params_downloaded().await?;
 
-    backfill_db(&state_manager, &head_ts, head_ts.epoch() - 300).await?;
+    if index_backfill_epochs > 0 {
+        backfill_db(
+            &state_manager,
+            &head_ts,
+            head_ts.epoch() + 1 - index_backfill_epochs as i64,
+        )
+        .await?;
+    }
 
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
@@ -99,13 +125,17 @@ pub async fn start_offline_server(
 
     // Validate tipsets since the {height} EPOCH when `height >= 0`,
     // or valiadte the last {-height} EPOCH(s) when `height < 0`
-    let n_ts_to_validate = if height > 0 {
-        (head_ts.epoch() - height).max(0)
+    let validate_until_epoch = if height > 0 {
+        height
     } else {
-        -height
-    } as usize;
-    if n_ts_to_validate > 0 {
-        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
+        head_ts.epoch() + height + 1
+    };
+    if validate_until_epoch <= head_ts.epoch() {
+        state_manager.validate_tipsets(
+            head_ts
+                .chain_arc(&db)
+                .take_while(|ts| ts.epoch() >= validate_until_epoch),
+        )?;
     }
 
     let (shutdown, shutdown_recv) = mpsc::channel(1);
@@ -183,16 +213,22 @@ where
 
 async fn handle_snapshots(
     snapshot_files: Vec<PathBuf>,
-    chain: &NetworkChain,
+    chain: Option<&NetworkChain>,
     auto_download_snapshot: bool,
     genesis: Option<PathBuf>,
 ) -> anyhow::Result<Vec<PathBuf>> {
     if !snapshot_files.is_empty() {
         return Ok(snapshot_files);
     }
-
-    if snapshot_files.is_empty() && chain.is_devnet() {
-        return Ok(vec![genesis.context("missing genesis file")?]);
+    let chain = chain.context("`--chain` is required when no snapshots are supplied")?;
+    if chain.is_devnet() {
+        anyhow::ensure!(
+            !auto_download_snapshot,
+            "auto_download_snapshot is not supported for devnet"
+        );
+        return Ok(vec![
+            genesis.context("genesis must be provided for devnet")?,
+        ]);
     }
 
     let (snapshot_url, num_bytes, path) =
