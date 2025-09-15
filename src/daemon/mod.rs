@@ -555,6 +555,8 @@ pub(super) async fn start_services(
     shutdown_send: mpsc::Sender<()>,
     on_app_context_and_db_initialized: impl Fn(&AppContext),
 ) -> anyhow::Result<()> {
+    // Cleanup default prometheus metrics registry
+    *crate::metrics::default_registry() = Default::default();
     let mut services = JoinSet::new();
     let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;
