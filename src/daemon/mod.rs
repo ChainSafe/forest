@@ -204,12 +204,23 @@ async fn maybe_start_metrics_service(
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
         let db = ctx.db.writer().clone();
-        let chain_store = ctx.state_manager.chain_store().clone();
-        let get_chain_head_height = move || chain_store.heaviest_tipset().epoch();
-        let chain_store = ctx.state_manager.chain_store().clone();
+        // Use `Weak` to not dead lock GC.
+        let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+        let get_chain_head_height = move || {
+            chain_store
+                .upgrade()
+                .map(|cs| cs.heaviest_tipset().epoch())
+                .unwrap_or_default()
+        };
+        // Use `Weak` to not dead lock GC.
+        let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
         let get_chain_head_network_version = move || {
-            let epoch = chain_store.heaviest_tipset().epoch();
-            chain_store.chain_config.network_version(epoch)
+            if let Some(cs) = chain_store.upgrade() {
+                let epoch = cs.heaviest_tipset().epoch();
+                cs.chain_config.network_version(epoch)
+            } else {
+                NetworkVersion::V0
+            }
         };
         services.spawn(async {
             crate::metrics::init_prometheus(
