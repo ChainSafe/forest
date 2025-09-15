@@ -19,6 +19,7 @@ title: Metrics
 | `network_height`               | Gauge     | Count   | The current network height                                                                   |
 | `expected_network_height`      | Gauge     | Count   | The expected network height based on the current time and the genesis block time             |
 | `network_version`              | Gauge     | Count   | Network version of the current chain head                                                    |
+| `network_version_revision`     | Gauge     | Count   | Network version revision of the current chain head                                           |
 | `forest_db_size`               | Gauge     | Bytes   | Size of Forest database in bytes                                                             |
 | `bitswap_message_count`        | Counter   | Count   | Number of `bitswap` messages. Indexed by `type`                                              |
 | `bitswap_container_capacities` | Gauge     | Count   | Capacity for each `bitswap` container. Indexed by `type`                                     |

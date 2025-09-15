@@ -204,33 +204,29 @@ async fn maybe_start_metrics_service(
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
         let db = ctx.db.writer().clone();
+
         // Use `Weak` to not dead lock GC.
         let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
-        let get_chain_head_height = move || {
+        let get_chain_head_height = Arc::new(move || {
             chain_store
                 .upgrade()
                 .map(|cs| cs.heaviest_tipset().epoch())
                 .unwrap_or_default()
-        };
-        // Use `Weak` to not dead lock GC.
-        let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
-        let get_chain_head_network_version = move || {
-            if let Some(cs) = chain_store.upgrade() {
-                let epoch = cs.heaviest_tipset().epoch();
-                cs.chain_config.network_version(epoch)
-            } else {
-                NetworkVersion::V0
+        });
+        services.spawn({
+            let chain_config = ctx.chain_config().clone();
+            let get_chain_head_height = get_chain_head_height.clone();
+            async {
+                crate::metrics::init_prometheus(
+                    prometheus_listener,
+                    db_directory,
+                    db,
+                    chain_config,
+                    get_chain_head_height,
+                )
+                .await
+                .context("Failed to initiate prometheus server")
             }
-        };
-        services.spawn(async {
-            crate::metrics::init_prometheus(
-                prometheus_listener,
-                db_directory,
-                db,
-                get_chain_head_network_version,
-            )
-            .await
-            .context("Failed to initiate prometheus server")
         });
 
         crate::metrics::default_registry().register_collector(Box::new(

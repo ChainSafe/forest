@@ -3,7 +3,7 @@
 
 pub mod db;
 
-use crate::{db::DBStatistics, shim::version::NetworkVersion};
+use crate::{db::DBStatistics, networks::ChainConfig, shim::clock::ChainEpoch};
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
@@ -69,7 +69,8 @@ pub async fn init_prometheus<DB>(
     prometheus_listener: TcpListener,
     db_directory: PathBuf,
     db: Arc<DB>,
-    get_chain_head_network_version: impl Fn() -> NetworkVersion + Send + Sync + 'static,
+    chain_config: Arc<ChainConfig>,
+    get_chain_head_height: Arc<impl Fn() -> ChainEpoch + Send + Sync + 'static>,
 ) -> anyhow::Result<()>
 where
     DB: DBStatistics + Send + Sync + 'static,
@@ -88,7 +89,7 @@ where
         .write()
         .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
     DEFAULT_REGISTRY.write().register_collector(Box::new(
-        crate::networks::metrics::NetworkVersionCollector::new(get_chain_head_network_version),
+        crate::networks::metrics::NetworkVersionCollector::new(chain_config, get_chain_head_height),
     ));
 
     // Create an configure HTTP server
