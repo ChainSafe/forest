@@ -15,7 +15,7 @@ jobs:
         run: |
           cd docs/docs/users/reference
           ./generate_cli_md.sh docker > cli.md
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       - run: corepack enable
