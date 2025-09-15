@@ -84,30 +84,40 @@ where
 
 #[derive(Educe)]
 #[educe(Debug)]
-pub struct NetworkVersionCollector<F>
+pub struct NetworkVersionCollector<F1, F2>
 where
-    F: Fn() -> ChainEpoch,
+    F1: Fn() -> ChainEpoch,
+    F2: Fn() -> u64,
 {
     chain_config: Arc<ChainConfig>,
     #[educe(Debug(ignore))]
-    get_chain_head_height: Arc<F>,
+    get_chain_head_height: Arc<F1>,
+    #[educe(Debug(ignore))]
+    get_chain_head_actor_version: Arc<F2>,
 }
 
-impl<F> NetworkVersionCollector<F>
+impl<F1, F2> NetworkVersionCollector<F1, F2>
 where
-    F: Fn() -> ChainEpoch,
+    F1: Fn() -> ChainEpoch,
+    F2: Fn() -> u64,
 {
-    pub fn new(chain_config: Arc<ChainConfig>, get_chain_head_height: Arc<F>) -> Self {
+    pub fn new(
+        chain_config: Arc<ChainConfig>,
+        get_chain_head_height: Arc<F1>,
+        get_chain_head_actor_version: Arc<F2>,
+    ) -> Self {
         Self {
             chain_config,
             get_chain_head_height,
+            get_chain_head_actor_version,
         }
     }
 }
 
-impl<F> Collector for NetworkVersionCollector<F>
+impl<F1, F2> Collector for NetworkVersionCollector<F1, F2>
 where
-    F: Fn() -> ChainEpoch + Send + Sync + 'static,
+    F1: Fn() -> ChainEpoch + Send + Sync + 'static,
+    F2: Fn() -> u64 + Send + Sync + 'static,
 {
     fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
         let epoch = (self.get_chain_head_height)();
@@ -134,6 +144,18 @@ where
                 nv_gauge.metric_type(),
             )?;
             nv_gauge.encode(metric_encoder)?;
+        }
+        {
+            let actor_version = (self.get_chain_head_actor_version)();
+            let av_gauge: Gauge = Default::default();
+            av_gauge.set(actor_version as _);
+            let metric_encoder = encoder.encode_descriptor(
+                "actor_version",
+                "Actor version of the current chain head",
+                None,
+                av_gauge.metric_type(),
+            )?;
+            av_gauge.encode(metric_encoder)?;
         }
         Ok(())
     }

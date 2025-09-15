@@ -33,7 +33,7 @@
 
 - [#6000](https://github.com/ChainSafe/forest/pull/6000) Added support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
 
-- [#6079](https://github.com/ChainSafe/forest/pull/6079) Added prometheus metrics `network_height` and `network_version`.
+- [#6079](https://github.com/ChainSafe/forest/pull/6079) Added prometheus metrics `network_height`, `network_version`, `network_version_revision` and `actor_version`.
 
 ### Changed
 

@@ -71,6 +71,7 @@ pub async fn init_prometheus<DB>(
     db: Arc<DB>,
     chain_config: Arc<ChainConfig>,
     get_chain_head_height: Arc<impl Fn() -> ChainEpoch + Send + Sync + 'static>,
+    get_chain_head_actor_version: Arc<impl Fn() -> u64 + Send + Sync + 'static>,
 ) -> anyhow::Result<()>
 where
     DB: DBStatistics + Send + Sync + 'static,
@@ -89,7 +90,11 @@ where
         .write()
         .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
     DEFAULT_REGISTRY.write().register_collector(Box::new(
-        crate::networks::metrics::NetworkVersionCollector::new(chain_config, get_chain_head_height),
+        crate::networks::metrics::NetworkVersionCollector::new(
+            chain_config,
+            get_chain_head_height,
+            get_chain_head_actor_version,
+        ),
     ));
 
     // Create an configure HTTP server

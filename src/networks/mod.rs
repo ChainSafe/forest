@@ -29,8 +29,8 @@ pub use network_name::{GenesisNetworkName, StateNetworkName};
 
 mod actors_bundle;
 pub use actors_bundle::{
-    ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, generate_actor_bundle,
-    get_actor_bundles_metadata,
+    ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, ActorBundleMetadata,
+    generate_actor_bundle, get_actor_bundles_metadata,
 };
 
 mod drand;

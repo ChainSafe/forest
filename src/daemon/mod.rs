@@ -28,6 +28,7 @@ use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::utils;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
@@ -205,13 +206,30 @@ async fn maybe_start_metrics_service(
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
         let db = ctx.db.writer().clone();
 
-        // Use `Weak` to not dead lock GC.
-        let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
-        let get_chain_head_height = Arc::new(move || {
-            chain_store
-                .upgrade()
-                .map(|cs| cs.heaviest_tipset().epoch())
-                .unwrap_or_default()
+        let get_chain_head_height = Arc::new({
+            // Use `Weak` to not dead lock GC.
+            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            move || {
+                chain_store
+                    .upgrade()
+                    .map(|cs| cs.heaviest_tipset().epoch())
+                    .unwrap_or_default()
+            }
+        });
+        let get_chain_head_actor_version = Arc::new({
+            // Use `Weak` to not dead lock GC.
+            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            move || {
+                if let Some(cs) = chain_store.upgrade()
+                    && let Ok(state) =
+                        StateTree::new_from_root(cs.db.clone(), cs.heaviest_tipset().parent_state())
+                    && let Ok(bundle_meta) = state.get_actor_bundle_metadata()
+                    && let Ok(actor_version) = bundle_meta.actor_major_version()
+                {
+                    return actor_version;
+                }
+                0
+            }
         });
         services.spawn({
             let chain_config = ctx.chain_config().clone();
@@ -223,6 +241,7 @@ async fn maybe_start_metrics_service(
                     db,
                     chain_config,
                     get_chain_head_height,
+                    get_chain_head_actor_version,
                 )
                 .await
                 .context("Failed to initiate prometheus server")
@@ -555,7 +574,7 @@ pub(super) async fn start_services(
     shutdown_send: mpsc::Sender<()>,
     on_app_context_and_db_initialized: impl Fn(&AppContext),
 ) -> anyhow::Result<()> {
-    // Cleanup default prometheus metrics registry
+    // Cleanup the default prometheus metrics registry
     *crate::metrics::default_registry() = Default::default();
     let mut services = JoinSet::new();
     let network = config.chain();
