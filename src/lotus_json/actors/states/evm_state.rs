@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::actors::evm::{State, TombstoneState};
 use ::cid::Cid;
-use fil_actor_evm_state::v16::{BytecodeHash, Tombstone, TransientData};
+use paste::paste;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -13,105 +13,212 @@ pub struct EVMStateLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub bytecode: Cid,
-    #[schemars(with = "LotusJson<BytecodeHash>")]
-    #[serde(with = "crate::lotus_json")]
-    pub bytecode_hash: BytecodeHash,
+    pub bytecode_hash: [u8; 32],
 
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub contract_state: Cid,
 
-    #[schemars(with = "LotusJson<Option<TransientData>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub transient_data: Option<Option<TransientData>>, // only available in evm actor state v16
+    // TransientData is only available in evm actor state v16+
+    // None = field doesn't exist (v10-v15)
+    // Some(None) = field exists but is None (v16+)
+    // Some(Some(data)) = field exists and has data (v16+)
+    pub transient_data: Option<Option<transient_data::TransientDataLotusJson>>,
 
     pub nonce: u64,
 
-    #[schemars(with = "LotusJson<Option<TombstoneState>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub tombstone: Option<TombstoneState>,
-}
-
-macro_rules! common_evm_state_fields {
-    ($state:expr, $version:ident) => {{
-        let data: [u8; 32] = $state.bytecode_hash.into();
-        EVMStateLotusJson {
-            bytecode: $state.bytecode.clone(),
-            bytecode_hash: BytecodeHash::from(data),
-            contract_state: $state.contract_state.clone(),
-            nonce: $state.nonce,
-            tombstone: $state.tombstone.map(|t| TombstoneState::$version(t)),
-            transient_data: None,
-        }
-    }};
+    pub tombstone: Option<tombstone::TombstoneLotusJson>,
 }
 
 macro_rules! impl_evm_state_lotus_json {
-    ($($version:ident),*) => {
-        impl HasLotusJson for State {
-            type LotusJson = EVMStateLotusJson;
+    // Special case for versions without transient_data (v10-v15)
+    (no_transient_data: $($version:literal),+) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_evm_state::[<v $version>]::State {
+                type LotusJson = EVMStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![(
-                    json!({
-                        "bytecode": {"/":"baeaaaaa"},
-                        "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        "contract_state": {"/":"baeaaaaa"},
-                        "nonce": 0,
-                        "tombstone": null,
-                        "transient_data": null
-                    }),
-                    State::V16(fil_actor_evm_state::v16::State {
-                        bytecode: Cid::default(),
-                        bytecode_hash: BytecodeHash::from([0; 32]),
-                        contract_state: Cid::default(),
-                        nonce: 0,
-                        tombstone: None,
-                        transient_data: None,
-                    }),
-                )]
-            }
-
-             fn into_lotus_json(self) -> Self::LotusJson {
-                match self {
-                    State::V16(state) => {
-                        EVMStateLotusJson {
-                            transient_data: Option::from(state.transient_data),
-                            ..common_evm_state_fields!(state, V16)
-                        }
-                    },
-                    $(
-                    State::$version(state) => {
-                        EVMStateLotusJson {
-                            ..common_evm_state_fields!(state, $version)
-                        }
-                    },
-                    )*
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![(
+                        json!({
+                            "bytecode": {"/":"baeaaaaa"},
+                            "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "contract_state": {"/":"baeaaaaa"},
+                            "nonce": 0,
+                            "tombstone": null,
+                            "transient_data": null
+                        }),
+                        Self {
+                            bytecode: Cid::default(),
+                            bytecode_hash: fil_actor_evm_state::[<v $version>]::BytecodeHash::from([0; 32]),
+                            contract_state: Cid::default(),
+                            nonce: 0,
+                            tombstone: None,
+                        },
+                    )]
                 }
-             }
 
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_evm_state::v16::State{
-                    bytecode: lotus_json.bytecode,
-                    bytecode_hash: lotus_json.bytecode_hash.into(),
-                    contract_state: lotus_json.contract_state,
-                    transient_data: lotus_json.transient_data.unwrap_or_default(),
-                    nonce: lotus_json.nonce,
-                    tombstone: lotus_json.tombstone.map(|t| match t {
-                        TombstoneState::V16(t) => t,
-                        _ => {
-                            let lotus_entry = t.into_lotus_json();
-                            Tombstone {
-                                origin: lotus_entry.orign,
-                                nonce: lotus_entry.nonce,
-                            }
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    let bytecode_hash_data: [u8; 32] = self.bytecode_hash.into();
+
+                    EVMStateLotusJson {
+                        bytecode: self.bytecode,
+                        bytecode_hash: bytecode_hash_data,
+                        contract_state: self.contract_state,
+                        nonce: self.nonce,
+                        tombstone: self.tombstone.map(|t| {
+                            let tombstone_state = TombstoneState::[<V $version>](t);
+                            tombstone_state.into_lotus_json()
+                        }),
+                        transient_data: None,
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    let tombstone = lotus_json.tombstone.map(|tombstone_lotus| {
+                        fil_actor_evm_state::[<v $version>]::Tombstone {
+                            origin: tombstone_lotus.origin.into(),
+                            nonce: tombstone_lotus.nonce,
                         }
-                    }),
-                })
+                    });
+
+                    Self {
+                        bytecode: lotus_json.bytecode,
+                        bytecode_hash: fil_actor_evm_state::[<v $version>]::BytecodeHash::from(lotus_json.bytecode_hash),
+                        contract_state: lotus_json.contract_state,
+                        nonce: lotus_json.nonce,
+                        tombstone,
+                    }
+                }
             }
         }
+        )+
+    };
+    // Special case for versions with transient_data (v16+)
+    (with_transient_data: $($version:literal),+) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_evm_state::[<v $version>]::State {
+                type LotusJson = EVMStateLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    vec![(
+                        json!({
+                            "bytecode": {"/":"baeaaaaa"},
+                            "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "contract_state": {"/":"baeaaaaa"},
+                            "nonce": 0,
+                            "tombstone": null,
+                            "transient_data": null
+                        }),
+                        Self {
+                            bytecode: Cid::default(),
+                            bytecode_hash: fil_actor_evm_state::[<v $version>]::BytecodeHash::from([0; 32]),
+                            contract_state: Cid::default(),
+                            nonce: 0,
+                            tombstone: None,
+                            transient_data: None,
+                        },
+                    )]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    let bytecode_hash_data: [u8; 32] = self.bytecode_hash.into();
+
+                    EVMStateLotusJson {
+                        bytecode: self.bytecode,
+                        bytecode_hash: bytecode_hash_data,
+                        contract_state: self.contract_state,
+                        nonce: self.nonce,
+                        tombstone: self.tombstone.map(|t| {
+                            let tombstone_state = TombstoneState::[<V $version>](t);
+                            tombstone_state.into_lotus_json()
+                        }),
+                        transient_data: Some(self.transient_data.map(|td| {
+                            td.into_lotus_json()
+                        })),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    let tombstone = lotus_json.tombstone.map(|tombstone_lotus| {
+                        fil_actor_evm_state::[<v $version>]::Tombstone {
+                            origin: tombstone_lotus.origin.into(),
+                            nonce: tombstone_lotus.nonce,
+                        }
+                    });
+
+                    let transient_data = lotus_json.transient_data
+                        .and_then(|outer_option| outer_option)
+                        .map(|transient_data_lotus| {
+                            fil_actor_evm_state::[<v $version>]::TransientData::from_lotus_json(transient_data_lotus)
+                        });
+
+                    Self {
+                        bytecode: lotus_json.bytecode,
+                        bytecode_hash: fil_actor_evm_state::[<v $version>]::BytecodeHash::from(lotus_json.bytecode_hash),
+                        contract_state: lotus_json.contract_state,
+                        nonce: lotus_json.nonce,
+                        tombstone,
+                        transient_data,
+                    }
+                }
+            }
+        }
+        )+
     };
 }
 
-impl_evm_state_lotus_json!(V17, V15, V14, V13, V12, V11, V10);
+impl HasLotusJson for State {
+    type LotusJson = EVMStateLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "bytecode": {"/":"baeaaaaa"},
+                "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "contract_state": {"/":"baeaaaaa"},
+                "nonce": 0,
+                "tombstone": null,
+                "transient_data": null
+            }),
+            State::default_latest_version(Cid::default(), [0; 32], Cid::default(), None, 0, None),
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_evm_state {
+            ($($version:ident),+) => {
+                match self {
+                    $(
+                        State::$version(state) => state.into_lotus_json(),
+                    )+
+                }
+            };
+        }
+
+        convert_evm_state!(V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let latest_state = fil_actor_evm_state::v17::State::from_lotus_json(lotus_json);
+        State::default_latest_version(
+            latest_state.bytecode,
+            latest_state.bytecode_hash.into(),
+            latest_state.contract_state,
+            latest_state.transient_data,
+            latest_state.nonce,
+            latest_state.tombstone,
+        )
+    }
+}
+
+// Implement for versions without transient_data (v10-v15)
+impl_evm_state_lotus_json!(no_transient_data: 10, 11, 12, 13, 14, 15);
+
+// Implement for versions with transient_data (v16+)
+impl_evm_state_lotus_json!(with_transient_data: 16, 17);

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::super::convert::{from_address_v3_to_v2, from_address_v4_to_v2};
-use fvm_shared2::address::Address;
+use crate::shim;
 use serde::Serialize;
 
 /// Account actor method.
@@ -25,7 +25,7 @@ pub enum State {
 }
 
 impl State {
-    pub fn pubkey_address(&self) -> Address {
+    pub fn pubkey_address(&self) -> fvm_shared2::address::Address {
         match self {
             State::V8(st) => st.address,
             State::V9(st) => st.address,
@@ -38,5 +38,9 @@ impl State {
             State::V16(st) => from_address_v4_to_v2(st.address),
             State::V17(st) => from_address_v4_to_v2(st.address),
         }
+    }
+
+    pub fn default_latest_version(address: fvm_shared4::address::Address) -> Self {
+        State::V17(fil_actor_account_state::v17::State { address })
     }
 }

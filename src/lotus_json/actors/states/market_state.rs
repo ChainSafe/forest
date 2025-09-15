@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use crate::shim::actors::market::State;
 use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
@@ -101,7 +102,7 @@ macro_rules! v9_to_v12_market_state_fields {
     }};
 }
 
-// A macro that implements the field handling for v13 to v16
+// A macro that implements the field handling for v13+
 macro_rules! v13_plus_market_state_fields {
     ($state:expr) => {{
         MarketStateLotusJson {
@@ -112,86 +113,85 @@ macro_rules! v13_plus_market_state_fields {
     }};
 }
 
-// A macro that implements the trait method for each version
-macro_rules! implement_state_versions {
-    (
-        $(
-            $handler:ident for [ $( $version:ident ),+ ]
-        );* $(;)?
-    ) => {
-        impl HasLotusJson for State {
-            type LotusJson = MarketStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = MarketStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![(
-                    json!({
-                        "Proposals": {"/":"baeaaaaa"},
-                        "States": {"/":"baeaaaaa"},
-                        "PendingProposals": {"/":"baeaaaaa"},
-                        "EscrowTable": {"/":"baeaaaaa"},
-                        "LockedTable": {"/":"baeaaaaa"},
-                        "NextID": 0,
-                        "DealOpsByEpoch": {"/":"baeaaaaa"},
-                        "LastCron": 0,
-                        "TotalClientLockedCollateral": "0",
-                        "TotalProviderLockedCollateral": "0",
-                        "TotalClientStorageFee": "0",
-                        "PendingDealAllocationIDs": {"/":"baeaaaaa"},
-                        "ProviderSectors": {"/":"baeaaaaa"}
-                    }),
-                    State::V16(fil_actor_market_state::v16::State {
-                        proposals: Default::default(),
-                        states: Default::default(),
-                        pending_proposals: Default::default(),
-                        escrow_table: Default::default(),
-                        locked_table: Default::default(),
-                        next_id: Default::default(),
-                        deal_ops_by_epoch: Default::default(),
-                        last_cron: Default::default(),
-                        total_client_locked_collateral: Default::default(),
-                        total_provider_locked_collateral: Default::default(),
-                        total_client_storage_fee: Default::default(),
-                        pending_deal_allocation_ids: Default::default(),
-                        provider_sectors: Default::default(),
-                    }),
-                )]
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "Proposals": {"/":"baeaaaaa"},
+                "States": {"/":"baeaaaaa"},
+                "PendingProposals": {"/":"baeaaaaa"},
+                "EscrowTable": {"/":"baeaaaaa"},
+                "LockedTable": {"/":"baeaaaaa"},
+                "NextID": 0,
+                "DealOpsByEpoch": {"/":"baeaaaaa"},
+                "LastCron": 0,
+                "TotalClientLockedCollateral": "0",
+                "TotalProviderLockedCollateral": "0",
+                "TotalClientStorageFee": "0",
+                "PendingDealAllocationIDs": {"/":"baeaaaaa"},
+                "ProviderSectors": {"/":"baeaaaaa"}
+            }),
+            State::default_latest_version(
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_market_state {
+            (
+                $(
+                    $handler:ident for [ $( $version:ident ),+ ]
+                );+ $(;)?
+            ) => {
                 match self {
                     $(
                         $(
                             State::$version(state) => $handler!(state),
                         )+
-                    )*
+                    )+
                 }
-            }
-
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                // Default to latest version (V16) when deserializing
-                State::V16(fil_actor_market_state::v16::State {
-                    proposals: lotus_json.proposals,
-                    states: lotus_json.states,
-                    pending_proposals: lotus_json.pending_proposals,
-                    escrow_table: lotus_json.escrow_table,
-                    locked_table: lotus_json.locked_table,
-                    next_id: lotus_json.next_id,
-                    deal_ops_by_epoch: lotus_json.deal_ops_by_epoch,
-                    last_cron: lotus_json.last_cron,
-                    total_client_locked_collateral: lotus_json.total_client_locked_collateral.into(),
-                    total_provider_locked_collateral: lotus_json.total_provider_locked_collateral.into(),
-                    total_client_storage_fee: lotus_json.total_client_storage_fee.into(),
-                    pending_deal_allocation_ids: lotus_json.pending_deal_allocation_ids.unwrap_or_default(),
-                    provider_sectors: lotus_json.provider_sectors.unwrap_or_default(),
-                })
-            }
+            };
         }
-    };
-}
 
-implement_state_versions! {
-    v8_market_state_fields for [V8];
-    v9_to_v12_market_state_fields for [V9, V10, V11, V12];
-    v13_plus_market_state_fields for [V13, V14, V15, V16, V17];
+        convert_market_state! {
+            v8_market_state_fields for [V8];
+            v9_to_v12_market_state_fields for [V9, V10, V11, V12];
+            v13_plus_market_state_fields for [V13, V14, V15, V16, V17];
+        }
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.proposals,
+            lotus_json.states,
+            lotus_json.pending_proposals,
+            lotus_json.escrow_table,
+            lotus_json.locked_table,
+            lotus_json.next_id,
+            lotus_json.deal_ops_by_epoch,
+            lotus_json.last_cron,
+            lotus_json.total_client_locked_collateral.into(),
+            lotus_json.total_provider_locked_collateral.into(),
+            lotus_json.total_client_storage_fee.into(),
+            lotus_json.pending_deal_allocation_ids.unwrap_or_default(),
+            lotus_json.provider_sectors.unwrap_or_default(),
+        )
+    }
 }

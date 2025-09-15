@@ -25,3 +25,9 @@ pub enum State {
     V16(fil_actor_system_state::v16::State),
     V17(fil_actor_system_state::v17::State),
 }
+
+impl State {
+    pub fn default_latest_version(builtin_actors: cid::Cid) -> Self {
+        State::V17(fil_actor_system_state::v17::State { builtin_actors })
+    }
+}

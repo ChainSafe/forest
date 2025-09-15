@@ -66,46 +66,63 @@ macro_rules! v9_to_latest_verified_reg_state_fields {
     }};
 }
 
-macro_rules! impl_verified_reg_state_lotus_json {
-    (
-        $(
-             $handler:ident for [ $( $version:ident ),+ ]
-        );* $(;)?
-    ) => {
-        impl HasLotusJson for State {
-            type LotusJson = VerifiedRegistryStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = VerifiedRegistryStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                todo!()
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "RootKey": "f00",
+                "Verifiers": {"/":"baeaaaaa"},
+                "RemoveDataCapProposalIDs": {"/":"baeaaaaa"},
+                "Allocations": {"/":"baeaaaaa"},
+                "NextAllocationId": 0,
+                "Claims": {"/":"baeaaaaa"}
+            }),
+            State::default_latest_version(
+                Address::new_id(0).into(),
+                Cid::default(),
+                Cid::default(),
+                Cid::default(),
+                0,
+                Cid::default(),
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
-               match self {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_verified_reg_state {
+            (
+                $(
+                    $handler:ident for [ $( $version:ident ),+ ]
+                );+ $(;)?
+            ) => {
+                match self {
                     $(
                         $(
                             State::$version(state) => $handler!(state),
                         )+
                     )*
                 }
-            }
-
-            // Default V16
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_verifreg_state::v16::State {
-                    root_key: lotus_json.root_key.into(),
-                    verifiers: lotus_json.verifiers,
-                    remove_data_cap_proposal_ids: lotus_json.remove_data_cap_proposal_ids,
-                    allocations: lotus_json.allocations.unwrap(),
-                    next_allocation_id: lotus_json.next_allocation_id.unwrap(),
-                    claims: lotus_json.claims.unwrap(),
-                })
-            }
+            };
         }
-    };
-}
 
-impl_verified_reg_state_lotus_json! {
-    v8_verified_reg_state_fields for [V8];
-    v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16, V17];
+        convert_verified_reg_state! {
+            v8_verified_reg_state_fields for [V8];
+            v9_to_latest_verified_reg_state_fields for [V9, V10, V11, V12, V13, V14, V15, V16, V17];
+        }
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.root_key.into(),
+            lotus_json.verifiers,
+            lotus_json.remove_data_cap_proposal_ids,
+            lotus_json.allocations.unwrap_or_default(),
+            lotus_json.next_allocation_id.unwrap_or(0),
+            lotus_json.claims.unwrap_or_default(),
+        )
+    }
 }

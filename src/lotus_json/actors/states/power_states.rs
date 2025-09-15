@@ -100,7 +100,7 @@ macro_rules! common_power_state_fields {
     }};
 }
 
-macro_rules! v15_to_v17_power_state_fields {
+macro_rules! power_state_fields_version_15_onwards {
     ($state:expr) => {{
         PowerStateLotusJson {
             ramp_start_epoch: Some($state.ramp_start_epoch),
@@ -110,7 +110,7 @@ macro_rules! v15_to_v17_power_state_fields {
     }};
 }
 
-macro_rules! v8_to_v14_power_state_fields {
+macro_rules! power_state_fields_version_8_to_14 {
     ($state:expr) => {{
         PowerStateLotusJson {
             ..common_power_state_fields!($state)
@@ -118,21 +118,63 @@ macro_rules! v8_to_v14_power_state_fields {
     }};
 }
 
-macro_rules! implement_state_versions {
-    (
-        $(
-            $handler:ident for [ $( $version:ident ),+ ]
-        );* $(;)?
-    ) => {
-        impl HasLotusJson for State {
-            type LotusJson = PowerStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = PowerStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                todo!()
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "TotalRawBytePower": "0",
+                "TotalBytesCommitted": "0",
+                "TotalQualityAdjPower": "0",
+                "TotalQABytesCommitted": "0",
+                "TotalPledgeCollateral": "0",
+                "ThisEpochRawBytePower": "0",
+                "ThisEpochQualityAdjPower": "0",
+                "ThisEpochPledgeCollateral": "0",
+                "ThisEpochQAPowerSmoothed": {
+                    "Position": "0",
+                    "Velocity": "0"
+                },
+                "MinerCount": 0,
+                "MinerAboveMinPowerCount": 0,
+                "CronEventQueue": {"/":"baeaaaaa"},
+                "FirstCronEpoch": 0,
+                "Claims": {"/":"baeaaaaa"},
+                "ProofValidationBatch": null,
+                "RampStartEpoch": 0,
+                "RampDurationEpochs": 0
+            }),
+            State::default_latest_version(
+                BigInt::from(0),
+                BigInt::from(0),
+                BigInt::from(0),
+                BigInt::from(0),
+                TokenAmount::default().into(),
+                BigInt::from(0),
+                BigInt::from(0),
+                TokenAmount::default().into(),
+                Default::default(),
+                0,
+                0,
+                Cid::default(),
+                0,
+                Cid::default(),
+                None,
+                0,
+                0,
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_power_state {
+            (
+                $(
+                    $handler:ident for [ $( $version:ident ),+ ]
+                );+ $(;)?
+            ) => {
                 match self {
                     $(
                         $(
@@ -140,34 +182,38 @@ macro_rules! implement_state_versions {
                         )+
                     )*
                 }
-            }
-
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_power_state::v16::State {
-                    total_raw_byte_power: lotus_json.total_raw_byte_power,
-                    total_bytes_committed: lotus_json.total_bytes_committed,
-                    total_quality_adj_power: lotus_json.total_quality_adj_power,
-                    total_qa_bytes_committed: lotus_json.total_qa_bytes_committed,
-                    total_pledge_collateral: lotus_json.total_pledge_collateral.into(),
-                    this_epoch_raw_byte_power: lotus_json.this_epoch_raw_byte_power,
-                    this_epoch_quality_adj_power: lotus_json.this_epoch_quality_adj_power,
-                    this_epoch_pledge_collateral: lotus_json.this_epoch_pledge_collateral.into(),
-                    this_epoch_qa_power_smoothed: lotus_json.this_epoch_qa_power_smoothed,
-                    miner_count: lotus_json.miner_count,
-                    miner_above_min_power_count: lotus_json.miner_above_min_power_count,
-                    cron_event_queue: lotus_json.cron_event_queue,
-                    first_cron_epoch: lotus_json.first_cron_epoch,
-                    claims: lotus_json.claims,
-                    proof_validation_batch: lotus_json.proof_validation_batch,
-                    ramp_start_epoch: lotus_json.ramp_start_epoch.unwrap_or(0),
-                    ramp_duration_epochs: lotus_json.ramp_duration_epochs.unwrap_or(0),
-                })
-            }
+            };
         }
-    };
-}
 
-implement_state_versions! {
-    v8_to_v14_power_state_fields for [V8, V9, V10, V11, V12, V13, V14];
-    v15_to_v17_power_state_fields for [V15, V16, V17];
+        convert_power_state! {
+            power_state_fields_version_8_to_14 for [V8, V9, V10, V11, V12, V13, V14];
+            power_state_fields_version_15_onwards for [V15, V16, V17];
+        }
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.total_raw_byte_power,
+            lotus_json.total_bytes_committed,
+            lotus_json.total_quality_adj_power,
+            lotus_json.total_qa_bytes_committed,
+            lotus_json.total_pledge_collateral.into(),
+            lotus_json.this_epoch_raw_byte_power,
+            lotus_json.this_epoch_quality_adj_power,
+            lotus_json.this_epoch_pledge_collateral.into(),
+            fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+                position: lotus_json.this_epoch_qa_power_smoothed.position,
+                velocity: lotus_json.this_epoch_qa_power_smoothed.velocity,
+            },
+            lotus_json.miner_count,
+            lotus_json.miner_above_min_power_count,
+            lotus_json.cron_event_queue,
+            lotus_json.first_cron_epoch,
+            lotus_json.claims,
+            lotus_json.proof_validation_batch,
+            lotus_json.ramp_start_epoch.unwrap_or(0),
+            lotus_json.ramp_duration_epochs.unwrap_or(0),
+        )
+    }
 }

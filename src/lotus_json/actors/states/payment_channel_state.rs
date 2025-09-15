@@ -37,17 +37,35 @@ pub struct PaymentChannelStateLotusJson {
     pub lane_states: Cid,
 }
 
-macro_rules! impl_paych_state_lotus_json {
-    ($($version:ident),*) => {
-        impl HasLotusJson for State {
-            type LotusJson = PaymentChannelStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = PaymentChannelStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                todo!()
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use crate::shim::address::Address;
+        vec![(
+            json!({
+                "From": "f00",
+                "To": "f01",
+                "ToSend": "0",
+                "SettlingAt": 0,
+                "MinSettleHeight": 0,
+                "LaneStates": {"/":"baeaaaaa"}
+            }),
+            State::default_latest_version(
+                Address::new_id(0).into(),
+                Address::new_id(1).into(),
+                TokenAmount::default().into(),
+                0,
+                0,
+                Cid::default(),
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_payment_channel_state {
+            ($($version:ident),+) => {
                 match self {
                     $(
                         State::$version(state) => PaymentChannelStateLotusJson {
@@ -58,23 +76,23 @@ macro_rules! impl_paych_state_lotus_json {
                             min_settle_height: state.min_settle_height,
                             lane_states: state.lane_states,
                         },
-                    )*
+                    )+
                 }
-            }
-
-            // Default to V16
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_paych_state::v16::State {
-                    from: lotus_json.from.into(),
-                    to: lotus_json.to.into(),
-                    to_send: lotus_json.to_send.into(),
-                    settling_at: lotus_json.settling_at,
-                    min_settle_height: lotus_json.min_settle_height,
-                    lane_states: lotus_json.lane_states,
-                })
-            }
+            };
         }
-    };
-}
 
-impl_paych_state_lotus_json!(V9, V10, V11, V12, V13, V14, V15, V16, V17);
+        convert_payment_channel_state!(V9, V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.from.into(),
+            lotus_json.to.into(),
+            lotus_json.to_send.into(),
+            lotus_json.settling_at,
+            lotus_json.min_settle_height,
+            lotus_json.lane_states,
+        )
+    }
+}

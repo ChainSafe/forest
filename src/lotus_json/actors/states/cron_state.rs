@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use crate::shim::actors::cron::{Entry, State};
 use serde::{Deserialize, Serialize};
@@ -31,74 +32,46 @@ impl HasLotusJson for State {
                     }
                 ]
             }),
-            // Create a test cron state with some entries
-            State::V16(fil_actor_cron_state::v16::State {
-                entries: vec![
-                    fil_actor_cron_state::v16::Entry {
-                        receiver: Address::new_id(1).into(),
-                        method_num: 2,
-                    },
-                    fil_actor_cron_state::v16::Entry {
-                        receiver: Address::new_id(2).into(),
-                        method_num: 3,
-                    },
-                ],
-            }),
+            State::default_latest_version(vec![
+                fil_actor_cron_state::v17::Entry {
+                    receiver: Address::new_id(1).into(),
+                    method_num: 2,
+                },
+                fil_actor_cron_state::v17::Entry {
+                    receiver: Address::new_id(2).into(),
+                    method_num: 3,
+                },
+            ]),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        match self {
-            State::V8(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V8).collect(),
-            },
-            State::V9(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V9).collect(),
-            },
-            State::V10(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V10).collect(),
-            },
-            State::V11(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V11).collect(),
-            },
-            State::V12(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V12).collect(),
-            },
-            State::V13(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V13).collect(),
-            },
-            State::V14(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V14).collect(),
-            },
-            State::V15(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V15).collect(),
-            },
-            State::V16(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V16).collect(),
-            },
-            State::V17(s) => CronStateLotusJson {
-                entries: s.entries.into_iter().map(Entry::V17).collect(),
-            },
+        macro_rules! convert_cron_state {
+            ($($version:ident),+) => {
+                match self {
+                    $(
+                        State::$version(s) => CronStateLotusJson {
+                            entries: s.entries.into_iter().map(Entry::$version).collect(),
+                        },
+                    )+
+                }
+            };
         }
+
+        convert_cron_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
     }
 
+    // Always return the latest version when deserializing
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        // Default to the latest version (V16)
-        State::V16(fil_actor_cron_state::v16::State {
-            entries: lotus_json
-                .entries
-                .into_iter()
-                .map(|entry| match entry {
-                    Entry::V16(e) => e,
-                    _ => {
-                        let lotus_entry = entry.into_lotus_json();
-                        fil_actor_cron_state::v16::Entry {
-                            receiver: lotus_entry.receiver.into(),
-                            method_num: lotus_entry.method_num,
-                        }
-                    }
-                })
-                .collect(),
-        })
+        let entries = lotus_json
+            .entries
+            .into_iter()
+            .map(|entry| {
+                let lotus_entry = entry.into_lotus_json();
+                Entry::default_latest_version(lotus_entry.receiver.into(), lotus_entry.method_num)
+            })
+            .collect();
+
+        State::default_latest_version_from_entries(entries)
     }
 }

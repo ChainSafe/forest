@@ -42,6 +42,26 @@ pub struct Transaction {
 }
 
 impl State {
+    pub fn default_latest_version(
+        signers: Vec<fvm_shared4::address::Address>,
+        num_approvals_threshold: u64,
+        next_tx_id: i64,
+        initial_balance: fvm_shared4::econ::TokenAmount,
+        start_epoch: ChainEpoch,
+        unlock_duration: ChainEpoch,
+        pending_txs: cid::Cid,
+    ) -> Self {
+        State::V17(fil_actor_multisig_state::v17::State {
+            signers,
+            num_approvals_threshold,
+            next_tx_id: fil_actor_multisig_state::v17::TxnID(next_tx_id),
+            initial_balance,
+            start_epoch,
+            unlock_duration,
+            pending_txs,
+        })
+    }
+
     /// Returns amount locked in multisig contract
     pub fn locked_balance(&self, height: ChainEpoch) -> anyhow::Result<TokenAmount> {
         Ok(match self {
