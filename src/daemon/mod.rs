@@ -15,8 +15,10 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-use crate::daemon::context::{AppContext, DbType};
-use crate::daemon::db_util::import_chain_as_forest_car;
+use crate::daemon::{
+    context::{AppContext, DbType},
+    db_util::import_chain_as_forest_car,
+};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -202,10 +204,22 @@ async fn maybe_start_metrics_service(
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
         let db = ctx.db.writer().clone();
+        let chain_store = ctx.state_manager.chain_store().clone();
+        let get_chain_head_height = move || chain_store.heaviest_tipset().epoch();
+        let chain_store = ctx.state_manager.chain_store().clone();
+        let get_chain_head_network_version = move || {
+            let epoch = chain_store.heaviest_tipset().epoch();
+            chain_store.chain_config.network_version(epoch)
+        };
         services.spawn(async {
-            crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
-                .await
-                .context("Failed to initiate prometheus server")
+            crate::metrics::init_prometheus(
+                prometheus_listener,
+                db_directory,
+                db,
+                get_chain_head_network_version,
+            )
+            .await
+            .context("Failed to initiate prometheus server")
         });
 
         crate::metrics::default_registry().register_collector(Box::new(
@@ -215,6 +229,7 @@ async fn maybe_start_metrics_service(
                     .chain_store()
                     .genesis_block_header()
                     .timestamp,
+                get_chain_head_height,
             ),
         ));
     }

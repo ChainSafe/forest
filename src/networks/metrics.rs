@@ -1,47 +1,117 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use prometheus_client::{collector::Collector, encoding::EncodeMetric, metrics::gauge::Gauge};
+use educe::Educe;
+use prometheus_client::{
+    collector::Collector,
+    encoding::{DescriptorEncoder, EncodeMetric},
+    metrics::gauge::Gauge,
+};
 
 use super::calculate_expected_epoch;
+use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
 
-#[derive(Debug)]
-pub struct NetworkHeightCollector {
+#[derive(Educe)]
+#[educe(Debug)]
+pub struct NetworkHeightCollector<F>
+where
+    F: Fn() -> ChainEpoch,
+{
     block_delay_secs: u32,
     genesis_timestamp: u64,
-    network_height: Gauge,
+    #[educe(Debug(ignore))]
+    get_chain_head_height: F,
 }
 
-impl NetworkHeightCollector {
-    pub fn new(block_delay_secs: u32, genesis_timestamp: u64) -> Self {
+impl<F> NetworkHeightCollector<F>
+where
+    F: Fn() -> ChainEpoch,
+{
+    pub fn new(block_delay_secs: u32, genesis_timestamp: u64, get_chain_head_height: F) -> Self {
         Self {
             block_delay_secs,
             genesis_timestamp,
-            network_height: Gauge::default(),
+            get_chain_head_height,
         }
     }
 }
 
-impl Collector for NetworkHeightCollector {
+impl<F> Collector for NetworkHeightCollector<F>
+where
+    F: Fn() -> ChainEpoch + Send + Sync + 'static,
+{
     fn encode(
         &self,
         mut encoder: prometheus_client::encoding::DescriptorEncoder,
     ) -> Result<(), std::fmt::Error> {
+        {
+            let network_height: Gauge = Default::default();
+            let epoch = (self.get_chain_head_height)();
+            network_height.set(epoch);
+            let metric_encoder = encoder.encode_descriptor(
+                "network_height",
+                "The current network height",
+                None,
+                network_height.metric_type(),
+            )?;
+            network_height.encode(metric_encoder)?;
+        }
+        {
+            let expected_network_height: Gauge = Default::default();
+            let expected_epoch = calculate_expected_epoch(
+                chrono::Utc::now().timestamp() as u64,
+                self.genesis_timestamp,
+                self.block_delay_secs,
+            );
+            expected_network_height.set(expected_epoch);
+            let metric_encoder = encoder.encode_descriptor(
+                "expected_network_height",
+                "The expected network height based on the current time and the genesis block time",
+                None,
+                expected_network_height.metric_type(),
+            )?;
+            expected_network_height.encode(metric_encoder)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Educe)]
+#[educe(Debug)]
+pub struct NetworkVersionCollector<F>
+where
+    F: Fn() -> NetworkVersion,
+{
+    #[educe(Debug(ignore))]
+    get_chain_head_network_version: F,
+}
+
+impl<F> NetworkVersionCollector<F>
+where
+    F: Fn() -> NetworkVersion,
+{
+    pub fn new(get_chain_head_network_version: F) -> Self {
+        Self {
+            get_chain_head_network_version,
+        }
+    }
+}
+
+impl<F> Collector for NetworkVersionCollector<F>
+where
+    F: Fn() -> NetworkVersion + Send + Sync + 'static,
+{
+    fn encode(&self, mut encoder: DescriptorEncoder) -> Result<(), std::fmt::Error> {
+        let network_version = (self.get_chain_head_network_version)();
+        let nv_gauge: Gauge = Default::default();
+        nv_gauge.set(u32::from(network_version) as _);
         let metric_encoder = encoder.encode_descriptor(
-            "expected_network_height",
-            "The expected network height based on the current time and the genesis block time",
+            "network_version",
+            "Network version of the current chain head",
             None,
-            self.network_height.metric_type(),
+            nv_gauge.metric_type(),
         )?;
-
-        let expected_epoch = calculate_expected_epoch(
-            chrono::Utc::now().timestamp() as u64,
-            self.genesis_timestamp,
-            self.block_delay_secs,
-        );
-        self.network_height.set(expected_epoch);
-        self.network_height.encode(metric_encoder)?;
-
+        nv_gauge.encode(metric_encoder)?;
         Ok(())
     }
 }
