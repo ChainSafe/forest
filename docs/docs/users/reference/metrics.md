@@ -283,11 +283,38 @@ head_epoch 2519530
 </details>
 
 <details>
+  <summary>Example `network_height` output</summary>
+```
+# HELP network_height The current network height
+# TYPE network_height gauge
+network_height 3020349
+```
+</details>
+
+<details>
   <summary>Example `expected_network_height` output</summary>
 ```
 # HELP expected_network_height The expected network height based on the current time and the genesis block time
 # TYPE expected_network_height gauge
 expected_network_height 2519530
+```
+</details>
+
+<details>
+  <summary>Example `network_version` output</summary>
+```
+# HELP network_version Network version of the current chain head
+# TYPE network_version gauge
+network_version 27
+```
+</details>
+
+<details>
+  <summary>Example `network_version_revision` output</summary>
+```
+# HELP network_version_revision Network version revision of the current chain head
+# TYPE network_version_revision gauge
+network_version_revision 0
 ```
 </details>
 
