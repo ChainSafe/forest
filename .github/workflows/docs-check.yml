@@ -34,8 +34,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
-          # See https://github.com/actions/setup-node/issues/1027
-          # cache: yarn
+          package-manager-cache: false
       - run: corepack enable
       - run: make format-spellcheck-dictionary-check
       - run: yarn --immutable

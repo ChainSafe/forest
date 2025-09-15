@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+          package-manager-cache: false
       - run: corepack enable
       - run: yarn --immutable
       - run: yarn md-fmt
