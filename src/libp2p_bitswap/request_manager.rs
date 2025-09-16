@@ -67,7 +67,7 @@ impl BitswapRequestManager {
             (peer, BitswapRequest::new_cancel(cid).send_dont_have(false))
         }
 
-        // Use seperate channels here to not block `block` requests when too many other type of requests are queued.
+        // Use separate channels here to not block `block` requests when too many other type of requests are queued.
         let streams = vec![
             self.outbound_block_request_rx
                 .stream()
