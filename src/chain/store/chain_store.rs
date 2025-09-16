@@ -6,6 +6,7 @@ use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
 };
+use crate::db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt};
 use crate::interpreter::{BlockMessages, VMTrace};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -21,10 +22,6 @@ use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta},
     db::HeaviestTipsetKeyProvider,
-};
-use crate::{
-    chain_sync::metrics,
-    db::{EthMappingsStore, EthMappingsStoreExt, IndicesStore, IndicesStoreExt},
 };
 use crate::{fil_cns, utils::cache::SizeTrackingLruCache};
 use ahash::{HashMap, HashMapExt, HashSet};
@@ -146,7 +143,6 @@ where
 
     /// Sets heaviest tipset
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        metrics::HEAD_EPOCH.set(ts.epoch());
         self.heaviest_tipset_key_provider
             .set_heaviest_tipset_key(ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {

@@ -16,7 +16,6 @@ title: Metrics
 | `peer_failure_total`           | Counter   | Count   | Total number of failed peer requests                                                         |
 | `full_peers`                   | Gauge     | Count   | Number of healthy peers recognized by the node                                               |
 | `bad_peers`                    | Gauge     | Count   | Number of bad peers recognized by the node                                                   |
-| `network_height`               | Gauge     | Count   | The current network height                                                                   |
 | `expected_network_height`      | Gauge     | Count   | The expected network height based on the current time and the genesis block time             |
 | `network_version`              | Gauge     | Count   | Network version of the current chain head                                                    |
 | `network_version_revision`     | Gauge     | Count   | Network version revision of the current chain head                                           |
@@ -280,15 +279,6 @@ bad_peers 1
 # HELP head_epoch Latest epoch synchronized to the node.
 # TYPE head_epoch gauge
 head_epoch 2519530
-```
-</details>
-
-<details>
-  <summary>Example `network_height` output</summary>
-```
-# HELP network_height The current network height
-# TYPE network_height gauge
-network_height 3020349
 ```
 </details>
 

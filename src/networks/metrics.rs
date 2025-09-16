@@ -55,8 +55,8 @@ where
             let epoch = (self.get_chain_head_height)();
             network_height.set(epoch);
             let metric_encoder = encoder.encode_descriptor(
-                "network_height",
-                "The current network height",
+                "head_epoch",
+                "Latest epoch synchronized to the node",
                 None,
                 network_height.metric_type(),
             )?;
