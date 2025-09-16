@@ -22,7 +22,7 @@ use crate::tool::offline_server::start_offline_server;
 use crate::tool::subcommands::api_cmd::stateful_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{Context as _, bail, ensure};
+use anyhow::{Context as _, bail};
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fvm_ipld_blockstore::Blockstore;
@@ -64,8 +64,8 @@ pub enum ApiCommands {
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         snapshot_files: Vec<PathBuf>,
         /// Filecoin network chain
-        #[arg(long, default_value = "mainnet")]
-        chain: NetworkChain,
+        #[arg(long)]
+        chain: Option<NetworkChain>,
         // RPC port
         #[arg(long, default_value_t = crate::rpc::DEFAULT_PORT)]
         port: u16,
@@ -76,6 +76,9 @@ pub enum ApiCommands {
         /// the last N EPOCH(s) starting at HEAD.
         #[arg(long, default_value_t = -50)]
         height: i64,
+        /// Backfill index for the given EPOCH(s)
+        #[arg(long, default_value_t = 0)]
+        index_backfill_epochs: usize,
         /// Genesis file path, only applicable for devnet
         #[arg(long)]
         genesis: Option<PathBuf>,
@@ -261,23 +264,17 @@ impl ApiCommands {
                 port,
                 auto_download_snapshot,
                 height,
+                index_backfill_epochs,
                 genesis,
                 save_token,
             } => {
-                if chain.is_devnet() {
-                    ensure!(
-                        !auto_download_snapshot,
-                        "auto_download_snapshot is not supported for devnet"
-                    );
-                    ensure!(genesis.is_some(), "genesis must be provided for devnet");
-                }
-
                 start_offline_server(
                     snapshot_files,
                     chain,
                     port,
                     auto_download_snapshot,
                     height,
+                    index_backfill_epochs,
                     genesis,
                     save_token,
                 )

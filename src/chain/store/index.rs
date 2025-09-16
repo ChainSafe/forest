@@ -40,10 +40,8 @@ pub enum ResolveNullTipset {
 
 impl<DB: Blockstore> ChainIndex<DB> {
     pub fn new(db: DB) -> Self {
-        let ts_cache = SizeTrackingLruCache::new_with_default_metrics_registry(
-            "tipset".into(),
-            DEFAULT_TIPSET_CACHE_SIZE,
-        );
+        let ts_cache =
+            SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
         Self { ts_cache, db }
     }
 
@@ -125,7 +123,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
-            SizeTrackingLruCache::new_with_default_metrics_registry(
+            SizeTrackingLruCache::new_with_metrics(
                 "tipset_by_height".into(),
                 4096.try_into().expect("infallible"),
             )

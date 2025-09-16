@@ -32,7 +32,11 @@
 - [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
 - [#6000](https://github.com/ChainSafe/forest/pull/6000) Add support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
 
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Added `--index-backfill-epochs` to `forest-tool api serve`.
+
 ### Changed
+
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Made `--chain` optional in `forest-tool api serve` by inferring network from the snapshots.
 
 ### Removed
 
