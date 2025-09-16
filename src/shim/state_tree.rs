@@ -171,6 +171,8 @@ where
             Ok(StateTree::FvmV2(st))
         } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store.clone(), c) {
             Ok(StateTree::V0(st))
+        } else if !store.has(c)? {
+            bail!("No state tree exists for the root {c}.")
         } else {
             let state_root = store.get_cbor::<StateRoot>(c).ok().flatten();
             let state_root_version = state_root

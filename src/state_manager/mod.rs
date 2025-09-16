@@ -857,6 +857,8 @@ where
         callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<StateOutput, Error> {
+        let epoch = tipset.epoch();
+        let has_callback = callback.is_some();
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
@@ -866,7 +868,14 @@ where
             tipset,
             callback,
             enable_tracing,
-        )?)
+        )
+        .map_err(|e| {
+            if has_callback {
+                e
+            } else {
+                anyhow::anyhow!("Failed to compute tipset state@{epoch}: {e}")
+            }
+        })?)
     }
 
     #[instrument(skip_all)]

@@ -4,7 +4,6 @@
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 
 use super::CachingBlockHeader;
@@ -40,13 +39,6 @@ impl Block {
     /// Returns block header's CID.
     pub fn cid(&self) -> &Cid {
         self.header.cid()
-    }
-
-    /// Persists the block in the given block store
-    pub fn persist(&self, db: &impl Blockstore) -> Result<(), crate::chain::store::Error> {
-        crate::chain::persist_objects(&db, std::iter::once(self.header()))?;
-        crate::chain::persist_objects(&db, self.bls_msgs().iter())?;
-        crate::chain::persist_objects(&db, self.secp_msgs().iter())
     }
 }
 
