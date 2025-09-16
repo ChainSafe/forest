@@ -561,10 +561,7 @@ pub struct MsgsInTipsetCache {
 impl MsgsInTipsetCache {
     pub fn new(capacity: NonZeroUsize) -> Self {
         Self {
-            cache: SizeTrackingLruCache::new_with_default_metrics_registry(
-                "msg_in_tipset".into(),
-                capacity,
-            ),
+            cache: SizeTrackingLruCache::new_with_metrics("msg_in_tipset".into(), capacity),
         }
     }
 

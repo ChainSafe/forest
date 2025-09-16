@@ -248,7 +248,7 @@ async fn maybe_start_metrics_service(
             }
         });
 
-        crate::metrics::default_registry().register_collector(Box::new(
+        crate::metrics::register_collector(Box::new(
             networks::metrics::NetworkHeightCollector::new(
                 ctx.state_manager.chain_config().block_delay_secs,
                 ctx.state_manager
@@ -574,6 +574,8 @@ pub(super) async fn start_services(
     shutdown_send: mpsc::Sender<()>,
     on_app_context_and_db_initialized: impl Fn(&AppContext),
 ) -> anyhow::Result<()> {
+    // Cleanup the collector prometheus metrics registry on start
+    crate::metrics::reset_collector_registry();
     let mut services = JoinSet::new();
     let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;

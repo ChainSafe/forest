@@ -7,6 +7,7 @@ use crate::{db::DBStatistics, networks::ChainConfig, shim::clock::ChainEpoch};
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
+    collector::Collector,
     encoding::EncodeLabelSet,
     metrics::{
         counter::Counter,
@@ -23,8 +24,24 @@ use tracing::warn;
 static DEFAULT_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>> =
     LazyLock::new(Default::default);
 
+static COLLECTOR_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>> =
+    LazyLock::new(Default::default);
+
 pub fn default_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
     DEFAULT_REGISTRY.write()
+}
+
+pub fn collector_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
+    COLLECTOR_REGISTRY.write()
+}
+
+pub fn register_collector(collector: Box<dyn Collector>) {
+    #[allow(clippy::disallowed_methods)]
+    collector_registry().register_collector(collector)
+}
+
+pub fn reset_collector_registry() {
+    *collector_registry() = Default::default();
 }
 
 pub static LRU_CACHE_HIT: LazyLock<Family<KindLabel, Counter>> = LazyLock::new(|| {
@@ -77,19 +94,17 @@ where
     DB: DBStatistics + Send + Sync + 'static,
 {
     // Add the process collector to the registry
-    if let Err(err) =
-        kubert_prometheus_process::register(default_registry().sub_registry_with_prefix("process"))
-    {
+    if let Err(err) = kubert_prometheus_process::register(
+        collector_registry().sub_registry_with_prefix("process"),
+    ) {
         warn!("Failed to register process metrics: {err}");
     }
 
-    DEFAULT_REGISTRY.write().register_collector(Box::new(
+    register_collector(Box::new(
         crate::utils::version::ForestVersionCollector::new(),
     ));
-    DEFAULT_REGISTRY
-        .write()
-        .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
-    DEFAULT_REGISTRY.write().register_collector(Box::new(
+    register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
+    register_collector(Box::new(
         crate::networks::metrics::NetworkVersionCollector::new(
             chain_config,
             get_chain_head_height,
@@ -110,11 +125,19 @@ where
 
 async fn collect_prometheus_metrics() -> impl IntoResponse {
     let mut metrics = String::new();
-    match prometheus_client::encoding::text::encode(&mut metrics, &DEFAULT_REGISTRY.read()) {
-        Ok(()) => {}
-        Err(e) => warn!("{e}"),
+    if let Err(e) =
+        prometheus_client::encoding::text::encode_registry(&mut metrics, &DEFAULT_REGISTRY.read())
+    {
+        warn!("failed to encode the default metrics registry: {e}");
     };
-
+    if let Err(e) =
+        prometheus_client::encoding::text::encode_registry(&mut metrics, &COLLECTOR_REGISTRY.read())
+    {
+        warn!("failed to encode the collector metrics registry: {e}");
+    };
+    if let Err(e) = prometheus_client::encoding::text::encode_eof(&mut metrics) {
+        warn!("failed to encode metrics eof {e}");
+    };
     (
         StatusCode::OK,
         [("content-type", "text/plain; charset=utf-8")],
