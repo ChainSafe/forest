@@ -164,7 +164,7 @@ impl GetPowerTable {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
-            LruBlockstoreReadCache::new_with_default_metrics_registry(
+            LruBlockstoreReadCache::new_with_metrics(
                 "get_powertable".into(),
                 BLOCKSTORE_CACHE_CAP.try_into().expect("Infallible"),
             )
