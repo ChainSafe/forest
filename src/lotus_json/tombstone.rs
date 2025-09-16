@@ -46,6 +46,6 @@ impl HasLotusJson for TombstoneState {
 
     // Always return the latest version when deserializing
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        TombstoneState::default_latest_version(lotus_json.origin.into(), lotus_json.nonce)
+        TombstoneState::default_latest_version(lotus_json.origin, lotus_json.nonce)
     }
 }
