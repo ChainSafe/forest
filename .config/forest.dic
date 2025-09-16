@@ -1,4 +1,4 @@
-73
+530
 Abell
 abi
 ActorID
@@ -13,7 +13,6 @@ APIs
 api
 API-V1-compatible
 approx_cmp
-Archlinux
 args
 arity/S
 arm64
@@ -25,7 +24,7 @@ asynchronous_codec
 attoFIL
 Ayush
 B4
-backend/
+backend/M
 backfilling
 backport
 bajillion
@@ -152,10 +151,8 @@ exa
 expirations
 ExitCode
 f3
-F3
 F3-sidecar
 f4
-F4
 F9
 F10
 F11
@@ -221,7 +218,7 @@ healthcheck
 homebrew
 hotfix
 http-client
-i.e.
+i.e
 i64
 IaC
 Ijon/M
@@ -255,8 +252,6 @@ LesnyRumcajs
 LetsEncrypt
 libs
 libp2p
-LibP2P
-Libp2p
 libsecp256k1
 linter/S
 Linux
@@ -282,7 +277,6 @@ Merkle
 messagepool
 MessageInfo
 MessageParams
-MessagePool
 messageReceipt
 MethodNum
 MethodParameter
@@ -331,9 +325,9 @@ NV23
 NV24
 NV25
 NV27
-nvXX
+NVXX
 NVMe
-Ok
+OK
 Olivero
 onwards
 OOM/S
@@ -342,7 +336,6 @@ OpenRPC
 orchestrator
 Organisation
 os
-overriden
 overallocation
 P2P
 p2p
@@ -410,12 +403,10 @@ S3-compatible
 Sampanthan
 sccache
 Schema/S
-schema/S
 schemars/M
 Schoe
 SECP
-SECP256k1
-SecP256k1
+secp256k1
 secio
 seekable
 semver
@@ -435,8 +426,6 @@ sighup
 sigterm
 skippable
 Songthaew
-Sqlx
-Stackoverflow
 standardised
 statediff/S
 stateful
@@ -502,16 +491,11 @@ URL
 utf8
 utils
 UUID
-V0
 v0
-V1
 v1
-V2
 v2
-V3
 v3
 v4
-V5
 v5
 V7
 v6

@@ -9,7 +9,7 @@ problems running or compiling Forest, use this checklist:
 
 1. Make sure you are using an arm64 version of homebrew; this could be a problem
    one inherits when migrating from an Intel Mac to Apple Silicon:
-   [Stackoverflow example](https://stackoverflow.com/a/68443301).
+   [Stack Overflow example](https://stackoverflow.com/a/68443301).
 2. Make sure your default host is set to `aarch64-apple-darwin` via
    `rustup set default-host aarch64-apple-darwin`.
 3. This could result in various errors related to the fact that you still have

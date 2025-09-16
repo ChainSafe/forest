@@ -275,7 +275,7 @@ This is a mandatory release for calibnet node operators. It includes the revised
 
 ### Added
 
-- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overriden by a reproducible seeded RNG.
+- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overridden by a reproducible seeded RNG.
 
 - [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
 
@@ -3342,7 +3342,7 @@ All initial change sets:
   ([#229](https://github.com/ChainSafe/forest/pull/229)) (Eric Tu)
 - `47dfb47c` Update multibase dependency for lowercase base32 support
   ([#239](https://github.com/ChainSafe/forest/pull/239)) (Austin Abell)
-- `39a8d88e` Allow Address network prefix to be overriden for printing
+- `39a8d88e` Allow Address network prefix to be overridden for printing
   ([#233](https://github.com/ChainSafe/forest/pull/233)) (Austin Abell)
 - `faa71386` Refactor SyncManager to have ownership over tipsets
   ([#238](https://github.com/ChainSafe/forest/pull/238)) (Austin Abell)
