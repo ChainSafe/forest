@@ -35,7 +35,11 @@
 
 - [#6079](https://github.com/ChainSafe/forest/pull/6079) Added prometheus metrics `network_height`, `network_version`, `network_version_revision` and `actor_version`.
 
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Added `--index-backfill-epochs` to `forest-tool api serve`.
+
 ### Changed
+
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Made `--chain` optional in `forest-tool api serve` by inferring network from the snapshots.
 
 ### Removed
 

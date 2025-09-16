@@ -1991,7 +1991,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![
-        // using basic because 2 nodes are not garanteed to be at the same head
+        // using basic because 2 nodes are not guaranteed to be at the same head
         RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
         RpcTest::basic(F3GetLatestCertificate::request(())?),
         RpcTest::basic(F3ListParticipants::request(())?),
