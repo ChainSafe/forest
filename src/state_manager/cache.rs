@@ -20,7 +20,7 @@ struct TipsetStateCacheInner<V: LruValueConstraints> {
 impl<V: LruValueConstraints> TipsetStateCacheInner<V> {
     pub fn with_size(cache_identifier: &str, cache_size: NonZeroUsize) -> Self {
         Self {
-            values: SizeTrackingLruCache::new_with_default_metrics_registry(
+            values: SizeTrackingLruCache::new_with_metrics(
                 Self::cache_name(cache_identifier).into(),
                 cache_size,
             ),
