@@ -52,6 +52,8 @@ use tokio::task::JoinHandle;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
+static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
 /// # Notes
@@ -325,9 +327,7 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-        let _locked = LOCK.try_lock();
+        let _locked = CHAIN_EXPORT_LOCK.try_lock();
         if _locked.is_err() {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
@@ -425,9 +425,7 @@ impl RpcMethod<1> for ForestChainExportDiff {
             output_path,
         } = params;
 
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-        let _locked = LOCK.try_lock();
+        let _locked = CHAIN_EXPORT_LOCK.try_lock();
         if _locked.is_err() {
             return Err(
                 anyhow::anyhow!("Another chain export diff job is still in progress").into(),
