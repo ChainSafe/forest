@@ -42,12 +42,12 @@ macro_rules! impl_evm_state_lotus_json {
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     vec![(
                         json!({
-                            "bytecode": {"/":"baeaaaaa"},
-                            "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                            "contract_state": {"/":"baeaaaaa"},
-                            "nonce": 0,
-                            "tombstone": null,
-                            "transient_data": null
+                            "Bytecode": {"/":"baeaaaaa"},
+                            "BytecodeHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "ContractState": {"/":"baeaaaaa"},
+                            "Nonce": 0,
+                            "Tombstone": null,
+                            "TransientData": null
                         }),
                         Self {
                             bytecode: Cid::default(),
@@ -106,12 +106,12 @@ macro_rules! impl_evm_state_lotus_json {
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     vec![(
                         json!({
-                            "bytecode": {"/":"baeaaaaa"},
-                            "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                            "contract_state": {"/":"baeaaaaa"},
-                            "nonce": 0,
-                            "tombstone": null,
-                            "transient_data": null
+                            "Bytecode": {"/":"baeaaaaa"},
+                            "BytecodeHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "ContractState": {"/":"baeaaaaa"},
+                            "Nonce": 0,
+                            "Tombstone": null,
+                            "TransientData": null
                         }),
                         Self {
                             bytecode: Cid::default(),
@@ -178,12 +178,12 @@ impl HasLotusJson for State {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
-                "bytecode": {"/":"baeaaaaa"},
-                "bytecode_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                "contract_state": {"/":"baeaaaaa"},
-                "nonce": 0,
-                "tombstone": null,
-                "transient_data": null
+                "Bytecode": {"/":"baeaaaaa"},
+                "BytecodeHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "ContractState": {"/":"baeaaaaa"},
+                "Nonce": 0,
+                "Tombstone": null,
+                "TransientData": null
             }),
             State::default_latest_version(Cid::default(), [0; 32], Cid::default(), None, 0, None),
         )]

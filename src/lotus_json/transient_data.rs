@@ -37,8 +37,8 @@ macro_rules! impl_transient_data_lotus_json {
                         json! {{
                             "TransientDataState": {"/":"baeaaaaa"},
                             "TransientDataLifespan": {
-                                "Origin": "2",
-                                "Nonce": "3"
+                                "Origin": 2,
+                                "Nonce": 3
                             }
                         }},
                         Self {
