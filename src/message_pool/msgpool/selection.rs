@@ -1470,7 +1470,7 @@ mod test_selection {
         let mut joinset = JoinSet::new();
         // this test uses two actors sending messages to each other, with the first
         // actor paying (much) higher gas premium than the second.
-        // We select with a low ticket quality; the chain depenent merging algorithm
+        // We select with a low ticket quality; the chain dependent merging algorithm
         // should pick messages from the second actor from the start
         let mut mpool = make_test_mpool(&mut joinset);
         let ts = mock_tipset(&mut mpool).await;
@@ -1556,7 +1556,7 @@ mod test_selection {
         let mut joinset = JoinSet::new();
         // this test uses 10 actors sending a block of messages to each other, with the
         // the first actors paying higher gas premium than the subsequent
-        // actors. We select with a low ticket quality; the chain depenent
+        // actors. We select with a low ticket quality; the chain dependent
         // merging algorithm should pick messages from the median actor from the
         // start
         let mut mpool = make_test_mpool(&mut joinset);
