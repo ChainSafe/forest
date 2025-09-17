@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
+
 ### Changed
 
 ### Removed
