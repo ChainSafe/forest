@@ -5,8 +5,6 @@
 
 set -eu
 
-format="${1:-v1}"
-
 source "$(dirname "$0")/harness.sh"
 
 forest_init "$@"
