@@ -1699,8 +1699,6 @@ Options:
       --chain <CHAIN>
           Filecoin network chain
 
-          [default: mainnet]
-
       --port <PORT>
           [default: 2345]
 
@@ -1711,6 +1709,11 @@ Options:
           Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s) starting at HEAD
 
           [default: -50]
+
+      --index-backfill-epochs <INDEX_BACKFILL_EPOCHS>
+          Backfill index for the given EPOCH(s)
+
+          [default: 0]
 
       --genesis <GENESIS>
           Genesis file path, only applicable for devnet

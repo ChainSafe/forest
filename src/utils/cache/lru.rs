@@ -19,11 +19,8 @@ use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
     metrics::gauge::Gauge,
-    registry::Registry,
     registry::Unit,
 };
-
-use crate::metrics::default_registry;
 
 pub trait KeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
@@ -55,8 +52,8 @@ where
     K: KeyConstraints,
     V: LruValueConstraints,
 {
-    pub fn register_metrics(&self, registry: &mut Registry) {
-        registry.register_collector(Box::new(self.clone()));
+    fn register_metrics(&self) {
+        crate::metrics::register_collector(Box::new(self.clone()));
     }
 
     fn new_inner(cache_name: Cow<'static, str>, capacity: Option<NonZeroUsize>) -> Self {
@@ -83,38 +80,20 @@ where
         Self::new_inner(cache_name, Some(capacity))
     }
 
-    pub fn new_with_metrics_registry(
-        cache_name: Cow<'static, str>,
-        capacity: NonZeroUsize,
-        metrics_registry: &mut Registry,
-    ) -> Self {
+    pub fn new_with_metrics(cache_name: Cow<'static, str>, capacity: NonZeroUsize) -> Self {
         let c = Self::new_without_metrics_registry(cache_name, capacity);
-        c.register_metrics(metrics_registry);
+        c.register_metrics();
         c
-    }
-
-    pub fn new_with_default_metrics_registry(
-        cache_name: Cow<'static, str>,
-        capacity: NonZeroUsize,
-    ) -> Self {
-        Self::new_with_metrics_registry(cache_name, capacity, &mut default_registry())
     }
 
     pub fn unbounded_without_metrics_registry(cache_name: Cow<'static, str>) -> Self {
         Self::new_inner(cache_name, None)
     }
 
-    pub fn unbounded_with_metrics_registry(
-        cache_name: Cow<'static, str>,
-        metrics_registry: &mut Registry,
-    ) -> Self {
+    pub fn unbounded_with_metrics(cache_name: Cow<'static, str>) -> Self {
         let c = Self::unbounded_without_metrics_registry(cache_name);
-        c.register_metrics(metrics_registry);
+        c.register_metrics();
         c
-    }
-
-    pub fn unbounded_with_default_metrics_registry(cache_name: Cow<'static, str>) -> Self {
-        Self::unbounded_with_metrics_registry(cache_name, &mut default_registry())
     }
 
     pub fn cache(&self) -> &Arc<RwLock<LruCache<K, V>>> {
