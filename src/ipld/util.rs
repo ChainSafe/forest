@@ -6,11 +6,12 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
-use crate::utils::encoding::extract_cids;
+use crate::utils::encoding::{CidExtractor, extract_cids};
 use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
@@ -101,7 +102,7 @@ enum Task {
     // Yield the block, don't visit it.
     Emit(Cid, Option<Vec<u8>>),
     // Visit all the elements, recursively.
-    Iterate(ChainEpoch, Cid, IterateType, VecDeque<Cid>),
+    Iterate(ChainEpoch, Cid, IterateType, Vec<Cid>),
 }
 
 pin_project! {
@@ -197,7 +198,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         }
                     }
                     Iterate(epoch, block_cid, _type, cid_vec) => {
-                        while let Some(cid) = cid_vec.pop_front() {
+                        while let Some(cid) = cid_vec.pop() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
                             // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
@@ -206,11 +207,17 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                             if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                        let new_values = extract_cids(&data)?;
+                                        let extractor = CidExtractor::new(&data, Some(&this.seen));
+                                        let new_values: Vec<_> =
+                                            match extractor.into_iter().try_collect() {
+                                                Ok(v) => v,
+                                                Err(e) => return Poll::Ready(Some(Err(e))),
+                                            };
+                                        // let new_values = extract_cids(&data)?;
                                         if !new_values.is_empty() {
                                             cid_vec.reserve(new_values.len());
                                             for v in new_values.into_iter().rev() {
-                                                cid_vec.push_front(v)
+                                                cid_vec.push(v)
                                             }
                                         }
                                     }

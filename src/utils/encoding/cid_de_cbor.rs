@@ -1,9 +1,12 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::cid_collections::CidHashSet;
 use crate::utils::encoding::from_slice_with_fallback;
+use anyhow::Context as _;
 use cid::Cid;
 use cid::serde::BytesToCidVisitor;
+use fvm_shared4::MAX_CID_LEN;
 use serde::Deserializer;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use smallvec::SmallVec;
@@ -16,6 +19,153 @@ pub type SmallCidVec = SmallVec<[Cid; 8]>;
 pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<SmallCidVec> {
     let CidVec(v) = from_slice_with_fallback(cbor_blob)?;
     Ok(v)
+}
+
+pub struct CidExtractor<'a> {
+    cbor_blob: &'a [u8],
+    seen: Option<&'a CidHashSet>,
+    position: usize,
+    remaining: usize,
+}
+
+impl<'a> CidExtractor<'a> {
+    pub fn new(cbor_blob: &'a [u8], seen: Option<&'a CidHashSet>) -> Self {
+        Self {
+            cbor_blob,
+            seen,
+            position: 0,
+            remaining: 1,
+        }
+    }
+
+    fn read_byte(&mut self) -> Option<u8> {
+        let b = self.cbor_blob.get(self.position).copied();
+        if b.is_some() {
+            self.position += 1;
+        }
+        b
+    }
+
+    fn cbor_read_header(&mut self) -> anyhow::Result<(u8, usize)> {
+        let b = self.read_byte().context("position out of range")?;
+        let maj = (b & 0xe0) >> 5;
+        let low = b & 0x1f;
+        match low {
+            low if low < 24 => Ok((maj, low as _)),
+            24 => {
+                let next = self.read_byte().context("position out of range")?;
+                if next < 24 {
+                    anyhow::bail!("cbor input was not canonical (lval 24 with value < 24)");
+                }
+                Ok((maj, next as _))
+            }
+            25 => {
+                let b2 = self
+                    .cbor_blob
+                    .get(self.position..(self.position + 2))
+                    .context("position out of range")?;
+                self.position += 2;
+                let val = u16::from_be_bytes(b2.try_into()?) as usize;
+                if val <= u8::MAX as usize {
+                    anyhow::bail!("cbor input was not canonical (lval 25 with value <= MaxUint8)");
+                }
+                Ok((maj, val))
+            }
+            26 => {
+                let b4 = self
+                    .cbor_blob
+                    .get(self.position..(self.position + 4))
+                    .context("position out of range")?;
+                self.position += 4;
+                let val = u32::from_be_bytes(b4.try_into()?) as usize;
+                if val <= u16::MAX as usize {
+                    anyhow::bail!("cbor input was not canonical (lval 26 with value <= MaxUint16)");
+                }
+                Ok((maj, val))
+            }
+            27 => {
+                let b8 = self
+                    .cbor_blob
+                    .get(self.position..(self.position + 8))
+                    .context("position out of range")?;
+                self.position += 8;
+                let val = u64::from_be_bytes(b8.try_into()?) as usize;
+                if val <= u32::MAX as usize {
+                    anyhow::bail!("cbor input was not canonical (lval 27 with value <= MaxUint32)");
+                }
+                Ok((maj, val))
+            }
+            _ => anyhow::bail!("invalid header"),
+        }
+    }
+}
+
+impl<'a> Iterator for CidExtractor<'a> {
+    type Item = anyhow::Result<Cid>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use cbor4ii::core::major;
+
+        while self.remaining > 0 && self.position < self.cbor_blob.len() {
+            match self.cbor_read_header() {
+                Ok((maj, extra)) => match maj {
+                    major::UNSIGNED | major::NEGATIVE | major::SIMPLE => {}
+                    major::BYTES | major::STRING => {
+                        if extra > i32::MAX as usize {
+                            return Some(Err(anyhow::anyhow!("string in cbor input too long")));
+                        }
+                        self.position += extra;
+                    }
+                    major::TAG if extra == 42 => match self.cbor_read_header() {
+                        Ok((maj, extra)) => {
+                            if maj != 2 {
+                                return Some(Err(anyhow::anyhow!(
+                                    "expected cbor type 'byte string' in input"
+                                )));
+                            }
+                            if extra > MAX_CID_LEN {
+                                return Some(Err(anyhow::anyhow!("string in cbor input too long")));
+                            } else if extra == 0 {
+                                return Some(Err(anyhow::anyhow!("string in cbor input is empty")));
+                            }
+                            let Some(cid_bytes) = self
+                                .cbor_blob
+                                .get((self.position + 1)..(self.position + extra))
+                            else {
+                                return Some(Err(anyhow::anyhow!("position out of range")));
+                            };
+                            let cid = match Cid::read_bytes(cid_bytes) {
+                                Ok(cid) => cid,
+                                Err(e) => return Some(Err(e.into())),
+                            };
+                            self.position += extra;
+                            if let Some(seen) = self.seen
+                                && seen.contains(&cid)
+                            {
+                                continue;
+                            }
+                            return Some(Ok(cid));
+                        }
+                        Err(e) => return Some(Err(e)),
+                    },
+                    major::TAG => {
+                        self.remaining += 1;
+                    }
+                    major::ARRAY => {
+                        self.remaining += extra;
+                    }
+                    major::MAP => {
+                        self.remaining += extra * 2;
+                    }
+                    _ => {
+                        return Some(Err(anyhow::anyhow!("unhandled cbor type {maj}")));
+                    }
+                },
+                Err(e) => return Some(Err(e)),
+            }
+        }
+        None
+    }
 }
 
 /// [`CidVec`] allows for efficient zero-copy de-serialization of `DAG_CBOR`-encoded nodes into a
@@ -196,12 +346,13 @@ impl<'de> de::Deserialize<'de> for CidVec {
 
 #[cfg(test)]
 mod test {
-    use crate::ipld::DfsIter;
     use crate::utils::encoding::extract_cids;
     use crate::utils::multihash::prelude::*;
+    use crate::{ipld::DfsIter, utils::encoding::cid_de_cbor::CidExtractor};
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
     use ipld_core::ipld::Ipld;
+    use itertools::Itertools as _;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 
@@ -263,5 +414,28 @@ mod test {
         let extracted_cid_vec = extract_cids(&blob).unwrap();
         assert_eq!(extracted_cid_vec.len(), cid_vec.len());
         assert!(extracted_cid_vec.iter().all(|item| cid_vec.contains(item)));
+    }
+
+    #[test]
+    fn test_extract_cids1() {
+        test_extract_cids(include_str!("tests/cbor1.txt"));
+    }
+
+    #[test]
+    fn test_extract_cids2() {
+        test_extract_cids(include_str!("tests/cbor2.txt"));
+    }
+
+    #[test]
+    fn test_extract_cids3() {
+        test_extract_cids(include_str!("tests/cbor3.txt"));
+    }
+
+    fn test_extract_cids(hex_str: &str) {
+        let data = hex::decode(hex_str).unwrap();
+        let cids = extract_cids(&data).unwrap().to_vec();
+        let cid_extractor = CidExtractor::new(&data, None);
+        let cids2: Vec<_> = cid_extractor.into_iter().try_collect().unwrap();
+        assert_eq!(cids, cids2);
     }
 }

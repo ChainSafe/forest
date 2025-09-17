@@ -314,10 +314,14 @@ no-f3-sidecar = []
 [[bench]]
 name = "example-benchmark"
 harness = false
-required-features = ["benchmark-private"]
 
 [[bench]]
 name = "car-index"
+harness = false
+required-features = ["benchmark-private"]
+
+[[bench]]
+name = "extract-cids"
 harness = false
 required-features = ["benchmark-private"]
 

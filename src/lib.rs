@@ -103,7 +103,7 @@ pub mod doctest_private {
 #[doc(hidden)]
 pub mod benchmark_private {
     pub use crate::db::car::forest;
-    pub use crate::utils::cid;
+    pub use crate::utils::{cid, encoding};
 }
 
 /// These items are semver-exempt, and exist for forest author use only
