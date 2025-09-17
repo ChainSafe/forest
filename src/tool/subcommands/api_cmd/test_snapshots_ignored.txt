@@ -85,3 +85,4 @@ Forest.StateCompute
 Forest.StateFetchRoot
 Forest.SyncSnapshotProgress
 Forest.SyncStatus
+Forest.StateActorInfo
