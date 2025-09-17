@@ -171,6 +171,7 @@ impl SnapshotCommands {
                 };
 
                 let depth = depth.unwrap_or_else(|| from - to);
+                ensure!(depth > 0, "depth must be positive");
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(format!(
