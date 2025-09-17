@@ -3,7 +3,7 @@
 # the diff snapshot export feature.
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
-set -eu
+set -euo pipefail
 
 source "$(dirname "$0")/harness.sh"
 

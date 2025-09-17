@@ -522,7 +522,7 @@ pub async fn do_export(
 ) -> anyhow::Result<()> {
     let ts = root;
 
-    let genesis = ts.genesis(&store)?;
+    let genesis = ts.genesis(store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
@@ -537,7 +537,7 @@ pub async fn do_export(
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let index = ChainIndex::new(store);
+    let index = ChainIndex::new(store.clone());
 
     let ts = index
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
