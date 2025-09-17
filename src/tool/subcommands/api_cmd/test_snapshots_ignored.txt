@@ -81,8 +81,8 @@ Forest.ChainExport
 Forest.ChainGetMinBaseFee
 Forest.NetInfo
 Forest.SnapshotGC
+Forest.StateActorInfo
 Forest.StateCompute
 Forest.StateFetchRoot
 Forest.SyncSnapshotProgress
 Forest.SyncStatus
-Forest.StateActorInfo

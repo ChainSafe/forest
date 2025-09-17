@@ -12,7 +12,7 @@ use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::networks::{ACTOR_BUNDLES_METADATA, ChainConfig};
+use crate::networks::ChainConfig;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -3170,6 +3170,7 @@ fn get_pledge_ramp_params(
 #[serde(rename_all = "PascalCase")]
 pub struct StateActorCodeCidsOutput {
     pub network_version: NetworkVersion,
+    pub network_version_revision: i64,
     pub actor_version: String,
     #[serde(with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Cid>")]
@@ -3186,6 +3187,11 @@ lotus_json_with_self!(StateActorCodeCidsOutput);
 impl std::fmt::Display for StateActorCodeCidsOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Network Version: {}", self.network_version)?;
+        writeln!(
+            f,
+            "Network Version Revision: {}",
+            self.network_version_revision
+        )?;
         writeln!(f, "Actor Version: {}", self.actor_version)?;
         writeln!(f, "Manifest CID: {}", self.manifest)?;
         writeln!(f, "Bundle CID: {}", self.bundle)?;
@@ -3222,23 +3228,9 @@ impl RpcMethod<0> for StateActorInfo {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(None)?;
         let state_tree = StateTree::new_from_tipset(ctx.store_owned(), &ts)?;
+        let bundle = state_tree.get_actor_bundle_metadata()?;
         let system_state: system::State = state_tree.get_actor_state()?;
-
         let actors = system_state.builtin_actors_cid();
-
-        let bundle = ACTOR_BUNDLES_METADATA
-            .values()
-            .find(|metadata| {
-                metadata.network == ctx.chain_config().network
-                    && metadata.manifest.actor_list_cid == *actors
-            })
-            .with_context(|| {
-                format!(
-                    "No actor bundle found for network {} with bundle CID {}",
-                    ctx.chain_config().network,
-                    actors
-                )
-            })?;
 
         let current_manifest = BuiltinActorManifest::load_v1_actor_list(ctx.store(), actors)?;
 
@@ -3250,8 +3242,10 @@ impl RpcMethod<0> for StateActorInfo {
         }
 
         let network_version = ctx.chain_config().network_version(ts.epoch() - 1);
+        let network_version_revision = ctx.chain_config().network_version_revision(ts.epoch() - 1);
         let result = StateActorCodeCidsOutput {
             network_version,
+            network_version_revision,
             actor_version: bundle.version.to_owned(),
             manifest: current_manifest.actor_list_cid,
             bundle: bundle.bundle_cid,
