@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.30.1 "Laurelin"
+
+Mandatory release for mainnet node operators. It sets the NV27 _Golden Week_ network upgrade to epoch `5_348_280` which corresponds to `Wed 24 Sep 23:00:00 UTC 2025`. It also includes a few improvements that help with snapshot generation and inspection.
+
+### Added
+
 - [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
 
 - [#6000](https://github.com/ChainSafe/forest/pull/6000) Added support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
@@ -40,10 +52,6 @@
 ### Changed
 
 - [#6068](https://github.com/ChainSafe/forest/issues/6068) Made `--chain` optional in `forest-tool api serve` by inferring network from the snapshots.
-
-### Removed
-
-### Fixed
 
 ## Forest v0.30.0 "Eärendil"
 
