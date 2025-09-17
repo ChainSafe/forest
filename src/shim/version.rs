@@ -88,6 +88,12 @@ impl From<u32> for NetworkVersion {
     }
 }
 
+impl From<NetworkVersion> for u32 {
+    fn from(value: NetworkVersion) -> Self {
+        value.0.into()
+    }
+}
+
 impl From<NetworkVersion_v2> for NetworkVersion {
     fn from(value: NetworkVersion_v2) -> Self {
         NetworkVersion((value as u32).into())

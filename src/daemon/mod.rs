@@ -15,8 +15,10 @@ use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
-use crate::daemon::context::{AppContext, DbType};
-use crate::daemon::db_util::import_chain_as_forest_car;
+use crate::daemon::{
+    context::{AppContext, DbType},
+    db_util::import_chain_as_forest_car,
+};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -26,6 +28,7 @@ use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::start_rpc;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::utils;
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
@@ -202,10 +205,47 @@ async fn maybe_start_metrics_service(
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(config))?;
         let db = ctx.db.writer().clone();
-        services.spawn(async {
-            crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
+
+        let get_chain_head_height = Arc::new({
+            // Use `Weak` to not dead lock GC.
+            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            move || {
+                chain_store
+                    .upgrade()
+                    .map(|cs| cs.heaviest_tipset().epoch())
+                    .unwrap_or_default()
+            }
+        });
+        let get_chain_head_actor_version = Arc::new({
+            // Use `Weak` to not dead lock GC.
+            let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
+            move || {
+                if let Some(cs) = chain_store.upgrade()
+                    && let Ok(state) =
+                        StateTree::new_from_root(cs.db.clone(), cs.heaviest_tipset().parent_state())
+                    && let Ok(bundle_meta) = state.get_actor_bundle_metadata()
+                    && let Ok(actor_version) = bundle_meta.actor_major_version()
+                {
+                    return actor_version;
+                }
+                0
+            }
+        });
+        services.spawn({
+            let chain_config = ctx.chain_config().clone();
+            let get_chain_head_height = get_chain_head_height.clone();
+            async {
+                crate::metrics::init_prometheus(
+                    prometheus_listener,
+                    db_directory,
+                    db,
+                    chain_config,
+                    get_chain_head_height,
+                    get_chain_head_actor_version,
+                )
                 .await
                 .context("Failed to initiate prometheus server")
+            }
         });
 
         crate::metrics::register_collector(Box::new(
@@ -215,6 +255,7 @@ async fn maybe_start_metrics_service(
                     .chain_store()
                     .genesis_block_header()
                     .timestamp,
+                get_chain_head_height,
             ),
         ));
     }

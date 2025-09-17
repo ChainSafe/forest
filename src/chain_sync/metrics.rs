@@ -3,7 +3,7 @@
 
 use prometheus_client::{
     encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
-    metrics::{counter::Counter, family::Family, gauge::Gauge, histogram::Histogram},
+    metrics::{counter::Counter, family::Family, histogram::Histogram},
 };
 use std::sync::LazyLock;
 
@@ -40,15 +40,6 @@ pub static INVALID_TIPSET_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     crate::metrics::default_registry().register(
         "invalid_tipset_total",
         "Total number of invalid tipsets received over gossipsub",
-        metric.clone(),
-    );
-    metric
-});
-pub static HEAD_EPOCH: LazyLock<Gauge> = LazyLock::new(|| {
-    let metric = Gauge::default();
-    crate::metrics::default_registry().register(
-        "head_epoch",
-        "Latest epoch synchronized to the node",
         metric.clone(),
     );
     metric
