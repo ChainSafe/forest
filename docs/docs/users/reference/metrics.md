@@ -17,6 +17,9 @@ title: Metrics
 | `full_peers`                   | Gauge     | Count   | Number of healthy peers recognized by the node                                               |
 | `bad_peers`                    | Gauge     | Count   | Number of bad peers recognized by the node                                                   |
 | `expected_network_height`      | Gauge     | Count   | The expected network height based on the current time and the genesis block time             |
+| `network_version`              | Gauge     | Count   | Network version of the current chain head                                                    |
+| `network_version_revision`     | Gauge     | Count   | Network version revision of the current chain head                                           |
+| `actor_version`                | Gauge     | Count   | Actor version of the current chain head                                                      |
 | `forest_db_size`               | Gauge     | Bytes   | Size of Forest database in bytes                                                             |
 | `bitswap_message_count`        | Counter   | Count   | Number of `bitswap` messages. Indexed by `type`                                              |
 | `bitswap_container_capacities` | Gauge     | Count   | Capacity for each `bitswap` container. Indexed by `type`                                     |
@@ -285,6 +288,33 @@ head_epoch 2519530
 # HELP expected_network_height The expected network height based on the current time and the genesis block time
 # TYPE expected_network_height gauge
 expected_network_height 2519530
+```
+</details>
+
+<details>
+  <summary>Example `network_version` output</summary>
+```
+# HELP network_version Network version of the current chain head
+# TYPE network_version gauge
+network_version 27
+```
+</details>
+
+<details>
+  <summary>Example `network_version_revision` output</summary>
+```
+# HELP network_version_revision Network version revision of the current chain head
+# TYPE network_version_revision gauge
+network_version_revision 0
+```
+</details>
+
+<details>
+  <summary>Example `actor_version` output</summary>
+```
+# HELP actor_version Actor version of the current chain head
+# TYPE actor_version gauge
+actor_version 17
 ```
 </details>
 

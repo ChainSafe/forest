@@ -162,7 +162,7 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         make_height!(
             GoldenWeek,
             get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(9999999999),
-            get_bundle_cid("v17.0.0-rc1")
+            get_bundle_cid("v17.0.0")
         ),
     ])
 });

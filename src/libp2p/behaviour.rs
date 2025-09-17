@@ -123,7 +123,7 @@ impl ForestBehaviour {
             request_response::Config::default()
                 .with_max_concurrent_streams(max_concurrent_request_response_streams),
         );
-        crate::libp2p_bitswap::register_metrics(&mut crate::metrics::default_registry());
+        crate::libp2p_bitswap::register_metrics(&mut crate::metrics::collector_registry());
 
         let discovery = DiscoveryConfig::new(local_key.public(), network_name)
             .with_mdns(config.mdns)

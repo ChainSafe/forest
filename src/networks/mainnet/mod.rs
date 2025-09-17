@@ -90,8 +90,8 @@ pub static HEIGHT_INFOS: LazyLock<HashMap<Height, HeightInfo>> = LazyLock::new(|
         // This epoch, 90 days after Teep is the completion of FIP-0100 where actors will start applying
         // the new daily fee to pre-Teep sectors being extended.
         make_height!(Tock, 4_878_840 + EPOCHS_IN_DAY * 90),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/5989
-        make_height!(GoldenWeek, i64::MAX, get_bundle_cid("v16.0.1")),
+        // Wed 24 Sep 23:00:00 UTC 2025
+        make_height!(GoldenWeek, 5_348_280, get_bundle_cid("v17.0.0")),
     ])
 });
 
