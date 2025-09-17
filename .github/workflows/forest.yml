@@ -306,6 +306,28 @@ jobs:
       - name: Snapshot export check v2
         run: ./scripts/tests/calibnet_export_f3_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+  calibnet-export-diff-check:
+    needs:
+      - build-ubuntu
+    name: Diff snapshot export checks
+    runs-on: ubuntu-24.04
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-keys
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v5
+        with:
+          name: "forest-${{ runner.os }}"
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Snapshot export check v1
+        run: ./scripts/tests/calibnet_export_diff_check.sh
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-no-discovery-checks:
     needs:
       - build-ubuntu
