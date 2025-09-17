@@ -20,7 +20,7 @@ $FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 echo "Exporting zstd compressed snapshot in $format format"
 $FOREST_CLI_PATH snapshot export --format "$format"
 
-snapshot=$(ls *.car.zst | tail -n 1)
+snapshot=$(find ./*.car.zst | tail -n 1)
 snapshot_epoch=$(forest_query_epoch "$snapshot")
 
 echo "Exporting diff snapshot @ $snapshot_epoch with forest-cli snapshot export-diff"
