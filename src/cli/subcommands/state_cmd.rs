@@ -12,6 +12,12 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum Format {
+    Json,
+    Text,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum StateCommands {
     Fetch {
@@ -36,6 +42,12 @@ pub enum StateCommands {
     ReadState {
         /// Actor address to read the state of
         actor_address: StrictAddress,
+    },
+    /// Returns the built-in actor bundle CIDs for the current network
+    ActorCids {
+        /// Format output
+        #[arg(long, default_value = "text")]
+        format: Format,
     },
 }
 
@@ -82,6 +94,16 @@ impl StateCommands {
                     )
                     .await?;
                 println!("{}", ret.state.into_lotus_json_string_pretty()?);
+            }
+            Self::ActorCids { format } => {
+                let info = client.call(StateActorInfo::request(())?).await?;
+
+                match format {
+                    Format::Json => {
+                        println!("{}", serde_json::to_string_pretty(&info)?);
+                    }
+                    Format::Text => println!("{info}"),
+                }
             }
         }
         Ok(())

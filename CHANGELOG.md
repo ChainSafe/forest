@@ -31,6 +31,8 @@
 
 - [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
 
+- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
+
 ### Changed
 
 ### Removed
