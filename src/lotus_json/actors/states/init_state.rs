@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use crate::shim::actors::init::State;
 use ::cid::Cid;
@@ -16,50 +17,45 @@ pub struct InitStateLotusJson {
     pub network_name: String,
 }
 
-macro_rules! impl_init_state_lotus_json {
-    ($($version:ident),*) => {
-        impl HasLotusJson for State {
-            type LotusJson = InitStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = InitStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![(
-                    json!({
-                        "AddressMap": {"/":"baeaaaaa"},
-                        "NextID": 1,
-                        "NetworkName": "testnet"
-                    }),
-                    State::V16(fil_actor_init_state::v16::State {
-                        address_map: Cid::default(),
-                        next_id: 1,
-                        network_name: "testnet".to_string(),
-                    }),
-                )]
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "AddressMap": {"/":"baeaaaaa"},
+                "NextID": 1,
+                "NetworkName": "testnet"
+            }),
+            State::default_latest_version(Cid::default(), 1, "testnet".to_string()),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_init_state {
+            ($($version:ident),+) => {
                 match self {
                     $(
-                      State::$version(state) => InitStateLotusJson {
-                        address_map: state.address_map,
-                        next_id: state.next_id,
-                        network_name: state.network_name,
-                    },
-                    )*
+                        State::$version(state) => InitStateLotusJson {
+                            address_map: state.address_map,
+                            next_id: state.next_id,
+                            network_name: state.network_name,
+                        },
+                    )+
                 }
-            }
-
-            // Default to V16
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_init_state::v16::State {
-                    address_map: lotus_json.address_map,
-                    next_id: lotus_json.next_id,
-                    network_name: lotus_json.network_name,
-                })
-            }
+            };
         }
-    };
-}
 
-// implement HasLotusJson for system::State for all versions
-impl_init_state_lotus_json!(V17, V16, V15, V14, V13, V12, V11, V10, V9, V8, V0);
+        convert_init_state!(V0, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.address_map,
+            lotus_json.next_id,
+            lotus_json.network_name,
+        )
+    }
+}
