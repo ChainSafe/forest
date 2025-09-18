@@ -52,6 +52,8 @@ use tokio::task::JoinHandle;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
+static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
 /// # Notes
@@ -325,9 +327,7 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        static LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-        let _locked = LOCK.try_lock();
+        let _locked = CHAIN_EXPORT_LOCK.try_lock();
         if _locked.is_err() {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
@@ -393,6 +393,62 @@ impl RpcMethod<1> for ForestChainExport {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+pub enum ForestChainExportDiff {}
+impl RpcMethod<1> for ForestChainExportDiff {
+    const NAME: &'static str = "Forest.ChainExportDiff";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ForestChainExportDiffParams,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ForestChainExportDiffParams {
+            from,
+            to,
+            depth,
+            output_path,
+        } = params;
+
+        let _locked = CHAIN_EXPORT_LOCK.try_lock();
+        if _locked.is_err() {
+            return Err(
+                anyhow::anyhow!("Another chain export diff job is still in progress").into(),
+            );
+        }
+
+        let chain_finality = ctx.chain_config().policy.chain_finality;
+        if depth < chain_finality {
+            return Err(
+                anyhow::anyhow!(format!("depth must be greater than {chain_finality}")).into(),
+            );
+        }
+
+        let head = ctx.chain_store().heaviest_tipset();
+        let start_ts =
+            ctx.chain_index()
+                .tipset_by_height(from, head, ResolveNullTipset::TakeOlder)?;
+
+        crate::tool::subcommands::archive_cmd::do_export(
+            &ctx.store_owned(),
+            start_ts,
+            output_path,
+            None,
+            depth,
+            Some(to),
+            Some(chain_finality),
+            true,
+        )
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -991,6 +1047,15 @@ pub struct ForestChainExportParams {
     pub dry_run: bool,
 }
 lotus_json_with_self!(ForestChainExportParams);
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ForestChainExportDiffParams {
+    pub from: ChainEpoch,
+    pub to: ChainEpoch,
+    pub depth: i64,
+    pub output_path: PathBuf,
+}
+lotus_json_with_self!(ForestChainExportDiffParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {
