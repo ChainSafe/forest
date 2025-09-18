@@ -11,16 +11,16 @@ use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
-use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::networks::ChainConfig;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
-use crate::shim::actors::init;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::miner::ext::DeadlineExt;
 use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
 use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
+use crate::shim::actors::{init, system};
 use crate::shim::actors::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -32,6 +32,7 @@ use crate::shim::actors::{
     power::ext::PowerStateExt as _,
 };
 use crate::shim::address::Payload;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::message::{Message, MethodNum};
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::sector::{SectorNumber, SectorSize};
@@ -49,7 +50,7 @@ use crate::{
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Context as _;
+use anyhow::Context;
 use anyhow::Result;
 use cid::Cid;
 use enumflags2::{BitFlags, make_bitflags};
@@ -3162,5 +3163,98 @@ fn get_pledge_ramp_params(
         ))
     } else {
         Ok((0, 0))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct StateActorCodeCidsOutput {
+    pub network_version: NetworkVersion,
+    pub network_version_revision: i64,
+    pub actor_version: String,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub manifest: Cid,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub bundle: Cid,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<HashMap<String, Cid>>")]
+    pub actor_cids: HashMap<String, Cid>,
+}
+lotus_json_with_self!(StateActorCodeCidsOutput);
+
+impl std::fmt::Display for StateActorCodeCidsOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Network Version: {}", self.network_version)?;
+        writeln!(
+            f,
+            "Network Version Revision: {}",
+            self.network_version_revision
+        )?;
+        writeln!(f, "Actor Version: {}", self.actor_version)?;
+        writeln!(f, "Manifest CID: {}", self.manifest)?;
+        writeln!(f, "Bundle CID: {}", self.bundle)?;
+        writeln!(f, "Actor CIDs:")?;
+        let longest_name = self
+            .actor_cids
+            .keys()
+            .map(|name| name.len())
+            .max()
+            .unwrap_or(0);
+        for (name, cid) in &self.actor_cids {
+            writeln!(f, "  {:width$} : {}", name, cid, width = longest_name)?;
+        }
+        Ok(())
+    }
+}
+
+pub enum StateActorInfo {}
+
+impl RpcMethod<0> for StateActorInfo {
+    const NAME: &'static str = "Forest.StateActorInfo";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> =
+        Some("Returns the builtin actor information for the current network.");
+
+    type Params = ();
+    type Ok = StateActorCodeCidsOutput;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(None)?;
+        let state_tree = StateTree::new_from_tipset(ctx.store_owned(), &ts)?;
+        let bundle = state_tree.get_actor_bundle_metadata()?;
+        let system_state: system::State = state_tree.get_actor_state()?;
+        let actors = system_state.builtin_actors_cid();
+
+        let current_manifest = BuiltinActorManifest::load_v1_actor_list(ctx.store(), actors)?;
+
+        // Sanity check: the command would normally be used only for diagnostics, so we want to be
+        // sure the data is consistent.
+        if current_manifest != bundle.manifest {
+            return Err(anyhow::anyhow!("Actor bundle manifest does not match the manifest in the state tree. This indicates that the node is misconfigured or is running an unsupported network.")
+            .into());
+        }
+
+        let network_version = ctx.chain_config().network_version(ts.epoch() - 1);
+        let network_version_revision = ctx.chain_config().network_version_revision(ts.epoch() - 1);
+        let result = StateActorCodeCidsOutput {
+            network_version,
+            network_version_revision,
+            actor_version: bundle.version.to_owned(),
+            manifest: current_manifest.actor_list_cid,
+            bundle: bundle.bundle_cid,
+            actor_cids: current_manifest
+                .builtin_actors()
+                .map(|(a, c)| (a.name().to_string(), c))
+                .collect(),
+        };
+
+        Ok(result)
     }
 }
