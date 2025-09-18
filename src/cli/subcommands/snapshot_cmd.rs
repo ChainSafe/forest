@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain::FilecoinSnapshotVersion;
-use crate::chain_sync::SyncConfig;
+use crate::chain_sync::chain_muxer::DEFAULT_RECENT_STATE_ROOTS;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
@@ -33,10 +33,10 @@ pub enum SnapshotCommands {
         /// Tipset to start the export from, default is the chain head
         #[arg(short, long)]
         tipset: Option<i64>,
-        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
-        #[arg(short, long)]
-        depth: Option<crate::chain::ChainEpochDelta>,
-        /// Export snapshot in the experimental v2 format(FRC-0108).
+        /// How many state trees to include. 0 for chain spine with no state trees.
+        #[arg(short, long, default_value_t = DEFAULT_RECENT_STATE_ROOTS)]
+        depth: crate::chain::ChainEpochDelta,
+        /// Snapshot format to export.
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
         format: FilecoinSnapshotVersion,
     },
@@ -67,8 +67,13 @@ impl SnapshotCommands {
                     raw_network_name.as_str()
                 };
 
-                let tipset =
-                    ChainGetTipSetByHeight::call(&client, (epoch, Default::default())).await?;
+                // This could take long when the requested epoch is far behind the chain head
+                let tipset = client
+                    .call(
+                        ChainGetTipSetByHeight::request((epoch, Default::default()))?
+                            .with_timeout(Duration::from_secs(60 * 15)),
+                    )
+                    .await?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -90,7 +95,7 @@ impl SnapshotCommands {
                 let params = ForestChainExportParams {
                     version: format,
                     epoch,
-                    recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
+                    recent_roots: depth,
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
                     skip_checksum,

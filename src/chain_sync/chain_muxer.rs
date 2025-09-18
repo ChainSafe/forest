@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+pub const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 /// Structure that defines syncing configuration options
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
