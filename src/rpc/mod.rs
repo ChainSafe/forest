@@ -81,6 +81,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainStatObj);
         $callback!($crate::rpc::chain::ChainTipSetWeight);
         $callback!($crate::rpc::chain::ForestChainExport);
+        $callback!($crate::rpc::chain::ForestChainExportDiff);
 
         // common vertical
         $callback!($crate::rpc::common::Session);
