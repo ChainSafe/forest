@@ -1,6 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 use fvm_shared2::address::Address;
 use serde::Serialize;
 
@@ -29,5 +30,21 @@ pub enum State {
 impl State {
     pub fn default_latest_version(builtin_actors: cid::Cid) -> Self {
         State::V17(fil_actor_system_state::v17::State { builtin_actors })
+    }
+
+    /// Returns the builtin actors Cid.
+    pub fn builtin_actors_cid(&self) -> &Cid {
+        match self {
+            State::V8(s) => &s.builtin_actors,
+            State::V9(s) => &s.builtin_actors,
+            State::V10(s) => &s.builtin_actors,
+            State::V11(s) => &s.builtin_actors,
+            State::V12(s) => &s.builtin_actors,
+            State::V13(s) => &s.builtin_actors,
+            State::V14(s) => &s.builtin_actors,
+            State::V15(s) => &s.builtin_actors,
+            State::V16(s) => &s.builtin_actors,
+            State::V17(s) => &s.builtin_actors,
+        }
     }
 }
