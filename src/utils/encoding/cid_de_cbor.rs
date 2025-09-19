@@ -22,7 +22,7 @@ pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<SmallCidVec> {
 /// vector of [`Cid`].
 struct CidVec(SmallCidVec);
 
-/// [`FilterCids`] traverses an [`ipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
+/// [`FilterCids`] traverses an [`ipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only `CIDs`) to a single vector.
 /// This is much faster than constructing an [`ipld_core::ipld::Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut SmallCidVec);
 
@@ -92,7 +92,7 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
                 Ok(())
             }
 
-            // "New-type" structs are only used to de-serialize CIDs.
+            // "New-type" structs are only used to de-serialize `CIDs`.
             #[inline]
             fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where
@@ -104,7 +104,7 @@ impl<'de> DeserializeSeed<'de> for FilterCids<'_> {
                 Ok(())
             }
 
-            // We don't care about anything else as the CIDs could only be found in "new-type"
+            // We don't care about anything else as the `CIDs` could only be found in "new-type"
             // structs. So we visit only lists, maps and said structs.
             #[inline]
             fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E>

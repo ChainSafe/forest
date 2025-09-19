@@ -48,7 +48,7 @@ pub struct Client {
     pub snapshot_path: Option<PathBuf>,
     pub import_mode: ImportMode,
     /// Skips loading import CAR file and assumes it's already been loaded.
-    /// Will use the CIDs in the header of the file to index the chain.
+    /// Will use the `CIDs` in the header of the file to index the chain.
     pub skip_load: bool,
     /// When importing CAR files, chunk key-value pairs before committing them
     /// to the database.

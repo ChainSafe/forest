@@ -55,7 +55,7 @@ Both Forest and the `builtin-actors` repository depend on the FVM. The FVM is up
 
 #### `fil-actor-states` update and release
 
-The `fil-actor-states` repository is updated to the latest bundle release. The changes are then released, and the Forest repository is updated to include the new release. Necessary CIDs are updated. The bundle release and the version to be used are coordinated across the Filecoin implementations.
+The `fil-actor-states` repository is updated to the latest bundle release. The changes are then released, and the Forest repository is updated to include the new release. Necessary `CIDs` are updated. The bundle release and the version to be used are coordinated across the Filecoin implementations.
 
 #### Network-aware node changes
 
@@ -89,7 +89,7 @@ The steps required to update the Builtin Actors in Forest are as follows:
 2. Ensure that the changes are compatible with Forest. If not, prepare a PR ahead of time to address breaking changes.
 3. Cut a new release of the `fil-actor-states`.
 4. Update the `fil-actor-states` dependency in Forest.
-5. Update the CIDs in the [bundle module](https://github.com/ChainSafe/forest/blob/main/src/networks/actors_bundle.rs) to include bundles for any networks that you want to support.
+5. Update the `CIDs` in the [bundle module](https://github.com/ChainSafe/forest/blob/main/src/networks/actors_bundle.rs) to include bundles for any networks that you want to support.
 6. Update the manifest with `forest-tool state-migration generate-actors-metadata > build/manifest.json`. This will add necessary entries to the manifest.
 
 Note that if there were no Rust interface changes, e.g., a re-tag, steps 1-4 can be skipped.

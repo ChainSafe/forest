@@ -20,7 +20,7 @@ pub enum MpoolCommands {
         /// Print pending messages for addresses in local wallet only
         #[arg(long)]
         local: bool,
-        /// Only print `CIDs` of messages in output
+        /// Only print ``CIDs`` of messages in output
         #[arg(long)]
         cids: bool,
         /// Return messages to a given address

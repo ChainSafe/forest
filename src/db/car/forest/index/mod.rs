@@ -124,7 +124,7 @@ where
     /// Returns `Ok([])` if no offsets are found, or [`Err(_)`] if the underlying
     /// IO fails.
     ///
-    /// Does not allocate unless 2 or more CIDs have collided, see [module documentation](mod@self).
+    /// Does not allocate unless 2 or more `CIDs` have collided, see [module documentation](mod@self).
     ///
     /// You MUST check the actual CID at the offset to see if it matches.
     pub fn get(&self, key: Cid) -> io::Result<SmallVec<[u64; 1]>> {

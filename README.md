@@ -73,7 +73,7 @@ Install [Go](https://go.dev/doc/install)
 sudo apt install build-essential clang
 ```
 
-### Archlinux
+### Arch Linux
 
 ```
 sudo pacman -S base-devel clang
