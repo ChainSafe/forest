@@ -634,13 +634,13 @@ fn warmup_in_background(ctx: &AppContext) {
     tokio::task::spawn_blocking(move || {
         let start = Instant::now();
         match cs.chain_index().tipset_by_height(
-            // 0 would short-curcuit the cache
+            // 0 would short-circuit the cache
             1,
             cs.heaviest_tipset(),
             ResolveNullTipset::TakeOlder,
         ) {
             Ok(_) => {
-                tracing::warn!(
+                tracing::info!(
                     "Successfully populated tipset_by_height cache, took {}",
                     humantime::format_duration(start.elapsed())
                 );
