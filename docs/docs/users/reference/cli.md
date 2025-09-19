@@ -682,6 +682,7 @@ Commands:
   fetch
   compute     Compute state trees for epochs
   read-state  Read the state of an actor
+  actor-cids  Returns the built-in actor bundle CIDs for the current network
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -738,8 +739,9 @@ Manage snapshots
 Usage: forest-cli snapshot <COMMAND>
 
 Commands:
-  export  Export a snapshot of the chain to `<output_path>`
-  help    Print this message or the help of the given subcommand(s)
+  export       Export a snapshot of the chain to `<output_path>`
+  export-diff  Export a diff snapshot between `from` and `to` epochs to `<output_path>`
+  help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
