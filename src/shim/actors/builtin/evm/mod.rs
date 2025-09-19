@@ -1,6 +1,10 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::lotus_json::HasLotusJson;
+use ::cid::Cid;
+use fil_actor_evm_state::v17::{BytecodeHash, Tombstone, TransientData};
+use fvm_shared2::address::Address;
 use serde::Serialize;
 
 /// EVM actor method.
@@ -21,6 +25,24 @@ pub enum State {
 }
 
 impl State {
+    pub fn default_latest_version(
+        bytecode: Cid,
+        bytecode_hash: [u8; 32],
+        contract_state: Cid,
+        transient_data: Option<TransientData>,
+        nonce: u64,
+        tombstone: Option<Tombstone>,
+    ) -> Self {
+        State::V17(fil_actor_evm_state::v17::State {
+            bytecode,
+            bytecode_hash: BytecodeHash::from(bytecode_hash),
+            contract_state,
+            transient_data,
+            nonce,
+            tombstone,
+        })
+    }
+
     pub fn nonce(&self) -> u64 {
         match self {
             State::V10(st) => st.nonce,
@@ -59,4 +81,10 @@ pub enum TombstoneState {
     V15(fil_actor_evm_state::v15::Tombstone),
     V16(fil_actor_evm_state::v16::Tombstone),
     V17(fil_actor_evm_state::v17::Tombstone),
+}
+
+impl TombstoneState {
+    pub fn default_latest_version(origin: fvm_shared4::ActorID, nonce: u64) -> Self {
+        TombstoneState::V17(fil_actor_evm_state::v17::Tombstone { origin, nonce })
+    }
 }

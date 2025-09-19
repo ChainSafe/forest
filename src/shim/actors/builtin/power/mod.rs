@@ -36,6 +36,47 @@ pub enum State {
 }
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
+    pub fn default_latest_version(
+        total_raw_byte_power: StoragePower,
+        total_bytes_committed: StoragePower,
+        total_quality_adj_power: StoragePower,
+        total_qa_bytes_committed: StoragePower,
+        total_pledge_collateral: fvm_shared4::econ::TokenAmount,
+        this_epoch_raw_byte_power: StoragePower,
+        this_epoch_quality_adj_power: StoragePower,
+        this_epoch_pledge_collateral: fvm_shared4::econ::TokenAmount,
+        this_epoch_qa_power_smoothed: fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate,
+        miner_count: i64,
+        miner_above_min_power_count: i64,
+        cron_event_queue: cid::Cid,
+        first_cron_epoch: i64,
+        claims: cid::Cid,
+        proof_validation_batch: Option<cid::Cid>,
+        ramp_start_epoch: i64,
+        ramp_duration_epochs: u64,
+    ) -> Self {
+        State::V17(fil_actor_power_state::v17::State {
+            total_raw_byte_power,
+            total_bytes_committed,
+            total_quality_adj_power,
+            total_qa_bytes_committed,
+            total_pledge_collateral,
+            this_epoch_raw_byte_power,
+            this_epoch_quality_adj_power,
+            this_epoch_pledge_collateral,
+            this_epoch_qa_power_smoothed,
+            miner_count,
+            miner_above_min_power_count,
+            cron_event_queue,
+            first_cron_epoch,
+            claims,
+            proof_validation_batch,
+            ramp_start_epoch,
+            ramp_duration_epochs,
+        })
+    }
+
     /// Consume state to return just total quality adj power
     pub fn into_total_quality_adj_power(self) -> StoragePower {
         match self {

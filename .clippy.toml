@@ -55,3 +55,7 @@ reason = """Use SizeTrackingLruCache instead."""
 [[disallowed-methods]]
 path = "hashlink::LruCache::new_unbounded"
 reason = """Avoid unbounded lru cache for potential memory leak, use SizeTrackingLruCache instead."""
+
+[[disallowed-methods]]
+path = "prometheus_client::registry::Registry::register_collector"
+reason = """use crate::metrics::register_collector instead."""

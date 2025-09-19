@@ -5,7 +5,10 @@ use std::{
     sync::Arc,
 };
 
-use crate::shim::actors::account;
+use crate::{
+    networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
+    shim::actors::account,
+};
 use anyhow::{Context as _, anyhow, bail};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -171,6 +174,8 @@ where
             Ok(StateTree::FvmV2(st))
         } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store.clone(), c) {
             Ok(StateTree::V0(st))
+        } else if !store.has(c)? {
+            bail!("No state tree exists for the root {c}.")
         } else {
             let state_root = store.get_cbor::<StateRoot>(c).ok().flatten();
             let state_root_version = state_root
@@ -190,6 +195,15 @@ where
     pub fn get_required_actor(&self, addr: &Address) -> anyhow::Result<ActorState> {
         self.get_actor(addr)?
             .with_context(|| format!("Actor not found: addr={addr}"))
+    }
+
+    /// Get the actor bundle metadata
+    pub fn get_actor_bundle_metadata(&self) -> anyhow::Result<&ActorBundleMetadata> {
+        let system_actor_code = self.get_required_actor(&Address::SYSTEM_ACTOR)?.code;
+        ACTOR_BUNDLES_METADATA
+            .values()
+            .find(|v| v.manifest.get_system() == system_actor_code)
+            .with_context(|| format!("actor bundle not found for system actor {system_actor_code}"))
     }
 
     /// Get actor state from an address. Will be resolved to ID address.

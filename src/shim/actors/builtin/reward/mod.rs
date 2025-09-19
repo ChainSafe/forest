@@ -55,6 +55,35 @@ pub enum State {
 }
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
+    pub fn default_latest_version(
+        cumsum_baseline: StoragePower,
+        cumsum_realized: StoragePower,
+        effective_network_time: i64,
+        effective_baseline_power: StoragePower,
+        this_epoch_reward: fvm_shared4::econ::TokenAmount,
+        this_epoch_reward_smoothed: fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate,
+        this_epoch_baseline_power: StoragePower,
+        epoch: i64,
+        total_storage_power_reward: fvm_shared4::econ::TokenAmount,
+        simple_total: fvm_shared4::econ::TokenAmount,
+        baseline_total: fvm_shared4::econ::TokenAmount,
+    ) -> Self {
+        State::V17(fil_actor_reward_state::v17::State {
+            cumsum_baseline,
+            cumsum_realized,
+            effective_network_time,
+            effective_baseline_power,
+            this_epoch_reward,
+            this_epoch_reward_smoothed,
+            this_epoch_baseline_power,
+            epoch,
+            total_storage_power_reward,
+            simple_total,
+            baseline_total,
+        })
+    }
+
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> TokenAmount {
         match self {

@@ -412,7 +412,7 @@ impl `F3`Manifest {
         let slot_offset_last = *slot_offset.last().context("unexpected empty slot_offset")?;
         anyhow::ensure!(
             slot_offset_last == 0x40,
-            "wrong value for offest : slot[31] = 0x{slot_offset_last:x} != 0x40",
+            "wrong value for offset : slot[31] = 0x{slot_offset_last:x} != 0x40",
         );
         // parse payload length from slot 3
         let payload_len =

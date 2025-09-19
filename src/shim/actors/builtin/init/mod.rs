@@ -28,6 +28,18 @@ pub enum State {
 }
 
 impl State {
+    pub fn default_latest_version(
+        address_map: ::cid::Cid,
+        next_id: u64,
+        network_name: String,
+    ) -> Self {
+        State::V17(fil_actor_init_state::v17::State {
+            address_map,
+            next_id,
+            network_name,
+        })
+    }
+
     pub fn into_network_name(self) -> String {
         match self {
             State::V0(st) => st.network_name,

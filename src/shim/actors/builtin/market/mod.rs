@@ -78,6 +78,39 @@ pub enum State {
 }
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
+    pub fn default_latest_version(
+        proposals: Cid,
+        states: Cid,
+        pending_proposals: Cid,
+        escrow_table: Cid,
+        locked_table: Cid,
+        next_id: u64,
+        deal_ops_by_epoch: Cid,
+        last_cron: ChainEpoch,
+        total_client_locked_collateral: fvm_shared4::econ::TokenAmount,
+        total_provider_locked_collateral: fvm_shared4::econ::TokenAmount,
+        total_client_storage_fee: fvm_shared4::econ::TokenAmount,
+        pending_deal_allocation_ids: Cid,
+        provider_sectors: Cid,
+    ) -> Self {
+        State::V17(fil_actor_market_state::v17::State {
+            proposals,
+            states,
+            pending_proposals,
+            escrow_table,
+            locked_table,
+            next_id,
+            deal_ops_by_epoch,
+            last_cron,
+            total_client_locked_collateral,
+            total_provider_locked_collateral,
+            total_client_storage_fee,
+            pending_deal_allocation_ids,
+            provider_sectors,
+        })
+    }
+
     /// Loads escrow table
     pub fn escrow_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where

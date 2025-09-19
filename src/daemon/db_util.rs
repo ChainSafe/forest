@@ -336,13 +336,10 @@ where
     for ts in head_ts
         .clone()
         .chain(&state_manager.chain_store().blockstore())
+        .take_while(|ts| ts.epoch() >= to_epoch)
     {
         let epoch = ts.epoch();
-        if epoch < to_epoch {
-            break;
-        }
         let tsk = ts.key().clone();
-
         let ts = Arc::new(ts);
 
         let state_output = state_manager

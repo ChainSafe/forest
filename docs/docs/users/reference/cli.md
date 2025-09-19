@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.30.0
+forest-filecoin 0.30.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.30.0
+forest-filecoin 0.30.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.30.0
+forest-filecoin 0.30.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -682,6 +682,7 @@ Commands:
   fetch
   compute     Compute state trees for epochs
   read-state  Read the state of an actor
+  actor-cids  Returns the built-in actor bundle CIDs for the current network
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -738,8 +739,9 @@ Manage snapshots
 Usage: forest-cli snapshot <COMMAND>
 
 Commands:
-  export  Export a snapshot of the chain to `<output_path>`
-  help    Print this message or the help of the given subcommand(s)
+  export       Export a snapshot of the chain to `<output_path>`
+  export-diff  Export a diff snapshot between `from` and `to` epochs to `<output_path>`
+  help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -1018,7 +1020,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.30.0
+forest-filecoin 0.30.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1699,8 +1701,6 @@ Options:
       --chain <CHAIN>
           Filecoin network chain
 
-          [default: mainnet]
-
       --port <PORT>
           [default: 2345]
 
@@ -1711,6 +1711,11 @@ Options:
           Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s) starting at HEAD
 
           [default: -50]
+
+      --index-backfill-epochs <INDEX_BACKFILL_EPOCHS>
+          Backfill index for the given EPOCH(s)
+
+          [default: 0]
 
       --genesis <GENESIS>
           Genesis file path, only applicable for devnet

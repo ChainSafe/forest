@@ -13,7 +13,6 @@ publish = false
 [dev-dependencies]
 anyhow = { workspace = true }
 cid = { workspace = true }
-dhat = { workspace = true }
 flume = { workspace = true }
 forest = { package = "forest-filecoin", path = "../", default-features = false, features = [
   "rustalloc",
@@ -21,7 +20,6 @@ forest = { package = "forest-filecoin", path = "../", default-features = false, 
   "no-f3-sidecar",
 ] }
 futures = { workspace = true }
-get-size2 = { workspace = true }
 libp2p = { workspace = true, features = [
   'kad',
   'identify',

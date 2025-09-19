@@ -1991,12 +1991,12 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![
-        // using basic because 2 nodes are not garanteed to be at the same head
-        RpcTest::basic(`F3`GetECPowerTable::request((None.into(),))?),
-        RpcTest::basic(`F3`GetLatestCertificate::request(())?),
-        RpcTest::basic(`F3`ListParticipants::request(())?),
-        RpcTest::basic(`F3`GetProgress::request(())?),
-        RpcTest::basic(`F3`GetOrRenewParticipationTicket::request((
+        // using basic because 2 nodes are not guaranteed to be at the same head
+        RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
+        RpcTest::basic(F3GetLatestCertificate::request(())?),
+        RpcTest::basic(F3ListParticipants::request(())?),
+        RpcTest::basic(F3GetProgress::request(())?),
+        RpcTest::basic(F3GetOrRenewParticipationTicket::request((
             Address::new_id(1000),
             vec![],
             3,

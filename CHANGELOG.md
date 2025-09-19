@@ -29,14 +29,33 @@
 
 ### Added
 
-- [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when `F3` is stuck for the given timeout.
-- [#6000](https://github.com/ChainSafe/forest/pull/6000) Add support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
+- [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
+
+- [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
 
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+## Forest v0.30.1 "Laurelin"
+
+Mandatory release for mainnet node operators. It sets the NV27 _Golden Week_ network upgrade to epoch `5_348_280` which corresponds to `Wed 24 Sep 23:00:00 UTC 2025`. It also includes a few improvements that help with snapshot generation and inspection.
+
+### Added
+
+- [#6057](https://github.com/ChainSafe/forest/issues/6057) Added `--no-progress-timeout` to `forest-cli f3 ready` subcommand to exit when F3 is stuck for the given timeout.
+
+- [#6000](https://github.com/ChainSafe/forest/pull/6000) Added support for the `Filecoin.StateDecodeParams` API methods to enable decoding actors method params.
+
+- [#6079](https://github.com/ChainSafe/forest/pull/6079) Added prometheus metrics `network_version`, `network_version_revision` and `actor_version`.
+
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Added `--index-backfill-epochs` to `forest-tool api serve`.
+
+### Changed
+
+- [#6068](https://github.com/ChainSafe/forest/issues/6068) Made `--chain` optional in `forest-tool api serve` by inferring network from the snapshots.
 
 ## Forest v0.30.0 "Eärendil"
 

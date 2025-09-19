@@ -10,7 +10,9 @@ use fil_actors_shared::v13::runtime::Policy;
 use itertools::Itertools;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use strum_macros::Display;
+use strum_macros::EnumIter;
 use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
@@ -27,8 +29,8 @@ pub use network_name::{GenesisNetworkName, StateNetworkName};
 
 mod actors_bundle;
 pub use actors_bundle::{
-    ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, generate_actor_bundle,
-    get_actor_bundles_metadata,
+    ACTOR_BUNDLES, ACTOR_BUNDLES_METADATA, ActorBundleInfo, ActorBundleMetadata,
+    generate_actor_bundle, get_actor_bundles_metadata,
 };
 
 mod drand;
@@ -134,7 +136,7 @@ impl NetworkChain {
 }
 
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
     Breeze,
@@ -411,17 +413,34 @@ impl ChainConfig {
         }
     }
 
-    /// Returns the network version at the given epoch.
-    /// If the epoch is before the first upgrade, the genesis network version is returned.
-    pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
+    fn network_height(&self, epoch: ChainEpoch) -> Option<Height> {
         self.height_infos
             .iter()
             .sorted_by_key(|(_, info)| info.epoch)
             .rev()
             .find(|(_, info)| epoch > info.epoch)
-            .map(|(height, _)| NetworkVersion::from(*height))
+            .map(|(height, _)| *height)
+    }
+
+    /// Returns the network version at the given epoch.
+    /// If the epoch is before the first upgrade, the genesis network version is returned.
+    pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
+        self.network_height(epoch)
+            .map(NetworkVersion::from)
             .unwrap_or(self.genesis_network_version())
             .max(self.genesis_network)
+    }
+
+    /// Returns the network version revision at the given epoch for distinguishing network upgrades
+    /// that do not bump the network version.
+    pub fn network_version_revision(&self, epoch: ChainEpoch) -> i64 {
+        if let Some(height) = self.network_height(epoch) {
+            let nv = NetworkVersion::from(height);
+            if let Some(rev0_height) = Height::iter().find(|h| NetworkVersion::from(*h) == nv) {
+                return (height as i64) - (rev0_height as i64);
+            }
+        }
+        0
     }
 
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
@@ -720,5 +739,18 @@ mod tests {
         ChainConfig::calibnet();
         ChainConfig::devnet();
         ChainConfig::butterflynet();
+    }
+
+    #[test]
+    fn network_version() {
+        let cfg = ChainConfig::calibnet();
+        assert_eq!(cfg.network_version(1_013_134 - 1), NetworkVersion::V20);
+        assert_eq!(cfg.network_version(1_013_134), NetworkVersion::V20);
+        assert_eq!(cfg.network_version(1_013_134 + 1), NetworkVersion::V21);
+        assert_eq!(cfg.network_version_revision(1_013_134 + 1), 0);
+        assert_eq!(cfg.network_version(1_070_494), NetworkVersion::V21);
+        assert_eq!(cfg.network_version_revision(1_070_494), 0);
+        assert_eq!(cfg.network_version(1_070_494 + 1), NetworkVersion::V21);
+        assert_eq!(cfg.network_version_revision(1_070_494 + 1), 1);
     }
 }

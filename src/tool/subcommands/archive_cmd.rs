@@ -33,10 +33,11 @@ use crate::chain::{
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
+use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::`F3`SnapshotHeader;
 use crate::interpreter::VMTrace;
-use crate::ipld::stream_graph;
+use crate::ipld::{stream_chain, stream_graph};
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY};
@@ -262,7 +263,7 @@ impl ArchiveCommands {
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
                     &store.into(),
-                    heaviest_tipset,
+                    heaviest_tipset.into(),
                     output_path,
                     epoch,
                     depth,
@@ -509,9 +510,9 @@ fn build_output_path(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn do_export(
+pub async fn do_export(
     store: &Arc<impl Blockstore + Send + Sync + 'static>,
-    root: Tipset,
+    root: Arc<Tipset>,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
@@ -519,9 +520,9 @@ async fn do_export(
     diff_depth: Option<ChainEpochDelta>,
     force: bool,
 ) -> anyhow::Result<()> {
-    let ts = Arc::new(root);
+    let ts = root;
 
-    let genesis = ts.genesis(&store)?;
+    let genesis = ts.genesis(store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
@@ -536,7 +537,7 @@ async fn do_export(
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let index = ChainIndex::new(store);
+    let index = ChainIndex::new(store.clone());
 
     let ts = index
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
@@ -548,7 +549,7 @@ async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_graph(
+        let mut stream = stream_chain(
             store.clone(),
             diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
@@ -783,6 +784,7 @@ async fn show_tipset_diff(
 
     let genesis = heaviest_tipset.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+    load_actor_bundles(&store, &network).await?;
 
     let timestamp = genesis.timestamp;
     let chain_index = ChainIndex::new(Arc::clone(&store));
@@ -992,7 +994,7 @@ async fn export_lite_snapshot(
     let force = false;
     do_export(
         &store,
-        root,
+        root.into(),
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1025,7 +1027,7 @@ async fn export_diff_snapshot(
     let force = false;
     do_export(
         &store,
-        root,
+        root.into(),
         output_path.clone(),
         Some(epoch),
         depth,
@@ -1167,7 +1169,7 @@ mod tests {
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
             &store.into(),
-            heaviest_tipset,
+            heaviest_tipset.into(),
             output_path.path().into(),
             Some(0),
             1,

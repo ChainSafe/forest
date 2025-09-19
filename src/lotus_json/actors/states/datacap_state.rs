@@ -19,36 +19,36 @@ pub struct DatacapStateLotusJson {
     pub token: TokenState,
 }
 
-macro_rules! impl_data_cap_state_lotus_json {
-    ($($version:ident), *) => {
-        impl HasLotusJson for State {
-            type LotusJson = DatacapStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = DatacapStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-               vec![(
-                    json!({
-                        "governor": "t00",
-                        "token": {
-                            "supply": "0",
-                            "balances": {"/":"baeaaaaa"},
-                            "allowances": {"/":"baeaaaaa"},
-                            "hamt_bit_width": 0
-                        }
-                    }),
-                    State::V16(fil_actor_datacap_state::v16::State {
-                        governor: Default::default(),
-                        token: TokenState {
-                            supply: Default::default(),
-                            balances: Default::default(),
-                            allowances: Default::default(),
-                            hamt_bit_width: 0,
-                        },
-                    }),
-               )]
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "governor": "t00",
+                "token": {
+                    "supply": "0",
+                    "balances": {"/":"baeaaaaa"},
+                    "allowances": {"/":"baeaaaaa"},
+                    "hamt_bit_width": 0
+                }
+            }),
+            State::default_latest_version(
+                Address::default().into(),
+                TokenState {
+                    supply: Default::default(),
+                    balances: Default::default(),
+                    allowances: Default::default(),
+                    hamt_bit_width: 0,
+                },
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_datacap_state {
+            ($($version:ident),+) => {
                 match self {
                     $(
                         State::$version(state) => {
@@ -57,18 +57,16 @@ macro_rules! impl_data_cap_state_lotus_json {
                                 token: state.token,
                             }
                         },
-                    )*
+                    )+
                 }
-            }
-
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_datacap_state::v16::State {
-                    governor: lotus_json.governor.into(),
-                    token: lotus_json.token,
-                })
-            }
+            };
         }
-    };
-}
 
-impl_data_cap_state_lotus_json!(V9, V10, V11, V12, V13, V14, V15, V16, V17);
+        convert_datacap_state!(V9, V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(lotus_json.governor.into(), lotus_json.token)
+    }
+}

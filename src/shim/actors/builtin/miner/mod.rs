@@ -7,6 +7,7 @@ use crate::shim::actors::Policy;
 use crate::shim::actors::convert::*;
 use cid::Cid;
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+use fil_actor_miner_state::v17::VestingFunds as VestingFundsV17;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, serde_bytes};
@@ -43,6 +44,43 @@ pub enum State {
 }
 
 impl State {
+    #[allow(clippy::too_many_arguments)]
+    pub fn default_latest_version(
+        info: Cid,
+        pre_commit_deposits: fvm_shared4::econ::TokenAmount,
+        locked_funds: fvm_shared4::econ::TokenAmount,
+        vesting_funds: VestingFundsV17,
+        fee_debt: fvm_shared4::econ::TokenAmount,
+        initial_pledge: fvm_shared4::econ::TokenAmount,
+        pre_committed_sectors: Cid,
+        pre_committed_sectors_cleanup: Cid,
+        allocated_sectors: Cid,
+        sectors: Cid,
+        proving_period_start: fvm_shared4::clock::ChainEpoch,
+        current_deadline: u64,
+        deadlines: Cid,
+        early_terminations: BitField,
+        deadline_cron_active: bool,
+    ) -> Self {
+        State::V17(fil_actor_miner_state::v17::State {
+            info,
+            pre_commit_deposits,
+            locked_funds,
+            vesting_funds,
+            fee_debt,
+            initial_pledge,
+            pre_committed_sectors,
+            pre_committed_sectors_cleanup,
+            allocated_sectors,
+            sectors,
+            proving_period_start,
+            current_deadline,
+            deadlines,
+            early_terminations,
+            deadline_cron_active,
+        })
+    }
+
     pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => Ok(st.get_info(store)?.into()),

@@ -276,7 +276,7 @@ mod tests {
             Parser::_new(from_value!({}), &["opt"], ParamStructure::Either, 0).unwrap();
         assert_eq!(None::<i32>, parser._parse::<Option<i32>>().unwrap());
 
-        // postional optional with mandatory
+        // positional optional with mandatory
         let mut parser =
             Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either, 0).unwrap();
         assert_eq!(Some(0), parser._parse::<Option<i32>>().unwrap());

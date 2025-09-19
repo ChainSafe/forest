@@ -387,7 +387,7 @@ where
     }
 
     /// Return a Vector of signed messages for a given from address. This vector
-    /// will be sorted by each `messsage`'s sequence. If no corresponding
+    /// will be sorted by each `message`'s sequence. If no corresponding
     /// messages found, return None result type.
     pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read();
@@ -475,11 +475,11 @@ where
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(SyncRwLock::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+        let bls_sig_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
             "bls_sig".into(),
             BLS_SIG_CACHE_SIZE,
         ));
-        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_default_metrics_registry(
+        let sig_val_cache = Arc::new(SizeTrackingLruCache::new_with_metrics(
             "sig_val".into(),
             SIG_VAL_CACHE_SIZE,
         ));

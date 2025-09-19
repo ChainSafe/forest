@@ -259,7 +259,7 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingLruCache::new_with_default_metrics_registry(
+            verified_beacons: SizeTrackingLruCache::new_with_metrics(
                 "verified_beacons".into(),
                 NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
             ),

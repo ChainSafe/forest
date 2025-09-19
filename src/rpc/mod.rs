@@ -81,6 +81,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainStatObj);
         $callback!($crate::rpc::chain::ChainTipSetWeight);
         $callback!($crate::rpc::chain::ForestChainExport);
+        $callback!($crate::rpc::chain::ForestChainExportDiff);
 
         // common vertical
         $callback!($crate::rpc::common::Session);
@@ -231,6 +232,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateMinerSectors);
         $callback!($crate::rpc::state::StateNetworkName);
         $callback!($crate::rpc::state::StateNetworkVersion);
+        $callback!($crate::rpc::state::StateActorInfo);
         $callback!($crate::rpc::state::StateReadState);
         $callback!($crate::rpc::state::StateDecodeParams);
         $callback!($crate::rpc::state::StateReplay);

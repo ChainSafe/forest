@@ -202,7 +202,7 @@ where
             )?
             .with_quic()
             .with_dns()?
-            .with_bandwidth_metrics(&mut crate::metrics::default_registry())
+            .with_bandwidth_metrics(&mut crate::metrics::collector_registry())
             .with_behaviour(|_| behaviour)?
             .with_swarm_config(|config| {
                 config
@@ -301,7 +301,7 @@ where
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let metrics = if libp2p_metrics_enabled() {
-            Some(Metrics::new(&mut crate::metrics::default_registry()))
+            Some(Metrics::new(&mut crate::metrics::collector_registry()))
         } else {
             None
         };

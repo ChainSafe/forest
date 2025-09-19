@@ -45,6 +45,24 @@ pub enum State {
 }
 
 impl State {
+    pub fn default_latest_version(
+        root_key: fvm_shared4::address::Address,
+        verifiers: Cid,
+        remove_data_cap_proposal_ids: Cid,
+        allocations: Cid,
+        next_allocation_id: u64,
+        claims: Cid,
+    ) -> Self {
+        State::V17(fil_actor_verifreg_state::v17::State {
+            root_key,
+            verifiers,
+            remove_data_cap_proposal_ids,
+            allocations,
+            next_allocation_id,
+            claims,
+        })
+    }
+
     pub fn verified_client_data_cap<BS>(
         &self,
         store: &BS,

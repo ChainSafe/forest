@@ -14,44 +14,39 @@ pub struct SystemStateLotusJson {
     pub builtin_actors: Cid,
 }
 
-macro_rules! impl_system_state_lotus_json {
-    ($($version:ident),*) => {
-        impl HasLotusJson for State {
-            type LotusJson = SystemStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = SystemStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![(
-                     json!({
-                         "builtin_actors": {
-                            "/": "baeaaaaa"
-                        },
-                     }),
-                    State::V16(fil_actor_system_state::v16::State {
-                         builtin_actors: Default::default(),
-                     })
-                )]
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "BuiltinActors": {
+                   "/": "baeaaaaa"
+               },
+            }),
+            State::default_latest_version(Default::default()),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_system_state {
+            ($($version:ident),+) => {
                 match self {
                     $(
-                    State::$version(state) => SystemStateLotusJson {
-                        builtin_actors: state.builtin_actors,
-                    },
-                    )*
+                        State::$version(state) => SystemStateLotusJson {
+                            builtin_actors: state.builtin_actors,
+                        },
+                    )+
                 }
-            }
-
-            // Default to V16
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_system_state::v16::State {
-                    builtin_actors: lotus_json.builtin_actors,
-                })
-            }
+            };
         }
-    };
-}
 
-// implement HasLotusJson for system::State for all versions
-impl_system_state_lotus_json!(V17, V16, V15, V14, V13, V12, V11, V10, V9, V8);
+        convert_system_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(lotus_json.builtin_actors)
+    }
+}

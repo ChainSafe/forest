@@ -468,9 +468,7 @@ async fn get_full_tipset_batch<DB: Blockstore + Sync + Send + 'static>(
         .map_err(|e| anyhow::anyhow!(e))?;
 
     for tipset in tipsets.iter() {
-        for block in tipset.blocks() {
-            block.persist(chain_store.blockstore())?;
-        }
+        tipset.persist(chain_store.blockstore())?;
     }
 
     Ok(tipsets)

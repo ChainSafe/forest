@@ -110,7 +110,7 @@ pin_project! {
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
         seen: CidHashSet,
-        stateroot_limit: ChainEpoch,
+        stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
     }
 }
@@ -140,20 +140,20 @@ impl<DB, T> ChainStream<DB, T> {
 ///
 /// * `db` - A database that implements [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets,
+/// * `stateroot_limit` - An epoch that signifies how far back (exclusive) we need to inspect tipsets,
 ///   in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
 ///   is the number of `[`Tipset`]` that needs inspection.
 pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
     db: DB,
     tipset_iter: ITER,
-    stateroot_limit: ChainEpoch,
+    stateroot_limit_exclusive: ChainEpoch,
 ) -> ChainStream<DB, ITER> {
     ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
         seen: CidHashSet::default(),
-        stateroot_limit,
+        stateroot_limit_exclusive,
         fail_on_dead_links: true,
     }
 }
@@ -163,9 +163,9 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
 pub fn stream_graph<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin>(
     db: DB,
     tipset_iter: ITER,
-    stateroot_limit: ChainEpoch,
+    stateroot_limit_exclusive: ChainEpoch,
 ) -> ChainStream<DB, ITER> {
-    stream_chain(db, tipset_iter, stateroot_limit).fail_on_dead_links(false)
+    stream_chain(db, tipset_iter, stateroot_limit_exclusive).fail_on_dead_links(false)
 }
 
 impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
@@ -177,7 +177,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
         use Task::*;
 
         let fail_on_dead_links = self.fail_on_dead_links;
-        let stateroot_limit = self.stateroot_limit;
+        let stateroot_limit_exclusive = self.stateroot_limit_exclusive;
         let this = self.project();
 
         loop {
@@ -253,7 +253,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         }
 
                         // Process block messages.
-                        if block.epoch > stateroot_limit {
+                        if block.epoch > stateroot_limit_exclusive {
                             this.dfs.push_back(Iterate(
                                 block.epoch,
                                 *block.cid(),
@@ -266,7 +266,7 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
-                        if block.epoch == 0 || block.epoch > stateroot_limit {
+                        if block.epoch == 0 || block.epoch > stateroot_limit_exclusive {
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
                             this.dfs.push_back(Iterate(

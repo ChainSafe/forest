@@ -552,7 +552,9 @@ impl FullTipset {
         for block in self.blocks() {
             // To persist `TxMeta` that is required for loading tipset messages
             TipsetValidator::validate_msg_root(db, block)?;
-            block.persist(db)?;
+            crate::chain::persist_objects(&db, std::iter::once(block.header()))?;
+            crate::chain::persist_objects(&db, block.bls_msgs().iter())?;
+            crate::chain::persist_objects(&db, block.secp_msgs().iter())?;
         }
         Ok(())
     }
