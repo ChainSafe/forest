@@ -1,5 +1,6 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
 use crate::shim::{actors::account, address::Address};
 use serde::{Deserialize, Serialize};
@@ -22,9 +23,7 @@ impl HasLotusJson for account::State {
                 "Address": "f00"
             }),
             // Create a test account state
-            account::State::V16(fil_actor_account_state::v16::State {
-                address: Address::default().into(),
-            }),
+            Self::default_latest_version(Address::default().into()),
         )]
     }
 
@@ -34,11 +33,8 @@ impl HasLotusJson for account::State {
         }
     }
 
+    // Always return the latest version when deserializing
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        // using V16 as a default version, because there is no way of knowing
-        // which version data belongs to.
-        account::State::V16(fil_actor_account_state::v16::State {
-            address: lotus_json.address.into(),
-        })
+        Self::default_latest_version(lotus_json.address.into())
     }
 }

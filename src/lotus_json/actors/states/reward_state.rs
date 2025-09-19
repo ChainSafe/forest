@@ -57,52 +57,52 @@ pub struct RewardStateLotusJson {
     pub baseline_total: TokenAmount,
 }
 
-macro_rules! impl_reward_state_lotus_json {
-    ($($version:ident),*) => {
-        impl HasLotusJson for State {
-            type LotusJson = RewardStateLotusJson;
+impl HasLotusJson for State {
+    type LotusJson = RewardStateLotusJson;
 
-            #[cfg(test)]
-            fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                vec![(
-                    json!({
-                        "cumsum_baseline": "1",
-                        "cumsum_realized": "1",
-                        "effective_network_time": 1,
-                        "effective_baseline_power": "1",
-                        "this_epoch_reward": "1",
-                        "this_epoch_reward_smoothed": {
-                            "position": "1",
-                            "velocity": "1",
-                        },
-                        "this_epoch_baseline_power": "1",
-                        "epoch": 1,
-                        "total_storage_power_reward": "1",
-                        "simple_total": "1",
-                        "baseline_total": "1",
-                    }),
-                    State::V16(fil_actor_reward_state::v16::State {
-                        cumsum_baseline: BigInt::from(1),
-                        cumsum_realized: BigInt::from(1),
-                        effective_network_time: 1,
-                        effective_baseline_power: BigInt::from(1),
-                        this_epoch_reward: TokenAmount::from_atto(1).into(),
-                        this_epoch_reward_smoothed: FilterEstimate {
-                            position: BigInt::from(1),
-                            velocity: BigInt::from(1),
-                        },
-                        this_epoch_baseline_power: BigInt::from(1),
-                        epoch: 1,
-                        total_storage_power_reward: TokenAmount::from_atto(1).into(),
-                        simple_total: TokenAmount::from_atto(1).into(),
-                        baseline_total: TokenAmount::from_atto(1).into(),
-                    }),
-                )]
-            }
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "CumsumBaseline": "1",
+                "CumsumRealized": "1",
+                "EffectiveNetworkTime": 1,
+                "EffectiveBaselinePower": "1",
+                "ThisEpochReward": "1",
+                "ThisEpochRewardSmoothed": {
+                    "Position": "1",
+                    "Velocity": "1",
+                },
+                "ThisEpochBaselinePower": "1",
+                "Epoch": 1,
+                "TotalStoragePowerReward": "1",
+                "SimpleTotal": "1",
+                "BaselineTotal": "1",
+            }),
+            State::default_latest_version(
+                BigInt::from(1),
+                BigInt::from(1),
+                1,
+                BigInt::from(1),
+                TokenAmount::from_atto(1).into(),
+                fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+                    position: BigInt::from(1),
+                    velocity: BigInt::from(1),
+                },
+                BigInt::from(1),
+                1,
+                TokenAmount::from_atto(1).into(),
+                TokenAmount::from_atto(1).into(),
+                TokenAmount::from_atto(1).into(),
+            ),
+        )]
+    }
 
-            fn into_lotus_json(self) -> Self::LotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        macro_rules! convert_reward_state {
+            ($($version:ident),+) => {
                 match self {
-                     $(
+                    $(
                         State::$version(state) => RewardStateLotusJson {
                             cumsum_baseline: state.cumsum_baseline.into(),
                             cumsum_realized: state.cumsum_realized.into(),
@@ -119,31 +119,31 @@ macro_rules! impl_reward_state_lotus_json {
                             simple_total: state.simple_total.into(),
                             baseline_total: state.baseline_total.into(),
                         },
-                    )*
+                    )+
                 }
-            }
-
-            // Default V16
-            fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                State::V16(fil_actor_reward_state::v16::State {
-                    cumsum_baseline: lotus_json.cumsum_baseline,
-                    cumsum_realized: lotus_json.cumsum_realized,
-                    effective_network_time: lotus_json.effective_network_time,
-                    effective_baseline_power: lotus_json.effective_baseline_power,
-                    this_epoch_reward: lotus_json.this_epoch_reward.into(),
-                    this_epoch_reward_smoothed: FilterEstimate {
-                        position: lotus_json.this_epoch_reward_smoothed.position,
-                        velocity: lotus_json.this_epoch_reward_smoothed.velocity,
-                    },
-                    this_epoch_baseline_power: lotus_json.this_epoch_baseline_power,
-                    epoch: lotus_json.epoch,
-                    total_storage_power_reward: lotus_json.total_storage_power_reward.into(),
-                    simple_total: lotus_json.simple_total.into(),
-                    baseline_total: lotus_json.baseline_total.into(),
-                })
-            }
+            };
         }
-    };
-}
 
-impl_reward_state_lotus_json!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17);
+        convert_reward_state!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
+    }
+
+    // Always return the latest version when deserializing
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        State::default_latest_version(
+            lotus_json.cumsum_baseline,
+            lotus_json.cumsum_realized,
+            lotus_json.effective_network_time,
+            lotus_json.effective_baseline_power,
+            lotus_json.this_epoch_reward.into(),
+            fil_actors_shared::v17::builtin::reward::smooth::FilterEstimate {
+                position: lotus_json.this_epoch_reward_smoothed.position,
+                velocity: lotus_json.this_epoch_reward_smoothed.velocity,
+            },
+            lotus_json.this_epoch_baseline_power,
+            lotus_json.epoch,
+            lotus_json.total_storage_power_reward.into(),
+            lotus_json.simple_total.into(),
+            lotus_json.baseline_total.into(),
+        )
+    }
+}

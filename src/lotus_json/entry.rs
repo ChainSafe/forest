@@ -24,63 +24,28 @@ impl HasLotusJson for Entry {
                 "Receiver": "f00",
                 "MethodNum": 10
             }),
-            // Create a test entry
-            Entry::V16(fil_actor_cron_state::v16::Entry {
-                receiver: Default::default(),
-                method_num: 0,
-            }),
+            Entry::default_latest_version(Address::new_id(0).into(), 10),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        match self {
-            Entry::V8(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V9(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V10(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V11(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V12(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V13(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V14(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V15(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V16(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
-            Entry::V17(e) => EntryLotusJson {
-                receiver: e.receiver.into(),
-                method_num: e.method_num,
-            },
+        macro_rules! convert_entry {
+            ($($version:ident),+) => {
+                match self {
+                    $(
+                        Entry::$version(e) => EntryLotusJson {
+                            receiver: e.receiver.into(),
+                            method_num: e.method_num,
+                        },
+                    )+
+                }
+            };
         }
+
+        convert_entry!(V8, V9, V10, V11, V12, V13, V14, V15, V16, V17)
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Entry::V16(fil_actor_cron_state::v16::Entry {
-            receiver: lotus_json.receiver.into(),
-            method_num: lotus_json.method_num,
-        })
+        Entry::default_latest_version(lotus_json.receiver.into(), lotus_json.method_num)
     }
 }

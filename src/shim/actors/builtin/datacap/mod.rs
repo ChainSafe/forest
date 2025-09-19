@@ -4,6 +4,7 @@
 use anyhow::anyhow;
 use fil_actor_datacap_state::v12::DATACAP_GRANULARITY;
 use fil_actors_shared::ext::TokenStateExt;
+use fil_actors_shared::frc46_token::token::state::TokenState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared2::address::{Address, Payload};
 use num::BigInt;
@@ -32,6 +33,13 @@ pub enum State {
 }
 
 impl State {
+    pub fn default_latest_version(
+        governor: fvm_shared4::address::Address,
+        token: TokenState,
+    ) -> Self {
+        State::V17(fil_actor_datacap_state::v17::State { governor, token })
+    }
+
     // NOTE: This code currently mimics that of Lotus and is only used for RPC compatibility.
     pub fn verified_client_data_cap<BS>(
         &self,
