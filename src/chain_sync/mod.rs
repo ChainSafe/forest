@@ -3,7 +3,7 @@
 
 mod bad_block_cache;
 mod chain_follower;
-mod chain_muxer;
+pub mod chain_muxer;
 pub mod consensus;
 pub mod metrics;
 pub mod network_context;

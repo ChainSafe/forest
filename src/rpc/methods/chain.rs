@@ -332,14 +332,6 @@ impl RpcMethod<1> for ForestChainExport {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
 
-        let chain_finality = ctx.chain_config().policy.chain_finality;
-        if recent_roots < chain_finality {
-            return Err(anyhow::anyhow!(format!(
-                "recent-stateroots must be greater than {chain_finality}"
-            ))
-            .into());
-        }
-
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts =
             ctx.chain_index()
