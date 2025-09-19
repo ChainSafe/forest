@@ -172,7 +172,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             .as_ref()
             .map(|h| h.data_size as u64)
             .unwrap_or(u64::MAX);
-        let mut reader = FramedRead::new(reader.take(max_car_v1_bytes), UviBytes::default());
+        let mut reader = FramedRead::new(reader.take(max_car_v1_bytes), uvi_bytes());
         let header_v1 = read_v1_header(&mut reader)
             .await
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid v1 header block"))?;
@@ -283,7 +283,7 @@ impl<W: AsyncWrite> CarWriter<W> {
         let car_header = CarV1Header { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();
-        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
+        uvi_bytes().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
 
         Ok(Self {
             inner: writer,
@@ -327,6 +327,12 @@ async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
         return None;
     }
     Some(header)
+}
+
+pub fn uvi_bytes() -> UviBytes {
+    let mut decoder = UviBytes::default();
+    decoder.set_max_len(usize::MAX);
+    decoder
 }
 
 #[cfg(test)]
