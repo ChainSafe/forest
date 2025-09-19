@@ -8,7 +8,7 @@ pub mod binding {
 }
 
 #[rust2go::r2g]
-pub trait Go`F3`Node {
+pub trait GoF3Node {
     fn run(
         rpc_endpoint: String,
         jwt: String,

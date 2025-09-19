@@ -75,7 +75,7 @@ fn test_manifest_template() {
         "MaxCachedValidatedMessagesPerInstance": 25000
       }
     });
-    let manifest: `F3`Manifest = serde_json::from_value(lotus_json).unwrap();
+    let manifest: F3Manifest = serde_json::from_value(lotus_json).unwrap();
     println!("{}", render_manifest_template(&manifest).unwrap());
 }
 
@@ -86,7 +86,7 @@ fn test_progress_template() {
       "Round": 0,
       "Phase": 0
     });
-    let progress: `F3`InstanceProgress = serde_json::from_value(lotus_json).unwrap();
+    let progress: F3InstanceProgress = serde_json::from_value(lotus_json).unwrap();
     println!("{}", render_progress_template(&progress).unwrap());
 }
 
@@ -166,7 +166,7 @@ fn test_parse_range_valid() {
         ("10..9", Some(10), Some(9)),
     ];
     for (range, expected_from, expected_to) in valid_cases {
-        let (from, to) = `F3`CertsCommands::parse_range_unvalidated(range).unwrap();
+        let (from, to) = F3CertsCommands::parse_range_unvalidated(range).unwrap();
         assert_eq!(from, expected_from);
         assert_eq!(to, expected_to);
     }
@@ -176,6 +176,6 @@ fn test_parse_range_valid() {
 fn test_parse_range_invalid() {
     let invalid_cases = ["10..a", "a..20", "a..", "..b"];
     for range in invalid_cases {
-        `F3`CertsCommands::parse_range_unvalidated(range).unwrap_err();
+        F3CertsCommands::parse_range_unvalidated(range).unwrap_err();
     }
 }

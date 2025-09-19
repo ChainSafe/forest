@@ -22,9 +22,9 @@ Follow this [guide](https://go.dev/doc/install) to install or use one of the ver
   `mitmproxy --mode reverse:http://localhost:2345 --listen-port 8080` then
   `go run . -rpc http://127.0.0.1:8080/rpc/v1`
 
-### How `F3` sidecar interacts with Forest
+### How F3 sidecar interacts with Forest
 
-An `F3` sidecar node is a standalone node that is a part of a p2p network and
+An F3 sidecar node is a standalone node that is a part of a p2p network and
 participates in the f3 protocol.
 
 Besides what have been handled internally(e.g. p2p communications) in the
@@ -40,7 +40,7 @@ Besides what have been handled internally(e.g. p2p communications) in the
   participating miners
 - it requires a backend that provides the actor IDs of the participating miners
 - it requires a p2p node as bootstrapper to discover more peers via Kademlia
-- additionally, to power the `Filecoin.`F3`*` RPC methods in forest, a sidecar
+- additionally, to power the `Filecoin.F3*` RPC methods in forest, a sidecar
   node runs an RPC server that implements the same RPC methods to which the
   associated forest node can delegate the RPC requests
 
@@ -48,19 +48,19 @@ A brief diagram:
 
 ```mermaid
 flowchart TD
-    A[`F3` sidecar] -->|EC API calls| B(Forest)
+    A[F3 sidecar] -->|EC API calls| B(Forest)
     A --> |signer API calls| B
     A --> |read manifest params| B
     A --> |P2P bootstrap node| B
-    B --> |delegate `F3` RPC calls| A
+    B --> |delegate F3 RPC calls| A
     A --> |storage backend| C[level db]
     A --> |dynamic manifest backend| D[manifest p2p server]
 ```
 
-### To build and run `F3` sidecar within Forest via FFI
+### To build and run F3 sidecar within Forest via FFI
 
-By default, the Go `F3`-sidecar is built and linked into Forest binary unless
-environment variable `FOREST_`F3`_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
+By default, the Go F3-sidecar is built and linked into Forest binary unless
+environment variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
-`F3` sidecar is not started by default, set `FOREST_`F3`_SIDECAR_FFI_ENABLED=1` to
+F3 sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
 opt in.

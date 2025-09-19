@@ -57,6 +57,6 @@ up the entire Forest data directory. Note that this includes the whole
 blockstore, which, for mainnet, can reach hundreds of gigabytes. It is not
 recommended outside development.
 
-### `CLI` reference
+### CLI reference
 
-Details on the `forest-tool backup` command and its subcommands can be found at the [`CLI` reference](../../reference/cli.md#forest-tool-backup).
+Details on the `forest-tool backup` command and its subcommands can be found at the [CLI reference](../../reference/cli.md#forest-tool-backup).

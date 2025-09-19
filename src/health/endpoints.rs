@@ -8,7 +8,7 @@ use axum::extract::{self, Query};
 use super::{AppError, ForestState};
 use crate::chain_sync::NodeSyncStatus;
 use crate::networks::calculate_expected_epoch;
-use crate::rpc::f3::`F3`IsRunning;
+use crate::rpc::f3::F3IsRunning;
 
 /// Query parameter for verbose responses
 const VERBOSE_PARAM: &str = "verbose";
@@ -44,7 +44,7 @@ pub(crate) async fn livez(
 /// - The node is in sync with the network
 /// - The current epoch of the node is not too far behind the network
 /// - The RPC server is running if not disabled
-/// - The `F3` side car is running if enabled
+/// - The F3 side car is running if enabled
 ///
 /// If any of these conditions are not met, the nod is **not** ready to serve requests.
 pub(crate) async fn readyz(
@@ -163,7 +163,7 @@ async fn check_f3_running(state: &ForestState, acc: &mut MessageAccumulator) -> 
     if !crate::f3::is_sidecar_ffi_enabled(&state.chain_config) {
         acc.push_ok("f3 disabled");
         true
-    } else if `F3`IsRunning::is_f3_running().await.unwrap_or_default() {
+    } else if F3IsRunning::is_f3_running().await.unwrap_or_default() {
         acc.push_ok("f3 running");
         true
     } else {

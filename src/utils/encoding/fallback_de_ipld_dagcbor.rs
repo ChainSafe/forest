@@ -32,7 +32,7 @@ mod cbor4ii_nonpub {
         pub const NULL: u8 = 0xf6; // simple(22)
         pub const UNDEFINED: u8 = 0xf7; // simple(23)
         pub const F16: u8 = 0xf9;
-        pub const `F3`2: u8 = 0xfa;
+        pub const F32: u8 = 0xfa;
         pub const F64: u8 = 0xfb;
         pub const BREAK: u8 = 0xff;
     }
@@ -234,7 +234,7 @@ impl<'de, R: dec::Read<'de>> serde::Deserializer<'de> for &mut Deserializer<R> {
                     de.reader.advance(1);
                     visitor.visit_none()
                 }
-                marker::`F3`2 => de.deserialize_f32(visitor),
+                marker::F32 => de.deserialize_f32(visitor),
                 marker::F64 => de.deserialize_f64(visitor),
                 _ => Err(DecodeError::Unsupported { byte }),
             },

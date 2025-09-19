@@ -26,15 +26,15 @@ import (
 	"github.com/ihciah/rust2go/asmcall"
 )
 
-var Go`F3`NodeImpl Go`F3`Node
+var GoF3NodeImpl GoF3Node
 
-type Go`F3`Node interface {
+type GoF3Node interface {
 	run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string, initial_power_table *string, bootstrap_epoch *int64, finality *int64, f3_root *string) bool
 	import_snap(f3_rpc_endpoint *string, f3_root *string, snapshot_path *string) string
 }
 
-//export CGo`F3`Node_run
-func CGo`F3`Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint C.StringRef, initial_power_table C.StringRef, bootstrap_epoch C.int64_t, finality C.int64_t, f3_root C.StringRef, slot *C.void, cb *C.void) {
+//export CGoF3Node_run
+func CGoF3Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint C.StringRef, initial_power_table C.StringRef, bootstrap_epoch C.int64_t, finality C.int64_t, f3_root C.StringRef, slot *C.void, cb *C.void) {
 	_new_rpc_endpoint := newString(rpc_endpoint)
 	_new_jwt := newString(jwt)
 	_new_f3_rpc_endpoint := newString(f3_rpc_endpoint)
@@ -42,7 +42,7 @@ func CGo`F3`Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint 
 	_new_bootstrap_epoch := newC_int64_t(bootstrap_epoch)
 	_new_finality := newC_int64_t(finality)
 	_new_f3_root := newString(f3_root)
-	resp := Go`F3`NodeImpl.run(&_new_rpc_endpoint, &_new_jwt, &_new_f3_rpc_endpoint, &_new_initial_power_table, &_new_bootstrap_epoch, &_new_finality, &_new_f3_root)
+	resp := GoF3NodeImpl.run(&_new_rpc_endpoint, &_new_jwt, &_new_f3_rpc_endpoint, &_new_initial_power_table, &_new_bootstrap_epoch, &_new_finality, &_new_f3_root)
 	resp_ref, buffer := cvt_ref(cntC_bool, refC_bool)(&resp)
 	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
 	runtime.KeepAlive(resp_ref)
@@ -50,12 +50,12 @@ func CGo`F3`Node_run(rpc_endpoint C.StringRef, jwt C.StringRef, f3_rpc_endpoint 
 	runtime.KeepAlive(buffer)
 }
 
-//export CGo`F3`Node_import_snap
-func CGo`F3`Node_import_snap(f3_rpc_endpoint C.StringRef, f3_root C.StringRef, snapshot_path C.StringRef, slot *C.void, cb *C.void) {
+//export CGoF3Node_import_snap
+func CGoF3Node_import_snap(f3_rpc_endpoint C.StringRef, f3_root C.StringRef, snapshot_path C.StringRef, slot *C.void, cb *C.void) {
 	_new_f3_rpc_endpoint := newString(f3_rpc_endpoint)
 	_new_f3_root := newString(f3_root)
 	_new_snapshot_path := newString(snapshot_path)
-	resp := Go`F3`NodeImpl.import_snap(&_new_f3_rpc_endpoint, &_new_f3_root, &_new_snapshot_path)
+	resp := GoF3NodeImpl.import_snap(&_new_f3_rpc_endpoint, &_new_f3_root, &_new_snapshot_path)
 	resp_ref, buffer := cvt_ref(cntString, refString)(&resp)
 	asmcall.CallFuncG0P2(unsafe.Pointer(cb), unsafe.Pointer(&resp_ref), unsafe.Pointer(slot))
 	runtime.KeepAlive(resp_ref)

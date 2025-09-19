@@ -97,13 +97,13 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
 
-- [#5956](https://github.com/ChainSafe/forest/pull/5956) Add `forest-tool archive f3-header` subcommand for inspecting the header of a standalone `F3` snapshot(FRC-0108).
+- [#5956](https://github.com/ChainSafe/forest/pull/5956) Add `forest-tool archive f3-header` subcommand for inspecting the header of a standalone F3 snapshot(FRC-0108).
 
 - [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in v2 format(FRC-0108).
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
 
-- [#5963](https://github.com/ChainSafe/forest/pull/5963) Added `forest-cli f3 ready` command for checking whether `F3` is in sync.
+- [#5963](https://github.com/ChainSafe/forest/pull/5963) Added `forest-cli f3 ready` command for checking whether F3 is in sync.
 
 - [#5867](https://github.com/ChainSafe/forest/pull/5867) Added `--unordered` to `forest-cli snapshot export` for exporting `CAR` blocks in non-deterministic order for better performance with more parallelization.
 
@@ -111,7 +111,7 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 - [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--verbose` to `forest-cli state compute` for printing epochs and tipset keys along with state roots.
 
-- [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a v1 Filecoin snapshot and an `F3` snapshot into a v2 Filecoin snapshot.
+- [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a v1 Filecoin snapshot and an F3 snapshot into a v2 Filecoin snapshot.
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
@@ -119,7 +119,7 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 ### Changed
 
-- [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print `F3` snapshot header info when applicable.
+- [#5886](https://github.com/ChainSafe/forest/issues/5886) Updated `forest-tool archive metadata` to print F3 snapshot header info when applicable.
 
 - [#5869](https://github.com/ChainSafe/forest/pull/5869) Updated `forest-cli snapshot export` to print average speed.
 
@@ -211,7 +211,7 @@ important bug fixes. It also contains a breaking change regarding the `detach` m
 
 ## Forest v0.26.1 "Ijon Tichy"
 
-This is a non-mandatory release for all node operators. It includes a fix for the `F3` on mainnet and a few other improvements. It also sets the initial power table CID for `F3` on mainnet.
+This is a non-mandatory release for all node operators. It includes a fix for the F3 on mainnet and a few other improvements. It also sets the initial power table CID for F3 on mainnet.
 
 ### Breaking
 
@@ -229,7 +229,7 @@ This is a non-mandatory release for all node operators. It includes a fix for th
 
 ### Fixed
 
-- [#5609](https://github.com/ChainSafe/forest/pull/5609) Fixed an issue with `F3` on mainnet where the node would not join the KAD network.
+- [#5609](https://github.com/ChainSafe/forest/pull/5609) Fixed an issue with F3 on mainnet where the node would not join the KAD network.
 
 ## Forest v0.25.3 "Sméagol"
 
@@ -386,7 +386,7 @@ Non-mandatory release without network upgrades. It includes a number of potentia
 
 ### Fixed
 
-- [#5111](https://github.com/ChainSafe/forest/issues/5111) Make `F3` work when the node Kademlia is disabled.
+- [#5111](https://github.com/ChainSafe/forest/issues/5111) Make F3 work when the node Kademlia is disabled.
 
 - [#5122](https://github.com/ChainSafe/forest/issues/5122) Fix a bug in database garbage collection flow.
 
@@ -455,16 +455,16 @@ methods, fixes (notably to the garbage collection), and other improvements.
 ### Added
 
 - [#5010](https://github.com/ChainSafe/forest/pull/5010) Added
-  `forest-cli f3 certs list` `CLI` command.
+  `forest-cli f3 certs list` CLI command.
 
 - [#4995](https://github.com/ChainSafe/forest/pull/4995) Added
-  `forest-cli f3 powertable get` `CLI` command.
+  `forest-cli f3 powertable get` CLI command.
 
 - [#5028](https://github.com/ChainSafe/forest/pull/5028) Added
-  `forest-cli f3 powertable get-proportion` `CLI` command.
+  `forest-cli f3 powertable get-proportion` CLI command.
 
 - [#5054](https://github.com/ChainSafe/forest/pull/5054) Added `--dump-dir`
-  option to `forest-tool api compare` `CLI` command.
+  option to `forest-tool api compare` CLI command.
 
 - [#4704](https://github.com/ChainSafe/forest/issues/4704) Add support for the
   `Filecoin.EthGetTransactionReceiptLimited` RPC method.
@@ -498,7 +498,7 @@ methods, fixes (notably to the garbage collection), and other improvements.
 
 Mandatory release for mainnet node operators. It sets the upgrade epoch for the
 NV24 _Tuk Tuk_ upgrade to `4_461_240` which corresponds to
-`Wed 20 Nov 23:00:00 UTC 2024`. No `F3` support is planned for the NV24, see
+`Wed 20 Nov 23:00:00 UTC 2024`. No F3 support is planned for the NV24, see
 [this post](https://github.com/filecoin-project/core-devs/discussions/150#discussioncomment-11164504)
 for more details.
 
@@ -512,13 +512,13 @@ for more details.
 ### Added
 
 - [#4937](https://github.com/ChainSafe/forest/pull/4937) Added
-  `forest-cli f3 manifest` `CLI` command.
+  `forest-cli f3 manifest` CLI command.
 
 - [#4949](https://github.com/ChainSafe/forest/pull/4949) Added
-  `forest-cli f3 status` `CLI` command.
+  `forest-cli f3 status` CLI command.
 
 - [#4949](https://github.com/ChainSafe/forest/pull/4949) Added
-  `forest-cli f3 certs get` `CLI` command.
+  `forest-cli f3 certs get` CLI command.
 
 - [#4706](https://github.com/ChainSafe/forest/issues/4706) Add support for the
   `Filecoin.EthSendRawTransaction` RPC method.
@@ -539,20 +539,20 @@ for more details.
 ## Forest 0.21.1 "Songthaew Plus"
 
 This is an optional release for calibration network node operators. It enables
-`F3` by default and includes initial power table CID on calibration network.
+F3 by default and includes initial power table CID on calibration network.
 
 ### Breaking
 
 ### Added
 
 - [#4910](https://github.com/ChainSafe/forest/issues/4910) Add support for the
-  `Filecoin.`F3`ListParticipants` RPC method.
+  `Filecoin.F3ListParticipants` RPC method.
 
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Add support for the
-  `Filecoin.`F3`GetOrRenewParticipationTicket` RPC method.
+  `Filecoin.F3GetOrRenewParticipationTicket` RPC method.
 
 - [#4924](https://github.com/ChainSafe/forest/issues/4924) Add support for the
-  `Filecoin.`F3`GetManifest` RPC method.
+  `Filecoin.F3GetManifest` RPC method.
 
 - [#4917](https://github.com/ChainSafe/forest/issues/4917) Support `dnsaddr` in
   the bootstrap list.
@@ -563,10 +563,10 @@ This is an optional release for calibration network node operators. It enables
 ### Changed
 
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
-  `Filecoin.`F3`Participate` RPC method to align with the spec change.
+  `Filecoin.F3Participate` RPC method to align with the spec change.
 
 - [#4920](https://github.com/ChainSafe/forest/issues/4920) Update
-  `Filecoin.`F3`ListParticipants` RPC method to align with the spec change.
+  `Filecoin.F3ListParticipants` RPC method to align with the spec change.
 
 ### Removed
 
@@ -579,7 +579,7 @@ This is an optional release for calibration network node operators. It enables
 
 This is a mandatory release for calibration network node operators. It includes
 state migration for the NV24 _TukTuk_ upgrade at epoch `2078794`
-2024-10-23T13:30:00Z. It also includes a number of new RPC methods, fixes and `F3`
+2024-10-23T13:30:00Z. It also includes a number of new RPC methods, fixes and F3
 support.
 
 ### Breaking
@@ -596,10 +596,10 @@ support.
   `Filecoin.NetProtectList` RPC method.
 
 - [#4865](https://github.com/ChainSafe/forest/issues/4865) Add support for the
-  `Filecoin.`F3`IsRunning` RPC method.
+  `Filecoin.F3IsRunning` RPC method.
 
 - [#4878](https://github.com/ChainSafe/forest/issues/4878) Add support for the
-  `Filecoin.`F3`GetProgress` RPC method.
+  `Filecoin.F3GetProgress` RPC method.
 
 - [#4857](https://github.com/ChainSafe/forest/pull/4857) Add support for nv24
   (TukTuk).
@@ -1569,9 +1569,9 @@ Notable updates:
 
 Notable updates:
 
-- `--compressed` option removed from `CLI`, snapshots are now always compressed.
+- `--compressed` option removed from CLI, snapshots are now always compressed.
 - The `dir`, `list`, `prune` and `remove` snapshot commands have been removed
-  from the `CLI`.
+  from the CLI.
 - Snapshots are fetched to current directory by default.
 - Added new subcommand `forest-cli info show`.
 - `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
@@ -1585,7 +1585,7 @@ Notable updates:
 ### Breaking
 
 - [#2873](https://github.com/ChainSafe/forest/issues/2873)
-  - remove `--compressed` from the `CLI`. Snapshots are now always compressed.
+  - remove `--compressed` from the CLI. Snapshots are now always compressed.
   - Remove snapshot ops - snapshots fetched to the current directory by default.
 
 ### Added
@@ -1749,9 +1749,9 @@ Notable updates:
   [#2576](https://github.com/ChainSafe/forest/issues/2576)
 - Revised how balances are displayed, defaulting to:
   [#2323](https://github.com/ChainSafe/forest/issues/2323)
-  - adding metric prefix when it's required, consequently `CLI` flag
+  - adding metric prefix when it's required, consequently CLI flag
     `--fixed-unit` added to force to show in original `FIL` unit
-  - 4 significant digits, consequently `CLI` flag `--exact-balance` added to force
+  - 4 significant digits, consequently CLI flag `--exact-balance` added to force
     full accuracy.
 - `stats` and `compression` keys in `parity_db` section were renamed to
   `enable_statistics` and `compression_type` respectively.
@@ -1778,7 +1778,7 @@ Notable updates:
 ### Removed
 
 - Removed `--halt-after-import` and `--auto-download-snapshot` from
-  configuration. They are now strictly a `CLI` option.
+  configuration. They are now strictly a CLI option.
   [#2528](https://github.com/ChainSafe/forest/issues/2528)
   [#2573](https://github.com/ChainSafe/forest/issues/2573)
 
@@ -1933,7 +1933,7 @@ Notable updates:
 - Resolve two security concerns by removing legacy code (RUSTSEC-2020-0071 and
   RUSTSEC-2021-0130).
 - Fixed Docker image and released it to GH container registry.
-- Network selection (i.e. mainnet vs testnet) moved to a `CLI` flag rather than a
+- Network selection (i.e. mainnet vs testnet) moved to a CLI flag rather than a
   compile-time flag.
 
 ## Forest v0.2.2 _alpha_ (2022-04-06)
@@ -2185,7 +2185,7 @@ All changes:
   ([#1295](https://github.com/ChainSafe/forest/pull/1295))
 - Remove redundant validation code and update error message to be same as in
   spec actors ([#1294](https://github.com/ChainSafe/forest/pull/1294))
-- `F3`: fix logic to be the same as in the spec actors
+- F3: fix logic to be the same as in the spec actors
   ([#1292](https://github.com/ChainSafe/forest/pull/1292))
 - Attempt to improve gh actions time
   ([#1319](https://github.com/ChainSafe/forest/pull/1319))
@@ -2216,7 +2216,7 @@ implementation.
 - It implements all core systems of the Filecoin protocol specification exposed
   through a command-line interface.
 - The set of functionalities for this first alpha-release include: Message Pool,
-  State Manager, Chain and Wallet `CLI` functionality, Prometheus Metrics, and a
+  State Manager, Chain and Wallet CLI functionality, Prometheus Metrics, and a
   JSON-RPC Server.
 
 To compile release binaries, checkout the `v0.1.0` tag and build with the
@@ -2247,7 +2247,7 @@ All initial change sets:
   ([#1245](https://github.com/ChainSafe/forest/pull/1245)) (Afr Schoe)
 - `d7e816a7` Update Libp2p to 0.40.0-RC.1
   ([#1243](https://github.com/ChainSafe/forest/pull/1243)) (Eric Tu)
-- `a33328c9` Mpool `CLI` Commands
+- `a33328c9` Mpool CLI Commands
   ([#1203](https://github.com/ChainSafe/forest/pull/1203)) (Connor Mullett)
 - `9d4b5291` Create new_issue.md
   ([#1193](https://github.com/ChainSafe/forest/pull/1193)) (Lee Raj)
@@ -2305,9 +2305,9 @@ All initial change sets:
   ([#1190](https://github.com/ChainSafe/forest/pull/1190)) (Eric Tu)
 - `d88ea8d1` Added the check for config file via Env Var
   ([#1197](https://github.com/ChainSafe/forest/pull/1197)) (Elvis)
-- `d4a1d044` Chain Sync `CLI` Commands
+- `d4a1d044` Chain Sync CLI Commands
   ([#1175](https://github.com/ChainSafe/forest/pull/1175)) (Connor Mullett)
-- `698cf3c3` Additional Net RPC API & `CLI` Methods
+- `698cf3c3` Additional Net RPC API & CLI Methods
   ([#1167](https://github.com/ChainSafe/forest/pull/1167)) (Hunter Trujillo)
 - `32656db9` `auth api-info`
   ([#1172](https://github.com/ChainSafe/forest/pull/1172)) (Connor Mullett)
@@ -2333,7 +2333,7 @@ All initial change sets:
   ([#1162](https://github.com/ChainSafe/forest/pull/1162)) (detailyang)
 - `992e69e3` FOR-15 fix approx_cmp in msg_chain.rs
   ([#1160](https://github.com/ChainSafe/forest/pull/1160)) (creativcoder)
-- `34799734` Wallet `CLI` Implementation
+- `34799734` Wallet CLI Implementation
   ([#1128](https://github.com/ChainSafe/forest/pull/1128)) (Connor Mullett)
 - `f698ba88` [Audit fixes] FOR-02: Inconsistent Deserialization of Address ID ([#1149](https://github.com/ChainSafe/forest/pull/1149))
   (Hunter Trujillo)
@@ -2359,7 +2359,7 @@ All initial change sets:
   ([#1122](https://github.com/ChainSafe/forest/pull/1122)) (Hunter Trujillo)
 - `81080179` Import/Export StateTree for Testing
   ([#1114](https://github.com/ChainSafe/forest/pull/1114)) (Eric Tu)
-- `b75a4f31` Improve `CLI` printing and RPC error handling.
+- `b75a4f31` Improve CLI printing and RPC error handling.
   ([#1121](https://github.com/ChainSafe/forest/pull/1121)) (Hunter Trujillo)
 - `a8931e2a` Enable Gossip Scoring
   ([#1115](https://github.com/ChainSafe/forest/pull/1115)) (Eric Tu)
@@ -2889,7 +2889,7 @@ All initial change sets:
   ([#697](https://github.com/ChainSafe/forest/pull/697)) (nannick)
 - `548a4645` Print out conformance results and add log for skips
   ([#695](https://github.com/ChainSafe/forest/pull/695)) (Austin Abell)
-- `0d7b16cc` Add `CLI` command to add Genesis Miner to Genesis Template
+- `0d7b16cc` Add CLI command to add Genesis Miner to Genesis Template
   ([#644](https://github.com/ChainSafe/forest/pull/644)) (Stepan)
 - `0be6b76a` Chain syncing verification fixes
   ([#503](https://github.com/ChainSafe/forest/pull/503)) (Eric Tu)
@@ -3013,7 +3013,7 @@ All initial change sets:
   ([#591](https://github.com/ChainSafe/forest/pull/591)) (Eric Tu)
 - `4783a670` Update cron actor
   ([#588](https://github.com/ChainSafe/forest/pull/588)) (Austin Abell)
-- `c642d9a9` JSON client setup and chain `CLI` commands
+- `c642d9a9` JSON client setup and chain CLI commands
   ([#572](https://github.com/ChainSafe/forest/pull/572)) (Dustin Brickwood)
 - `f80cfab7` Update account actor and params defaults/checks
   ([#587](https://github.com/ChainSafe/forest/pull/587)) (Austin Abell)
@@ -3069,7 +3069,7 @@ All initial change sets:
   ([#526](https://github.com/ChainSafe/forest/pull/526)) (Austin Abell)
 - `a2cab731` Implementing Market Balance
   ([#524](https://github.com/ChainSafe/forest/pull/524)) (nannick)
-- `7143e42b` Refactor `CLI` and implement fetch-params
+- `7143e42b` Refactor CLI and implement fetch-params
   ([#516](https://github.com/ChainSafe/forest/pull/516)) (Austin Abell)
 - `95a2fcc1` Update proofs-api to 4.0.1
   ([#523](https://github.com/ChainSafe/forest/pull/523)) (Austin Abell)
@@ -3531,7 +3531,7 @@ All initial change sets:
   ([#69](https://github.com/ChainSafe/forest/pull/69)) (Dustin Brickwood)
 - `054f25d4` InitActor framework
   ([#76](https://github.com/ChainSafe/forest/pull/76)) (Austin Abell)
-- `d75c8f2e` `CLI` cleanup ([#70](https://github.com/ChainSafe/forest/pull/70))
+- `d75c8f2e` CLI cleanup ([#70](https://github.com/ChainSafe/forest/pull/70))
   (Gregory Markou)
 - `bbea6130` Add config file parsing
   ([#60](https://github.com/ChainSafe/forest/pull/60)) (Gregory Markou)

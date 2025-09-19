@@ -14,7 +14,7 @@ NUM_TIPSETS=200
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
-OUTPUT=$($FOREST_`CLI`_PATH info show)
+OUTPUT=$($FOREST_CLI_PATH info show)
 
 HEAD_EPOCH=$(echo "$OUTPUT" | sed -n 's/.*epoch: \([0-9]*\).*/\1/p')
 EPOCH=$((HEAD_EPOCH - 1))

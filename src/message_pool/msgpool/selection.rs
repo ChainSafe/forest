@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Contains routines for message selection `APIs`.
+//! Contains routines for message selection APIs.
 //! Whenever a miner is ready to create a block for a tipset, it invokes the
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details

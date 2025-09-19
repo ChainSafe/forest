@@ -35,7 +35,7 @@ pub enum TrustedVendor {
 
 /// Create a filename in the "full" format. See [`parse`].
 // Common between export, and [`fetch`].
-// Keep in sync with the `CLI` documentation for the `snapshot` sub-command.
+// Keep in sync with the CLI documentation for the `snapshot` sub-command.
 pub fn filename(
     vendor: impl Display,
     chain: impl Display,

@@ -30,30 +30,30 @@ const MAX_LEASE_INSTANCES: u64 = 5;
 
 /// TipSetKey is the canonically ordered concatenation of the block `CIDs` in a tipset.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct `F3`TipSetKey(
+pub struct F3TipSetKey(
     #[schemars(with = "String")]
     #[serde(with = "base64_standard")]
     pub Vec<u8>,
 );
-lotus_json_with_self!(`F3`TipSetKey);
+lotus_json_with_self!(F3TipSetKey);
 
-impl From<&TipsetKey> for `F3`TipSetKey {
+impl From<&TipsetKey> for F3TipSetKey {
     fn from(tsk: &TipsetKey) -> Self {
         let bytes = tsk.iter().flat_map(|cid| cid.to_bytes()).collect();
         Self(bytes)
     }
 }
 
-impl From<TipsetKey> for `F3`TipSetKey {
+impl From<TipsetKey> for F3TipSetKey {
     fn from(tsk: TipsetKey) -> Self {
         (&tsk).into()
     }
 }
 
-impl TryFrom<`F3`TipSetKey> for TipsetKey {
+impl TryFrom<F3TipSetKey> for TipsetKey {
     type Error = anyhow::Error;
 
-    fn try_from(tsk: `F3`TipSetKey) -> Result<Self, Self::Error> {
+    fn try_from(tsk: F3TipSetKey) -> Result<Self, Self::Error> {
         static BLOCK_HEADER_CID_LEN: LazyLock<usize> = LazyLock::new(|| {
             let buf = [0_u8; 256];
             let cid = Cid::new_v1(
@@ -76,8 +76,8 @@ impl TryFrom<`F3`TipSetKey> for TipsetKey {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct `F3`TipSet {
-    pub key: `F3`TipSetKey,
+pub struct F3TipSet {
+    pub key: F3TipSetKey,
     /// The verifiable oracle randomness used to elect this block's author leader
     #[schemars(with = "String")]
     #[serde(with = "base64_standard")]
@@ -88,9 +88,9 @@ pub struct `F3`TipSet {
     /// Block creation time, in seconds since the Unix epoch
     pub timestamp: u64,
 }
-lotus_json_with_self!(`F3`TipSet);
+lotus_json_with_self!(F3TipSet);
 
-impl From<Tipset> for `F3`TipSet {
+impl From<Tipset> for F3TipSet {
     fn from(ts: Tipset) -> Self {
         let key = ts.key().into();
         let beacon = {
@@ -112,7 +112,7 @@ impl From<Tipset> for `F3`TipSet {
     }
 }
 
-impl From<Arc<Tipset>> for `F3`TipSet {
+impl From<Arc<Tipset>> for F3TipSet {
     fn from(ts: Arc<Tipset>) -> Self {
         Arc::unwrap_or_clone(ts).into()
     }
@@ -136,7 +136,7 @@ lotus_json_with_self!(ECTipSet);
 
 /// PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.
 #[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple, Eq, PartialEq)]
-pub struct `F3`PowerEntry {
+pub struct F3PowerEntry {
     pub id: ActorID,
     #[serde(with = "bigint_ser")]
     pub power: num::BigInt,
@@ -146,7 +146,7 @@ pub struct `F3`PowerEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Eq, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct `F3`PowerEntryLotusJson {
+pub struct F3PowerEntryLotusJson {
     #[serde(rename = "ID")]
     pub id: ActorID,
     #[schemars(with = "String")]
@@ -157,8 +157,8 @@ pub struct `F3`PowerEntryLotusJson {
     pub pub_key: Vec<u8>,
 }
 
-impl HasLotusJson for `F3`PowerEntry {
-    type LotusJson = `F3`PowerEntryLotusJson;
+impl HasLotusJson for F3PowerEntry {
+    type LotusJson = F3PowerEntryLotusJson;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -182,10 +182,10 @@ impl HasLotusJson for `F3`PowerEntry {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         let Self { id, power, pub_key } = self;
-        `F3`PowerEntryLotusJson { id, power, pub_key }
+        F3PowerEntryLotusJson { id, power, pub_key }
     }
 
-    fn from_lotus_json(`F3`PowerEntryLotusJson { id, power, pub_key }: Self::LotusJson) -> Self {
+    fn from_lotus_json(F3PowerEntryLotusJson { id, power, pub_key }: Self::LotusJson) -> Self {
         Self { id, power, pub_key }
     }
 }
@@ -193,7 +193,7 @@ impl HasLotusJson for `F3`PowerEntry {
 /// Entries are sorted descending order of their power, where entries with equal power are
 /// sorted by ascending order of their ID.
 /// This ordering is guaranteed to be stable, since a valid PowerTable cannot contain entries with duplicate IDs
-impl Ord for `F3`PowerEntry {
+impl Ord for F3PowerEntry {
     fn cmp(&self, other: &Self) -> Ordering {
         match other.power.cmp(&self.power) {
             Ordering::Equal => self.id.cmp(&other.id),
@@ -202,7 +202,7 @@ impl Ord for `F3`PowerEntry {
     }
 }
 
-impl PartialOrd for `F3`PowerEntry {
+impl PartialOrd for F3PowerEntry {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -210,7 +210,7 @@ impl PartialOrd for `F3`PowerEntry {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct `F3`InstanceProgress {
+pub struct F3InstanceProgress {
     #[serde(rename = "ID")]
     pub id: u64,
     pub round: u64,
@@ -223,9 +223,9 @@ pub struct `F3`InstanceProgress {
     )]
     pub input: Vec<ECTipSet>,
 }
-lotus_json_with_self!(`F3`InstanceProgress);
+lotus_json_with_self!(F3InstanceProgress);
 
-impl `F3`InstanceProgress {
+impl F3InstanceProgress {
     pub fn phase_string(&self) -> &'static str {
         match self.phase {
             0 => "INITIAL",
@@ -332,7 +332,7 @@ pub struct PartialMessageManagerConfig {
 #[serde_as]
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct `F3`Manifest {
+pub struct F3Manifest {
     pub protocol_version: u64,
     pub initial_instance: u64,
     pub bootstrap_epoch: i64,
@@ -352,9 +352,9 @@ pub struct `F3`Manifest {
     pub chain_exchange: ChainExchangeConfig,
     pub partial_message_manager: PartialMessageManagerConfig,
 }
-lotus_json_with_self!(`F3`Manifest);
+lotus_json_with_self!(F3Manifest);
 
-impl `F3`Manifest {
+impl F3Manifest {
     pub fn get_eth_return_from_message_receipt(receipt: &Receipt) -> anyhow::Result<Vec<u8>> {
         anyhow::ensure!(
             receipt.exit_code().is_success(),
@@ -437,7 +437,7 @@ impl `F3`Manifest {
         let mut deflater = DeflateDecoder::new(compressed_manifest_bytes);
         let mut manifest_bytes = vec![];
         deflater.read_to_end(&mut manifest_bytes)?;
-        let manifest: `F3`Manifest = serde_json::from_slice(&manifest_bytes)?;
+        let manifest: F3Manifest = serde_json::from_slice(&manifest_bytes)?;
         anyhow::ensure!(
             manifest.bootstrap_epoch >= 0 && manifest.bootstrap_epoch as u64 == activation_epoch,
             "bootstrap epoch does not match: {} != {activation_epoch}",
@@ -447,7 +447,7 @@ impl `F3`Manifest {
     }
 }
 
-impl TryFrom<&Receipt> for `F3`Manifest {
+impl TryFrom<&Receipt> for F3Manifest {
     type Error = anyhow::Error;
 
     fn try_from(receipt: &Receipt) -> Result<Self, Self::Error> {
@@ -456,7 +456,7 @@ impl TryFrom<&Receipt> for `F3`Manifest {
     }
 }
 
-impl TryFrom<Receipt> for `F3`Manifest {
+impl TryFrom<Receipt> for F3Manifest {
     type Error = anyhow::Error;
 
     fn try_from(receipt: Receipt) -> Result<Self, Self::Error> {
@@ -545,17 +545,17 @@ impl FinalityCertificate {
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct `F3`Participant {
+pub struct F3Participant {
     #[serde(rename = "MinerID")]
     pub miner_id: u64,
     pub from_instance: u64,
     pub validity_term: u64,
 }
-lotus_json_with_self!(`F3`Participant);
+lotus_json_with_self!(F3Participant);
 
-impl From<`F3`ParticipationLease> for `F3`Participant {
-    fn from(value: `F3`ParticipationLease) -> Self {
-        let `F3`ParticipationLease {
+impl From<F3ParticipationLease> for F3Participant {
+    fn from(value: F3ParticipationLease) -> Self {
+        let F3ParticipationLease {
             miner_id,
             from_instance,
             validity_term,
@@ -569,9 +569,9 @@ impl From<`F3`ParticipationLease> for `F3`Participant {
     }
 }
 
-impl From<&`F3`ParticipationLease> for `F3`Participant {
-    fn from(value: &`F3`ParticipationLease) -> Self {
-        let &`F3`ParticipationLease {
+impl From<&F3ParticipationLease> for F3Participant {
+    fn from(value: &F3ParticipationLease) -> Self {
+        let &F3ParticipationLease {
             miner_id,
             from_instance,
             validity_term,
@@ -586,11 +586,11 @@ impl From<&`F3`ParticipationLease> for `F3`Participant {
 }
 
 /// defines the lease granted to a storage provider for
-/// participating in `F3` consensus, detailing the session identifier, issuer,
+/// participating in F3 consensus, detailing the session identifier, issuer,
 /// subject, and the expiration instance.
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct Api`F3`ParticipationLease {
+pub struct ApiF3ParticipationLease {
     /// the name of the network this lease belongs to.
     #[schemars(with = "String")]
     pub network: NetworkChain,
@@ -609,7 +609,7 @@ pub struct Api`F3`ParticipationLease {
 #[serde_as]
 #[derive(PartialEq, Debug, Clone, Serialize_tuple, Deserialize_tuple)]
 #[serde(rename_all = "PascalCase")]
-pub struct `F3`ParticipationLease {
+pub struct F3ParticipationLease {
     #[serde_as(as = "DisplayFromStr")]
     pub network: NetworkChain,
     #[serde_as(as = "DisplayFromStr")]
@@ -619,8 +619,8 @@ pub struct `F3`ParticipationLease {
     pub validity_term: u64,
 }
 
-impl HasLotusJson for `F3`ParticipationLease {
-    type LotusJson = Api`F3`ParticipationLease;
+impl HasLotusJson for F3ParticipationLease {
+    type LotusJson = ApiF3ParticipationLease;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -662,7 +662,7 @@ impl HasLotusJson for `F3`ParticipationLease {
     }
 }
 
-impl `F3`ParticipationLease {
+impl F3ParticipationLease {
     pub fn validate(
         &self,
         network: &NetworkChain,
@@ -690,13 +690,13 @@ impl `F3`ParticipationLease {
 }
 
 #[derive(Debug)]
-pub struct `F3`LeaseManager {
+pub struct F3LeaseManager {
     network: NetworkChain,
     peer_id: PeerId,
-    leases: RwLock<HashMap<u64, `F3`ParticipationLease>>,
+    leases: RwLock<HashMap<u64, F3ParticipationLease>>,
 }
 
-impl `F3`LeaseManager {
+impl F3LeaseManager {
     pub fn new(network: NetworkChain, peer_id: PeerId) -> Self {
         Self {
             network,
@@ -708,7 +708,7 @@ impl `F3`LeaseManager {
     pub fn get_active_participants(
         &self,
         current_instance: u64,
-    ) -> HashMap<u64, `F3`ParticipationLease> {
+    ) -> HashMap<u64, F3ParticipationLease> {
         self.leases
             .read()
             .iter()
@@ -725,16 +725,16 @@ impl `F3`LeaseManager {
     pub async fn get_or_renew_participation_lease(
         &self,
         id: u64,
-        previous_lease: Option<`F3`ParticipationLease>,
+        previous_lease: Option<F3ParticipationLease>,
         instances: u64,
-    ) -> anyhow::Result<`F3`ParticipationLease> {
+    ) -> anyhow::Result<F3ParticipationLease> {
         anyhow::ensure!(instances > 0, "instances should be positive");
         anyhow::ensure!(
             instances <= MAX_LEASE_INSTANCES,
             "instances {instances} exceeds the maximum allowed value {MAX_LEASE_INSTANCES}"
         );
 
-        let current_instance = super::`F3`GetProgress::run().await?.id;
+        let current_instance = super::F3GetProgress::run().await?.id;
         if let Some(previous_lease) = previous_lease {
             // A previous ticket is present. To avoid overlapping lease across multiple
             // instances for the same participant check its validity and only proceed to
@@ -757,8 +757,8 @@ impl `F3`LeaseManager {
         participant: u64,
         from_instance: u64,
         instances: u64,
-    ) -> `F3`ParticipationLease {
-        `F3`ParticipationLease {
+    ) -> F3ParticipationLease {
+        F3ParticipationLease {
             issuer: self.peer_id,
             network: self.network.clone(),
             miner_id: participant,
@@ -769,7 +769,7 @@ impl `F3`LeaseManager {
 
     pub fn participate(
         &self,
-        lease: &`F3`ParticipationLease,
+        lease: &F3ParticipationLease,
         current_instance: u64,
     ) -> anyhow::Result<()> {
         lease.validate(&self.network, &self.peer_id, current_instance)?;
@@ -785,7 +785,7 @@ impl `F3`LeaseManager {
                 "the from instance should never decrease"
             );
         } else {
-            tracing::info!("started participating in `F3` for miner {}", lease.miner_id);
+            tracing::info!("started participating in F3 for miner {}", lease.miner_id);
         }
         self.leases.write().insert(lease.miner_id, lease.clone());
         Ok(())
@@ -799,15 +799,15 @@ mod tests {
 
     #[test]
     fn decode_f3_participation_lease_ticket_from_lotus() {
-        // ticket is generated from a Lotus node by calling `Filecoin.`F3`GetOrRenewParticipationTicket`
+        // ticket is generated from a Lotus node by calling `Filecoin.F3GetOrRenewParticipationTicket`
         // params: ["t01000", "", 1]
         let ticket = "hW5jYWxpYnJhdGlvbm5ldHg0MTJEM0tvb1dKV0VxZzRLcXpxQUJMeU0yMUtBbWFKYzNqdFBzWEJrNmJNNllyN1BLSGczSxkD6AAB";
         let ticket_bytes = BASE64_STANDARD.decode(ticket).unwrap();
-        let lease: `F3`ParticipationLease =
+        let lease: F3ParticipationLease =
             fvm_ipld_encoding::from_slice(ticket_bytes.as_slice()).unwrap();
         assert_eq!(
             lease,
-            `F3`ParticipationLease {
+            F3ParticipationLease {
                 network: NetworkChain::Calibnet,
                 issuer: PeerId::from_str("12D3KooWJWEqg4KqzqABLyM21KAmaJc3jtPsXBk6bM6Yr7PKHg3K")
                     .unwrap(),
@@ -820,7 +820,7 @@ mod tests {
 
     #[test]
     fn f3_participation_lease_ticket_serde_roundtrip() {
-        let lease = `F3`ParticipationLease {
+        let lease = F3ParticipationLease {
             network: NetworkChain::Calibnet,
             issuer: PeerId::from_str("12D3KooWJWEqg4KqzqABLyM21KAmaJc3jtPsXBk6bM6Yr7PKHg3K")
                 .unwrap(),
@@ -829,7 +829,7 @@ mod tests {
             validity_term: 1,
         };
         let ticket = fvm_ipld_encoding::to_vec(&lease).unwrap();
-        let decoded: `F3`ParticipationLease = fvm_ipld_encoding::from_slice(&ticket).unwrap();
+        let decoded: F3ParticipationLease = fvm_ipld_encoding::from_slice(&ticket).unwrap();
         assert_eq!(lease, decoded);
     }
 
@@ -839,7 +839,7 @@ mod tests {
         let peer_id = PeerId::random();
         let miner = 1000;
 
-        let lm = `F3`LeaseManager::new(network, peer_id);
+        let lm = F3LeaseManager::new(network, peer_id);
 
         let lease = lm.new_participation_lease(miner, 10, 2);
         assert!(
@@ -941,7 +941,7 @@ mod tests {
             "MaxCachedValidatedMessagesPerInstance": 25000
           }
         });
-        let manifest: `F3`Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
+        let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
         let serialized = serde_json::to_value(manifest.clone()).unwrap();
         assert_eq!(lotus_json, serialized);
     }
@@ -1015,13 +1015,13 @@ mod tests {
 
     #[test]
     fn test_f3_manifest_parse_contract_return() {
-        // The solidity contract: https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/contracts/`F3`Parameters.sol
+        // The solidity contract: https://github.com/filecoin-project/f3-activation-contract/blob/063cd51a46f61b717375fe5675a6ddc73f4d8626/contracts/F3Parameters.sol
         let eth_return_hex = include_str!("contract_return.hex").trim();
         let eth_return = hex::decode(eth_return_hex).unwrap();
-        let manifest = `F3`Manifest::parse_contract_return(&eth_return).unwrap();
+        let manifest = F3Manifest::parse_contract_return(&eth_return).unwrap();
         assert_eq!(
             manifest,
-            serde_json::from_str::<`F3`Manifest>(include_str!("contract_manifest_golden.json"))
+            serde_json::from_str::<F3Manifest>(include_str!("contract_manifest_golden.json"))
                 .unwrap(),
         );
     }

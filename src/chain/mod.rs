@@ -50,7 +50,7 @@ pub async fn export_from_head<D: Digest>(
     Ok((head_ts, digest))
 }
 
-/// Exports a Filecoin snapshot in `v1` format
+/// Exports a Filecoin snapshot in v1 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
 pub async fn export<D: Digest>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,
@@ -63,7 +63,7 @@ pub async fn export<D: Digest>(
     export_to_forest_car::<D>(roots, None, db, tipset, lookup_depth, writer, options).await
 }
 
-/// Exports a Filecoin snapshot in `v2` format
+/// Exports a Filecoin snapshot in v2 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v2-specification>
 pub async fn export_v2<D: Digest>(
     db: &Arc<impl Blockstore + Send + Sync + 'static>,

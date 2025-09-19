@@ -10,15 +10,15 @@
 !Filecoin.NetProtectAdd
 !Filecoin.NetProtectRemove
 !Filecoin.NetProtectList
-# Most `F3` methods are not avaiable on offline Forest RPC server
-!Filecoin.`F3`GetManifest
-!Filecoin.`F3`GetLatestCertificate
-!Filecoin.`F3`ListParticipants
-!Filecoin.`F3`GetProgress
-!Filecoin.`F3`IsRunning
-!Filecoin.`F3`GetCertificate
-!Filecoin.`F3`GetOrRenewParticipationTicket
-!Filecoin.`F3`Get`F3`PowerTable
+# Most F3 methods are not avaiable on offline Forest RPC server
+!Filecoin.F3GetManifest
+!Filecoin.F3GetLatestCertificate
+!Filecoin.F3ListParticipants
+!Filecoin.F3GetProgress
+!Filecoin.F3IsRunning
+!Filecoin.F3GetCertificate
+!Filecoin.F3GetOrRenewParticipationTicket
+!Filecoin.F3GetF3PowerTable
 # CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/actions/runs/9593268587/job/26453560366
 !Filecoin.StateCall
 # These methods don't make sense in the context of an offline node

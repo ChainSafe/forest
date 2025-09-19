@@ -6,7 +6,7 @@ use crate::shim::sector::SectorSize;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[schemars(rename = "SectorSize")]
-// This should probably be a JSON Schema `enum`
+// This should probably be a JSON Schema enum
 pub struct SectorSizeLotusJson(#[schemars(with = "u64")] SectorSize);
 
 impl HasLotusJson for SectorSize {

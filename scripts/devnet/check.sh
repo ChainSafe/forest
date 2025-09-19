@@ -21,7 +21,7 @@ function get_sync_height {
 function get_f3_latest_cert_instance {
   local port=$1
   curl --silent -X POST -H "Content-Type: application/json" \
-       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.`F3`GetLatestCertificate","param":"null"}' \
+       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.F3GetLatestCertificate","param":"null"}' \
        "http://127.0.0.1:${port}/rpc/v1" | jq '.result.GPBFTInstance'
 }
 
@@ -54,7 +54,7 @@ if [ "$height" -ne 0 ]; then
   exit 1
 fi
 
-# Check the `F3` RPC
+# Check the F3 RPC
 height=$(get_f3_latest_cert_instance ${FOREST_RPC_PORT})
 if [ "$height" -lt 1 ]; then
   echo "latest cert instance should be greater than zero: $height"

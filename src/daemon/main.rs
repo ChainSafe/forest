@@ -13,7 +13,7 @@ use std::ffi::OsString;
 use std::time::Duration;
 use tracing::info;
 
-/// `CLI` structure generated when interacting with Forest binary
+/// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), bin_name = "forest", author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION")
 )]

@@ -13,10 +13,10 @@ import (
 )
 
 func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshotPath string) (err error) {
-	logger.Infof("importing `F3` snapshot at %s", snapshotPath)
+	logger.Infof("importing F3 snapshot at %s", snapshotPath)
 
-	f3api := `F3`Api{}
-	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "`F3`", &f3api, nil)
+	f3api := F3Api{}
+	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "F3", &f3api, nil)
 	if err != nil {
 		return err
 	}

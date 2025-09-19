@@ -275,18 +275,18 @@ macro_rules! for_each_rpc_method {
 
         // f3
         $callback!($crate::rpc::f3::GetRawNetworkName);
-        $callback!($crate::rpc::f3::`F3`GetCertificate);
-        $callback!($crate::rpc::f3::`F3`GetECPowerTable);
-        $callback!($crate::rpc::f3::`F3`Get`F3`PowerTable);
-        $callback!($crate::rpc::f3::`F3`Get`F3`PowerTableByInstance);
-        $callback!($crate::rpc::f3::`F3`IsRunning);
-        $callback!($crate::rpc::f3::`F3`GetProgress);
-        $callback!($crate::rpc::f3::`F3`GetManifest);
-        $callback!($crate::rpc::f3::`F3`ListParticipants);
-        $callback!($crate::rpc::f3::`F3`GetLatestCertificate);
-        $callback!($crate::rpc::f3::`F3`GetOrRenewParticipationTicket);
-        $callback!($crate::rpc::f3::`F3`Participate);
-        $callback!($crate::rpc::f3::`F3`ExportLatestSnapshot);
+        $callback!($crate::rpc::f3::F3GetCertificate);
+        $callback!($crate::rpc::f3::F3GetECPowerTable);
+        $callback!($crate::rpc::f3::F3GetF3PowerTable);
+        $callback!($crate::rpc::f3::F3GetF3PowerTableByInstance);
+        $callback!($crate::rpc::f3::F3IsRunning);
+        $callback!($crate::rpc::f3::F3GetProgress);
+        $callback!($crate::rpc::f3::F3GetManifest);
+        $callback!($crate::rpc::f3::F3ListParticipants);
+        $callback!($crate::rpc::f3::F3GetLatestCertificate);
+        $callback!($crate::rpc::f3::F3GetOrRenewParticipationTicket);
+        $callback!($crate::rpc::f3::F3Participate);
+        $callback!($crate::rpc::f3::F3ExportLatestSnapshot);
         $callback!($crate::rpc::f3::GetHead);
         $callback!($crate::rpc::f3::GetParent);
         $callback!($crate::rpc::f3::GetParticipatingMinerIDs);
@@ -352,14 +352,14 @@ pub fn collect_rpc_method_info() -> Vec<(&'static str, Permission)> {
 /// All the methods live in their own folder
 ///
 /// # Handling types
-/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
+/// - If a `struct` or enum is only used in the RPC API, it should live in `src/rpc`.
 ///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
 ///     in either:
 ///     - `src/rpc/methods/auth.rs` (if there are only a few).
 ///     - `src/rpc/methods/auth/types.rs` (if there are so many that they would cause clutter).
 ///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
 ///
-/// # Interactions with the [`lotus_json`] `APIs`
+/// # Interactions with the [`lotus_json`] APIs
 /// - Types may have fields which must go through [`LotusJson`],
 ///   and MUST reflect that in their [`JsonSchema`].
 ///   You have two options for this:
@@ -516,7 +516,7 @@ where
     let keystore = state.keystore.clone();
     let mut module = create_module(state.clone());
 
-    // register eth subscription `APIs`
+    // register eth subscription APIs
     let eth_pubsub = EthPubSub::new(state.clone());
     module.merge(eth_pubsub.into_rpc())?;
 

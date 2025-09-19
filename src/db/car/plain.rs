@@ -51,7 +51,7 @@
 //! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
 //!
 //! # Future work
-//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based `APIs` to pre-fetch parts of the
+//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the
 //!   file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.

@@ -15,12 +15,12 @@ echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
 echo "Exporting zstd compressed snapshot at genesis"
-$FOREST_`CLI`_PATH snapshot export --tipset 0 --format "$format"
+$FOREST_CLI_PATH snapshot export --tipset 0 --format "$format"
 
 echo "Exporting zstd compressed snapshot in $format format"
-$FOREST_`CLI`_PATH snapshot export --format "$format"
+$FOREST_CLI_PATH snapshot export --format "$format"
 
-$FOREST_`CLI`_PATH shutdown --force
+$FOREST_CLI_PATH shutdown --force
 
 for f in *.car.zst; do
   echo "Inspecting archive info $f"

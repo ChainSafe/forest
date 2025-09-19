@@ -129,17 +129,17 @@ mod tests {
         let mut filter_file = tempfile::Builder::new().tempfile().unwrap();
         write!(
             filter_file,
-            r#"# Allow all `F3` methods, except for `F3`.GetParent
-            `F3`.
-            !`F3`.GetParent
+            r#"# Allow all F3 methods, except for F3.GetParent
+            F3.
+            !F3.GetParent
             "#
         )
         .unwrap();
 
         let list = FilterList::new_from_file(filter_file.path()).unwrap();
-        assert!(!list.authorize("`F3`.GetParent"));
-        assert!(list.authorize("`F3`.GetHead"));
-        assert!(list.authorize("`F3`.GetPowerTable"));
+        assert!(!list.authorize("F3.GetParent"));
+        assert!(list.authorize("F3.GetHead"));
+        assert!(list.authorize("F3.GetPowerTable"));
         assert!(!list.authorize("Filecoin.ChainExport"));
     }
 }

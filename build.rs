@@ -14,7 +14,7 @@ fn main() {
 
     // Do not build f3-sidecar on docs.rs publishing
     // No proper version of Go compiler is available.
-    if !is_docs_rs() && !is_env_truthy("FOREST_`F3`_SIDECAR_FFI_BUILD_OPT_OUT") {
+    if !is_docs_rs() && !is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT") {
         println!("cargo:rustc-cfg=f3sidecar");
         println!("cargo::rerun-if-changed=f3-sidecar");
         unsafe {

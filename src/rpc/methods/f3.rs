@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
-//! This module contains `F3`(fast finality) related V1 RPC methods
-//! as well as some internal RPC methods(`F3`.*) that power
+//! This module contains F3(fast finality) related V1 RPC methods
+//! as well as some internal RPC methods(F3.*) that power
 //! the go-f3 node in sidecar mode.
 //!
 
@@ -11,7 +11,7 @@ mod types;
 mod util;
 
 pub use self::types::{
-    `F3`InstanceProgress, `F3`LeaseManager, `F3`Manifest, `F3`PowerEntry, FinalityCertificate,
+    F3InstanceProgress, F3LeaseManager, F3Manifest, F3PowerEntry, FinalityCertificate,
 };
 use self::{types::*, util::*};
 use super::wallet::WalletSign;
@@ -57,12 +57,12 @@ use std::{
     sync::{Arc, LazyLock, OnceLock},
 };
 
-pub static `F3`_LEASE_MANAGER: OnceLock<`F3`LeaseManager> = OnceLock::new();
+pub static F3_LEASE_MANAGER: OnceLock<F3LeaseManager> = OnceLock::new();
 
 pub enum GetRawNetworkName {}
 
 impl RpcMethod<0> for GetRawNetworkName {
-    const NAME: &'static str = "`F3`.GetRawNetworkName";
+    const NAME: &'static str = "F3.GetRawNetworkName";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -77,13 +77,13 @@ impl RpcMethod<0> for GetRawNetworkName {
 
 pub enum GetTipsetByEpoch {}
 impl RpcMethod<1> for GetTipsetByEpoch {
-    const NAME: &'static str = "`F3`.GetTipsetByEpoch";
+    const NAME: &'static str = "F3.GetTipsetByEpoch";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);
-    type Ok = `F3`TipSet;
+    type Ok = F3TipSet;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -100,13 +100,13 @@ impl RpcMethod<1> for GetTipsetByEpoch {
 
 pub enum GetTipset {}
 impl RpcMethod<1> for GetTipset {
-    const NAME: &'static str = "`F3`.GetTipset";
+    const NAME: &'static str = "F3.GetTipset";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (`F3`TipSetKey,);
-    type Ok = `F3`TipSet;
+    type Params = (F3TipSetKey,);
+    type Ok = F3TipSet;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -120,13 +120,13 @@ impl RpcMethod<1> for GetTipset {
 
 pub enum GetHead {}
 impl RpcMethod<0> for GetHead {
-    const NAME: &'static str = "`F3`.GetHead";
+    const NAME: &'static str = "F3.GetHead";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = `F3`TipSet;
+    type Ok = F3TipSet;
 
     async fn handle(ctx: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(ctx.chain_store().heaviest_tipset().into())
@@ -135,13 +135,13 @@ impl RpcMethod<0> for GetHead {
 
 pub enum GetParent {}
 impl RpcMethod<1> for GetParent {
-    const NAME: &'static str = "`F3`.GetParent";
+    const NAME: &'static str = "F3.GetParent";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (`F3`TipSetKey,);
-    type Ok = `F3`TipSet;
+    type Params = (F3TipSetKey,);
+    type Ok = F3TipSet;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -160,7 +160,7 @@ impl GetPowerTable {
     async fn compute(
         ctx: &Ctx<impl Blockstore + Send + Sync + 'static>,
         ts: &Arc<Tipset>,
-    ) -> anyhow::Result<Vec<`F3`PowerEntry>> {
+    ) -> anyhow::Result<Vec<F3PowerEntry>> {
         // The RAM overhead on mainnet is ~14MiB
         const BLOCKSTORE_CACHE_CAP: usize = 65536;
         static BLOCKSTORE_CACHE: LazyLock<LruBlockstoreReadCache> = LazyLock::new(|| {
@@ -454,12 +454,12 @@ impl GetPowerTable {
                 anyhow::bail!("wrong type of worker address");
             }
             let pub_key = waddr.payload_bytes();
-            power_entries.push(`F3`PowerEntry { id, power, pub_key });
+            power_entries.push(F3PowerEntry { id, power, pub_key });
         }
         power_entries.sort();
 
         if let Some(stats) = db.stats() {
-            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), "`F3`.GetPowerTable blockstore read cache");
+            tracing::debug!(epoch=%ts.epoch(), hit=%stats.hit(), miss=%stats.miss(),cache_len=%BLOCKSTORE_CACHE.len(), "F3.GetPowerTable blockstore read cache");
         }
 
         Ok(power_entries)
@@ -467,13 +467,13 @@ impl GetPowerTable {
 }
 
 impl RpcMethod<1> for GetPowerTable {
-    const NAME: &'static str = "`F3`.GetPowerTable";
+    const NAME: &'static str = "F3.GetPowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (`F3`TipSetKey,);
-    type Ok = Vec<`F3`PowerEntry>;
+    type Params = (F3TipSetKey,);
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -483,14 +483,14 @@ impl RpcMethod<1> for GetPowerTable {
         let start = std::time::Instant::now();
         let ts = ctx.chain_index().load_required_tipset(&tsk)?;
         let power_entries = Self::compute(&ctx, &ts).await?;
-        tracing::debug!(epoch=%ts.epoch(), %tsk, "`F3`.GetPowerTable, took {}", humantime::format_duration(start.elapsed()));
+        tracing::debug!(epoch=%ts.epoch(), %tsk, "F3.GetPowerTable, took {}", humantime::format_duration(start.elapsed()));
         Ok(power_entries)
     }
 }
 
 pub enum ProtectPeer {}
 impl RpcMethod<1> for ProtectPeer {
-    const NAME: &'static str = "`F3`.ProtectPeer";
+    const NAME: &'static str = "F3.ProtectPeer";
     const PARAM_NAMES: [&'static str; 1] = ["peer_id"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -517,7 +517,7 @@ impl RpcMethod<1> for ProtectPeer {
 pub enum GetParticipatingMinerIDs {}
 
 impl RpcMethod<0> for GetParticipatingMinerIDs {
-    const NAME: &'static str = "`F3`.GetParticipatingMinerIDs";
+    const NAME: &'static str = "F3.GetParticipatingMinerIDs";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -526,9 +526,9 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     type Ok = Vec<u64>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
-        let participants = `F3`ListParticipants::run().await?;
+        let participants = F3ListParticipants::run().await?;
         let mut ids: HashSet<u64> = participants.into_iter().map(|p| p.miner_id).collect();
-        if let Some(permanent_miner_ids) = (*`F3`_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
+        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
             ids.extend(permanent_miner_ids);
         }
         Ok(ids.into_iter().collect())
@@ -537,12 +537,12 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
 
 pub enum Finalize {}
 impl RpcMethod<1> for Finalize {
-    const NAME: &'static str = "`F3`.Finalize";
+    const NAME: &'static str = "F3.Finalize";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Write;
 
-    type Params = (`F3`TipSetKey,);
+    type Params = (F3TipSetKey,);
     type Ok = ();
 
     async fn handle(
@@ -550,7 +550,7 @@ impl RpcMethod<1> for Finalize {
         (f3_tsk,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         // Respect the environment variable when set, and fallback to chain config when not set.
-        let enabled = is_env_set_and_truthy("FOREST_`F3`_CONSENSUS_ENABLED")
+        let enabled = is_env_set_and_truthy("FOREST_F3_CONSENSUS_ENABLED")
             .unwrap_or(ctx.chain_config().f3_consensus);
         if !enabled {
             return Ok(());
@@ -571,12 +571,12 @@ impl RpcMethod<1> for Finalize {
         // When finalized_ts is not part of the current chain,
         // reset the current head to finalized_ts.
         // Note that when finalized_ts is newer than head or older than head - chain_finality,
-        // we don't reset the head to allow the chain or `F3` to catch up.
+        // we don't reset the head to allow the chain or F3 to catch up.
         if head.epoch() >= finalized_ts.epoch()
             && head.epoch() <= finalized_ts.epoch() + ctx.chain_config().policy.chain_finality
         {
             tracing::debug!(
-                "`F3` finalized tsk {} at epoch {}",
+                "F3 finalized tsk {} at epoch {}",
                 finalized_ts.key(),
                 finalized_ts.epoch()
             );
@@ -586,7 +586,7 @@ impl RpcMethod<1> for Finalize {
                 .any(|ts| ts == finalized_ts)
             {
                 tracing::info!(
-                    "`F3` reset chain head to tsk {} at epoch {}",
+                    "F3 reset chain head to tsk {} at epoch {}",
                     finalized_ts.key(),
                     finalized_ts.epoch()
                 );
@@ -613,7 +613,7 @@ impl RpcMethod<1> for Finalize {
 
 pub enum SignMessage {}
 impl RpcMethod<2> for SignMessage {
-    const NAME: &'static str = "`F3`.SignMessage";
+    const NAME: &'static str = "F3.SignMessage";
     const PARAM_NAMES: [&'static str; 2] = ["pubkey", "message"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
@@ -631,27 +631,27 @@ impl RpcMethod<2> for SignMessage {
     }
 }
 
-pub enum `F3`ExportLatestSnapshot {}
+pub enum F3ExportLatestSnapshot {}
 
-impl `F3`ExportLatestSnapshot {
+impl F3ExportLatestSnapshot {
     pub async fn run(path: String) -> anyhow::Result<Cid> {
         let client = get_rpc_http_client()?;
         let mut params = ArrayParams::new();
         params.insert(path)?;
         let LotusJson(cid): LotusJson<Cid> = client
-            .request("Filecoin.`F3`ExportLatestSnapshot", params)
+            .request("Filecoin.F3ExportLatestSnapshot", params)
             .await?;
         Ok(cid)
     }
 }
 
-impl RpcMethod<1> for `F3`ExportLatestSnapshot {
-    const NAME: &'static str = "`F3`.ExportLatestSnapshot";
+impl RpcMethod<1> for F3ExportLatestSnapshot {
+    const NAME: &'static str = "F3.ExportLatestSnapshot";
     const PARAM_NAMES: [&'static str; 1] = ["path"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
     const DESCRIPTION: Option<&'static str> =
-        Some("Exports the latest `F3` snapshot to the specified path and returns its CID");
+        Some("Exports the latest F3 snapshot to the specified path and returns its CID");
 
     type Params = (String,);
     type Ok = Cid;
@@ -665,9 +665,9 @@ impl RpcMethod<1> for `F3`ExportLatestSnapshot {
 }
 
 /// returns a finality certificate at given instance number
-pub enum `F3`GetCertificate {}
-impl RpcMethod<1> for `F3`GetCertificate {
-    const NAME: &'static str = "Filecoin.`F3`GetCertificate";
+pub enum F3GetCertificate {}
+impl RpcMethod<1> for F3GetCertificate {
+    const NAME: &'static str = "Filecoin.F3GetCertificate";
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -688,9 +688,9 @@ impl RpcMethod<1> for `F3`GetCertificate {
 }
 
 /// returns the latest finality certificate
-pub enum `F3`GetLatestCertificate {}
-impl RpcMethod<0> for `F3`GetLatestCertificate {
-    const NAME: &'static str = "Filecoin.`F3`GetLatestCertificate";
+pub enum F3GetLatestCertificate {}
+impl RpcMethod<0> for F3GetLatestCertificate {
+    const NAME: &'static str = "Filecoin.F3GetLatestCertificate";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -705,15 +705,15 @@ impl RpcMethod<0> for `F3`GetLatestCertificate {
     }
 }
 
-pub enum `F3`GetECPowerTable {}
-impl RpcMethod<1> for `F3`GetECPowerTable {
-    const NAME: &'static str = "Filecoin.`F3`GetECPowerTable";
+pub enum F3GetECPowerTable {}
+impl RpcMethod<1> for F3GetECPowerTable {
+    const NAME: &'static str = "Filecoin.F3GetECPowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
-    type Ok = Vec<`F3`PowerEntry>;
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -724,21 +724,21 @@ impl RpcMethod<1> for `F3`GetECPowerTable {
     }
 }
 
-pub enum `F3`Get`F3`PowerTable {}
-impl RpcMethod<1> for `F3`Get`F3`PowerTable {
-    const NAME: &'static str = "Filecoin.`F3`Get`F3`PowerTable";
+pub enum F3GetF3PowerTable {}
+impl RpcMethod<1> for F3GetF3PowerTable {
+    const NAME: &'static str = "Filecoin.F3GetF3PowerTable";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
-    type Ok = Vec<`F3`PowerEntry>;
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk_opt),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk: `F3`TipSetKey = tsk_opt
+        let tsk: F3TipSetKey = tsk_opt
             .unwrap_or_else(|| ctx.chain_store().heaviest_tipset().key().clone())
             .into();
         let client = get_rpc_http_client()?;
@@ -749,9 +749,9 @@ impl RpcMethod<1> for `F3`Get`F3`PowerTable {
     }
 }
 
-pub enum `F3`Get`F3`PowerTableByInstance {}
-impl RpcMethod<1> for `F3`Get`F3`PowerTableByInstance {
-    const NAME: &'static str = "Filecoin.`F3`Get`F3`PowerTableByInstance";
+pub enum F3GetF3PowerTableByInstance {}
+impl RpcMethod<1> for F3GetF3PowerTableByInstance {
+    const NAME: &'static str = "Filecoin.F3GetF3PowerTableByInstance";
     const PARAM_NAMES: [&'static str; 1] = ["instance"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -759,7 +759,7 @@ impl RpcMethod<1> for `F3`Get`F3`PowerTableByInstance {
         Some("Gets the power table (committee) used to validate the specified instance");
 
     type Params = (u64,);
-    type Ok = Vec<`F3`PowerEntry>;
+    type Ok = Vec<F3PowerEntry>;
 
     async fn handle(
         _ctx: Ctx<impl Blockstore>,
@@ -773,9 +773,9 @@ impl RpcMethod<1> for `F3`Get`F3`PowerTableByInstance {
     }
 }
 
-pub enum `F3`IsRunning {}
+pub enum F3IsRunning {}
 
-impl `F3`IsRunning {
+impl F3IsRunning {
     pub async fn is_f3_running() -> anyhow::Result<bool> {
         let client = get_rpc_http_client()?;
         let response = client.request(Self::NAME, ArrayParams::new()).await?;
@@ -783,8 +783,8 @@ impl `F3`IsRunning {
     }
 }
 
-impl RpcMethod<0> for `F3`IsRunning {
-    const NAME: &'static str = "Filecoin.`F3`IsRunning";
+impl RpcMethod<0> for F3IsRunning {
+    const NAME: &'static str = "Filecoin.F3IsRunning";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
@@ -797,92 +797,92 @@ impl RpcMethod<0> for `F3`IsRunning {
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#`F3`GetProgress>
-pub enum `F3`GetProgress {}
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetProgress>
+pub enum F3GetProgress {}
 
-impl `F3`GetProgress {
-    async fn run() -> anyhow::Result<`F3`InstanceProgress> {
+impl F3GetProgress {
+    async fn run() -> anyhow::Result<F3InstanceProgress> {
         let client = get_rpc_http_client()?;
-        let response: LotusJson<`F3`InstanceProgress> =
+        let response: LotusJson<F3InstanceProgress> =
             client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response.into_inner())
     }
 }
 
-impl RpcMethod<0> for `F3`GetProgress {
-    const NAME: &'static str = "Filecoin.`F3`GetProgress";
+impl RpcMethod<0> for F3GetProgress {
+    const NAME: &'static str = "Filecoin.F3GetProgress";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = `F3`InstanceProgress;
+    type Ok = F3InstanceProgress;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
 
-/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#`F3`GetManifest>
-pub enum `F3`GetManifest {}
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md#F3GetManifest>
+pub enum F3GetManifest {}
 
-impl `F3`GetManifest {
-    async fn run() -> anyhow::Result<`F3`Manifest> {
+impl F3GetManifest {
+    async fn run() -> anyhow::Result<F3Manifest> {
         let client = get_rpc_http_client()?;
-        let response: LotusJson<`F3`Manifest> =
+        let response: LotusJson<F3Manifest> =
             client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response.into_inner())
     }
 }
 
-impl RpcMethod<0> for `F3`GetManifest {
-    const NAME: &'static str = "Filecoin.`F3`GetManifest";
+impl RpcMethod<0> for F3GetManifest {
+    const NAME: &'static str = "Filecoin.F3GetManifest";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = `F3`Manifest;
+    type Ok = F3Manifest;
 
     async fn handle(_: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
 
-/// returns the list of miner addresses that are currently participating in `F3` via this node.
-pub enum `F3`ListParticipants {}
-impl RpcMethod<0> for `F3`ListParticipants {
-    const NAME: &'static str = "Filecoin.`F3`ListParticipants";
+/// returns the list of miner addresses that are currently participating in F3 via this node.
+pub enum F3ListParticipants {}
+impl RpcMethod<0> for F3ListParticipants {
+    const NAME: &'static str = "Filecoin.F3ListParticipants";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
-    type Ok = Vec<`F3`Participant>;
+    type Ok = Vec<F3Participant>;
 
     async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(Self::run().await?)
     }
 }
 
-impl `F3`ListParticipants {
-    async fn run() -> anyhow::Result<Vec<`F3`Participant>> {
-        let current_instance = `F3`GetProgress::run().await?.id;
-        Ok(`F3`_LEASE_MANAGER
+impl F3ListParticipants {
+    async fn run() -> anyhow::Result<Vec<F3Participant>> {
+        let current_instance = F3GetProgress::run().await?.id;
+        Ok(F3_LEASE_MANAGER
             .get()
-            .context("`F3` lease manager is not initialized")?
+            .context("F3 lease manager is not initialized")?
             .get_active_participants(current_instance)
             .values()
-            .map(`F3`Participant::from)
+            .map(F3Participant::from)
             .collect())
     }
 }
 
 /// retrieves or renews a participation ticket necessary for a miner to engage in
-/// the `F3` consensus process for the given number of instances.
-pub enum `F3`GetOrRenewParticipationTicket {}
-impl RpcMethod<3> for `F3`GetOrRenewParticipationTicket {
-    const NAME: &'static str = "Filecoin.`F3`GetOrRenewParticipationTicket";
+/// the F3 consensus process for the given number of instances.
+pub enum F3GetOrRenewParticipationTicket {}
+impl RpcMethod<3> for F3GetOrRenewParticipationTicket {
+    const NAME: &'static str = "Filecoin.F3GetOrRenewParticipationTicket";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "previous_lease_ticket", "instances"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
@@ -899,49 +899,49 @@ impl RpcMethod<3> for `F3`GetOrRenewParticipationTicket {
             None
         } else {
             Some(
-                fvm_ipld_encoding::from_slice::<`F3`ParticipationLease>(&previous_lease_ticket)
+                fvm_ipld_encoding::from_slice::<F3ParticipationLease>(&previous_lease_ticket)
                     .context("the previous lease ticket is invalid")?,
             )
         };
-        let lease = `F3`_LEASE_MANAGER
+        let lease = F3_LEASE_MANAGER
             .get()
-            .context("`F3` lease manager is not initialized")?
+            .context("F3 lease manager is not initialized")?
             .get_or_renew_participation_lease(id, previous_lease, instances)
             .await?;
         Ok(fvm_ipld_encoding::to_vec(&lease)?)
     }
 }
 
-/// enrolls a storage provider in the `F3` consensus process using a
+/// enrolls a storage provider in the F3 consensus process using a
 /// provided participation ticket. This ticket grants a temporary lease that enables
-/// the provider to sign transactions as part of the `F3` consensus.
-pub enum `F3`Participate {}
-impl RpcMethod<1> for `F3`Participate {
-    const NAME: &'static str = "Filecoin.`F3`Participate";
+/// the provider to sign transactions as part of the F3 consensus.
+pub enum F3Participate {}
+impl RpcMethod<1> for F3Participate {
+    const NAME: &'static str = "Filecoin.F3Participate";
     const PARAM_NAMES: [&'static str; 1] = ["lease_ticket"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Vec<u8>,);
-    type Ok = `F3`ParticipationLease;
+    type Ok = F3ParticipationLease;
 
     async fn handle(
         _: Ctx<impl Blockstore>,
         (lease_ticket,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let lease: `F3`ParticipationLease =
+        let lease: F3ParticipationLease =
             fvm_ipld_encoding::from_slice(&lease_ticket).context("invalid lease ticket")?;
-        let current_instance = `F3`GetProgress::run().await?.id;
-        `F3`_LEASE_MANAGER
+        let current_instance = F3GetProgress::run().await?.id;
+        F3_LEASE_MANAGER
             .get()
-            .context("`F3` lease manager is not initialized")?
+            .context("F3 lease manager is not initialized")?
             .participate(&lease, current_instance)?;
         Ok(lease)
     }
 }
 
 pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
-    if let Ok(host) = std::env::var("FOREST_`F3`_SIDECAR_RPC_ENDPOINT") {
+    if let Ok(host) = std::env::var("FOREST_F3_SIDECAR_RPC_ENDPOINT") {
         Cow::Owned(host)
     } else {
         Cow::Borrowed("127.0.0.1:23456")

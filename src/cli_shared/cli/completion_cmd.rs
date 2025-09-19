@@ -8,7 +8,7 @@ use ahash::HashMap;
 use clap::{Command, CommandFactory};
 use clap_complete::aot::{Shell, generate};
 
-/// Completion Command for generating shell completions for the `CLI`
+/// Completion Command for generating shell completions for the CLI
 #[derive(Debug, clap::Args)]
 pub struct CompletionCommand {
     /// The binaries for which to generate completions (e.g., 'forest-cli,forest-tool,forest-wallet').

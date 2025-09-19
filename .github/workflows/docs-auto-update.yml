@@ -1,4 +1,4 @@
-# This workflows, run daily, updates the Forest `CLI` usage docs, and submits a PR with the changes.
+# This workflows, run daily, updates the Forest CLI usage docs, and submits a PR with the changes.
 name: Update Forest usage docs
 
 on:
@@ -34,9 +34,9 @@ jobs:
           base: main
           branch: leshy/update-forest-docs
           token: ${{ steps.generate-token.outputs.token }}
-          commit-message: Update Forest `CLI` docs
+          commit-message: Update Forest CLI docs
           sign-commits: true
-          title: "[automated] Update Forest `CLI` docs"
+          title: "[automated] Update Forest CLI docs"
           body: |
             ### Changes
-            - Updates Forest `CLI` docs to the latest commit in the `main` branch.
+            - Updates Forest CLI docs to the latest commit in the `main` branch.

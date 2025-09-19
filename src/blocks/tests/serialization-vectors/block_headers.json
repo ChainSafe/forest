@@ -168,7 +168,7 @@
     "block": {
       "Miner": "t01000",
       "Ticket": {
-        "VRFProof": "okj7pA7BvjdvYVUt3Bs8WkMGaRjcOphjJAZvZ40b37uFQe`F3`n3NU/c+0OnciKJE3BV61M8Oyw9sE523I70VGhZeC+9Bwnsq5WUHUfKKxAyjlA1c3OBveM5pJykZyidK1"
+        "VRFProof": "okj7pA7BvjdvYVUt3Bs8WkMGaRjcOphjJAZvZ40b37uFQeF3n3NU/c+0OnciKJE3BV61M8Oyw9sE523I70VGhZeC+9Bwnsq5WUHUfKKxAyjlA1c3OBveM5pJykZyidK1"
       },
       "ElectionProof": {
         "WinCount": 1,

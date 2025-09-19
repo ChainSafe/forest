@@ -13,18 +13,18 @@ import (
 type ForestEC struct {
 	rpcEndpoint   string
 	isJwtProvided bool
-	f3api         `F3`Api
+	f3api         F3Api
 	closer        jsonrpc.ClientCloser
 }
 
 func NewForestEC(ctx context.Context, rpcEndpoint, jwt string) (ForestEC, error) {
-	f3api := `F3`Api{}
+	f3api := F3Api{}
 	headers := make(http.Header)
 	isJwtProvided := len(jwt) > 0
 	if isJwtProvided {
 		headers.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
 	}
-	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "`F3`", &f3api, headers)
+	closer, err := jsonrpc.NewClient(ctx, rpcEndpoint, "F3", &f3api, headers)
 	if err != nil {
 		return ForestEC{}, err
 	}

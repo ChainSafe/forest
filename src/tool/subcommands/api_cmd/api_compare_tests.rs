@@ -2001,17 +2001,17 @@ fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
             vec![],
             3,
         ))?),
-        RpcTest::identity(`F3`IsRunning::request(())?),
-        RpcTest::identity(`F3`GetCertificate::request((0,))?),
-        RpcTest::identity(`F3`GetCertificate::request((100,))?),
-        RpcTest::identity(`F3`GetManifest::request(())?),
+        RpcTest::identity(F3IsRunning::request(())?),
+        RpcTest::identity(F3GetCertificate::request((0,))?),
+        RpcTest::identity(F3GetCertificate::request((100,))?),
+        RpcTest::identity(F3GetManifest::request(())?),
     ])
 }
 
 fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![
-        RpcTest::identity(`F3`GetECPowerTable::request((tipset.key().into(),))?),
-        RpcTest::identity(`F3`Get`F3`PowerTable::request((tipset.key().into(),))?),
+        RpcTest::identity(F3GetECPowerTable::request((tipset.key().into(),))?),
+        RpcTest::identity(F3GetF3PowerTable::request((tipset.key().into(),))?),
     ])
 }
 

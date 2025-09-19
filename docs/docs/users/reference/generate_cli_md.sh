@@ -16,7 +16,7 @@ sidebar_position: 1
 ---
 
 <!--
-`CLI` reference documentation for forest, forest-wallet, forest-cli, and forest-tool.
+CLI reference documentation for forest, forest-wallet, forest-cli, and forest-tool.
 Do not edit manually, use the \`generate_cli_md.sh\` script.
 -->
 

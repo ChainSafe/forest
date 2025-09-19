@@ -43,7 +43,7 @@ Remove the devnet:
 docker compose rm
 ```
 
-## Interacting with the devnet via `CLI`
+## Interacting with the devnet via CLI
 
 Exec into the `forest` container:
 

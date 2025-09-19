@@ -6,18 +6,18 @@
   },
   "methods": [
     {
-      "name": "`F3`.Finalize",
+      "name": "F3.Finalize",
       "params": [
         {
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/`F3`TipSetKey"
+            "$ref": "#/components/schemas/F3TipSetKey"
           }
         }
       ],
       "result": {
-        "name": "`F3`.Finalize.Result",
+        "name": "F3.Finalize.Result",
         "required": true,
         "schema": {
           "type": "null"
@@ -26,42 +26,42 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetHead",
+      "name": "F3.GetHead",
       "params": [],
       "result": {
-        "name": "`F3`.GetHead.Result",
+        "name": "F3.GetHead.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`TipSet"
+          "$ref": "#/components/schemas/F3TipSet"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetParent",
+      "name": "F3.GetParent",
       "params": [
         {
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/`F3`TipSetKey"
+            "$ref": "#/components/schemas/F3TipSetKey"
           }
         }
       ],
       "result": {
-        "name": "`F3`.GetParent.Result",
+        "name": "F3.GetParent.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`TipSet"
+          "$ref": "#/components/schemas/F3TipSet"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetParticipatingMinerIDs",
+      "name": "F3.GetParticipatingMinerIDs",
       "params": [],
       "result": {
-        "name": "`F3`.GetParticipatingMinerIDs.Result",
+        "name": "F3.GetParticipatingMinerIDs.Result",
         "required": false,
         "schema": {
           "type": [
@@ -78,18 +78,18 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetPowerTable",
+      "name": "F3.GetPowerTable",
       "params": [
         {
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/`F3`TipSetKey"
+            "$ref": "#/components/schemas/F3TipSetKey"
           }
         }
       ],
       "result": {
-        "name": "`F3`.GetPowerTable.Result",
+        "name": "F3.GetPowerTable.Result",
         "required": false,
         "schema": {
           "type": [
@@ -97,17 +97,17 @@
             "null"
           ],
           "items": {
-            "$ref": "#/components/schemas/`F3`PowerEntry"
+            "$ref": "#/components/schemas/F3PowerEntry"
           }
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetRawNetworkName",
+      "name": "F3.GetRawNetworkName",
       "params": [],
       "result": {
-        "name": "`F3`.GetRawNetworkName.Result",
+        "name": "F3.GetRawNetworkName.Result",
         "required": true,
         "schema": {
           "type": "string"
@@ -116,27 +116,27 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetTipset",
+      "name": "F3.GetTipset",
       "params": [
         {
           "name": "tipset_key",
           "required": true,
           "schema": {
-            "$ref": "#/components/schemas/`F3`TipSetKey"
+            "$ref": "#/components/schemas/F3TipSetKey"
           }
         }
       ],
       "result": {
-        "name": "`F3`.GetTipset.Result",
+        "name": "F3.GetTipset.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`TipSet"
+          "$ref": "#/components/schemas/F3TipSet"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.GetTipsetByEpoch",
+      "name": "F3.GetTipsetByEpoch",
       "params": [
         {
           "name": "epoch",
@@ -148,16 +148,16 @@
         }
       ],
       "result": {
-        "name": "`F3`.GetTipsetByEpoch.Result",
+        "name": "F3.GetTipsetByEpoch.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`TipSet"
+          "$ref": "#/components/schemas/F3TipSet"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.ProtectPeer",
+      "name": "F3.ProtectPeer",
       "params": [
         {
           "name": "peer_id",
@@ -168,7 +168,7 @@
         }
       ],
       "result": {
-        "name": "`F3`.ProtectPeer.Result",
+        "name": "F3.ProtectPeer.Result",
         "required": true,
         "schema": {
           "type": "boolean"
@@ -177,7 +177,7 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "`F3`.SignMessage",
+      "name": "F3.SignMessage",
       "params": [
         {
           "name": "pubkey",
@@ -195,7 +195,7 @@
         }
       ],
       "result": {
-        "name": "`F3`.SignMessage.Result",
+        "name": "F3.SignMessage.Result",
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/Signature"
@@ -1730,7 +1730,7 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetCertificate",
+      "name": "Filecoin.F3GetCertificate",
       "params": [
         {
           "name": "instance",
@@ -1743,7 +1743,7 @@
         }
       ],
       "result": {
-        "name": "Filecoin.`F3`GetCertificate.Result",
+        "name": "Filecoin.F3GetCertificate.Result",
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/FinalityCertificate"
@@ -1752,7 +1752,7 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetECPowerTable",
+      "name": "Filecoin.F3GetECPowerTable",
       "params": [
         {
           "name": "tipset_key",
@@ -1769,7 +1769,7 @@
         }
       ],
       "result": {
-        "name": "Filecoin.`F3`GetECPowerTable.Result",
+        "name": "Filecoin.F3GetECPowerTable.Result",
         "required": false,
         "schema": {
           "type": [
@@ -1777,14 +1777,14 @@
             "null"
           ],
           "items": {
-            "$ref": "#/components/schemas/`F3`PowerEntry"
+            "$ref": "#/components/schemas/F3PowerEntry"
           }
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`Get`F3`PowerTable",
+      "name": "Filecoin.F3GetF3PowerTable",
       "params": [
         {
           "name": "tipset_key",
@@ -1801,7 +1801,7 @@
         }
       ],
       "result": {
-        "name": "Filecoin.`F3`Get`F3`PowerTable.Result",
+        "name": "Filecoin.F3GetF3PowerTable.Result",
         "required": false,
         "schema": {
           "type": [
@@ -1809,17 +1809,17 @@
             "null"
           ],
           "items": {
-            "$ref": "#/components/schemas/`F3`PowerEntry"
+            "$ref": "#/components/schemas/F3PowerEntry"
           }
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetLatestCertificate",
+      "name": "Filecoin.F3GetLatestCertificate",
       "params": [],
       "result": {
-        "name": "Filecoin.`F3`GetLatestCertificate.Result",
+        "name": "Filecoin.F3GetLatestCertificate.Result",
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/FinalityCertificate"
@@ -1828,19 +1828,19 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetManifest",
+      "name": "Filecoin.F3GetManifest",
       "params": [],
       "result": {
-        "name": "Filecoin.`F3`GetManifest.Result",
+        "name": "Filecoin.F3GetManifest.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`Manifest"
+          "$ref": "#/components/schemas/F3Manifest"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetOrRenewParticipationTicket",
+      "name": "Filecoin.F3GetOrRenewParticipationTicket",
       "params": [
         {
           "name": "miner_address",
@@ -1867,7 +1867,7 @@
         }
       ],
       "result": {
-        "name": "Filecoin.`F3`GetOrRenewParticipationTicket.Result",
+        "name": "Filecoin.F3GetOrRenewParticipationTicket.Result",
         "required": true,
         "schema": {
           "$ref": "#/components/schemas/Base64String"
@@ -1876,22 +1876,22 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`GetProgress",
+      "name": "Filecoin.F3GetProgress",
       "params": [],
       "result": {
-        "name": "Filecoin.`F3`GetProgress.Result",
+        "name": "Filecoin.F3GetProgress.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/`F3`InstanceProgress"
+          "$ref": "#/components/schemas/F3InstanceProgress"
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`IsRunning",
+      "name": "Filecoin.F3IsRunning",
       "params": [],
       "result": {
-        "name": "Filecoin.`F3`IsRunning.Result",
+        "name": "Filecoin.F3IsRunning.Result",
         "required": true,
         "schema": {
           "type": "boolean"
@@ -1900,10 +1900,10 @@
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`ListParticipants",
+      "name": "Filecoin.F3ListParticipants",
       "params": [],
       "result": {
-        "name": "Filecoin.`F3`ListParticipants.Result",
+        "name": "Filecoin.F3ListParticipants.Result",
         "required": false,
         "schema": {
           "type": [
@@ -1911,14 +1911,14 @@
             "null"
           ],
           "items": {
-            "$ref": "#/components/schemas/`F3`Participant"
+            "$ref": "#/components/schemas/F3Participant"
           }
         }
       },
       "paramStructure": "by-position"
     },
     {
-      "name": "Filecoin.`F3`Participate",
+      "name": "Filecoin.F3Participate",
       "params": [
         {
           "name": "lease_ticket",
@@ -1929,10 +1929,10 @@
         }
       ],
       "result": {
-        "name": "Filecoin.`F3`Participate.Result",
+        "name": "Filecoin.F3Participate.Result",
         "required": true,
         "schema": {
-          "$ref": "#/components/schemas/Api`F3`ParticipationLease"
+          "$ref": "#/components/schemas/ApiF3ParticipationLease"
         }
       },
       "paramStructure": "by-position"
@@ -7130,8 +7130,8 @@
           "s"
         ]
       },
-      "Api`F3`ParticipationLease": {
-        "description": "defines the lease granted to a storage provider for\nparticipating in `F3` consensus, detailing the session identifier, issuer,\nsubject, and the expiration instance.",
+      "ApiF3ParticipationLease": {
+        "description": "defines the lease granted to a storage provider for\nparticipating in F3 consensus, detailing the session identifier, issuer,\nsubject, and the expiration instance.",
         "type": "object",
         "properties": {
           "FromInstance": {
@@ -8788,7 +8788,7 @@
           "SealedCID"
         ]
       },
-      "`F3`InstanceProgress": {
+      "F3InstanceProgress": {
         "type": "object",
         "properties": {
           "ID": {
@@ -8817,7 +8817,7 @@
           "Phase"
         ]
       },
-      "`F3`Manifest": {
+      "F3Manifest": {
         "type": "object",
         "properties": {
           "BootstrapEpoch": {
@@ -8885,7 +8885,7 @@
           "PartialMessageManager"
         ]
       },
-      "`F3`Participant": {
+      "F3Participant": {
         "type": "object",
         "properties": {
           "FromInstance": {
@@ -8910,7 +8910,7 @@
           "ValidityTerm"
         ]
       },
-      "`F3`PowerEntry": {
+      "F3PowerEntry": {
         "description": "PowerEntry represents a single entry in the PowerTable, including ActorID and its StoragePower and PubKey.",
         "type": "object",
         "properties": {
@@ -8932,7 +8932,7 @@
           "PubKey"
         ]
       },
-      "`F3`TipSet": {
+      "F3TipSet": {
         "type": "object",
         "properties": {
           "beacon": {
@@ -8945,7 +8945,7 @@
             "format": "int64"
           },
           "key": {
-            "$ref": "#/components/schemas/`F3`TipSetKey"
+            "$ref": "#/components/schemas/F3TipSetKey"
           },
           "timestamp": {
             "description": "Block creation time, in seconds since the Unix epoch",
@@ -8961,7 +8961,7 @@
           "timestamp"
         ]
       },
-      "`F3`TipSetKey": {
+      "F3TipSetKey": {
         "description": "TipSetKey is the canonically ordered concatenation of the block `CIDs` in a tipset.",
         "type": "string"
       },

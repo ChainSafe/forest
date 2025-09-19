@@ -265,7 +265,7 @@ pub struct ChainConfig {
     // See FIP-0100 and https://github.com/filecoin-project/lotus/pull/12938 for why this exists
     pub upgrade_teep_initial_fil_reserved: Option<TokenAmount>,
     pub f3_enabled: bool,
-    // `F3`Consensus set whether `F3` should checkpoint tipsets finalized by `F3`. This flag has no effect if `F3` is not enabled.
+    // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
     pub f3_bootstrap_epoch: i64,
     pub f3_initial_power_table: Option<Cid>,
