@@ -56,7 +56,7 @@ func createP2PHost(ctx context.Context, networkName string) (*P2PHost, error) {
 		pubsub.WithMessageIdFn(hashMsgId),
 		// Bump the validation queue to accommodate the increase in gossipsub message
 		// exchange rate as a result of f3. The size of 256 should offer enough headroom
-		// for slower F3 validation while avoiding: 1) avoid excessive memory usage, 2)
+		// for slower `F3` validation while avoiding: 1) avoid excessive memory usage, 2)
 		// dropped consensus related messages and 3) cascading effect among other topics
 		// since this config isn't topic-specific.
 		//

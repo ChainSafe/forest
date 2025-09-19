@@ -36,6 +36,6 @@ compressed.
 For mainnet, you should expect a file of over 70 GB. For calibnet, you should
 expect a file of over 5 GB. Note that the snapshot size grows over time.
 
-### CLI reference
+### `CLI` reference
 
-Details on the `forest-cli snapshot export` command and its subcommands can be found at the [CLI reference](../../reference/cli.md#forest-cli-snapshot).
+Details on the `forest-cli snapshot export` command and its subcommands can be found at the [`CLI` reference](../../reference/cli.md#forest-cli-snapshot).

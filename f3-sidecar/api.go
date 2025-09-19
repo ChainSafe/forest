@@ -15,7 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type F3Api struct {
+type `F3`Api struct {
 	GetRawNetworkName        func(context.Context) (string, error)
 	GetTipsetByEpoch         func(context.Context, int64) (TipSet, error)
 	GetTipset                func(context.Context, gpbft.TipSetKey) (TipSet, error)
@@ -39,23 +39,23 @@ type VersionInfo struct {
 	Version    string
 }
 
-type F3ServerHandler struct {
-	f3 *f3.F3
+type `F3`ServerHandler struct {
+	f3 *f3.`F3`
 }
 
-func (h *F3ServerHandler) F3GetCertificate(ctx context.Context, instance uint64) (*certs.FinalityCertificate, error) {
+func (h *`F3`ServerHandler) `F3`GetCertificate(ctx context.Context, instance uint64) (*certs.FinalityCertificate, error) {
 	return h.f3.GetCert(ctx, instance)
 }
 
-func (h *F3ServerHandler) F3GetLatestCertificate(ctx context.Context) (*certs.FinalityCertificate, error) {
+func (h *`F3`ServerHandler) `F3`GetLatestCertificate(ctx context.Context) (*certs.FinalityCertificate, error) {
 	return h.f3.GetLatestCert(ctx)
 }
 
-func (h *F3ServerHandler) F3GetF3PowerTable(ctx context.Context, tsk []byte) (gpbft.PowerEntries, error) {
+func (h *`F3`ServerHandler) `F3`Get`F3`PowerTable(ctx context.Context, tsk []byte) (gpbft.PowerEntries, error) {
 	return h.f3.GetPowerTable(ctx, tsk)
 }
 
-func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path string) (_ *cid.Cid, err error) {
+func (h *`F3`ServerHandler) `F3`ExportLatestSnapshot(ctx context.Context, path string) (_ *cid.Cid, err error) {
 	cs, err := h.f3.GetCertStore()
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path strin
 	return &cid, nil
 }
 
-// F3GetF3PowerTableByInstance retrieves the power table for a specific consensus instance.
+// `F3`Get`F3`PowerTableByInstance retrieves the power table for a specific consensus instance.
 // It returns the power entries associated with the given instance number.
 //
 // Parameters:
@@ -94,19 +94,19 @@ func (h *F3ServerHandler) F3ExportLatestSnapshot(ctx context.Context, path strin
 // Returns:
 //   - PowerEntries: The power distribution table for the specified instance
 //   - error: Any error encountered during retrieval
-func (h *F3ServerHandler) F3GetF3PowerTableByInstance(ctx context.Context, instance uint64) (gpbft.PowerEntries, error) {
+func (h *`F3`ServerHandler) `F3`Get`F3`PowerTableByInstance(ctx context.Context, instance uint64) (gpbft.PowerEntries, error) {
 	return h.f3.GetPowerTableByInstance(ctx, instance)
 }
 
-func (h *F3ServerHandler) F3IsRunning(_ context.Context) bool {
+func (h *`F3`ServerHandler) `F3`IsRunning(_ context.Context) bool {
 	return h.f3.IsRunning()
 }
 
-func (h *F3ServerHandler) F3GetProgress(_ context.Context) gpbft.InstanceProgress {
+func (h *`F3`ServerHandler) `F3`GetProgress(_ context.Context) gpbft.InstanceProgress {
 	return h.f3.Progress()
 }
 
-func (h *F3ServerHandler) F3GetManifest(ctx context.Context) manifest.Manifest {
+func (h *`F3`ServerHandler) `F3`GetManifest(ctx context.Context) manifest.Manifest {
 	m := h.f3.Manifest()
 	if !isCidDefined(m.InitialPowerTable) {
 		if cert0, err := h.f3.GetCert(ctx, 0); err == nil {

@@ -1,5 +1,5 @@
 2k
-APIs
+`APIs`
 backend
 benchmarking
 blockstore
@@ -13,8 +13,8 @@ ChainSafe
 chainsafe
 ChainSafe's
 changelog
-CIDs
-CLI
+`CIDs`
+`CLI`
 cli
 Cloudflare
 codebase
@@ -29,7 +29,7 @@ DigitalOcean
 Drand
 enums
 Ethereum
-F3
+`F3`
 f3
 f3-sidecar
 FFI

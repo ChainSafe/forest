@@ -44,7 +44,7 @@ where
         Subcommand::Snapshot(cmd) => cmd.run(client).await,
         Subcommand::Shutdown(cmd) => cmd.run(client).await,
         Subcommand::Healthcheck(cmd) => cmd.run(client).await,
-        Subcommand::F3(cmd) => cmd.run(client).await,
+        Subcommand::`F3`(cmd) => cmd.run(client).await,
         Subcommand::WaitApi(cmd) => cmd.run(client).await,
     }
 }

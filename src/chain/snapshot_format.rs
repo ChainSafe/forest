@@ -50,7 +50,7 @@ pub struct FilecoinSnapshotMetadata {
     pub version: FilecoinSnapshotVersion,
     /// Chain head tipset key
     pub head_tipset_key: NonEmpty<Cid>,
-    /// F3 snapshot `CID`
+    /// `F3` snapshot `CID`
     pub f3_data: Option<Cid>,
 }
 
@@ -83,7 +83,7 @@ impl std::fmt::Display for FilecoinSnapshotMetadata {
         writeln!(f, "Head Tipset:                {head_tipset_key_string}")?;
         write!(
             f,
-            "F3 data:                    {}",
+            "`F3` data:                    {}",
             self.f3_data
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "not found".into())

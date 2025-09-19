@@ -20,7 +20,7 @@ func getDatastore(f3Root string) (*leveldb.Datastore, error) {
 	return leveldb.NewDatastore(filepath.Join(f3Root, "db"), nil)
 }
 
-func waitRawNetworkName(ctx context.Context, f3api *F3Api) string {
+func waitRawNetworkName(ctx context.Context, f3api *`F3`Api) string {
 	for {
 		rawNetwork, err := f3api.GetRawNetworkName(ctx)
 		if err != nil {

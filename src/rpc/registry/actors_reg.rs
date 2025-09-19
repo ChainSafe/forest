@@ -200,7 +200,7 @@ mod test {
     fn test_basic_load_and_serialize_actor_state_all_supported_actors() {
         let db = Arc::new(MemoryDB::default());
 
-        // Test all supported actor types with real CIDs
+        // Test all supported actor types with real `CIDs`
         let supported_actors = vec![
             (BuiltinActor::Account, "Account"),
             (BuiltinActor::Cron, "Cron"),

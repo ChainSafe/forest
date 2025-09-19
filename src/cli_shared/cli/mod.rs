@@ -36,7 +36,7 @@ OPTIONS:
 {options}
 ";
 
-/// CLI options
+/// `CLI` options
 #[derive(Default, Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
@@ -220,7 +220,7 @@ impl CliOpts {
     }
 }
 
-/// CLI RPC options
+/// `CLI` RPC options
 #[derive(Default, Debug, Parser)]
 pub struct CliRpcOpts {
     /// Admin token to interact with the node

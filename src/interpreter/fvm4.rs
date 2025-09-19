@@ -167,7 +167,7 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
         // ever have been accepted in a chain is not checked/does not matter here.
         // for that reason when checking block parent relationships, rather than
         // instantiating a Tipset to do so (which runs a syntactic check), we do
-        // it directly on the CIDs.
+        // it directly on the `CIDs`.
 
         // (0) cheap preliminary checks
 

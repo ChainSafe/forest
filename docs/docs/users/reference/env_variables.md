@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # Environment variables
 
-Besides CLI options and the configuration values in the configuration file,
+Besides `CLI` options and the configuration values in the configuration file,
 there are some environment variables that control the behavior of a `forest`
 process.
 
@@ -32,14 +32,14 @@ process.
 | `RUST_LOG`                                                | string                           | empty                                          | `debug,forest_libp2p::service=info`                           | Allows for log level customization.                                                                                   |
 | `FOREST_IGNORE_DRAND`                                     | 1 or true                        | empty                                          | 1                                                             | Ignore Drand validation.                                                                                              |
 | `FOREST_LIBP2P_METRICS_ENABLED`                           | 1 or true                        | empty                                          | 1                                                             | Include `libp2p` metrics in Forest's Prometheus output.                                                               |
-| `FOREST_F3_SIDECAR_RPC_ENDPOINT`                          | string                           | 127.0.0.1:23456                                | `127.0.0.1:23456`                                             | An RPC endpoint of F3 sidecar.                                                                                        |
-| `FOREST_F3_SIDECAR_FFI_ENABLED`                           | 1 or true                        | hard-coded per chain                           | 1                                                             | Whether or not to start the F3 sidecar via FFI                                                                        |
-| `FOREST_F3_CONSENSUS_ENABLED`                             | 1 or true                        | hard-coded per chain                           | 1                                                             | Whether or not to apply the F3 consensus to the node                                                                  |
-| `FOREST_F3_FINALITY`                                      | integer                          | inherited from chain configuration             | 900                                                           | Set the chain finality epochs in F3 manifest                                                                          |
-| `FOREST_F3_PERMANENT_PARTICIPATING_MINER_ADDRESSES`       | comma delimited strings          | empty                                          | `t0100,t0101`                                                 | Set the miner addresses that participate in F3 permanently                                                            |
-| `FOREST_F3_INITIAL_POWER_TABLE`                           | string                           | empty                                          | `bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i` | Set the F3 initial power table CID                                                                                    |
-| `FOREST_F3_ROOT`                                          | string                           | [FOREST_DATA_ROOT]/f3                          | `/var/tmp/f3`                                                 | Set the data directory for F3                                                                                         |
-| `FOREST_F3_BOOTSTRAP_EPOCH`                               | integer                          | -1                                             | 100                                                           | Set the bootstrap epoch for F3                                                                                        |
+| `FOREST_`F3`_SIDECAR_RPC_ENDPOINT`                          | string                           | 127.0.0.1:23456                                | `127.0.0.1:23456`                                             | An RPC endpoint of `F3` sidecar.                                                                                        |
+| `FOREST_`F3`_SIDECAR_FFI_ENABLED`                           | 1 or true                        | hard-coded per chain                           | 1                                                             | Whether or not to start the `F3` sidecar via FFI                                                                        |
+| `FOREST_`F3`_CONSENSUS_ENABLED`                             | 1 or true                        | hard-coded per chain                           | 1                                                             | Whether or not to apply the `F3` consensus to the node                                                                  |
+| `FOREST_`F3`_FINALITY`                                      | integer                          | inherited from chain configuration             | 900                                                           | Set the chain finality epochs in `F3` manifest                                                                          |
+| `FOREST_`F3`_PERMANENT_PARTICIPATING_MINER_ADDRESSES`       | comma delimited strings          | empty                                          | `t0100,t0101`                                                 | Set the miner addresses that participate in `F3` permanently                                                            |
+| `FOREST_`F3`_INITIAL_POWER_TABLE`                           | string                           | empty                                          | `bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i` | Set the `F3` initial power table CID                                                                                    |
+| `FOREST_`F3`_ROOT`                                          | string                           | [FOREST_DATA_ROOT]/f3                          | `/var/tmp/f3`                                                 | Set the data directory for `F3`                                                                                         |
+| `FOREST_`F3`_BOOTSTRAP_EPOCH`                               | integer                          | -1                                             | 100                                                           | Set the bootstrap epoch for `F3`                                                                                        |
 | `FOREST_DRAND_MAINNET_CONFIG`                             | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_MAINNET` config                                                                                       |
 | `FOREST_DRAND_QUICKNET_CONFIG`                            | string                           | empty                                          | refer to Drand config format section                          | Override `DRAND_QUICKNET` config                                                                                      |
 | `FOREST_TRACE_FILTER_MAX_RESULT`                          | positive integer                 | 500                                            | 1000                                                          | Sets the maximum results returned per request by `trace_filter`                                                       |
@@ -51,13 +51,13 @@ process.
 | `FOREST_DISABLE_BAD_BLOCK_CACHE`                          | 1 or true                        | empty                                          | 1                                                             | Whether or not to disable bad block cache                                                                             |
 | `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE`                | positive integer                 | 268435456                                      | 536870912                                                     | The default zstd frame cache max size in bytes                                                                        |
 
-### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
+### `FOREST_`F3`_SIDECAR_FFI_BUILD_OPT_OUT`
 
 This is an environment variable that allows users to opt out of building the f3-sidecar. It's only useful when building
 the binary.
 
 By default, the Go f3-sidecar is built and linked into Forest binary unless environment
-variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
+variable `FOREST_`F3`_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
 ### `FOREST_DB_DEV_MODE`
 

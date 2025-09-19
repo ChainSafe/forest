@@ -34,7 +34,7 @@ use crate::chain::{
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
-use crate::f3::snapshot::F3SnapshotHeader;
+use crate::f3::snapshot::`F3`SnapshotHeader;
 use crate::interpreter::VMTrace;
 use crate::ipld::stream_graph;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
@@ -97,9 +97,9 @@ pub enum ArchiveCommands {
         /// Path to an archive (`.car` or `.car.zst`).
         snapshot: PathBuf,
     },
-    /// Show FRC-0108 header of a standalone F3 snapshot.
-    F3Header {
-        /// Path to a standalone F3 snapshot.
+    /// Show FRC-0108 header of a standalone `F3` snapshot.
+    `F3`Header {
+        /// Path to a standalone `F3` snapshot.
         snapshot: PathBuf,
     },
     /// Trim a snapshot of the chain and write it to `<output_path>`
@@ -149,12 +149,12 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
-    /// Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
-    MergeF3 {
+    /// Merge a v1 Filecoin snapshot with an `F3` snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+    Merge`F3` {
         /// Path to the v1 Filecoin snapshot
         #[arg(long = "v1")]
         filecoin_v1: PathBuf,
-        /// Path to the F3 snapshot
+        /// Path to the `F3` snapshot
         #[arg(long)]
         f3: PathBuf,
         /// Path to the snapshot output file in `.forest.car.zst` format
@@ -225,7 +225,7 @@ impl ArchiveCommands {
                         let mut f3_data = store
                             .get_reader(f3_cid)?
                             .with_context(|| format!("f3 data not found, cid: {f3_cid}"))?;
-                        let f3_snap_header = F3SnapshotHeader::decode_from_snapshot(&mut f3_data)?;
+                        let f3_snap_header = `F3`SnapshotHeader::decode_from_snapshot(&mut f3_data)?;
                         println!("{f3_snap_header}");
                     }
                 } else {
@@ -235,14 +235,14 @@ impl ArchiveCommands {
                 }
                 Ok(())
             }
-            Self::F3Header { snapshot } => {
+            Self::`F3`Header { snapshot } => {
                 let mut r = BufReader::new(File::open(&snapshot).with_context(|| {
-                    format!("failed to open F3 snapshot '{}'", snapshot.display())
+                    format!("failed to open `F3` snapshot '{}'", snapshot.display())
                 })?);
                 let f3_snap_header =
-                    F3SnapshotHeader::decode_from_snapshot(&mut r).with_context(|| {
+                    `F3`SnapshotHeader::decode_from_snapshot(&mut r).with_context(|| {
                         format!(
-                            "failed to decode F3 snapshot header from '{}'",
+                            "failed to decode `F3` snapshot header from '{}'",
                             snapshot.display()
                         )
                     })?;
@@ -280,7 +280,7 @@ impl ArchiveCommands {
                 output_path,
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
-            Self::MergeF3 {
+            Self::Merge`F3` {
                 filecoin_v1,
                 f3,
                 output,
@@ -916,7 +916,7 @@ async fn bucket_has_diff_snapshot(
 const FOREST_ARCHIVE_S3_ENDPOINT: &str =
     "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com";
 
-/// Check if the AWS CLI is installed and correctly configured.
+/// Check if the AWS `CLI` is installed and correctly configured.
 fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .arg("help")
@@ -926,7 +926,7 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
 
     if !status.success() {
         bail!(
-            "'aws help' failed with status code: {}. Please ensure that the AWS CLI is installed and configured.",
+            "'aws help' failed with status code: {}. Please ensure that the AWS `CLI` is installed and configured.",
             status
         );
     }
@@ -946,7 +946,7 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Use the AWS CLI to upload a snapshot file to the `S3` bucket.
+/// Use the AWS `CLI` to upload a snapshot file to the `S3` bucket.
 fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("aws")
         .args([

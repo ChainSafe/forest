@@ -24,7 +24,7 @@ func init() {
 	checkError(err)
 	err = logging.SetLogLevel("f3/sidecar", "debug")
 	checkError(err)
-	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
+	Go`F3`NodeImpl = &f3Impl{ctx: context.Background()}
 }
 
 type f3Impl struct {
@@ -41,7 +41,7 @@ func (f3 *f3Impl) run(rpc_endpoint *string, jwt *string, f3_rpc_endpoint *string
 		err = run(f3.ctx, *rpc_endpoint, *jwt, *f3_rpc_endpoint, *initial_power_table, *bootstrap_epoch, *finality, *db)
 		if err != nil {
 			nRetry += 1
-			logger.Errorf("Unexpected F3 failure, retrying(%d) in 10s... error=%s", nRetry, err)
+			logger.Errorf("Unexpected `F3` failure, retrying(%d) in 10s... error=%s", nRetry, err)
 			time.Sleep(10 * time.Second)
 		}
 	}

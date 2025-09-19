@@ -39,7 +39,7 @@ Docker - works on Linux, macOS and Windows.
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
-Next, run a Forest node in a CLI window. E.g.
+Next, run a Forest node in a `CLI` window. E.g.
 [Run calibration network](https://docs.forest.chainsafe.io/getting_started/syncing/#calibnet)
 
 Thereafter, in another terminal, you will be able to use the `forest-cli` binary
@@ -57,7 +57,7 @@ tag.
 ## Dependencies
 
 - Rust (toolchain version is specified in `rust-toolchain.toml`)
-- Go for building F3 sidecar module. (toolchain version is specified in
+- Go for building `F3` sidecar module. (toolchain version is specified in
   `go.work`)
 
 Install [rustup](https://rustup.rs/)
@@ -235,16 +235,16 @@ without any prompts.
 ./target/release/forest --chain calibnet --auto-download-snapshot
 ```
 
-### Interacting with Forest via CLI
+### Interacting with Forest via `CLI`
 
 When the Forest daemon is started, an admin token will be displayed and saved to
 data directory by default. (alternatively, use `--save-token <token>` flag to save it on disk).
 You will need this for commands that require a higher level of authorization (like a
 password). Forest, as mentioned above, uses multiaddresses for networking. This
-is no different in the CLI. To set the host and the port to use, if not using
+is no different in the `CLI`. To set the host and the port to use, if not using
 the default port or using a remote host, set the `FULLNODE_API_INFO` environment
 variable. This is also where you can set a token for authentication. Note that the token is
-automatically set for CLI if it is invoked on the same host of the daemon.
+automatically set for `CLI` if it is invoked on the same host of the daemon.
 
 ```
 FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
@@ -253,7 +253,7 @@ FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
 Note that if a token is not present in the FULLNODE_API_INFO env variable, the
 colon is removed.
 
-Forest developers will prepend this variable to CLI commands over using `export`
+Forest developers will prepend this variable to `CLI` commands over using `export`
 on Linux or its equivalent on Windows. This will look like the following:
 
 ```

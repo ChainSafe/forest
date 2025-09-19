@@ -1,7 +1,7 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Contains mock implementations for testing internal `MessagePool` APIs
+//! Contains mock implementations for testing internal `MessagePool` `APIs`
 
 use std::{convert::TryFrom, sync::Arc};
 

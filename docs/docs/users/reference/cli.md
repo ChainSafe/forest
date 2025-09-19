@@ -4,7 +4,7 @@ sidebar_position: 1
 ---
 
 <!--
-CLI reference documentation for forest, forest-wallet, forest-cli, and forest-tool.
+`CLI` reference documentation for forest, forest-wallet, forest-cli, and forest-tool.
 Do not edit manually, use the `generate_cli_md.sh` script.
 -->
 
@@ -340,7 +340,7 @@ SUBCOMMANDS:
   info         Print node info
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
-  f3           Manages Filecoin Fast Finality (F3) interactions
+  f3           Manages Filecoin Fast Finality (`F3`) interactions
   wait-api     Wait for lotus API to come online
   help         Print this message or the help of the given subcommand(s)
 
@@ -416,7 +416,7 @@ Manually set the head to the given tipset. This invalidates blocks between the d
 Usage: forest-cli chain set-head [OPTIONS] <CIDS>...
 
 Arguments:
-  <CIDS>...  Construct the new head tipset from these CIDs
+  <CIDS>...  Construct the new head tipset from these `CIDs`
 
 Options:
       --epoch <EPOCH>  Use the tipset from this epoch as the new head. Negative numbers specify decrements from the current head
@@ -635,7 +635,7 @@ Usage: forest-cli mpool pending [OPTIONS]
 
 Options:
       --local        Print pending messages for addresses in local wallet only
-      --cids         Only print `CIDs` of messages in output
+      --cids         Only print ``CIDs`` of messages in output
       --to <TO>      Return messages to a given address
       --from <FROM>  Return messages from a given address
   -h, --help         Print help
@@ -828,16 +828,16 @@ Options:
 ### `forest-cli f3`
 
 ```
-Manages Filecoin Fast Finality (F3) interactions
+Manages Filecoin Fast Finality (`F3`) interactions
 
 Usage: forest-cli f3 <COMMAND>
 
 Commands:
-  manifest    Gets the current manifest used by F3
-  status      Checks the F3 status
-  certs       Manages interactions with F3 finality certificates [aliases: c]
-  powertable  Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: pt]
-  ready       Checks if F3 is in sync
+  manifest    Gets the current manifest used by `F3`
+  status      Checks the `F3` status
+  certs       Manages interactions with `F3` finality certificates [aliases: c]
+  powertable  Gets `F3` power table at a specific instance ID or latest instance if none is specified [aliases: pt]
+  ready       Checks if `F3` is in sync
   help        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -847,7 +847,7 @@ Options:
 ### `forest-cli f3 manifest`
 
 ```
-Gets the current manifest used by F3
+Gets the current manifest used by `F3`
 
 Usage: forest-cli f3 manifest [OPTIONS]
 
@@ -868,7 +868,7 @@ Options:
 ### `forest-cli f3 status`
 
 ```
-Checks the F3 status
+Checks the `F3` status
 
 Usage: forest-cli f3 status
 
@@ -879,13 +879,13 @@ Options:
 ### `forest-cli f3 certs`
 
 ```
-Manages interactions with F3 finality certificates
+Manages interactions with `F3` finality certificates
 
 Usage: forest-cli f3 certs <COMMAND>
 
 Commands:
-  get   Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
-  list  Lists a range of F3 finality certificates
+  get   Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified
+  list  Lists a range of `F3` finality certificates
   help  Print this message or the help of the given subcommand(s)
 
 Options:
@@ -895,7 +895,7 @@ Options:
 ### `forest-cli f3 certs get`
 
 ```
-Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified
+Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified
 
 Usage: forest-cli f3 certs get [OPTIONS] [INSTANCE]
 
@@ -920,7 +920,7 @@ Options:
 ### `forest-cli f3 certs list`
 
 ```
-Lists a range of F3 finality certificates
+Lists a range of `F3` finality certificates
 
 Usage: forest-cli f3 certs list [OPTIONS] [RANGE]
 
@@ -953,12 +953,12 @@ Options:
 ### `forest-cli f3 powertable`
 
 ```
-Gets F3 power table at a specific instance ID or latest instance if none is specified
+Gets `F3` power table at a specific instance ID or latest instance if none is specified
 
 Usage: forest-cli f3 powertable <COMMAND>
 
 Commands:
-  get             Gets F3 power table at a specific instance ID or latest instance if none is specified [aliases: g]
+  get             Gets `F3` power table at a specific instance ID or latest instance if none is specified [aliases: g]
   get-proportion  Gets the total proportion of power for a list of actors at a given instance [aliases: gp]
   help            Print this message or the help of the given subcommand(s)
 
@@ -969,7 +969,7 @@ Options:
 ### `forest-cli f3 powertable get`
 
 ```
-Gets F3 power table at a specific instance ID or latest instance if none is specified
+Gets `F3` power table at a specific instance ID or latest instance if none is specified
 
 Usage: forest-cli f3 powertable get [OPTIONS] [INSTANCE]
 
@@ -1000,17 +1000,17 @@ Options:
 ### `forest-cli f3 ready`
 
 ```
-Checks if F3 is in sync
+Checks if `F3` is in sync
 
 Usage: forest-cli f3 ready [OPTIONS]
 
 Options:
       --wait
-          Wait until F3 is in sync
+          Wait until `F3` is in sync
       --threshold <THRESHOLD>
-          The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync [default: 20]
+          The threshold of the epoch gap between chain head and `F3` head within which `F3` is considered in sync [default: 20]
       --no-progress-timeout <NO_PROGRESS_TIMEOUT>
-          Exit after F3 making no progress for this duration [default: 10m]
+          Exit after `F3` making no progress for this duration [default: 10m]
   -h, --help
           Print help
 ```
@@ -1038,7 +1038,7 @@ SUBCOMMANDS:
   api              API tooling
   net              Network utilities
   shed             Miscellaneous, semver-exempt commands for developer use
-  completion       Completion Command for generating shell completions for the CLI
+  completion       Completion Command for generating shell completions for the `CLI`
   help             Print this message or the help of the given subcommand(s)
 
 OPTIONS:
@@ -1065,7 +1065,7 @@ Options:
 ### `forest-tool completion`
 
 ```
-Completion Command for generating shell completions for the CLI
+Completion Command for generating shell completions for the `CLI`
 
 Usage: forest-tool completion [OPTIONS] [BINARIES]...
 
@@ -1401,11 +1401,11 @@ Usage: forest-tool archive <COMMAND>
 Commands:
   info         Show basic information about an archive
   metadata     Show FRC-0108 metadata of an Filecoin snapshot archive
-  f3-header    Show FRC-0108 header of a standalone F3 snapshot
+  f3-header    Show FRC-0108 header of a standalone `F3` snapshot
   export       Trim a snapshot of the chain and write it to `<output_path>`
   checkpoints  Print block headers at 30 day interval for a snapshot file
   merge        Merge snapshot archives into a single file. The output snapshot refers to the heaviest tipset in the input set
-  merge-f3     Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+  merge-f3     Merge a v1 Filecoin snapshot with an `F3` snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
   diff         Show the difference between the canonical and computed state of a tipset
   sync-bucket  Export lite and diff snapshots from one or more CAR files, and upload them to an `S3` bucket
   help         Print this message or the help of the given subcommand(s)
@@ -1466,12 +1466,12 @@ Options:
 ### `forest-tool archive f3-header`
 
 ```
-Show FRC-0108 header of a standalone F3 snapshot
+Show FRC-0108 header of a standalone `F3` snapshot
 
 Usage: forest-tool archive f3-header <SNAPSHOT>
 
 Arguments:
-  <SNAPSHOT>  Path to a standalone F3 snapshot
+  <SNAPSHOT>  Path to a standalone `F3` snapshot
 
 Options:
   -h, --help  Print help
@@ -1511,13 +1511,13 @@ Options:
 ### `forest-tool archive merge-f3`
 
 ```
-Merge a v1 Filecoin snapshot with an F3 snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
+Merge a v1 Filecoin snapshot with an `F3` snapshot into a v2 Filecoin snapshot in `.forest.car.zst` format
 
-Usage: forest-tool archive merge-f3 --v1 <FILECOIN_V1> --f3 <F3> --output <OUTPUT>
+Usage: forest-tool archive merge-f3 --v1 <FILECOIN_V1> --f3 <`F3`> --output <OUTPUT>
 
 Options:
       --v1 <FILECOIN_V1>  Path to the v1 Filecoin snapshot
-      --f3 <F3>           Path to the F3 snapshot
+      --f3 <`F3`>           Path to the `F3` snapshot
       --output <OUTPUT>   Path to the snapshot output file in `.forest.car.zst` format
   -h, --help              Print help
 ```
@@ -1947,7 +1947,7 @@ Miscellaneous, semver-exempt commands for developer use
 Usage: forest-tool shed <COMMAND>
 
 Commands:
-  summarize-tipsets          Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards
+  summarize-tipsets          Enumerate the tipset `CIDs` for a span of epochs starting at `height` and working backwards
   peer-id-from-key-pair      Generate a `PeerId` from the given key-pair file
   private-key-from-key-pair  Generate a base64-encoded private key from the given key-pair file. This effectively transforms Forest's key-pair file into a Lotus-compatible private key
   key-pair-from-private-key  Generate a key-pair file from the given base64-encoded private key. This effectively transforms Lotus's private key into a Forest-compatible key-pair file. If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string
@@ -1962,7 +1962,7 @@ Options:
 ### `forest-tool shed summarize-tipsets`
 
 ```
-Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards.
+Enumerate the tipset `CIDs` for a span of epochs starting at `height` and working backwards.
 
 Useful for getting blocks to live test an RPC endpoint.
 

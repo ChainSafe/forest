@@ -56,9 +56,9 @@ Available at the root (`/`), default location for anyone visiting the documentat
 
 Follows the [Diátaxis](https://diataxis.fr/) framework for structuring documentation. The site is divided into four types of documentation: tutorials (Getting Started), how-to guides (Guides), explanations (Knowledge Base) and reference (Reference).
 
-#### CLI Docs
+#### `CLI` Docs
 
-These docs are automatically generated from the Forest CLI. See [script](/docs/docs/users/reference/cli.sh).
+These docs are automatically generated from the Forest `CLI`. See [script](/docs/docs/users/reference/cli.sh).
 
 #### JSON-RPC Docs
 

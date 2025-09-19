@@ -12,13 +12,13 @@ forest_init_with_f3
 echo "Cleaning up the initial snapshot"
 rm --force --verbose ./*.{car,car.zst,sha256sum}
 
-echo "Wait for F3 to sync"
-timeout 10m $FOREST_CLI_PATH f3 ready --wait --no-progress-timeout 5m
+echo "Wait for `F3` to sync"
+timeout 10m $FOREST_`CLI`_PATH f3 ready --wait --no-progress-timeout 5m
 
 echo "Exporting zstd compressed snapshot in v2 format"
-$FOREST_CLI_PATH snapshot export --format v2
+$FOREST_`CLI`_PATH snapshot export --format v2
 
-$FOREST_CLI_PATH shutdown --force
+$FOREST_`CLI`_PATH shutdown --force
 
 for f in *.car.zst; do
   echo "Inspecting archive info $f"

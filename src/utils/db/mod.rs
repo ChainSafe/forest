@@ -15,9 +15,9 @@ use multihash_codetable::Code;
 
 use serde::ser::Serialize;
 
-/// Extension methods for inserting and retrieving IPLD data with CIDs
+/// Extension methods for inserting and retrieving IPLD data with `CIDs`
 pub trait BlockstoreExt: Blockstore {
-    /// Batch put CBOR objects into block store and returns vector of CIDs
+    /// Batch put CBOR objects into block store and returns vector of `CIDs`
     #[allow(clippy::disallowed_types)]
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
     where
@@ -53,7 +53,7 @@ pub trait BlockstoreExt: Blockstore {
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
 
-/// Extension methods for [`CborStore`] that omits default multihash code from its APIs
+/// Extension methods for [`CborStore`] that omits default multihash code from its `APIs`
 pub trait CborStoreExt: CborStore {
     /// Default multihash code is [`cid::multihash::Code::Blake2b256`]
     /// See <https://github.com/ipfs/go-ipld-cbor/blob/v0.0.6/store.go#L92>

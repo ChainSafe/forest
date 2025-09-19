@@ -1259,7 +1259,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     }
 }
 
-// Sample CIDs (useful for testing):
+// Sample `CIDs` (useful for testing):
 //   Mainnet:
 //     1,594,681 bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm OhSnap upgrade
 //     1_960_320 bafy2bzacec43okhmihmnwmgqspyrkuivqtxv75rpymsdbulq6lgsdq2vkwkcg Skyr upgrade
@@ -1337,7 +1337,7 @@ impl RpcMethod<2> for StateFetchRoot {
         // Do a depth-first-search of the IPLD graph (DAG). Nodes that are _not_ present in our database
         // are fetched in background tasks. If the number of tasks reaches MAX_CONCURRENT_REQUESTS, the
         // depth-first-search pauses until one of the work tasks returns. The memory usage of this
-        // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
+        // algorithm is dominated by the set of seen `CIDs` and the 'dfs' stack is not expected to grow to
         // more than 1000 elements (even when walking tens of millions of nodes).
         let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
         let mut to_be_fetched = vec![];
@@ -1347,14 +1347,14 @@ impl RpcMethod<2> for StateFetchRoot {
             while let Some(ipld) = lock_pop(&dfs) {
                 {
                     let mut dfs_guard = dfs.lock();
-                    // Scan for unseen CIDs. Available IPLD nodes are pushed to the depth-first-search
+                    // Scan for unseen `CIDs`. Available IPLD nodes are pushed to the depth-first-search
                     // stack, unavailable nodes will be requested in worker tasks.
                     for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                         counter += 1;
                         if counter % 1_000 == 0 {
                             // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
-                                "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
+                                "Graph walk: `CIDs`: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(),
                                 task_set.len()
                             );
@@ -1432,7 +1432,7 @@ impl RpcMethod<2> for StateFetchRoot {
         }
 
         Ok(format!(
-            "IPLD graph traversed! CIDs: {counter}, fetched: {fetched}, failures: {failures}."
+            "IPLD graph traversed! `CIDs`: {counter}, fetched: {fetched}, failures: {failures}."
         ))
     }
 }

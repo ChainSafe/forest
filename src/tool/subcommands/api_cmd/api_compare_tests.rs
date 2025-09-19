@@ -1992,31 +1992,31 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn f3_tests() -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![
         // using basic because 2 nodes are not garanteed to be at the same head
-        RpcTest::basic(F3GetECPowerTable::request((None.into(),))?),
-        RpcTest::basic(F3GetLatestCertificate::request(())?),
-        RpcTest::basic(F3ListParticipants::request(())?),
-        RpcTest::basic(F3GetProgress::request(())?),
-        RpcTest::basic(F3GetOrRenewParticipationTicket::request((
+        RpcTest::basic(`F3`GetECPowerTable::request((None.into(),))?),
+        RpcTest::basic(`F3`GetLatestCertificate::request(())?),
+        RpcTest::basic(`F3`ListParticipants::request(())?),
+        RpcTest::basic(`F3`GetProgress::request(())?),
+        RpcTest::basic(`F3`GetOrRenewParticipationTicket::request((
             Address::new_id(1000),
             vec![],
             3,
         ))?),
-        RpcTest::identity(F3IsRunning::request(())?),
-        RpcTest::identity(F3GetCertificate::request((0,))?),
-        RpcTest::identity(F3GetCertificate::request((100,))?),
-        RpcTest::identity(F3GetManifest::request(())?),
+        RpcTest::identity(`F3`IsRunning::request(())?),
+        RpcTest::identity(`F3`GetCertificate::request((0,))?),
+        RpcTest::identity(`F3`GetCertificate::request((100,))?),
+        RpcTest::identity(`F3`GetManifest::request(())?),
     ])
 }
 
 fn f3_tests_with_tipset(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
     Ok(vec![
-        RpcTest::identity(F3GetECPowerTable::request((tipset.key().into(),))?),
-        RpcTest::identity(F3GetF3PowerTable::request((tipset.key().into(),))?),
+        RpcTest::identity(`F3`GetECPowerTable::request((tipset.key().into(),))?),
+        RpcTest::identity(`F3`Get`F3`PowerTable::request((tipset.key().into(),))?),
     ])
 }
 
-// Extract tests that use chain-specific data such as block CIDs or message
-// CIDs. Right now, only the last `n_tipsets` tipsets are used.
+// Extract tests that use chain-specific data such as block `CIDs` or message
+// `CIDs`. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(
     store: Arc<ManyCar>,
     num_tipsets: usize,

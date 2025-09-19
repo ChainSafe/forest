@@ -18,20 +18,20 @@ FOREST_NODE_PID=$!
 forest_wait_api
 
 # Verify that one of the seed nodes has been connected to
-until $FOREST_CLI_PATH net peers | grep "calib"; do
+until $FOREST_`CLI`_PATH net peers | grep "calib"; do
     sleep 1s;
 done
 
-# Verify F3 is getting certificates from the network
-until [[ $($FOREST_CLI_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 100 ]]; do
+# Verify `F3` is getting certificates from the network
+until [[ $($FOREST_`CLI`_PATH f3 certs get --output json | jq '.GPBFTInstance') -gt 100 ]]; do
     sleep 1s;
 done
 
 echo "Test subcommands: f3 status"
-$FOREST_CLI_PATH f3 status
+$FOREST_`CLI`_PATH f3 status
 echo "Test subcommands: f3 manifest"
-$FOREST_CLI_PATH f3 manifest
+$FOREST_`CLI`_PATH f3 manifest
 echo "Test subcommands: f3 certs get"
-$FOREST_CLI_PATH f3 certs list
+$FOREST_`CLI`_PATH f3 certs list
 echo "Test subcommands: f3 certs list"
-$FOREST_CLI_PATH f3 certs get
+$FOREST_`CLI`_PATH f3 certs get

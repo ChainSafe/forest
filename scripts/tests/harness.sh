@@ -7,7 +7,7 @@ export FOREST_CHAIN_INDEXER_ENABLED="1"
 export FOREST_ETH_MAPPINGS_RANGE="300"
 
 export FOREST_PATH="forest"
-export FOREST_CLI_PATH="forest-cli"
+export FOREST_`CLI`_PATH="forest-cli"
 export FOREST_WALLET_PATH="forest-wallet"
 export FOREST_TOOL_PATH="forest-tool"
 
@@ -32,9 +32,9 @@ function forest_download_and_import_snapshot_with_f3 {
   aria2c -x5 https://forest-archive.chainsafe.dev/latest/calibnet/ -o v1.forest.car.zst
   echo "Inspecting v1 snapshot"
   $FOREST_TOOL_PATH archive info v1.forest.car.zst
-  echo "Downloading F3 snapshot"
+  echo "Downloading `F3` snapshot"
   aria2c -x5 https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/f3/f3_snap_calibnet_622579.bin -o f3.bin
-  echo "Inspecting F3 snapshot"
+  echo "Inspecting `F3` snapshot"
   $FOREST_TOOL_PATH archive f3-header f3.bin
   echo "Generating v2 snapshot"
   $FOREST_TOOL_PATH archive merge-f3 --v1 v1.forest.car.zst --f3 f3.bin --output v2.forest.car.zst
@@ -108,17 +108,17 @@ function forest_run_node_stateless_detached {
 
 function forest_wait_api {
   echo "Waiting for Forest API"
-  $FOREST_CLI_PATH wait-api --timeout 60s
+  $FOREST_`CLI`_PATH wait-api --timeout 60s
 }
 
 function forest_wait_for_sync {
   echo "Waiting for sync"
-  timeout 30m $FOREST_CLI_PATH sync wait
+  timeout 30m $FOREST_`CLI`_PATH sync wait
 }
 
 function forest_wait_for_healthcheck_ready {
   echo "Waiting for healthcheck ready"
-  timeout 30m $FOREST_CLI_PATH healthcheck ready --wait
+  timeout 30m $FOREST_`CLI`_PATH healthcheck ready --wait
 }
 
 function forest_init {
@@ -140,7 +140,7 @@ function forest_init {
   forest_wait_for_sync
   forest_check_db_stats
 
-  DATA_DIR=$( $FOREST_CLI_PATH config dump | grep "data_dir" | cut -d' ' -f3- | tr -d '"' )
+  DATA_DIR=$( $FOREST_`CLI`_PATH config dump | grep "data_dir" | cut -d' ' -f3- | tr -d '"' )
   ADMIN_TOKEN=$(cat "${DATA_DIR}/token")
   FULLNODE_API_INFO="${ADMIN_TOKEN}:/ip4/127.0.0.1/tcp/2345/http"
 
@@ -160,10 +160,10 @@ function forest_init_with_f3 {
 
   forest_wait_for_healthcheck_ready
   
-  echo "Print the latest F3 certificate"
-  $FOREST_CLI_PATH f3 c get
-  echo "ensure F3 certificate at instance 622000 has been imported"
-  $FOREST_CLI_PATH f3 c get 622000
+  echo "Print the latest `F3` certificate"
+  $FOREST_`CLI`_PATH f3 c get
+  echo "ensure `F3` certificate at instance 622000 has been imported"
+  $FOREST_`CLI`_PATH f3 c get 622000
 }
 
 function forest_init_stateless {
@@ -190,7 +190,7 @@ function forest_print_logs_and_metrics {
 function forest_cleanup {
   if pkill -0 forest 2>/dev/null; then
     forest_print_logs_and_metrics
-    $FOREST_CLI_PATH shutdown --force || true
+    $FOREST_`CLI`_PATH shutdown --force || true
     timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
   fi
 }

@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{rpc::f3::F3PowerEntry, utils::multihash::MultihashCode};
+use crate::{rpc::f3::`F3`PowerEntry, utils::multihash::MultihashCode};
 use cid::Cid;
 use fvm_ipld_encoding::{IPLD_RAW, tuple::*};
 use integer_encoding::VarIntReader as _;
@@ -19,14 +19,14 @@ pub fn get_f3_snapshot_cid(f3_data: &mut impl Read) -> anyhow::Result<Cid> {
 
 /// Defined in <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#f3snapshotheader>
 #[derive(Debug, Clone, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct F3SnapshotHeader {
+pub struct `F3`SnapshotHeader {
     pub version: u64,
     pub first_instance: u64,
     pub latest_instance: u64,
-    pub initial_power_table: Vec<F3PowerEntry>,
+    pub initial_power_table: Vec<`F3`PowerEntry>,
 }
 
-impl F3SnapshotHeader {
+impl `F3`SnapshotHeader {
     pub fn decode_from_snapshot(f3_snapshot: &mut impl Read) -> anyhow::Result<Self> {
         // Reasonable upper bound for snapshot header size (100MiB)
         const MAX_HEADER_SIZE: usize = 100 * 1024 * 1024;
@@ -34,7 +34,7 @@ impl F3SnapshotHeader {
         let data_len = f3_snapshot.read_varint::<usize>()?;
         anyhow::ensure!(
             data_len <= MAX_HEADER_SIZE,
-            "F3 snapshot header size {data_len} exceeds maximum allowed size {MAX_HEADER_SIZE}"
+            "`F3` snapshot header size {data_len} exceeds maximum allowed size {MAX_HEADER_SIZE}"
         );
         let mut data_bytes = vec![0; data_len];
         f3_snapshot.read_exact(&mut data_bytes)?;
@@ -42,10 +42,10 @@ impl F3SnapshotHeader {
     }
 }
 
-impl std::fmt::Display for F3SnapshotHeader {
+impl std::fmt::Display for `F3`SnapshotHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "F3 snapshot version:        {}", self.version)?;
-        writeln!(f, "F3 snapshot first instance: {}", self.first_instance)?;
-        write!(f, "F3 snapshot last instance:  {}", self.latest_instance)
+        writeln!(f, "`F3` snapshot version:        {}", self.version)?;
+        writeln!(f, "`F3` snapshot first instance: {}", self.first_instance)?;
+        write!(f, "`F3` snapshot last instance:  {}", self.latest_instance)
     }
 }

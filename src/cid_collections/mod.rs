@@ -10,17 +10,17 @@ pub use small_cid_vec::SmallCidNonEmptyVec;
 
 /// The core primitive for saving space in this module.
 ///
-/// CIDs contain a significant amount of static data (such as version, codec, hash identifier, hash
+/// `CIDs` contain a significant amount of static data (such as version, codec, hash identifier, hash
 /// length).
 ///
-/// Nearly all Filecoin CIDs are `V1`,`DagCbor` encoded, and hashed with `Blake2b256` (which has a hash
+/// Nearly all Filecoin `CIDs` are `V1`,`DagCbor` encoded, and hashed with `Blake2b256` (which has a hash
 /// length of 256 bits (32 bytes)).
 /// Naively representing such a CID requires 96 bytes but the non-static portion is only
 /// 32 bytes, represented as [`CidV1DagCborBlake2b256`].
 ///
 /// In collections, choose to store only 32 bytes where possible.
 ///
-/// Note that construction of CIDs should always go through this type, to ensure
+/// Note that construction of `CIDs` should always go through this type, to ensure
 /// - canonicalization
 /// - the contract of [`Uncompactable`]
 ///

@@ -28,7 +28,7 @@ is based on an older Ubuntu base. You can always edit this later in
 Let's consider running an integration test. At the time of writing, the usual
 workflow looks like this:
 
-1. Build Forest daemon and CLI in one job.
+1. Build Forest daemon and `CLI` in one job.
 2. Upload the artifacts to GH.
 3. In another job, download the artifacts to the test runner.
 4. Run the integration test.
@@ -144,7 +144,7 @@ download the artifacts.
 # Example run
 
 After all the remarks above are addressed, you can run the job locally. For
-example, to run the integration test for the CLI:
+example, to run the integration test for the `CLI`:
 
 ```shell
 act --secret-file act-secrets.env --env-file act.env -W .github/workflows/forest.yml -j forest-cli-check --artifact-server-path /tmp/artifacts/  --reuse
@@ -183,32 +183,32 @@ INFO[0000] Start server on http://192.168.1.10:34567
 [Integration tests/Build Ubuntu]   🐳  docker exec cmd=[node /var/run/act/actions/actions-upload-artifact@v3/dist/index.js] user= workdir=
 [Integration tests/Build Ubuntu]   ✅  Success - Main actions/upload-artifact@v3
 [Integration tests/Build Ubuntu] 🏁  Job succeeded
-[Integration tests/Forest CLI checks] 🚀  Start image=catthehacker/ubuntu:act-latest
-[Integration tests/Forest CLI checks]   🐳  docker pull image=catthehacker/ubuntu:act-latest platform= username= forcePull=false
-[Integration tests/Forest CLI checks]   🐳  docker create image=catthehacker/ubuntu:act-latest platform= entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
-[Integration tests/Forest CLI checks]   🐳  docker run image=catthehacker/ubuntu:act-latest platform= entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
-[Integration tests/Forest CLI checks]   ☁  git clone 'https://github.com/actions/download-artifact' # ref=v3
-[Integration tests/Forest CLI checks] ⭐ Run Main Checkout Sources
-[Integration tests/Forest CLI checks]   🐳  docker cp src=/home/rumcajs/prj/forest/. dst=/home/rumcajs/prj/forest
-[Integration tests/Forest CLI checks]   ✅  Success - Main Checkout Sources
-[Integration tests/Forest CLI checks] ⭐ Run Main actions/download-artifact@v3
-[Integration tests/Forest CLI checks]   🐳  docker cp src=/home/rumcajs/.cache/act/actions-download-artifact@v3/ dst=/var/run/act/actions/actions-download-artifact@v3/
-[Integration tests/Forest CLI checks]   🐳  docker exec cmd=[node /var/run/act/actions/actions-download-artifact@v3/dist/index.js] user= workdir=
-[Integration tests/Forest CLI checks]   ✅  Success - Main actions/download-artifact@v3
-[Integration tests/Forest CLI checks]   ⚙  ::set-output:: download-path=/root/.cargo/bin
-[Integration tests/Forest CLI checks] ⭐ Run Main Set permissions
-[Integration tests/Forest CLI checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/2] user= workdir=
-[Integration tests/Forest CLI checks]   ✅  Success - Main Set permissions
-[Integration tests/Forest CLI checks] ⭐ Run Main install CA certificates
-[Integration tests/Forest CLI checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/3] user= workdir=
-[Integration tests/Forest CLI checks]   ✅  Success - Main install CA certificates
-[Integration tests/Forest CLI checks] ⭐ Run Main Make sure everything is in PATH
-[Integration tests/Forest CLI checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/4] user= workdir=/root/.cargo/bin/
-[Integration tests/Forest CLI checks]   ✅  Success - Main Make sure everything is in PATH
-[Integration tests/Forest CLI checks] ⭐ Run Main forest-cli check
-[Integration tests/Forest CLI checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/5] user= workdir=
-[Integration tests/Forest CLI checks]   ✅  Success - Main forest-cli check
-[Integration tests/Forest CLI checks] 🏁  Job succeeded
+[Integration tests/Forest `CLI` checks] 🚀  Start image=catthehacker/ubuntu:act-latest
+[Integration tests/Forest `CLI` checks]   🐳  docker pull image=catthehacker/ubuntu:act-latest platform= username= forcePull=false
+[Integration tests/Forest `CLI` checks]   🐳  docker create image=catthehacker/ubuntu:act-latest platform= entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
+[Integration tests/Forest `CLI` checks]   🐳  docker run image=catthehacker/ubuntu:act-latest platform= entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
+[Integration tests/Forest `CLI` checks]   ☁  git clone 'https://github.com/actions/download-artifact' # ref=v3
+[Integration tests/Forest `CLI` checks] ⭐ Run Main Checkout Sources
+[Integration tests/Forest `CLI` checks]   🐳  docker cp src=/home/rumcajs/prj/forest/. dst=/home/rumcajs/prj/forest
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main Checkout Sources
+[Integration tests/Forest `CLI` checks] ⭐ Run Main actions/download-artifact@v3
+[Integration tests/Forest `CLI` checks]   🐳  docker cp src=/home/rumcajs/.cache/act/actions-download-artifact@v3/ dst=/var/run/act/actions/actions-download-artifact@v3/
+[Integration tests/Forest `CLI` checks]   🐳  docker exec cmd=[node /var/run/act/actions/actions-download-artifact@v3/dist/index.js] user= workdir=
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main actions/download-artifact@v3
+[Integration tests/Forest `CLI` checks]   ⚙  ::set-output:: download-path=/root/.cargo/bin
+[Integration tests/Forest `CLI` checks] ⭐ Run Main Set permissions
+[Integration tests/Forest `CLI` checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/2] user= workdir=
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main Set permissions
+[Integration tests/Forest `CLI` checks] ⭐ Run Main install CA certificates
+[Integration tests/Forest `CLI` checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/3] user= workdir=
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main install CA certificates
+[Integration tests/Forest `CLI` checks] ⭐ Run Main Make sure everything is in PATH
+[Integration tests/Forest `CLI` checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/4] user= workdir=/root/.cargo/bin/
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main Make sure everything is in PATH
+[Integration tests/Forest `CLI` checks] ⭐ Run Main forest-cli check
+[Integration tests/Forest `CLI` checks]   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/5] user= workdir=
+[Integration tests/Forest `CLI` checks]   ✅  Success - Main forest-cli check
+[Integration tests/Forest `CLI` checks] 🏁  Job succeeded
 ```
 
 # Caveats

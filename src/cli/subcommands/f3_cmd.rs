@@ -16,7 +16,7 @@ use crate::{
     rpc::{
         self,
         f3::{
-            F3GetF3PowerTableByInstance, F3InstanceProgress, F3Manifest, F3PowerEntry,
+            `F3`Get`F3`PowerTableByInstance, `F3`InstanceProgress, `F3`Manifest, `F3`PowerEntry,
             FinalityCertificate,
         },
         prelude::*,
@@ -70,7 +70,7 @@ static TEMPLATES: LazyLock<Tera> = LazyLock::new(|| {
 /// Output format
 #[derive(ValueEnum, Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum F3OutputFormat {
+pub enum `F3`OutputFormat {
     /// Text
     #[default]
     Text,
@@ -78,58 +78,58 @@ pub enum F3OutputFormat {
     Json,
 }
 
-/// Manages Filecoin Fast Finality (F3) interactions
+/// Manages Filecoin Fast Finality (`F3`) interactions
 #[derive(Debug, Subcommand)]
-pub enum F3Commands {
-    /// Gets the current manifest used by F3
+pub enum `F3`Commands {
+    /// Gets the current manifest used by `F3`
     Manifest {
         /// The output format.
-        #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
-        output: F3OutputFormat,
+        #[arg(long, value_enum, default_value_t = `F3`OutputFormat::Text)]
+        output: `F3`OutputFormat,
     },
-    /// Checks the F3 status.
+    /// Checks the `F3` status.
     Status,
-    /// Manages interactions with F3 finality certificates.
+    /// Manages interactions with `F3` finality certificates.
     #[command(subcommand, visible_alias = "c")]
-    Certs(F3CertsCommands),
-    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+    Certs(`F3`CertsCommands),
+    /// Gets `F3` power table at a specific instance ID or latest instance if none is specified.
     #[command(subcommand, name = "powertable", visible_alias = "pt")]
-    PowerTable(F3PowerTableCommands),
-    /// Checks if F3 is in sync.
+    PowerTable(`F3`PowerTableCommands),
+    /// Checks if `F3` is in sync.
     Ready {
-        /// Wait until F3 is in sync.
+        /// Wait until `F3` is in sync.
         #[arg(long)]
         wait: bool,
-        /// The threshold of the epoch gap between chain head and F3 head within which F3 is considered in sync.
+        /// The threshold of the epoch gap between chain head and `F3` head within which `F3` is considered in sync.
         #[arg(long, default_value_t = 20)]
         threshold: usize,
-        /// Exit after F3 making no progress for this duration.
+        /// Exit after `F3` making no progress for this duration.
         #[arg(long, default_value = "10m", requires = "wait")]
         no_progress_timeout: humantime::Duration,
     },
 }
 
-impl F3Commands {
+impl `F3`Commands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Manifest { output } => {
-                let manifest = client.call(F3GetManifest::request(())?).await?;
+                let manifest = client.call(`F3`GetManifest::request(())?).await?;
                 match output {
-                    F3OutputFormat::Text => {
+                    `F3`OutputFormat::Text => {
                         println!("{}", render_manifest_template(&manifest)?);
                     }
-                    F3OutputFormat::Json => {
+                    `F3`OutputFormat::Json => {
                         println!("{}", serde_json::to_string_pretty(&manifest)?);
                     }
                 }
                 Ok(())
             }
             Self::Status => {
-                let is_running = client.call(F3IsRunning::request(())?).await?;
+                let is_running = client.call(`F3`IsRunning::request(())?).await?;
                 println!("Running: {is_running}");
-                let progress = client.call(F3GetProgress::request(())?).await?;
+                let progress = client.call(`F3`GetProgress::request(())?).await?;
                 println!("{}", render_progress_template(&progress)?);
-                let manifest = client.call(F3GetManifest::request(())?).await?;
+                let manifest = client.call(`F3`GetManifest::request(())?).await?;
                 println!("{}", render_manifest_template(&manifest)?);
                 Ok(())
             }
@@ -140,19 +140,19 @@ impl F3Commands {
                 threshold,
                 no_progress_timeout,
             } => {
-                const EXIT_CODE_F3_NOT_IN_SYNC: i32 = 1;
-                const EXIT_CODE_F3_FAIL_TO_FETCH_HEAD: i32 = 2;
-                const EXIT_CODE_F3_NO_PROGRESS_TIMEOUT: i32 = 3;
+                const EXIT_CODE_`F3`_NOT_IN_SYNC: i32 = 1;
+                const EXIT_CODE_`F3`_FAIL_TO_FETCH_HEAD: i32 = 2;
+                const EXIT_CODE_`F3`_NO_PROGRESS_TIMEOUT: i32 = 3;
 
-                let is_running = client.call(F3IsRunning::request(())?).await?;
+                let is_running = client.call(`F3`IsRunning::request(())?).await?;
                 if !is_running {
-                    anyhow::bail!("F3 is not running");
+                    anyhow::bail!("`F3` is not running");
                 }
 
                 async fn get_heads(
                     client: &rpc::Client,
                 ) -> anyhow::Result<(Tipset, FinalityCertificate)> {
-                    let cert_head = client.call(F3GetLatestCertificate::request(())?).await?;
+                    let cert_head = client.call(`F3`GetLatestCertificate::request(())?).await?;
                     let chain_head = client.call(ChainHead::request(())?).await?;
                     Ok((chain_head, cert_head))
                 }
@@ -181,7 +181,7 @@ impl F3Commands {
                                 >= chain_head.epoch()
                             {
                                 let text = format!(
-                                    "[+] F3 is in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    "[+] `F3` is in sync. Chain head epoch: {}, `F3` head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
@@ -190,26 +190,26 @@ impl F3Commands {
                                 break;
                             } else {
                                 let text = format!(
-                                    "[-] F3 is not in sync. Chain head epoch: {}, F3 head epoch: {}",
+                                    "[-] `F3` is not in sync. Chain head epoch: {}, `F3` head epoch: {}",
                                     chain_head.epoch(),
                                     cert_head.chain_head().epoch
                                 );
                                 pb.set_message(text);
                                 if !wait {
                                     pb.finish();
-                                    std::process::exit(EXIT_CODE_F3_NOT_IN_SYNC);
+                                    std::process::exit(EXIT_CODE_`F3`_NOT_IN_SYNC);
                                 }
                             }
                         }
                         Err(e) => {
                             if !wait {
-                                anyhow::bail!("Failed to check F3 sync status: {e}");
+                                anyhow::bail!("Failed to check `F3` sync status: {e}");
                             }
 
                             num_consecutive_fetch_failtures += 1;
                             if num_consecutive_fetch_failtures >= 3 {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Exiting...");
-                                std::process::exit(EXIT_CODE_F3_FAIL_TO_FETCH_HEAD);
+                                std::process::exit(EXIT_CODE_`F3`_FAIL_TO_FETCH_HEAD);
                             } else {
                                 eprintln!("Warning: Failed to fetch heads: {e}. Retrying...");
                             }
@@ -218,9 +218,9 @@ impl F3Commands {
 
                     if last_progress + no_progress_timeout_duration < Instant::now() {
                         eprintln!(
-                            "Warning: F3 made no progress in the past {no_progress_timeout}. Exiting..."
+                            "Warning: `F3` made no progress in the past {no_progress_timeout}. Exiting..."
                         );
-                        std::process::exit(EXIT_CODE_F3_NO_PROGRESS_TIMEOUT);
+                        std::process::exit(EXIT_CODE_`F3`_NO_PROGRESS_TIMEOUT);
                     }
                 }
                 Ok(())
@@ -229,24 +229,24 @@ impl F3Commands {
     }
 }
 
-/// Manages interactions with F3 finality certificates.
+/// Manages interactions with `F3` finality certificates.
 #[derive(Debug, Subcommand)]
-pub enum F3CertsCommands {
-    /// Gets an F3 finality certificate to a given instance ID, or the latest certificate if no instance is specified.
+pub enum `F3`CertsCommands {
+    /// Gets an `F3` finality certificate to a given instance ID, or the latest certificate if no instance is specified.
     Get {
         instance: Option<u64>,
         /// The output format.
-        #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
-        output: F3OutputFormat,
+        #[arg(long, value_enum, default_value_t = `F3`OutputFormat::Text)]
+        output: `F3`OutputFormat,
     },
-    /// Lists a range of F3 finality certificates.
+    /// Lists a range of `F3` finality certificates.
     List {
         /// Inclusive range of `from` and `to` instances in following notation:
         /// `<from>..<to>`. Either `<from>` or `<to>` may be omitted, but not both.
         range: Option<String>,
         /// The output format.
-        #[arg(long, value_enum, default_value_t = F3OutputFormat::Text)]
-        output: F3OutputFormat,
+        #[arg(long, value_enum, default_value_t = `F3`OutputFormat::Text)]
+        output: `F3`OutputFormat,
         /// The maximum number of instances. A value less than 0 indicates no limit.
         #[arg(long, default_value_t = 10)]
         limit: i64,
@@ -256,20 +256,20 @@ pub enum F3CertsCommands {
     },
 }
 
-impl F3CertsCommands {
+impl `F3`CertsCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Get { instance, output } => {
                 let cert = if let Some(instance) = instance {
-                    client.call(F3GetCertificate::request((instance,))?).await?
+                    client.call(`F3`GetCertificate::request((instance,))?).await?
                 } else {
-                    client.call(F3GetLatestCertificate::request(())?).await?
+                    client.call(`F3`GetLatestCertificate::request(())?).await?
                 };
                 match output {
-                    F3OutputFormat::Text => {
+                    `F3`OutputFormat::Text => {
                         println!("{}", render_certificate_template(&cert)?);
                     }
-                    F3OutputFormat::Json => {
+                    `F3`OutputFormat::Json => {
                         println!("{}", serde_json::to_string_pretty(&cert)?);
                     }
                 }
@@ -289,7 +289,7 @@ impl F3CertsCommands {
                 let to = if let Some(i) = to_opt {
                     i
                 } else {
-                    F3GetLatestCertificate::call(&client, ()).await?.instance
+                    `F3`GetLatestCertificate::call(&client, ()).await?.instance
                 };
                 anyhow::ensure!(
                     to >= from,
@@ -306,12 +306,12 @@ impl F3CertsCommands {
                     Box::new((from..=to).rev().take(limit))
                 };
                 for i in range {
-                    let cert = F3GetCertificate::call(&client, (i,)).await?;
+                    let cert = `F3`GetCertificate::call(&client, (i,)).await?;
                     match output {
-                        F3OutputFormat::Text => {
+                        `F3`OutputFormat::Text => {
                             println!("{}", render_certificate_template(&cert)?);
                         }
-                        F3OutputFormat::Json => {
+                        `F3`OutputFormat::Json => {
                             println!("{}", serde_json::to_string_pretty(&cert)?);
                         }
                     }
@@ -342,8 +342,8 @@ impl F3CertsCommands {
 }
 
 #[derive(Debug, Subcommand)]
-pub enum F3PowerTableCommands {
-    /// Gets F3 power table at a specific instance ID or latest instance if none is specified.
+pub enum `F3`PowerTableCommands {
+    /// Gets `F3` power table at a specific instance ID or latest instance if none is specified.
     #[command(visible_alias = "g")]
     Get {
         /// instance ID. (default: latest)
@@ -365,7 +365,7 @@ pub enum F3PowerTableCommands {
     },
 }
 
-impl F3PowerTableCommands {
+impl `F3`PowerTableCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Get { instance, ec } => {
@@ -378,10 +378,10 @@ impl F3PowerTableCommands {
                 for entry in power_table.iter() {
                     scaled_total += scale_power(&entry.power, &total)?;
                 }
-                let result = F3PowerTableGetCommandResult {
+                let result = `F3`PowerTableGetCommandResult {
                     instance,
                     from_ec: ec,
-                    power_table: F3PowerTableCliJson {
+                    power_table: `F3`PowerTableCliJson {
                         cid: power_table_cid,
                         entries: power_table,
                         total,
@@ -415,10 +415,10 @@ impl F3PowerTableCommands {
                     }
                 }
 
-                let result = F3PowerTableGetProportionCommandResult {
+                let result = `F3`PowerTableGetProportionCommandResult {
                     instance,
                     from_ec: ec,
-                    power_table: F3PowerTableCliMinimalJson {
+                    power_table: `F3`PowerTableCliMinimalJson {
                         cid: power_table_cid,
                         scaled_total,
                     },
@@ -437,19 +437,19 @@ impl F3PowerTableCommands {
         client: &rpc::Client,
         instance: Option<u64>,
         ec: bool,
-    ) -> anyhow::Result<(u64, Cid, Vec<F3PowerEntry>)> {
+    ) -> anyhow::Result<(u64, Cid, Vec<`F3`PowerEntry>)> {
         let instance = if let Some(instance) = instance {
             instance
         } else {
-            let progress = F3GetProgress::call(client, ()).await?;
+            let progress = `F3`GetProgress::call(client, ()).await?;
             progress.id
         };
         let (tsk, power_table_cid) =
             Self::get_power_table_tsk_by_instance(client, instance).await?;
         let power_table = if ec {
-            F3GetECPowerTable::call(client, (tsk.into(),)).await?
+            `F3`GetECPowerTable::call(client, (tsk.into(),)).await?
         } else {
-            F3GetF3PowerTableByInstance::call(client, (instance,)).await?
+            `F3`Get`F3`PowerTableByInstance::call(client, (instance,)).await?
         };
         Ok((instance, power_table_cid, power_table))
     }
@@ -458,7 +458,7 @@ impl F3PowerTableCommands {
         client: &rpc::Client,
         instance: u64,
     ) -> anyhow::Result<(TipsetKey, Cid)> {
-        let manifest = F3GetManifest::call(client, ()).await?;
+        let manifest = `F3`GetManifest::call(client, ()).await?;
         if instance < manifest.initial_instance + manifest.committee_lookback {
             let epoch = manifest.bootstrap_epoch - manifest.ec.finality;
             let ts = ChainGetTipSetByHeight::call(client, (epoch, None.into())).await?;
@@ -468,8 +468,8 @@ impl F3PowerTableCommands {
             ));
         }
 
-        let previous = F3GetCertificate::call(client, (instance.saturating_sub(1),)).await?;
-        let lookback = F3GetCertificate::call(
+        let previous = `F3`GetCertificate::call(client, (instance.saturating_sub(1),)).await?;
+        let lookback = `F3`GetCertificate::call(
             client,
             (instance.saturating_sub(manifest.committee_lookback),),
         )
@@ -479,7 +479,7 @@ impl F3PowerTableCommands {
     }
 }
 
-fn render_manifest_template(template: &F3Manifest) -> anyhow::Result<String> {
+fn render_manifest_template(template: &`F3`Manifest) -> anyhow::Result<String> {
     let mut context = tera::Context::from_serialize(template)?;
     context.insert(
         "initial_power_table_cid",
@@ -552,7 +552,7 @@ fn render_certificate_template(template: &FinalityCertificate) -> anyhow::Result
         .to_owned())
 }
 
-fn render_progress_template(template: &F3InstanceProgress) -> anyhow::Result<String> {
+fn render_progress_template(template: &`F3`InstanceProgress) -> anyhow::Result<String> {
     let mut context = tera::Context::from_serialize(template)?;
     context.insert("phase_string", template.phase_string());
     Ok(TEMPLATES
@@ -563,22 +563,22 @@ fn render_progress_template(template: &F3InstanceProgress) -> anyhow::Result<Str
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3PowerTableGetCommandResult {
+pub struct `F3`PowerTableGetCommandResult {
     instance: u64,
     #[serde(rename = "FromEC")]
     from_ec: bool,
-    power_table: F3PowerTableCliJson,
+    power_table: `F3`PowerTableCliJson,
 }
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3PowerTableCliJson {
+pub struct `F3`PowerTableCliJson {
     #[serde(rename = "CID")]
     #[serde_as(as = "DisplayFromStr")]
     cid: Cid,
     #[serde(with = "crate::lotus_json")]
-    entries: Vec<F3PowerEntry>,
+    entries: Vec<`F3`PowerEntry>,
     #[serde(with = "crate::lotus_json::stringify")]
     total: num::BigInt,
     scaled_total: i64,
@@ -586,11 +586,11 @@ pub struct F3PowerTableCliJson {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3PowerTableGetProportionCommandResult {
+pub struct `F3`PowerTableGetProportionCommandResult {
     instance: u64,
     #[serde(rename = "FromEC")]
     from_ec: bool,
-    power_table: F3PowerTableCliMinimalJson,
+    power_table: `F3`PowerTableCliMinimalJson,
     scaled_sum: i64,
     proportion: f64,
     not_found: Vec<ActorID>,
@@ -599,7 +599,7 @@ pub struct F3PowerTableGetProportionCommandResult {
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct F3PowerTableCliMinimalJson {
+pub struct `F3`PowerTableCliMinimalJson {
     #[serde(rename = "CID")]
     #[serde_as(as = "DisplayFromStr")]
     cid: Cid,

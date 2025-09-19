@@ -8,7 +8,7 @@ source "$(dirname "$0")/harness.sh"
 forest_init_stateless
 
 # Example format: /ip4/127.0.0.1/tcp/41937/p2p/12D3KooWAB9z7vZ1x1v9t4BViVkX1Hy1ScoRnWV2GgGy5ec6pfUZ
-STATELESS_NODE_ADDRESS=$($FOREST_CLI_PATH net listen | tail -n 1)
+STATELESS_NODE_ADDRESS=$($FOREST_`CLI`_PATH net listen | tail -n 1)
 echo "Stateless node address: $STATELESS_NODE_ADDRESS"
 # Example format: 12D3KooWAB9z7vZ1x1v9t4BViVkX1Hy1ScoRnWV2GgGy5ec6pfUZ
 STATELESS_NODE_PEER_ID=$(echo "$STATELESS_NODE_ADDRESS" | cut --delimiter="/" --fields=7 --zero-terminated)

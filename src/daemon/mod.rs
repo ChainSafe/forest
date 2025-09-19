@@ -384,13 +384,13 @@ fn maybe_start_rpc_service(
 
 fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> anyhow::Result<()> {
     // already running
-    if crate::rpc::f3::F3_LEASE_MANAGER.get().is_some() {
+    if crate::rpc::f3::`F3`_LEASE_MANAGER.get().is_some() {
         return Ok(());
     }
 
     if !config.client.enable_rpc {
         if crate::f3::is_sidecar_ffi_enabled(ctx.state_manager.chain_config()) {
-            tracing::warn!("F3 sidecar is enabled but not run because RPC is disabled. ")
+            tracing::warn!("`F3` sidecar is enabled but not run because RPC is disabled. ")
         }
         return Ok(());
     }
@@ -401,15 +401,15 @@ fn maybe_start_f3_service(opts: &CliOpts, config: &Config, ctx: &AppContext) -> 
         let p2p_peer_id = ctx.p2p_peer_id;
         let admin_jwt = ctx.admin_jwt.clone();
         tokio::task::spawn_blocking({
-            crate::rpc::f3::F3_LEASE_MANAGER
-                .set(crate::rpc::f3::F3LeaseManager::new(
+            crate::rpc::f3::`F3`_LEASE_MANAGER
+                .set(crate::rpc::f3::`F3`LeaseManager::new(
                     state_manager.chain_config().network.clone(),
                     p2p_peer_id,
                 ))
-                .expect("F3 lease manager should not have been initialized before");
+                .expect("`F3` lease manager should not have been initialized before");
             let chain_config = state_manager.chain_config().clone();
             let f3_root = crate::f3::get_f3_root(config);
-            let crate::f3::F3Options {
+            let crate::f3::`F3`Options {
                 chain_finality,
                 bootstrap_epoch,
                 initial_power_table,

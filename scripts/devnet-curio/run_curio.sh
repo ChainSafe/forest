@@ -41,7 +41,7 @@ if [ ! -f "$CURIO_REPO_PATH"/.init.curio ]; then
   curio run --nosync --layers seal,post,gui &
   CURIO_PID=$!
   until curio cli --machine "$myip":12300 wait-api; do
-    echo "Waiting for the curio CLI to become ready..."
+    echo "Waiting for the curio `CLI` to become ready..."
     sleep 5
   done
   curio cli --machine "$myip":12300 storage attach --init --seal --store "$CURIO_REPO_PATH"

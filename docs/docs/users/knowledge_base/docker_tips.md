@@ -70,7 +70,7 @@ docker run --init -it --rm --entrypoint forest-tool ghcr.io/chainsafe/forest:lat
 docker run --init -it --rm --entrypoint forest-wallet ghcr.io/chainsafe/forest:latest --help
 ```
 
-Also see the [CLI documentation](../reference/cli.md) for more details about commands and
+Also see the [`CLI` documentation](../reference/cli.md) for more details about commands and
 their usage.
 
 ### Run a Forest node with custom environment variables

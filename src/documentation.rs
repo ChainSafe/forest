@@ -97,7 +97,7 @@
 ///
 /// The [`ChainMuxer`](crate::chain_sync::ChainMuxer) receives two kinds of [messages](crate::libp2p::PubsubMessage)
 /// from peers:
-/// - [`GossipBlock`](crate::blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` CIDs.
+/// - [`GossipBlock`](crate::blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` `CIDs`.
 /// - [`SignedMessage`](crate::message::SignedMessage)s
 ///
 /// It assembles these messages into a chain to genesis.

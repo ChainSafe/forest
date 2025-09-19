@@ -27,7 +27,7 @@ Until June 2025, the Lotus
 [V0](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v0-deprecated.md)
 and
 [V1](https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-methods-v1-stable.md)
-APIs served as the reference for Forest's implementation.
+`APIs` served as the reference for Forest's implementation.
 
 Since June 2025, the [Common Node API](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0104.md) has been the standard for RPC methods across Filecoin clients, replacing the Lotus-specific API as the primary reference for V1 methods.
 
@@ -39,7 +39,7 @@ An FIP to establish a canonical RPC API specification for general use [has been 
 
 ## Connecting To A Node
 
-By default, Forest exposes the RPC API on `localhost:2345`. See [CLI docs](./cli.md) for configuration options.
+By default, Forest exposes the RPC API on `localhost:2345`. See [`CLI` docs](./cli.md) for configuration options.
 
 ### Authentication
 

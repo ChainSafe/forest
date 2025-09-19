@@ -36,7 +36,7 @@ Forest produces snapshots compatible with Lotus, with much faster generation tim
 
 This benchmark was performed on a bare metal server with the following specifications:
 
-- `AMD EPYC 7F32 8-Core Processor`
+- `AMD EPYC 7`F3`2 8-Core Processor`
 - `512 GiB RAM`
 - `4 TiB NVMe SSD`
 

@@ -63,7 +63,7 @@ The admin token is assumed to be stored in `/tmp/token` for the following exampl
 
 ### via `forest-cli`
 
-The most straightforward way to use tokens is to pass them to the `forest-cli` tool. This can be done either by passing it via the `--token` flag or by setting the `FULLNODE_API_INFO` environment variable. Note that the token is automatically set for CLI if it is invoked on the same host of the daemon.
+The most straightforward way to use tokens is to pass them to the `forest-cli` tool. This can be done either by passing it via the `--token` flag or by setting the `FULLNODE_API_INFO` environment variable. Note that the token is automatically set for `CLI` if it is invoked on the same host of the daemon.
 
 ```bash
 forest-cli --token $(cat /tmp/token) shutdown

@@ -32,11 +32,11 @@ func main() {
 	var jwt string
 	flag.StringVar(&jwt, "jwt", "", "the JWT token for invoking forest RPC methods that require WRITE and SIGN permission")
 	var f3RpcEndpoint string
-	flag.StringVar(&f3RpcEndpoint, "f3-rpc", "127.0.0.1:23456", "The RPC endpoint F3 sidecar listens on")
+	flag.StringVar(&f3RpcEndpoint, "f3-rpc", "127.0.0.1:23456", "The RPC endpoint `F3` sidecar listens on")
 	var initialPowerTable string
 	flag.StringVar(&initialPowerTable, "initial-power-table", "", "The CID of the initial power table")
 	var bootstrapEpoch int64
-	flag.Int64Var(&bootstrapEpoch, "bootstrap", -1, "F3 bootstrap epoch")
+	flag.Int64Var(&bootstrapEpoch, "bootstrap", -1, "`F3` bootstrap epoch")
 	var finality int64
 	flag.Int64Var(&finality, "finality", 900, "chain finality epochs")
 	var f3Root string

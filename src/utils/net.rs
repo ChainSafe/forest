@@ -21,8 +21,8 @@ use tracing::info;
 use url::Url;
 
 pub fn global_http_client() -> reqwest::Client {
-    static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
-    CLIENT.clone()
+    static `CLI`ENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+    `CLI`ENT.clone()
 }
 
 /// Download a file via IPFS HTTP gateway in trustless mode.

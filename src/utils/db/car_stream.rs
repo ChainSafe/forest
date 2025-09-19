@@ -29,7 +29,7 @@ use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
-    // The roots array must contain one or more CIDs,
+    // The roots array must contain one or more `CIDs`,
     // each of which should be present somewhere in the remainder of the CAR.
     // See <https://ipld.io/specs/transport/car/carv1/#constraints>
     pub roots: NonEmpty<Cid>,

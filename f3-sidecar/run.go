@@ -104,7 +104,7 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 
 	rpcServer := jsonrpc.NewServer()
-	serverHandler := &F3ServerHandler{f3Module}
+	serverHandler := &`F3`ServerHandler{f3Module}
 	rpcServer.Register("Filecoin", serverHandler)
 	srv := &http.Server{
 		Handler: rpcServer,
@@ -176,12 +176,12 @@ func run(ctx context.Context, rpcEndpoint string, jwt string, f3RpcEndpoint stri
 	}
 }
 
-func participate(ctx context.Context, f3Module *f3.F3, signer gpbft.Signer, msgToSign *gpbft.MessageBuilder, miner uint64) error {
+func participate(ctx context.Context, f3Module *f3.`F3`, signer gpbft.Signer, msgToSign *gpbft.MessageBuilder, miner uint64) error {
 	signatureBuilder, err := msgToSign.PrepareSigningInputs(gpbft.ActorID(miner))
 	if err != nil {
 		if errors.Is(err, gpbft.ErrNoPower) {
-			// we don't have any power in F3, continue
-			return fmt.Errorf("no power to participate in F3: %+v", err)
+			// we don't have any power in `F3`, continue
+			return fmt.Errorf("no power to participate in `F3`: %+v", err)
 		} else {
 			return fmt.Errorf("preparing signing inputs: %+v", err)
 		}
@@ -190,7 +190,7 @@ func participate(ctx context.Context, f3Module *f3.F3, signer gpbft.Signer, msgT
 	if err != nil {
 		logger.Warnf("signing message: %+v", err)
 	}
-	logger.Debugf("miner with id %d is sending message in F3", miner)
+	logger.Debugf("miner with id %d is sending message in `F3`", miner)
 	f3Module.Broadcast(ctx, signatureBuilder, payloadSig, vrfSig)
 	return nil
 }

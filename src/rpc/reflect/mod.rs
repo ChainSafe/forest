@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Forest wishes to provide [OpenRPC](http://open-rpc.org) definitions for
-//! Filecoin APIs.
+//! Filecoin `APIs`.
 //! To do this, it needs:
 //! - [JSON Schema](https://json-schema.org/) definitions for all the argument
 //!   and return types.
 //! - The number of arguments ([arity](https://en.wikipedia.org/wiki/Arity)) and
 //!   names of those arguments for each RPC method.
 //!
-//! As a secondary objective, we wish to provide an RPC client for our CLI, and
+//! As a secondary objective, we wish to provide an RPC client for our `CLI`, and
 //! internal tests against Lotus.
 //!
 //! The [`RpcMethod`] trait encapsulates all the above at a single site.

@@ -113,7 +113,7 @@ jobs:
   forest-cli-check:
     needs:
       - build-ubuntu
-    name: Forest CLI checks
+    name: Forest `CLI` checks
     runs-on: ubuntu-24.04
     steps:
       - run: lscpu
@@ -287,7 +287,7 @@ jobs:
   calibnet-export-check-v2:
     needs:
       - build-ubuntu
-    name: Snapshot export checks v2 with F3 data
+    name: Snapshot export checks v2 with `F3` data
     runs-on: ubuntu-24.04
     steps:
       - run: lscpu
