@@ -330,8 +330,10 @@ async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
 }
 
 pub fn uvi_bytes() -> UviBytes {
+    // 8GiB
+    const MAX_LEN: usize = 8 * 1024 * 1024 * 1024;
     let mut decoder = UviBytes::default();
-    decoder.set_max_len(8 * 1024 * 1024 * 1024); // 8GiB
+    decoder.set_max_len(MAX_LEN);
     decoder
 }
 
