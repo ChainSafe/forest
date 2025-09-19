@@ -5,7 +5,7 @@
 //! - use [`jsonrpsee`] clients and primitives.
 //! - Support [`rpc::Request`](crate::rpc::Request).
 //! - Support different
-//!   - endpoint paths (`v0`, v1).
+//!   - endpoint paths (`v0`, `v1`).
 //!   - communication protocols (`ws`, `http`).
 //! - Support per-request timeouts.
 

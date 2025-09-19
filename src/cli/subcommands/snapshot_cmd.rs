@@ -37,7 +37,7 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
-        /// Export snapshot in the experimental v2 format(FRC-0108).
+        /// Export snapshot in the experimental `v2` format(FRC-0108).
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
         format: FilecoinSnapshotVersion,
     },

@@ -1,6 +1,6 @@
 136
 Algorand/M
-API/SM
+APIs
 args
 arity
 async
@@ -23,6 +23,7 @@ CARv2/SM
 CBOR
 ChainSafe/M
 CID/SM
+CLI
 clonable
 Cloudflare
 codebase
@@ -40,7 +41,7 @@ DevOps
 DNS
 EIP
 EIP155
-enum
+enum/S
 EOF
 eth
 Ethereum
