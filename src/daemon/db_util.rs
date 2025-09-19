@@ -166,6 +166,9 @@ pub async fn import_chain_as_forest_car(
                 } else {
                     // For a local snapshot, we transcode directly instead of copying & transcoding.
                     transcode_into_forest_car(from_path, &downloaded_car_temp_path).await?;
+                    if mode == ImportMode::Move {
+                        std::fs::remove_file(from_path).context("Error removing original file")?;
+                    }
                 }
             }
 
