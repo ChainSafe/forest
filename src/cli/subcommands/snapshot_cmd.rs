@@ -7,7 +7,8 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
 use crate::rpc::chain::ForestChainExportDiffParams;
-use crate::rpc::{self, chain::ForestChainExportParams, prelude::*, types::ApiTipsetKey};
+use crate::rpc::{self, chain::ForestChainExportParams, prelude::*};
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
@@ -69,12 +70,18 @@ impl SnapshotCommands {
                 depth,
                 format,
             } => {
-                let chain_head = ChainHead::call(&client, ()).await?;
+                anyhow::ensure!(
+                    depth >= 0,
+                    "--depth must be non-negative; use 0 for spine-only snapshots"
+                );
 
-                let epoch = tipset.unwrap_or(chain_head.epoch());
+                if depth < CHAIN_FINALITY {
+                    tracing::warn!(
+                        "Depth {depth} should be no less than CHAIN_FINALITY {CHAIN_FINALITY} to export a valid lite snapshot"
+                    );
+                }
 
                 let raw_network_name = StateNetworkName::call(&client, ()).await?;
-
                 // For historical reasons and backwards compatibility if snapshot services or their
                 // consumers relied on the `calibnet`, we use `calibnet` as the chain name.
                 let chain_name = if raw_network_name == calibnet::NETWORK_GENESIS_NAME {
@@ -83,13 +90,17 @@ impl SnapshotCommands {
                     raw_network_name.as_str()
                 };
 
-                // This could take long when the requested epoch is far behind the chain head
-                let tipset = client
-                    .call(
-                        ChainGetTipSetByHeight::request((epoch, Default::default()))?
-                            .with_timeout(Duration::from_secs(60 * 15)),
-                    )
-                    .await?;
+                let tipset = if let Some(epoch) = tipset {
+                    // This could take a while when the requested epoch is far behind the chain head
+                    client
+                        .call(
+                            ChainGetTipSetByHeight::request((epoch, Default::default()))?
+                                .with_timeout(Duration::from_secs(60 * 15)),
+                        )
+                        .await?
+                } else {
+                    ChainHead::call(&client, ()).await?
+                };
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -99,7 +110,7 @@ impl SnapshotCommands {
                             .unwrap_or_default()
                             .naive_utc()
                             .date(),
-                        epoch,
+                        tipset.epoch(),
                         true,
                     )),
                     false => output_path.clone(),
@@ -110,10 +121,10 @@ impl SnapshotCommands {
 
                 let params = ForestChainExportParams {
                     version: format,
-                    epoch,
+                    epoch: tipset.epoch(),
                     recent_roots: depth,
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    tipset_keys: tipset.key().clone().into(),
                     skip_checksum,
                     dry_run,
                 };
