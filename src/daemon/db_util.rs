@@ -161,7 +161,15 @@ pub async fn import_chain_as_forest_car(
                 snapshot_progress_tracker.completed();
             } else {
                 snapshot_progress_tracker.not_required();
-                move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
+                if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
+                    move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
+                } else {
+                    // For a local snapshot, we transcode directly instead of copying & transcoding.
+                    transcode_into_forest_car(from_path, &downloaded_car_temp_path).await?;
+                    if mode == ImportMode::Move {
+                        std::fs::remove_file(from_path).context("Error removing original file")?;
+                    }
+                }
             }
 
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(
@@ -292,6 +300,11 @@ fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow:
 }
 
 async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()> {
+    tracing::info!(
+        from = %from.display(),
+        to = %to.display(),
+        "transcoding into forest car"
+    );
     let car_stream = CarStream::new(tokio::io::BufReader::new(
         tokio::fs::File::open(from).await?,
     ))
