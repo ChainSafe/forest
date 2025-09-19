@@ -331,7 +331,7 @@ async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
 
 pub fn uvi_bytes() -> UviBytes {
     let mut decoder = UviBytes::default();
-    decoder.set_max_len(usize::MAX);
+    decoder.set_max_len(8 * 1024 * 1024 * 1024); // 8GiB
     decoder
 }
 
