@@ -26,7 +26,7 @@ pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    pub db: DB,
+    db: DB,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +43,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
         let ts_cache =
             SizeTrackingLruCache::new_with_metrics("tipset".into(), DEFAULT_TIPSET_CACHE_SIZE);
         Self { ts_cache, db }
+    }
+
+    pub fn db(&self) -> &DB {
+        &self.db
     }
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
@@ -125,7 +129,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
         static CACHE: LazyLock<SizeTrackingLruCache<ChainEpoch, TipsetKey>> = LazyLock::new(|| {
             SizeTrackingLruCache::new_with_metrics(
                 "tipset_by_height".into(),
-                4096.try_into().expect("infallible"),
+                // 20480 * 900 = 18432000 which is sufficient for mainnet
+                20480.try_into().expect("infallible"),
             )
         });
 

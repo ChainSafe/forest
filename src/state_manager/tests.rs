@@ -69,8 +69,7 @@ fn setup_chain_with_tipsets() -> TestChainSetup {
         .expect("should create chain store"),
     );
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store.clone(), chain_config.clone()).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
 
     // Create dummy state and receipt roots and store them in blockstore
     let state_root = create_dummy_cid(1);
@@ -132,8 +131,7 @@ fn test_try_lookup_state_from_next_tipset_success() {
         .set_heaviest_tipset(Arc::new(child_ts.clone()))
         .unwrap();
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
     let result = state_manager.try_lookup_state_from_next_tipset(parent_ts);
 
@@ -166,8 +164,7 @@ fn test_try_lookup_state_from_next_tipset_no_next_tipset() {
         .set_heaviest_tipset(Arc::new(a_ts.clone()))
         .unwrap();
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
     let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
 
@@ -226,8 +223,7 @@ fn test_try_lookup_state_from_next_tipset_different_parent() {
         .set_heaviest_tipset(Arc::new(b_ts.clone()))
         .unwrap();
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
     let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
 
@@ -270,8 +266,7 @@ fn test_try_lookup_state_from_next_tipset_missing_receipt_root() {
         .set_heaviest_tipset(Arc::new(b_ts.clone()))
         .unwrap();
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
     let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
 
@@ -314,8 +309,7 @@ fn test_try_lookup_state_from_next_tipset_missing_state_root() {
         .set_heaviest_tipset(Arc::new(b_ts.clone()))
         .unwrap();
 
-    let state_manager =
-        Arc::new(StateManager::new(chain_store, Arc::new(ChainConfig::default())).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store).unwrap());
 
     let result = state_manager.try_lookup_state_from_next_tipset(a_ts);
 

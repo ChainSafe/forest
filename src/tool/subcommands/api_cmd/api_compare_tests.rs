@@ -2163,10 +2163,10 @@ async fn revalidate_chain(db: Arc<ManyCar>, n_ts_to_validate: usize) -> anyhow::
         db.clone(),
         db.clone(),
         db.clone(),
-        chain_config.clone(),
+        chain_config,
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
+    let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,

@@ -8,6 +8,7 @@ pub mod main;
 
 use crate::blocks::Tipset;
 use crate::chain::HeadChange;
+use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::ChainFollower;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::snapshot;
@@ -38,6 +39,7 @@ use futures::{Future, FutureExt, select};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::Instant;
 use tokio::{
     net::TcpListener,
     signal::{
@@ -221,8 +223,10 @@ async fn maybe_start_metrics_service(
             let chain_store = Arc::downgrade(ctx.state_manager.chain_store());
             move || {
                 if let Some(cs) = chain_store.upgrade()
-                    && let Ok(state) =
-                        StateTree::new_from_root(cs.db.clone(), cs.heaviest_tipset().parent_state())
+                    && let Ok(state) = StateTree::new_from_root(
+                        cs.blockstore().clone(),
+                        cs.heaviest_tipset().parent_state(),
+                    )
                     && let Ok(bundle_meta) = state.get_actor_bundle_metadata()
                     && let Ok(actor_version) = bundle_meta.actor_major_version()
                 {
@@ -513,7 +517,7 @@ fn maybe_start_indexer_service(
             services.spawn(async move {
                 tracing::info!("Starting collector for eth_mappings");
                 let mut collector = EthMappingCollector::new(
-                    chain_store.db.clone(),
+                    chain_store.blockstore().clone(),
                     chain_config.eth_chain_id,
                     retention_epochs.into(),
                 );
@@ -605,6 +609,7 @@ pub(super) async fn start_services(
         return Ok(());
     }
     on_app_context_and_db_initialized(&ctx);
+    warmup_in_background(&ctx);
     ctx.state_manager.populate_cache();
     maybe_start_metrics_service(&mut services, &config, &ctx).await?;
     maybe_start_f3_service(opts, &config, &ctx)?;
@@ -621,6 +626,30 @@ pub(super) async fn start_services(
         .await
         .context("services failure")
         .map(|_| {})
+}
+
+fn warmup_in_background(ctx: &AppContext) {
+    // Populate `tipset_by_height` cache
+    let cs = ctx.chain_store().clone();
+    tokio::task::spawn_blocking(move || {
+        let start = Instant::now();
+        match cs.chain_index().tipset_by_height(
+            // 0 would short-circuit the cache
+            1,
+            cs.heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        ) {
+            Ok(_) => {
+                tracing::info!(
+                    "Successfully populated tipset_by_height cache, took {}",
+                    humantime::format_duration(start.elapsed())
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Failed to populate tipset_by_height cache: {e}");
+            }
+        }
+    });
 }
 
 /// If our current chain is below a supported height, we need a snapshot to bring it up

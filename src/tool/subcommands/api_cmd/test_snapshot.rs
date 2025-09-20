@@ -142,12 +142,12 @@ async fn ctx(
             db.clone(),
             db.clone(),
             db,
-            chain_config.clone(),
+            chain_config,
             genesis_header.clone(),
         )
         .unwrap(),
     );
-    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config).unwrap());
+    let state_manager = Arc::new(StateManager::new(chain_store.clone()).unwrap());
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_send.clone(),

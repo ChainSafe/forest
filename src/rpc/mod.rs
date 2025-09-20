@@ -470,7 +470,7 @@ impl<DB: Blockstore> RPCState<DB> {
     }
 
     pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
-        &self.chain_store().chain_index
+        self.chain_store().chain_index()
     }
 
     pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {

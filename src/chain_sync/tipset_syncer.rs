@@ -189,7 +189,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     block_timestamp_checks(header).map_err(|e| (*block_cid, e))?;
 
     let base_tipset = chain_store
-        .chain_index
+        .chain_index()
         .load_required_tipset(&header.parents)
         // The parent tipset will always be there when calling validate_block
         // as part of the sync_tipset_range flow because all of the headers in the range
@@ -200,7 +200,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
-        state_manager.chain_store().chain_index.clone(),
+        state_manager.chain_store().chain_index().clone(),
         state_manager.chain_config().clone(),
         base_tipset.clone(),
         block.header().epoch,

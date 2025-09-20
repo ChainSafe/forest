@@ -59,13 +59,13 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// key-value `datastore`.
-    pub db: Arc<DB>,
+    db: Arc<DB>,
 
     /// Heaviest tipset key provider
     heaviest_tipset_key_provider: Arc<dyn HeaviestTipsetKeyProvider + Sync + Send>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -82,7 +82,7 @@ pub struct ChainStore<DB> {
     indices: Arc<dyn IndicesStore + Sync + Send>,
 
     /// Needed by the Ethereum mapping.
-    pub chain_config: Arc<ChainConfig>,
+    chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -239,8 +239,18 @@ where
     }
 
     /// Returns key-value store instance.
-    pub fn blockstore(&self) -> &DB {
+    pub fn blockstore(&self) -> &Arc<DB> {
         &self.db
+    }
+
+    /// Returns the chain index
+    pub fn chain_index(&self) -> &Arc<ChainIndex<Arc<DB>>> {
+        &self.chain_index
+    }
+
+    /// Returns the chain configuration
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
     }
 
     /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
@@ -329,7 +339,7 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp;
+            let genesis_timestamp = heaviest_tipset.genesis(chain_index.db())?.timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let StateOutput { state_root, .. } = crate::state_manager::apply_block_messages(
                 genesis_timestamp,

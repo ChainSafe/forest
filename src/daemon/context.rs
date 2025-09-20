@@ -65,6 +65,10 @@ impl AppContext {
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         self.state_manager.chain_config()
     }
+
+    pub fn chain_store(&self) -> &Arc<ChainStore<DbType>> {
+        self.state_manager.chain_store()
+    }
 }
 
 fn get_chain_config_and_set_network(config: &Config) -> Arc<ChainConfig> {
@@ -247,10 +251,7 @@ async fn create_state_manager(
     )?);
 
     // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(chain_config),
-    )?);
+    let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store))?);
 
     Ok(state_manager)
 }
