@@ -759,8 +759,8 @@ Options:
       --skip-checksum              Skip creating the checksum file
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
-  -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
-      --format <FORMAT>            Export snapshot in the experimental v2 format(FRC-0108) [default: v1] [possible values: v1, v2]
+  -d, --depth <DEPTH>              How many state trees to include. 0 for chain spine with no state trees [default: 2000]
+      --format <FORMAT>            Snapshot format to export [default: v1] [possible values: v1, v2]
   -h, --help                       Print help
 ```
 
