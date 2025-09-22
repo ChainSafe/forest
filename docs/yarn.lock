@@ -1512,7 +1512,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@braintree/sanitize-url@npm:^7.0.4":
+"@braintree/sanitize-url@npm:^7.0.4, @braintree/sanitize-url@npm:^7.1.1":
   version: 7.1.1
   resolution: "@braintree/sanitize-url@npm:7.1.1"
   checksum: 10c0/fdfc1759c4244e287693ce1e9d42d649423e7c203fdccf27a571f8951ddfe34baa5273b7e6a8dd3007d7676859c7a0a9819be0ab42a3505f8505ad0eefecf7c1
@@ -6550,6 +6550,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dayjs@npm:^1.11.18":
+  version: 1.11.18
+  resolution: "dayjs@npm:1.11.18"
+  checksum: 10c0/83b67f5d977e2634edf4f5abdd91d9041a696943143638063016915d2cd8c7e57e0751e40379a07ebca8be7a48dd380bef8752d22a63670f2d15970e34f96d7a
+  languageName: node
+  linkType: hard
+
 "debounce@npm:^1.2.1":
   version: 1.2.1
   resolution: "debounce@npm:1.2.1"
@@ -7730,7 +7737,7 @@ __metadata:
     "@docusaurus/tsconfig": "npm:^3.8.1"
     "@easyops-cn/docusaurus-search-local": "npm:^0.52.1"
     mdx-mermaid: "npm:^2.0.3"
-    mermaid: "npm:^11.11.0"
+    mermaid: "npm:^11.12.0"
     prettier: "npm:^3.6.2"
     prism-react-renderer: "npm:^2.4.1"
     react: "npm:^19.1.1"
@@ -9776,21 +9783,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"marked@npm:^15.0.7":
-  version: 15.0.12
-  resolution: "marked@npm:15.0.12"
-  bin:
-    marked: bin/marked.js
-  checksum: 10c0/e09da211544b787ecfb25fed07af206060bf7cd6d9de6cb123f15c496a57f83b7aabea93340aaa94dae9c94e097ae129377cad6310abc16009590972e85f4212
-  languageName: node
-  linkType: hard
-
 "marked@npm:^16.0.0":
   version: 16.2.0
   resolution: "marked@npm:16.2.0"
   bin:
     marked: bin/marked.js
   checksum: 10c0/aefc418370e916ffeb821d05a585f4311c529268880113ee3695857bfb335119b5b4cd202a5d198fc087f7f3c59f98170ba1994027b2a9b8a172b31e3047ca3a
+  languageName: node
+  linkType: hard
+
+"marked@npm:^16.2.1":
+  version: 16.3.0
+  resolution: "marked@npm:16.3.0"
+  bin:
+    marked: bin/marked.js
+  checksum: 10c0/5a3d7da93d7692014c8764c31dc741fa6ee16d8573788a3b28d041c440e79177c46d786ad7c1fc2b3f5e301d6db32e22da45efd4c00ddbc31caf87bd8e9a673b
   languageName: node
   linkType: hard
 
@@ -10311,11 +10318,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mermaid@npm:^11.11.0":
-  version: 11.11.0
-  resolution: "mermaid@npm:11.11.0"
+"mermaid@npm:^11.12.0":
+  version: 11.12.0
+  resolution: "mermaid@npm:11.12.0"
   dependencies:
-    "@braintree/sanitize-url": "npm:^7.0.4"
+    "@braintree/sanitize-url": "npm:^7.1.1"
     "@iconify/utils": "npm:^3.0.1"
     "@mermaid-js/parser": "npm:^0.6.2"
     "@types/d3": "npm:^7.4.3"
@@ -10325,17 +10332,17 @@ __metadata:
     d3: "npm:^7.9.0"
     d3-sankey: "npm:^0.12.3"
     dagre-d3-es: "npm:7.0.11"
-    dayjs: "npm:^1.11.13"
+    dayjs: "npm:^1.11.18"
     dompurify: "npm:^3.2.5"
     katex: "npm:^0.16.22"
     khroma: "npm:^2.1.0"
     lodash-es: "npm:^4.17.21"
-    marked: "npm:^15.0.7"
+    marked: "npm:^16.2.1"
     roughjs: "npm:^4.6.6"
     stylis: "npm:^4.3.6"
     ts-dedent: "npm:^2.2.0"
     uuid: "npm:^11.1.0"
-  checksum: 10c0/92f54ea525ab8ea1086dd0f32eff37e1e8c97d88533b295bda957c09dbe6d5a3ad94176fa52af891435c902839900a0b968e17a424b4ccb3567d7a072061e5ab
+  checksum: 10c0/6381deff6559d035fe19da8e5c8f4738f173cd811d20277a347643994861d7f13185f76e31d338c0ef1f51aa44a7e05b48f8457d7a3aa850c853d2f24758384c
   languageName: node
   linkType: hard
 
