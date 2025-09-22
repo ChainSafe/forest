@@ -41,6 +41,8 @@
 
 - [#5055](https://github.com/ChainSafe/forest/issues/5055) Fixed an issue where Forest fails on duplicate drand entries. This would only happen on new devnets.
 
+- [#6103](https://github.com/ChainSafe/forest/pull/6103) Fixed `eth_getTransactionCount` to return the nonce of the requested tipset and not its parent.
+
 ## Forest v0.30.1 "Laurelin"
 
 Mandatory release for mainnet node operators. It sets the NV27 _Golden Week_ network upgrade to epoch `5_348_280` which corresponds to `Wed 24 Sep 23:00:00 UTC 2025`. It also includes a few improvements that help with snapshot generation and inspection.

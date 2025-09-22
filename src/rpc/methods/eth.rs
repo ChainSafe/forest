@@ -2252,7 +2252,10 @@ impl RpcMethod<2> for EthGetTransactionCount {
             block_param.clone(),
             ResolveNullTipset::TakeOlder,
         )?;
-        let state = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+
+        let (state_cid, _) = ctx.state_manager.tipset_state(&ts).await?;
+
+        let state = StateTree::new_from_root(ctx.store_owned(), &state_cid)?;
         let actor = state.get_required_actor(&addr)?;
         if is_evm_actor(&actor.code) {
             let evm_state = evm::State::load(ctx.store(), actor.code, actor.state)?;
