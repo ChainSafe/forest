@@ -4,7 +4,6 @@
 # executed directly.
 
 export FOREST_CHAIN_INDEXER_ENABLED="1"
-export FOREST_ETH_MAPPINGS_RANGE="300"
 
 export FOREST_PATH="forest"
 export FOREST_CLI_PATH="forest-cli"
