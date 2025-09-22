@@ -97,6 +97,7 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     }
 }
 
+#[derive(Clone)]
 struct GasMeta {
     pub price: TokenAmount,
     pub limit: u64,
@@ -139,8 +140,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         ts = pts;
     }
 
-    prices.sort_by(|a, b| b.price.cmp(&a.price));
-    let mut premium = median_gas_premium_calculation(&prices, blocks as u64);
+    let mut premium = median_gas_premium_calculation(prices, blocks as u64);
 
     if premium < TokenAmount::from_atto(MIN_GAS_PREMIUM as u64) {
         premium = TokenAmount::from_atto(match nblocksincl {
@@ -165,7 +165,9 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 }
 
 // finds 55th percentile instead of median to put negative pressure on gas price
-fn median_gas_premium_calculation(prices: &Vec<GasMeta>, blocks: u64) -> TokenAmount {
+fn median_gas_premium_calculation(mut prices: Vec<GasMeta>, blocks: u64) -> TokenAmount {
+    prices.sort_by(|a, b| b.price.cmp(&a.price));
+
     let mut at = BLOCK_GAS_TARGET * blocks / 2;
     at += BLOCK_GAS_TARGET * blocks / (2 * 20);
 
@@ -375,4 +377,167 @@ fn cap_gas_fee(
 
     // cap premium at FeeCap
     msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shim::econ::TokenAmount;
+
+    #[test]
+    fn test_median_gas_premium_calculation_single_entry() {
+        // Test with single entry at full block gas target
+        let prices = vec![GasMeta {
+            price: TokenAmount::from_atto(5),
+            limit: BLOCK_GAS_TARGET,
+        }];
+        let result = median_gas_premium_calculation(prices, 1);
+        assert_eq!(result, TokenAmount::from_atto(5));
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_two_entries() {
+        // Test with two entries, each at full block gas target
+        // Function will sort by price descending: [10, 5]
+        // With 1 block: at = BLOCK_GAS_TARGET/2 + BLOCK_GAS_TARGET/40 = 2.625B gas
+        // First entry (10): limit = 5B > 2.625B, so we stop immediately and return first price
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(5),
+                limit: BLOCK_GAS_TARGET,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(10),
+                limit: BLOCK_GAS_TARGET,
+            },
+        ];
+        let result = median_gas_premium_calculation(prices, 1);
+        assert_eq!(result, TokenAmount::from_atto(10));
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_half_block_entries_single_block() {
+        // Test with entries at half-block gas target, single block
+        // Function will sort by price descending: [20, 10]
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(10),
+                limit: BLOCK_GAS_TARGET / 2,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(20),
+                limit: BLOCK_GAS_TARGET / 2,
+            },
+        ];
+        let result = median_gas_premium_calculation(prices, 1);
+        assert_eq!(result, TokenAmount::from_atto(15));
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_three_entries_two_blocks() {
+        // Test with three entries at a half-block gas target, two blocks
+        // Function will sort by price descending: [30, 20, 10]
+        // With 2 blocks: at = BLOCK_GAS_TARGET + BLOCK_GAS_TARGET/20 = 5.25B gas
+        // First entry (30): at = 5.25B - 2.5B = 2.75B remaining
+        // Second entry (20): at = 2.75B - 2.5B = 0.25B remaining
+        // Third entry (10): limit = 2.5B > 0.25B, so we stop and average second and third
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(10),
+                limit: BLOCK_GAS_TARGET / 2,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(20),
+                limit: BLOCK_GAS_TARGET / 2,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(30),
+                limit: BLOCK_GAS_TARGET / 2,
+            },
+        ];
+        let result = median_gas_premium_calculation(prices, 2);
+        let expected = (TokenAmount::from_atto(20) + TokenAmount::from_atto(10)).div_floor(2);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_empty_list() {
+        // Test with empty price list
+        let prices = vec![];
+        let result = median_gas_premium_calculation(prices, 1);
+        assert_eq!(result, TokenAmount::zero());
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_large_gas_limits() {
+        // Test with entries that have gas limits larger than the threshold
+        // Function will sort by price descending: [100, 50]
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(100),
+                limit: BLOCK_GAS_TARGET * 2, // Exceeds threshold immediately
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(50),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+        ];
+        let result = median_gas_premium_calculation(prices, 1);
+        assert_eq!(result, TokenAmount::from_atto(100));
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_unsorted_input() {
+        // Test that function correctly handles unsorted input (sorting is done internally)
+        // Input order: [10, 30, 20] -> After internal sorting: [30, 20, 10]
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(10),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(30),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(20),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+        ];
+
+        let result = median_gas_premium_calculation(prices, 1);
+        let expected = (TokenAmount::from_atto(20) + TokenAmount::from_atto(10)).div_floor(2);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_median_gas_premium_calculation_multiple_blocks() {
+        // Test with multiple blocks affecting the threshold calculation
+        // Function will sort by price descending: [40, 30, 20, 10]
+        let prices = vec![
+            GasMeta {
+                price: TokenAmount::from_atto(40),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(30),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(20),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+            GasMeta {
+                price: TokenAmount::from_atto(10),
+                limit: BLOCK_GAS_TARGET / 4,
+            },
+        ];
+
+        // With 3 blocks, threshold is higher, so we should get a different result
+        let result_1_block = median_gas_premium_calculation(prices.clone(), 1);
+        let result_3_blocks = median_gas_premium_calculation(prices, 3);
+
+        // With more blocks, the threshold is higher, so we should pick a lower price
+        assert!(result_3_blocks <= result_1_block);
+    }
 }
