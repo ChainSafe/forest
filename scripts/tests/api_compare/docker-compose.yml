@@ -59,7 +59,8 @@ services:
 
         SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
         # backfill the index db
-        forest-tool index backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300)) --chain ${CHAIN}
+        # 35 = 30 (SAFE_EPOCH_DELAY) + 5 (--n-tipsets)
+        forest-tool index backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 35)) --chain ${CHAIN}
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
@@ -189,7 +190,8 @@ services:
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
         # backfill the index db first
-        lotus index validate-backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 300))
+        # 35 = 30 (SAFE_EPOCH_DELAY) + 5 (--n-tipsets)
+        lotus index validate-backfill --from $$SNAPSHOT_EPOCH --to $(($$SNAPSHOT_EPOCH - 35))
         sleep 2
         # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus chain sethead --epoch $(($$SNAPSHOT_EPOCH - 50))
