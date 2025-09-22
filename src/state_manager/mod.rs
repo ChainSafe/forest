@@ -393,7 +393,7 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    /// Returns the pair of (parent state root, message receipt root). This will
+    /// Returns the pair of (state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
