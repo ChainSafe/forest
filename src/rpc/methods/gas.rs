@@ -62,7 +62,10 @@ fn estimate_fee_cap<DB: Blockstore>(
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .context("failed to convert fee_in_future f64 to bigint")?;
     let mut out: crate::shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
-    out += msg.gas_premium();
+    if !msg.gas_premium.is_zero() {
+        out += msg.gas_premium();
+    }
+
     Ok(out)
 }
 
@@ -94,17 +97,17 @@ impl RpcMethod<4> for GasEstimateGasPremium {
     }
 }
 
+struct GasMeta {
+    pub price: TokenAmount,
+    pub limit: u64,
+}
+
 pub async fn estimate_gas_premium<DB: Blockstore>(
     data: &Ctx<DB>,
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, ServerError> {
     if nblocksincl == 0 {
         nblocksincl = 1;
-    }
-
-    struct GasMeta {
-        pub price: TokenAmount,
-        pub limit: u64,
     }
 
     let mut prices: Vec<GasMeta> = Vec::new();
@@ -137,24 +140,9 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     }
 
     prices.sort_by(|a, b| b.price.cmp(&a.price));
-    let mut at = BLOCK_GAS_TARGET * blocks as u64 / 2;
-    let mut prev = TokenAmount::zero();
-    let mut premium = TokenAmount::zero();
+    let mut premium = median_gas_premium_calculation(&prices, blocks as u64);
 
-    for price in prices {
-        at -= price.limit;
-        if at > 0 {
-            prev = price.price;
-            continue;
-        }
-        if prev == TokenAmount::zero() {
-            let ret: TokenAmount = price.price + TokenAmount::from_atto(1);
-            return Ok(ret);
-        }
-        premium = (&price.price + &prev).div_floor(2) + TokenAmount::from_atto(1)
-    }
-
-    if premium == TokenAmount::zero() {
+    if premium < TokenAmount::from_atto(MIN_GAS_PREMIUM as u64) {
         premium = TokenAmount::from_atto(match nblocksincl {
             1 => (MIN_GAS_PREMIUM * 2.0) as u64,
             2 => (MIN_GAS_PREMIUM * 1.5) as u64,
@@ -169,11 +157,37 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         .unwrap()
         .sample(&mut crate::utils::rand::forest_rng());
 
-    premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
+    premium *= BigInt::from_f64((noise * (1i64 << precision) as f64) + 1f64)
         .context("failed to convert gas premium f64 to bigint")?;
     premium = premium.div_floor(1i64 << precision);
 
     Ok(premium)
+}
+
+// finds 55th percentile instead of median to put negative pressure on gas price
+fn median_gas_premium_calculation(prices: &Vec<GasMeta>, blocks: u64) -> TokenAmount {
+    let mut at = BLOCK_GAS_TARGET * blocks / 2;
+    at += BLOCK_GAS_TARGET * blocks / (2 * 20);
+
+    let mut prev1 = TokenAmount::zero();
+    let mut prev2 = TokenAmount::zero();
+
+    for p in prices {
+        prev2 = prev1.clone();
+        prev1 = p.price.clone();
+
+        if p.limit > at {
+            // We've crossed the threshold
+            break;
+        }
+        at -= p.limit;
+    }
+
+    if prev2.is_zero() {
+        prev1
+    } else {
+        (&prev1 + &prev2).div_floor(2)
+    }
 }
 
 pub enum GasEstimateGasLimit {}
@@ -301,7 +315,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
 pub async fn estimate_message_gas<DB>(
     data: &Ctx<DB>,
     mut msg: Message,
-    _spec: Option<MessageSendSpec>,
+    msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
 ) -> Result<Message, ServerError>
 where
@@ -320,5 +334,45 @@ where
         let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
+
+    cap_gas_fee(
+        data.chain_config().default_max_fee.as_ref(),
+        &mut msg,
+        msg_spec,
+    );
+
     Ok(msg)
+}
+
+fn cap_gas_fee(
+    default_max_fee: Option<&TokenAmount>,
+    msg: &mut Message,
+    msg_spec: Option<MessageSendSpec>,
+) {
+    let mut max_fee = TokenAmount::zero();
+    let mut maximize_fee_cap = false;
+
+    msg_spec.map(|spec| {
+        maximize_fee_cap = spec.maximize_fee_cap;
+        max_fee = spec.max_fee;
+    });
+
+    max_fee = if max_fee.is_zero() {
+        if let Some(default_max_fee) = default_max_fee {
+            default_max_fee.clone()
+        } else {
+            TokenAmount::zero()
+        }
+    } else {
+        max_fee
+    };
+
+    let gas_limit = msg.gas_limit();
+    let total_fee = msg.gas_fee_cap() * gas_limit;
+    if !max_fee.is_zero() && (maximize_fee_cap || total_fee.gt(&max_fee)) {
+        msg.set_gas_fee_cap(max_fee.div_floor(gas_limit));
+    }
+
+    // cap premium at FeeCap
+    msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()));
 }

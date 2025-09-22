@@ -271,6 +271,7 @@ pub struct ChainConfig {
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub enable_receipt_event_caching: bool,
+    pub default_max_fee: Option<TokenAmount>,
 }
 
 impl ChainConfig {
@@ -304,6 +305,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            default_max_fee: None,
         }
     }
 
@@ -340,6 +342,7 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            default_max_fee: None,
         }
     }
 
@@ -366,6 +369,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            default_max_fee: None,
         }
     }
 
@@ -398,6 +402,7 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             enable_receipt_event_caching: true,
+            default_max_fee: None,
         }
     }
 
