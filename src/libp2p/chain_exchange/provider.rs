@@ -31,7 +31,7 @@ where
 
     let inner = move || {
         let root = match cs
-            .chain_index
+            .chain_index()
             .load_tipset(&TipsetKey::from(request.start.clone()))?
         {
             Some(tipset) => tipset,
@@ -45,7 +45,7 @@ where
         };
 
         let chain: Vec<_> = cs
-            .chain_index
+            .chain_index()
             .chain(root)
             .take(request.request_len as _)
             .map(|tipset| {

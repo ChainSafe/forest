@@ -115,7 +115,7 @@ where
         Ok(self
             .sm
             .chain_store()
-            .chain_index
+            .chain_index()
             .load_required_tipset(tsk)?)
     }
 
