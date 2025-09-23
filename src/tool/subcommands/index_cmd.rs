@@ -32,9 +32,12 @@ pub enum IndexCommands {
         /// The starting tipset epoch for back-filling (inclusive), defaults to chain head
         #[arg(long)]
         from: Option<ChainEpoch>,
-        /// The ending tipset epoch for back-filling (inclusive)
+        /// Optional ending tipset epoch for back-filling (inclusive)
         #[arg(long)]
-        to: ChainEpoch,
+        to: Option<ChainEpoch>,
+        /// Optional number of tipsets for back-filling
+        #[arg(long, conflicts_with = "to")]
+        n_tipsets: Option<usize>,
     },
 }
 
@@ -46,6 +49,7 @@ impl IndexCommands {
                 chain,
                 from,
                 to,
+                n_tipsets,
             } => {
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
@@ -81,7 +85,9 @@ impl IndexCommands {
 
                 println!("Database path: {}", db_root_dir.display());
                 println!("From epoch:    {}", from.unwrap_or_else(|| head_ts.epoch()));
-                println!("To epoch:      {to}");
+                if let Some(to) = to {
+                    println!("To epoch:      {to}");
+                }
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
@@ -94,7 +100,7 @@ impl IndexCommands {
                     head_ts
                 };
 
-                backfill_db(&state_manager, &from_ts, *to).await?;
+                backfill_db(&state_manager, &from_ts, *to, *n_tipsets).await?;
 
                 Ok(())
             }

@@ -105,12 +105,7 @@ pub async fn start_offline_server(
     ensure_proof_params_downloaded().await?;
 
     if index_backfill_epochs > 0 {
-        backfill_db(
-            &state_manager,
-            &head_ts,
-            head_ts.epoch() + 1 - index_backfill_epochs as i64,
-        )
-        .await?;
+        backfill_db(&state_manager, &head_ts, None, Some(index_backfill_epochs)).await?;
     }
 
     let (network_send, _) = flume::bounded(5);

@@ -321,6 +321,37 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
+async fn process_ts<DB>(
+    ts: &Tipset,
+    state_manager: &Arc<StateManager<DB>>,
+    delegated_messages: &mut Vec<(crate::message::SignedMessage, u64)>,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
+{
+    let epoch = ts.epoch();
+    let tsk = ts.key().clone();
+
+    let state_output = state_manager
+        .compute_tipset_state(Arc::new(ts.clone()), NO_CALLBACK, VMTrace::NotTraced)
+        .await?;
+    for events_root in state_output.events_roots.iter().flatten() {
+        tracing::trace!("Indexing events root @{epoch}: {events_root}");
+
+        state_manager.chain_store().put_index(events_root, &tsk)?;
+    }
+
+    delegated_messages.append(
+        &mut state_manager
+            .chain_store()
+            .headers_delegated_messages(ts.block_headers().iter())?,
+    );
+    tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
+    state_manager.chain_store().put_tipset_key(&tsk)?;
+
+    Ok(())
+}
+
 /// To support the Event RPC API, a new column has been added to parity-db to handle the mapping:
 /// - Events root [`Cid`] -> [`TipsetKey`].
 ///
@@ -332,47 +363,42 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
 pub async fn backfill_db<DB>(
     state_manager: &Arc<StateManager<DB>>,
     head_ts: &Tipset,
-    to_epoch: ChainEpoch,
+    to_epoch: Option<ChainEpoch>,
+    n_tipsets: Option<usize>,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
 {
-    tracing::info!(
-        "Starting index backfill (from: {}, to: {})",
-        head_ts.epoch(),
-        to_epoch
-    );
+    if let Some(to_epoch) = to_epoch {
+        tracing::info!(
+            "Starting index backfill (from: {}, to: {})",
+            head_ts.epoch(),
+            to_epoch
+        );
+    }
 
     let mut delegated_messages = vec![];
 
     let mut num_backfills = 0;
-    for ts in head_ts
-        .clone()
-        .chain(&state_manager.chain_store().blockstore())
-        .take_while(|ts| ts.epoch() >= to_epoch)
-    {
-        let epoch = ts.epoch();
-        let tsk = ts.key().clone();
-        let ts = Arc::new(ts);
 
-        let state_output = state_manager
-            .compute_tipset_state(ts.clone(), NO_CALLBACK, VMTrace::NotTraced)
-            .await?;
-        for events_root in state_output.events_roots.iter().flatten() {
-            tracing::trace!("Indexing events root @{epoch}: {events_root}");
-
-            state_manager.chain_store().put_index(events_root, &tsk)?;
+    if let Some(to_epoch) = to_epoch {
+        for ts in head_ts
+            .clone()
+            .chain(&state_manager.chain_store().blockstore())
+            .take_while(|ts| ts.epoch() >= to_epoch)
+        {
+            process_ts(&ts, state_manager, &mut delegated_messages).await?;
+            num_backfills += 1;
         }
-
-        delegated_messages.append(
-            &mut state_manager
-                .chain_store()
-                .headers_delegated_messages(ts.block_headers().iter())?,
-        );
-        tracing::trace!("Indexing tipset @{}: {}", epoch, &tsk);
-        state_manager.chain_store().put_tipset_key(&tsk)?;
-
-        num_backfills += 1;
+    } else {
+        for ts in head_ts
+            .clone()
+            .chain(&state_manager.chain_store().blockstore())
+            .take(n_tipsets.unwrap())
+        {
+            process_ts(&ts, state_manager, &mut delegated_messages).await?;
+            num_backfills += 1;
+        }
     }
 
     state_manager
