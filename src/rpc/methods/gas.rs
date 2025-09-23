@@ -89,9 +89,9 @@ impl RpcMethod<4> for GasEstimateGasPremium {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (nblocksincl, _sender, _gas_limit, _tsk): Self::Params,
+        (nblocksincl, _sender, _gas_limit, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_premium(&ctx, nblocksincl)
+        estimate_gas_premium(&ctx, nblocksincl, &tsk)
             .await
             .map(|n| TokenAmount::to_string(&n))
     }
@@ -106,6 +106,7 @@ struct GasMeta {
 pub async fn estimate_gas_premium<DB: Blockstore>(
     data: &Ctx<DB>,
     mut nblocksincl: u64,
+    ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
     if nblocksincl == 0 {
         nblocksincl = 1;
@@ -114,7 +115,9 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data.chain_store().heaviest_tipset();
+    let mut ts = data
+        .chain_store()
+        .load_required_tipset_or_heaviest(ts_key)?;
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
@@ -329,7 +332,7 @@ where
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
     if msg.gas_premium.is_zero() {
-        let gp = estimate_gas_premium(data, 10).await?;
+        let gp = estimate_gas_premium(data, 10, &tsk).await?;
         msg.set_gas_premium(gp);
     }
     if msg.gas_fee_cap.is_zero() {
@@ -354,10 +357,10 @@ fn cap_gas_fee(
     let mut max_fee = TokenAmount::zero();
     let mut maximize_fee_cap = false;
 
-    msg_spec.map(|spec| {
+    if let Some(spec) = msg_spec {
         maximize_fee_cap = spec.maximize_fee_cap;
         max_fee = spec.max_fee;
-    });
+    }
 
     max_fee = if max_fee.is_zero() {
         if let Some(default_max_fee) = default_max_fee {

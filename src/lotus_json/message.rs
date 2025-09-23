@@ -40,6 +40,14 @@ pub struct MessageLotusJson {
         default
     )]
     params: Option<RawBytes>,
+    #[schemars(with = "LotusJson<Option<::cid::Cid>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        rename = "CID",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    cid: Option<::cid::Cid>,
 }
 
 impl HasLotusJson for Message {
@@ -65,6 +73,7 @@ impl HasLotusJson for Message {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
+        let cid = Some(self.cid());
         let Self {
             version,
             from,
@@ -88,6 +97,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method: method_num,
             params: Some(params),
+            cid,
         }
     }
 
@@ -103,6 +113,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method,
             params,
+            cid: _ignored, // CID is computed from the message content
         } = lotus_json;
         Self {
             version,
