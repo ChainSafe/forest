@@ -94,10 +94,10 @@ pub async fn start_offline_server(
         db.clone(),
         db.clone(),
         db.clone(),
-        chain_config.clone(),
+        chain_config,
         genesis_header.clone(),
     )?);
-    let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
+    let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
 
     // Set proof parameter data dir and make sure the proofs are available. Otherwise,
     // validation might fail due to missing proof parameters.
