@@ -479,7 +479,9 @@ pub fn load_full_tipset<DB: Blockstore>(
     tipset_keys: &TipsetKey,
 ) -> anyhow::Result<FullTipset> {
     // Retrieve tipset from store based on passed in TipsetKey
-    let ts = chain_store.chain_index.load_required_tipset(tipset_keys)?;
+    let ts = chain_store
+        .chain_index()
+        .load_required_tipset(tipset_keys)?;
     let blocks: Vec<_> = ts
         .block_headers()
         .iter()
@@ -619,7 +621,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
             &self.cs,
             self.bad_block_cache.as_ref().map(AsRef::as_ref),
             &self.cs.genesis_tipset(),
-            self.cs.chain_config.block_delay_secs,
+            self.cs.chain_config().block_delay_secs,
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             trace!("Skipping invalid tipset: {}", why);
@@ -631,7 +633,7 @@ impl<DB: Blockstore> SyncStateMachine<DB> {
         let heaviest = self.cs.heaviest_tipset();
         let epoch_diff = heaviest.epoch() - tipset.epoch();
 
-        if epoch_diff > self.cs.chain_config.policy.chain_finality {
+        if epoch_diff > self.cs.chain_config().policy.chain_finality {
             self.mark_bad_tipset(tipset);
             return;
         }
@@ -956,7 +958,7 @@ mod tests {
     #[test]
     fn test_state_machine_validation_order() {
         let (cs, c4u) = setup();
-        let db = cs.db.clone();
+        let db = cs.blockstore().clone();
 
         chain4u! {
             from [genesis_header] in c4u;
@@ -1020,7 +1022,7 @@ mod tests {
     #[test]
     fn test_sync_state_machine_chain_fragments() {
         let (cs, c4u) = setup();
-        let db = cs.db.clone();
+        let db = cs.blockstore().clone();
 
         // Create a forked chain
         // genesis -> a -> b

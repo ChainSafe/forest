@@ -75,11 +75,11 @@ impl IndexCommands {
                     db.clone(),
                     db.clone(),
                     db.writer().clone(),
-                    chain_config.clone(),
+                    chain_config,
                     genesis_header.clone(),
                 )?);
 
-                let state_manager = Arc::new(StateManager::new(chain_store.clone(), chain_config)?);
+                let state_manager = Arc::new(StateManager::new(chain_store.clone())?);
 
                 let head_ts = chain_store.heaviest_tipset();
 
@@ -91,7 +91,7 @@ impl IndexCommands {
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
-                    chain_store.chain_index.tipset_by_height(
+                    chain_store.chain_index().tipset_by_height(
                         *from,
                         head_ts,
                         ResolveNullTipset::TakeOlder,
