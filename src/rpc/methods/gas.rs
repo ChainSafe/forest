@@ -42,7 +42,7 @@ impl RpcMethod<3> for GasEstimateFeeCap {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, max_queue_blks, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_fee_cap(&ctx, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
+        estimate_fee_cap(&ctx, msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
     }
 }
 
@@ -50,9 +50,11 @@ fn estimate_fee_cap<DB: Blockstore>(
     data: &Ctx<DB>,
     msg: Message,
     max_queue_blks: i64,
-    _: ApiTipsetKey,
+    ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
-    let ts = data.chain_store().heaviest_tipset();
+    let ts = data
+        .chain_store()
+        .load_required_tipset_or_heaviest(ts_key)?;
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
     let increase_factor =
@@ -61,7 +63,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .context("failed to convert fee_in_future f64 to bigint")?;
-    let mut out: crate::shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
+    let mut out: TokenAmount = fee_in_future.div_floor(1 << 8);
     if !msg.gas_premium.is_zero() {
         out += msg.gas_premium();
     }
@@ -336,7 +338,7 @@ where
         msg.set_gas_premium(gp);
     }
     if msg.gas_fee_cap.is_zero() {
-        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
+        let gfp = estimate_fee_cap(data, msg.clone(), 20, &tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
 
