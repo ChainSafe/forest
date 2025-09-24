@@ -96,6 +96,7 @@ impl Default for ChainIndexerConfig {
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct FeeConfig {
+    #[serde(with = "crate::lotus_json")]
     pub max_fee: TokenAmount,
 }
 

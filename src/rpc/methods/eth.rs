@@ -2286,7 +2286,7 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        match crate::rpc::gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
+        match gas::estimate_gas_premium(&ctx, 0, &ApiTipsetKey(None)).await {
             Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
             Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
         }

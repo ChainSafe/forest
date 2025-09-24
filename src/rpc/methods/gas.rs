@@ -1,13 +1,12 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
 use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::rpc::chain::FlattenedApiMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
@@ -22,6 +21,7 @@ use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
+use std::sync::Arc;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -309,13 +309,15 @@ impl RpcMethod<3> for GasEstimateMessageGas {
         Some("Returns the estimated gas for the given parameters.");
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
-    type Ok = Message;
+    type Ok = FlattenedApiMessage;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, spec, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_message_gas(&ctx, msg, spec, tsk).await
+        let message = estimate_message_gas(&ctx, msg, spec, tsk).await?;
+        let cid = message.cid();
+        Ok(FlattenedApiMessage { message, cid })
     }
 }
 
