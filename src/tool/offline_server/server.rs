@@ -7,6 +7,7 @@ use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
+use crate::daemon::db_util::RangeSpec;
 use crate::daemon::db_util::backfill_db;
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
@@ -105,7 +106,12 @@ pub async fn start_offline_server(
     ensure_proof_params_downloaded().await?;
 
     if index_backfill_epochs > 0 {
-        backfill_db(&state_manager, &head_ts, None, Some(index_backfill_epochs)).await?;
+        backfill_db(
+            &state_manager,
+            &head_ts,
+            RangeSpec::NumTipsets(index_backfill_epochs),
+        )
+        .await?;
     }
 
     let (network_send, _) = flume::bounded(5);

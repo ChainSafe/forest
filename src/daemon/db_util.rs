@@ -352,6 +352,11 @@ where
     Ok(())
 }
 
+pub enum RangeSpec {
+    To(ChainEpoch),
+    NumTipsets(usize),
+}
+
 /// To support the Event RPC API, a new column has been added to parity-db to handle the mapping:
 /// - Events root [`Cid`] -> [`TipsetKey`].
 ///
@@ -363,41 +368,37 @@ where
 pub async fn backfill_db<DB>(
     state_manager: &Arc<StateManager<DB>>,
     head_ts: &Tipset,
-    to_epoch: Option<ChainEpoch>,
-    n_tipsets: Option<usize>,
+    spec: RangeSpec,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync + 'static,
 {
-    if let Some(to_epoch) = to_epoch {
-        tracing::info!(
-            "Starting index backfill (from: {}, to: {})",
-            head_ts.epoch(),
-            to_epoch
-        );
-    }
+    tracing::info!("Starting index backfill...");
 
     let mut delegated_messages = vec![];
 
     let mut num_backfills = 0;
 
-    if let Some(to_epoch) = to_epoch {
-        for ts in head_ts
-            .clone()
-            .chain(&state_manager.chain_store().blockstore())
-            .take_while(|ts| ts.epoch() >= to_epoch)
-        {
-            process_ts(&ts, state_manager, &mut delegated_messages).await?;
-            num_backfills += 1;
+    match spec {
+        RangeSpec::To(to_epoch) => {
+            for ts in head_ts
+                .clone()
+                .chain(&state_manager.chain_store().blockstore())
+                .take_while(|ts| ts.epoch() >= to_epoch)
+            {
+                process_ts(&ts, state_manager, &mut delegated_messages).await?;
+                num_backfills += 1;
+            }
         }
-    } else {
-        for ts in head_ts
-            .clone()
-            .chain(&state_manager.chain_store().blockstore())
-            .take(n_tipsets.unwrap())
-        {
-            process_ts(&ts, state_manager, &mut delegated_messages).await?;
-            num_backfills += 1;
+        RangeSpec::NumTipsets(n_tipsets) => {
+            for ts in head_ts
+                .clone()
+                .chain(&state_manager.chain_store().blockstore())
+                .take(n_tipsets)
+            {
+                process_ts(&ts, state_manager, &mut delegated_messages).await?;
+                num_backfills += 1;
+            }
         }
     }
 

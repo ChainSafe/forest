@@ -3,13 +3,14 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::bail;
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::{chain_path, read_config};
-use crate::daemon::db_util::backfill_db;
 use crate::daemon::db_util::load_all_forest_cars;
+use crate::daemon::db_util::{RangeSpec, backfill_db};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
@@ -51,6 +52,15 @@ impl IndexCommands {
                 to,
                 n_tipsets,
             } => {
+                let spec = match (to, n_tipsets) {
+                    (Some(x), None) => RangeSpec::To(*x),
+                    (None, Some(x)) => RangeSpec::NumTipsets(*x),
+                    (None, None) => {
+                        bail!("You must provide either '--to' or '--n-tipsets'.");
+                    }
+                    _ => unreachable!(), // Clap ensures this case is handled
+                };
+
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
                 let chain_data_path = chain_path(&config);
@@ -88,6 +98,9 @@ impl IndexCommands {
                 if let Some(to) = to {
                     println!("To epoch:      {to}");
                 }
+                if let Some(n_tipsets) = n_tipsets {
+                    println!("Tipsets:       {n_tipsets}");
+                }
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
@@ -100,7 +113,7 @@ impl IndexCommands {
                     head_ts
                 };
 
-                backfill_db(&state_manager, &from_ts, *to, *n_tipsets).await?;
+                backfill_db(&state_manager, &from_ts, spec).await?;
 
                 Ok(())
             }
