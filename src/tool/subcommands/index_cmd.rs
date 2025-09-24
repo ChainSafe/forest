@@ -33,10 +33,10 @@ pub enum IndexCommands {
         /// The starting tipset epoch for back-filling (inclusive), defaults to chain head
         #[arg(long)]
         from: Option<ChainEpoch>,
-        /// Optional ending tipset epoch for back-filling (inclusive)
+        /// Ending tipset epoch for back-filling (inclusive)
         #[arg(long)]
         to: Option<ChainEpoch>,
-        /// Optional number of tipsets for back-filling
+        /// Number of tipsets for back-filling
         #[arg(long, conflicts_with = "to")]
         n_tipsets: Option<usize>,
     },
