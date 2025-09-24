@@ -877,7 +877,7 @@ fn resolve_predefined_tipset<DB: Blockstore>(
     match predefined {
         Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
         Predefined::Pending => Ok(head),
-        Predefined::Latest => Ok(chain.chain_index.load_required_tipset(head.parents())?),
+        Predefined::Latest => Ok(chain.chain_index().load_required_tipset(head.parents())?),
     }
 }
 
@@ -896,13 +896,13 @@ fn resolve_ext_predefined_tipset<DB: Blockstore>(
             ExtPredefined::Safe => {
                 let safe_height = latest_height - SAFE_EPOCH_DELAY;
                 Ok(chain
-                    .chain_index
+                    .chain_index()
                     .tipset_by_height(safe_height, head, resolve)?)
             }
             ExtPredefined::Finalized => {
-                let finality_height = latest_height - chain.chain_config.policy.chain_finality;
+                let finality_height = latest_height - chain.chain_config().policy.chain_finality;
                 Ok(chain
-                    .chain_index
+                    .chain_index()
                     .tipset_by_height(finality_height, head, resolve)?)
             }
             _ => bail!("Unhandled ExtPredefined variant: {:?}", ext_predefined),
@@ -920,7 +920,9 @@ fn resolve_block_number_tipset<DB: Blockstore>(
     if height > head.epoch() - 1 {
         bail!("requested a future epoch (beyond \"latest\")");
     }
-    Ok(chain.chain_index.tipset_by_height(height, head, resolve)?)
+    Ok(chain
+        .chain_index()
+        .tipset_by_height(height, head, resolve)?)
 }
 
 fn resolve_block_hash_tipset<DB: Blockstore>(
@@ -935,7 +937,7 @@ fn resolve_block_hash_tipset<DB: Blockstore>(
     if require_canonical {
         // walk up the current chain (our head) until we reach ts.epoch()
         let walk_ts = chain
-            .chain_index
+            .chain_index()
             .tipset_by_height(ts.epoch(), head, resolve)?;
         // verify that it equals the expected tipset
         if walk_ts != ts {
