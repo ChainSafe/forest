@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use enumflags2::BitFlags;
+use enumflags2::{BitFlags, make_bitflags};
 use types::*;
 
 #[cfg(test)]
@@ -125,6 +125,28 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     });
 
     (receiver, handle)
+}
+
+/// Returns the latest finalized tipset.
+/// It uses the current F3 instance to determine the finalized tipset.
+/// If F3 is operational and finalizing in this node. If not, it will fall back
+/// to the Expected Consensus (EC) finality definition of head - 900 epochs.
+pub enum ChainGetFinalizedTipset {}
+impl RpcMethod<0> for ChainGetFinalizedTipset {
+    const NAME: &'static str = "Filecoin.ChainGetFinalizedTipSet";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the latest finalized tipset. It uses the f3 instance or Expected Consensus (EC) definition (head - 900 epochs) to get the finalized tipset.",
+    );
+
+    type Params = ();
+    type Ok = Tipset;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(anyhow::anyhow!("ChainGetFinalizedTipset is not yet implemented").into())
+    }
 }
 
 pub enum ChainGetMessage {}
