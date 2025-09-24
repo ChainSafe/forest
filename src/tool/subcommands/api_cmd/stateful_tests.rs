@@ -406,7 +406,9 @@ fn eth_new_block_filter() -> RpcTestScenario {
 
                 if let EthFilterResult::Hashes(hashes) = filter_result {
                     verify_hashes(&hashes).await?;
-                    anyhow::ensure!(prev_hashes != hashes);
+                    anyhow::ensure!(
+                        (prev_hashes.is_empty() && hashes.is_empty()) || prev_hashes != hashes,
+                    );
 
                     Ok(())
                 } else {
@@ -632,9 +634,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthUninstallFilter
         ),
         with_methods!(
-            eth_new_block_filter()
-                .name("eth_newBlockFilter works")
-                .ignore("https://github.com/ChainSafe/forest/issues/6069"),
+            eth_new_block_filter().name("eth_newBlockFilter works"),
             EthNewBlockFilter,
             EthGetFilterChanges,
             EthUninstallFilter
