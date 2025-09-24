@@ -126,10 +126,7 @@ impl EthLegacyEip155TxArgs {
                 *value = 1
             };
         } else {
-            bail!(
-                "invalid 'v' value: expected 27 or 28, got {}",
-                v_value.to_string()
-            );
+            bail!("invalid 'v' value: expected 27 or 28, got {}", v_value);
         }
 
         Ok(sig
