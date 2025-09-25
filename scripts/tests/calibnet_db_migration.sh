@@ -11,7 +11,7 @@ mkdir -p "${DATA_DIR}"
 
 chmod -R 777 "${DATA_DIR}"
 
-FOREST_INIT_VERSION="0.19.2"
+FOREST_INIT_VERSION="0.30.0"
 
 # Run Forest 0.19.2 with mounted db so that we can re-use it later.
 docker run --init --rm --name forest-${FOREST_INIT_VERSION} \
