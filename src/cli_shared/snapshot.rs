@@ -134,7 +134,7 @@ macro_rules! define_urls {
 define_urls!(
     const FOREST_MAINNET_COMPRESSED: &str = "https://forest-archive.chainsafe.dev/latest/mainnet/";
     const FOREST_CALIBNET_COMPRESSED: &str =
-        "https://forest-archive.chainsafe.dev/latest/calibnet/";
+        "https://forest-archive.chainsafe.dev/latest-v1/calibnet";
 );
 
 pub fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {

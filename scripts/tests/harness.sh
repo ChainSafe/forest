@@ -28,7 +28,7 @@ function forest_download_and_import_snapshot {
 
 function forest_download_and_import_snapshot_with_f3 {
   echo "Downloading v1 snapshot"
-  aria2c -x5 https://forest-archive.chainsafe.dev/latest/calibnet/ -o v1.forest.car.zst
+  aria2c -x5 https://forest-archive.chainsafe.dev/latest-v1/calibnet -o v1.forest.car.zst
   echo "Inspecting v1 snapshot"
   $FOREST_TOOL_PATH archive info v1.forest.car.zst
   echo "Downloading F3 snapshot"
