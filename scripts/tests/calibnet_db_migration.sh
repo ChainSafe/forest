@@ -15,7 +15,7 @@ FOREST_INIT_VERSION="0.30.0"
 
 # Run Forest 0.19.2 with mounted db so that we can re-use it later.
 docker run --init --rm --name forest-${FOREST_INIT_VERSION} \
-  --volume "${DATA_DIR}":/home/forest/.local/share/forest \
+  --volume "${DATA_DIR}":/root/.local/share/forest \
   ghcr.io/chainsafe/forest:v${FOREST_INIT_VERSION} \
   --chain calibnet \
   --encrypt-keystore false \
