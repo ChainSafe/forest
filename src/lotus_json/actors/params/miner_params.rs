@@ -8,6 +8,7 @@ use crate::shim::{
     econ::TokenAmount,
     sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
+use crate::test_snapshots;
 use ::cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::{BitField, UnvalidatedBitField};
 use fil_actors_shared::v16::reward::FilterEstimate;
@@ -18,6 +19,7 @@ use num::BigInt;
 use paste::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::convert::Into;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
@@ -805,7 +807,7 @@ impl HasLotusJson for fil_actor_miner_state::v8::RecoveryDeclaration {
             Self {
                 deadline: 1,
                 partition: 2,
-                sectors: sectors.into(),
+                sectors: Into::<UnvalidatedBitField>::into(sectors).into(),
             },
         )]
     }
@@ -814,7 +816,9 @@ impl HasLotusJson for fil_actor_miner_state::v8::RecoveryDeclaration {
         RecoveryDeclarationLotusJson {
             deadline: self.deadline,
             partition: self.partition,
-            sectors: self.sectors.try_into().unwrap_or_else(|_| BitField::new()),
+            sectors: Into::<UnvalidatedBitField>::into(self.sectors)
+                .try_into()
+                .unwrap_or_else(|_| BitField::new()),
         }
     }
 
@@ -822,7 +826,7 @@ impl HasLotusJson for fil_actor_miner_state::v8::RecoveryDeclaration {
         Self {
             deadline: lotus_json.deadline,
             partition: lotus_json.partition,
-            sectors: lotus_json.sectors.into(),
+            sectors: Into::<UnvalidatedBitField>::into(lotus_json.sectors).into(),
         }
     }
 }
@@ -3746,3 +3750,9 @@ impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
 impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
 impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16, 17);
 impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16, 17);
+
+test_snapshots!(fil_actor_miner_state: ChangeWorkerAddressParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: MinerConstructorParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: DeclareFaultsRecoveredParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: RecoveryDeclaration: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: ChangeOwnerAddressParams: 11, 12, 13, 14, 15, 16, 17);
