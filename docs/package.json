@@ -23,7 +23,7 @@
   "dependencies": {
     "@docusaurus/core": "^3.8.1",
     "@docusaurus/preset-classic": "^3.8.1",
-    "@docusaurus/theme-mermaid": "^3.8.1",
+    "@docusaurus/theme-mermaid": "^3.9.1",
     "@easyops-cn/docusaurus-search-local": "^0.52.1",
     "mdx-mermaid": "^2.0.3",
     "mermaid": "^11.12.0",
