@@ -3756,3 +3756,4 @@ test_snapshots!(fil_actor_miner_state: MinerConstructorParams: 8, 9, 10, 11, 12,
 test_snapshots!(fil_actor_miner_state: DeclareFaultsRecoveredParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: RecoveryDeclaration: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: ChangeOwnerAddressParams: 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: ChangeBeneficiaryParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
