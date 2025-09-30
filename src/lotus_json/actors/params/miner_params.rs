@@ -3761,16 +3761,16 @@ test_snapshots!(fil_actor_miner_state: ExtendSectorExpiration2Params: 9, 10, 11,
 test_snapshots!(fil_actor_miner_state: ExpirationExtension2: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 //
 test_snapshots!(fil_actor_miner_state: DisputeWindowedPoStParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: PoStPartition: 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: SubmitWindowedPoStParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: PoStPartition: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: SubmitWindowedPoStParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: DeclareFaultsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: FaultDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: TerminationDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: FaultDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: TerminationDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: TerminateSectorsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: ChangeMultiaddrsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: CompactPartitionsParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: CompactSectorNumbersParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: CompactPartitionsParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: CompactSectorNumbersParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: PreCommitSectorParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: PreCommitSectorBatchParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: PreCommitSectorBatchParams2: 9, 10, 11, 12, 13, 14, 15, 16, 17);
@@ -3779,10 +3779,10 @@ test_snapshots!(fil_actor_miner_state: ProveReplicaUpdates3Params: 13, 14, 15, 1
 // test_snapshots!(fil_actor_miner_state: ReportConsensusFaultParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: CheckSectorProvenParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: ApplyRewardParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: ProveCommitAggregateParams: 9, 10, 11, 12, 13, 14, 15, 16);
+test_snapshots!(fil_actor_miner_state: ProveCommitAggregateParams: 9, 10, 11, 12, 13, 14, 15, 16);
 // test_snapshots!(fil_actor_miner_state: ProveReplicaUpdatesParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 // test_snapshots!(fil_actor_miner_state: ReplicaUpdate: 8, 9, 10, 11, 12, 13, 14, 15, 16);
-// test_snapshots!(fil_actor_miner_state: IsControllingAddressParam: 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: IsControllingAddressParam: 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: MaxTerminationFeeParams: 16, 17);
 // test_snapshots!(fil_actor_miner_state: ChangePeerIDParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: SectorActivationManifest: 13, 14, 15, 16, 17);
@@ -3793,6 +3793,6 @@ test_snapshots!(fil_actor_miner_state: SectorUpdateManifest: 13, 14, 15, 16, 17)
 // test_snapshots!(fil_actor_miner_state: ExtendSectorExpirationParams: 8, 9, 10, 11, 12, 13, 14, 15, 16);
 // test_snapshots!(fil_actor_miner_state: ConfirmSectorProofsParams: 8, 9, 10, 11, 12, 13, 14);
 // test_snapshots!(fil_actor_miner_state: DeferredCronEventParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: ProveReplicaUpdatesParams2: 9, 10, 11, 12);
+test_snapshots!(fil_actor_miner_state: ProveReplicaUpdatesParams2: 9, 10, 11, 12);
 test_snapshots!(fil_actor_miner_state: ProveCommitSectorsNIParams: 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: InternalSectorSetupForPresealParams: 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: InternalSectorSetupForPresealParams: 14, 15, 16, 17);
