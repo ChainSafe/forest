@@ -1437,7 +1437,54 @@ impl HasLotusJson for fil_actor_miner_state::v8::TerminationDeclaration {
     }
 }
 
-macro_rules! impl_lotus_json_for_miner_declare_faults_params {
+macro_rules! impl_lotus_json_for_miner_declare_faults_params_v8 {
+    ($($version:literal),+) => {
+        $(
+        paste! {
+            impl HasLotusJson for fil_actor_miner_state::[<v $version>]::DeclareFaultsParams {
+                type LotusJson = DeclareFaultsParamsLotusJson;
+
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    let sectors = BitField::from_bytes(&[2]).unwrap();
+                     vec![(
+                        json!({
+                            "Faults": [
+                                {
+                                    "Deadline": 3,
+                                    "Partition": 0,
+                                    "Sectors": "gAIA" // Base64 for BitField with {2}
+                                }
+                            ]
+                        }),
+                        Self {
+                            faults: vec![fil_actor_miner_state::[<v $version>]::FaultDeclaration {
+                                deadline: 3,
+                                partition: 0,
+                                sectors: Into::<UnvalidatedBitField>::into(sectors).into(),
+                            }],
+                        },
+                    )]
+                }
+
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    DeclareFaultsParamsLotusJson {
+                        faults: self.faults.into_iter().map(|f| f.into_lotus_json()).collect(),
+                    }
+                }
+
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    Self {
+                        faults: lotus_json.faults.into_iter().map(|f| fil_actor_miner_state::[<v $version>]::FaultDeclaration::from_lotus_json(f)).collect(),
+                    }
+                }
+            }
+        }
+        )+
+    };
+}
+
+macro_rules! impl_lotus_json_for_miner_declare_faults_params_v9_and_above {
     ($($version:literal),+) => {
         $(
         paste! {
@@ -1484,7 +1531,7 @@ macro_rules! impl_lotus_json_for_miner_declare_faults_params {
     };
 }
 
-macro_rules! impl_lotus_json_for_miner_declare_faults_params_v9_and_above {
+macro_rules! impl_lotus_json_for_miner_fault_declaration_v9_and_above {
     ($($version:literal),+) => {
         $(
         paste! {
@@ -1544,7 +1591,7 @@ impl HasLotusJson for fil_actor_miner_state::v8::FaultDeclaration {
             Self {
                 deadline: 3,
                 partition: 0,
-                sectors: sectors.into(),
+                sectors: Into::<UnvalidatedBitField>::into(sectors).into(),
             },
         )]
     }
@@ -1553,7 +1600,9 @@ impl HasLotusJson for fil_actor_miner_state::v8::FaultDeclaration {
         FaultDeclarationLotusJson {
             deadline: self.deadline,
             partition: self.partition,
-            sectors: self.sectors.try_into().unwrap_or_else(|_| BitField::new()),
+            sectors: Into::<UnvalidatedBitField>::into(self.sectors)
+                .try_into()
+                .unwrap_or_else(|_| BitField::new()),
         }
     }
 
@@ -1561,7 +1610,7 @@ impl HasLotusJson for fil_actor_miner_state::v8::FaultDeclaration {
         Self {
             deadline: lotus_json.deadline,
             partition: lotus_json.partition,
-            sectors: lotus_json.sectors.into(),
+            sectors: Into::<UnvalidatedBitField>::into(lotus_json.sectors).into(),
         }
     }
 }
@@ -3711,8 +3760,9 @@ impl_lotus_json_for_miner_post_partition_v9_and_above!(9, 10, 11, 12, 13, 14, 15
 impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared2: 9);
 impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared3: 10, 11);
 impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared4: 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_miner_fault_declaration_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17);
+impl_lotus_json_for_miner_declare_faults_params_v8!(8);
 impl_lotus_json_for_miner_declare_faults_params_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17);
-impl_lotus_json_for_miner_declare_faults_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 impl_lotus_json_for_miner_termination_declaration_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17);
 impl_lotus_json_for_miner_terminate_sectors_params_v9_and_above!(
     8, 9, 10, 11, 12, 13, 14, 15, 16, 17
