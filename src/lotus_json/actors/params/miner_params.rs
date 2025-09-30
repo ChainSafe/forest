@@ -3813,12 +3813,12 @@ test_snapshots!(fil_actor_miner_state: ExpirationExtension2: 9, 10, 11, 12, 13, 
 test_snapshots!(fil_actor_miner_state: DisputeWindowedPoStParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: PoStPartition: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: SubmitWindowedPoStParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: DeclareFaultsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: DeclareFaultsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: FaultDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: TerminationDeclaration: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 // test_snapshots!(fil_actor_miner_state: TerminateSectorsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
-// test_snapshots!(fil_actor_miner_state: ChangeMultiaddrsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: WithdrawBalanceParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
+test_snapshots!(fil_actor_miner_state: ChangeMultiaddrsParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: CompactPartitionsParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: CompactSectorNumbersParams: 9, 10, 11, 12, 13, 14, 15, 16, 17);
 test_snapshots!(fil_actor_miner_state: PreCommitSectorParams: 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);
