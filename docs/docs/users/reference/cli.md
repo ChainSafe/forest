@@ -2061,12 +2061,13 @@ Options:
 ```
 Backfill index with Ethereum mappings, events, etc
 
-Usage: forest-tool index backfill [OPTIONS] --to <TO>
+Usage: forest-tool index backfill [OPTIONS] --to <TO> --n-tipsets <N_TIPSETS>
 
 Options:
-  -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
-      --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
-      --from <FROM>      The starting tipset epoch for back-filling (inclusive), defaults to chain head
-      --to <TO>          The ending tipset epoch for back-filling (inclusive)
-  -h, --help             Print help
+  -c, --config <CONFIG>        Optional TOML file containing forest daemon configuration
+      --chain <CHAIN>          Optional chain, will override the chain section of configuration file if used
+      --from <FROM>            The starting tipset epoch for back-filling (inclusive), defaults to chain head
+      --to <TO>                The ending tipset epoch for back-filling (inclusive)
+      --n-tipsets <N_TIPSETS>  The number of tipsets for back-filling (conflicts with --to flag)
+  -h, --help                   Print help
 ```
