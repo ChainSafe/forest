@@ -68,10 +68,7 @@ function backfill_db {
   local backfill_epochs
   backfill_epochs=$1
 
-  local to_epoch
-  to_epoch=$((snapshot_epoch - backfill_epochs))
-
-  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --to "$to_epoch"
+  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --n-tipsets "$backfill_epochs"
 }
 
 function forest_check_db_stats {
