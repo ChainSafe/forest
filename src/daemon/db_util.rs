@@ -357,6 +357,15 @@ pub enum RangeSpec {
     NumTipsets(usize),
 }
 
+impl std::fmt::Display for RangeSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RangeSpec::To(epoch) => write!(f, "To epoch:      {}", epoch),
+            RangeSpec::NumTipsets(n) => write!(f, "Tipsets:       {}", n),
+        }
+    }
+}
+
 /// To support the Event RPC API, a new column has been added to parity-db to handle the mapping:
 /// - Events root [`Cid`] -> [`TipsetKey`].
 ///

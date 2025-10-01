@@ -95,12 +95,7 @@ impl IndexCommands {
 
                 println!("Database path: {}", db_root_dir.display());
                 println!("From epoch:    {}", from.unwrap_or_else(|| head_ts.epoch()));
-                if let Some(to) = to {
-                    println!("To epoch:      {to}");
-                }
-                if let Some(n_tipsets) = n_tipsets {
-                    println!("Tipsets:       {n_tipsets}");
-                }
+                println!("{spec}");
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
