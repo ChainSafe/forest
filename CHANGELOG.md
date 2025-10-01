@@ -33,6 +33,8 @@
 
 - [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
 
+- [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
+
 ### Changed
 
 ### Removed
