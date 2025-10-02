@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use enumflags2::BitFlags;
+use enumflags2::{BitFlags, make_bitflags};
 use types::*;
 
 #[cfg(test)]
@@ -125,6 +125,24 @@ pub(crate) fn logs<DB: Blockstore + Sync + Send + 'static>(
     });
 
     (receiver, handle)
+}
+
+pub enum ChainGetFinalizedTipset {}
+impl RpcMethod<0> for ChainGetFinalizedTipset {
+    const NAME: &'static str = "Filecoin.ChainGetFinalizedTipSet";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: Option<&'static str> = Some(
+        "Returns the latest F3 finalized tipset, or falls back to EC finality if F3 is not operational on the node or if the F3 finalized tipset is further back than EC finalized tipset.",
+    );
+
+    type Params = ();
+    type Ok = Tipset;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Err(ServerError::stubbed_for_openrpc())
+    }
 }
 
 pub enum ChainGetMessage {}
