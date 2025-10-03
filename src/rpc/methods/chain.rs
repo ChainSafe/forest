@@ -366,14 +366,21 @@ impl RpcMethod<1> for ForestChainExport {
         };
         match match version {
             FilecoinSnapshotVersion::V1 => {
-                crate::chain::export::<Sha256>(
-                    &ctx.store_owned(),
-                    &start_ts,
-                    recent_roots,
-                    writer,
-                    options,
-                )
-                .await
+                use crate::chain::CANCEL_EXPORT;
+                let db = ctx.store_owned();
+
+                let chain_export =
+                    crate::chain::export::<Sha256>(&db, &start_ts, recent_roots, writer, options);
+
+                tokio::select! {
+                    result = chain_export => {
+                        result
+                    },
+                    _ = CANCEL_EXPORT.notified() => {
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(None)
+                    },
+                }
             }
             FilecoinSnapshotVersion::V2 => {
                 let f3_snap_tmp_path = {
@@ -411,6 +418,51 @@ impl RpcMethod<1> for ForestChainExport {
             Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
+    }
+}
+
+use crate::ipld::EXPORT_STATUS;
+use crate::rpc::types::ApiExportStatus;
+
+pub enum ForestChainExportStatus {}
+impl RpcMethod<0> for ForestChainExportStatus {
+    const NAME: &'static str = "Forest.ChainExportStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = ApiExportStatus;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let status = EXPORT_STATUS.lock().unwrap();
+
+        let status = ApiExportStatus {
+            epoch: status.epoch,
+            exporting: status.exporting,
+        };
+
+        Ok(status)
+    }
+}
+
+pub enum ForestChainExportCancel {}
+impl RpcMethod<0> for ForestChainExportCancel {
+    const NAME: &'static str = "Forest.ChainExportCancel";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        use crate::chain::CANCEL_EXPORT;
+
+        CANCEL_EXPORT.notify_waiters();
+
+        // TODO(elmattic): return false if there was no export in progress
+        Ok(true)
     }
 }
 

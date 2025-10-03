@@ -236,7 +236,7 @@ impl GetSize for RawBlockHeader {
 #[cfg_attr(test, derive(Default))]
 #[derive(Debug, GetSize)]
 pub struct CachingBlockHeader {
-    uncached: RawBlockHeader,
+    pub uncached: RawBlockHeader,
     #[get_size(ignore)]
     cid: OnceLock<Cid>,
     has_ever_been_verified_against_any_signature: AtomicBool,

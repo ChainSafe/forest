@@ -585,3 +585,11 @@ impl From<StampedEvent> for Event {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
+pub struct ApiExportStatus {
+    pub epoch: i64,
+    pub exporting: bool,
+}
+
+lotus_json_with_self!(ApiExportStatus);

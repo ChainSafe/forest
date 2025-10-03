@@ -15,7 +15,27 @@ use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
+
+#[derive(Default)]
+pub struct ExportStatus {
+    pub epoch: i64,
+    pub exporting: bool,
+}
+
+pub static EXPORT_STATUS: once_cell::sync::Lazy<Arc<Mutex<ExportStatus>>> =
+    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(ExportStatus::default())));
+
+fn update_epoch(new_value: i64) {
+    let mut lock = EXPORT_STATUS.lock().unwrap();
+    lock.epoch = new_value;
+}
+
+fn read_epoch() -> i64 {
+    let lock = EXPORT_STATUS.lock().unwrap();
+    lock.epoch
+}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
@@ -112,6 +132,7 @@ pin_project! {
         seen: CidHashSet,
         stateroot_limit_exclusive: ChainEpoch,
         fail_on_dead_links: bool,
+        track_progress: bool,
     }
 }
 
@@ -123,6 +144,11 @@ impl<DB, T> ChainStream<DB, T> {
 
     pub fn fail_on_dead_links(mut self, fail_on_dead_links: bool) -> Self {
         self.fail_on_dead_links = fail_on_dead_links;
+        self
+    }
+
+    pub fn track_progress(mut self, track_progress: bool) -> Self {
+        self.track_progress = track_progress;
         self
     }
 
@@ -155,6 +181,7 @@ pub fn stream_chain<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> 
         seen: CidHashSet::default(),
         stateroot_limit_exclusive,
         fail_on_dead_links: true,
+        track_progress: false,
     }
 }
 
@@ -197,6 +224,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                         }
                     }
                     Iterate(epoch, block_cid, _type, cid_vec) => {
+                        if *this.track_progress {
+                            update_epoch(*epoch);
+                        }
                         while let Some(cid) = cid_vec.pop_front() {
                             // The link traversal implementation assumes there are three types of encoding:
                             // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
@@ -242,6 +272,9 @@ impl<DB: Blockstore, T: Borrow<Tipset>, ITER: Iterator<Item = T> + Unpin> Stream
                 for block in tipset.borrow().block_headers() {
                     let (cid, data) = block.car_block()?;
                     if this.seen.insert(cid) {
+                        if *this.track_progress {
+                            update_epoch(block.uncached.epoch);
+                        }
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(cid, Some(data)));
 

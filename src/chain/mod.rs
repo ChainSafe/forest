@@ -24,12 +24,18 @@ use digest::Digest;
 use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
+use lazy_static::lazy_static;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
 use std::io::{Seek as _, SeekFrom};
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio::sync::Notify;
+
+lazy_static! {
+    pub static ref CANCEL_EXPORT: Arc<Notify> = Arc::new(Notify::new());
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {
@@ -161,7 +167,8 @@ async fn export_to_forest_car<D: Digest>(
             tipset.clone().chain_owned(Arc::clone(db)),
             stateroot_lookup_limit,
         )
-        .with_seen(seen),
+        .with_seen(seen)
+        .track_progress(true),
     );
 
     // Encode Ipld key-value pairs in zstd frames
