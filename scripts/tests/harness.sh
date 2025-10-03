@@ -4,7 +4,6 @@
 # executed directly.
 
 export FOREST_CHAIN_INDEXER_ENABLED="1"
-export FOREST_ETH_MAPPINGS_RANGE="300"
 
 export FOREST_PATH="forest"
 export FOREST_CLI_PATH="forest-cli"
@@ -59,14 +58,17 @@ function backfill_db {
   snapshot_epoch=$(get_epoch_from_car_db)
   echo "Snapshot epoch: $snapshot_epoch"
 
-  # Default to 300 if no argument is provided
+  # Return an error if no argument is provided
+  if [[ -z "$1" ]]; then
+    echo "Error: No argument provided. Please provide the backfill epochs."
+    return 1
+  fi
+
+  # Use the provided argument for backfill epochs
   local backfill_epochs
-  backfill_epochs=${1:-300}
+  backfill_epochs=$1
 
-  local to_epoch
-  to_epoch=$((snapshot_epoch - backfill_epochs))
-
-  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --to "$to_epoch"
+  $FOREST_TOOL_PATH index backfill --chain calibnet --from "$snapshot_epoch" --n-tipsets "$backfill_epochs"
 }
 
 function forest_check_db_stats {
