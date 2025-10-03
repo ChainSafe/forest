@@ -42,13 +42,13 @@ impl RpcMethod<3> for GasEstimateFeeCap {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, max_queue_blks, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_fee_cap(&ctx, msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
+        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk).map(|n| TokenAmount::to_string(&n))
     }
 }
 
 fn estimate_fee_cap<DB: Blockstore>(
     data: &Ctx<DB>,
-    msg: Message,
+    msg: &Message,
     max_queue_blks: i64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
@@ -340,7 +340,7 @@ where
         msg.set_gas_premium(gp);
     }
     if msg.gas_fee_cap.is_zero() {
-        let gfp = estimate_fee_cap(data, msg.clone(), 20, &tsk)?;
+        let gfp = estimate_fee_cap(data, &msg, 20, &tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
 
