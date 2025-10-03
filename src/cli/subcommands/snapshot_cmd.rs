@@ -14,6 +14,7 @@ use chrono::DateTime;
 use clap::Subcommand;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
+    io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -42,6 +43,14 @@ pub enum SnapshotCommands {
         #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
         format: FilecoinSnapshotVersion,
     },
+    /// Show status of the current export.
+    ExportStatus {
+        /// Wait until it completes and print progress.
+        #[arg(long)]
+        wait: bool,
+    },
+    /// Cancel the current export.
+    ExportCancel {},
     /// Export a diff snapshot between `from` and `to` epochs to `<output_path>`
     ExportDiff {
         /// `./forest_snapshot_diff_{chain}_{from}_{to}+{depth}.car.zst`.
@@ -168,6 +177,51 @@ impl SnapshotCommands {
                 }
 
                 println!("Export completed.");
+                Ok(())
+            }
+            Self::ExportStatus { wait } => {
+                if wait {
+                    let mut first = 0;
+                    loop {
+                        let result = client
+                            .call(
+                                ForestChainExportStatus::request(())?
+                                    .with_timeout(Duration::from_secs(30)),
+                            )
+                            .await?;
+                        if first == 0 && result.epoch != 0 {
+                            first = result.epoch
+                        }
+                        //  1.0 - 3000 / 10000
+                        print!(
+                            "\r{}%",
+                            ((1.0 - ((result.epoch as f64) / (first as f64))) * 100.0).trunc()
+                        );
+
+                        std::io::stdout().flush().unwrap();
+                        if result.epoch == 0 {
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                    return Ok(());
+                }
+                let result = client
+                    .call(ForestChainExportStatus::request(())?.with_timeout(Duration::MAX))
+                    .await?;
+                println!("{:?}", result);
+
+                Ok(())
+            }
+            Self::ExportCancel {} => {
+                let result = client
+                    .call(
+                        ForestChainExportCancel::request(())?.with_timeout(Duration::from_secs(30)),
+                    )
+                    .await?;
+                if result {
+                    println!("Export cancelled.");
+                }
                 Ok(())
             }
             Self::ExportDiff {
