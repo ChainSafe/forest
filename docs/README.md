@@ -44,7 +44,7 @@ yarn typecheck  # Validate typescript files
 
 ### Deployment
 
-The documentation site is continuously deployed to CloudFlare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
+The documentation site is continuously deployed to Cloudflare Pages, triggered on every commit to `main`. [This workflow](/.github/workflows/docs-deploy.yml) defines the deployment process.
 
 ## Site Structure
 

@@ -155,7 +155,7 @@ impl RpcMethod<1> for MpoolPush {
     }
 }
 
-/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+/// Add a batch of `SignedMessage`s to `mpool`, return message `CIDs`
 pub enum MpoolBatchPush {}
 impl RpcMethod<1> for MpoolBatchPush {
     const NAME: &'static str = "Filecoin.MpoolBatchPush";
@@ -204,7 +204,7 @@ impl RpcMethod<1> for MpoolPushUntrusted {
     }
 }
 
-/// Add a batch of `SignedMessage`s to `mpool`, return message CIDs
+/// Add a batch of `SignedMessage`s to `mpool`, return message `CIDs`
 pub enum MpoolBatchPushUntrusted {}
 impl RpcMethod<1> for MpoolBatchPushUntrusted {
     const NAME: &'static str = "Filecoin.MpoolBatchPushUntrusted";

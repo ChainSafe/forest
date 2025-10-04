@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
-    /// Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards.
+    /// Enumerate the tipset `CIDs` for a span of epochs starting at `height` and working backwards.
     ///
     /// Useful for getting blocks to live test an RPC endpoint.
     SummarizeTipsets {

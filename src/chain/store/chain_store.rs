@@ -496,7 +496,7 @@ where
     Ok((bls_msgs, secp_msgs))
 }
 
-/// Returns a tuple of CIDs for both unsigned and signed messages
+/// Returns a tuple of `CIDs` for both unsigned and signed messages
 pub fn read_msg_cids<DB>(
     db: &DB,
     block_header: &CachingBlockHeader,
@@ -533,7 +533,7 @@ where
     Ok(())
 }
 
-/// Returns a vector of CIDs from provided root CID
+/// Returns a vector of `CIDs` from provided root CID
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: Blockstore,
