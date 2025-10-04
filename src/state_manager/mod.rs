@@ -165,7 +165,6 @@ pub struct StateManager<DB> {
     /// This is a cache which indexes tipsets to their calculated state output (state root, receipt root).
     cache: TipsetStateCache<StateOutputValue>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
-    chain_config: Arc<ChainConfig>,
     engine: Arc<MultiEngine>,
     /// Handler for caching/retrieving tipset events and receipts.
     receipt_event_cache_handler: Box<dyn TipsetReceiptEventCacheHandler>,
@@ -178,23 +177,19 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore,
 {
-    pub fn new(
-        cs: Arc<ChainStore<DB>>,
-        chain_config: Arc<ChainConfig>,
-    ) -> Result<Self, anyhow::Error> {
-        Self::new_with_engine(cs, chain_config, GLOBAL_MULTI_ENGINE.clone())
+    pub fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, anyhow::Error> {
+        Self::new_with_engine(cs, GLOBAL_MULTI_ENGINE.clone())
     }
 
     pub fn new_with_engine(
         cs: Arc<ChainStore<DB>>,
-        chain_config: Arc<ChainConfig>,
         engine: Arc<MultiEngine>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis_block_header();
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
+        let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
 
         let cache_handler: Box<dyn TipsetReceiptEventCacheHandler> =
-            if chain_config.enable_receipt_event_caching {
+            if cs.chain_config().enable_receipt_event_caching {
                 Box::new(EnabledTipsetDataCache::new())
             } else {
                 Box::new(DisabledTipsetDataCache::new())
@@ -204,7 +199,6 @@ where
             cs,
             cache: TipsetStateCache::new("state_output"), // For StateOutputValue
             beacon,
-            chain_config,
             engine,
             receipt_event_cache_handler: cache_handler,
         })
@@ -216,8 +210,7 @@ where
     // validation, and it prevents duplicate migrations.
     pub fn populate_cache(&self) {
         for (child, parent) in self
-            .cs
-            .chain_index
+            .chain_index()
             .chain(self.cs.heaviest_tipset())
             .tuple_windows()
             .take(DEFAULT_TIPSET_CACHE_SIZE.into())
@@ -238,11 +231,7 @@ where
 
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        self.chain_config.network_version(epoch)
-    }
-
-    pub fn chain_config(&self) -> &Arc<ChainConfig> {
-        &self.chain_config
+        self.chain_config().network_version(epoch)
     }
 
     /// Gets the state tree
@@ -284,12 +273,12 @@ where
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
-    pub fn blockstore(&self) -> &DB {
+    pub fn blockstore(&self) -> &Arc<DB> {
         self.cs.blockstore()
     }
 
     pub fn blockstore_owned(&self) -> Arc<DB> {
-        Arc::clone(&self.cs.db)
+        self.blockstore().clone()
     }
 
     /// Returns reference to the state manager's [`ChainStore`].
@@ -297,11 +286,21 @@ where
         &self.cs
     }
 
+    /// Returns reference to the state manager's [`ChainIndex`].
+    pub fn chain_index(&self) -> &Arc<ChainIndex<Arc<DB>>> {
+        self.cs.chain_index()
+    }
+
+    /// Returns reference to the state manager's [`ChainConfig`].
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        self.cs.chain_config()
+    }
+
     pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
         ChainRand::new(
-            self.chain_config.clone(),
+            self.chain_config().clone(),
             tipset,
-            self.cs.chain_index.clone(),
+            self.chain_index().clone(),
             self.beacon.clone(),
         )
     }
@@ -363,7 +362,7 @@ where
                 .ok_or_else(|| Error::state(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
-                &self.chain_config.policy,
+                &self.chain_config().policy,
                 self.blockstore(),
                 &maddr.into(),
             )?;
@@ -393,7 +392,7 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    /// Returns the pair of (parent state root, message receipt root). This will
+    /// Returns the pair of (state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
@@ -556,7 +555,7 @@ where
                     state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
-                chain_index: Arc::clone(&self.chain_store().chain_index),
+                chain_index: self.chain_index().clone(),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
@@ -683,7 +682,7 @@ where
                         &st,
                     )?,
                     chain_config: self.chain_config().clone(),
-                    chain_index: Arc::clone(&self.chain_store().chain_index),
+                    chain_index: self.chain_index().clone(),
                     timestamp: ts.min_timestamp(),
                 },
                 &self.engine,
@@ -769,7 +768,8 @@ where
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp = self.miner_has_min_power(&self.chain_config.policy, address, lookback_tipset)?;
+        let hmp =
+            self.miner_has_min_power(&self.chain_config().policy, address, lookback_tipset)?;
         let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -861,8 +861,8 @@ where
         let has_callback = callback.is_some();
         Ok(apply_block_messages(
             self.chain_store().genesis_block_header().timestamp,
-            Arc::clone(&self.chain_store().chain_index),
-            Arc::clone(&self.chain_config),
+            Arc::clone(self.chain_index()),
+            Arc::clone(self.chain_config()),
             self.beacon_schedule().clone(),
             &self.engine,
             tipset,
@@ -909,8 +909,8 @@ where
             messages,
             tipset,
             self.chain_store().genesis_block_header().timestamp,
-            Arc::clone(&self.chain_store().chain_index),
-            Arc::clone(&self.chain_config),
+            Arc::clone(self.chain_index()),
+            Arc::clone(self.chain_config()),
             self.beacon_schedule().clone(),
             &self.engine,
             callback,
@@ -933,8 +933,7 @@ where
         let message_sequence = message.sequence();
         // Load parent state.
         let pts = self
-            .cs
-            .chain_index
+            .chain_index()
             .load_required_tipset(tipset.parents())
             .map_err(|err| Error::Other(format!("Failed to load tipset: {err}")))?;
         let messages = self
@@ -993,8 +992,7 @@ where
         let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
-                .cs
-                .chain_index
+                .chain_index()
                 .load_required_tipset(current.parents())
                 .map_err(|err| {
                     Error::Other(format!(
@@ -1302,7 +1300,7 @@ where
         let mut partitions = Vec::new();
 
         state.for_each_deadline(
-            &self.chain_config.policy,
+            &self.chain_config().policy,
             self.blockstore(),
             |_, deadline| {
                 deadline.for_each(self.blockstore(), |_, partition| {
@@ -1373,12 +1371,12 @@ where
     ) -> anyhow::Result<Option<MiningBaseInfo>> {
         let prev_beacon = self
             .chain_store()
-            .chain_index
+            .chain_index()
             .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(
-                self.chain_config.network_version(epoch),
+                self.chain_config().network_version(epoch),
                 epoch,
                 tipset.epoch(),
                 &prev_beacon,
@@ -1388,8 +1386,8 @@ where
         let base = entries.last().unwrap_or(&prev_beacon);
 
         let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
-            self.cs.chain_index.clone(),
-            self.chain_config.clone(),
+            self.chain_index().clone(),
+            self.chain_config().clone(),
             tipset.clone(),
             epoch,
         )?;
@@ -1413,7 +1411,7 @@ where
             &addr_buf,
         )?;
 
-        let network_version = self.chain_config.network_version(tipset.epoch());
+        let network_version = self.chain_config().network_version(tipset.epoch());
         let sectors = self.get_sectors_for_winning_post(
             &lb_state_root,
             network_version,
@@ -1492,8 +1490,7 @@ where
         let heaviest = self.cs.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
-            .cs
-            .chain_index
+            .chain_index()
             .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
             .with_context(|| {
                 format!(
@@ -1504,8 +1501,7 @@ where
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = self
-            .cs
-            .chain_index
+            .chain_index()
             .chain(end)
             .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
@@ -1519,7 +1515,7 @@ where
         let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
             genesis_timestamp,
-            self.chain_store().chain_index.clone(),
+            self.chain_index().clone(),
             self.chain_config().clone(),
             self.beacon_schedule().clone(),
             &self.engine,
@@ -1610,7 +1606,7 @@ where
             _ => {
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 if let Ok(state) =
-                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
+                    StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
                     && let Ok(address) = state
                         .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
                 {
@@ -1619,7 +1615,7 @@ where
 
                 // If that fails, compute the tip-set and try again.
                 let (state_root, _) = self.tipset_state(&ts).await?;
-                let state = StateTree::new_from_root(self.chain_store().db.clone(), &state_root)?;
+                let state = StateTree::new_from_root(self.blockstore_owned(), &state_root)?;
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
@@ -1651,7 +1647,7 @@ where
 
         let StateOutput { state_root, .. } = apply_block_messages(
             genesis_timestamp,
-            self.chain_store().chain_index.clone(),
+            self.chain_index().clone(),
             self.chain_config().clone(),
             self.beacon_schedule().clone(),
             &self.engine,
@@ -1677,11 +1673,10 @@ where
         }
 
         // Check if the next tipset has the same parent
-        if let Ok(next_tipset) = self.chain_store().chain_index.tipset_by_height(
-            next_epoch,
-            heaviest,
-            ResolveNullTipset::TakeNewer,
-        ) {
+        if let Ok(next_tipset) =
+            self.chain_index()
+                .tipset_by_height(next_epoch, heaviest, ResolveNullTipset::TakeNewer)
+        {
             // verify that the parent of the `next_tipset` is the same as the current tipset
             if !next_tipset.parents().eq(tipset.key()) {
                 return None;
@@ -1878,7 +1873,7 @@ where
     let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
-            genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;
+            genesis_info.get_vm_circulating_supply(epoch, chain_index.db(), &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
@@ -1898,7 +1893,7 @@ where
 
     let mut parent_state = *tipset.parent_state();
 
-    let parent_epoch = Tipset::load_required(&chain_index.db, tipset.parents())?.epoch();
+    let parent_epoch = Tipset::load_required(chain_index.db(), tipset.parents())?.epoch();
     let epoch = tipset.epoch();
 
     for epoch_i in parent_epoch..epoch {
@@ -1920,13 +1915,13 @@ where
 
         // step 3: run migrations
         if let Some(new_state) =
-            run_state_migrations(epoch_i, &chain_config, &chain_index.db, &parent_state)?
+            run_state_migrations(epoch_i, &chain_config, chain_index.db(), &parent_state)?
         {
             parent_state = new_state;
         }
     }
 
-    let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
+    let block_messages = BlockMessages::for_tipset(chain_index.db(), &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
@@ -1939,7 +1934,7 @@ where
             vm.apply_block_messages(&block_messages, epoch, callback)?;
 
         // step 5: construct receipt root from receipts and flush the state-tree
-        let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
+        let receipt_root = Amt::new_from_iter(chain_index.db(), receipts)?;
         let state_root = vm.flush()?;
 
         Ok(StateOutput {

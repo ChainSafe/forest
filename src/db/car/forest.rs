@@ -51,7 +51,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::RandomAccessFileReader;
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_stream::{CarBlock, CarV1Header};
+use crate::utils::db::car_stream::{CarBlock, CarV1Header, uvi_bytes};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::get_size::CidWrapper;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -74,7 +74,6 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
-use unsigned_varint::codec::UviBytes;
 
 #[cfg(feature = "benchmark-private")]
 pub mod index;
@@ -157,7 +156,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
-        let block_frame = UviBytes::<Bytes>::default()
+        let block_frame = uvi_bytes()
             .decode(&mut header_zstd_frame)?
             .ok_or_else(|| invalid_data("malformed uvibytes"))?;
         let header = from_slice_with_fallback::<CarV1Header>(&block_frame)
@@ -265,9 +264,7 @@ where
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = hashbrown::HashMap::new();
-                    while let Some(block_frame) =
-                        UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
-                    {
+                    while let Some(block_frame) = uvi_bytes().decode_eof(&mut zstd_frame)? {
                         let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
                         block_map.insert(cid.into(), data);
                     }
@@ -313,7 +310,7 @@ impl Encoder {
 
         let header = CarV1Header { roots, version: 1 };
         let mut header_uvi_frame = BytesMut::new();
-        UviBytes::default().encode(
+        uvi_bytes().encode(
             Bytes::from(fvm_ipld_encoding::to_vec(&header)?),
             &mut header_uvi_frame,
         )?;
@@ -402,7 +399,11 @@ impl Encoder {
                         }
                     }
                     // Pass errors through
-                    Some(Err(e)) => return Poll::Ready(Some(Err(e))),
+                    Some(Err(e)) => {
+                        return Poll::Ready(Some(Err(anyhow::anyhow!(
+                            "error polling CarBlock from stream: {e}"
+                        ))));
+                    }
                     // Got element, add to encoder and emit block position
                     Some(Ok(block)) => {
                         frame_cids.push(block.cid);

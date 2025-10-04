@@ -65,6 +65,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetBlockMessages);
         $callback!($crate::rpc::chain::ChainGetEvents);
         $callback!($crate::rpc::chain::ChainGetGenesis);
+        $callback!($crate::rpc::chain::ChainGetFinalizedTipset);
         $callback!($crate::rpc::chain::ChainGetMessage);
         $callback!($crate::rpc::chain::ChainGetMessagesInTipset);
         $callback!($crate::rpc::chain::ChainGetMinBaseFee);
@@ -470,7 +471,7 @@ impl<DB: Blockstore> RPCState<DB> {
     }
 
     pub fn chain_index(&self) -> &Arc<crate::chain::index::ChainIndex<Arc<DB>>> {
-        &self.chain_store().chain_index
+        self.chain_store().chain_index()
     }
 
     pub fn chain_config(&self) -> &Arc<crate::networks::ChainConfig> {

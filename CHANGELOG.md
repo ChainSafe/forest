@@ -33,11 +33,17 @@
 
 - [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
 
+- [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#5055](https://github.com/ChainSafe/forest/issues/5055) Fixed an issue where Forest fails on duplicate drand entries. This would only happen on new devnets.
+
+- [#6103](https://github.com/ChainSafe/forest/pull/6103) Fixed `eth_getTransactionCount` to return the nonce of the requested tipset and not its parent.
 
 ## Forest v0.30.1 "Laurelin"
 

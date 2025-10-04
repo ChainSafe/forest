@@ -204,7 +204,7 @@ where
 
             let fvm: ForestMachineV4<DB> = ForestMachineV4::new(
                 &context,
-                Arc::clone(&chain_index.db),
+                Arc::clone(chain_index.db()),
                 ForestExternsV4::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
@@ -232,7 +232,7 @@ where
 
             let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
-                Arc::clone(&chain_index.db),
+                Arc::clone(chain_index.db()),
                 ForestExternsV3::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
@@ -255,7 +255,7 @@ where
             let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
                 &context,
-                Arc::clone(&chain_index.db),
+                Arc::clone(chain_index.db()),
                 ForestExternsV2::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,

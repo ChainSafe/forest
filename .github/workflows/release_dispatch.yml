@@ -31,7 +31,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
         continue-on-error: true
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
       - name: Cargo Build

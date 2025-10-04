@@ -759,8 +759,8 @@ Options:
       --skip-checksum              Skip creating the checksum file
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
-  -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
-      --format <FORMAT>            Export snapshot in the experimental v2 format(FRC-0108) [default: v1] [possible values: v1, v2]
+  -d, --depth <DEPTH>              How many state trees to include. 0 for chain spine with no state trees [default: 2000]
+      --format <FORMAT>            Snapshot format to export [default: v1] [possible values: v1, v2]
   -h, --help                       Print help
 ```
 
@@ -2061,12 +2061,13 @@ Options:
 ```
 Backfill index with Ethereum mappings, events, etc
 
-Usage: forest-tool index backfill [OPTIONS] --to <TO>
+Usage: forest-tool index backfill [OPTIONS] --to <TO> --n-tipsets <N_TIPSETS>
 
 Options:
-  -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
-      --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
-      --from <FROM>      The starting tipset epoch for back-filling (inclusive), defaults to chain head
-      --to <TO>          The ending tipset epoch for back-filling (inclusive)
-  -h, --help             Print help
+  -c, --config <CONFIG>        Optional TOML file containing forest daemon configuration
+      --chain <CHAIN>          Optional chain, will override the chain section of configuration file if used
+      --from <FROM>            The starting tipset epoch for back-filling (inclusive), defaults to chain head
+      --to <TO>                The ending tipset epoch for back-filling (inclusive)
+      --n-tipsets <N_TIPSETS>  The number of tipsets for back-filling (conflicts with --to flag)
+  -h, --help                   Print help
 ```

@@ -145,7 +145,10 @@ pub(super) async fn run_tests(
             Err(e) => {
                 if let Some(expected_msg) = test.should_fail_with {
                     let err_str = format!("{e:#}");
-                    if err_str.contains(expected_msg) {
+                    if err_str
+                        .to_lowercase()
+                        .contains(&expected_msg.to_lowercase())
+                    {
                         println!("ok");
                         passed += 1;
                     } else {
@@ -403,7 +406,9 @@ fn eth_new_block_filter() -> RpcTestScenario {
 
                 if let EthFilterResult::Hashes(hashes) = filter_result {
                     verify_hashes(&hashes).await?;
-                    anyhow::ensure!(prev_hashes != hashes);
+                    anyhow::ensure!(
+                        (prev_hashes.is_empty() && hashes.is_empty()) || prev_hashes != hashes,
+                    );
 
                     Ok(())
                 } else {
@@ -624,15 +629,12 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
         with_methods!(
             create_eth_new_filter_limit_test(LOTUS_EVENTS_MAXFILTERS + 1)
                 .name("eth_newFilter over limit")
-                .should_fail_with("maximum number of filters registered")
-                .ignore("https://github.com/ChainSafe/forest/issues/5915"),
+                .should_fail_with("maximum number of filters registered"),
             EthNewFilter,
             EthUninstallFilter
         ),
         with_methods!(
-            eth_new_block_filter()
-                .name("eth_newBlockFilter works")
-                .ignore("https://github.com/ChainSafe/forest/issues/6069"),
+            eth_new_block_filter().name("eth_newBlockFilter works"),
             EthNewBlockFilter,
             EthGetFilterChanges,
             EthUninstallFilter

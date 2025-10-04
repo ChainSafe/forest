@@ -289,7 +289,8 @@ impl Beacon for DrandBeacon {
             let mut signatures = vec![];
             let pk = PublicKeyOnG2::from_bytes(&self.public_key)?;
             {
-                for entry in entries.iter() {
+                // Deduplicate by round. See Lotus issue: https://github.com/filecoin-project/lotus/issues/13349
+                for entry in entries.iter().unique_by(|e| e.round()) {
                     if self.is_verified(entry) {
                         continue;
                     }
