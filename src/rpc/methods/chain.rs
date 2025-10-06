@@ -469,12 +469,14 @@ impl RpcMethod<0> for ForestChainExportCancel {
     type Ok = bool;
 
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        use crate::chain::CANCEL_EXPORT;
+        let locked = CHAIN_EXPORT_LOCK.try_lock();
+        if locked.is_err() {
+            CANCEL_EXPORT.notify_waiters();
 
-        CANCEL_EXPORT.notify_waiters();
+            return Ok(true);
+        }
 
-        // TODO(elmattic): return false if there was no export in progress
-        Ok(true)
+        Ok(false)
     }
 }
 
