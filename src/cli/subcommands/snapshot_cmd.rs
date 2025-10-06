@@ -7,6 +7,7 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::networks::calibnet;
 use crate::rpc::chain::ForestChainExportDiffParams;
+use crate::rpc::types::ApiExportResult;
 use crate::rpc::{self, chain::ForestChainExportParams, prelude::*};
 use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use anyhow::Context as _;
@@ -170,7 +171,7 @@ impl SnapshotCommands {
                 _ = handle.await;
 
                 if !dry_run {
-                    if let Some(hash) = hash_result {
+                    if let ApiExportResult::Done(Some(hash)) = hash_result.clone() {
                         save_checksum(&output_path, hash).await?;
                     }
                     temp_path.persist(output_path)?;

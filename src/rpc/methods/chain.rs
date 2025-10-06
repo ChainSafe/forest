@@ -8,6 +8,7 @@ use types::*;
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
+use crate::chain::CANCEL_EXPORT;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
@@ -18,7 +19,7 @@ use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::f3::F3ExportLatestSnapshot;
-use crate::rpc::types::{ApiTipsetKey, Event};
+use crate::rpc::types::{ApiExportResult, ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -329,7 +330,7 @@ impl RpcMethod<1> for ForestChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ForestChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -366,7 +367,6 @@ impl RpcMethod<1> for ForestChainExport {
         };
         match match version {
             FilecoinSnapshotVersion::V1 => {
-                use crate::chain::CANCEL_EXPORT;
                 let db = ctx.store_owned();
 
                 let chain_export =
@@ -374,15 +374,17 @@ impl RpcMethod<1> for ForestChainExport {
 
                 tokio::select! {
                     result = chain_export => {
-                        result
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
                     _ = CANCEL_EXPORT.notified() => {
                         tracing::warn!("Snapshot export was cancelled");
-                        Ok(None)
+                        Ok(ApiExportResult::Cancelled)
                     },
                 }
             }
             FilecoinSnapshotVersion::V2 => {
+                let db = ctx.store_owned();
+
                 let f3_snap_tmp_path = {
                     let mut f3_snap_dir = output_path.clone();
                     let mut builder = tempfile::Builder::new();
@@ -404,18 +406,28 @@ impl RpcMethod<1> for ForestChainExport {
                         }
                     }
                 };
-                crate::chain::export_v2::<Sha256>(
-                    &ctx.store_owned(),
+
+                let chain_export = crate::chain::export_v2::<Sha256>(
+                    &db,
                     f3_snap,
                     &start_ts,
                     recent_roots,
                     writer,
                     options,
-                )
-                .await
+                );
+
+                tokio::select! {
+                    result = chain_export => {
+                        result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
+                    },
+                    _ = CANCEL_EXPORT.notified() => {
+                        tracing::warn!("Snapshot export was cancelled");
+                        Ok(ApiExportResult::Cancelled)
+                    },
+                }
             }
         } {
-            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+            Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
     }
@@ -530,7 +542,7 @@ impl RpcMethod<1> for ChainExport {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainExportParams,);
-    type Ok = Option<String>;
+    type Ok = ApiExportResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,

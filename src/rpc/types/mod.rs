@@ -593,3 +593,11 @@ pub struct ApiExportStatus {
 }
 
 lotus_json_with_self!(ApiExportStatus);
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
+pub enum ApiExportResult {
+    Done(Option<String>),
+    Cancelled,
+}
+
+lotus_json_with_self!(ApiExportResult);
