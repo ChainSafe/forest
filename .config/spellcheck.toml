@@ -6,15 +6,18 @@ lang = "en_US"
 search_dirs = ["."]
 skip_os_lookups = true
 use_builtin = true
-tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…<>=~"
+tokenization_splitchars = "\",;:.!?#()[]|/_-‒'`&@§¶…<>=~"
 extra_dictionaries = ["forest.dic", "en_US.dic"]
 
 [hunspell.quirks]
 transform_regex = [
   # 10.7%
   "^[0-9_]+(?:\\.[0-9]*)?%$",
-  # Template variables like {{ env.WORKFLOW_URL }}
-  "\\{\\{[^}]+\\}\\}",
+  # Template variables like {{ env.WORKFLOW_URL }} or {{ date | date('D/M/YY HH:mm') }}
+  "\\{\\{.*?\\}\\}",
+  # Double braces
+  "^\\{\\{$",
+  "^\\}\\}$",
   # YAML frontmatter keys like sidebar_position
   "^[a-z_]+:.*$",
   # Numbers with underscores like 30_000
