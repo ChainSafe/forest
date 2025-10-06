@@ -101,11 +101,11 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 ### Added
 
-- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in v2 format(FRC-0108).
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `--format` flag to the `forest-cli snapshot export` subcommand. This allows exporting a Filecoin snapshot in `v2` format(FRC-0108).
 
 - [#5956](https://github.com/ChainSafe/forest/pull/5956) Add `forest-tool archive f3-header` subcommand for inspecting the header of a standalone F3 snapshot(FRC-0108).
 
-- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in v2 format(FRC-0108).
+- [#5835](https://github.com/ChainSafe/forest/issues/5835) Add `forest-tool archive metadata` subcommand for inspecting snapshot metadata of a Filecoin snapshot in `v2` format(FRC-0108).
 
 - [#5859](https://github.com/ChainSafe/forest/pull/5859) Added size metrics for zstd frame cache and made max size configurable via `FOREST_ZSTD_FRAME_CACHE_DEFAULT_MAX_SIZE` environment variable.
 
@@ -117,7 +117,7 @@ Non-mandatory release. It introduces a couple of features around snapshot genera
 
 - [#5946](https://github.com/ChainSafe/forest/pull/5946) Added `--verbose` to `forest-cli state compute` for printing epochs and tipset keys along with state roots.
 
-- [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a v1 Filecoin snapshot and an F3 snapshot into a v2 Filecoin snapshot.
+- [#5886](https://github.com/ChainSafe/forest/issues/5886) Add `forest-tool archive merge-f3` subcommand for merging a `v1` Filecoin snapshot and an F3 snapshot into a `v2` Filecoin snapshot.
 
 - [#4976](https://github.com/ChainSafe/forest/issues/4976) Add support for the `Filecoin.EthSubscribe` and `Filecoin.EthUnsubscribe` API methods to enable subscriptions to Ethereum event types: `heads` and `logs`.
 
@@ -831,7 +831,7 @@ most notably, garbage collection fix.
 ### Added
 
 - [#4473](https://github.com/ChainSafe/forest/pull/4473) Add support for NV23
-  _Waffle_ network upgrade (FIP-0085, FIP-0091, v14 actors).
+  _Waffle_ network upgrade (FIP-0085, FIP-0091, `v14` actors).
 
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
@@ -2144,54 +2144,54 @@ All changes:
 - Fix snapshot get in docs
   ([#1353](https://github.com/ChainSafe/forest/pull/1353))
 - Fix market logic ([#1356](https://github.com/ChainSafe/forest/pull/1356))
-- V6: fix market and power actors to match go
+- `V6`: fix market and power actors to match go
   ([#1348](https://github.com/ChainSafe/forest/pull/1348))
-- F28 fix ([#1343](https://github.com/ChainSafe/forest/pull/1343))
-- Fix: F25 ([#1342](https://github.com/ChainSafe/forest/pull/1342))
+- `F28` fix ([#1343](https://github.com/ChainSafe/forest/pull/1343))
+- Fix: `F25` ([#1342](https://github.com/ChainSafe/forest/pull/1342))
 - Ci: --ignore RUSTSEC-2021-0130
   ([#1350](https://github.com/ChainSafe/forest/pull/1350))
-- Drand v14 update: fix fetching around null tipsets
+- Drand `v14` update: fix fetching around null tipsets
   ([#1339](https://github.com/ChainSafe/forest/pull/1339))
-- Fix v6 market actor bug
+- Fix `v6` market actor bug
   ([#1341](https://github.com/ChainSafe/forest/pull/1341))
-- F27 fix ([#1328](https://github.com/ChainSafe/forest/pull/1328))
-- F17 fix ([#1324](https://github.com/ChainSafe/forest/pull/1324))
+- `F27` fix ([#1328](https://github.com/ChainSafe/forest/pull/1328))
+- `F17` fix ([#1324](https://github.com/ChainSafe/forest/pull/1324))
 - Laudiacay/actors review f23
   ([#1325](https://github.com/ChainSafe/forest/pull/1325))
 - Fix market actor publish_storage_deals
   ([#1327](https://github.com/ChainSafe/forest/pull/1327))
 - Remove .swp ([#1326](https://github.com/ChainSafe/forest/pull/1326))
-- F24 fix ([#1323](https://github.com/ChainSafe/forest/pull/1323))
-- F9 fix ([#1315](https://github.com/ChainSafe/forest/pull/1315))
-- F20: Fix expiration set validation order
+- `F24` fix ([#1323](https://github.com/ChainSafe/forest/pull/1323))
+- `F9` fix ([#1315](https://github.com/ChainSafe/forest/pull/1315))
+- `F20`: Fix expiration set validation order
   ([#1322](https://github.com/ChainSafe/forest/pull/1322))
-- F13 fix ([#1313](https://github.com/ChainSafe/forest/pull/1313))
-- F21 fix ([#1311](https://github.com/ChainSafe/forest/pull/1311))
-- F11 fix ([#1312](https://github.com/ChainSafe/forest/pull/1312))
-- F15 fix ([#1314](https://github.com/ChainSafe/forest/pull/1314))
-- F18, F19 fix ([#1321](https://github.com/ChainSafe/forest/pull/1321))
-- Nv14: implement v6 actors
+- `F13` fix ([#1313](https://github.com/ChainSafe/forest/pull/1313))
+- `F21` fix ([#1311](https://github.com/ChainSafe/forest/pull/1311))
+- `F11` fix ([#1312](https://github.com/ChainSafe/forest/pull/1312))
+- `F15` fix ([#1314](https://github.com/ChainSafe/forest/pull/1314))
+- `F18`, `F19` fix ([#1321](https://github.com/ChainSafe/forest/pull/1321))
+- Nv14: implement `v6` actors
   ([#1260](https://github.com/ChainSafe/forest/pull/1260))
 - Add to troubleshooting docs
   ([#1282](https://github.com/ChainSafe/forest/pull/1282))
-- F12 fix ([#1290](https://github.com/ChainSafe/forest/pull/1290))
-- F1 fix ([#1293](https://github.com/ChainSafe/forest/pull/1293))
-- F16: Fix improper use of assert macro
+- `F12` fix ([#1290](https://github.com/ChainSafe/forest/pull/1290))
+- `F1` fix ([#1293](https://github.com/ChainSafe/forest/pull/1293))
+- `F16`: Fix improper use of assert macro
   ([#1310](https://github.com/ChainSafe/forest/pull/1310))
-- F14: Fix missing continue statement
+- `F14`: Fix missing continue statement
   ([#1309](https://github.com/ChainSafe/forest/pull/1309))
-- F10 fix ([#1308](https://github.com/ChainSafe/forest/pull/1308))
-- F7: Fix incorrect error codes
+- `F10` fix ([#1308](https://github.com/ChainSafe/forest/pull/1308))
+- `F7`: Fix incorrect error codes
   ([#1297](https://github.com/ChainSafe/forest/pull/1297))
-- F8: Add missing decrement for miner_count
+- `F8`: Add missing decrement for miner_count
   ([#1298](https://github.com/ChainSafe/forest/pull/1298))
-- F6: Fix incorrect error code
+- `F6`: Fix incorrect error code
   ([#1296](https://github.com/ChainSafe/forest/pull/1296))
-- F5: Fix proposal check in market actor
+- `F5`: Fix proposal check in market actor
   ([#1295](https://github.com/ChainSafe/forest/pull/1295))
 - Remove redundant validation code and update error message to be same as in
   spec actors ([#1294](https://github.com/ChainSafe/forest/pull/1294))
-- F3: fix logic to be the same as in the spec actors
+- `F3`: fix logic to be the same as in the spec actors
   ([#1292](https://github.com/ChainSafe/forest/pull/1292))
 - Attempt to improve gh actions time
   ([#1319](https://github.com/ChainSafe/forest/pull/1319))
@@ -2199,7 +2199,7 @@ All changes:
   ([#1316](https://github.com/ChainSafe/forest/pull/1316))
 - Ci: add gh actions workflows
   ([#1317](https://github.com/ChainSafe/forest/pull/1317))
-- Fix: audit issue F2 ([#1289](https://github.com/ChainSafe/forest/pull/1289))
+- Fix: audit issue `F2` ([#1289](https://github.com/ChainSafe/forest/pull/1289))
 - Update codeowners ([#1306](https://github.com/ChainSafe/forest/pull/1306))
 - Add Guillaume to code owners
   ([#1283](https://github.com/ChainSafe/forest/pull/1283))

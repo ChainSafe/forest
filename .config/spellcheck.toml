@@ -6,13 +6,27 @@ lang = "en_US"
 search_dirs = ["."]
 skip_os_lookups = true
 use_builtin = true
-tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…<>="
+tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…<>=~"
 extra_dictionaries = ["forest.dic", "en_US.dic"]
 
 [hunspell.quirks]
 transform_regex = [
   # 10.7%
   "^[0-9_]+(?:\\.[0-9]*)?%$",
+  # Template variables like {{ env.WORKFLOW_URL }}
+  "\\{\\{[^}]+\\}\\}",
+  # YAML frontmatter keys like sidebar_position
+  "^[a-z_]+:.*$",
+  # Numbers with underscores like 30_000
+  "^[0-9_]+$",
+  # Plus signs and other operators
+  "^[+\\-*/=]+$",
+  # Tilde symbol
+  "^~+$",
+  # Import statements like @theme/Tabs
+  "@theme/.*",
+  # Emoji sequences (literal emojis)
+  "^[🌲🪷🐳❤️🐋]+$",
 ]
 allow_concatenation = false
 allow_dashes = false

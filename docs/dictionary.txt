@@ -22,7 +22,7 @@ config
 Datacap
 datacap
 devnet
-Devops
+DevOps
 Devs
 DHT
 DigitalOcean
@@ -44,7 +44,7 @@ FIPs
 FVM
 GC
 GiB
-Github
+GitHub
 Grafana
 hardcoded
 hotfix
@@ -113,8 +113,6 @@ testnet
 Tipset
 tipset
 tipsets
-V0
-V1
 VPS
 WIP
 zstd
