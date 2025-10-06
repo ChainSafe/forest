@@ -182,7 +182,7 @@ impl SnapshotCommands {
                         println!("Export completed.");
                     }
                     ApiExportResult::Cancelled => {
-                        println!("Export cancelled");
+                        println!("Export cancelled.");
                     }
                 }
                 Ok(())
