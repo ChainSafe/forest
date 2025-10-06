@@ -635,7 +635,7 @@ Usage: forest-cli mpool pending [OPTIONS]
 
 Options:
       --local        Print pending messages for addresses in local wallet only
-      --cids         Only print ``CIDs`` of messages in output
+      --cids         Only print `CIDs` of messages in output
       --to <TO>      Return messages to a given address
       --from <FROM>  Return messages from a given address
   -h, --help         Print help
