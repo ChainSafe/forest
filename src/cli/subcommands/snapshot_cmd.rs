@@ -173,8 +173,9 @@ impl SnapshotCommands {
                 if !dry_run {
                     if let ApiExportResult::Done(Some(hash)) = hash_result.clone() {
                         save_checksum(&output_path, hash).await?;
+
+                        temp_path.persist(output_path)?;
                     }
-                    temp_path.persist(output_path)?;
                 }
 
                 match hash_result {
