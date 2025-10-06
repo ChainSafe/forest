@@ -177,7 +177,14 @@ impl SnapshotCommands {
                     temp_path.persist(output_path)?;
                 }
 
-                println!("Export completed.");
+                match hash_result {
+                    ApiExportResult::Done(_) => {
+                        println!("Export completed.");
+                    }
+                    ApiExportResult::Cancelled => {
+                        println!("Export cancelled");
+                    }
+                }
                 Ok(())
             }
             Self::ExportStatus { wait } => {
