@@ -190,6 +190,14 @@ impl SnapshotCommands {
             }
             Self::ExportStatus { wait } => {
                 if wait {
+                    let pb = ProgressBar::new(10000);
+                    pb.set_style(
+                        ProgressStyle::with_template(
+                            "[{elapsed_precise}] [{wide_bar}] {percent}% {msg}",
+                        )
+                        .expect("indicatif template must be valid")
+                        .progress_chars("#>-"),
+                    );
                     let mut first = 0;
                     loop {
                         let result = client
@@ -201,18 +209,18 @@ impl SnapshotCommands {
                         if first == 0 && result.epoch != 0 {
                             first = result.epoch
                         }
-                        //  1.0 - 3000 / 10000
-                        print!(
-                            "\r{}%",
-                            ((1.0 - ((result.epoch as f64) / (first as f64))) * 100.0).trunc()
-                        );
+                        let position =
+                            ((1.0 - ((result.epoch as f64) / (first as f64))) * 10000.0).trunc();
+                        pb.set_position(position as u64);
 
                         std::io::stdout().flush().unwrap();
                         if result.epoch == 0 {
                             break;
                         }
-                        tokio::time::sleep(Duration::from_millis(100)).await;
+                        tokio::time::sleep(Duration::from_millis(10)).await;
                     }
+                    pb.finish_with_message("Export completed");
+
                     return Ok(());
                 }
                 let result = client

@@ -13,13 +13,14 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
+use crate::ipld::{CHAIN_EXPORT_STATUS, update_exporting};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::eth::{EthLog, eth_logs_with_filter, types::ApiHeaders, types::EthFilterSpec};
 use crate::rpc::f3::F3ExportLatestSnapshot;
-use crate::rpc::types::{ApiExportResult, ApiTipsetKey, Event};
+use crate::rpc::types::{ApiExportResult, ApiExportStatus, ApiTipsetKey, Event};
 use crate::rpc::{ApiPaths, Ctx, EthEventHandler, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
@@ -350,6 +351,7 @@ impl RpcMethod<1> for ForestChainExport {
         if _locked.is_err() {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
+        update_exporting(true);
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts =
@@ -365,7 +367,7 @@ impl RpcMethod<1> for ForestChainExport {
         } else {
             tokio_util::either::Either::Right(tokio::fs::File::create(&output_path).await?)
         };
-        match match version {
+        let result = match version {
             FilecoinSnapshotVersion::V1 => {
                 let db = ctx.store_owned();
 
@@ -426,15 +428,14 @@ impl RpcMethod<1> for ForestChainExport {
                     },
                 }
             }
-        } {
+        };
+        update_exporting(false);
+        match result {
             Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
         }
     }
 }
-
-use crate::ipld::EXPORT_STATUS;
-use crate::rpc::types::ApiExportStatus;
 
 pub enum ForestChainExportStatus {}
 impl RpcMethod<0> for ForestChainExportStatus {
@@ -447,7 +448,9 @@ impl RpcMethod<0> for ForestChainExportStatus {
     type Ok = ApiExportStatus;
 
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let status = EXPORT_STATUS.lock().unwrap();
+        let status = CHAIN_EXPORT_STATUS
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to acquire export status lock"))?;
 
         let status = ApiExportStatus {
             epoch: status.epoch,

@@ -15,7 +15,7 @@ use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::{LazyLock, Mutex};
 use std::task::{Context, Poll};
 
 #[derive(Default)]
@@ -24,17 +24,21 @@ pub struct ExportStatus {
     pub exporting: bool,
 }
 
-pub static EXPORT_STATUS: once_cell::sync::Lazy<Arc<Mutex<ExportStatus>>> =
-    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(ExportStatus::default())));
+pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
+    LazyLock::new(|| ExportStatus::default().into());
 
 fn update_epoch(new_value: i64) {
-    let mut lock = EXPORT_STATUS.lock().unwrap();
-    lock.epoch = new_value;
+    let mut lock = CHAIN_EXPORT_STATUS.lock();
+    if let Ok(ref mut mutex) = lock {
+        mutex.epoch = new_value;
+    }
 }
 
-fn read_epoch() -> i64 {
-    let lock = EXPORT_STATUS.lock().unwrap();
-    lock.epoch
+pub fn update_exporting(new_value: bool) {
+    let mut lock = CHAIN_EXPORT_STATUS.lock();
+    if let Ok(ref mut mutex) = lock {
+        mutex.exporting = new_value;
+    }
 }
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
