@@ -140,9 +140,60 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
     type Params = ();
     type Ok = Tipset;
 
-    async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Err(ServerError::stubbed_for_openrpc())
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let head = ctx.chain_store().heaviest_tipset();
+        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
+
+        // Either get the f3 finalized tipset or the ec finalized tipset
+        match get_f3_finality_tipset(&ctx, ec_finality_epoch).await {
+            Ok(f3_tipset) => {
+                tracing::debug!("Using F3 finalized tipset at epoch {}", f3_tipset.epoch());
+                Ok((*f3_tipset).clone())
+            }
+            Err(_) => {
+                // fallback to ec finality
+                tracing::warn!("F3 finalization unavailable, falling back to EC finality");
+                let ec_tipset = ctx.chain_index().tipset_by_height(
+                    ec_finality_epoch,
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                Ok((*ec_tipset).clone())
+            }
+        }
     }
+}
+
+// get f3 finalized tipset based on ec finality epoch
+async fn get_f3_finality_tipset<DB: Blockstore + Sync + Send + 'static>(
+    ctx: &Ctx<DB>,
+    ec_finality_epoch: ChainEpoch,
+) -> Result<Arc<Tipset>> {
+    let f3_finalized_cert = crate::rpc::f3::F3GetLatestCertificate::handle(ctx.clone(), ())
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to get F3 certificate: {}", e))?;
+
+    let f3_finalized_head = f3_finalized_cert.chain_head();
+    if f3_finalized_head.epoch < ec_finality_epoch {
+        return Err(anyhow::anyhow!(
+            "F3 finalized tipset epoch {} is further back than EC finalized tipset epoch {}",
+            f3_finalized_head.epoch,
+            ec_finality_epoch
+        ));
+    }
+
+    ctx.chain_index()
+        .load_required_tipset(&f3_finalized_head.key)
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to load F3 finalized tipset at epoch {}: {}",
+                f3_finalized_head.epoch,
+                e
+            )
+        })
 }
 
 pub enum ChainGetMessage {}
