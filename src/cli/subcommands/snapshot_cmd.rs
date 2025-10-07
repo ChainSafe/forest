@@ -200,7 +200,6 @@ impl SnapshotCommands {
                         .expect("indicatif template must be valid")
                         .progress_chars("#>-"),
                     );
-                    let mut first = 0;
                     loop {
                         let result = client
                             .call(
@@ -218,15 +217,11 @@ impl SnapshotCommands {
                         if !result.exporting {
                             return Ok(());
                         }
-                        if first == 0 && result.epoch != 0 {
-                            first = result.epoch
-                        }
-                        let position =
-                            ((1.0 - ((result.epoch as f64) / (first as f64))) * 10000.0).trunc();
-                        pb.set_position(position as u64);
+                        let position = (result.progress * 10000.0).trunc() as u64;
+                        pb.set_position(position);
 
                         std::io::stdout().flush()?;
-                        if result.epoch == 0 {
+                        if position == 10000 {
                             break;
                         }
                         tokio::time::sleep(Duration::from_millis(10)).await;

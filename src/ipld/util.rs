@@ -21,6 +21,7 @@ use std::task::{Context, Poll};
 #[derive(Default)]
 pub struct ExportStatus {
     pub epoch: i64,
+    pub initial_epoch: i64,
     pub exporting: bool,
     pub cancelled: bool,
 }
@@ -32,12 +33,17 @@ fn update_epoch(new_value: i64) {
     let mut lock = CHAIN_EXPORT_STATUS.lock();
     if let Ok(ref mut mutex) = lock {
         mutex.epoch = new_value;
+        if mutex.initial_epoch == 0 {
+            mutex.initial_epoch = new_value;
+        }
     }
 }
 
 pub fn start_export() {
     let mut lock = CHAIN_EXPORT_STATUS.lock();
     if let Ok(ref mut mutex) = lock {
+        mutex.epoch = 0;
+        mutex.initial_epoch = 0;
         mutex.exporting = true;
         mutex.cancelled = false;
     }

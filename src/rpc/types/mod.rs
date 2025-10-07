@@ -586,9 +586,9 @@ impl From<StampedEvent> for Event {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
 pub struct ApiExportStatus {
-    pub epoch: i64,
+    pub progress: f64,
     pub exporting: bool,
     pub cancelled: bool,
 }

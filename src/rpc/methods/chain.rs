@@ -454,8 +454,10 @@ impl RpcMethod<0> for ForestChainExportStatus {
             .lock()
             .map_err(|_| anyhow::anyhow!("Failed to acquire export status lock"))?;
 
+        let progress = 1.0 - ((status.epoch as f64) / (status.initial_epoch as f64));
+
         let status = ApiExportStatus {
-            epoch: status.epoch,
+            progress,
             exporting: status.exporting,
             cancelled: status.cancelled,
         };
