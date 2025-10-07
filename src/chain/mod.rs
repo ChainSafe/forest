@@ -24,18 +24,15 @@ use digest::Digest;
 use futures::StreamExt as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
-use lazy_static::lazy_static;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
 use std::io::{Seek as _, SeekFrom};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 use tokio::sync::Notify;
 
-lazy_static! {
-    pub static ref CANCEL_EXPORT: Arc<Notify> = Arc::new(Notify::new());
-}
+pub static CANCEL_EXPORT: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {
