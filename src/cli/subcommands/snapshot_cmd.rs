@@ -162,7 +162,7 @@ impl SnapshotCommands {
 
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = client
+                let export_result = client
                     .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
@@ -171,14 +171,16 @@ impl SnapshotCommands {
                 _ = handle.await;
 
                 if !dry_run {
-                    if let ApiExportResult::Done(Some(hash)) = hash_result.clone() {
-                        save_checksum(&output_path, hash).await?;
+                    if let ApiExportResult::Done(hash_opt) = export_result.clone() {
+                        if let Some(hash) = hash_opt {
+                            save_checksum(&output_path, hash).await?;
+                        }
 
                         temp_path.persist(output_path)?;
                     }
                 }
 
-                match hash_result {
+                match export_result {
                     ApiExportResult::Done(_) => {
                         println!("Export completed.");
                     }
