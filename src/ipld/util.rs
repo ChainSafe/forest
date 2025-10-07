@@ -22,6 +22,7 @@ use std::task::{Context, Poll};
 pub struct ExportStatus {
     pub epoch: i64,
     pub exporting: bool,
+    pub cancelled: bool,
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
@@ -34,10 +35,26 @@ fn update_epoch(new_value: i64) {
     }
 }
 
-pub fn update_exporting(new_value: bool) {
+pub fn start_export() {
     let mut lock = CHAIN_EXPORT_STATUS.lock();
     if let Ok(ref mut mutex) = lock {
-        mutex.exporting = new_value;
+        mutex.exporting = true;
+        mutex.cancelled = false;
+    }
+}
+
+pub fn end_export() {
+    let mut lock = CHAIN_EXPORT_STATUS.lock();
+    if let Ok(ref mut mutex) = lock {
+        mutex.exporting = false;
+    }
+}
+
+pub fn cancel_export() {
+    let mut lock = CHAIN_EXPORT_STATUS.lock();
+    if let Ok(ref mut mutex) = lock {
+        mutex.exporting = false;
+        mutex.cancelled = true;
     }
 }
 

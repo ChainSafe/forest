@@ -13,7 +13,7 @@ use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::ipld::DfsIter;
-use crate::ipld::{CHAIN_EXPORT_STATUS, update_exporting};
+use crate::ipld::{CHAIN_EXPORT_STATUS, cancel_export, end_export, start_export};
 use crate::lotus_json::{HasLotusJson, LotusJson, lotus_json_with_self};
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -351,7 +351,7 @@ impl RpcMethod<1> for ForestChainExport {
         if _locked.is_err() {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
-        update_exporting(true);
+        start_export();
 
         let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let start_ts =
@@ -379,6 +379,7 @@ impl RpcMethod<1> for ForestChainExport {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
                     _ = CANCEL_EXPORT.notified() => {
+                        cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
@@ -423,13 +424,14 @@ impl RpcMethod<1> for ForestChainExport {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
                     _ = CANCEL_EXPORT.notified() => {
+                        cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
                     },
                 }
             }
         };
-        update_exporting(false);
+        end_export();
         match result {
             Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
@@ -455,6 +457,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
         let status = ApiExportStatus {
             epoch: status.epoch,
             exporting: status.exporting,
+            cancelled: status.cancelled,
         };
 
         Ok(status)

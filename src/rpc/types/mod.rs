@@ -590,6 +590,7 @@ impl From<StampedEvent> for Event {
 pub struct ApiExportStatus {
     pub epoch: i64,
     pub exporting: bool,
+    pub cancelled: bool,
 }
 
 lotus_json_with_self!(ApiExportStatus);

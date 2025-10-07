@@ -206,6 +206,13 @@ impl SnapshotCommands {
                                     .with_timeout(Duration::from_secs(30)),
                             )
                             .await?;
+                        if result.cancelled {
+                            pb.set_message("Export cancelled");
+                            pb.abandon();
+                            std::io::stdout().flush()?;
+
+                            return Ok(());
+                        }
                         if !result.exporting {
                             return Ok(());
                         }
@@ -216,7 +223,7 @@ impl SnapshotCommands {
                             ((1.0 - ((result.epoch as f64) / (first as f64))) * 10000.0).trunc();
                         pb.set_position(position as u64);
 
-                        std::io::stdout().flush().unwrap();
+                        std::io::stdout().flush()?;
                         if result.epoch == 0 {
                             break;
                         }
