@@ -206,6 +206,9 @@ impl SnapshotCommands {
                                     .with_timeout(Duration::from_secs(30)),
                             )
                             .await?;
+                        if !result.exporting {
+                            return Ok(());
+                        }
                         if first == 0 && result.epoch != 0 {
                             first = result.epoch
                         }
