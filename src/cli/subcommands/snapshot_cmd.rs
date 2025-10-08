@@ -219,7 +219,6 @@ impl SnapshotCommands {
                         if result.cancelled {
                             pb.set_message("Export cancelled");
                             pb.abandon();
-                            std::io::stdout().flush()?;
 
                             return Ok(());
                         }
@@ -229,7 +228,6 @@ impl SnapshotCommands {
                         let position = (result.progress * 10000.0).trunc() as u64;
                         pb.set_position(position);
 
-                        std::io::stdout().flush()?;
                         if position == 10000 {
                             break;
                         }

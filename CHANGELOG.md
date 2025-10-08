@@ -35,6 +35,8 @@
 
 - [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
 
+- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
+
 ### Changed
 
 ### Removed
