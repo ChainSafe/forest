@@ -1741,9 +1741,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: None,
-                topics: None,
-                block_hash: None,
+                ..Default::default()
             },))
             .unwrap(),
         )
@@ -1753,8 +1751,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
                 address: Some(EthAddressList::List(Vec::new())),
-                topics: None,
-                block_hash: None,
+                ..Default::default()
             },))
             .unwrap(),
         )
@@ -1763,9 +1760,7 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: None,
-                topics: None,
-                block_hash: None,
+                ..Default::default()
             },))
             .unwrap(),
         )

@@ -520,7 +520,7 @@ impl Matcher for EthFilterSpec {
         let match_addr = match self.address {
             Some(ref address_list) => {
                 if address_list.is_empty() {
-                    false
+                    true
                 } else {
                     address_list.iter().any(|other| other == &eth_emitter_addr)
                 }
@@ -813,7 +813,8 @@ mod tests {
 
         let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
 
-        assert!(!empty_list_spec.matches(&addr, &[]).unwrap());
+        // Updated to match Lotus behavior: empty list = wildcard (matches all)
+        assert!(empty_list_spec.matches(&addr, &[]).unwrap());
     }
 
     #[test]
@@ -852,6 +853,51 @@ mod tests {
         assert!(
             result.is_ok(),
             "Expected successful filter creation with None address"
+        );
+    }
+
+    #[test]
+    fn test_lotus_compatible_address_behavior() {
+        // Test the Lotus-compatible behavior: empty list = wildcard
+        let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        // Case 1: None (omitted) = wildcard
+        let none_spec = EthFilterSpec {
+            address: None,
+            ..Default::default()
+        };
+        assert!(
+            none_spec.matches(&addr, &[]).unwrap(),
+            "None should match all addresses"
+        );
+
+        // Case 2: Empty list = wildcard (Lotus behavior)
+        let empty_spec = EthFilterSpec {
+            address: Some(vec![].into()),
+            ..Default::default()
+        };
+        assert!(
+            empty_spec.matches(&addr, &[]).unwrap(),
+            "Empty list should match all addresses (Lotus compatible)"
+        );
+
+        // Case 3: Specific address = only that address
+        let eth_addr = EthAddress::from_filecoin_address(&addr).unwrap();
+        let specific_spec = EthFilterSpec {
+            address: Some(vec![eth_addr].into()),
+            ..Default::default()
+        };
+        assert!(
+            specific_spec.matches(&addr, &[]).unwrap(),
+            "Specific address should match itself"
+        );
+
+        // Case 4: Different address = no match
+        let different_addr =
+            Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
+        assert!(
+            !specific_spec.matches(&different_addr, &[]).unwrap(),
+            "Specific address should not match different address"
         );
     }
 
