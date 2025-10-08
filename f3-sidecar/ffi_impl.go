@@ -2,28 +2,12 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
-
-	logging "github.com/ipfs/go-log/v2"
 )
 
 func init() {
 	setGoDebugEnv()
-	logging.SetAllLoggers(logging.LevelInfo)
-	err := logging.SetLogLevel("dht", "error")
-	checkError(err)
-	// Always mute RtRefreshManager because it breaks terminals
-	err = logging.SetLogLevel("dht/RtRefreshManager", "fatal")
-	checkError(err)
-	err = logging.SetLogLevel("net/identify", "error")
-	checkError(err)
-	err = logging.SetLogLevel("pubsub", "error")
-	checkError(err)
-	err = logging.SetLogLevel("swarm2", "error")
-	checkError(err)
-	err = logging.SetLogLevel("f3/sidecar", "debug")
-	checkError(err)
+	checkError(setLogLevels())
 	GoF3NodeImpl = &f3Impl{ctx: context.Background()}
 }
 
@@ -53,17 +37,4 @@ func (f3 *f3Impl) import_snap(f3_rpc_endpoint *string, f3_root *string, snapshot
 		return err.Error()
 	}
 	return ""
-}
-
-func checkError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-// To avoid potential panics
-// See <https://github.com/ChainSafe/forest/pull/4636#issuecomment-2306500753>
-func setGoDebugEnv() {
-	err := os.Setenv("GODEBUG", "invalidptr=0,cgocheck=0")
-	checkError(err)
 }
