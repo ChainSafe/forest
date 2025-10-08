@@ -262,10 +262,10 @@ jobs:
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-  calibnet-export-check:
+  calibnet-export-check-v1:
     needs:
       - build-ubuntu
-    name: Snapshot export checks
+    name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
       - run: lscpu
@@ -281,13 +281,13 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Snapshot export check v1
+      - name: V1 snapshot export checks
         run: ./scripts/tests/calibnet_export_check.sh v1
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v2:
     needs:
       - build-ubuntu
-    name: Snapshot export checks v2 with F3 data
+    name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
       - run: lscpu
@@ -303,8 +303,8 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Snapshot export check v2
-        run: ./scripts/tests/calibnet_export_f3_check.sh
+      - name: V2 snapshot export checks
+        run: ./scripts/tests/calibnet_export_check.sh v2
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-diff-check:
     needs:
@@ -629,7 +629,7 @@ jobs:
       - calibnet-stateless-rpc-check
       - state-migrations-check
       - calibnet-wallet-check
-      - calibnet-export-check
+      - calibnet-export-check-v1
       - calibnet-export-check-v2
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
