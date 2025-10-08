@@ -458,6 +458,7 @@ impl RpcMethod<0> for ForestChainExportStatus {
             progress,
             exporting: mutex.exporting,
             cancelled: mutex.cancelled,
+            start_time: mutex.start_time,
         };
 
         Ok(status)

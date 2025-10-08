@@ -8,6 +8,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::multihash::prelude::*;
+use chrono::{DateTime, Utc};
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
@@ -25,6 +26,7 @@ pub struct ExportStatus {
     pub initial_epoch: i64,
     pub exporting: bool,
     pub cancelled: bool,
+    pub start_time: DateTime<Utc>,
 }
 
 pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
@@ -44,6 +46,7 @@ pub fn start_export() {
     mutex.initial_epoch = 0;
     mutex.exporting = true;
     mutex.cancelled = false;
+    mutex.start_time = Utc::now();
 }
 
 pub fn end_export() {

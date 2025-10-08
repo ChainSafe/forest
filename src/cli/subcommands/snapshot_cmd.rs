@@ -190,10 +190,21 @@ impl SnapshotCommands {
             }
             Self::ExportStatus { wait } => {
                 if wait {
-                    let pb = ProgressBar::new(10000);
+                    let result = client
+                        .call(
+                            ForestChainExportStatus::request(())?
+                                .with_timeout(Duration::from_secs(30)),
+                        )
+                        .await?;
+                    let elapsed = chrono::Utc::now()
+                        .signed_duration_since(result.start_time)
+                        .to_std()?;
+                    let pb = ProgressBar::new(10000)
+                        .with_elapsed(elapsed)
+                        .with_message("Exporting");
                     pb.set_style(
                         ProgressStyle::with_template(
-                            "[{elapsed_precise}] [{wide_bar}] {percent}% {msg}",
+                            "[{elapsed_precise}] [{wide_bar}] {percent}% {msg} ",
                         )
                         .expect("indicatif template must be valid")
                         .progress_chars("#>-"),
