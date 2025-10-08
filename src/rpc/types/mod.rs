@@ -15,7 +15,6 @@ mod tests;
 
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
-use crate::libp2p::Multihash;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::shim::actors::market::AllocationID;
 use crate::shim::actors::market::{DealProposal, DealState};
@@ -147,11 +146,6 @@ pub struct MessageLookup {
 
 lotus_json_with_self!(MessageLookup);
 
-#[derive(Serialize, Deserialize)]
-pub struct PeerID {
-    pub multihash: Multihash<64>,
-}
-
 #[derive(
     Debug,
     Clone,
@@ -207,24 +201,6 @@ pub struct ApiActorState {
 }
 
 lotus_json_with_self!(ApiActorState);
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiState {
-    #[schemars(with = "serde_json::Value")]
-    #[serde(with = "crate::lotus_json")]
-    pub builtin_actors: Ipld,
-}
-
-lotus_json_with_self!(ApiState);
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiDecodedParams {
-    pub params: serde_json::Value,
-}
-
-lotus_json_with_self!(ApiDecodedParams);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

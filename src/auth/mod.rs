@@ -7,7 +7,6 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 /// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
@@ -19,22 +18,6 @@ pub const SIGN: &[&str] = &["read", "write", "sign"];
 pub const WRITE: &[&str] = &["read", "write"];
 /// Reading permissions
 pub const READ: &[&str] = &["read"];
-
-/// Error enumeration for Authentication
-#[derive(Debug, Error, Serialize, Deserialize)]
-pub enum Error {
-    /// Filecoin Method does not exist
-    #[error("Filecoin method does not exist")]
-    MethodParam,
-    /// Invalid permissions to use specified method
-    #[error("Incorrect permissions to access method")]
-    InvalidPermissions,
-    /// Missing authentication header
-    #[error("Missing authentication header")]
-    NoAuthHeader,
-    #[error("{0}")]
-    Other(String),
-}
 
 /// Claim structure for JWT Tokens
 #[derive(Debug, Serialize, Deserialize)]
