@@ -15,7 +15,6 @@ use chrono::DateTime;
 use clap::Subcommand;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
-    io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
