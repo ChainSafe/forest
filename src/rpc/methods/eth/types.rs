@@ -400,11 +400,6 @@ pub struct FilterID(EthHash);
 
 lotus_json_with_self!(FilterID);
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Clone)]
-pub struct SubscriptionID(pub String);
-
-lotus_json_with_self!(SubscriptionID);
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
 

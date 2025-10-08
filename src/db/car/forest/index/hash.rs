@@ -48,7 +48,7 @@ pub fn from_ideal_slot_ix(
     assert!(ideal < num_buckets.get());
 
     fn div_ceil(a: u128, b: u128) -> u64 {
-        (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
+        (a / b + (if a.is_multiple_of(b) { 0 } else { 1 })) as u64
     }
     let min_in_bucket = div_ceil(
         (1_u128 << u64::BITS) * ideal as u128,
