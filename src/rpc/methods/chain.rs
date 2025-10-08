@@ -145,7 +145,7 @@ impl RpcMethod<0> for ChainGetFinalizedTipset {
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let head = ctx.chain_store().heaviest_tipset();
-        let ec_finality_epoch = head.epoch() - ctx.chain_config().policy.chain_finality;
+        let ec_finality_epoch = (head.epoch() - ctx.chain_config().policy.chain_finality).max(0);
 
         // Either get the f3 finalized tipset or the ec finalized tipset
         match get_f3_finality_tipset(&ctx, ec_finality_epoch).await {
