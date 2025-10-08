@@ -450,16 +450,14 @@ impl RpcMethod<0> for ForestChainExportStatus {
     type Ok = ApiExportStatus;
 
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let status = CHAIN_EXPORT_STATUS
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Failed to acquire export status lock"))?;
+        let mutex = CHAIN_EXPORT_STATUS.lock();
 
-        let progress = 1.0 - ((status.epoch as f64) / (status.initial_epoch as f64));
+        let progress = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
 
         let status = ApiExportStatus {
             progress,
-            exporting: status.exporting,
-            cancelled: status.cancelled,
+            exporting: mutex.exporting,
+            cancelled: mutex.cancelled,
         };
 
         Ok(status)

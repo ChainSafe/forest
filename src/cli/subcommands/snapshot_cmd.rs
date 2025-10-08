@@ -170,14 +170,12 @@ impl SnapshotCommands {
                 pb.finish();
                 _ = handle.await;
 
-                if !dry_run {
-                    if let ApiExportResult::Done(hash_opt) = export_result.clone() {
-                        if let Some(hash) = hash_opt {
-                            save_checksum(&output_path, hash).await?;
-                        }
-
-                        temp_path.persist(output_path)?;
+                if !dry_run && let ApiExportResult::Done(hash_opt) = export_result.clone() {
+                    if let Some(hash) = hash_opt {
+                        save_checksum(&output_path, hash).await?;
                     }
+
+                    temp_path.persist(output_path)?;
                 }
 
                 match export_result {

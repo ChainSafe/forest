@@ -11,11 +11,12 @@ use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::pin::Pin;
-use std::sync::{LazyLock, Mutex};
+use std::sync::LazyLock;
 use std::task::{Context, Poll};
 
 #[derive(Default)]
@@ -30,38 +31,30 @@ pub static CHAIN_EXPORT_STATUS: LazyLock<Mutex<ExportStatus>> =
     LazyLock::new(|| ExportStatus::default().into());
 
 fn update_epoch(new_value: i64) {
-    let mut lock = CHAIN_EXPORT_STATUS.lock();
-    if let Ok(ref mut mutex) = lock {
-        mutex.epoch = new_value;
-        if mutex.initial_epoch == 0 {
-            mutex.initial_epoch = new_value;
-        }
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.epoch = new_value;
+    if mutex.initial_epoch == 0 {
+        mutex.initial_epoch = new_value;
     }
 }
 
 pub fn start_export() {
-    let mut lock = CHAIN_EXPORT_STATUS.lock();
-    if let Ok(ref mut mutex) = lock {
-        mutex.epoch = 0;
-        mutex.initial_epoch = 0;
-        mutex.exporting = true;
-        mutex.cancelled = false;
-    }
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.epoch = 0;
+    mutex.initial_epoch = 0;
+    mutex.exporting = true;
+    mutex.cancelled = false;
 }
 
 pub fn end_export() {
-    let mut lock = CHAIN_EXPORT_STATUS.lock();
-    if let Ok(ref mut mutex) = lock {
-        mutex.exporting = false;
-    }
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.exporting = false;
 }
 
 pub fn cancel_export() {
-    let mut lock = CHAIN_EXPORT_STATUS.lock();
-    if let Ok(ref mut mutex) = lock {
-        mutex.exporting = false;
-        mutex.cancelled = true;
-    }
+    let mut mutex = CHAIN_EXPORT_STATUS.lock();
+    mutex.exporting = false;
+    mutex.cancelled = true;
 }
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
