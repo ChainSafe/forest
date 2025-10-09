@@ -39,6 +39,8 @@ pub struct NetworkVersion(#[schemars(with = "u32")] pub NetworkVersion_latest);
 
 lotus_json_with_self!(NetworkVersion);
 
+/// Defines public constants V0, V1, ... for [`NetworkVersion`].
+/// Each constant is mapped to the corresponding [`NetworkVersion_latest`] variant.
 macro_rules! define_network_versions {
     ($($version:literal),+ $(,)?) => {
         impl NetworkVersion {
