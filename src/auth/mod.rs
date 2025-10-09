@@ -20,7 +20,7 @@ pub const WRITE: &[&str] = &["read", "write"];
 pub const READ: &[&str] = &["read"];
 
 /// Claim structure for JWT Tokens
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
