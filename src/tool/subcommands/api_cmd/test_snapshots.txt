@@ -5,6 +5,7 @@ filecoin_chaingetevents_1746450533519970.rpcsnap.json.zst
 filecoin_chaingetevents_1746450533600537.rpcsnap.json.zst
 filecoin_chaingetevents_1746450551991052.rpcsnap.json.zst
 filecoin_chaingetevents_1750327595269729.rpcsnap.json.zst
+filecoin_chaingetfinalizedtipset_1759828121342574.rpcsnap.json.zst
 filecoin_chaingetgenesis_1736937286915866.rpcsnap.json.zst
 filecoin_chaingetmessage_1741270616352800.rpcsnap.json.zst
 filecoin_chaingetmessagesintipset_1741270616353560.rpcsnap.json.zst
