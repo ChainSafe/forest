@@ -1325,14 +1325,15 @@ fn eth_tests() -> Vec<RpcTest> {
         }
 
         let cases = [
-            EthAddressList::List(vec![]),
-            EthAddressList::List(vec![
+            Some(EthAddressList::List(vec![])),
+            Some(EthAddressList::List(vec![
                 EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap(),
                 EthAddress::from_str("0x89beb26addec4bc7e9f475aacfd084300d6de719").unwrap(),
-            ]),
-            EthAddressList::Single(
+            ])),
+            Some(EthAddressList::Single(
                 EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb").unwrap(),
-            ),
+            )),
+            None,
         ];
 
         for address in cases {
@@ -1740,9 +1741,17 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: Default::default(),
-                topics: None,
-                block_hash: None,
+                ..Default::default()
+            },))
+            .unwrap(),
+        )
+        .sort_policy(SortPolicy::All),
+        RpcTest::identity(
+            EthGetLogs::request((EthFilterSpec {
+                from_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
+                address: Some(EthAddressList::List(Vec::new())),
+                ..Default::default()
             },))
             .unwrap(),
         )
@@ -1751,18 +1760,16 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
             EthGetLogs::request((EthFilterSpec {
                 from_block: Some(format!("0x{:x}", shared_tipset.epoch() - 100)),
                 to_block: Some(format!("0x{:x}", shared_tipset.epoch())),
-                address: Default::default(),
-                topics: None,
-                block_hash: None,
+                ..Default::default()
             },))
             .unwrap(),
         )
         .sort_policy(SortPolicy::All),
         RpcTest::identity(
             EthGetLogs::request((EthFilterSpec {
-                address: EthAddressList::Single(
+                address: Some(EthAddressList::Single(
                     EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                ),
+                )),
                 ..Default::default()
             },))
             .unwrap(),
