@@ -162,7 +162,10 @@ impl SnapshotCommands {
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
                 let export_result = client
-                    .call(ForestChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .call(
+                        ForestChainExport::request((params,))?
+                            .with_timeout(Duration::from_secs(30)),
+                    )
                     .await?;
 
                 handle.abort();
