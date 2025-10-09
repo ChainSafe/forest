@@ -43,8 +43,7 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let mut stdout = stdout();
-                let mut lines_printed_last_iteration = 0;
+                print!("{}", anes::SaveCursorPosition);
 
                 handle_initial_snapshot_check(&client).await?;
 
@@ -57,10 +56,14 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
-                    clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
+                    print!(
+                        "{}{}{}",
+                        anes::RestoreCursorPosition,
+                        anes::ClearBuffer::Below,
+                        anes::SaveCursorPosition,
+                    );
 
-                    lines_printed_last_iteration = print_sync_report_details(&report)
-                        .context("Failed to print sync status report")?;
+                    print_sync_report_details(&report);
 
                     // Exit if synced and not in watch mode.
                     if !watch && report.status == NodeSyncStatus::Synced {
@@ -86,8 +89,7 @@ impl SyncCommands {
                 }
 
                 // Print the status report once, without line counting for clearing
-                _ = print_sync_report_details(&sync_status)
-                    .context("Failed to print sync status report")?;
+                print_sync_report_details(&sync_status);
 
                 Ok(())
             }
@@ -110,15 +112,11 @@ impl SyncCommands {
 }
 
 /// Prints the sync status report details and returns the number of lines printed.
-fn print_sync_report_details(report: &SyncStatusReport) -> anyhow::Result<usize> {
-    let mut lines_printed_count = 0;
-
+fn print_sync_report_details(report: &SyncStatusReport) {
     println!(
         "Status: {:?} ({} epochs behind)",
         report.status, report.epochs_behind
     );
-    lines_printed_count += 1;
-
     let head_key_str = report
         .current_head_key
         .as_ref()
@@ -128,37 +126,24 @@ fn print_sync_report_details(report: &SyncStatusReport) -> anyhow::Result<usize>
         "Node Head: Epoch {} ({})",
         report.current_head_epoch, head_key_str
     );
-    lines_printed_count += 1;
-
     println!("Network Head: Epoch {}", report.network_head_epoch);
-    lines_printed_count += 1;
-
     println!("Last Update: {}", report.last_updated.to_rfc3339());
-    lines_printed_count += 1;
-
     // Print active sync tasks (forks)
     let active_forks = &report.active_forks;
     if active_forks.is_empty() {
         println!("Active Sync Tasks: None");
-        lines_printed_count += 1;
     } else {
         println!("Active Sync Tasks:");
-        lines_printed_count += 1;
         let mut sorted_forks = active_forks.clone();
         sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
         for fork in &sorted_forks {
-            // Assuming print_fork_sync_info exists and increments line_count internally if needed
-            // If print_fork_sync_info doesn't increment, adjust line_count here.
-            // For simplicity, assuming it behaves as needed or is adjusted elsewhere.
-            lines_printed_count += print_fork_sync_info(fork)?;
+            print_fork_sync_info(fork);
         }
     }
-
-    Ok(lines_printed_count)
 }
 
 /// Prints fork sync info and returns the number of lines printed (expected to be 1).
-fn print_fork_sync_info(fork: &ForkSyncInfo) -> anyhow::Result<usize> {
+fn print_fork_sync_info(fork: &ForkSyncInfo) {
     let total_epochs_for_this_fork = fork
         .target_epoch
         .saturating_sub(fork.target_sync_epoch_start);
@@ -171,20 +156,6 @@ fn print_fork_sync_info(fork: &ForkSyncInfo) -> anyhow::Result<usize> {
         fork.target_epoch,
         total_epochs_for_this_fork
     );
-    Ok(1)
-}
-
-fn clear_previous_lines(stdout: &mut std::io::Stdout, lines: usize) -> anyhow::Result<()> {
-    if lines > 0 {
-        // Move cursor up `lines` times, return to start (\r), clear below
-        write!(
-            stdout,
-            "\r{}{}",
-            anes::MoveCursorUp(lines as u16),
-            anes::ClearBuffer::Below,
-        )?;
-    }
-    Ok(())
 }
 
 fn tipset_key_to_string(key: &TipsetKey) -> String {
@@ -232,7 +203,6 @@ async fn check_snapshot_progress(
 
 /// Waits for node initialization to complete (start `Syncing`).
 async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<()> {
-    let mut is_msg_printed = false;
     let mut stdout = stdout();
     const POLLING_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -244,15 +214,8 @@ async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<
         if report.status == NodeSyncStatus::Initializing {
             write!(stdout, "\r🔄 Node syncing is initializing, please wait...")?;
             stdout.flush()?;
-            is_msg_printed = true;
-
             sleep(POLLING_INTERVAL).await;
         } else {
-            if is_msg_printed {
-                clear_previous_lines(&mut stdout, 1)
-                    .context("Failed to clear initializing message")?;
-            }
-
             break;
         }
     }
