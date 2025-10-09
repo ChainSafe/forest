@@ -240,7 +240,9 @@ impl SnapshotCommands {
                     return Ok(());
                 }
                 let result = client
-                    .call(ForestChainExportStatus::request(())?.with_timeout(Duration::MAX))
+                    .call(
+                        ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
+                    )
                     .await?;
                 println!("{:?}", result);
 
