@@ -16,7 +16,7 @@ anyhow = "1"
 cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.11"
 futures = "0.3"
-get-size2 = { version = "0.6", features = ["derive", "hashbrown"] }
+get-size2 = { version = "0.7", features = ["derive", "hashbrown"] }
 hashlink = "0.10"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
@@ -88,7 +88,7 @@ fs_extra = "1"
 futures = { workspace = true }
 fvm2 = { package = "fvm", version = "~2.11", default-features = false }
 fvm3 = { package = "fvm", version = "~3.13", default-features = false }
-fvm4 = { package = "fvm", version = "~4.7", default-features = false, features = ["verify-signature"] }
+fvm4 = { package = "fvm", version = "~4.7", default-features = false, features = ["verify-signature", "nv28-dev"] }
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
 fvm_shared2 = { package = "fvm_shared", version = "~2.11" }
@@ -98,7 +98,7 @@ get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
 group = "0.13"
-hashbrown = "0.15"
+hashbrown = "0.16"
 hashlink = { workspace = true }
 hex = { version = "0.4", features = ["serde"] }
 hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
@@ -113,7 +113,7 @@ ipld-core = { version = "0.4", features = ["serde", "arb"] }
 is-terminal = "0.4"
 itertools = "0.14"
 jsonrpsee = { version = "0.26", features = ["server", "ws-client", "http-client", "macros"] }
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 keccak-hash = "0.11"
 kubert-prometheus-process = "0.2"
 lazy-regex = "3"
@@ -206,7 +206,7 @@ tera = { version = "1", default-features = false }
 thiserror = "2"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-tungstenite = "0.27.0"
+tokio-tungstenite = "0.28.0"
 tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.5", features = ["util"] }
@@ -235,7 +235,7 @@ termios = "0.3"
 ariadne = "0.5"
 assert_cmd = "2"
 bimap = "0.6"
-cargo_metadata = "0.22"
+cargo_metadata = "0.23"
 cbor4ii = { version = "0.2", default-features = false, features = ["serde1"] }
 criterion = { version = "0.7", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
