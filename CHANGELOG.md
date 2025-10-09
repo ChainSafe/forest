@@ -29,17 +29,28 @@
 
 ### Added
 
+- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.30.2 "Garuda"
+
+This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.
+The release includes new CLI commands for snapshot management and state inspection, along with critical fixes for Ethereum RPC methods.
+
+### Added
+
 - [#6074](https://github.com/ChainSafe/forest/issues/6074) Added `forest-cli snapshot export-diff` subcommand for exporting a diff snapshot.
 
 - [#6061](https://github.com/ChainSafe/forest/pull/6061) Added `forest-cli state actor-cids` command for listing all actor CIDs in the state tree for the current tipset.
 
 - [#5568](https://github.com/ChainSafe/forest/issues/5568) Added `--n-tipsets` flag to the `forest-tool index backfill` subcommand to specify the number of epochs to backfill.
 
-- [#6082](https://github.com/ChainSafe/forest/issues/6082) Added `forest-cli snapshot export-status` and `forest-cli snapshot export-cancel` subcommands to monitor or cancel an export, respectively.
-
-### Changed
-
-### Removed
+- [#6133](https://github.com/ChainSafe/forest/pull/6133) Added `Filecoin.ChainGetFinalizedTipset` API method to get the finalized tipset using f3.
 
 ### Fixed
 
