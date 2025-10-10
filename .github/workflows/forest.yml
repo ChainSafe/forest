@@ -83,6 +83,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
+      - name: Go tests
+        run: |
+          go test -v ./tools/prometheus_metrics_validator
       - name: Cargo Install
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
@@ -155,6 +158,9 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.work"
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
