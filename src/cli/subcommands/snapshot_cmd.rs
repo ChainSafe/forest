@@ -211,7 +211,8 @@ impl SnapshotCommands {
                         .await?;
                     let elapsed = chrono::Utc::now()
                         .signed_duration_since(result.start_time)
-                        .to_std()?;
+                        .to_std()
+                        .unwrap_or(Duration::ZERO);
                     let pb = ProgressBar::new(10000)
                         .with_elapsed(elapsed)
                         .with_message("Exporting");
