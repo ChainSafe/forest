@@ -55,7 +55,7 @@ pub enum SnapshotCommands {
         #[arg(long)]
         wait: bool,
         /// Format of the output. `json` or `text`.
-        #[arg(long, default_value = "text")]
+        #[arg(long, value_enum, default_value_t = Format::Text)]
         format: Format,
     },
     /// Cancel the current export.
@@ -202,13 +202,20 @@ impl SnapshotCommands {
                 Ok(())
             }
             Self::ExportStatus { wait, format } => {
+                let result = client
+                    .call(
+                        ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
+                    )
+                    .await?;
+                if !result.exporting {
+                    if result.cancelled {
+                        println!("No export in progress (last export was cancelled)");
+                    } else {
+                        println!("No export in progress");
+                    }
+                    return Ok(());
+                }
                 if wait {
-                    let result = client
-                        .call(
-                            ForestChainExportStatus::request(())?
-                                .with_timeout(Duration::from_secs(30)),
-                        )
-                        .await?;
                     let elapsed = chrono::Utc::now()
                         .signed_duration_since(result.start_time)
                         .to_std()
@@ -236,13 +243,10 @@ impl SnapshotCommands {
 
                             return Ok(());
                         }
-                        if !result.exporting {
-                            return Ok(());
-                        }
-                        let position = (result.progress * 10000.0).trunc() as u64;
+                        let position = (result.progress.clamp(0.0, 1.0) * 10000.0).trunc() as u64;
                         pb.set_position(position);
 
-                        if position == 10000 {
+                        if position >= 10000 {
                             break;
                         }
                         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -251,23 +255,12 @@ impl SnapshotCommands {
 
                     return Ok(());
                 }
-                let status = client
-                    .call(
-                        ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
-                    )
-                    .await?;
                 match format {
                     Format::Text => {
-                        if status.exporting {
-                            println!("Exporting: {:.1}%", status.progress * 100.0);
-                        } else if status.cancelled {
-                            println!("No export in progress (last export was cancelled)");
-                        } else {
-                            println!("No export in progress");
-                        }
+                        println!("Exporting: {:.1}%", result.progress.clamp(0.0, 1.0) * 100.0);
                     }
                     Format::Json => {
-                        println!("{}", serde_json::to_string_pretty(&status)?);
+                        println!("{}", serde_json::to_string_pretty(&result)?);
                     }
                 }
 
