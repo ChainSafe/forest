@@ -20,6 +20,12 @@ use std::{
 };
 use tokio::io::AsyncWriteExt;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum Format {
+    Json,
+    Text,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
@@ -48,6 +54,9 @@ pub enum SnapshotCommands {
         /// Wait until it completes and print progress.
         #[arg(long)]
         wait: bool,
+        /// Format of the output. `json` or `text`.
+        #[arg(long, default_value = "text")]
+        format: Format,
     },
     /// Cancel the current export.
     ExportCancel {},
@@ -192,7 +201,7 @@ impl SnapshotCommands {
                 }
                 Ok(())
             }
-            Self::ExportStatus { wait } => {
+            Self::ExportStatus { wait, format } => {
                 if wait {
                     let result = client
                         .call(
@@ -241,12 +250,25 @@ impl SnapshotCommands {
 
                     return Ok(());
                 }
-                let result = client
+                let status = client
                     .call(
                         ForestChainExportStatus::request(())?.with_timeout(Duration::from_secs(30)),
                     )
                     .await?;
-                println!("{:?}", result);
+                match format {
+                    Format::Text => {
+                        if status.exporting {
+                            println!("Exporting: {:.1}%", status.progress * 100.0);
+                        } else if status.cancelled {
+                            println!("No export in progress (last export was cancelled)");
+                        } else {
+                            println!("No export in progress");
+                        }
+                    }
+                    Format::Json => {
+                        println!("{}", serde_json::to_string_pretty(&status)?);
+                    }
+                }
 
                 Ok(())
             }
