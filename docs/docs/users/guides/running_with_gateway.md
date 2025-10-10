@@ -28,7 +28,7 @@ For more information on configuring Lotus Gateway, refer to [Lotus Gateway docum
 
 There is not much configuration needed to run Lotus Gateway with Forest.
 
-1. You must export the `FULLNODE_API_INFO` environment variable with the Forest node admin JWT token and its multiaddress. You can find the Forest JWT token in its initialization logs and under the chosen file if you have set the `--save-token <path>` flag. The multiaddress is the same as the one you would use to connect to the Forest node.
+1. You must export the `FULLNODE_API_INFO` environment variable with the Forest node admin JWT token and its multi-address. You can find the Forest JWT token in its initialization logs and under the chosen file if you have set the `--save-token <path>` flag. The multi-address is the same as the one you would use to connect to the Forest node.
 2. Choose a port for the Lotus Gateway to listen on. The default is `2346`, but you can choose any port not already in use. If necessary, open the port in your firewall.
 3. Ensure the Forest node is running and accessible from the Lotus Gateway.
 
@@ -43,7 +43,7 @@ That's it! Forest should now be available only through the Lotus Gateway. You ca
 curl http://localhost:5432/rpc/v1 -X POST -H "Content-Type: application/json" --data '{"method":"Filecoin.ChainHead","params":[], "id":1,"jsonrpc":"2.0"}'
 ```
 
-## 🌲Forest + 🪷 Lotus Gateway + 🐳 Docker Compose = ❤️
+## 🌲 Forest + 🪷 Lotus Gateway + 🐳 Docker Compose = ❤️
 
 If you want to run Forest and Lotus Gateway in a Docker container, you can use Docker Compose. Ensure you have [docker](https://www.docker.com/) installed. This will:
 

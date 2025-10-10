@@ -117,7 +117,7 @@ pub trait EthMappingsStore {
     #[allow(dead_code)]
     fn exists(&self, key: &EthHash) -> anyhow::Result<bool>;
 
-    /// Returns all message CIDs with their timestamp.
+    /// Returns all message `CIDs` with their timestamp.
     fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
 
     /// Deletes `keys` if keys exist in store.

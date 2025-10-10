@@ -57,6 +57,7 @@ deny:
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
+	find . \( -path "./documentation" -o -path "./node_modules" -o -path "./.git" -o -path "./target" \) -prune -o -name "*.md" -type f -print0 | xargs -0 -r cargo spellcheck --code 1 --cfg .config/spellcheck.toml || (echo "See .config/spellcheck.md for tips"; false)
 
 lint: license clean lint-clippy
 	cargo fmt --all --check

@@ -55,7 +55,7 @@ be implemented in the foreseeable future.
 The `lotus-gateway` executable is a reverse-proxy that sanitizes RPC calls
 before they're forwarded to a Filecoin node. The `forest-tool api compare`
 command will fail if run against a gateway rather than directly against a node.
-This means API compatiblity testing has to be done with a local node rather than
+This means API compatibility testing has to be done with a local node rather than
 `api.node.glif.io`.
 
 ## Use `mitmproxy`

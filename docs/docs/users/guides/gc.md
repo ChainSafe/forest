@@ -58,7 +58,7 @@ During the GC process, Forest consumes extra RAM and disk space temporarily:
 - While traversing reachable blocks, it uses 32 bytes of RAM per reachable block.
 - While exporting a lite snapshot, it uses extra disk space before cleaning up parity-db and stale CAR snapshots.
 
-For a typical ~80 GiB mainnet snapshot, this results in ~2.5 GiB of additional RAM and ~80 GiB disk space usage.
+For a typical 80 GiB mainnet snapshot, this results in approximately 2.5 GiB of additional RAM and 80 GiB disk space usage.
 
 ### Syncing Pauses or Performance Overheads
 

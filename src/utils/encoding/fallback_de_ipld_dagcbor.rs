@@ -666,7 +666,7 @@ impl<'de, 'a, R: dec::Read<'de>> de::Deserializer<'de> for &'a mut CidDeserializ
         let byte = peek_one(&mut self.0.reader)?;
         match dec::if_major(byte) {
             major::BYTES => {
-                // CBOR encoded CIDs have a zero byte prefix we have to remove.
+                // CBOR encoded `CIDs` have a zero byte prefix we have to remove.
                 match <types::Bytes<Cow<[u8]>>>::decode(&mut self.0.reader)?.0 {
                     Cow::Borrowed(buf) => match buf.split_first() {
                         Some((0, rest)) => visitor.visit_borrowed_bytes(rest),

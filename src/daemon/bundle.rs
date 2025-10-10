@@ -85,7 +85,7 @@ pub static ACTOR_BUNDLE_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
         .join("actor-bundles")
 });
 
-/// Loads the missing actor bundle, returns the CIDs of the loaded bundles.
+/// Loads the missing actor bundle, returns the `CIDs` of the loaded bundles.
 pub async fn load_actor_bundles_from_server(
     db: &impl PersistentStore,
     network: &NetworkChain,
