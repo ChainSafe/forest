@@ -28,11 +28,8 @@ use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use std::fs::File;
 use std::io::{Seek as _, SeekFrom};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
-use tokio::sync::Notify;
-
-pub static CANCEL_EXPORT: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
 #[derive(Debug, Clone, Default)]
 pub struct ExportOptions {

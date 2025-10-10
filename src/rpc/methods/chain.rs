@@ -8,7 +8,6 @@ use types::*;
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, Tipset, TipsetKey};
-use crate::chain::CANCEL_EXPORT;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, ExportOptions, FilecoinSnapshotVersion, HeadChange};
 use crate::cid_collections::CidHashSet;
@@ -51,10 +50,14 @@ use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
 };
 use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
 static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+/// Global cancellation token for a chain export
+pub static CANCELLATION_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
 
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
@@ -429,7 +432,7 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = CANCEL_EXPORT.notified() => {
+                    _ = CANCELLATION_TOKEN.cancelled() => {
                         cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
@@ -474,7 +477,7 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = CANCEL_EXPORT.notified() => {
+                    _ = CANCELLATION_TOKEN.cancelled() => {
                         cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
@@ -533,7 +536,7 @@ impl RpcMethod<0> for ForestChainExportCancel {
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let locked = CHAIN_EXPORT_LOCK.try_lock();
         if locked.is_err() {
-            CANCEL_EXPORT.notify_waiters();
+            CANCELLATION_TOKEN.cancel();
 
             return Ok(true);
         }
