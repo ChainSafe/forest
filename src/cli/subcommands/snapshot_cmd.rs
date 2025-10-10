@@ -258,6 +258,8 @@ impl SnapshotCommands {
                     .await?;
                 if result {
                     println!("Export cancelled.");
+                } else {
+                    println!("No export in progress to cancel.");
                 }
                 Ok(())
             }
