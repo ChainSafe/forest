@@ -1352,7 +1352,7 @@ impl RpcMethod<2> for StateFetchRoot {
                     // stack, unavailable nodes will be requested in worker tasks.
                     for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                         counter += 1;
-                        if counter % 1_000 == 0 {
+                        if counter.is_multiple_of(1_000) {
                             // set RUST_LOG=forest::rpc::state_api=debug to enable these printouts.
                             tracing::debug!(
                                 "Graph walk: `CIDs`: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
