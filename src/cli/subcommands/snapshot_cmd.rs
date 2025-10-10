@@ -245,7 +245,7 @@ impl SnapshotCommands {
                         if position == 10000 {
                             break;
                         }
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                     pb.finish_with_message("Export completed");
 
