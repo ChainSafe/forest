@@ -69,7 +69,15 @@ Mainnet bootstrap nodes' status can be checked at [probelab.io/bootstrappers/fil
 
 ## Latest Filecoin Snapshots
 
-The latest snapshots are required for new nodes to sync with the network. The snapshots are updated hourly and are available for both [mainnet](https://forest-archive.chainsafe.dev/list/mainnet/latest) and [calibnet](https://forest-archive.chainsafe.dev/list/calibnet/latest).
+The latest snapshots are required for new nodes to sync with the network. The snapshots are updated hourly and are available on [this site](https://forest-archive.chainsafe.dev/).
+
+To download the latest snapshots (`v2` by default), use [`mainnet-latest`](https://forest-archive.chainsafe.dev/latest/mainnet) and [`calibnet-latest`](https://forest-archive.chainsafe.dev/latest/calibnet).
+
+To download the latest `v1` snapshots, use [`mainnet-latest-v1`](https://forest-archive.chainsafe.dev/latest-v1/mainnet) and [`calibnet-latest-v1`](https://forest-archive.chainsafe.dev/latest-v1/calibnet).
+
+To download the latest `v2` snapshots (same as latest), use [`mainnet-latest-v2`](https://forest-archive.chainsafe.dev/latest-v2/mainnet) and [`calibnet-latest-v2`](https://forest-archive.chainsafe.dev/latest-v2/calibnet).
+
+A `v2` snapshot contains F3 data while a `v1` snapshot does not. For details, checkout [`FRC-0108`](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md).
 
 ## Filecoin Archive
 
