@@ -169,12 +169,17 @@ impl SnapshotCommands {
                 pb.finish();
                 _ = handle.await;
 
-                if !dry_run && let ApiExportResult::Done(hash_opt) = export_result.clone() {
-                    if let Some(hash) = hash_opt {
-                        save_checksum(&output_path, hash).await?;
+                if !dry_run {
+                    match export_result.clone() {
+                        ApiExportResult::Done(hash_opt) => {
+                            // Move the file first; prevents orphaned checksum on persist error.
+                            temp_path.persist(&output_path)?;
+                            if let Some(hash) = hash_opt {
+                                save_checksum(&output_path, hash).await?;
+                            }
+                        }
+                        ApiExportResult::Cancelled => { /* no file to persist on cancel */ }
                     }
-
-                    temp_path.persist(output_path)?;
                 }
 
                 match export_result {
