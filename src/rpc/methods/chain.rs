@@ -503,7 +503,11 @@ impl RpcMethod<0> for ForestChainExportStatus {
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let mutex = CHAIN_EXPORT_STATUS.lock();
 
-        let progress = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
+        let progress = if mutex.initial_epoch == 0 {
+            0.0
+        } else {
+            1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64))
+        };
 
         let status = ApiExportStatus {
             progress,
