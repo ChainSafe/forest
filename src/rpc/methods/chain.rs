@@ -516,7 +516,12 @@ impl RpcMethod<0> for ForestChainExportStatus {
         let progress = if mutex.initial_epoch == 0 {
             0.0
         } else {
-            1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64))
+            let p = 1.0 - ((mutex.epoch as f64) / (mutex.initial_epoch as f64));
+            if p.is_finite() {
+                p.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
         };
 
         let status = ApiExportStatus {
