@@ -54,10 +54,8 @@ use tokio_util::sync::CancellationToken;
 
 const HEAD_CHANNEL_CAPACITY: usize = 10;
 
-static CHAIN_EXPORT_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-/// Global cancellation token for a chain export
-pub static CANCELLATION_TOKEN: LazyLock<CancellationToken> = LazyLock::new(CancellationToken::new);
+static CHAIN_EXPORT_LOCK: LazyLock<Mutex<Option<CancellationToken>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 /// Subscribes to head changes from the chain store and broadcasts new blocks.
 ///
@@ -401,9 +399,15 @@ impl RpcMethod<1> for ForestChainExport {
             dry_run,
         } = params;
 
-        let _locked = CHAIN_EXPORT_LOCK.try_lock();
-        if _locked.is_err() {
-            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        let token = CancellationToken::new();
+        {
+            let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+            if guard.is_some() {
+                return Err(
+                    anyhow::anyhow!("A chain export is still in progress. Cancel it with the export-cancel subcommand if needed.").into(),
+                );
+            }
+            *guard = Some(token.clone());
         }
         start_export();
 
@@ -432,7 +436,7 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = CANCELLATION_TOKEN.cancelled() => {
+                    _ = token.cancelled() => {
                         cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
@@ -477,7 +481,7 @@ impl RpcMethod<1> for ForestChainExport {
                     result = chain_export => {
                         result.map(|checksum_opt| ApiExportResult::Done(checksum_opt.map(|hash| hash.encode_hex())))
                     },
-                    _ = CANCELLATION_TOKEN.cancelled() => {
+                    _ = token.cancelled() => {
                         cancel_export();
                         tracing::warn!("Snapshot export was cancelled");
                         Ok(ApiExportResult::Cancelled)
@@ -486,6 +490,9 @@ impl RpcMethod<1> for ForestChainExport {
             }
         };
         end_export();
+        // Clean up token
+        let mut guard = CHAIN_EXPORT_LOCK.lock().await;
+        *guard = None;
         match result {
             Ok(export_result) => Ok(export_result),
             Err(e) => Err(anyhow::anyhow!(e).into()),
@@ -534,10 +541,8 @@ impl RpcMethod<0> for ForestChainExportCancel {
     type Ok = bool;
 
     async fn handle(_ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let locked = CHAIN_EXPORT_LOCK.try_lock();
-        if locked.is_err() {
-            CANCELLATION_TOKEN.cancel();
-
+        if let Some(token) = CHAIN_EXPORT_LOCK.lock().await.as_ref() {
+            token.cancel();
             return Ok(true);
         }
 
