@@ -315,7 +315,7 @@ This is a mandatory release for calibnet node operators. It includes the revised
 
 ### Added
 
-- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that that can be overridden by a reproducible seeded RNG.
+- [#5375](https://github.com/ChainSafe/forest/issues/5375) Add an RNG wrapper that can be overridden by a reproducible seeded RNG.
 
 - [#5386](https://github.com/ChainSafe/forest/pull/5386) Add support for the `Filecoin.EthTraceTransaction` RPC method.
 
