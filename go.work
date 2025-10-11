@@ -3,4 +3,5 @@ go 1.25.2
 use (
 	./f3-sidecar
 	./interop-tests/src/tests/go_app
+	./tools/prometheus_metrics_validator
 )
