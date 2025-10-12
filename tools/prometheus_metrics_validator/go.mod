@@ -1,4 +1,4 @@
-module premetheus_metrics_validator/v2
+module prometheus_metrics_validator/v2
 
 go 1.25.2
 
