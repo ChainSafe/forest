@@ -39,7 +39,7 @@ pub enum SnapshotCommands {
         #[arg(short, long, default_value_t = DEFAULT_RECENT_STATE_ROOTS)]
         depth: crate::chain::ChainEpochDelta,
         /// Snapshot format to export.
-        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V1)]
+        #[arg(long, value_enum, default_value_t = FilecoinSnapshotVersion::V2)]
         format: FilecoinSnapshotVersion,
     },
     /// Export a diff snapshot between `from` and `to` epochs to `<output_path>`
@@ -134,7 +134,7 @@ impl SnapshotCommands {
                         "{spinner} {msg} {binary_total_bytes} written in {elapsed} ({binary_bytes_per_sec})",
                     )
                     .expect("indicatif template must be valid"),
-                ).with_message(format!("Exporting {} ...", output_path.display()));
+                ).with_message(format!("Exporting v{} snapshot to {} ...", format as u64, output_path.display()));
                 pb.enable_steady_tick(std::time::Duration::from_millis(80));
                 let handle = tokio::spawn({
                     let path: PathBuf = (&temp_path).into();
