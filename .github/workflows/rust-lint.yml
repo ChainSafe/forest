@@ -45,7 +45,7 @@ jobs:
             echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
           fi
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -71,7 +71,7 @@ jobs:
     name: Check cargo files
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
