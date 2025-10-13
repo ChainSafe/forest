@@ -1,7 +1,9 @@
 // Copyright 2019-2025 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::chain::FilecoinSnapshotMetadata;
 use crate::db::car::plain::read_v2_header;
+use crate::utils::io::skip_bytes;
 use crate::utils::multihash::prelude::*;
 use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -14,6 +16,7 @@ use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, Read, SeekFrom, Write};
+use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{
@@ -22,6 +25,7 @@ use tokio::io::{
 };
 use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
+use tokio_util::compat::TokioAsyncReadCompatExt as _;
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
 
@@ -164,8 +168,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
 
         // Skip v2 header bytes
         if let Some(header_v2) = &header_v2 {
-            let mut to_skip = vec![0; header_v2.data_offset as usize];
-            reader.read_exact(&mut to_skip).await?;
+            reader = skip_bytes(reader, header_v2.data_offset as _).await?;
         }
 
         let max_car_v1_bytes = header_v2
@@ -187,11 +190,39 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                     "invalid first block",
                 ));
             }
+
+            let first_block = if header_v1.roots.len() == crate::db::car::V2_SNAPSHOT_ROOT_COUNT {
+                let maybe_metadata_cid = header_v1.roots.first();
+                if maybe_metadata_cid == &block.cid
+                    && let Ok(metadata) =
+                        fvm_ipld_encoding::from_slice::<FilecoinSnapshotMetadata>(&block.data)
+                {
+                    // Skip the F3 block in the block stream
+                    if metadata.f3_data.is_some() {
+                        // manipulate the inner reader directly because `reader.next()` is slow for skipping the large F3 block
+                        let mut inner_reader_compat = reader.into_inner().compat();
+                        let len = unsigned_varint::aio::read_usize(&mut inner_reader_compat)
+                            .await
+                            .map_err(io::Error::other)?;
+                        let inner_reader =
+                            skip_bytes(inner_reader_compat.into_inner(), len as _).await?;
+                        reader = FramedRead::new(inner_reader, uvi_bytes());
+                    }
+
+                    // Skip the metadata block in the block stream
+                    None
+                } else {
+                    Some(block)
+                }
+            } else {
+                Some(block)
+            };
+
             Ok(CarStream {
                 reader,
                 header_v1,
                 header_v2,
-                first_block: Some(block),
+                first_block,
             })
         } else {
             Ok(CarStream {
@@ -254,6 +285,15 @@ impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
         let (mut reader, header_v2) = Self::extract_header_v2(reader).await?;
         reader.seek(SeekFrom::Start(stream_position)).await?;
         Ok((reader, header_v2))
+    }
+}
+
+impl CarStream<tokio::io::BufReader<tokio::fs::File>> {
+    pub async fn new_from_path(path: impl AsRef<Path>) -> io::Result<Self> {
+        Self::new(tokio::io::BufReader::new(
+            tokio::fs::File::open(path.as_ref()).await?,
+        ))
+        .await
     }
 }
 

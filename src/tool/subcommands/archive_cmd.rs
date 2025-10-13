@@ -678,11 +678,7 @@ async fn merge_f3_snapshot(filecoin: PathBuf, f3: PathBuf, output: PathBuf) -> a
     let mut f3_data = File::open(f3)?;
     let f3_cid = crate::f3::snapshot::get_f3_snapshot_cid(&mut f3_data)?;
 
-    let car_stream = CarStream::new(tokio::io::BufReader::new(
-        tokio::fs::File::open(&filecoin).await?,
-    ))
-    .await?;
-
+    let car_stream = CarStream::new_from_path(&filecoin).await?;
     let chain_head = car_stream.header_v1.roots.clone();
 
     println!("f3 snapshot cid: {f3_cid}");

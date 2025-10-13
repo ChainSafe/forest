@@ -214,7 +214,7 @@ tower-http = { version = "0.6", features = ["compression-full", "sensitive-heade
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-unsigned-varint = { version = "0.8", features = ["codec"] }
+unsigned-varint = { version = "0.8", features = ["codec", "futures"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
