@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6161](https://github.com/ChainSafe/forest/pull/6161) Added `forest-tool db import` subcommand.
+
 ### Changed
 
 - [#6145](https://github.com/ChainSafe/forest/pull/6145) Updated `forest-cli snapshot export` to use v2 format by default.

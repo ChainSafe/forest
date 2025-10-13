@@ -6,6 +6,7 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
   "RUSTSEC-2024-0436", # paste is unmaintained
   "RUSTSEC-2025-0046", # wasmtime issue, this needs to be resolved in FVM
+  "RUSTSEC-2023-0071", # rsa issue. No patch is yet available, however work is underway to migrate to a fully constant-time implementation.
 ]
 
 [licenses]

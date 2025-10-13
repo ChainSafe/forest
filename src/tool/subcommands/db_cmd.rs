@@ -49,6 +49,9 @@ pub enum DBCommands {
         /// Optional path to the database folder that powers a Forest node
         #[arg(long)]
         db: Option<PathBuf>,
+        /// No block validation
+        #[arg(long)]
+        no_validation: bool,
     },
 }
 
@@ -101,6 +104,7 @@ impl DBCommands {
                 snapshot_files,
                 chain,
                 db,
+                no_validation,
             } => {
                 const DB_WRITE_BUFFER_CAPACITY: usize = 10000;
 
@@ -126,6 +130,9 @@ impl DBCommands {
                 for snap in snapshot_files {
                     let mut car = CarStream::new_from_path(&snap).await?;
                     while let Some(b) = car.try_next().await? {
+                        if !no_validation {
+                            b.validate()?;
+                        }
                         db_writer.put_keyed(&b.cid, &b.data)?;
                         total += 1;
                         let text = format!("{total} blocks imported");

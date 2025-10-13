@@ -9,9 +9,9 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::Cid;
 use futures::ready;
-use futures::{Stream, StreamExt, sink::Sink};
+use futures::{Stream, sink::Sink};
 use fvm_ipld_encoding::to_vec;
-use integer_encoding::VarInt;
+use integer_encoding::{VarInt, VarIntAsyncReader as _};
 use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
@@ -23,9 +23,7 @@ use tokio::io::{
     AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite,
     Take,
 };
-use tokio_util::codec::Encoder;
-use tokio_util::codec::FramedRead;
-use tokio_util::compat::TokioAsyncReadCompatExt as _;
+use tokio_util::codec::{Encoder, FramedRead};
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
 
@@ -119,9 +117,11 @@ impl<T: Write> CarBlockWrite for T {
 pin_project! {
     /// Stream of CAR blocks. If the input data is compressed with zstd, it will
     /// automatically be decompressed.
+    /// Note that [`CarStream`] automatically skips the metadata block and F3 data
+    /// block defined in [`FRC-0108`](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0108.md)
     pub struct CarStream<ReaderT> {
         #[pin]
-        reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>, UviBytes>,
+        reader: FramedRead<Take<Either<ReaderT, ZstdDecoder<ReaderT>>>,UviBytes>,
         pub header_v1: CarV1Header,
         pub header_v2: Option<CarV2Header>,
         first_block: Option<CarBlock>,
@@ -175,15 +175,12 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             .as_ref()
             .map(|h| h.data_size as u64)
             .unwrap_or(u64::MAX);
-        let mut reader = FramedRead::new(reader.take(max_car_v1_bytes), uvi_bytes());
-        let header_v1 = read_v1_header(&mut reader)
-            .await
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid v1 header block"))?;
+        let mut reader = reader.take(max_car_v1_bytes);
+        let header_v1 = read_v1_header(&mut reader).await?;
 
         // Read the first block and check if it is valid. This check helps to
         // catch invalid CAR files as soon as we open.
-        if let Some(first_entry) = reader.next().await.transpose()? {
-            let block = CarBlock::from_bytes(first_entry)?;
+        if let Some(block) = read_car_block(&mut reader).await? {
             if !block.valid() {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -199,14 +196,8 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 {
                     // Skip the F3 block in the block stream
                     if metadata.f3_data.is_some() {
-                        // manipulate the inner reader directly because `reader.next()` is slow for skipping the large F3 block
-                        let mut inner_reader_compat = reader.into_inner().compat();
-                        let len = unsigned_varint::aio::read_usize(&mut inner_reader_compat)
-                            .await
-                            .map_err(io::Error::other)?;
-                        let inner_reader =
-                            skip_bytes(inner_reader_compat.into_inner(), len as _).await?;
-                        reader = FramedRead::new(inner_reader, uvi_bytes());
+                        let len: usize = reader.read_varint_async().await?;
+                        reader = skip_bytes(reader, len as _).await?;
                     }
 
                     // Skip the metadata block in the block stream
@@ -219,14 +210,14 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             };
 
             Ok(CarStream {
-                reader,
+                reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
                 first_block,
             })
         } else {
             Ok(CarStream {
-                reader,
+                reader: FramedRead::new(reader, uvi_bytes()),
                 header_v1,
                 header_v2,
                 first_block: None,
@@ -359,14 +350,51 @@ impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
 }
 
 async fn read_v1_header<ReaderT: AsyncRead + Unpin>(
-    framed_reader: &mut FramedRead<ReaderT, UviBytes>,
-) -> Option<CarV1Header> {
-    let frame = framed_reader.next().await?.ok()?;
-    let header = from_slice_with_fallback::<CarV1Header>(&frame).ok()?;
+    reader: &mut ReaderT,
+) -> std::io::Result<CarV1Header> {
+    let Some(frame) = read_frame(reader).await? else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "failed to decode v1 header frame",
+        ));
+    };
+    let header = from_slice_with_fallback::<CarV1Header>(&frame).map_err(std::io::Error::other)?;
     if header.version != 1 {
-        return None;
+        return Err(std::io::Error::other(format!(
+            "unexpected header version {}, 1 expected",
+            header.version
+        )));
     }
-    Some(header)
+    Ok(header)
+}
+
+async fn read_frame<ReaderT: AsyncRead + Unpin>(
+    reader: &mut ReaderT,
+) -> std::io::Result<Option<Vec<u8>>> {
+    let len: usize = match reader.read_varint_async().await {
+        Ok(len) => len,
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let mut bytes = vec![0; len];
+    let n = reader.read_exact(&mut bytes[..]).await?;
+    if n == len {
+        Ok(Some(bytes))
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            format!("{len} expected, {n} read"),
+        ))
+    }
+}
+
+async fn read_car_block<ReaderT: AsyncRead + Unpin>(
+    reader: &mut ReaderT,
+) -> std::io::Result<Option<CarBlock>> {
+    read_frame(reader)
+        .await?
+        .map(CarBlock::from_bytes)
+        .transpose()
 }
 
 pub fn uvi_bytes() -> UviBytes {
@@ -378,77 +406,4 @@ pub fn uvi_bytes() -> UviBytes {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use super::*;
-    use crate::networks::{calibnet, mainnet};
-    use futures::TryStreamExt;
-    use quickcheck::{Arbitrary, Gen};
-
-    impl Arbitrary for CarBlock {
-        fn arbitrary(g: &mut Gen) -> CarBlock {
-            let data = Vec::<u8>::arbitrary(g);
-            let encoding = g
-                .choose(&[
-                    fvm_ipld_encoding::DAG_CBOR,
-                    fvm_ipld_encoding::CBOR,
-                    fvm_ipld_encoding::IPLD_RAW,
-                ])
-                .unwrap();
-            let code = g
-                .choose(&[MultihashCode::Blake2b256, MultihashCode::Sha2_256])
-                .unwrap();
-            let cid = Cid::new_v1(*encoding, code.digest(&data));
-            CarBlock { cid, data }
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_calibnet_genesis_unsafe() {
-        let stream = CarStream::new_unsafe(calibnet::DEFAULT_GENESIS)
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1207);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_calibnet_genesis() {
-        let stream = CarStream::new(Cursor::new(calibnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1207);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_mainnet_genesis_unsafe() {
-        let stream = CarStream::new_unsafe(mainnet::DEFAULT_GENESIS)
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1222);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn stream_mainnet_genesis() {
-        let stream = CarStream::new(Cursor::new(mainnet::DEFAULT_GENESIS))
-            .await
-            .unwrap();
-        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
-        assert_eq!(blocks.len(), 1222);
-        for block in blocks {
-            block.validate().unwrap();
-        }
-    }
-}
+mod tests;
