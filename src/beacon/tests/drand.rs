@@ -5,7 +5,6 @@ use crate::{
     beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork},
     shim::version::NetworkVersion,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 fn new_beacon_mainnet() -> DrandBeacon {
@@ -70,14 +69,6 @@ fn new_beacon_quicknet() -> DrandBeacon {
             network_type: DrandNetwork::Quicknet,
         },
     )
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BeaconEntryJson {
-    round: u64,
-    randomness: String,
-    signature: String,
-    previous_signature: Option<String>,
 }
 
 #[test]

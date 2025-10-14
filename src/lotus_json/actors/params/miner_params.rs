@@ -256,12 +256,6 @@ pub struct SectorClaimLotusJson {
     pub drop_claims: Vec<u64>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ExtendSectorExpirationParams {
-    pub extensions: Vec<ExpirationExtension2LotusJson>,
-}
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfoLotusJson {

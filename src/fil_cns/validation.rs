@@ -26,11 +26,11 @@ use crate::utils::misc::env::is_env_truthy;
 use cid::Cid;
 use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
+use tokio::task::JoinSet;
 
 use crate::fil_cns::FilecoinConsensusError;
 
@@ -94,19 +94,19 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
         .map_err(to_errs)?;
 
     // Async validations
-    let validations = FuturesUnordered::new();
+    let mut validations = JoinSet::new();
 
     // Miner validations
     let v_state_manager = state_manager.clone();
     let v_base_tipset = base_tipset.clone();
     let v_header = header.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn_blocking(move || {
         validate_miner(
             v_state_manager.as_ref(),
             &v_header.miner_address,
             v_base_tipset.parent_state(),
         )
-    }));
+    });
 
     // Winner election PoSt validations
     let v_block = Arc::clone(&block);
@@ -114,7 +114,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_state_manager = Arc::clone(&state_manager);
     let v_lookback_state = lookback_state.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn_blocking(move || {
         validate_winner_election(
             v_block.header(),
             v_base_tipset.as_ref(),
@@ -124,11 +124,11 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
             &work_addr,
             v_state_manager.as_ref(),
         )
-    }));
+    });
 
     // Beacon values check
     if !is_env_truthy(IGNORE_DRAND_VAR) {
-        validations.push(tokio::task::spawn({
+        validations.spawn({
             let block = Arc::clone(&block);
             let parent_epoch = base_tipset.epoch();
             let prev_beacon = Arc::clone(&prev_beacon);
@@ -139,7 +139,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
                     .validate_block_drand(nv, beacon_schedule.as_ref(), parent_epoch, &prev_beacon)
                     .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
             }
-        }));
+        });
     }
 
     // Ticket election proof validations
@@ -147,7 +147,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_prev_beacon = Arc::clone(&prev_beacon);
     let v_state_manager = Arc::clone(&state_manager);
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn_blocking(move || {
         validate_ticket_election(
             v_block.header(),
             v_base_tipset.as_ref(),
@@ -155,12 +155,12 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
             &work_addr,
             v_state_manager.chain_config(),
         )
-    }));
+    });
 
     // Winning PoSt proof validation
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn_blocking(move || {
         verify_winning_post_proof::<_>(
             &state_manager,
             win_p_nv,
@@ -169,7 +169,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
             &lookback_state,
         )?;
         Ok(())
-    }));
+    });
 
     // Collect the errors from the async validations
     collect_errs(validations).await

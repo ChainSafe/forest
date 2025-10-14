@@ -10,6 +10,7 @@ use super::fvm_shared_latest::version::NetworkVersion as NetworkVersion_latest;
 pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use fvm_shared4::version::NetworkVersion as NetworkVersion_v4;
+use paste::paste;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -38,36 +39,24 @@ pub struct NetworkVersion(#[schemars(with = "u32")] pub NetworkVersion_latest);
 
 lotus_json_with_self!(NetworkVersion);
 
-impl NetworkVersion {
-    pub const V0: Self = Self(NetworkVersion_latest::new(0));
-    pub const V1: Self = Self(NetworkVersion_latest::new(1));
-    pub const V2: Self = Self(NetworkVersion_latest::new(2));
-    pub const V3: Self = Self(NetworkVersion_latest::new(3));
-    pub const V4: Self = Self(NetworkVersion_latest::new(4));
-    pub const V5: Self = Self(NetworkVersion_latest::new(5));
-    pub const V6: Self = Self(NetworkVersion_latest::new(6));
-    pub const V7: Self = Self(NetworkVersion_latest::new(7));
-    pub const V8: Self = Self(NetworkVersion_latest::new(8));
-    pub const V9: Self = Self(NetworkVersion_latest::new(9));
-    pub const V10: Self = Self(NetworkVersion_latest::new(10));
-    pub const V11: Self = Self(NetworkVersion_latest::new(11));
-    pub const V12: Self = Self(NetworkVersion_latest::new(12));
-    pub const V13: Self = Self(NetworkVersion_latest::new(13));
-    pub const V14: Self = Self(NetworkVersion_latest::new(14));
-    pub const V15: Self = Self(NetworkVersion_latest::new(15));
-    pub const V16: Self = Self(NetworkVersion_latest::new(16));
-    pub const V17: Self = Self(NetworkVersion_latest::new(17));
-    pub const V18: Self = Self(NetworkVersion_latest::new(18));
-    pub const V19: Self = Self(NetworkVersion_latest::new(19));
-    pub const V20: Self = Self(NetworkVersion_latest::new(20));
-    pub const V21: Self = Self(NetworkVersion_latest::new(21));
-    pub const V22: Self = Self(NetworkVersion_latest::new(22));
-    pub const V23: Self = Self(NetworkVersion_latest::new(23));
-    pub const V24: Self = Self(NetworkVersion_latest::new(24));
-    pub const V25: Self = Self(NetworkVersion_latest::new(25));
-    pub const V26: Self = Self(NetworkVersion_latest::new(26));
-    pub const V27: Self = Self(NetworkVersion_latest::new(27));
+/// Defines public constants V0, V1, ... for [`NetworkVersion`].
+/// Each constant is mapped to the corresponding [`NetworkVersion_latest`] variant.
+macro_rules! define_network_versions {
+    ($($version:literal),+ $(,)?) => {
+        impl NetworkVersion {
+            $(
+                paste! {
+                    pub const [<V $version>]: Self = Self(NetworkVersion_latest::[<V $version>]);
+                }
+            )+
+        }
+    }
 }
+
+define_network_versions!(
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28,
+);
 
 impl Deref for NetworkVersion {
     type Target = NetworkVersion_latest;

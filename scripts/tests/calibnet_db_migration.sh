@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-# This script tests the migration(s) from Forest 0.19.2 to the current version.
+# This script tests the migration(s) from a given `FOREST_INIT_VERSION` to the current version.
 # As simple as it is, it will detect regressions in the migration process and breaking changes.
 
 source "$(dirname "$0")/harness.sh"
@@ -11,11 +11,11 @@ mkdir -p "${DATA_DIR}"
 
 chmod -R 777 "${DATA_DIR}"
 
-FOREST_INIT_VERSION="0.19.2"
+FOREST_INIT_VERSION="0.30.0"
 
-# Run Forest 0.19.2 with mounted db so that we can re-use it later.
+# Run older Forest with mounted db so that we can re-use it later.
 docker run --init --rm --name forest-${FOREST_INIT_VERSION} \
-  --volume "${DATA_DIR}":/home/forest/.local/share/forest \
+  --volume "${DATA_DIR}":/root/.local/share/forest \
   ghcr.io/chainsafe/forest:v${FOREST_INIT_VERSION} \
   --chain calibnet \
   --encrypt-keystore false \
@@ -58,7 +58,7 @@ export FULLNODE_API_INFO
 forest_wait_for_sync
 forest_check_db_stats
 
-# Assert there is no "0.19.2" directory in the database directory. This and a successful sync indicate that the database was successfully migrated.
+# Assert there is no old directory in the database directory. This and a successful sync indicate that the database was successfully migrated.
 if [ -d "${DATA_DIR}/calibnet/${FOREST_INIT_VERSION}" ]; then
   echo "Database directory not migrated"
   exit 1

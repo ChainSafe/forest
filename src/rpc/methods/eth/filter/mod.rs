@@ -479,14 +479,17 @@ impl EthFilterSpec {
             ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
         };
 
-        let addresses: Vec<_> = self
-            .address
-            .iter()
-            .map(|ea| {
-                ea.to_filecoin_address()
-                    .map_err(|e| anyhow!("invalid address {}", e))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let addresses: Vec<_> = if let Some(ref address_list) = self.address {
+            address_list
+                .iter()
+                .map(|ea| {
+                    ea.to_filecoin_address()
+                        .map_err(|e| anyhow!("invalid address {}", e))
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            vec![]
+        };
 
         let keys = if let Some(topics) = &self.topics {
             keys_to_keys_with_codec(parse_eth_topics(topics)?)
@@ -514,11 +517,17 @@ impl Matcher for EthFilterSpec {
 
         let eth_emitter_addr = EthAddress::from_filecoin_address(emitter_addr)?;
 
-        let match_addr = if self.address.is_empty() {
-            true
-        } else {
-            self.address.iter().any(|other| other == &eth_emitter_addr)
+        let match_addr = match self.address {
+            Some(ref address_list) => {
+                if address_list.is_empty() {
+                    true
+                } else {
+                    address_list.iter().any(|other| other == &eth_emitter_addr)
+                }
+            }
+            None => true,
         };
+
         let match_topics = if let Some(spec) = self.topics.as_ref() {
             entries.iter().enumerate().all(|(i, entry)| {
                 if let Some(slice) = get_word(entry.value()) {
@@ -778,10 +787,10 @@ mod tests {
         let eth_filter_spec = EthFilterSpec {
             from_block: Some("earliest".into()),
             to_block: Some("latest".into()),
-            address: vec![
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            ]
-            .into(),
+            address: Some(
+                vec![EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap()]
+                    .into(),
+            ),
             ..Default::default()
         };
 
@@ -796,14 +805,146 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_address_list() {
+        let empty_list_spec = EthFilterSpec {
+            address: Some(vec![].into()), // Empty list, not None
+            ..Default::default()
+        };
+
+        let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        // Updated to match Lotus behavior: empty list = wildcard (matches all)
+        assert!(empty_list_spec.matches(&addr, &[]).unwrap());
+    }
+
+    #[test]
+    fn test_parse_eth_filter_spec_with_none_address() {
+        let eth_filter_spec = EthFilterSpec {
+            from_block: Some("latest".into()),
+            to_block: Some("latest".into()),
+            address: None,
+            ..Default::default()
+        };
+
+        let chain_height = 50;
+        let max_filter_height_range = 100;
+
+        let result = eth_filter_spec.parse_eth_filter_spec(chain_height, max_filter_height_range);
+
+        assert!(result.is_ok());
+        let parsed = result.unwrap();
+        assert!(parsed.addresses.is_empty());
+    }
+
+    #[test]
+    fn test_eth_new_filter_with_none_address() {
+        let eth_event_handler = EthEventHandler::new();
+
+        let filter_spec = EthFilterSpec {
+            from_block: Some("latest".into()),
+            to_block: Some("latest".into()),
+            address: None,
+            ..Default::default()
+        };
+
+        let chain_height = 50;
+        let result = eth_event_handler.eth_new_filter(&filter_spec, chain_height);
+
+        assert!(
+            result.is_ok(),
+            "Expected successful filter creation with None address"
+        );
+    }
+
+    #[test]
+    fn test_lotus_compatible_address_behavior() {
+        // Test the Lotus-compatible behavior: empty list = wildcard
+        let addr = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+
+        // Case 1: None (omitted) = wildcard
+        let none_spec = EthFilterSpec {
+            address: None,
+            ..Default::default()
+        };
+        assert!(
+            none_spec.matches(&addr, &[]).unwrap(),
+            "None should match all addresses"
+        );
+
+        // Case 2: Empty list = wildcard (Lotus behavior)
+        let empty_spec = EthFilterSpec {
+            address: Some(vec![].into()),
+            ..Default::default()
+        };
+        assert!(
+            empty_spec.matches(&addr, &[]).unwrap(),
+            "Empty list should match all addresses (Lotus compatible)"
+        );
+
+        // Case 3: Specific address = only that address
+        let eth_addr = EthAddress::from_filecoin_address(&addr).unwrap();
+        let specific_spec = EthFilterSpec {
+            address: Some(vec![eth_addr].into()),
+            ..Default::default()
+        };
+        assert!(
+            specific_spec.matches(&addr, &[]).unwrap(),
+            "Specific address should match itself"
+        );
+
+        // Case 4: Different address = no match
+        let different_addr =
+            Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
+        assert!(
+            !specific_spec.matches(&different_addr, &[]).unwrap(),
+            "Specific address should not match different address"
+        );
+    }
+
+    #[test]
+    fn test_eth_filter_spec_default_has_none_values() {
+        let default_spec = EthFilterSpec::default();
+
+        // Check all fields have their expected default values
+        assert!(
+            default_spec.from_block.is_none(),
+            "Default EthFilterSpec should have None from_block"
+        );
+        assert!(
+            default_spec.to_block.is_none(),
+            "Default EthFilterSpec should have None to_block"
+        );
+        assert!(
+            default_spec.address.is_none(),
+            "Default EthFilterSpec should have None address"
+        );
+        assert!(
+            default_spec.topics.is_none(),
+            "Default EthFilterSpec should have None topics"
+        );
+        assert!(
+            default_spec.block_hash.is_none(),
+            "Default EthFilterSpec should have None block_hash"
+        );
+
+        // Verify that the default spec matches any address (wildcard behavior)
+        let addr0 = Address::from_str("t410f744ma4xsq3r3eczzktfj7goal67myzfkusna2hy").unwrap();
+        let addr1 = Address::from_str("t410fe2jx2wo3irrsktetbvptcnj7csvitihxyehuaeq").unwrap();
+
+        // Test with no entries
+        assert!(default_spec.matches(&addr0, &[]).unwrap());
+        assert!(default_spec.matches(&addr1, &[]).unwrap());
+    }
+
+    #[test]
     fn test_invalid_parse_eth_filter_spec() {
         let eth_filter_spec = EthFilterSpec {
             from_block: Some("earliest".into()),
             to_block: Some("invalid".into()),
-            address: vec![
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            ]
-            .into(),
+            address: Some(
+                vec![EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap()]
+                    .into(),
+            ),
             ..Default::default()
         };
 
@@ -1015,10 +1156,10 @@ mod tests {
         let filter_spec = EthFilterSpec {
             from_block: Some("earliest".into()),
             to_block: Some("latest".into()),
-            address: vec![
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            ]
-            .into(),
+            address: Some(
+                vec![EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap()]
+                    .into(),
+            ),
             ..Default::default()
         };
 
@@ -1052,10 +1193,10 @@ mod tests {
         let event_handler = EthEventHandler::new();
         let mut filter_ids = Vec::new();
         let filter_spec = EthFilterSpec {
-            address: vec![
-                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            ]
-            .into(),
+            address: Some(
+                vec![EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap()]
+                    .into(),
+            ),
             ..Default::default()
         };
 
@@ -1126,7 +1267,7 @@ mod tests {
 
         // Matching the given address 0
         let spec0 = EthFilterSpec {
-            address: vec![eth_addr0.clone()].into(),
+            address: Some(vec![eth_addr0.clone()].into()),
             ..Default::default()
         };
 
@@ -1136,7 +1277,7 @@ mod tests {
 
         // Matching the given address 0 or 1
         let spec1 = EthFilterSpec {
-            address: vec![eth_addr0.clone(), eth_addr1.clone()].into(),
+            address: Some(vec![eth_addr0.clone(), eth_addr1.clone()].into()),
             ..Default::default()
         };
 

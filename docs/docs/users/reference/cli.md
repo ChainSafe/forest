@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.30.1
+forest-filecoin 0.30.2
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -103,7 +103,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.30.1
+forest-filecoin 0.30.2
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -321,7 +321,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.30.1
+forest-filecoin 0.30.2
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -760,7 +760,7 @@ Options:
       --dry-run                    Don't write the archive
   -t, --tipset <TIPSET>            Tipset to start the export from, default is the chain head
   -d, --depth <DEPTH>              How many state trees to include. 0 for chain spine with no state trees [default: 2000]
-      --format <FORMAT>            Snapshot format to export [default: v1] [possible values: v1, v2]
+      --format <FORMAT>            Snapshot format to export [default: v2] [possible values: v1, v2]
   -h, --help                       Print help
 ```
 
@@ -1020,7 +1020,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.30.1
+forest-filecoin 0.30.2
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2061,12 +2061,13 @@ Options:
 ```
 Backfill index with Ethereum mappings, events, etc
 
-Usage: forest-tool index backfill [OPTIONS] --to <TO>
+Usage: forest-tool index backfill [OPTIONS]
 
 Options:
-  -c, --config <CONFIG>  Optional TOML file containing forest daemon configuration
-      --chain <CHAIN>    Optional chain, will override the chain section of configuration file if used
-      --from <FROM>      The starting tipset epoch for back-filling (inclusive), defaults to chain head
-      --to <TO>          The ending tipset epoch for back-filling (inclusive)
-  -h, --help             Print help
+  -c, --config <CONFIG>        Optional TOML file containing forest daemon configuration
+      --chain <CHAIN>          Optional chain, will override the chain section of configuration file if used
+      --from <FROM>            The starting tipset epoch for back-filling (inclusive), defaults to chain head
+      --to <TO>                Ending tipset epoch for back-filling (inclusive)
+      --n-tipsets <N_TIPSETS>  Number of tipsets for back-filling
+  -h, --help                   Print help
 ```

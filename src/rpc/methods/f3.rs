@@ -698,7 +698,10 @@ impl RpcMethod<0> for F3GetLatestCertificate {
     type Params = ();
     type Ok = FinalityCertificate;
 
-    async fn handle(_: Ctx<impl Blockstore>, _: Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        _: Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
         let client = get_rpc_http_client()?;
         let response: LotusJson<Self::Ok> = client.request(Self::NAME, ArrayParams::new()).await?;
         Ok(response.into_inner())
@@ -948,7 +951,7 @@ pub fn get_f3_rpc_endpoint() -> Cow<'static, str> {
     }
 }
 
-fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
+pub fn get_rpc_http_client() -> anyhow::Result<jsonrpsee::http_client::HttpClient> {
     let client = jsonrpsee::http_client::HttpClientBuilder::new()
         .build(format!("http://{}", get_f3_rpc_endpoint()))?;
     Ok(client)

@@ -15,6 +15,7 @@ use Selector::*;
 /// Selectors are expressions that identify and select a subset of data from an
 /// IPLD DAG. Selectors are themselves IPLD and can be serialized and
 /// de-serialized as such.
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Selector {
     /// `Matcher` marks a node to be included in the "result" set.
@@ -157,6 +158,7 @@ pub enum Selector {
     // },
 }
 
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum RecursionLimit {
     #[serde(rename = "none", with = "empty_map")]
@@ -179,6 +181,7 @@ impl SubAssign<u64> for RecursionLimit {
 ///   - in `Matcher`, to determine if a node is selected.
 ///   - in `ExploreRecursive`, to halt exploration.
 ///   - in `ExploreConditional`,
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {
     #[serde(rename = "hasField")]
@@ -322,6 +325,7 @@ fn replace_recursive_edge(next_sel: Selector, replace: Option<Selector>) -> Opti
         _ => Some(next_sel),
     }
 }
+
 #[cfg(test)]
 fn has_recursive_edge(next_sel: &Selector) -> bool {
     match next_sel {

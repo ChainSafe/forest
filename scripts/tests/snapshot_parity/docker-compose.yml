@@ -48,7 +48,7 @@ services:
           --import-mode=symlink &
         forest-cli wait-api
         forest-cli sync wait
-        forest-cli snapshot export -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
+        forest-cli snapshot export --format v1 -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
         kill -KILL $!
   lotus:
     depends_on:

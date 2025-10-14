@@ -34,8 +34,8 @@ jobs:
     name: Go lint checks
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: "go.work"
       - run: make lint-go

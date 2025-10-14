@@ -34,11 +34,6 @@ func importSnap(ctx context.Context, rpcEndpoint string, f3Root string, snapshot
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := ds.Close(); closeErr != nil {
-			err = errors.Join(err, closeErr)
-		}
-	}()
 	dsWrapper := namespace.Wrap(ds, m.DatastorePrefix())
 	defer func() {
 		if closeErr := dsWrapper.Close(); closeErr != nil {

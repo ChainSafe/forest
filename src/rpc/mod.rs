@@ -65,6 +65,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::chain::ChainGetBlockMessages);
         $callback!($crate::rpc::chain::ChainGetEvents);
         $callback!($crate::rpc::chain::ChainGetGenesis);
+        $callback!($crate::rpc::chain::ChainGetFinalizedTipset);
         $callback!($crate::rpc::chain::ChainGetMessage);
         $callback!($crate::rpc::chain::ChainGetMessagesInTipset);
         $callback!($crate::rpc::chain::ChainGetMinBaseFee);

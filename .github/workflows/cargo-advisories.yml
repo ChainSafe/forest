@@ -7,7 +7,7 @@ jobs:
   cargo-deny-advisories:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make install-cargo-binstall
       - run: cargo binstall --no-confirm cargo-deny
       - run: cargo deny check advisories

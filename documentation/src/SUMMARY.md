@@ -3,7 +3,6 @@
 # User Guide
 
 - [Introduction](./introduction.md)
-  - [Troubleshooting](./trouble_shooting.md)
   - [Offline Forest](./offline-forest.md)
 
 # Developer documentation

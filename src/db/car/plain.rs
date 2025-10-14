@@ -297,12 +297,6 @@ pub async fn write_skip_frame_header_async(
     Ok(())
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct CompressedBlockDataLocation {
-    pub zstd_frame_offset: u64,
-    pub location_in_frame: UncompressedBlockDataLocation,
-}
-
 fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
     match cid_error {
         cid::Error::Io(io_error) => io_error,
@@ -382,7 +376,7 @@ fn read_v1_header(mut reader: impl Read) -> io::Result<CarV1Header> {
 /// [`Ok(None)`] on EOF
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_data_location_and_skip(
-    mut reader: (impl Read + Seek),
+    mut reader: impl Read + Seek,
     limit_position: Option<u64>,
 ) -> io::Result<Option<(Cid, UncompressedBlockDataLocation)>> {
     if let Some(limit_position) = limit_position

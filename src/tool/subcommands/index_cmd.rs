@@ -3,13 +3,14 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::bail;
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::{chain_path, read_config};
-use crate::daemon::db_util::backfill_db;
 use crate::daemon::db_util::load_all_forest_cars;
+use crate::daemon::db_util::{RangeSpec, backfill_db};
 use crate::db::CAR_DB_DIR_NAME;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
@@ -32,9 +33,12 @@ pub enum IndexCommands {
         /// The starting tipset epoch for back-filling (inclusive), defaults to chain head
         #[arg(long)]
         from: Option<ChainEpoch>,
-        /// The ending tipset epoch for back-filling (inclusive)
+        /// Ending tipset epoch for back-filling (inclusive)
         #[arg(long)]
-        to: ChainEpoch,
+        to: Option<ChainEpoch>,
+        /// Number of tipsets for back-filling
+        #[arg(long, conflicts_with = "to")]
+        n_tipsets: Option<usize>,
     },
 }
 
@@ -46,7 +50,17 @@ impl IndexCommands {
                 chain,
                 from,
                 to,
+                n_tipsets,
             } => {
+                let spec = match (to, n_tipsets) {
+                    (Some(x), None) => RangeSpec::To(*x),
+                    (None, Some(x)) => RangeSpec::NumTipsets(*x),
+                    (None, None) => {
+                        bail!("You must provide either '--to' or '--n-tipsets'.");
+                    }
+                    _ => unreachable!(), // Clap ensures this case is handled
+                };
+
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
                 let chain_data_path = chain_path(&config);
@@ -81,7 +95,7 @@ impl IndexCommands {
 
                 println!("Database path: {}", db_root_dir.display());
                 println!("From epoch:    {}", from.unwrap_or_else(|| head_ts.epoch()));
-                println!("To epoch:      {to}");
+                println!("{spec}");
                 println!("Head epoch:    {}", head_ts.epoch());
 
                 let from_ts = if let Some(from) = from {
@@ -94,7 +108,7 @@ impl IndexCommands {
                     head_ts
                 };
 
-                backfill_db(&state_manager, &from_ts, *to).await?;
+                backfill_db(&state_manager, &from_ts, spec).await?;
 
                 Ok(())
             }

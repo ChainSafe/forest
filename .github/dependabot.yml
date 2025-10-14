@@ -50,3 +50,7 @@ updates:
       patch-versions:
         update-types:
           - "patch"
+      react:
+        patterns:
+          - "react"
+          - "react-*"

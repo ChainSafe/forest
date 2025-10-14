@@ -13,6 +13,7 @@ Filecoin.AuthNew
 Filecoin.AuthVerify
 Filecoin.ChainExport
 Filecoin.ChainGetEvents
+Filecoin.ChainGetFinalizedTipset
 Filecoin.ChainSetHead
 Filecoin.EthEstimateGas
 Filecoin.EthGetFilterChanges

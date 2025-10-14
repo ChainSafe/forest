@@ -7,6 +7,7 @@ use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::cli_shared::cli::EventsConfig;
 use crate::cli_shared::snapshot::TrustedVendor;
+use crate::daemon::db_util::RangeSpec;
 use crate::daemon::db_util::backfill_db;
 use crate::db::{MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
@@ -108,7 +109,7 @@ pub async fn start_offline_server(
         backfill_db(
             &state_manager,
             &head_ts,
-            head_ts.epoch() + 1 - index_backfill_epochs as i64,
+            RangeSpec::NumTipsets(index_backfill_epochs),
         )
         .await?;
     }
