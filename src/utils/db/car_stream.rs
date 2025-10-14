@@ -29,6 +29,9 @@ use unsigned_varint::codec::UviBytes;
 
 use crate::utils::encoding::from_slice_with_fallback;
 
+// 8GiB
+const MAX_FRAME_LEN: usize = 8 * 1024 * 1024 * 1024;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarV1Header {
     // The roots array must contain one or more CIDs,
@@ -168,12 +171,17 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
 
         // Skip v2 header bytes
         if let Some(header_v2) = &header_v2 {
-            reader = skip_bytes(reader, header_v2.data_offset as _).await?;
+            reader = skip_bytes(
+                reader,
+                u64::try_from(header_v2.data_offset).map_err(std::io::Error::other)?,
+            )
+            .await?;
         }
 
         let max_car_v1_bytes = header_v2
             .as_ref()
-            .map(|h| h.data_size as u64)
+            .map(|h| u64::try_from(h.data_size).map_err(std::io::Error::other))
+            .transpose()?
             .unwrap_or(u64::MAX);
         let mut reader = reader.take(max_car_v1_bytes);
         let header_v1 = read_v1_header(&mut reader).await?;
@@ -196,8 +204,14 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
                 {
                     // Skip the F3 block in the block stream
                     if metadata.f3_data.is_some() {
-                        let len: usize = reader.read_varint_async().await?;
-                        reader = skip_bytes(reader, len as _).await?;
+                        let len: u64 = reader.read_varint_async().await?;
+                        if len > MAX_FRAME_LEN as u64 {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!("f3 block frame length too large: {len} > {MAX_FRAME_LEN}"),
+                            ));
+                        }
+                        reader = skip_bytes(reader, len).await?;
                     }
 
                     // Skip the metadata block in the block stream
@@ -372,6 +386,12 @@ async fn read_frame<ReaderT: AsyncRead + Unpin>(
     reader: &mut ReaderT,
 ) -> std::io::Result<Option<Vec<u8>>> {
     let len: usize = match reader.read_varint_async().await {
+        Ok(len) if len > MAX_FRAME_LEN => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("frame too large: {len} > {MAX_FRAME_LEN}"),
+            ));
+        }
         Ok(len) => len,
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e),
@@ -398,10 +418,8 @@ async fn read_car_block<ReaderT: AsyncRead + Unpin>(
 }
 
 pub fn uvi_bytes() -> UviBytes {
-    // 8GiB
-    const MAX_LEN: usize = 8 * 1024 * 1024 * 1024;
     let mut decoder = UviBytes::default();
-    decoder.set_max_len(MAX_LEN);
+    decoder.set_max_len(MAX_FRAME_LEN);
     decoder
 }
 
