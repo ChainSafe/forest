@@ -10,7 +10,7 @@ use crate::blocks::Tipset;
 use crate::chain::HeadChange;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain_sync::network_context::SyncNetworkContext;
-use crate::chain_sync::{ChainFollower, SyncStatusReport};
+use crate::chain_sync::{ChainFollower, SyncStatus};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
@@ -36,7 +36,6 @@ use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_V
 use anyhow::{Context as _, bail};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt, select};
-use parking_lot::RwLock;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -578,7 +577,7 @@ pub(super) async fn start_services(
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
-    on_app_context_and_db_initialized: impl FnOnce(&AppContext, Arc<RwLock<SyncStatusReport>>),
+    on_app_context_and_db_initialized: impl FnOnce(&AppContext, SyncStatus),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
     crate::metrics::reset_collector_registry();

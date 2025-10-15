@@ -74,7 +74,7 @@ pub struct SnapshotGarbageCollector<DB> {
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
-    sync_status: RwLock<Option<Arc<RwLock<crate::chain_sync::SyncStatusReport>>>>,
+    sync_status: RwLock<Option<crate::chain_sync::SyncStatus>>,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -134,7 +134,7 @@ where
         *self.car_db_head_epoch.write() = Some(epoch);
     }
 
-    pub fn set_sync_status(&self, sync_status: Arc<RwLock<crate::chain_sync::SyncStatusReport>>) {
+    pub fn set_sync_status(&self, sync_status: crate::chain_sync::SyncStatus) {
         *self.sync_status.write() = Some(sync_status)
     }
 
