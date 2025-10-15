@@ -578,7 +578,7 @@ pub(super) async fn start_services(
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,
-    on_app_context_and_db_initialized: impl Fn(&AppContext, Arc<RwLock<SyncStatusReport>>),
+    on_app_context_and_db_initialized: impl FnOnce(&AppContext, Arc<RwLock<SyncStatusReport>>),
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
     crate::metrics::reset_collector_registry();

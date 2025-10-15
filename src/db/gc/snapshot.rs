@@ -145,6 +145,7 @@ where
             } else {
                 self.running.store(true, Ordering::Relaxed);
                 if let Err(e) = self.export_snapshot().await {
+                    self.running.store(false, Ordering::Relaxed);
                     tracing::warn!("{e}");
                 }
             }
@@ -179,13 +180,13 @@ where
                 && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
                 && let Some(sync_status) = &*self.sync_status.read()
             {
-                const IN_SYNC_EPOCH_THRESHOLD: i64 = 2;
                 let sync_status = &*sync_status.read();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
                 if head_epoch > 0
                     && head_epoch <= network_head_epoch
-                    && head_epoch + IN_SYNC_EPOCH_THRESHOLD >= network_head_epoch
+                    && sync_status.is_synced()
+                    && sync_status.active_forks.is_empty()
                     && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
                     && self.trigger_tx.try_send(()).is_ok()
                 {
