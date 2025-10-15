@@ -3,6 +3,7 @@
 
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
+use crate::utils::misc::env::is_env_truthy;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
@@ -25,7 +26,8 @@ struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
     // Expiration time (as UTC timestamp)
-    exp: usize,
+    #[serde(default)]
+    exp: Option<usize>,
 }
 
 /// Create a new JWT Token
@@ -33,14 +35,21 @@ pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTR
     let exp_time = Utc::now() + token_exp;
     let payload = Claims {
         allow: perms,
-        exp: exp_time.timestamp() as usize,
+        exp: Some(exp_time.timestamp() as usize),
     };
     encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
 }
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    if is_env_truthy("FOREST_JWT_DISABLE_EXP_CHECK") {
+        let mut claims = validation.required_spec_claims.clone();
+        claims.remove("exp");
+        let buff: Vec<_> = claims.iter().collect();
+        validation.set_required_spec_claims(&buff);
+        validation.validate_exp = false;
+    }
     let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }
