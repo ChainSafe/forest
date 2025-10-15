@@ -183,11 +183,11 @@ where
                 let sync_status = &*sync_status.read();
                 let network_head_epoch = sync_status.network_head_epoch;
                 let head_epoch = sync_status.current_head_epoch;
-                if head_epoch > 0
-                    && head_epoch <= network_head_epoch
-                    && sync_status.is_synced()
-                    && sync_status.active_forks.is_empty()
-                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                if head_epoch > 0 // sync_status has been initialized
+                    && head_epoch <= network_head_epoch // head epoch is within a sane range
+                    && sync_status.is_synced() // chain is in sync
+                    && sync_status.active_forks.is_empty() // no active fork
+                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs // the gap between chain head and car_db head is above threshold
                     && self.trigger_tx.try_send(()).is_ok()
                 {
                     tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
