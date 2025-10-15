@@ -74,6 +74,7 @@ pub struct SnapshotGarbageCollector<DB> {
     running: AtomicBool,
     blessed_lite_snapshot: RwLock<Option<PathBuf>>,
     db: RwLock<Option<Arc<DB>>>,
+    sync_status: RwLock<Option<Arc<RwLock<crate::chain_sync::SyncStatusReport>>>>,
     // On mainnet, it takes ~50MiB-200MiB RAM, depending on the time cost of snapshot export
     memory_db: RwLock<Option<HashMap<Cid, Vec<u8>>>>,
     memory_db_head_key: RwLock<Option<TipsetKey>>,
@@ -111,6 +112,7 @@ where
                 running: AtomicBool::new(false),
                 blessed_lite_snapshot: RwLock::new(None),
                 db: RwLock::new(None),
+                sync_status: RwLock::new(None),
                 memory_db: RwLock::new(None),
                 memory_db_head_key: RwLock::new(None),
                 exported_head_key: RwLock::new(None),
@@ -130,6 +132,10 @@ where
 
     pub fn set_car_db_head_epoch(&self, epoch: ChainEpoch) {
         *self.car_db_head_epoch.write() = Some(epoch);
+    }
+
+    pub fn set_sync_status(&self, sync_status: Arc<RwLock<crate::chain_sync::SyncStatusReport>>) {
+        *self.sync_status.write() = Some(sync_status)
     }
 
     pub async fn event_loop(&self) {
@@ -170,18 +176,22 @@ where
         );
         loop {
             if !self.running.load(Ordering::Relaxed)
-                && let Some(db) = &*self.db.read()
                 && let Some(car_db_head_epoch) = *self.car_db_head_epoch.read()
-                && let Ok(head_key) = HeaviestTipsetKeyProvider::heaviest_tipset_key(db)
-                && let Ok(head) = Tipset::load_required(db, &head_key)
+                && let Some(sync_status) = &*self.sync_status.read()
             {
-                let head_epoch = head.epoch();
-                if head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
+                const IN_SYNC_EPOCH_THRESHOLD: i64 = 2;
+                let sync_status = &*sync_status.read();
+                let network_head_epoch = sync_status.network_head_epoch;
+                let head_epoch = sync_status.current_head_epoch;
+                if head_epoch > 0
+                    && head_epoch <= network_head_epoch
+                    && head_epoch + IN_SYNC_EPOCH_THRESHOLD >= network_head_epoch
+                    && head_epoch - car_db_head_epoch >= snap_gc_interval_epochs
                     && self.trigger_tx.try_send(()).is_ok()
                 {
-                    tracing::info!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
+                    tracing::info!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC scheduled");
                 } else {
-                    tracing::trace!(%car_db_head_epoch, %head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
+                    tracing::debug!(%car_db_head_epoch, %head_epoch, %network_head_epoch, %snap_gc_interval_epochs, "Snap GC not scheduled");
                 }
             }
             tokio::time::sleep(snap_gc_check_interval).await;
@@ -219,6 +229,7 @@ where
             }
             map
         });
+        let start = Instant::now();
         let (head_ts, _) = crate::chain::export_from_head::<Sha256>(
             &db,
             self.recent_state_roots,
@@ -235,7 +246,11 @@ where
             head_ts.epoch()
         ));
         temp_path.persist(&target_path)?;
-        tracing::info!("exported lite snapshot at {}", target_path.display());
+        tracing::info!(
+            "exported lite snapshot at {}, took {}",
+            target_path.display(),
+            humantime::format_duration(start.elapsed())
+        );
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
 
