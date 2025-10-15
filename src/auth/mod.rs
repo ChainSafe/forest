@@ -43,7 +43,7 @@ pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTR
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
-    if is_env_truthy("FOREST_JWT_DISABLE_EXP_CHECK") {
+    if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
         let mut claims = validation.required_spec_claims.clone();
         claims.remove("exp");
         let buff: Vec<_> = claims.iter().collect();
