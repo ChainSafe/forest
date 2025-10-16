@@ -39,6 +39,8 @@
 
 ### Fixed
 
+- [#6118](https://github.com/ChainSafe/forest/pull/6118) Fixed `eth_getCode` and `eth_getStorageAt` so that they return the code and storage of the requested tipset and not its parent.
+
 ## Forest v0.30.2 "Garuda"
 
 This is a non-mandatory release that brings important enhancements to Forest's tooling capabilities, Ethereum RPC compatibility, and F3 integration.
