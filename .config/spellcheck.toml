@@ -29,7 +29,7 @@ transform_regex = [
   # Import statements like @theme/Tabs
   "@theme/.*",
   # Emoji sequences (literal emojis)
-  "^[🌲🪷🐳❤️🐋]+$",
+  "^[🌲🪷🐳❤️🐋⚠️]+$",
 ]
 allow_concatenation = false
 allow_dashes = false

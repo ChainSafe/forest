@@ -1,0 +1,46 @@
+[chain]
+type = "mainnet"
+
+[client]
+data_dir = "/Users/MAC/Library/Application Support/com.ChainSafe.Forest"
+enable_rpc = true
+enable_metrics_endpoint = true
+enable_health_check = true
+import_mode = "Auto"
+skip_load = false
+chunk_size = 500000
+buffer_size = 1
+encrypt_keystore = true
+metrics_address = "0.0.0.0:6116"
+rpc_address = "127.0.0.1:2345"
+healthcheck_address = "127.0.0.1:2346"
+load_actors = true
+
+[parity_db]
+enable_statistics = false
+
+[network]
+listening_multiaddrs = ["/ip4/0.0.0.0/tcp/0"]
+bootstrap_peers = []
+mdns = false
+kademlia = true
+target_peer_count = 75
+
+[sync]
+recent_state_roots = 2000
+
+[daemon]
+umask = 23
+stdout = "forest.out"
+stderr = "forest.err"
+work_dir = "."
+
+[events]
+max_filter_results = 10000
+max_filter_height_range = 2880
+
+[fevm]
+eth_trace_filter_max_results = 500
+
+[chain_indexer]
+enable_indexer = false
