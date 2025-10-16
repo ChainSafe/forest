@@ -140,5 +140,9 @@ mod tests {
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
         assert_eq!(perms_expected, perms);
+
+        unsafe {
+            std::env::remove_var("FOREST_JWT_DISABLE_EXP_VALIDATION");
+        }
     }
 }
