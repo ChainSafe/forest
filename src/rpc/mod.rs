@@ -454,7 +454,7 @@ pub struct RPCState<DB> {
     pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
     pub bad_blocks: Option<Arc<crate::chain_sync::BadBlockCache>>,
     pub msgs_in_tipset: Arc<crate::chain::store::MsgsInTipsetCache>,
-    pub sync_status: Arc<parking_lot::RwLock<crate::chain_sync::SyncStatusReport>>,
+    pub sync_status: crate::chain_sync::SyncStatus,
     pub eth_event_handler: Arc<EthEventHandler>,
     pub sync_network_context: SyncNetworkContext<DB>,
     pub tipset_send: flume::Sender<Arc<FullTipset>>,
