@@ -75,6 +75,17 @@ environmental variable.
 The databases can be found, by default, under `<DATA_DIR>/<chain>/`, e.g.,
 `$HOME/.local/share/forest/calibnet`.
 
+### `FOREST_JWT_DISABLE_EXP_VALIDATION`
+
+#### 🔧 Use Case
+
+Intended for controlled cross-system token sharing where expiration validation must be bypassed (e.g., load balancing with Lotus).
+
+> **⚠️ Warning**
+> 
+> Disabling expiration checks for all JWTs will also allow expired tokens.
+> This significantly weakens security and should only be used in tightly controlled environments. Not recommended for general use.
+
 ### Drand config format
 
 ```json
